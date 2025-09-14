@@ -7,6 +7,7 @@ __all__ = [
     "spike_time_tiling",
 ]
 
+
 def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
     """
     Calculate the spike time tiling coefficient [1] between two spike trains. STTC is a
