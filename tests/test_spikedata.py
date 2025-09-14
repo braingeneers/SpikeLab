@@ -1,6 +1,5 @@
 import unittest
 from dataclasses import dataclass
-import importlib.util
 import pathlib
 import sys
 
@@ -14,14 +13,12 @@ except ImportError:
     SpikeTrain = None
     quantities = None
 
-# Robustly import spikedata module by absolute file path to avoid path issues.
-MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "spikedata" / "spikedata.py"
-spec = importlib.util.spec_from_file_location("spikedata", MODULE_PATH)
-spikedata = importlib.util.module_from_spec(spec)
-sys.modules["spikedata"] = spikedata
-assert spec is not None and spec.loader is not None
-spec.loader.exec_module(spikedata)
-SpikeData = spikedata.SpikeData
+# Ensure project root is on sys.path, then import package normally so relative imports work.
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+import spikedata.spikedata as spikedata
+from spikedata import SpikeData
 
 
 @dataclass
