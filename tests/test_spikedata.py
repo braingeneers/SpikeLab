@@ -1,9 +1,11 @@
 import unittest
-from collections import namedtuple
 from dataclasses import dataclass
+import importlib.util
+import pathlib
+import sys
 
 import numpy as np
-from scipy import sparse, stats
+from scipy import stats
 
 try:
     import quantities
@@ -12,23 +14,14 @@ except ImportError:
     SpikeTrain = None
     quantities = None
 
-# Import the module by path instead of going through the __init__ logic so we can access
-# all the hidden internal methods.
-import spikedata.spikedata as spikedata
-from spikedata import (
-    SpikeData,
-    best_effort_sample,
-    fano_factors,
-    pearson,
-    randomize_raster_greedy,
-)
-
-Neuron = namedtuple("Neuron", "spike_time fs")
-
-
-class MockSpikeRecorder:
-    def __init__(self, idces, times):
-        self.events = dict(senders=idces, times=times)
+# Robustly import spikedata module by absolute file path to avoid path issues.
+MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "spikedata" / "spikedata.py"
+spec = importlib.util.spec_from_file_location("spikedata", MODULE_PATH)
+spikedata = importlib.util.module_from_spec(spec)
+sys.modules["spikedata"] = spikedata
+assert spec is not None and spec.loader is not None
+spec.loader.exec_module(spikedata)
+SpikeData = spikedata.SpikeData
 
 
 @dataclass
@@ -119,12 +112,6 @@ class SpikeDataTest(unittest.TestCase):
         sd2 = SpikeData(sd.train)
         self.assertSpikeDataEqual(sd, sd2)
 
-        # Test 'list of Neuron()s' constructor.
-        fs = 10
-        ns = [Neuron(spike_time=ts * fs, fs=fs * 1e3) for ts in sd.train]
-        sd3 = SpikeData.from_mbt_neurons(ns)
-        self.assertSpikeDataEqual(sd, sd3)
-
         # Test events.
         sd4 = SpikeData.from_events(sd.events)
         self.assertSpikeDataEqual(sd, sd4)
@@ -132,24 +119,6 @@ class SpikeDataTest(unittest.TestCase):
         # Test idces_times().
         sd5 = SpikeData.from_idces_times(*sd.idces_times())
         self.assertSpikeDataEqual(sd, sd5)
-
-        # Test 'NEST SpikeRecorder' constructor, passing in an arange to
-        # take the place of the NodeCollection you would usually use.
-        recorder = MockSpikeRecorder(idces + 1, times)
-        sd6 = SpikeData.from_nest(recorder, 1 + np.arange(5))
-        self.assertSpikeDataEqual(sd, sd6)
-
-        # Make sure the NEST constructor can combine ranges, and adds nest_id to
-        # existing neuron attributes without affecting the values already there.
-        attrs = [MockNeuronAttributes(ξ) for ξ in np.random.rand(5)]
-        sd7 = SpikeData.from_nest(
-            recorder, 1 + np.arange(3), 4 + np.arange(2), neuron_attributes=attrs
-        )
-        self.assertSpikeDataEqual(sd, sd7)
-        assert sd7.neuron_attributes is not None
-        for i, (attr, neuron_attrs) in enumerate(zip(attrs, sd7.neuron_attributes)):
-            self.assertEqual(attr.size, neuron_attrs.size)
-            self.assertEqual(neuron_attrs.nest_id, i + 1)
 
         # Test the raster constructor. We can't expect equality because of
         # finite bin size, but we can check equality for the rasters.
@@ -167,12 +136,6 @@ class SpikeDataTest(unittest.TestCase):
         sdsub = sd.subset(idces)
         for i, j in enumerate(idces):
             self.assertAll(sdsub.train[i] == sd.train[j])
-
-        # Make sure you can subset by neuron_data, not just raw index, and that order
-        # does not matter for this operation.
-        sdsub = sd6.subset([1, 2])
-        sdsub2 = sd6.subset([3, 2], by="nest_id")
-        self.assertSpikeDataEqual(sdsub, sdsub2)
 
         # Test subset() with a single unit.
         sdsub = sd.subset(1)
@@ -256,55 +219,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertAll(sd.rates("Hz") == counts * 1000)
         self.assertRaises(ValueError, lambda: sd.rates("bad_unit"))
 
-    def test_pearson(self):
-        # These four cells are constructed so that A is perfectly
-        # correlated with B, perfectly anticorrelated with C, and
-        # uncorrelated with D.
-        cellA = [1, 0, 1, 1, 0, 0]
-        cellB = cellA
-        cellC = [0, 1, 0, 0, 1, 1]
-        cellD = [1, 1, 1, 0, 0, 1]
-
-        # Construct the true raster, use it to produce times and
-        # indices using numpy methods, and ensure that the sparse
-        # matrix generated is correct.
-        ground_truth = np.stack((cellA, cellB, cellC, cellD))
-        times, idces = np.where(ground_truth.T)
-        sd = SpikeData.from_idces_times(idces, times + 0.5)
-        raster = sd.sparse_raster(bin_size=1)
-        self.assertAll(raster == ground_truth)
-
-        # Finally, check the calculated Pearson coefficients to ensure
-        # they're numerically close enough to the intended values.
-        true_pearson = [[1, 1, -1, 0], [1, 1, -1, 0], [-1, -1, 1, 0], [0, 0, 0, 1]]
-        sparse_pearson = pearson(raster)
-        self.assertClose(sparse_pearson, true_pearson)
-
-        # Test on dense matrices (fallback to np.pearson).
-        dense_pearson = pearson(raster.todense())
-        np_pearson = np.corrcoef(raster.todense())
-        self.assertClose(dense_pearson, np_pearson)
-
-        # Also check the calculations.
-        self.assertEqual(dense_pearson.shape, sparse_pearson.shape)
-        self.assertClose(dense_pearson, sparse_pearson)
-
-    def test_burstiness_index(self):
-        # Something completely uniform should have zero burstiness,
-        # but ensure there's no spike at time zero.
-        uniform = SpikeData([0.5 + np.arange(1000)])
-        self.assertEqual(uniform.burstiness_index(10), 0)
-
-        # All spikes at the same time is technically super bursty,
-        # just make sure that they happen late enough that there are
-        # actually several bins to count.
-        atonce = SpikeData([[1]] * 1000)
-        self.assertEqual(atonce.burstiness_index(0.01), 1)
-
-        # Added code to deal with a corner case so it's really ALWAYS
-        # in the zero to one range. I think this only happens with
-        # very small values.
-        self.assertEqual(SpikeData([[1]]).burstiness_index(), 1)
+    # Removed tests for deprecated utilities: pearson, burstiness_index
 
     def test_interspike_intervals(self):
         # Uniform spike train: uniform ISIs. Also make sure it returns
@@ -329,36 +244,7 @@ class SpikeDataTest(unittest.TestCase):
         ii = spikes.interspike_intervals()
         self.assertClose(ii[0], truth[1:])
 
-    def test_fano_factors(self):
-        N = 10000
-
-        # If there's no variance, Fano factors should be zero, for
-        # both sparse and dense implementations. Also use todense()
-        # next to  toarray() to show that both np.matrix and np.array
-        # spike rasters are acceptable. Note that the numerical issues
-        # in the sparse version mean that it's not precisely zero, so
-        # we use assertAlmostEqual() in this case.
-        ones = sparse.csr_matrix(np.ones(N))
-        self.assertAlmostEqual(fano_factors(ones)[0], 0)
-        self.assertEqual(fano_factors(ones.todense())[0], 0)
-        self.assertEqual(fano_factors(ones.toarray())[0], 0)
-
-        # Poisson spike trains should have Fano factors about 1.
-        # This is only rough because random, but the sparse and dense
-        # versions should both be equal to each other.
-        foo = random_spikedata(1, N).sparse_raster(1)
-        f_sparse = fano_factors(foo)[0]
-        f_dense = fano_factors(foo.toarray())[0]
-        self.assertAlmostEqual(f_sparse, 1, 1)
-        self.assertAlmostEqual(f_dense, 1, 1)
-        self.assertAlmostEqual(f_sparse, f_dense)
-
-        # Make sure the sparse and dense are equal when there are
-        # multiple spike trains as well.
-        foo = random_spikedata(10, N).sparse_raster(10)
-        f_sparse = fano_factors(foo)
-        f_dense = fano_factors(foo.toarray())
-        self.assertClose(f_sparse, f_dense)
+    # Removed tests for deprecated utilities: fano_factors
 
     def test_spike_time_tiling_ta(self):
         # Trivial base cases.
@@ -460,47 +346,9 @@ class SpikeDataTest(unittest.TestCase):
         spikes = SpikeData([[1, 2, 5, 15, 16, 20, 22, 25]])
         self.assertListEqual(list(spikes.binned(4)), [2, 1, 0, 2, 1, 1, 1])
 
-    def test_avalanches(self):
-        # The simple case where there are avalanches in the middle.
-        sd = sd_from_counts([1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0])
-        self.assertListEqual([len(av) for av in sd.avalanches(1, bin_size=1)], [5, 3])
-        self.assertListEqual(
-            [sum(av) for av in sd.avalanches(1, bin_size=1)],
-            [2 + 3 + 4 + 3 + 2, 2 + 3 + 2],
-        )
+    # Removed tests for deprecated avalanche/DCC utilities
 
-        # Also the duration-size lists of the same data.
-        durations, sizes = sd.avalanche_duration_size(1, bin_size=1)
-        self.assertListEqual(list(durations), [5, 3])
-        self.assertListEqual(list(sizes), [2 + 3 + 4 + 3 + 2, 2 + 3 + 2])
-
-        # Ensure that avalanches coinciding with the start and end of
-        # recording don't get counted because there's no way to know
-        # how long they are.
-        sd = sd_from_counts([2, 5, 3, 0, 1, 0, 0, 2, 2, 0, 0, 0, 0, 4, 3, 4, 0, 42])
-        self.assertListEqual([len(av) for av in sd.avalanches(1, bin_size=1)], [2, 3])
-
-        # Corner cases where there are no avalanches: no transitions
-        # because threshold too low, because threshold too high,
-        # because only crosses once downwards, and because only
-        # crosses once upwards.
-        sd = sd_from_counts([1, 2, 3, 4, 5])
-        self.assertListEqual(sd.avalanches(0, bin_size=1), [])
-        self.assertListEqual(sd.avalanches(10, bin_size=1), [])
-        self.assertListEqual(sd.avalanches(3, bin_size=1), [])
-        sd = sd_from_counts([5, 4, 3, 2, 1])
-        self.assertListEqual(sd.avalanches(3, bin_size=1), [])
-
-    def test_dcc(self):
-        # Make sure complete Poisson gibberish doesn't result in
-        # anything that looks like a power law.
-        sd = random_spikedata(1, 10000)
-        dcc = sd.deviation_from_criticality(bin_size=1)
-        self.assertTrue(dcc.p_size < 0.05 or dcc.p_duration < 0.05)
-
-        # Corner case: DCC with no avalanches doesn't error.
-        sd = sd_from_counts([1, 2, 3, 4, 5])
-        sd.deviation_from_criticality()
+    # Removed tests for deprecated DCC utilities
 
     def test_metadata(self):
         # Make sure there's an error if the metadata is gibberish.
@@ -597,46 +445,4 @@ class SpikeDataTest(unittest.TestCase):
         # Can do negative
         self.assertAlmostEqual(a.latencies([0.1])[0][0], -0.1)
 
-    def test_okun_randomization(self):
-        r = np.random.rand(100, 1000) < 0.1
-        rr = spikedata.randomize_raster_okun(r)
-        self.assertAll(r.sum(0) == rr.sum(0))
-        self.assertAll(r.sum(1) == rr.sum(1))
-
-    def test_base_randomization(self):
-        r = np.random.rand(100, 1000) < 0.1
-        rr = randomize_raster_greedy(r)
-        self.assertAll(r.sum(0) == rr.sum(0))
-        self.assertAll(r.sum(1) == rr.sum(1))
-
-    def test_best_effort_sample(self):
-        # Make sure it crashes if the requested sample is impossible.
-        weights = np.arange(100) == 42
-        with self.assertRaises(ValueError):
-            best_effort_sample(weights, 10)
-
-        # Make sure the same thing works if there are enough entries.
-        weights = 10 * (np.arange(100) == 42)
-        sample = best_effort_sample(weights, 10)
-        self.assertEqual(len(sample), 10)
-        self.assertAll(sample == 42)
-
-        # Make sure it doesn't use replacement if it doesn't have to.
-        weights = np.ones(100)
-        sample = best_effort_sample(weights, 100)
-        self.assertEqual(len(sample), 100)
-        self.assertAll(np.sort(sample) == np.arange(100))
-
-    def test_randomization_issue_13(self):
-        # Having this rate too high is causing a ValueError.
-        rates = np.linspace(0.0, 0.5, 100)
-        r = np.random.rand(len(rates), 1000) < rates[:, np.newaxis]
-        rr = randomize_raster_greedy(r)
-        self.assertAll(r.sum(0) == rr.sum(0))
-        self.assertAll(r.sum(1) == rr.sum(1))
-
-        # Also make sure it works on rasters with multiple spikes per bin.
-        r = np.random.randint(10, size=(100, 1000))
-        rr = randomize_raster_greedy(r)
-        self.assertAll(r.sum(0) == rr.sum(0))
-        self.assertAll(r.sum(1) == rr.sum(1))
+    # Removed tests for deprecated randomization and sampling utilities

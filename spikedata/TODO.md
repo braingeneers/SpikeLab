@@ -2,33 +2,39 @@
 
 - [ ] Remove deprecated or problematic code sections:
     - [ ] Remove the following functions/classes:
-        - NestIDNeuronAttributes
-        - from_nest
-        - from_mbt_neurons
-        - isi_skewness
-        - isi_log_histogram
-        - isi_threshold_cma
-        - burstiness_index
-        - avalanches
-        - avalanche_duration_size
-        - deviation_from_criticality
-        - randomized (does not work well, will be replaced)
-        - randomize_raster
-        - _okun_swap
-        - randomize_raster_okun
-        - randomize_raster_greedy
-        - best_effort_sample
-        - population_firing_rate (will be replaced)
-        - _p_and_alpha
-        - fano_factors
-        - pearson
-        - cumulative_moving_average
-        - burst_detection (will be replaced)
+        - [x] NestIDNeuronAttributes
+        - [x] from_nest
+        - [x] from_mbt_neurons
+        - [x] isi_skewness
+        - [x] isi_log_histogram
+        - [x] isi_threshold_cma
+        - [x] burstiness_index
+        - [x] avalanches
+        - [x] avalanche_duration_size
+        - [x] deviation_from_criticality
+        - [x] randomized (does not work well, will be replaced)
+        - [x] randomize_raster
+        - [x] _okun_swap
+        - [x] randomize_raster_okun
+        - [x] randomize_raster_greedy
+        - [x] best_effort_sample
+        - [x] population_firing_rate (will be replaced)
+        - [x] _p_and_alpha
+        - [x] fano_factors
+        - [x] pearson
+        - [x] cumulative_moving_average
+        - [x] burst_detection (will be replaced)
 
 - [ ] Clean up and organize spike time tiling code:
-    - [ ] Collect all spike time tiling related methods and helper functions into a dedicated section of the file
-    - [ ] Remove redundant or duplicate spike time tiling code
-    - [ ] Ensure only one implementation per helper/function
+    - [x] Collect all spike time tiling related methods and helper functions into a dedicated section of the file
+    - [x] Remove redundant or duplicate spike time tiling code
+    - [x] Ensure only one implementation per helper/function
+
+## Completed (2025-09-14)
+
+- [x] Update README with migration notes for SpikeData refactor
+- [x] Add/refine docstrings and inline comments in `spikedata/spikedata.py`
+- [x] Update tests to remove deprecated APIs and ensure Python 3.9/SciPy compatibility
 
 - [ ] Implement new data loaders:
     - [ ] Add NWB loader for SpikeData
