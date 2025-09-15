@@ -12,6 +12,7 @@ A monorepo for a suite of analysis tools supporting automated closed-loop experi
   Core module for spike train data representation, manipulation, and analysis.
 - **data_loaders/**  
   Utilities to load various file formats (HDF5, NWB, KiloSort/Phy, SpikeInterface) into `SpikeData`.
+  Includes exporters in `data_loaders/data_exporters.py` to write `SpikeData` back to these formats.
 - *(other modules to be documented as they are added)*
 
 ---
@@ -149,6 +150,28 @@ The `SpikeData` class provides a unified, extensible interface for representing,
 >   - `delt` (float): Window size (ms).
 > - **Returns:**  
 >   - `np.ndarray`: STTC matrix (neurons × neurons).
+
+##### `to_hdf5(filepath, ..., style='ragged')`
+> **Export spike data to an HDF5 file using one of four styles.**  
+> - **Styles:** `raster`, `ragged`, `group`, `paired`  
+> - **Key params:**  
+>   - `raster_bin_size_ms` (for `raster`)  
+>   - `spike_times_unit` and `fs_Hz` (for `ragged` with `'samples'`)  
+>   - `group_per_unit`, `group_time_unit` (for `group`)  
+>   - `idces_dataset`, `times_dataset`, `times_unit` (for `paired`)  
+>   - Optional `raw_dataset`, `raw_time_dataset`, `raw_time_unit` to write continuous data/time  
+> - Times are converted from internal ms to requested units.
+
+##### `to_nwb(filepath, spike_times_dataset='spike_times', spike_times_index_dataset='spike_times_index', group='units')`
+> **Export spike data to a minimal NWB-compatible file (HDF5 backend).**  
+> - Writes `/units/spike_times` and `/units/spike_times_index` in seconds  
+> - Round-trippable with `load_spikedata_from_nwb(..., prefer_pynwb=False)`
+
+##### `to_kilosort(folder, fs_Hz, spike_times_file='spike_times.npy', spike_clusters_file='spike_clusters.npy', time_unit='samples', cluster_ids=None)`
+> **Export spike data to KiloSort/Phy format.**  
+> - Produces `spike_times.npy` and `spike_clusters.npy`  
+> - `time_unit`: `'samples'` (default, requires `fs_Hz`), `'ms'`, or `'s'`  
+> - `cluster_ids` maps SpikeData unit indices to arbitrary cluster IDs
 
 ---
 
@@ -496,3 +519,67 @@ sd = load_spikedata_from_spikeinterface_recording(recording, threshold_sigma=5.0
 - Times are stored in milliseconds in `SpikeData`.
 - Optional dependencies are imported lazily (e.g., `h5py`, `pynwb`, `pandas`).
 - See `tests/test_dataloaders.py` for runnable examples and edge cases.
+
+---
+
+## Data Exporters Overview (`data_loaders/data_exporters.py`)
+
+These helpers write `SpikeData` out to common formats. Times are converted from internal milliseconds to requested units. You can call the standalone functions or the convenience instance methods on `SpikeData`.
+
+Import convenience:
+```python
+from data_loaders.data_exporters import (
+    export_spikedata_to_hdf5,
+    export_spikedata_to_nwb,
+    export_spikedata_to_kilosort,
+)
+```
+
+### HDF5 (generic)
+
+#### Function: `export_spikedata_to_hdf5(sd, filepath, *, style='ragged', ...)`
+High-Level Description:
+- Export spike trains to HDF5 using one of four styles: raster matrix, flat ragged arrays (NWB-like), group-per-unit datasets, or paired indices/times arrays. Optional raw analog arrays and time bases can also be exported.
+
+Parameters (selected):
+- `style` (`'raster'|'ragged'|'group'|'paired'`): Output organization style.
+- Raster: `raster_dataset`, `raster_bin_size_ms`
+- Ragged: `spike_times_dataset`, `spike_times_index_dataset`, `spike_times_unit` (`'s'|'ms'|'samples'`), `fs_Hz` (required for `'samples'`)
+- Group: `group_per_unit`, `group_time_unit` (`'s'|'ms'|'samples'`), `fs_Hz` if `'samples'`
+- Paired: `idces_dataset`, `times_dataset`, `times_unit` (`'s'|'ms'|'samples'`), `fs_Hz` if `'samples'`
+- Optional raw: `raw_dataset`, `raw_time_dataset`, `raw_time_unit` (`'s'|'ms'|'samples'`), `fs_Hz` for `'samples'`
+
+Example:
+```python
+sd.to_hdf5(
+    "out.h5",
+    style="ragged",
+    spike_times_unit="s",
+)
+```
+
+### NWB (Units)
+
+#### Function: `export_spikedata_to_nwb(sd, filepath, *, spike_times_dataset='spike_times', spike_times_index_dataset='spike_times_index', group='units')`
+High-Level Description:
+- Write ragged spike times to `/units/spike_times` and `/units/spike_times_index` in seconds, sufficient for round-tripping with the NWB loader (h5py-based path).
+
+Example:
+```python
+sd.to_nwb("out.nwb")
+```
+
+### KiloSort / Phy
+
+#### Function: `export_spikedata_to_kilosort(sd, folder, *, fs_Hz, spike_times_file='spike_times.npy', spike_clusters_file='spike_clusters.npy', time_unit='samples', cluster_ids=None)`
+High-Level Description:
+- Create `spike_times.npy` and `spike_clusters.npy` suitable for KiloSort/Phy. Times default to integer samples at `fs_Hz`; can also write `'ms'` or `'s'`.
+
+Example:
+```python
+sd.to_kilosort("ks_out", fs_Hz=30000.0)
+```
+
+Notes:
+- Requires `h5py` for HDF5/NWB exports. Install with `pip install h5py`.
+- See `tests/test_dataexporters.py` for runnable examples and edge cases.
