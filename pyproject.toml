@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "integrated-analysis-tools"
+version = "0.0.0"
+description = "Analysis tools for automated closed-loop experimentation and analysis"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "IntegratedAnalysisTools Maintainers" }
+]
+dependencies = [
+  "numpy>=1.20",
+  "scipy>=1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "black>=24.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+exclude = [
+  "/.git",
+  "/.venv",
+  "/build",
+  "/dist",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+
