@@ -2,9 +2,14 @@ from typing import Optional
 
 import numpy as np
 from scipy import ndimage, signal
+from scipy.stats import norm
 
 __all__ = [
     "spike_time_tiling",
+    "swap",
+    "randomize",
+    "get_pop_rate",
+    "get_bursts",
 ]
 
 
@@ -170,3 +175,151 @@ def butter_filter(
     )
     filtered_traces = signal.sosfiltfilt(filter_coeff, data)
     return filtered_traces
+
+
+def swap(ar, idxs):
+    """
+    Attempt one double-edge swap in a binary spike raster while preserving
+    per-row and per-column sums.
+
+    The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
+    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the
+    indices are distinct, swaps them so spikes move to those positions.
+
+    Returns True if a swap was performed, otherwise False.
+    """
+    idx0 = np.random.randint(len(idxs[0]))
+    idx1 = np.random.randint(len(idxs[0]))
+    i0, j0 = idxs[0][idx0], idxs[1][idx0]
+    i1, j1 = idxs[0][idx1], idxs[1][idx1]
+    if i0 == i1 or j0 == j1 or ar[i0, j1] == 1.0 or ar[i1, j0] == 1.0:
+        return False
+    ar[i0, j0] = ar[i1, j1] = 0.0
+    ar[i0, j1] = ar[i1, j0] = 1.0
+    idxs[0][idx0], idxs[1][idx0] = i0, j1
+    idxs[0][idx1], idxs[1][idx1] = i1, j0
+    return True
+
+
+def randomize(ar, swap_per_spike=5):
+    """
+    Randomize a binary spike raster using degree-preserving double-edge swaps.
+
+    Parameters
+    ----------
+    ar : array_like
+        Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
+    swap_per_spike : int
+        Target number of successful swaps per spike.
+
+    Returns
+    -------
+    ndarray
+        Randomized binary matrix with the same shape and row/column sums.
+    """
+    ar = np.array(ar, dtype=float, copy=True)
+    idxs = np.where(ar == 1.0)
+    n_spikes = int(np.sum(ar))
+    attempts = int((swap_per_spike + 1) * n_spikes)
+    cnt_swap = 0
+    for _ in range(attempts):
+        if swap(ar, idxs):
+            cnt_swap += 1
+
+    if cnt_swap < swap_per_spike * n_spikes:
+        for _ in range(attempts):
+            if swap(ar, idxs):
+                cnt_swap += 1
+
+    if cnt_swap < swap_per_spike * n_spikes:
+        print(
+            "ERROR: Not sufficient succesfull swaps, only {} of {} required".format(
+                cnt_swap, swap_per_spike * n_spikes
+            )
+        )
+
+    return ar
+
+
+def get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA):
+    """
+    Compute population firing rate by smoothing the summed spike counts.
+
+    First apply a moving-average (square) window, then optionally apply a Gaussian
+    smoothing window parameterized by GAUSS_SIGMA (in samples).
+    """
+    if SQUARE_WIDTH > 0:
+        square_smooth_summed_spike = np.convolve(
+            np.sum(t_spk_mat, axis=1),
+            np.ones(SQUARE_WIDTH) / SQUARE_WIDTH,
+            mode="same",
+        )
+    else:
+        square_smooth_summed_spike = np.sum(t_spk_mat, axis=1)
+
+    if GAUSS_SIGMA > 0:
+        gauss_window = norm.pdf(
+            np.arange(-3 * GAUSS_SIGMA, 3 * GAUSS_SIGMA + 1), 0, GAUSS_SIGMA
+        )
+        pop_rate = np.convolve(
+            square_smooth_summed_spike,
+            gauss_window / np.sum(gauss_window),
+            mode="same",
+        )
+    else:
+        pop_rate = square_smooth_summed_spike
+
+    return pop_rate
+
+
+def get_bursts(
+    pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
+):
+    """
+    Detect bursts from a population rate vector using thresholded peak finding and
+    amplitude-scaled edge detection.
+
+    Returns (tburst, edges, peak_amp).
+    """
+    pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+
+    peaks, _ = signal.find_peaks(
+        pop_rate, height=pop_rms * THR_BURST, distance=MIN_BURST_DIFF
+    )
+    peak_amp = pop_rate[peaks]
+
+    edges = np.full((len(peaks), 2), np.nan)
+    tburst = np.full(len(peaks), np.nan)
+
+    for burst in range(len(peaks)):
+        frames_below_thresh = np.where(
+            pop_rate < peak_amp[burst] * BURST_EDGE_MULT_THRESH
+        )[0]
+        rel_frames = peaks[burst] - frames_below_thresh
+
+        if (
+            len(rel_frames) == 0
+            or len(rel_frames[rel_frames > 0]) == 0
+            or len(rel_frames[rel_frames < 0]) == 0
+        ):
+            continue
+
+        rel_burst_start = np.min(rel_frames[rel_frames > 0])
+        rel_burst_end = np.max(rel_frames[rel_frames < 0])
+
+        edges[burst, :] = [peaks[burst] - rel_burst_start, peaks[burst] - rel_burst_end]
+
+        if len(pop_rate_acc) == len(pop_rate):
+            segment = pop_rate_acc[int(edges[burst, 0]) : int(edges[burst, 1])]
+            acc_peak = np.argmax(segment)
+            peak_val = np.max(segment)
+            tburst[burst] = acc_peak + edges[burst, 0]
+            peak_amp[burst] = peak_val
+        else:
+            tburst[burst] = peaks[burst]
+
+    edges = edges[~np.isnan(tburst), :]
+    peak_amp = peak_amp[~np.isnan(tburst)]
+    tburst = tburst[~np.isnan(tburst)]
+
+    return tburst, edges, peak_amp
