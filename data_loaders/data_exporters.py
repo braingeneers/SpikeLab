@@ -36,7 +36,7 @@ TimeUnit = Literal["ms", "s", "samples"]
 
 def _ensure_h5py():
     """Ensure h5py is available for HDF5-based exporters.
-    
+
     Raises:
         ImportError: If h5py is not installed.
     """
@@ -170,9 +170,9 @@ def export_spikedata_to_hdf5(
 
     Examples:
         >>> # Export as ragged arrays in seconds
-        >>> export_spikedata_to_hdf5(sd, "output.h5", style="ragged", 
+        >>> export_spikedata_to_hdf5(sd, "output.h5", style="ragged",
         ...                          spike_times_unit="s")
-        
+
         >>> # Export as raster with 1ms bins
         >>> export_spikedata_to_hdf5(sd, "output.h5", style="raster",
         ...                          raster_bin_size_ms=1.0)
@@ -301,9 +301,9 @@ def export_spikedata_to_nwb(
     Examples:
         >>> # Export to standard NWB format
         >>> export_spikedata_to_nwb(sd, "experiment.nwb")
-        
+
         >>> # Export with custom dataset names
-        >>> export_spikedata_to_nwb(sd, "data.nwb", 
+        >>> export_spikedata_to_nwb(sd, "data.nwb",
         ...                         spike_times_dataset="my_spike_times",
         ...                         group="my_units")
     """
@@ -377,10 +377,10 @@ def export_spikedata_to_kilosort(
         >>> # Export with default sample-based timing
         >>> paths = export_spikedata_to_kilosort(sd, "kilosort_output", fs_Hz=30000)
         >>> print(f"Created {paths[0]} and {paths[1]}")
-        
+
         >>> # Export with custom cluster IDs and millisecond timing
         >>> export_spikedata_to_kilosort(sd, "output", fs_Hz=30000,
-        ...                              time_unit="ms", 
+        ...                              time_unit="ms",
         ...                              cluster_ids=[10, 20, 30])
     """
     if not fs_Hz or fs_Hz <= 0:
