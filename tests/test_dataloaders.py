@@ -34,12 +34,13 @@ import data_loaders.data_loaders as loaders
 @unittest.skipIf(h5py is None, "h5py not installed; skipping HDF5/NWB tests")
 class TestHDF5Loaders(unittest.TestCase):
     def _tmp_h5(self) -> str:
+        """Create a temporary HDF5 file and return its path."""
         fd, path = tempfile.mkstemp(suffix=".h5")
         os.close(fd)
         return path
 
     def tearDown(self) -> None:
-        # Clean up any temp files left around by tests in this class
+        """Remove any temporary HDF5 files created during the test."""
         for attr in ("_last_h5_path",):
             path: Optional[str] = getattr(self, attr, None)
             if path and os.path.exists(path):
@@ -49,6 +50,13 @@ class TestHDF5Loaders(unittest.TestCase):
                     pass
 
     def test_hdf5_raster(self):
+        """
+        Test loading a 2D raster dataset from HDF5.
+
+        Creates a small 2D integer array, writes it as 'raster' to HDF5,
+        loads it using load_spikedata_from_hdf5, and checks that the
+        resulting SpikeData object has the correct raster and unit count.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         raster = np.array([[0, 2, 0, 1], [1, 0, 0, 0]], dtype=int)
@@ -63,6 +71,12 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertEqual(sd.N, raster.shape[0])
 
     def test_hdf5_raster_not_2d_raises(self):
+        """
+        Test that loading a non-2D raster dataset raises ValueError.
+
+        Writes a 1D array as 'raster' and checks that load_spikedata_from_hdf5
+        raises a ValueError due to incorrect shape.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         with h5py.File(path, "w") as f:  # type: ignore
@@ -73,6 +87,12 @@ class TestHDF5Loaders(unittest.TestCase):
             )
 
     def test_hdf5_multiple_styles_raises(self):
+        """
+        Test that specifying multiple input styles raises ValueError.
+
+        Writes both a 'raster' dataset and a 'units' group, then attempts to
+        load with both raster and group_per_unit arguments, expecting a ValueError.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         with h5py.File(path, "w") as f:  # type: ignore
@@ -87,6 +107,12 @@ class TestHDF5Loaders(unittest.TestCase):
             )
 
     def test_hdf5_idces_times_ms(self):
+        """
+        Test loading spike indices and times in milliseconds from HDF5.
+
+        Writes 'idces' and 'times' datasets, loads them, and checks that
+        the SpikeData object returns the same indices and times.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         idces = np.array([0, 1, 0, 1], dtype=int)
@@ -103,6 +129,13 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertTrue(np.allclose(t2, times_ms))
 
     def test_hdf5_group_per_unit_seconds(self):
+        """
+        Test loading spike times from a group-per-unit structure in seconds.
+
+        Writes a 'units' group with two datasets (one per unit) containing
+        spike times in seconds, loads them, and checks that the times are
+        correctly converted to milliseconds.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         with h5py.File(path, "w") as f:  # type: ignore
@@ -118,6 +151,13 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[1], np.array([50.0])))
 
     def test_hdf5_group_per_unit_empty_units(self):
+        """
+        Test loading group-per-unit structure with empty units.
+
+        Writes a 'units' group with two empty datasets, loads them, and checks
+        that the resulting SpikeData object has two units, zero length, and
+        empty spike trains.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         with h5py.File(path, "w") as f:  # type: ignore
@@ -133,6 +173,13 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertEqual(len(sd.train[1]), 0)
 
     def test_hdf5_flat_ragged_spike_times(self):
+        """
+        Test loading ragged spike times from flat arrays and index.
+
+        Writes a flat 'spike_times' array and a 'spike_times_index' array
+        indicating the end of each unit's spike times, loads them, and checks
+        that the times are correctly split and converted to ms.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         # two units: [0.1,0.2], [0.5]
@@ -152,6 +199,12 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[1], [500.0]))
 
     def test_hdf5_idces_times_samples_with_fs(self):
+        """
+        Test loading spike indices and times in samples with specified sampling rate.
+
+        Writes 'idces' and 'times' datasets (times in samples), loads them with
+        fs_Hz=1000, and checks that times are correctly converted to ms.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         idces = np.array([0, 1, 0], dtype=int)
@@ -171,6 +224,13 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[1], [200.0]))
 
     def test_hdf5_raw_attachment_seconds_and_samples(self):
+        """
+        Test loading and attaching raw data and raw time from HDF5.
+
+        Writes a 'raster', 'raw', and two raw time datasets (one in seconds,
+        one in samples). Loads both, checking that raw_time is correctly
+        converted to ms in both cases.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         raster = np.zeros((1, 3))
@@ -206,6 +266,12 @@ class TestHDF5Loaders(unittest.TestCase):
         self.assertTrue(np.allclose(sd_p.raw_time, np.arange(5) * 1.0))
 
     def test_hdf5_invalid_style_error(self):
+        """
+        Test that loading from an HDF5 file with no recognizable style raises ValueError.
+
+        Creates an empty HDF5 file and checks that load_spikedata_from_hdf5
+        raises a ValueError due to missing required datasets/groups.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         with h5py.File(path, "w") as _:  # type: ignore
@@ -214,6 +280,12 @@ class TestHDF5Loaders(unittest.TestCase):
             loaders.load_spikedata_from_hdf5(path)  # no style specified
 
     def test_hdf5_samples_without_fs_error(self):
+        """
+        Test that loading times in samples without specifying fs_Hz raises ValueError.
+
+        Writes 'idces' and 'times' (in samples) but omits fs_Hz, expecting
+        load_spikedata_from_hdf5 to raise a ValueError.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         idces = np.array([0, 0, 1])
@@ -227,6 +299,13 @@ class TestHDF5Loaders(unittest.TestCase):
             )
 
     def test_hdf5_raw_thresholded(self):
+        """
+        Test thresholding of raw data loaded from HDF5.
+
+        Writes a 'raw' dataset with two channels, one containing a supra-threshold
+        segment. Loads and thresholds the data, checking that at least one event
+        is detected on the active channel.
+        """
         path = self._tmp_h5()
         self._last_h5_path = path
         # two channels, one has a supra-threshold segment
@@ -254,6 +333,13 @@ class TestHDF5Loaders(unittest.TestCase):
 @unittest.skipIf(h5py is None, "h5py not installed; skipping NWB tests")
 class TestNWBLoader(unittest.TestCase):
     def test_nwb_units_via_h5py(self):
+        """
+        Test loading NWB units group using h5py.
+
+        Creates a minimal NWB-like file with a 'units' group containing
+        'spike_times' and 'spike_times_index', loads it, and checks that
+        spike trains are correctly split and converted to ms.
+        """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
         try:
@@ -273,6 +359,12 @@ class TestNWBLoader(unittest.TestCase):
                 pass
 
     def test_nwb_missing_units_raises(self):
+        """
+        Test that loading an NWB file missing the 'units' group raises ValueError.
+
+        Creates an empty NWB file and checks that load_spikedata_from_nwb
+        raises a ValueError due to missing 'units'.
+        """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
         try:
@@ -287,6 +379,13 @@ class TestNWBLoader(unittest.TestCase):
                 pass
 
     def test_nwb_alt_names_with_endswith(self):
+        """
+        Test loading NWB units group with alternative dataset names.
+
+        Creates a 'units' group with datasets ending in 'spike_times' and
+        'spike_times_index' but with prefixes, loads it, and checks that
+        spike trains are correctly parsed and converted to ms.
+        """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
         try:
@@ -307,6 +406,13 @@ class TestNWBLoader(unittest.TestCase):
 
 class TestKiloSortAndSpikeInterface(unittest.TestCase):
     def test_kilosort_basic(self):
+        """
+        Test loading KiloSort output with two clusters.
+
+        Creates 'spike_times.npy' and 'spike_clusters.npy' for two clusters,
+        loads them, and checks that the cluster_ids metadata matches the trains,
+        and that spike times are correctly converted to ms and sorted by cluster id.
+        """
         with tempfile.TemporaryDirectory() as d:
             # two clusters: 2 spikes in 0, 1 spike in 1
             spike_times = np.array([10, 20, 15])  # samples
@@ -324,6 +430,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
                 self.assertTrue(np.allclose(train, truth))
 
     def test_spikeinterface_mock(self):
+        """
+        Test loading from a mock SpikeInterface SortingExtractor.
+
+        Defines a mock sorting object with two units and known spike trains,
+        loads it, and checks that spike times are correctly converted to ms
+        using the provided sampling frequency.
+        """
+
         class MockSorting:
             def __init__(self):
                 self._ids = [10, 20]
@@ -346,6 +460,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[1], [2.5]))
 
     def test_spikeinterface_base_recording_thresholding(self):
+        """
+        Test thresholding on a mock SpikeInterface RecordingExtractor.
+
+        Defines a mock recording object with a supra-threshold burst on one channel,
+        loads and thresholds it, and checks that at least one event is detected.
+        Also tests that time x channels input is transposed automatically.
+        """
+
         class MockRecording:
             def __init__(self, data, fs):
                 self._data = np.asarray(data)
@@ -378,6 +500,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         self.assertTrue(len(sd2.train[0]) >= 1)
 
     def test_spikeinterface_subset_and_override_fs(self):
+        """
+        Test loading a subset of units and overriding sampling frequency.
+
+        Defines a mock sorting object with two units and no sampling frequency,
+        loads only one unit with a provided sampling frequency, and checks that
+        the spike train is correct and in ms.
+        """
+
         class MockSorting2:
             def get_unit_ids(self):
                 return [1, 2]
@@ -396,6 +526,12 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[0], [0.0, 10.0]))
 
     def test_spikeinterface_invalid_object_raises(self):
+        """
+        Test that passing an invalid object to load_spikedata_from_spikeinterface raises TypeError.
+
+        Defines a class with no required methods and checks that loading raises TypeError.
+        """
+
         class BadSorting:
             pass
 
@@ -403,6 +539,12 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             loaders.load_spikedata_from_spikeinterface(BadSorting())
 
     def test_kilosort_empty_arrays(self):
+        """
+        Test loading KiloSort output with empty arrays.
+
+        Writes empty 'spike_times.npy' and 'spike_clusters.npy', loads them,
+        and checks that the resulting SpikeData object has zero units and zero length.
+        """
         with tempfile.TemporaryDirectory() as d:
             np.save(os.path.join(d, "spike_times.npy"), np.array([], dtype=int))
             np.save(os.path.join(d, "spike_clusters.npy"), np.array([], dtype=int))
@@ -411,6 +553,13 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             self.assertEqual(sd.length, 0.0)
 
     def test_kilosort_metadata_cluster_ids_alignment(self):
+        """
+        Test that KiloSort cluster_ids metadata aligns with sorted trains.
+
+        Writes 'spike_times.npy' and 'spike_clusters.npy' with two cluster ids,
+        loads them, and checks that the cluster_ids metadata is sorted and matches
+        the order of spike trains.
+        """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15, 30])
             spike_clusters = np.array([5, 5, 3, 5])
@@ -421,6 +570,12 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             self.assertEqual(sd.metadata.get("cluster_ids"), [3, 5])
 
     def test_kilosort_tsv_missing_columns_keeps_all(self):
+        """
+        Test that KiloSort loader keeps all clusters if cluster_info.tsv is missing expected columns.
+
+        Writes 'spike_times.npy', 'spike_clusters.npy', and a cluster_info.tsv file
+        without the expected columns, loads them, and checks that all clusters are kept.
+        """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15])
             spike_clusters = np.array([0, 0, 1])

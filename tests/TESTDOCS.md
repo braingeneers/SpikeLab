@@ -1,0 +1,231 @@
+## Test Documentation
+
+This document explains what each test does in detail and why it matters. It is intended to help maintainers and contributors understand the coverage and the design guarantees provided by the test suite.
+
+---
+
+## SpikeData tests (`tests/test_spikedata.py`)
+
+### Helpers
+- **assertSpikeDataEqual(sda, sdb)**
+  - Ensures two `SpikeData` instances have identical per-neuron spike trains (length and values within tolerance).
+  - Used across tests to assert semantic equality rather than object identity.
+
+- **assertSpikeDataSubtime(sd, sdsub, tmin, tmax)**
+  - Verifies a time-sliced `SpikeData` (`sdsub = sd.subtime(tmin, tmax)`) has the expected duration, contains only spikes within the target window, and preserves per-unit alignment.
+  - Ensures consistent slicing semantics including edge handling when `tmin <= 0`.
+
+- **assertAll(bools)** and **assertClose(a, b, ...)**
+  - Convenience wrappers around `numpy` assertions for readability and consistent error messages.
+
+### Tests
+- **test_sd_from_counts**
+  - Purpose: Validates that a helper `sd_from_counts` produces a `SpikeData` whose `binned(1)` exactly matches the provided per-bin spike counts.
+  - Why: Confirms the correctness of binning rules at unit bin size and the integrity of spike placement in bins.
+  - Key checks: Equality between `sd.binned(1)` and the generated counts array.
+
+- **test_neo_conversion** (skipped if `neo`/`quantities` are not installed)
+  - Purpose: Round-trip conversion between `SpikeData` and `neo.core.SpikeTrain` objects preserves spike times and recording length.
+  - Why: Ensures interoperability with the Neo ecosystem, a common interchange format in neuroscience.
+  - Key checks: Equality of the original and reconstructed `SpikeData` via `assertSpikeDataEqual`.
+
+- **test_spike_data**
+  - Purpose: Comprehensive coverage of core constructors and basic methods.
+  - Why: Ensures consistency of various constructors and core APIs that other features depend on.
+  - Verifies:
+    - `from_idces_times` yields expected `times` (sorted) and `events` round-trip.
+    - `from_events`, base constructor, and `from_idces_times(*sd.idces_times())` are all consistent with each other.
+    - `from_raster` produces rasters consistent with the input after re-binning.
+    - `subset` preserves train identities and ordering.
+    - `subtime` is idempotent over full range and extracts correct spikes for ranges (including negative arguments and ellipses `...`).
+    - `frames` equivalence with `subtime` for consecutive non-overlapping and overlapping windows.
+
+- **test_raster**
+  - Purpose: Validates rasterization logic and shape consistency.
+  - Why: Rasters underpin many analyses; correctness ensures downstream metrics are valid.
+  - Verifies:
+    - Total spike count preserved in dense and sparse rasters.
+    - Raster shape consistency across datasets with equal length.
+    - Inclusion/exclusion rules at bin edges (0 included; other bins lower-open/upper-closed).
+    - Consistency between `raster` and `binned` outputs.
+
+- **test_rates**
+  - Purpose: Checks rate calculations in default units and conversion to Hz.
+  - Why: Accurate rate metrics are foundational for common analyses.
+  - Verifies default unit returns counts, `Hz` conversion factor, and error on invalid unit string.
+
+- **test_interspike_intervals**
+  - Purpose: Validates ISI computation for simple, multi-train, and random cases.
+  - Why: ISIs are widely used statistics; correctness is crucial.
+  - Verifies constant-spacing trains yield uniform ISIs, multi-train handling, and random case equivalence to finite differences.
+
+- **test_spike_time_tiling_ta** and **test_spike_time_tiling_na**
+  - Purpose: Unit tests for internal STTC helpers `_sttc_ta` (total available time) and `_sttc_na` (spike counts in window).
+  - Why: These low-level functions are easy to break and difficult to debug indirectly.
+  - Verifies trivial, boundary, overlap, and interval-closure behavior.
+
+- **test_spike_time_tiling_coefficient**
+  - Purpose: Validates `spike_time_tiling` and `spike_time_tilings` end-to-end.
+  - Why: Ensures the STTC implementation behaves as expected across symmetrical, identical, random, anti-correlated, and empty cases.
+  - Verifies symmetry, diagonal elements at 1 for identical trains, expected limits for alternating trains, and range bounds [-1, 1].
+
+- **test_binning_doesnt_lose_spikes**
+  - Purpose: Asserts that binning preserves total spike counts for a Poisson spike train.
+  - Why: Guarantees conservation, preventing silent data loss in binning-based pipelines.
+
+- **test_binning**
+  - Purpose: Checks bin assignment for a fixed set of spike times at bin size 4.
+  - Why: Regression against off-by-one binning errors.
+  - Verifies exact expected counts per bin.
+
+- **test_metadata**
+  - Purpose: Validates metadata and `neuron_attributes` propagation and copy semantics through `subset` and `subtime`.
+  - Why: Prevents subtle bugs where metadata mutates unexpectedly or attributes misalign after subsetting.
+  - Verifies:
+    - Constructor errors on malformed attributes.
+    - `subset` preserves metadata dict and subsets attributes.
+    - `subtime` copies metadata (not shared reference) and preserves attributes.
+
+- **test_raw_data**
+  - Purpose: Validates handling of optional `raw_data` and `raw_time` in `SpikeData`.
+  - Why: Ensures consistent API for raw traces alongside spikes, including automatic timebase generation and slicing.
+  - Verifies constructor errors for mismatched presence/lengths, generation of time vector from scalar `raw_time`, and correct slicing with `subtime`.
+
+- **test_isi_rate**
+  - Purpose: Tests ISI-based rate estimation (`resampled_isi` and `_resampled_isi`).
+  - Why: Validates a core analysis measure, including limits and variation with spike intervals.
+  - Verifies constant-rate neuron returns expected rate and varied intervals produce expected rate trends.
+
+- **test_latencies**
+  - Purpose: Validates latency calculations relative to reference times.
+  - Why: Ensures latency analyses behave predictably for shifted trains and edge cases.
+  - Verifies correct positive/negative latencies and empty results for too-small windows.
+
+- **test_randomize_preserves_marginals**
+  - Purpose: Tests `spikedata.randomize` preserves row/column sums and total spikes.
+  - Why: Guarantees the randomization keeps degree distributions intact for null-model analyses.
+  - Verifies shape, binarity, and equality of marginals.
+
+- **test_get_pop_rate_square_only_matches_convolution**
+  - Purpose: With square window only, `get_pop_rate` matches direct convolution of summed spike train.
+  - Why: Validates correctness against a simple analytical reference.
+
+- **test_get_pop_rate_gaussian_only_impulse**
+  - Purpose: With Gaussian-only smoothing and a single impulse, output forms a normalized, symmetric Gaussian.
+  - Why: Confirms kernel application and normalization.
+
+- **test_get_bursts_detects_simple_peaks**
+  - Purpose: Detects simple, well-separated bursts with amplitude-scaled edges.
+  - Why: Ensures basic burst detection sanity: peak times, edges, and amplitudes.
+
+---
+
+## Data loader tests (`tests/test_dataloaders.py`)
+
+### HDF5 loaders (`TestHDF5Loaders`)
+- Uses temporary HDF5 files; skipped entirely if `h5py` is unavailable.
+- Includes teardown to clean up created temp files.
+
+- **test_hdf5_raster**
+  - Purpose: Loads a 2D raster (units × time) and verifies rasterization and unit count.
+  - Why: Confirms the raster-style HDF5 input path.
+
+- **test_hdf5_raster_not_2d_raises**
+  - Purpose: Asserts a non-2D raster dataset raises `ValueError`.
+  - Why: Guards against malformed inputs.
+
+- **test_hdf5_multiple_styles_raises**
+  - Purpose: Providing more than one input style raises `ValueError`.
+  - Why: Enforces API contract of mutually exclusive style selection.
+
+- **test_hdf5_idces_times_ms**
+  - Purpose: Paired indices/times in milliseconds are loaded losslessly.
+  - Why: Validates paired-arrays style and unit handling.
+
+- **test_hdf5_group_per_unit_seconds**
+  - Purpose: Group-per-unit datasets with seconds are converted to ms correctly.
+  - Why: Confirms per-dataset unit conversion and ordering across child datasets.
+
+- **test_hdf5_group_per_unit_empty_units**
+  - Purpose: Handles empty per-unit datasets with correct `N`, `length`, and empty trains.
+  - Why: Robustness for sparse or placeholder datasets.
+
+- **test_hdf5_flat_ragged_spike_times**
+  - Purpose: Flat ragged arrays plus end indices are split into per-unit trains and converted to ms.
+  - Why: Validates NWB-like ragged representation loading path.
+
+- **test_hdf5_idces_times_samples_with_fs**
+  - Purpose: Times in samples are converted to ms with specified `fs_Hz`.
+  - Why: Ensures sample-based unit conversions are correct.
+
+- **test_hdf5_raw_attachment_seconds_and_samples**
+  - Purpose: Optional `raw_data` attachment and `raw_time` conversion from seconds and from samples (with `fs_Hz`).
+  - Why: Confirms auxiliary raw arrays are ingested and timebase conversion is correct.
+
+- **test_hdf5_invalid_style_error**
+  - Purpose: Empty file with no recognizable inputs raises `ValueError`.
+  - Why: Prevents silent success on invalid inputs.
+
+- **test_hdf5_samples_without_fs_error**
+  - Purpose: Using `'samples'` time unit without `fs_Hz` raises `ValueError`.
+  - Why: Enforces required arguments for unit conversion.
+
+- **test_hdf5_raw_thresholded**
+  - Purpose: Threshold detection on a raw dataset finds events in supra-threshold segments.
+  - Why: Validates `load_spikedata_from_hdf5_raw_thresholded` end-to-end.
+
+### NWB loader (`TestNWBLoader`)
+- Skipped if `h5py` is unavailable.
+
+- **test_nwb_units_via_h5py**
+  - Purpose: Minimal NWB-like Units table via `h5py` is parsed and converted to ms.
+  - Why: Provides fallback path validation when `pynwb` is not used.
+
+- **test_nwb_missing_units_raises**
+  - Purpose: Missing `/units` group raises `ValueError`.
+  - Why: Ensures informative failure on malformed NWB files.
+
+- **test_nwb_alt_names_with_endswith**
+  - Purpose: Accepts datasets whose names end with `spike_times` and `spike_times_index`.
+  - Why: Robustness to minor naming variations seen in some NWB exports.
+
+### KiloSort and SpikeInterface (`TestKiloSortAndSpikeInterface`)
+- **test_kilosort_basic**
+  - Purpose: Loads two clusters, verifies per-cluster times in ms and metadata `cluster_ids` alignment with train order.
+  - Why: Validates basic KiloSort flow and deterministic ordering by cluster id.
+
+- **test_spikeinterface_mock**
+  - Purpose: Converts a mock `SortingExtractor` to `SpikeData` with sample-to-ms conversion using sorting `fs`.
+  - Why: Ensures compatibility with SpikeInterface without requiring the library.
+
+- **test_spikeinterface_base_recording_thresholding**
+  - Purpose: Thresholds a mock `BaseRecording`, detects spikes on a supra-threshold burst, and auto-orients time × channels input.
+  - Why: Validates detection and orientation heuristics for recordings.
+
+- **test_spikeinterface_subset_and_override_fs**
+  - Purpose: Subsets to specific unit IDs and overrides sampling frequency when sorting lacks it.
+  - Why: Flexibility for partial analyses and incomplete metadata.
+
+- **test_spikeinterface_invalid_object_raises**
+  - Purpose: Invalid sorting-like objects raise `TypeError` early.
+  - Why: Clear error messaging and API safety.
+
+- **test_kilosort_empty_arrays**
+  - Purpose: Empty KiloSort arrays yield zero units and zero length without errors.
+  - Why: Edge-case robustness when no spikes were detected.
+
+- **test_kilosort_metadata_cluster_ids_alignment**
+  - Purpose: `cluster_ids` metadata is sorted and matches train order (ascending by cluster id).
+  - Why: Ensures metadata integrity for downstream labeling.
+
+- **test_kilosort_tsv_missing_columns_keeps_all**
+  - Purpose: Missing expected columns in TSV triggers “keep all clusters” behavior.
+  - Why: Graceful degradation with partial TSV metadata.
+
+---
+
+## How to use this document
+- When modifying code, identify which tests validate the behavior you are touching and run those first.
+- For new features, mirror the style of existing tests and add explanations here to keep this document in sync.
+
+

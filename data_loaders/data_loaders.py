@@ -73,6 +73,69 @@ def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 
+def _trains_from_flat_index(
+    flat_times: np.ndarray,
+    end_indices: np.ndarray,
+    *,
+    unit: str,
+    fs_Hz: Optional[float],
+) -> List[np.ndarray]:
+    """Split a flat time array into per-unit trains using end indices and convert to ms."""
+    trains: List[np.ndarray] = []
+    start = 0
+    for stop in end_indices:
+        segment = flat_times[start:stop]
+        trains.append(_to_ms(segment, unit, fs_Hz))
+        start = stop
+    return trains
+
+
+def _read_raw_arrays(
+    f,  # h5py.File-like
+    raw_dataset: Optional[str],
+    raw_time_dataset: Optional[str],
+    raw_time_unit: str,
+    fs_Hz: Optional[float],
+) -> tuple[Optional[np.ndarray], Optional[Union[np.ndarray, float]]]:
+    """Read optional raw arrays and convert the time vector to milliseconds."""
+    raw_data = None
+    raw_time: Optional[Union[np.ndarray, float]] = None
+    if raw_dataset is not None:
+        raw_data = np.asarray(f[raw_dataset])
+        if raw_time_dataset is not None:
+            raw_time_vals = np.asarray(f[raw_time_dataset])
+            if raw_time_unit == "s":
+                raw_time = raw_time_vals * 1e3
+            elif raw_time_unit == "ms":
+                raw_time = raw_time_vals
+            elif raw_time_unit == "samples":
+                if not fs_Hz:
+                    raise ValueError(
+                        "fs_Hz must be provided for raw_time_unit='samples'"
+                    )
+                raw_time = raw_time_vals / float(fs_Hz) * 1e3
+            else:
+                raise ValueError("raw_time_unit must be one of 's','ms','samples'")
+    return raw_data, raw_time
+
+
+def _maybe_with_raw(
+    sd: SpikeData,
+    raw_data: Optional[np.ndarray],
+    raw_time: Optional[Union[np.ndarray, float]],
+) -> SpikeData:
+    """Return SpikeData with raw fields attached if provided, else original."""
+    if raw_data is not None and raw_time is not None:
+        return _build_spikedata(
+            sd.train,
+            length_ms=sd.length,
+            metadata=sd.metadata,
+            raw_data=raw_data,
+            raw_time=raw_time,
+        )
+    return sd
+
+
 def _build_spikedata(
     trains_ms: List[np.ndarray],
     *,
@@ -123,16 +186,88 @@ def load_spikedata_from_hdf5(
     length_ms: Optional[float] = None,
     metadata: Optional[Mapping[str, object]] = None,
 ) -> SpikeData:
-    """Load spike trains from a generic HDF5 file (four input styles).
+    """
+    Load spike trains from a generic HDF5 file using one of four supported input styles.
 
-    Exactly one input style must be specified:
-    1) Raster: `raster_dataset` (units×time) with `raster_bin_size_ms`.
-    2) Ragged: `spike_times_dataset` + `spike_times_index_dataset` (NWB-like).
-    3) Group-per-unit: `group_per_unit` whose children each contain spike times.
-    4) Paired arrays: `idces_dataset` + `times_dataset` (with `times_unit`).
+    This function provides a flexible interface for loading spike train data from HDF5 files
+    that may be organized in different ways. Exactly one of the following four input styles
+    must be specified via the corresponding arguments:
 
-    Optional raw arrays can be attached via `raw_dataset` + `raw_time_dataset` with
-    `raw_time_unit` in 's'/'ms'/'samples' (requires `fs_Hz` for samples).
+    **Input Styles:**
+
+    1. **Raster Matrix**
+        - Use when the HDF5 file contains a 2D array representing spike counts or a binary raster.
+        - Arguments:
+            - `raster_dataset` (str): Path to the dataset containing the raster/counts matrix (shape: units × time).
+            - `raster_bin_size_ms` (float): Bin width in milliseconds.
+        - The matrix is interpreted as (units × time bins), where each entry is the spike count (or 0/1 for binary).
+        - Example: `raster_dataset="/spikes/raster", raster_bin_size_ms=1.0`
+
+    2. **Ragged Arrays (NWB-style)**
+        - Use when spike times for all units are concatenated into a single array, with an index array marking the end of each unit's spike times.
+        - Arguments:
+            - `spike_times_dataset` (str): Path to the flat array of spike times.
+            - `spike_times_index_dataset` (str): Path to the array of indices (end positions for each unit).
+            - `spike_times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
+            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        - Example: `spike_times_dataset="/units/spike_times", spike_times_index_dataset="/units/spike_times_index"`
+
+    3. **Group-per-Unit**
+        - Use when each unit's spike times are stored as a separate dataset within a group.
+        - Arguments:
+            - `group_per_unit` (str): Path to the group containing one dataset per unit.
+            - `group_time_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
+            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        - Example: `group_per_unit="/spikes/unit_times"`
+
+    4. **Paired Arrays (Indices and Times)**
+        - Use when there are two parallel arrays: one for unit indices and one for spike times.
+        - Arguments:
+            - `idces_dataset` (str): Path to the array of unit indices (int).
+            - `times_dataset` (str): Path to the array of spike times.
+            - `times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
+            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        - Example: `idces_dataset="/spikes/unit_ids", times_dataset="/spikes/times"`
+
+    **Optional Raw Data:**
+        - You may also attach raw analog data and its timebase by specifying:
+            - `raw_dataset` (str): Path to the raw data array.
+            - `raw_time_dataset` (str): Path to the time vector for the raw data.
+            - `raw_time_unit` (str): Unit of the raw time vector ('s', 'ms', or 'samples').
+            - `fs_Hz` (float, required if 'samples'): Sampling frequency for conversion.
+
+    **Parameters**
+    ----------
+    filepath : str
+        Path to the HDF5 file.
+    length_ms : float, optional
+        Recording duration in milliseconds (inferred if not provided).
+    metadata : dict, optional
+        Additional metadata to attach to the SpikeData object.
+
+    Returns
+    -------
+    SpikeData
+        The loaded spike train data.
+
+    Raises
+    ------
+    ValueError
+        If not exactly one input style is specified, or if required arguments are missing.
+
+    Examples
+    --------
+    # Load from a raster matrix
+    sd = load_spikedata_from_hdf5("file.h5", raster_dataset="raster", raster_bin_size_ms=1.0)
+
+    # Load from ragged arrays (NWB-style)
+    sd = load_spikedata_from_hdf5("file.h5", spike_times_dataset="spike_times", spike_times_index_dataset="spike_times_index")
+
+    # Load from group-per-unit
+    sd = load_spikedata_from_hdf5("file.h5", group_per_unit="unit_group")
+
+    # Load from paired arrays
+    sd = load_spikedata_from_hdf5("file.h5", idces_dataset="unit_ids", times_dataset="spike_times")
     """
     _ensure_h5py()
 
@@ -151,25 +286,14 @@ def load_spikedata_from_hdf5(
     meta.setdefault("source_file", os.path.abspath(filepath))
 
     with h5py.File(filepath, "r") as f:  # type: ignore
-        # Optionally attach raw arrays and a time vector
-        raw_data = None
-        raw_time: Optional[Union[np.ndarray, float]] = None
-        if raw_dataset is not None:
-            raw_data = np.asarray(f[raw_dataset])
-            if raw_time_dataset is not None:
-                raw_time_vals = np.asarray(f[raw_time_dataset])
-                if raw_time_unit == "s":
-                    raw_time = raw_time_vals * 1e3
-                elif raw_time_unit == "ms":
-                    raw_time = raw_time_vals
-                elif raw_time_unit == "samples":
-                    if not fs_Hz:
-                        raise ValueError(
-                            "fs_Hz must be provided for raw_time_unit='samples'"
-                        )
-                    raw_time = raw_time_vals / float(fs_Hz) * 1e3
-                else:
-                    raise ValueError("raw_time_unit must be one of 's','ms','samples'")
+        # Optionally read raw arrays and a time vector
+        raw_data, raw_time = _read_raw_arrays(
+            f,
+            raw_dataset,
+            raw_time_dataset,
+            raw_time_unit,
+            fs_Hz,
+        )
 
         if raster_dataset is not None:
             # Style (1): counts/raster matrix -> SpikeData via from_raster
@@ -180,27 +304,15 @@ def load_spikedata_from_hdf5(
                 raise ValueError("raster_dataset must be 2D (units, time)")
             sd = SpikeData.from_raster(raster, raster_bin_size_ms)
             sd.metadata.update(meta)
-            if raw_data is not None and raw_time is not None:
-                # Reconstruct to attach raw fields properly
-                return _build_spikedata(
-                    sd.train,
-                    length_ms=sd.length,
-                    metadata=sd.metadata,
-                    raw_data=raw_data,
-                    raw_time=raw_time,
-                )
-            return sd
+            return _maybe_with_raw(sd, raw_data, raw_time)
 
         if spike_times_dataset is not None and spike_times_index_dataset is not None:
             # Style (2): flat ragged spike_times + spike_times_index
             flat = np.asarray(f[spike_times_dataset])
             index = np.asarray(f[spike_times_index_dataset])
-            trains: List[np.ndarray] = []
-            start = 0
-            for stop in index:
-                seg = flat[start:stop]
-                trains.append(_to_ms(seg, spike_times_unit, fs_Hz))
-                start = stop
+            trains = _trains_from_flat_index(
+                flat, index, unit=spike_times_unit, fs_Hz=fs_Hz
+            )
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
@@ -228,15 +340,7 @@ def load_spikedata_from_hdf5(
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms)
         sd.metadata.update(meta)
-        if raw_data is not None and raw_time is not None:
-            return _build_spikedata(
-                sd.train,
-                length_ms=sd.length,
-                metadata=sd.metadata,
-                raw_data=raw_data,
-                raw_time=raw_time,
-            )
-        return sd
+        return _maybe_with_raw(sd, raw_data, raw_time)
 
 
 def load_spikedata_from_hdf5_raw_thresholded(
@@ -337,11 +441,9 @@ def load_spikedata_from_nwb(
 
         flat = np.asarray(unit_grp[st_key])
         index = np.asarray(unit_grp[idx_key])
-        start = 0
-        for stop in index:
-            seg = flat[start:stop]
-            trains.append(seg.astype(float) * 1e3)
-            start = stop
+        trains.extend(
+            _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
+        )
     return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
 
 
