@@ -50,11 +50,19 @@ from .utils import (
     _spike_time_tiling,
     _resampled_isi,
     _train_from_i_t_list,
+    swap,
+    randomize,
+    get_pop_rate,
+    get_bursts,
 )
 
 __all__ = [
     "SpikeData",
     "spike_time_tiling",
+    "swap",
+    "randomize",
+    "get_pop_rate",
+    "get_bursts",
 ]
 
 

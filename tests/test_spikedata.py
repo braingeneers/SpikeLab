@@ -442,4 +442,76 @@ class SpikeDataTest(unittest.TestCase):
         # Can do negative
         self.assertAlmostEqual(a.latencies([0.1])[0][0], -0.1)
 
+    # New utilities tests: randomize, get_pop_rate, get_bursts
+
+    def test_randomize_preserves_marginals(self):
+        rng = np.random.default_rng(0)
+        N, T = 10, 50
+        raster = (rng.random((N, T)) < 0.1).astype(float)
+
+        row_sum = raster.sum(axis=1)
+        col_sum = raster.sum(axis=0)
+        total = raster.sum()
+
+        rnd = spikedata.randomize(raster, swap_per_spike=3)
+
+        self.assertEqual(rnd.shape, raster.shape)
+        uniq = np.unique(rnd)
+        self.assertTrue(set(uniq.tolist()).issubset({0.0, 1.0}))
+        self.assertTrue(np.allclose(rnd.sum(axis=1), row_sum))
+        self.assertTrue(np.allclose(rnd.sum(axis=0), col_sum))
+        self.assertTrue(np.isclose(rnd.sum(), total))
+
+    def test_get_pop_rate_square_only_matches_convolution(self):
+        T, N = 100, 3
+        t_spk_mat = np.zeros((T, N))
+        t_spk_mat[[10, 20, 50, 70, 80], 0] = 1
+        t_spk_mat[[15, 20, 55, 70], 1] = 1
+        t_spk_mat[[20, 25, 60], 2] = 1
+
+        SQUARE_WIDTH = 5
+        GAUSS_SIGMA = 0
+
+        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+        truth = np.convolve(
+            np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
+        )
+        self.assertTrue(np.allclose(pop, truth))
+
+    def test_get_pop_rate_gaussian_only_impulse(self):
+        T, N = 101, 1
+        t_spk_mat = np.zeros((T, N))
+        t_spk_mat[T // 2, 0] = 1
+
+        SQUARE_WIDTH = 0
+        GAUSS_SIGMA = 2
+
+        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+
+        self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
+        self.assertTrue(np.isclose(pop[T // 2 - 1], pop[T // 2 + 1]))
+
+    def test_get_bursts_detects_simple_peaks(self):
+        T = 200
+        pop_rate = np.zeros(T)
+        pop_rate[45:56] = np.array([0, 2, 4, 6, 8, 10, 8, 6, 4, 2, 0])
+        pop_rate[145:156] = np.array([0, 3, 6, 9, 12, 15, 12, 9, 6, 3, 0])
+
+        pop_rate_acc = []
+        THR_BURST = 0.5
+        MIN_BURST_DIFF = 10
+        BURST_EDGE_MULT_THRESH = 0.2
+
+        tburst, edges, peak_amp = spikedata.get_bursts(
+            pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
+        )
+
+        self.assertEqual(len(tburst), 2)
+        self.assertEqual(len(peak_amp), 2)
+        self.assertEqual(edges.shape, (2, 2))
+        self.assertTrue(48 <= tburst[0] <= 52)
+        self.assertTrue(148 <= tburst[1] <= 152)
+        self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
+        self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
+
     # Removed tests for deprecated randomization and sampling utilities
