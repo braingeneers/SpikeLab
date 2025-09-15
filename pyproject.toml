@@ -25,12 +25,7 @@ dev = [
 [tool.black]
 line-length = 88
 target-version = ["py39"]
-exclude = [
-  "/.git",
-  "/.venv",
-  "/build",
-  "/dist",
-]
+exclude = '(\.git|\.venv|build|dist)'
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
