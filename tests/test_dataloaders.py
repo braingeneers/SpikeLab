@@ -345,6 +345,38 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         self.assertTrue(np.allclose(sd.train[0], [5.0, 10.0]))
         self.assertTrue(np.allclose(sd.train[1], [2.5]))
 
+    def test_spikeinterface_base_recording_thresholding(self):
+        class MockRecording:
+            def __init__(self, data, fs):
+                self._data = np.asarray(data)
+                self.sampling_frequency = fs
+
+            def get_traces(self, segment_index=0):
+                return self._data
+
+            def get_num_channels(self):
+                # channels is first dim if 2D
+                return self._data.shape[0]
+
+        # channels x time with a clear supra-threshold burst on ch0
+        data_ct = np.zeros((2, 100))
+        data_ct[0, 50:55] = 10.0
+        rec = MockRecording(data_ct, fs=1000.0)
+        sd = loaders.load_spikedata_from_spikeinterface_recording(
+            rec, threshold_sigma=2.0, filter=False, hysteresis=True, direction="up"
+        )
+        self.assertEqual(sd.N, 2)
+        self.assertTrue(len(sd.train[0]) >= 1)
+
+        # time x channels input gets transposed automatically
+        data_tc = data_ct.T
+        rec2 = MockRecording(data_tc, fs=1000.0)
+        sd2 = loaders.load_spikedata_from_spikeinterface_recording(
+            rec2, threshold_sigma=2.0, filter=False, hysteresis=True, direction="up"
+        )
+        self.assertEqual(sd2.N, 2)
+        self.assertTrue(len(sd2.train[0]) >= 1)
+
     def test_spikeinterface_subset_and_override_fs(self):
         class MockSorting2:
             def get_unit_ids(self):

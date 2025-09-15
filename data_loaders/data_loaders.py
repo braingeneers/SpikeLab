@@ -34,15 +34,34 @@ __all__ = [
     "load_spikedata_from_nwb",
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
+    "load_spikedata_from_spikeinterface_recording",
 ]
 
 
 def _ensure_h5py():
+    """Ensure the optional h5py dependency is available.
+
+    Raises
+    ------
+    ImportError
+        If h5py is not installed and an HDF5/NWB loader is invoked.
+    """
     if h5py is None:
         raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
 
 
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
+    """Convert a vector of times to milliseconds.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Time values.
+    unit : str
+        's' (seconds), 'ms' (milliseconds), or 'samples'.
+    fs_Hz : float | None
+        Sampling frequency (Hz). Required when unit == 'samples'.
+    """
     if unit == "ms":
         return values.astype(float)
     if unit == "s":
@@ -62,6 +81,11 @@ def _build_spikedata(
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
 ) -> SpikeData:
+    """Internal helper to construct a SpikeData with sensible defaults.
+
+    - Infers `length_ms` from the last spike if not provided.
+    - Copies metadata and attaches optional raw arrays.
+    """
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
         length_ms = float(max(last)) if last else 0.0
@@ -99,8 +123,20 @@ def load_spikedata_from_hdf5(
     length_ms: Optional[float] = None,
     metadata: Optional[Mapping[str, object]] = None,
 ) -> SpikeData:
+    """Load spike trains from a generic HDF5 file (four input styles).
+
+    Exactly one input style must be specified:
+    1) Raster: `raster_dataset` (units×time) with `raster_bin_size_ms`.
+    2) Ragged: `spike_times_dataset` + `spike_times_index_dataset` (NWB-like).
+    3) Group-per-unit: `group_per_unit` whose children each contain spike times.
+    4) Paired arrays: `idces_dataset` + `times_dataset` (with `times_unit`).
+
+    Optional raw arrays can be attached via `raw_dataset` + `raw_time_dataset` with
+    `raw_time_unit` in 's'/'ms'/'samples' (requires `fs_Hz` for samples).
+    """
     _ensure_h5py()
 
+    # Validate exactly one style is provided
     provided = [
         raster_dataset is not None,
         spike_times_dataset is not None and spike_times_index_dataset is not None,
@@ -110,10 +146,12 @@ def load_spikedata_from_hdf5(
     if sum(provided) != 1:
         raise ValueError("Specify exactly one HDF5 input style")
 
+    # Accumulate metadata and preserve file path provenance
     meta = dict(metadata or {})
     meta.setdefault("source_file", os.path.abspath(filepath))
 
     with h5py.File(filepath, "r") as f:  # type: ignore
+        # Optionally attach raw arrays and a time vector
         raw_data = None
         raw_time: Optional[Union[np.ndarray, float]] = None
         if raw_dataset is not None:
@@ -134,6 +172,7 @@ def load_spikedata_from_hdf5(
                     raise ValueError("raw_time_unit must be one of 's','ms','samples'")
 
         if raster_dataset is not None:
+            # Style (1): counts/raster matrix -> SpikeData via from_raster
             if raster_bin_size_ms is None:
                 raise ValueError("raster_bin_size_ms is required for raster_dataset")
             raster = np.asarray(f[raster_dataset])
@@ -142,6 +181,7 @@ def load_spikedata_from_hdf5(
             sd = SpikeData.from_raster(raster, raster_bin_size_ms)
             sd.metadata.update(meta)
             if raw_data is not None and raw_time is not None:
+                # Reconstruct to attach raw fields properly
                 return _build_spikedata(
                     sd.train,
                     length_ms=sd.length,
@@ -152,6 +192,7 @@ def load_spikedata_from_hdf5(
             return sd
 
         if spike_times_dataset is not None and spike_times_index_dataset is not None:
+            # Style (2): flat ragged spike_times + spike_times_index
             flat = np.asarray(f[spike_times_dataset])
             index = np.asarray(f[spike_times_index_dataset])
             trains: List[np.ndarray] = []
@@ -169,6 +210,7 @@ def load_spikedata_from_hdf5(
             )
 
         if group_per_unit is not None:
+            # Style (3): each child dataset is a unit's spike times
             grp = f[group_per_unit]
             keys = sorted(list(grp.keys()))
             trains = [_to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
@@ -180,6 +222,7 @@ def load_spikedata_from_hdf5(
                 raw_time=raw_time,
             )
 
+        # Style (4): paired indices and times arrays
         idces = np.asarray(f[idces_dataset])  # type: ignore
         times = _to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
@@ -206,6 +249,25 @@ def load_spikedata_from_hdf5_raw_thresholded(
     hysteresis: bool = True,
     direction: str = "both",
 ) -> SpikeData:
+    """Threshold-and-detect spikes from an HDF5 dataset of raw traces.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to HDF5 file.
+    dataset : str
+        HDF5 dataset path containing raw traces shaped (channels, time).
+    fs_Hz : float
+        Sampling frequency in Hz.
+    threshold_sigma : float
+        Threshold in units of per-channel standard deviation.
+    filter : dict | bool
+        If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
+    hysteresis : bool
+        Use rising-edge detection if True.
+    direction : str
+        'both' | 'up' | 'down'.
+    """
     _ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
@@ -230,6 +292,12 @@ def load_spikedata_from_nwb(
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
+    """Load spike trains from an NWB file's Units table.
+
+    Prefers pynwb; falls back to h5py reading VectorData/VectorIndex at
+    '/units/spike_times' and '/units/spike_times_index'. Times are in seconds
+    and converted to milliseconds.
+    """
     trains: List[np.ndarray] = []
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
 
@@ -289,6 +357,19 @@ def load_spikedata_from_spikeinterface(
     unit_ids: Optional[Sequence[Union[int, str]]] = None,
     segment_index: int = 0,
 ) -> SpikeData:
+    """Convert a SpikeInterface SortingExtractor-like object to SpikeData.
+
+    Parameters
+    ----------
+    sorting : object
+        Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...).
+    sampling_frequency : float | None
+        Optional override for sampling frequency (Hz).
+    unit_ids : sequence | None
+        Optional subset of unit IDs to include.
+    segment_index : int
+        Segment index for multi-segment sortings.
+    """
     try:
         get_unit_ids = sorting.get_unit_ids  # type: ignore[attr-defined]
         get_sf = sorting.get_sampling_frequency  # type: ignore[attr-defined]
@@ -328,6 +409,12 @@ def load_spikedata_from_kilosort(
     include_noise: bool = False,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
+    """Load KiloSort/Phy outputs into SpikeData.
+
+    Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
+    and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
+    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata.
+    """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
     spike_times = np.load(st_path)
@@ -390,3 +477,56 @@ def load_spikedata_from_kilosort(
         "fs_Hz": fs_Hz,
     }
     return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+
+# ----------------------------
+# SpikeInterface BaseRecording -> SpikeData via thresholding
+# ----------------------------
+
+
+def load_spikedata_from_spikeinterface_recording(
+    recording,
+    *,
+    segment_index: int = 0,
+    threshold_sigma: float = 5.0,
+    filter: Union[dict, bool] = False,
+    hysteresis: bool = True,
+    direction: str = "both",
+) -> SpikeData:
+    """Convert a SpikeInterface BaseRecording-like object into SpikeData.
+
+    Spikes are detected by thresholding the raw traces. The orientation of
+    the returned trace matrix is inferred (smaller dimension assumed channels).
+
+    Expected `recording` interface (duck-typed):
+      - get_traces(segment_index=..., ...) -> ndarray (channels,time) or (time,channels)
+      - sampling_frequency attribute or get_sampling_frequency() method
+      - get_num_channels() is optional and not strictly required
+    """
+    # Resolve sampling frequency
+    if hasattr(recording, "get_sampling_frequency"):
+        fs = float(recording.get_sampling_frequency())
+    else:
+        fs = float(getattr(recording, "sampling_frequency"))
+    if not fs or fs <= 0:
+        raise ValueError("A positive sampling_frequency (Hz) is required on recording")
+
+    # Retrieve traces (2D array) and coerce to numpy
+    traces = recording.get_traces(segment_index=segment_index)
+    data = np.asarray(traces)
+
+    # Ensure orientation is (channels, time) via robust heuristic:
+    # choose the smaller dimension as channels (typical: channels << time).
+    if data.ndim != 2:
+        raise ValueError("recording.get_traces() must return a 2D array")
+    data_ct = data if data.shape[0] <= data.shape[1] else data.T
+
+    # Delegate detection to SpikeData convenience constructor
+    return SpikeData.from_thresholding(
+        data_ct,
+        fs_Hz=fs,
+        threshold_sigma=threshold_sigma,
+        filter=filter,
+        hysteresis=hysteresis,
+        direction=direction,  # type: ignore[arg-type]
+    )
