@@ -10,6 +10,8 @@ A monorepo for a suite of analysis tools supporting automated closed-loop experi
 
 - **spikedata/**  
   Core module for spike train data representation, manipulation, and analysis.
+- **data_loaders/**  
+  Utilities to load various file formats (HDF5, NWB, KiloSort/Phy, SpikeInterface) into `SpikeData`.
 - *(other modules to be documented as they are added)*
 
 ---
@@ -287,3 +289,86 @@ tburst, edges, peak_amp = get_bursts(
 
 For detailed API documentation, see the docstrings in `spikedata/spikedata.py`.  
 If you are migrating from an older version, consult the notes in the module docstring for guidance on replacing removed features.
+
+---
+
+## Data Loaders Overview (`data_loaders/data_loaders.py`)
+
+These helpers convert common neurophysiology formats into `SpikeData`. Times are normalized to milliseconds.
+
+Import convenience:
+```python
+from data_loaders import (
+    load_spikedata_from_hdf5,
+    load_spikedata_from_hdf5_raw_thresholded,
+    load_spikedata_from_nwb,
+    load_spikedata_from_kilosort,
+    load_spikedata_from_spikeinterface,
+    load_spikedata_from_spikeinterface_recording,
+)
+```
+
+### HDF5 (generic)
+
+```python
+sd = load_spikedata_from_hdf5(
+    "data.h5",
+    spike_times_dataset="/units/spike_times",
+    spike_times_index_dataset="/units/spike_times_index",
+    spike_times_unit="s",  # 's' | 'ms' | 'samples' (requires fs_Hz)
+    fs_Hz=20000.0,
+)
+```
+
+Supported styles (specify exactly one):
+- Raster (units × time): `raster_dataset` + `raster_bin_size_ms`
+- Flat ragged arrays (NWB-like): `spike_times_dataset` + `spike_times_index_dataset`
+- Group-per-unit: `group_per_unit` (each child holds spike times)
+- Paired (indices, times): `idces_dataset` + `times_dataset` + `times_unit`
+
+Optional raw attachments: `raw_dataset` + `raw_time_dataset` with `raw_time_unit` in `s/ms/samples` (needs `fs_Hz` for samples).
+
+### HDF5 thresholding
+
+```python
+sd = load_spikedata_from_hdf5_raw_thresholded(
+    "raw.h5", dataset="/raw", fs_Hz=20000.0,
+    threshold_sigma=5.0, filter=True, hysteresis=True, direction="both",
+)
+```
+
+### NWB (Units)
+
+```python
+sd = load_spikedata_from_nwb("recording.nwb", prefer_pynwb=True)
+```
+Falls back to `h5py` if `pynwb` is unavailable.
+
+### KiloSort / Phy
+
+```python
+sd = load_spikedata_from_kilosort(
+    "path/to/ks/",
+    fs_Hz=30000.0,
+    cluster_info_tsv="cluster_info.tsv",  # optional
+)
+```
+
+### SpikeInterface
+
+From Sorting:
+```python
+sd = load_spikedata_from_spikeinterface(sorting)
+```
+
+From BaseRecording (thresholding):
+```python
+sd = load_spikedata_from_spikeinterface_recording(recording, threshold_sigma=5.0)
+```
+
+---
+
+### Notes
+- Times are stored in milliseconds in `SpikeData`.
+- Optional dependencies are imported lazily (e.g., `h5py`, `pynwb`, `pandas`).
+- See `tests/test_dataloaders.py` for runnable examples and edge cases.
