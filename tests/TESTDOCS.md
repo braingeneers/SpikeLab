@@ -219,13 +219,69 @@ This document explains what each test does in detail and why it matters. It is i
   - Why: Ensures metadata integrity for downstream labeling.
 
 - **test_kilosort_tsv_missing_columns_keeps_all**
-  - Purpose: Missing expected columns in TSV triggers “keep all clusters” behavior.
+  - Purpose: Missing expected columns in TSV triggers "keep all clusters" behavior.
   - Why: Graceful degradation with partial TSV metadata.
+
+---
+
+## Data exporter tests (`tests/test_dataexporters.py`)
+
+### Base test class (`BaseExportTest`)
+- **make_sd()**
+  - Creates standardized test data: 3 units (3 spikes, 2 spikes, empty), 25ms length, with metadata.
+  - Why: Consistent test data across all export formats ensures comparable validation and includes edge cases like empty units.
+
+### HDF5 exporters (`TestHDF5Exporters`)
+- Skipped if `h5py` is unavailable.
+- Uses temporary HDF5 files with automatic cleanup.
+
+- **test_export_hdf5_ragged_roundtrip**
+  - Purpose: Tests ragged array export (flat spike times + cumulative indices) with time unit conversion to seconds, then round-trip import.
+  - Why: Ragged arrays are the most storage-efficient format for sparse spike data and are used by NWB. Validates both export logic and time conversion accuracy.
+  - Key checks: All spike trains match original after round-trip within floating-point precision.
+
+- **test_export_hdf5_group_roundtrip_samples**
+  - Purpose: Tests group-per-unit export style with conversion to sample indices at 1000 Hz sampling rate.
+  - Why: Group style enables easy per-unit access without parsing index arrays. Sample units preserve exact timing relationships with original recordings.
+  - Key checks: Each unit gets its own dataset; times converted correctly from milliseconds to samples; round-trip preserves data.
+
+- **test_export_hdf5_paired_roundtrip_ms**
+  - Purpose: Tests paired arrays format (separate unit indices and spike times arrays) keeping original millisecond timing.
+  - Why: Paired format is intuitive and matches how many analysis pipelines represent spike data internally. Avoiding time conversion prevents precision loss.
+  - Key checks: Unit indices and spike times are properly paired; empty units handled correctly; round-trip preserves data.
+
+- **test_export_hdf5_raster**
+  - Purpose: Tests raster export for binned spike count analysis with 5ms bins.
+  - Why: Raster format enables analyses requiring fixed-size inputs (neural decoders, population dynamics). Essential for rate-based analyses.
+  - Key checks: Exported raster exactly matches SpikeData's own raster() method output.
+
+- **test_export_hdf5_with_raw**
+  - Purpose: Tests export of raw data arrays alongside spike data with proper time unit conversion.
+  - Why: Many analyses require both spike times and underlying continuous data stored together with consistent time bases.
+  - Key checks: Raw time array is correctly converted from milliseconds to seconds; raw data preserved.
+
+### NWB exporters (`TestNWBExporters`)
+- Skipped if `h5py` is unavailable.
+- Uses temporary NWB files with automatic cleanup.
+
+- **test_export_nwb_roundtrip**
+  - Purpose: Tests NWB format export and round-trip import compatibility.
+  - Why: NWB is becoming the standard for sharing neurophysiology data. Ensures exports create valid NWB files maintaining data integrity for use with other NWB tools.
+  - Key checks: Uses ragged array format internally; times converted to seconds (NWB standard); data organized in /units group; round-trip preserves all spike trains.
+
+### KiloSort exporters (`TestKiloSortExporters`)
+- **test_export_kilosort_roundtrip_samples**
+  - Purpose: Tests KiloSort format export (spike_times.npy, spike_clusters.npy) and round-trip import with sample-based timing.
+  - Why: KiloSort format is widely used in spike sorting community. Ensures compatibility with KiloSort, Phy, and other tools using this simple but effective format.
+  - Key checks: Unit indices map to cluster IDs; spike times converted to sample indices; round-trip through KiloSort loader preserves data; loader sorts by cluster ID matching export order.
+
+- **test_export_kilosort_custom_cluster_ids**
+  - Purpose: Tests KiloSort export with custom cluster ID assignment instead of default unit index mapping.
+  - Why: Preserves original cluster IDs from spike sorting results or enables specific numbering schemes. Important for data provenance.
+  - Key checks: Custom cluster IDs [10, 5, 7] correctly assigned; spike counts match expected values; empty units handled properly (don't contribute spikes to output).
 
 ---
 
 ## How to use this document
 - When modifying code, identify which tests validate the behavior you are touching and run those first.
 - For new features, mirror the style of existing tests and add explanations here to keep this document in sync.
-
-
