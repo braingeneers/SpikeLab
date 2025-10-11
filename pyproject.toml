@@ -16,10 +16,18 @@ dependencies = [
   "scipy>=1.5",
 ]
 
+[tool.setuptools.packages.find]
+include = ["spikedata*", "data_loaders*"]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",
   "black>=24.0",
+]
+docs = [
+  "sphinx>=7.0",
+  "sphinx-rtd-theme>=2.0",
+  "sphinx-autodoc-typehints>=1.25",
 ]
 
 [tool.black]
