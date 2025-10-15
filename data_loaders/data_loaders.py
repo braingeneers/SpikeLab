@@ -511,7 +511,10 @@ def load_spikedata_from_kilosort(
     include_noise: bool = False,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
-    """Load KiloSort/Phy outputs into SpikeData.
+    """
+    # misses critical information about waveform data - load if it same in file and put in spikedata
+
+    Load KiloSort/Phy outputs into SpikeData.
 
     Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
     and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
