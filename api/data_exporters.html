@@ -1,0 +1,691 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>data_exporters module &mdash; IntegratedAnalysisTools 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=7026087e"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="data_loaders module" href="data_loaders.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IntegratedAnalysisTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-installation">Basic Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#development-installation">Development Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#documentation-build">Documentation Build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../spikedata.html">SpikeData Class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#key-features">Key Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#class-attributes">Class Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../class_methods/index.html">Class Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/firing_rates.html">Firing Rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/interspike_intervals.html">Interspike Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/data_selection.html">Data Selection and Manipulation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/time_windowing.html">Time Windowing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/latency_analysis.html">Latency Analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/export_methods.html">Export Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../standalone_utilities.html">Standalone Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../migration_tips.html">Migration &amp; Usage Tips</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#api-changes-in-2025-09-refactor">API Changes in 2025-09 Refactor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#removed-deprecated">Removed/Deprecated</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5.html#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html">HDF5 Thresholding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/spikeinterface.html">SpikeInterface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#notes">Notes</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="spikedata.html">spikedata module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html#spikedata-class">SpikeData Class</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html#standalone-functions">Standalone Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#loader-functions">Loader Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#nwb-loader">NWB Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#kilosort-loader">KiloSort Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#exporter-functions">Exporter Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#hdf5-exporter">HDF5 Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#nwb-exporter">NWB Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#kilosort-exporter">KiloSort Exporter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#module-index">Module Index</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IntegratedAnalysisTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">data_exporters module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/data_exporters.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-data_loaders.data_exporters">
+<span id="data-exporters-module"></span><h1>data_exporters module<a class="headerlink" href="#module-data_loaders.data_exporters" title="Link to this heading"></a></h1>
+<p>Data exporters that mirror data_loaders, writing SpikeData to common formats.</p>
+<p>Provided exporters:
+- HDF5 generic, with four styles:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>raster (units x time) with a specified bin size in ms</p></li>
+<li><p>ragged arrays (flat spike_times + spike_times_index)</p></li>
+<li><p>group-per-unit (one dataset per unit)</p></li>
+<li><p>paired arrays (idces + times)</p></li>
+</ol>
+</div></blockquote>
+<ul class="simple">
+<li><p>NWB Units table (spike_times/spike_times_index) via h5py</p></li>
+<li><p>KiloSort/Phy (spike_times.npy + spike_clusters.npy)</p></li>
+</ul>
+<p>All exporters accept SpikeData times in milliseconds and convert to the
+target time units as needed.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="data_loaders.data_exporters.export_spikedata_to_hdf5">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ragged'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raster'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'idces'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_loaders.data_exporters.export_spikedata_to_hdf5" title="Link to this definition"></a></dt>
+<dd><p>Export a SpikeData to a generic HDF5 file using a chosen style.</p>
+<p>This function provides four different export styles to accommodate various
+data formats and analysis workflows. The spike times from SpikeData (stored
+internally in milliseconds) are converted to the requested time units for
+the output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the HDF5 file will be created (overwrites existing).</p></li>
+<li><p><strong>style</strong> (<em>Literal</em><em>[</em><em>&quot;raster&quot;</em><em>, </em><em>&quot;ragged&quot;</em><em>, </em><em>&quot;group&quot;</em><em>, </em><em>&quot;paired&quot;</em><em>]</em>) – Export format style.
+- “raster”: 2D binary/count matrix (units × time bins)
+- “ragged”: Flat concatenated spike times with cumulative indices
+- “group”: One HDF5 group containing one dataset per unit
+- “paired”: Two parallel arrays of unit indices and spike times</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<dl>
+<dt>Raster Style Parameters:</dt><dd><p>raster_dataset (str): HDF5 dataset name for the raster matrix.
+raster_bin_size_ms (Optional[float]): Bin size in milliseconds for rasterization.</p>
+<blockquote>
+<div><p>Required for raster style.</p>
+</div></blockquote>
+</dd>
+<dt>Ragged Arrays Style Parameters:</dt><dd><p>spike_times_dataset (str): Dataset name for concatenated spike times.
+spike_times_index_dataset (str): Dataset name for cumulative spike count indices.
+spike_times_unit (TimeUnit): Time unit for spike times (‘ms’, ‘s’, ‘samples’).
+fs_Hz (Optional[float]): Sampling frequency in Hz. Required when any unit is ‘samples’.</p>
+</dd>
+<dt>Group-per-Unit Style Parameters:</dt><dd><p>group_per_unit (str): HDF5 group name containing per-unit datasets.
+group_time_unit (TimeUnit): Time unit for individual unit datasets.</p>
+</dd>
+<dt>Paired Arrays Style Parameters:</dt><dd><p>idces_dataset (str): Dataset name for unit indices array.
+times_dataset (str): Dataset name for spike times array.
+times_unit (TimeUnit): Time unit for spike times.</p>
+</dd>
+<dt>Optional Raw Data Parameters:</dt><dd><p>raw_dataset (Optional[str]): Dataset name for raw analog data (if present in sd).
+raw_time_dataset (Optional[str]): Dataset name for raw data time vector.
+raw_time_unit (TimeUnit): Time unit for raw data timestamps.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If h5py is not available.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If style is invalid, required parameters are missing, or
+    fs_Hz is needed but not provided for ‘samples’ unit.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The function creates or overwrites the target HDF5 file.</p></li>
+<li><p>Raw data is only written if both raw_dataset and raw_time_dataset are
+provided and the SpikeData contains raw_data and raw_time attributes.</p></li>
+<li><p>For raster style, the bin size is stored as an attribute for provenance.</p></li>
+<li><p>Parameters mirror the corresponding loader function to ease round-tripping.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export as ragged arrays in seconds</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;ragged&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                         <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export as raster with 1ms bins</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                         <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="data_loaders.data_exporters.export_spikedata_to_nwb">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_loaders.data_exporters.export_spikedata_to_nwb" title="Link to this definition"></a></dt>
+<dd><p>Export SpikeData to a minimal NWB-like file using h5py.</p>
+<p>Creates a minimal NWB-compatible HDF5 file containing spike times in the
+standard ragged array format used by the NWB specification. The output
+uses seconds as the time unit, which is the NWB standard for spike times.
+This format is sufficient for round-tripping with the NWB loader when
+prefer_pynwb=False.</p>
+<p>The function creates an HDF5 file with the structure:
+/{group}/{spike_times_dataset} - concatenated spike times in seconds
+/{group}/{spike_times_index_dataset} - cumulative spike counts per unit</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the NWB file will be created (overwrites existing).</p></li>
+<li><p><strong>spike_times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the dataset containing concatenated spike times.
+Default is “spike_times” per NWB convention.</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the dataset containing cumulative indices.
+Default is “spike_times_index” per NWB convention.</p></li>
+<li><p><strong>group</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the HDF5 group to contain the datasets.
+Default is “units” per NWB convention.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If h5py is not available.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Spike times are automatically converted from milliseconds to seconds.</p></li>
+<li><p>The output file structure follows NWB conventions but is minimal
+(does not include full NWB metadata or schema validation).</p></li>
+<li><p>Empty units (no spikes) are handled correctly in the index array.</p></li>
+<li><p>This is compatible with the load_spikedata_from_nwb function when
+prefer_pynwb=False.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export to standard NWB format</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;experiment.nwb&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with custom dataset names</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;data.nwb&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;my_spike_times&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">group</span><span class="o">=</span><span class="s2">&quot;my_units&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="data_loaders.data_exporters.export_spikedata_to_kilosort">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_kilosort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_clusters_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_clusters.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'samples'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_kilosort"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_loaders.data_exporters.export_spikedata_to_kilosort" title="Link to this definition"></a></dt>
+<dd><p>Export SpikeData to a KiloSort/Phy-like folder.</p>
+<p>Creates the standard KiloSort output format consisting of two numpy arrays:
+spike_times.npy and spike_clusters.npy. Each spike event is represented
+by its timestamp and the cluster (unit) ID it belongs to. This format
+is compatible with Phy for manual curation and other spike sorting tools.</p>
+<p>The function flattens all spike trains into two parallel arrays where
+each spike gets a timestamp and cluster assignment. Units are mapped to
+cluster IDs either using the provided cluster_ids sequence or by default
+using sequential integers (0, 1, 2, …).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>folder</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Directory path where the .npy files will be created.
+Created if it doesn’t exist.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz. Required for time unit conversion,
+especially when time_unit=’samples’.</p></li>
+<li><p><strong>spike_times_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename for the spike times array.
+Default is “spike_times.npy”.</p></li>
+<li><p><strong>spike_clusters_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename for the spike clusters array.
+Default is “spike_clusters.npy”.</p></li>
+<li><p><strong>time_unit</strong> (<em>TimeUnit</em>) – Time unit for output spike times.
+- ‘samples’: Integer sample indices (default, KiloSort standard)
+- ‘ms’: Milliseconds (float)
+- ‘s’: Seconds (float)</p></li>
+<li><p><strong>cluster_ids</strong> (<em>Optional</em><em>[</em><em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em><em>]</em>) – Custom cluster IDs for each unit.
+If None, uses sequential integers 0, 1, 2, …
+Length must match sd.N.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Paths to the created spike_times.npy and spike_clusters.npy files.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If fs_Hz is not positive, or if cluster_ids length doesn’t match sd.N,
+    or if time_unit is invalid.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#OSError" title="(in Python v3.14)"><strong>OSError</strong></a> – If the folder cannot be created.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The output arrays have the same length (one entry per spike across all units).</p></li>
+<li><p>Spike times are sorted by unit order, not chronologically.</p></li>
+<li><p>Empty units (no spikes) don’t contribute entries to the output arrays.</p></li>
+<li><p>The ‘samples’ time unit produces integer arrays suitable for KiloSort/Phy.</p></li>
+<li><p>Cluster IDs can be arbitrary integers and don’t need to be sequential.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with default sample-based timing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">paths</span> <span class="o">=</span> <span class="n">export_spikedata_to_kilosort</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;kilosort_output&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">paths</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with custom cluster IDs and millisecond timing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_kilosort</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
+<span class="gp">... </span>                             <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                             <span class="n">cluster_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<section id="exporter-functions">
+<h2>Exporter Functions<a class="headerlink" href="#exporter-functions" title="Link to this heading"></a></h2>
+<section id="hdf5-exporter">
+<h3>HDF5 Exporter<a class="headerlink" href="#hdf5-exporter" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ragged'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raster'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'idces'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd><p>Export a SpikeData to a generic HDF5 file using a chosen style.</p>
+<p>This function provides four different export styles to accommodate various
+data formats and analysis workflows. The spike times from SpikeData (stored
+internally in milliseconds) are converted to the requested time units for
+the output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the HDF5 file will be created (overwrites existing).</p></li>
+<li><p><strong>style</strong> (<em>Literal</em><em>[</em><em>&quot;raster&quot;</em><em>, </em><em>&quot;ragged&quot;</em><em>, </em><em>&quot;group&quot;</em><em>, </em><em>&quot;paired&quot;</em><em>]</em>) – Export format style.
+- “raster”: 2D binary/count matrix (units × time bins)
+- “ragged”: Flat concatenated spike times with cumulative indices
+- “group”: One HDF5 group containing one dataset per unit
+- “paired”: Two parallel arrays of unit indices and spike times</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<dl>
+<dt>Raster Style Parameters:</dt><dd><p>raster_dataset (str): HDF5 dataset name for the raster matrix.
+raster_bin_size_ms (Optional[float]): Bin size in milliseconds for rasterization.</p>
+<blockquote>
+<div><p>Required for raster style.</p>
+</div></blockquote>
+</dd>
+<dt>Ragged Arrays Style Parameters:</dt><dd><p>spike_times_dataset (str): Dataset name for concatenated spike times.
+spike_times_index_dataset (str): Dataset name for cumulative spike count indices.
+spike_times_unit (TimeUnit): Time unit for spike times (‘ms’, ‘s’, ‘samples’).
+fs_Hz (Optional[float]): Sampling frequency in Hz. Required when any unit is ‘samples’.</p>
+</dd>
+<dt>Group-per-Unit Style Parameters:</dt><dd><p>group_per_unit (str): HDF5 group name containing per-unit datasets.
+group_time_unit (TimeUnit): Time unit for individual unit datasets.</p>
+</dd>
+<dt>Paired Arrays Style Parameters:</dt><dd><p>idces_dataset (str): Dataset name for unit indices array.
+times_dataset (str): Dataset name for spike times array.
+times_unit (TimeUnit): Time unit for spike times.</p>
+</dd>
+<dt>Optional Raw Data Parameters:</dt><dd><p>raw_dataset (Optional[str]): Dataset name for raw analog data (if present in sd).
+raw_time_dataset (Optional[str]): Dataset name for raw data time vector.
+raw_time_unit (TimeUnit): Time unit for raw data timestamps.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If h5py is not available.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If style is invalid, required parameters are missing, or
+    fs_Hz is needed but not provided for ‘samples’ unit.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The function creates or overwrites the target HDF5 file.</p></li>
+<li><p>Raw data is only written if both raw_dataset and raw_time_dataset are
+provided and the SpikeData contains raw_data and raw_time attributes.</p></li>
+<li><p>For raster style, the bin size is stored as an attribute for provenance.</p></li>
+<li><p>Parameters mirror the corresponding loader function to ease round-tripping.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export as ragged arrays in seconds</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;ragged&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                         <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export as raster with 1ms bins</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output.h5&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                         <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="nwb-exporter">
+<h3>NWB Exporter<a class="headerlink" href="#nwb-exporter" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd><p>Export SpikeData to a minimal NWB-like file using h5py.</p>
+<p>Creates a minimal NWB-compatible HDF5 file containing spike times in the
+standard ragged array format used by the NWB specification. The output
+uses seconds as the time unit, which is the NWB standard for spike times.
+This format is sufficient for round-tripping with the NWB loader when
+prefer_pynwb=False.</p>
+<p>The function creates an HDF5 file with the structure:
+/{group}/{spike_times_dataset} - concatenated spike times in seconds
+/{group}/{spike_times_index_dataset} - cumulative spike counts per unit</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the NWB file will be created (overwrites existing).</p></li>
+<li><p><strong>spike_times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the dataset containing concatenated spike times.
+Default is “spike_times” per NWB convention.</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the dataset containing cumulative indices.
+Default is “spike_times_index” per NWB convention.</p></li>
+<li><p><strong>group</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the HDF5 group to contain the datasets.
+Default is “units” per NWB convention.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If h5py is not available.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Spike times are automatically converted from milliseconds to seconds.</p></li>
+<li><p>The output file structure follows NWB conventions but is minimal
+(does not include full NWB metadata or schema validation).</p></li>
+<li><p>Empty units (no spikes) are handled correctly in the index array.</p></li>
+<li><p>This is compatible with the load_spikedata_from_nwb function when
+prefer_pynwb=False.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export to standard NWB format</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;experiment.nwb&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with custom dataset names</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_nwb</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;data.nwb&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;my_spike_times&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">group</span><span class="o">=</span><span class="s2">&quot;my_units&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="kilosort-exporter">
+<h3>KiloSort Exporter<a class="headerlink" href="#kilosort-exporter" title="Link to this heading"></a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-prename descclassname"><span class="pre">data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_kilosort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_clusters_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_clusters.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'samples'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/data_loaders/data_exporters.html#export_spikedata_to_kilosort"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id2" title="Link to this definition"></a></dt>
+<dd><p>Export SpikeData to a KiloSort/Phy-like folder.</p>
+<p>Creates the standard KiloSort output format consisting of two numpy arrays:
+spike_times.npy and spike_clusters.npy. Each spike event is represented
+by its timestamp and the cluster (unit) ID it belongs to. This format
+is compatible with Phy for manual curation and other spike sorting tools.</p>
+<p>The function flattens all spike trains into two parallel arrays where
+each spike gets a timestamp and cluster assignment. Units are mapped to
+cluster IDs either using the provided cluster_ids sequence or by default
+using sequential integers (0, 1, 2, …).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikedata.SpikeData" title="spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>folder</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Directory path where the .npy files will be created.
+Created if it doesn’t exist.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz. Required for time unit conversion,
+especially when time_unit=’samples’.</p></li>
+<li><p><strong>spike_times_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename for the spike times array.
+Default is “spike_times.npy”.</p></li>
+<li><p><strong>spike_clusters_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename for the spike clusters array.
+Default is “spike_clusters.npy”.</p></li>
+<li><p><strong>time_unit</strong> (<em>TimeUnit</em>) – Time unit for output spike times.
+- ‘samples’: Integer sample indices (default, KiloSort standard)
+- ‘ms’: Milliseconds (float)
+- ‘s’: Seconds (float)</p></li>
+<li><p><strong>cluster_ids</strong> (<em>Optional</em><em>[</em><em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em><em>]</em>) – Custom cluster IDs for each unit.
+If None, uses sequential integers 0, 1, 2, …
+Length must match sd.N.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Paths to the created spike_times.npy and spike_clusters.npy files.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If fs_Hz is not positive, or if cluster_ids length doesn’t match sd.N,
+    or if time_unit is invalid.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#OSError" title="(in Python v3.14)"><strong>OSError</strong></a> – If the folder cannot be created.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The output arrays have the same length (one entry per spike across all units).</p></li>
+<li><p>Spike times are sorted by unit order, not chronologically.</p></li>
+<li><p>Empty units (no spikes) don’t contribute entries to the output arrays.</p></li>
+<li><p>The ‘samples’ time unit produces integer arrays suitable for KiloSort/Phy.</p></li>
+<li><p>Cluster IDs can be arbitrary integers and don’t need to be sequential.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with default sample-based timing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">paths</span> <span class="o">=</span> <span class="n">export_spikedata_to_kilosort</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;kilosort_output&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">paths</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Export with custom cluster IDs and millisecond timing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">export_spikedata_to_kilosort</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">30000</span><span class="p">,</span>
+<span class="gp">... </span>                             <span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                             <span class="n">cluster_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data_loaders.html" class="btn btn-neutral float-left" title="data_loaders module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, IntegratedAnalysisTools Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1194 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikedata.spikedata &mdash; IntegratedAnalysisTools 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=7026087e"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            IntegratedAnalysisTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started.html#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#basic-installation">Basic Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#development-installation">Development Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#documentation-build">Documentation Build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#loading-data">Loading Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../getting_started.html#exporting-data">Exporting Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../getting_started.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../spikedata.html">SpikeData Class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../spikedata.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../spikedata.html#key-features">Key Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../spikedata.html#class-attributes">Class Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../class_methods/index.html">Class Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/firing_rates.html">Firing Rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/interspike_intervals.html">Interspike Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/data_selection.html">Data Selection and Manipulation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/time_windowing.html">Time Windowing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/latency_analysis.html">Latency Analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../class_methods/export_methods.html">Export Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../standalone_utilities.html">Standalone Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../migration_tips.html">Migration &amp; Usage Tips</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../spikedata.html#api-changes-in-2025-09-refactor">API Changes in 2025-09 Refactor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../spikedata.html#removed-deprecated">Removed/Deprecated</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../data_loaders.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data_loaders/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/hdf5.html#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_loaders/hdf5_thresholding.html">HDF5 Thresholding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_loaders/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_loaders/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_loaders/spikeinterface.html">SpikeInterface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../data_loaders.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../data_exporters.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_exporters/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../data_exporters/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../data_exporters.html#notes">Notes</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/spikedata.html">spikedata module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/spikedata.html#spikedata-class">SpikeData Class</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/spikedata.html#standalone-functions">Standalone Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#loader-functions">Loader Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#nwb-loader">NWB Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#kilosort-loader">KiloSort Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/data_exporters.html">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#exporter-functions">Exporter Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_exporters.html#nwb-exporter">NWB Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../api/data_exporters.html#kilosort-exporter">KiloSort Exporter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/index.html#module-index">Module Index</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">IntegratedAnalysisTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikedata.spikedata</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikedata.spikedata</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">SpikeData core module.</span>
+
+<span class="sd">Refactor (2025-09): API simplification and STTC reorganization</span>
+<span class="sd">------------------------------------------------------------</span>
+<span class="sd">This module was refactored to streamline the public API and colocate related</span>
+<span class="sd">spike time tiling (STTC) helpers. The following previously exported items were</span>
+<span class="sd">removed to reduce surface area and will be replaced by focused utilities:</span>
+
+<span class="sd">- Nest/NEST features: NestIDNeuronAttributes, SpikeData.from_nest</span>
+<span class="sd">- MuscleBeachTools: SpikeData.from_mbt_neurons</span>
+<span class="sd">- ISI analytics: SpikeData.isi_skewness, SpikeData.isi_log_histogram,</span>
+<span class="sd">  SpikeData.isi_threshold_cma</span>
+<span class="sd">- Burst/avalanche/DCC: SpikeData.burstiness_index, SpikeData.avalanches,</span>
+<span class="sd">  SpikeData.avalanche_duration_size, SpikeData.deviation_from_criticality,</span>
+<span class="sd">  DCCResult, _p_and_alpha</span>
+<span class="sd">- Randomization: SpikeData.randomized, randomize_raster, randomize_raster_greedy,</span>
+<span class="sd">  randomize_raster_okun, _okun_swap, best_effort_sample</span>
+<span class="sd">- Rates/correlations/hist utils: population_firing_rate (function and method),</span>
+<span class="sd">  fano_factors, pearson, cumulative_moving_average, burst_detection</span>
+
+<span class="sd">Reorganization:</span>
+<span class="sd">- STTC helpers `_sttc_ta` and `_sttc_na` are colocated with the public</span>
+<span class="sd">  `spike_time_tiling` function for clarity. Behavior is unchanged.</span>
+
+<span class="sd">Notes for users migrating from older versions:</span>
+<span class="sd">- Population rate: use `SpikeData.binned(bin_size)` and smooth externally</span>
+<span class="sd">  (e.g., `np.convolve`) to reproduce prior behavior.</span>
+<span class="sd">- Pairwise correlations: compute with your preferred method (e.g., NumPy or</span>
+<span class="sd">  SciPy) on `SpikeData.raster()` output.</span>
+<span class="sd">- Burst-related functionality will be provided by replacement modules.</span>
+
+<span class="sd">No behavior changes were made to remaining APIs unless noted in their docstrings.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">heapq</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDArray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">sparse</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">spike_time_tiling</span><span class="p">,</span>
+    <span class="n">butter_filter</span><span class="p">,</span>
+    <span class="n">_sttc_ta</span><span class="p">,</span>
+    <span class="n">_sttc_na</span><span class="p">,</span>
+    <span class="n">_spike_time_tiling</span><span class="p">,</span>
+    <span class="n">_resampled_isi</span><span class="p">,</span>
+    <span class="n">_train_from_i_t_list</span><span class="p">,</span>
+    <span class="n">swap</span><span class="p">,</span>
+    <span class="n">randomize</span><span class="p">,</span>
+    <span class="n">get_pop_rate</span><span class="p">,</span>
+    <span class="n">get_bursts</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;SpikeData&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;spike_time_tiling&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;swap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;randomize&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_pop_rate&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_bursts&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="SpikeData">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for handling and manipulating neuronal spike data.</span>
+
+<span class="sd">    This class provides a way to load, process, and analyze spike data from different</span>
+<span class="sd">    input types, including lists of indices and times, lists of channel-time pairs,</span>
+<span class="sd">    or prebuilt spike trains.</span>
+
+<span class="sd">    Refactor 2025-09:</span>
+<span class="sd">    - Removed niche/deprecated features (nest/mbt constructors, burst/avalanche/DCC,</span>
+<span class="sd">      randomization, legacy correlation/utilities). Core loading, binning, rates,</span>
+<span class="sd">      and STTC functionality remain unchanged.</span>
+
+<span class="sd">    Each instance of SpikeData has the following attributes:</span>
+
+<span class="sd">    - train: The main data attribute. This is a list of numpy arrays, where each array</span>
+<span class="sd">      contains the spike times for a particular neuron.</span>
+
+<span class="sd">    - N: The number of neurons in the dataset.</span>
+
+<span class="sd">    - length: The length of the spike train, defaults to the time of the last spike.</span>
+
+<span class="sd">    - neuron_attributes: A list of attribute objects for each neuron. Each item should</span>
+<span class="sd">      be a dataclass containing a consistent set of fields.</span>
+
+<span class="sd">    - metadata: A dictionary containing any additional information or metadata about the</span>
+<span class="sd">      spike data.</span>
+
+<span class="sd">    - raw_data: If provided, this numpy array contains the raw time series data.</span>
+
+<span class="sd">    - raw_time: This is either a numpy array of sample times, or a single float</span>
+<span class="sd">      representing a sample rate in kHz.</span>
+
+<span class="sd">    In addition to these data attributes, the SpikeData class also provides some useful</span>
+<span class="sd">    methods for working with spike data, such as iterating through spike times or</span>
+<span class="sd">    (index, time) pairs for all units in time order.</span>
+
+<span class="sd">    Note that SpikeData expects spike times to be in units of milliseconds, unless a</span>
+<span class="sd">    list of Neuron objects is given; these have spike times in units of samples, which</span>
+<span class="sd">    are converted to milliseconds using the sample rate saved in the Neuron object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SpikeData.from_idces_times">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.from_idces_times">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_idces_times</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a SpikeData object with N total units based on lists of unit indices and</span>
+<span class="sd">        spike times. If N is not provided, it is set to one more than the maximum index.</span>
+
+<span class="sd">        All metadata parameters of the regular constructor are accepted.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">_train_from_i_t_list</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.from_raster">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.from_raster">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bin_size_ms</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a SpikeData object based on a spike raster matrix with shape (N, T),</span>
+<span class="sd">        where T is a number of time bins.</span>
+
+<span class="sd">        To make it clear which bin each spike belongs to, the generated spike times are</span>
+<span class="sd">        evenly spaced within each bin. For example, if a unit fires 3 times in a 10 ms</span>
+<span class="sd">        bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.</span>
+
+<span class="sd">        All metadata parameters of the regular constructor are accepted.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">N</span><span class="p">,</span> <span class="n">T</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">raster</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()):</span>
+            <span class="n">n_spikes</span> <span class="o">=</span> <span class="n">raster</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="n">t</span> <span class="o">*</span> <span class="n">bin_size_ms</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_size_ms</span><span class="p">,</span> <span class="n">n_spikes</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="n">T</span> <span class="o">*</span> <span class="n">bin_size_ms</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.from_events">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.from_events">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_events</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a SpikeData object with N total units based on a list of</span>
+<span class="sd">        events, each an (index, time) pair. If N is not provided, it is</span>
+<span class="sd">        set to one more than the maximum index.</span>
+
+<span class="sd">        All metadata parameters of the regular constructor are accepted.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idces</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+            <span class="n">idces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_idces_times</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.from_neo_spiketrains">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.from_neo_spiketrains">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_neo_spiketrains</span><span class="p">(</span><span class="n">spiketrains</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a SpikeData object from a list of neo.SpikeTrain objects. The spike times</span>
+<span class="sd">        can be in any units, as they will be converted to regular np.arrays in units of</span>
+<span class="sd">        milliseconds.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># This is done in a weird way that involves an extra copy of the data because</span>
+        <span class="c1"># there&#39;s no way to convert the units without modifying the object or importing</span>
+        <span class="c1"># Quantities. So we copy and in-place change units.</span>
+        <span class="n">trains</span> <span class="o">=</span> <span class="p">[</span><span class="n">st</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">spiketrains</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">trains</span><span class="p">:</span>
+            <span class="n">st</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="s2">&quot;ms&quot;</span>
+        <span class="c1"># This on the other hand is NOT a copy, it just allocates new wrapper objects</span>
+        <span class="c1"># wihle leaving the data buffers intact. This is necessary because some key</span>
+        <span class="c1"># numpy ufuncs like np.sort() will not work on the Quantity objects.</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">st</span><span class="p">)</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">spiketrains</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.from_thresholding">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.from_thresholding">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_thresholding</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="o">=</span><span class="mf">20e3</span><span class="p">,</span>
+        <span class="n">threshold_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+        <span class="nb">filter</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">hysteresis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">direction</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;up&quot;</span><span class="p">,</span> <span class="s2">&quot;down&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a SpikeData object from raw data by filtering and thresholding raw</span>
+<span class="sd">        electrophysiological data formatted as an array with shape (channels, time).</span>
+
+<span class="sd">        If filter is True (default), filter the data using a third-order Butterworth</span>
+<span class="sd">        filter with passband 300 Hz to 6 kHz. To use different filter parameters, pass a</span>
+<span class="sd">        dictionary, which will be passed as keyword arguments to butter_filter(). If</span>
+<span class="sd">        filter is falsy, no filtering is done.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">filter</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">filter</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="nb">filter</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">lowcut</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">highcut</span><span class="o">=</span><span class="mf">6e3</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">butter_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span> <span class="o">**</span><span class="nb">filter</span><span class="p">)</span>
+
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">threshold_sigma</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;both&quot;</span><span class="p">:</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">data</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">threshold</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;up&quot;</span><span class="p">:</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&gt;</span> <span class="n">threshold</span>
+        <span class="k">elif</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;down&quot;</span><span class="p">:</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">threshold</span>
+
+        <span class="k">if</span> <span class="n">hysteresis</span><span class="p">:</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span>
+            <span class="n">raster</span><span class="p">,</span> <span class="mf">1e3</span> <span class="o">/</span> <span class="n">fs_Hz</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">raw_time</span><span class="o">=</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.__init__">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">train</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">raw_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">raw_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">NDArray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize a SpikeData object using a list of spike trains, each a</span>
+<span class="sd">        list of spike times in milliseconds.</span>
+
+<span class="sd">        Arbitrary raw timeseries data, not associated with particular units,</span>
+<span class="sd">        can be passed in as `raw_data`, an array whose last dimension</span>
+<span class="sd">        corresponds to the times given in `raw_time`. The `raw_time` argument</span>
+<span class="sd">        can also be a sample rate in kHz, in which case it is generated</span>
+<span class="sd">        assuming that the start of the raw data corresponds with t=0.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Make sure each individual spike train is sorted. As a side effect,</span>
+        <span class="c1"># also copy each array to avoid aliasing.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="k">for</span> <span class="n">times</span> <span class="ow">in</span> <span class="n">train</span><span class="p">]</span>
+
+        <span class="c1"># The length of the spike train defaults to the last spike</span>
+        <span class="c1"># time it contains.</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+
+        <span class="c1"># If a number of units was provided, make the list of spike</span>
+        <span class="c1"># trains consistent with that number.</span>
+        <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">))]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+
+        <span class="c1"># Add the raw data if present, including generating raw time.</span>
+        <span class="k">if</span> <span class="n">raw_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">raw_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raw_time</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">raw_time</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of `raw_data` and &quot;</span> <span class="s2">&quot;`raw_time` must match.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">raw_data</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">raw_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Must provide both or neither of &quot;</span> <span class="s2">&quot;`raw_data` and `raw_time`.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Add metadata and neuron_attributes, then validate that neuron_attributes</span>
+        <span class="c1"># contains the right number of neurons.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Note that if there is no metadata, it should be an empty dict, because that</span>
+        <span class="c1"># way arbitrary fields can be added later, but null neuron_attributes requires</span>
+        <span class="c1"># storing None so we don&#39;t get misaligned by concatenating an empty list later.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">neuron_attributes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">neuron_attributes</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;neuron_attributes has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">neuron_attributes</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;instead of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> items.&quot;</span>
+                <span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">times</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Iterate spike times for all units in time order.&quot;</span>
+        <span class="k">return</span> <span class="n">heapq</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">events</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Iterate (index,time) pairs for all units in time order.&quot;</span>
+        <span class="k">return</span> <span class="n">heapq</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+            <span class="o">*</span><span class="p">[</span><span class="nb">zip</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">)],</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="SpikeData.idces_times">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.idces_times">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">idces_times</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a matched pair of numpy arrays containing unit indices and times for</span>
+<span class="sd">        all events.</span>
+
+<span class="sd">        This is not a property unlike `times` and `events` because the lists must</span>
+<span class="sd">        actually be constructed in memory.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idces</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
+            <span class="n">idces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">idces</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.frames">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.frames">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iterate new SpikeData objects corresponding to subwindows of a given `length`</span>
+<span class="sd">        with a fixed `overlap`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.binned">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.binned">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">binned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">40.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Quantize time into intervals of bin_size and counts the number of events in</span>
+<span class="sd">        each bin, considered as a lower half-open interval of times, with the exception</span>
+<span class="sd">        that events at time precisely zero will be included in the first bin.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior. Can be paired with external smoothing to</span>
+<span class="sd">        replace the removed population_firing_rate utility.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>  <span class="c1"># type: ignore</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.binned_meanrate">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.binned_meanrate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">binned_meanrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;kHz&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the mean firing rate across the population in each time bin.</span>
+
+<span class="sd">        The rate is calculated as the number of events in each bin divided by the bin</span>
+<span class="sd">        size and number of units. The unit may be either `Hz` or `kHz` (default).</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">binned_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">binned</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">/</span> <span class="n">bin_size</span>
+        <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;Hz&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">1e3</span> <span class="o">*</span> <span class="n">binned_rate</span>
+        <span class="k">elif</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;kHz&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">binned_rate</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown unit </span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2"> (try Hz or kHz)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.rates">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.rates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;kHz&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the mean firing rate of each neuron as an average number of events per</span>
+<span class="sd">        time over the length of the data. The unit may be `Hz` or `kHz` (default).</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="k">if</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;Hz&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">1e3</span> <span class="o">*</span> <span class="n">rates</span>
+        <span class="k">elif</span> <span class="n">unit</span> <span class="o">==</span> <span class="s2">&quot;kHz&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rates</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown unit </span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2"> (try Hz or kHz)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.resampled_isi">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.resampled_isi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resampled_isi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate firing rate of each unit at the given times by calculating the</span>
+<span class="sd">        interspike intervals and interpolating their inverse.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">_resampled_isi</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.subset">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a new SpikeData with spike times for only some units, selected either by</span>
+<span class="sd">        their indices or by an ID stored under a given key in the neuron_attributes.</span>
+
+<span class="sd">        Units are included in the output according to their order in self.train, not the</span>
+<span class="sd">        order in the unit list (which is treated as a set).</span>
+
+<span class="sd">        If IDs are not unique, every neuron which matches is included in the output.</span>
+<span class="sd">        Neurons whose neuron_attributes entry does not have the key are always excluded.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="n">units</span><span class="p">]</span>
+        <span class="n">units</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">by</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+            <span class="n">units</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">i</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">units</span>
+            <span class="p">}</span>
+
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+                <span class="n">train</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
+            <span class="n">train</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">),</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">,</span>
+            <span class="n">raw_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.subtime">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.subtime">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subtime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a new SpikeData with only spikes in a time range, closed on top but open</span>
+<span class="sd">        on the bottom unless the lower bound is zero, consistent with the binning</span>
+<span class="sd">        methods. This is to ensure no overlap between adjacent slices.</span>
+
+<span class="sd">        Start and end can be negative, in which case they are counted backwards from the</span>
+<span class="sd">        end. They can also be None or Ellipsis, in which case that end of the data is</span>
+<span class="sd">        not truncated. All metadata and neuron data are propagated, while raw data is</span>
+<span class="sd">        sliced to the same range of times, including all samples in the closed interval.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">elif</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+
+        <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="k">elif</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="k">elif</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+
+        <span class="c1"># Special case out the start=0 case by nopping the comparison.</span>
+        <span class="n">lower</span> <span class="o">=</span> <span class="n">start</span> <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="c1"># Subset the spike train by time.</span>
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[(</span><span class="n">t</span> <span class="o">&gt;</span> <span class="n">lower</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">)]</span> <span class="o">-</span> <span class="n">start</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
+
+        <span class="c1"># Subset and propagate the raw data.</span>
+        <span class="n">rawmask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&gt;=</span> <span class="n">lower</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
+            <span class="n">train</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span>
+            <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">[</span><span class="n">rawmask</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span>
+            <span class="n">raw_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rawmask</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.__getitem__">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.__getitem__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If a slice is provided, it is taken in time as with self.subtime(), but if an</span>
+<span class="sd">        iterable is provided, it is taken as a list of neuron indices to select using</span>
+<span class="sd">        self.subset().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.append">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.append">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spikeData</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append the spike times from another SpikeData object to this one, optionally</span>
+<span class="sd">        offsetting them by a given amount from the end of the current data.</span>
+
+<span class="sd">        The two SpikeData objects must have the same number of neurons.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot concatenate SpikeData with different N&quot;</span><span class="p">)</span>
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">tr1</span><span class="p">,</span> <span class="n">tr2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">tr1</span><span class="p">,</span> <span class="n">tr2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">raw_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_data</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_time</span><span class="p">))</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span>
+        <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
+            <span class="n">train</span><span class="p">,</span>
+            <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
+            <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                <span class="o">**</span><span class="n">spikeData</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="p">},</span>  <span class="c1"># Append the dicts together</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.sparse_raster">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.sparse_raster">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sparse_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Bin all spike times and create a sparse array where entry (i,j) is the number of</span>
+<span class="sd">        times unit i fired in bin j.</span>
+
+<span class="sd">        Bins are left-open and right-closed intervals except the first, which will</span>
+<span class="sd">        capture any spikes occurring exactly at t=0.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ts</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+            <span class="nb">int</span>
+        <span class="p">)</span>
+        <span class="n">units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span>
+        <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
+        <span class="c1"># Use csr_matrix for SciPy &lt; 1.8 compatibility (csr_array not available)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">ret</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.raster">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.raster">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Bin all spike times and create a dense array where entry (i,j) is the number of</span>
+<span class="sd">        times cell i fired in bin j.</span>
+
+<span class="sd">        Bins are left-open and right-closed intervals except the first, which will</span>
+<span class="sd">        capture any spikes occurring exactly at t=0.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.interspike_intervals">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.interspike_intervals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interspike_intervals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Produce a list of arrays of interspike intervals per unit.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.concatenate_spike_data">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.concatenate_spike_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">concatenate_spike_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add the units from another SpikeData object to this one. The new units are</span>
+<span class="sd">        assigned indices starting from the end of the current data. If the new units</span>
+<span class="sd">        have a longer spike train, it is truncated to the length of the current data.</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">and</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">or</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Concatenating SpikeData where one has no neuron_attributes.&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.spike_time_tilings">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.spike_time_tilings">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tilings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the full spike time tiling coefficient matrix. STTC is a metric for</span>
+<span class="sd">        correlation between spike trains with some improved intuitive properties</span>
+<span class="sd">        compared to the Pearson correlation coefficient. Spike trains are lists of spike</span>
+<span class="sd">        times sorted in ascending order.</span>
+
+<span class="sd">        [1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</span>
+<span class="sd">            comparison of methods and application to the study of retinal waves. Jouranl</span>
+<span class="sd">            of Neuroscience 34:43, 14288–14303 (2014).</span>
+
+<span class="sd">        Refactor 2025-09: behavior unchanged; helpers are colocated below.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="p">[</span><span class="n">_sttc_ta</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="n">T</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
+
+        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_spike_time_tiling</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">delt</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ret</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.spike_time_tiling">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.spike_time_tiling">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spike_time_tiling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the spike time tiling coefficient between two units within</span>
+<span class="sd">        this SpikeData. STTC is a metric for correlation between spike trains with some</span>
+<span class="sd">        improved intuitive properties compared to the Pearson correlation coefficient.</span>
+<span class="sd">        Spike trains are lists of spike times sorted in ascending order.</span>
+
+<span class="sd">        [1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</span>
+<span class="sd">            comparison of methods and application to the study of retinal waves. Jouranl</span>
+<span class="sd">            of Neuroscience 34:43, 14288–14303 (2014).</span>
+
+<span class="sd">        Refactor 2025-09: behavior unchanged; uses reorganized helpers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">spike_time_tiling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">delt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.latencies">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.latencies">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">latencies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">window_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a sorted list of times, compute the latencies from that time to each spike</span>
+<span class="sd">        in each spike train within a window.</span>
+
+<span class="sd">        :param times: list of times</span>
+<span class="sd">        :param window_ms: window in ms</span>
+<span class="sd">        :return: 2d list, each row is a list of latencies</span>
+<span class="sd">                        from a time to each spike in the train</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">latencies</span>
+
+        <span class="k">for</span> <span class="n">train</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">:</span>
+            <span class="n">cur_latencies</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cur_latencies</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+                <span class="c1"># Subtract time from all spikes in the train</span>
+                <span class="c1"># and take the absolute value</span>
+                <span class="n">abs_diff_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">train</span> <span class="o">-</span> <span class="n">time</span><span class="p">))</span>
+
+                <span class="c1"># Calculate the actual latency</span>
+                <span class="n">latency</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">-</span> <span class="n">time</span>
+                <span class="n">latency</span> <span class="o">=</span> <span class="n">latency</span><span class="p">[</span><span class="n">abs_diff_ind</span><span class="p">]</span>
+
+                <span class="n">abs_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">latency</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">abs_diff</span> <span class="o">&lt;=</span> <span class="n">window_ms</span><span class="p">:</span>
+                    <span class="n">cur_latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">latency</span><span class="p">)</span>
+            <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cur_latencies</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">latencies</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.latencies_to_index">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.latencies_to_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">latencies_to_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">window_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the latency from one unit to all other units via self.latencies().</span>
+
+<span class="sd">        :param i: index of the unit</span>
+<span class="sd">        :param window_ms: window in ms</span>
+<span class="sd">        :return: 2d list, each row is a list of latencies per neuron</span>
+
+<span class="sd">        Refactor 2025-09: unchanged behavior.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">latencies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">window_ms</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ----------------------------</span>
+    <span class="c1"># Exporters</span>
+    <span class="c1"># ----------------------------</span>
+
+<div class="viewcode-block" id="SpikeData.to_hdf5">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.to_hdf5">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_hdf5</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">style</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;raster&#39;,&#39;ragged&#39;,&#39;group&#39;,&#39;paired&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;ragged&quot;</span><span class="p">,</span>
+        <span class="n">raster_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;raster&quot;</span><span class="p">,</span>
+        <span class="n">raster_bin_size_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spike_times_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times&quot;</span><span class="p">,</span>
+        <span class="n">spike_times_index_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times_index&quot;</span><span class="p">,</span>
+        <span class="n">spike_times_unit</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;ms&#39;,&#39;s&#39;,&#39;samples&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">group_per_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span>
+        <span class="n">group_time_unit</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;ms&#39;,&#39;s&#39;,&#39;samples&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+        <span class="n">idces_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;idces&quot;</span><span class="p">,</span>
+        <span class="n">times_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;times&quot;</span><span class="p">,</span>
+        <span class="n">times_unit</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;ms&#39;,&#39;s&#39;,&#39;samples&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+        <span class="n">raw_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">raw_time_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">raw_time_unit</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;ms&#39;,&#39;s&#39;,&#39;samples&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;ms&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export this SpikeData to an HDF5 file with flexible formatting options.</span>
+
+<span class="sd">        Supports four different storage styles to accommodate various analysis workflows:</span>
+<span class="sd">        1. &#39;raster&#39;: Dense 2D array (units × time bins) for binned spike counts</span>
+<span class="sd">        2. &#39;ragged&#39;: Flat spike times with index array (efficient for sparse data)</span>
+<span class="sd">        3. &#39;group&#39;: Separate dataset per unit within a group (easy unit access)</span>
+<span class="sd">        4. &#39;paired&#39;: Two parallel arrays of unit indices and spike times</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filepath: Path to the output HDF5 file</span>
+<span class="sd">            style: Storage format style. Defaults to &#39;ragged&#39; for efficiency.</span>
+
+<span class="sd">            # Raster style parameters</span>
+<span class="sd">            raster_dataset: Dataset name for raster data (style=&#39;raster&#39;)</span>
+<span class="sd">            raster_bin_size_ms: Bin size in milliseconds for rasterization.</span>
+<span class="sd">                Required for &#39;raster&#39; style.</span>
+
+<span class="sd">            # Ragged style parameters</span>
+<span class="sd">            spike_times_dataset: Dataset name for flat spike times (style=&#39;ragged&#39;)</span>
+<span class="sd">            spike_times_index_dataset: Dataset name for cumulative spike counts</span>
+<span class="sd">                per unit (style=&#39;ragged&#39;)</span>
+<span class="sd">            spike_times_unit: Time unit for spike times in ragged format</span>
+
+<span class="sd">            # Time conversion parameters</span>
+<span class="sd">            fs_Hz: Sampling frequency in Hz, required when converting to &#39;samples&#39; unit</span>
+
+<span class="sd">            # Group style parameters</span>
+<span class="sd">            group_per_unit: Group name containing per-unit datasets (style=&#39;group&#39;)</span>
+<span class="sd">            group_time_unit: Time unit for individual unit datasets</span>
+
+<span class="sd">            # Paired style parameters</span>
+<span class="sd">            idces_dataset: Dataset name for unit indices (style=&#39;paired&#39;)</span>
+<span class="sd">            times_dataset: Dataset name for spike times (style=&#39;paired&#39;)</span>
+<span class="sd">            times_unit: Time unit for paired times</span>
+
+<span class="sd">            # Optional raw data parameters (unused in current implementation)</span>
+<span class="sd">            raw_dataset: Reserved for future raw data export</span>
+<span class="sd">            raw_time_dataset: Reserved for future raw time axis export</span>
+<span class="sd">            raw_time_unit: Time unit for raw data timestamps</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            All spike times are stored internally in milliseconds and converted</span>
+<span class="sd">            to the requested output unit. When using &#39;samples&#39; unit, fs_Hz must</span>
+<span class="sd">            be provided for proper conversion.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Import locally to avoid import cycles at module import time</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_hdf5</span>
+
+        <span class="c1"># Delegate to the standalone exporter function with all parameters</span>
+        <span class="n">export_spikedata_to_hdf5</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">filepath</span><span class="p">,</span>
+            <span class="n">style</span><span class="o">=</span><span class="n">style</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">raster_dataset</span><span class="o">=</span><span class="n">raster_dataset</span><span class="p">,</span>
+            <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="n">raster_bin_size_ms</span><span class="p">,</span>
+            <span class="n">spike_times_dataset</span><span class="o">=</span><span class="n">spike_times_dataset</span><span class="p">,</span>
+            <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="n">spike_times_index_dataset</span><span class="p">,</span>
+            <span class="n">spike_times_unit</span><span class="o">=</span><span class="n">spike_times_unit</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="n">group_per_unit</span><span class="o">=</span><span class="n">group_per_unit</span><span class="p">,</span>
+            <span class="n">group_time_unit</span><span class="o">=</span><span class="n">group_time_unit</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">idces_dataset</span><span class="o">=</span><span class="n">idces_dataset</span><span class="p">,</span>
+            <span class="n">times_dataset</span><span class="o">=</span><span class="n">times_dataset</span><span class="p">,</span>
+            <span class="n">times_unit</span><span class="o">=</span><span class="n">times_unit</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">raw_dataset</span><span class="o">=</span><span class="n">raw_dataset</span><span class="p">,</span>
+            <span class="n">raw_time_dataset</span><span class="o">=</span><span class="n">raw_time_dataset</span><span class="p">,</span>
+            <span class="n">raw_time_unit</span><span class="o">=</span><span class="n">raw_time_unit</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.to_nwb">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.to_nwb">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_nwb</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">spike_times_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times&quot;</span><span class="p">,</span>
+        <span class="n">spike_times_index_dataset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times_index&quot;</span><span class="p">,</span>
+        <span class="n">group</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export this SpikeData to a minimal NWB-like file using h5py.</span>
+
+<span class="sd">        Creates an NWB-compatible file structure with spike times stored in the</span>
+<span class="sd">        standard &#39;/units&#39; group format. This produces a minimal but valid NWB</span>
+<span class="sd">        file that can be round-tripped with the NWB loader.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filepath: Path to the output NWB file (.nwb extension recommended)</span>
+<span class="sd">            spike_times_dataset: Name of the dataset containing flattened spike</span>
+<span class="sd">                times in seconds. Standard NWB uses &quot;spike_times&quot;.</span>
+<span class="sd">            spike_times_index_dataset: Name of the dataset containing cumulative</span>
+<span class="sd">                spike counts per unit for indexing into spike_times. Standard</span>
+<span class="sd">                NWB uses &quot;spike_times_index&quot;.</span>
+<span class="sd">            group: Name of the HDF5 group to contain the spike data. Standard</span>
+<span class="sd">                NWB uses &quot;units&quot; for the units table.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            - Spike times are automatically converted from internal milliseconds</span>
+<span class="sd">              to seconds as required by the NWB standard</span>
+<span class="sd">            - The output file contains only the essential spike timing data,</span>
+<span class="sd">              not the full NWB metadata structure</span>
+<span class="sd">            - Compatible with both pynwb and h5py-based NWB readers</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Import locally to avoid circular imports</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_nwb</span>
+
+        <span class="c1"># Delegate to the standalone NWB exporter</span>
+        <span class="n">export_spikedata_to_nwb</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">filepath</span><span class="p">,</span>
+            <span class="n">spike_times_dataset</span><span class="o">=</span><span class="n">spike_times_dataset</span><span class="p">,</span>
+            <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="n">spike_times_index_dataset</span><span class="p">,</span>
+            <span class="n">group</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.to_kilosort">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.to_kilosort">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_kilosort</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">spike_times_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times.npy&quot;</span><span class="p">,</span>
+        <span class="n">spike_clusters_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_clusters.npy&quot;</span><span class="p">,</span>
+        <span class="n">time_unit</span><span class="p">:</span> <span class="s2">&quot;Literal[&#39;samples&#39;,&#39;ms&#39;,&#39;s&#39;]&quot;</span> <span class="o">=</span> <span class="s2">&quot;samples&quot;</span><span class="p">,</span>
+        <span class="n">cluster_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export this SpikeData to a KiloSort/Phy-like folder structure.</span>
+
+<span class="sd">        Creates the standard KiloSort output format with two numpy arrays:</span>
+<span class="sd">        - spike_times.npy: All spike times across units</span>
+<span class="sd">        - spike_clusters.npy: Corresponding cluster/unit ID for each spike</span>
+
+<span class="sd">        This format is compatible with Phy for manual curation and other</span>
+<span class="sd">        spike sorting analysis tools.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            folder: Output directory path. Will be created if it doesn&#39;t exist.</span>
+<span class="sd">            fs_Hz: Sampling frequency in Hz. Required for time unit conversion,</span>
+<span class="sd">                especially when using &#39;samples&#39; (the KiloSort default).</span>
+<span class="sd">            spike_times_file: Filename for the spike times array. Standard</span>
+<span class="sd">                KiloSort uses &quot;spike_times.npy&quot;.</span>
+<span class="sd">            spike_clusters_file: Filename for the cluster assignments array.</span>
+<span class="sd">                Standard KiloSort uses &quot;spike_clusters.npy&quot;.</span>
+<span class="sd">            time_unit: Output time unit for spike times:</span>
+<span class="sd">                - &#39;samples&#39;: Sample indices (requires fs_Hz for conversion)</span>
+<span class="sd">                - &#39;ms&#39;: Milliseconds (matches internal SpikeData format)</span>
+<span class="sd">                - &#39;s&#39;: Seconds</span>
+<span class="sd">            cluster_ids: Optional list of cluster IDs to assign to each unit.</span>
+<span class="sd">                Must have length equal to self.N. If None, uses sequential</span>
+<span class="sd">                integers [0, 1, 2, ...].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[str, str]: Paths to the created (spike_times_file, spike_clusters_file)</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If fs_Hz &lt;= 0 or cluster_ids length doesn&#39;t match self.N</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            - Empty units (no spikes) are skipped in the output arrays</span>
+<span class="sd">            - Cluster IDs are mapped to units in order, so cluster_ids[i]</span>
+<span class="sd">              corresponds to unit i in the SpikeData</span>
+<span class="sd">            - The &#39;samples&#39; time unit is most common for KiloSort workflows</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Import locally to avoid circular imports</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_kilosort</span>
+
+        <span class="c1"># Delegate to the standalone KiloSort exporter and return file paths</span>
+        <span class="k">return</span> <span class="n">export_spikedata_to_kilosort</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">folder</span><span class="p">,</span>
+            <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span>
+            <span class="n">spike_times_file</span><span class="o">=</span><span class="n">spike_times_file</span><span class="p">,</span>
+            <span class="n">spike_clusters_file</span><span class="o">=</span><span class="n">spike_clusters_file</span><span class="p">,</span>
+            <span class="n">time_unit</span><span class="o">=</span><span class="n">time_unit</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">cluster_ids</span><span class="o">=</span><span class="n">cluster_ids</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, IntegratedAnalysisTools Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

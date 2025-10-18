@@ -1,0 +1,411 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started &mdash; IntegratedAnalysisTools 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=7026087e"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="SpikeData Class" href="spikedata.html" />
+    <link rel="prev" title="IntegratedAnalysisTools" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            IntegratedAnalysisTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-installation">Basic Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#development-installation">Development Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#documentation-build">Documentation Build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#loading-data">Loading Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#exporting-data">Exporting Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spikedata.html">SpikeData Class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="spikedata.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html#key-features">Key Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spikedata.html#class-attributes">Class Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="class_methods/index.html">Class Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/firing_rates.html">Firing Rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/interspike_intervals.html">Interspike Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/data_selection.html">Data Selection and Manipulation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/time_windowing.html">Time Windowing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/latency_analysis.html">Latency Analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="class_methods/export_methods.html">Export Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="standalone_utilities.html">Standalone Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="migration_tips.html">Migration &amp; Usage Tips</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spikedata.html#api-changes-in-2025-09-refactor">API Changes in 2025-09 Refactor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html#removed-deprecated">Removed/Deprecated</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_loaders.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/hdf5.html#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders/hdf5_thresholding.html">HDF5 Thresholding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders/spikeinterface.html">SpikeInterface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_loaders.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_exporters.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_exporters.html#notes">Notes</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/spikedata.html">spikedata module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/spikedata.html#spikedata-class">SpikeData Class</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api/spikedata.html#standalone-functions">Standalone Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/spikedata.html#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_loaders.html#loader-functions">Loader Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_loaders.html#nwb-loader">NWB Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_loaders.html#kilosort-loader">KiloSort Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_loaders.html#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/data_exporters.html">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/data_exporters.html#exporter-functions">Exporter Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#nwb-exporter">NWB Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#kilosort-exporter">KiloSort Exporter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-index">Module Index</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">IntegratedAnalysisTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Getting Started</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/getting_started.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<section id="basic-installation">
+<h3>Basic Installation<a class="headerlink" href="#basic-installation" title="Link to this heading"></a></h3>
+<p>Install the package using pip:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>integrated-analysis-tools
+</pre></div>
+</div>
+</section>
+<section id="development-installation">
+<h3>Development Installation<a class="headerlink" href="#development-installation" title="Link to this heading"></a></h3>
+<p>For development, clone the repository and install with development dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/braingeneers/IntegratedAnalysisTools.git
+<span class="nb">cd</span><span class="w"> </span>IntegratedAnalysisTools
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="documentation-build">
+<h3>Documentation Build<a class="headerlink" href="#documentation-build" title="Link to this heading"></a></h3>
+<p>To build the documentation locally:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[docs]&quot;</span>
+<span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>html
+</pre></div>
+</div>
+<p>The built documentation will be available in <code class="docutils literal notranslate"><span class="pre">docs/build/html/index.html</span></code>.</p>
+</section>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<section id="creating-a-spikedata-object">
+<h3>Creating a SpikeData Object<a class="headerlink" href="#creating-a-spikedata-object" title="Link to this heading"></a></h3>
+<p>There are several ways to create a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object:</p>
+<p>From spike times:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Each list element is a numpy array of spike times (in ms) for one neuron</span>
+<span class="n">spike_trains</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">10.5</span><span class="p">,</span> <span class="mf">23.1</span><span class="p">,</span> <span class="mf">45.8</span><span class="p">,</span> <span class="mf">67.2</span><span class="p">]),</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">12.3</span><span class="p">,</span> <span class="mf">34.5</span><span class="p">,</span> <span class="mf">56.7</span><span class="p">,</span> <span class="mf">78.9</span><span class="p">]),</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">15.6</span><span class="p">,</span> <span class="mf">27.8</span><span class="p">,</span> <span class="mf">39.1</span><span class="p">,</span> <span class="mf">51.4</span><span class="p">])</span>
+<span class="p">]</span>
+
+<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">spike_trains</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>  <span class="c1"># 100 ms recording</span>
+</pre></div>
+</div>
+<p>From a raster matrix:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Binary raster: neurons × time bins</span>
+<span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.02</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="loading-data">
+<h3>Loading Data<a class="headerlink" href="#loading-data" title="Link to this heading"></a></h3>
+<p>Load from various file formats:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">load_spikedata_from_hdf5</span><span class="p">,</span>
+    <span class="n">load_spikedata_from_nwb</span><span class="p">,</span>
+    <span class="n">load_spikedata_from_kilosort</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># From HDF5 (NWB-like ragged arrays)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
+    <span class="s2">&quot;data.h5&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;/units/spike_times&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">&quot;/units/spike_times_index&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span>
+<span class="p">)</span>
+
+<span class="c1"># From NWB file</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;recording.nwb&quot;</span><span class="p">)</span>
+
+<span class="c1"># From KiloSort/Phy output</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_kilosort</span><span class="p">(</span><span class="s2">&quot;path/to/kilosort/&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mf">30000.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="basic-analysis">
+<h3>Basic Analysis<a class="headerlink" href="#basic-analysis" title="Link to this heading"></a></h3>
+<p>Compute firing rates:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get binned spike counts</span>
+<span class="n">spike_counts</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">binned</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>  <span class="c1"># 100 ms bins</span>
+
+<span class="c1"># Get firing rates in Hz</span>
+<span class="n">rates</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+
+<span class="c1"># Get mean firing rate per neuron</span>
+<span class="n">mean_rates</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">binned_meanrate</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Get a spike raster:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dense binary raster</span>
+<span class="n">raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># 1 ms bins</span>
+
+<span class="c1"># Sparse raster (memory efficient for large recordings)</span>
+<span class="n">sparse_raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Analyze interspike intervals:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get ISIs for each neuron</span>
+<span class="n">isis</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">interspike_intervals</span><span class="p">()</span>
+
+<span class="c1"># Get resampled ISI distribution</span>
+<span class="n">pooled_isis</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="subsetting-and-time-slicing">
+<h3>Subsetting and Time Slicing<a class="headerlink" href="#subsetting-and-time-slicing" title="Link to this heading"></a></h3>
+<p>Work with subsets of neurons or time windows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get a subset of neurons</span>
+<span class="n">subset</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+
+<span class="c1"># Extract a time window</span>
+<span class="n">window</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="mf">500.0</span><span class="p">)</span>  <span class="c1"># 100-500 ms</span>
+
+<span class="c1"># Iterate over time frames</span>
+<span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">frames</span><span class="p">(</span><span class="n">frame_size</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mf">100.0</span><span class="p">):</span>
+    <span class="c1"># Analyze each frame</span>
+    <span class="n">rates</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">rates</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="exporting-data">
+<h3>Exporting Data<a class="headerlink" href="#exporting-data" title="Link to this heading"></a></h3>
+<p>Export to various formats:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Export to HDF5 (ragged array style)</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">to_hdf5</span><span class="p">(</span><span class="s2">&quot;output.h5&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;ragged&quot;</span><span class="p">,</span> <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">)</span>
+
+<span class="c1"># Export to NWB</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">to_nwb</span><span class="p">(</span><span class="s2">&quot;output.nwb&quot;</span><span class="p">)</span>
+
+<span class="c1"># Export to KiloSort format</span>
+<span class="n">sd</span><span class="o">.</span><span class="n">to_kilosort</span><span class="p">(</span><span class="s2">&quot;ks_output/&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="mf">30000.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Learn more about the <a class="reference internal" href="spikedata.html"><span class="doc">SpikeData Class</span></a> class and its methods</p></li>
+<li><p>Explore <a class="reference internal" href="data_loaders.html"><span class="doc">Data Loaders</span></a> for loading various file formats</p></li>
+<li><p>Check out <a class="reference internal" href="data_exporters.html"><span class="doc">Data Exporters</span></a> for exporting your data</p></li>
+<li><p>Browse the <a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a> for detailed API documentation</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="IntegratedAnalysisTools" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="spikedata.html" class="btn btn-neutral float-right" title="SpikeData Class" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, IntegratedAnalysisTools Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

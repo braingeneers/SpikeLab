@@ -1,0 +1,328 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HDF5 (Generic) &mdash; IntegratedAnalysisTools 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=7026087e"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HDF5 Thresholding" href="hdf5_thresholding.html" />
+    <link rel="prev" title="Data Loaders" href="../data_loaders.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IntegratedAnalysisTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-installation">Basic Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#development-installation">Development Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#documentation-build">Documentation Build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../spikedata.html">SpikeData Class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#key-features">Key Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#class-attributes">Class Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../class_methods/index.html">Class Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/firing_rates.html">Firing Rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/interspike_intervals.html">Interspike Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/data_selection.html">Data Selection and Manipulation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/time_windowing.html">Time Windowing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/latency_analysis.html">Latency Analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/export_methods.html">Export Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../standalone_utilities.html">Standalone Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../migration_tips.html">Migration &amp; Usage Tips</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#api-changes-in-2025-09-refactor">API Changes in 2025-09 Refactor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#removed-deprecated">Removed/Deprecated</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../data_loaders.html">Data Loaders</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../data_loaders.html#overview">Overview</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hdf5_thresholding.html">HDF5 Thresholding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spikeinterface.html">SpikeInterface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#notes">Notes</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/spikedata.html">spikedata module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikedata.html#spikedata-class">SpikeData Class</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikedata.html#standalone-functions">Standalone Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html#loader-functions">Loader Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#nwb-loader">NWB Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#kilosort-loader">KiloSort Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/data_exporters.html">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html#exporter-functions">Exporter Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#nwb-exporter">NWB Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#kilosort-exporter">KiloSort Exporter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#module-index">Module Index</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IntegratedAnalysisTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../data_loaders.html">Data Loaders</a></li>
+      <li class="breadcrumb-item active">HDF5 (Generic)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/data_loaders/hdf5.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="hdf5-generic">
+<h1>HDF5 (Generic)<a class="headerlink" href="#hdf5-generic" title="Link to this heading"></a></h1>
+<section id="load-spikedata-from-hdf5">
+<h2>load_spikedata_from_hdf5<a class="headerlink" href="#load-spikedata-from-hdf5" title="Link to this heading"></a></h2>
+<p>Load spike trains from an HDF5 file using one of four input styles: raster matrix, flat ragged arrays (NWB-like), group-per-unit datasets, or paired indices/times arrays. Optional raw analog arrays and time bases can be attached. Times are converted to milliseconds.</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>filepath</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>): Path to the HDF5 file.</p></li>
+<li><p><strong>raster_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for a 2D raster/counts matrix (units × time). Use with <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms</span></code>.</p></li>
+<li><p><strong>raster_bin_size_ms</strong> (<code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code>): Bin size (ms) for <code class="docutils literal notranslate"><span class="pre">raster_dataset</span></code>.</p></li>
+<li><p><strong>spike_times_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for flat concatenated spike times (ragged array style).</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for end indices per unit (ragged array style).</p></li>
+<li><p><strong>spike_times_unit</strong> (<code class="docutils literal notranslate"><span class="pre">'s'</span> <span class="pre">|</span> <span class="pre">'ms'</span> <span class="pre">|</span> <span class="pre">'samples'</span></code>): Unit for <code class="docutils literal notranslate"><span class="pre">spike_times_dataset</span></code>.</p></li>
+<li><p><strong>fs_Hz</strong> (<code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code>): Sampling frequency (Hz). Required when any unit is <code class="docutils literal notranslate"><span class="pre">'samples'</span></code>.</p></li>
+<li><p><strong>group_per_unit</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Group path containing one dataset per unit with that unit’s spike times.</p></li>
+<li><p><strong>group_time_unit</strong> (<code class="docutils literal notranslate"><span class="pre">'s'</span> <span class="pre">|</span> <span class="pre">'ms'</span> <span class="pre">|</span> <span class="pre">'samples'</span></code>): Unit for datasets under <code class="docutils literal notranslate"><span class="pre">group_per_unit</span></code>.</p></li>
+<li><p><strong>idces_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for unit indices (paired arrays style).</p></li>
+<li><p><strong>times_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for spike times (paired arrays style).</p></li>
+<li><p><strong>times_unit</strong> (<code class="docutils literal notranslate"><span class="pre">'s'</span> <span class="pre">|</span> <span class="pre">'ms'</span> <span class="pre">|</span> <span class="pre">'samples'</span></code>): Unit for <code class="docutils literal notranslate"><span class="pre">times_dataset</span></code>.</p></li>
+<li><p><strong>raw_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for optional raw analog data (e.g., channels × time).</p></li>
+<li><p><strong>raw_time_dataset</strong> (<code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>): Dataset path for time vector corresponding to <code class="docutils literal notranslate"><span class="pre">raw_dataset</span></code>.</p></li>
+<li><p><strong>raw_time_unit</strong> (<code class="docutils literal notranslate"><span class="pre">'s'</span> <span class="pre">|</span> <span class="pre">'ms'</span> <span class="pre">|</span> <span class="pre">'samples'</span></code>): Unit of <code class="docutils literal notranslate"><span class="pre">raw_time_dataset</span></code>.</p></li>
+<li><p><strong>length_ms</strong> (<code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code>): Recording duration; inferred from last spike if not provided.</p></li>
+<li><p><strong>metadata</strong> (<code class="docutils literal notranslate"><span class="pre">Mapping[str,</span> <span class="pre">object]</span> <span class="pre">|</span> <span class="pre">None</span></code>): Extra metadata to attach; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> is added automatically.</p></li>
+</ul>
+</section>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>SpikeData</strong>: Spike trains in milliseconds; may include attached <code class="docutils literal notranslate"><span class="pre">raw_data</span></code> and <code class="docutils literal notranslate"><span class="pre">raw_time</span></code>.</p></li>
+</ul>
+</section>
+<section id="raises">
+<h3>Raises<a class="headerlink" href="#raises" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>ValueError</strong>: If not exactly one input style is specified, or missing required arguments for a style, or invalid time units.</p></li>
+<li><p><strong>ImportError</strong>: If <code class="docutils literal notranslate"><span class="pre">h5py</span></code> is unavailable.</p></li>
+</ul>
+</section>
+<section id="behavior-and-notes">
+<h3>Behavior and Notes<a class="headerlink" href="#behavior-and-notes" title="Link to this heading"></a></h3>
+<p>Exactly one of the four styles must be provided. Raster uses <code class="docutils literal notranslate"><span class="pre">SpikeData.from_raster</span></code>; paired arrays use <code class="docutils literal notranslate"><span class="pre">SpikeData.from_idces_times</span></code>; ragged arrays and group-per-unit build per-unit trains by splitting and converting to ms. Optional raw arrays are attached if both <code class="docutils literal notranslate"><span class="pre">raw_dataset</span></code> and <code class="docutils literal notranslate"><span class="pre">raw_time_dataset</span></code> are provided.</p>
+</section>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_hdf5</span><span class="p">(</span>
+    <span class="s2">&quot;data.h5&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_dataset</span><span class="o">=</span><span class="s2">&quot;/units/spike_times&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_index_dataset</span><span class="o">=</span><span class="s2">&quot;/units/spike_times_index&quot;</span><span class="p">,</span>
+    <span class="n">spike_times_unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>  <span class="c1"># &#39;s&#39; | &#39;ms&#39; | &#39;samples&#39; (requires fs_Hz)</span>
+    <span class="n">fs_Hz</span><span class="o">=</span><span class="mf">20000.0</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="supported-styles">
+<h3>Supported Styles<a class="headerlink" href="#supported-styles" title="Link to this heading"></a></h3>
+<p>Specify exactly one:</p>
+<ul class="simple">
+<li><p><strong>Raster</strong> (units × time): <code class="docutils literal notranslate"><span class="pre">raster_dataset</span></code> + <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms</span></code></p></li>
+<li><p><strong>Flat ragged arrays</strong> (NWB-like): <code class="docutils literal notranslate"><span class="pre">spike_times_dataset</span></code> + <code class="docutils literal notranslate"><span class="pre">spike_times_index_dataset</span></code></p></li>
+<li><p><strong>Group-per-unit</strong>: <code class="docutils literal notranslate"><span class="pre">group_per_unit</span></code> (each child holds spike times)</p></li>
+<li><p><strong>Paired</strong> (indices, times): <code class="docutils literal notranslate"><span class="pre">idces_dataset</span></code> + <code class="docutils literal notranslate"><span class="pre">times_dataset</span></code> + <code class="docutils literal notranslate"><span class="pre">times_unit</span></code></p></li>
+</ul>
+<p>Optional raw attachments: <code class="docutils literal notranslate"><span class="pre">raw_dataset</span></code> + <code class="docutils literal notranslate"><span class="pre">raw_time_dataset</span></code> with <code class="docutils literal notranslate"><span class="pre">raw_time_unit</span></code> in <code class="docutils literal notranslate"><span class="pre">s/ms/samples</span></code> (needs <code class="docutils literal notranslate"><span class="pre">fs_Hz</span></code> for samples).</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../data_loaders.html" class="btn btn-neutral float-left" title="Data Loaders" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hdf5_thresholding.html" class="btn btn-neutral float-right" title="HDF5 Thresholding" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, IntegratedAnalysisTools Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

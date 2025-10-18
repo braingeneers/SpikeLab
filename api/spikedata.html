@@ -1,0 +1,774 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikedata module &mdash; IntegratedAnalysisTools 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=7026087e"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="data_loaders module" href="data_loaders.html" />
+    <link rel="prev" title="API Reference" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IntegratedAnalysisTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-installation">Basic Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#development-installation">Development Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#documentation-build">Documentation Build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../spikedata.html">SpikeData Class</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#key-features">Key Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#class-attributes">Class Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../class_methods/index.html">Class Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/firing_rates.html">Firing Rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/interspike_intervals.html">Interspike Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/data_selection.html">Data Selection and Manipulation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/time_windowing.html">Time Windowing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/latency_analysis.html">Latency Analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../class_methods/export_methods.html">Export Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../standalone_utilities.html">Standalone Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../migration_tips.html">Migration &amp; Usage Tips</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#api-changes-in-2025-09-refactor">API Changes in 2025-09 Refactor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#removed-deprecated">Removed/Deprecated</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5.html#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html">HDF5 Thresholding</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_loaders/spikeinterface.html">SpikeInterface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/nwb.html">NWB (Units)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../data_exporters/kilosort.html">KiloSort / Phy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#notes">Notes</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">spikedata module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#spikedata-class">SpikeData Class</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#standalone-functions">Standalone Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html#loader-functions">Loader Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#nwb-loader">NWB Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#kilosort-loader">KiloSort Loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_exporters.html">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html#exporter-functions">Exporter Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#nwb-exporter">NWB Exporter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#kilosort-exporter">KiloSort Exporter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#module-index">Module Index</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IntegratedAnalysisTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">spikedata module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/spikedata.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-spikedata">
+<span id="spikedata-module"></span><h1>spikedata module<a class="headerlink" href="#module-spikedata" title="Link to this heading"></a></h1>
+<section id="spikedata-class">
+<h2>SpikeData Class<a class="headerlink" href="#spikedata-class" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="spikedata.SpikeData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">SpikeData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Class for handling and manipulating neuronal spike data.</p>
+<p>This class provides a way to load, process, and analyze spike data from different
+input types, including lists of indices and times, lists of channel-time pairs,
+or prebuilt spike trains.</p>
+<p>Refactor 2025-09:
+- Removed niche/deprecated features (nest/mbt constructors, burst/avalanche/DCC,</p>
+<blockquote>
+<div><p>randomization, legacy correlation/utilities). Core loading, binning, rates,
+and STTC functionality remain unchanged.</p>
+</div></blockquote>
+<p>Each instance of SpikeData has the following attributes:</p>
+<ul class="simple">
+<li><p>train: The main data attribute. This is a list of numpy arrays, where each array
+contains the spike times for a particular neuron.</p></li>
+<li><p>N: The number of neurons in the dataset.</p></li>
+<li><p>length: The length of the spike train, defaults to the time of the last spike.</p></li>
+<li><p>neuron_attributes: A list of attribute objects for each neuron. Each item should
+be a dataclass containing a consistent set of fields.</p></li>
+<li><p>metadata: A dictionary containing any additional information or metadata about the
+spike data.</p></li>
+<li><p>raw_data: If provided, this numpy array contains the raw time series data.</p></li>
+<li><p>raw_time: This is either a numpy array of sample times, or a single float
+representing a sample rate in kHz.</p></li>
+</ul>
+<p>In addition to these data attributes, the SpikeData class also provides some useful
+methods for working with spike data, such as iterating through spike times or
+(index, time) pairs for all units in time order.</p>
+<p>Note that SpikeData expects spike times to be in units of milliseconds, unless a
+list of Neuron objects is given; these have spike times in units of samples, which
+are converted to milliseconds using the sample rate saved in the Neuron object.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.from_idces_times">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_idces_times</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.from_idces_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.from_idces_times" title="Link to this definition"></a></dt>
+<dd><p>Create a SpikeData object with N total units based on lists of unit indices and
+spike times. If N is not provided, it is set to one more than the maximum index.</p>
+<p>All metadata parameters of the regular constructor are accepted.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.from_raster">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size_ms</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.from_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.from_raster" title="Link to this definition"></a></dt>
+<dd><p>Create a SpikeData object based on a spike raster matrix with shape (N, T),
+where T is a number of time bins.</p>
+<p>To make it clear which bin each spike belongs to, the generated spike times are
+evenly spaced within each bin. For example, if a unit fires 3 times in a 10 ms
+bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.</p>
+<p>All metadata parameters of the regular constructor are accepted.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.from_events">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_events</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.from_events"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.from_events" title="Link to this definition"></a></dt>
+<dd><p>Create a SpikeData object with N total units based on a list of
+events, each an (index, time) pair. If N is not provided, it is
+set to one more than the maximum index.</p>
+<p>All metadata parameters of the regular constructor are accepted.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.from_neo_spiketrains">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_neo_spiketrains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spiketrains</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.from_neo_spiketrains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.from_neo_spiketrains" title="Link to this definition"></a></dt>
+<dd><p>Create a SpikeData object from a list of neo.SpikeTrain objects. The spike times
+can be in any units, as they will be converted to regular np.arrays in units of
+milliseconds.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.from_thresholding">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_thresholding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.from_thresholding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.from_thresholding" title="Link to this definition"></a></dt>
+<dd><p>Create a SpikeData object from raw data by filtering and thresholding raw
+electrophysiological data formatted as an array with shape (channels, time).</p>
+<p>If filter is True (default), filter the data using a third-order Butterworth
+filter with passband 300 Hz to 6 kHz. To use different filter parameters, pass a
+dictionary, which will be passed as keyword arguments to butter_filter(). If
+filter is falsy, no filtering is done.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize a SpikeData object using a list of spike trains, each a
+list of spike times in milliseconds.</p>
+<p>Arbitrary raw timeseries data, not associated with particular units,
+can be passed in as <cite>raw_data</cite>, an array whose last dimension
+corresponds to the times given in <cite>raw_time</cite>. The <cite>raw_time</cite> argument
+can also be a sample rate in kHz, in which case it is generated
+assuming that the start of the raw data corresponds with t=0.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="spikedata.SpikeData.times">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">times</span></span><a class="headerlink" href="#spikedata.SpikeData.times" title="Link to this definition"></a></dt>
+<dd><p>Iterate spike times for all units in time order.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="spikedata.SpikeData.events">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">events</span></span><a class="headerlink" href="#spikedata.SpikeData.events" title="Link to this definition"></a></dt>
+<dd><p>Iterate (index,time) pairs for all units in time order.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.idces_times">
+<span class="sig-name descname"><span class="pre">idces_times</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.idces_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.idces_times" title="Link to this definition"></a></dt>
+<dd><p>Generate a matched pair of numpy arrays containing unit indices and times for
+all events.</p>
+<p>This is not a property unlike <cite>times</cite> and <cite>events</cite> because the lists must
+actually be constructed in memory.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.frames">
+<span class="sig-name descname"><span class="pre">frames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.frames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.frames" title="Link to this definition"></a></dt>
+<dd><p>Iterate new SpikeData objects corresponding to subwindows of a given <cite>length</cite>
+with a fixed <cite>overlap</cite>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.binned">
+<span class="sig-name descname"><span class="pre">binned</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.binned"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.binned" title="Link to this definition"></a></dt>
+<dd><p>Quantize time into intervals of bin_size and counts the number of events in
+each bin, considered as a lower half-open interval of times, with the exception
+that events at time precisely zero will be included in the first bin.</p>
+<p>Refactor 2025-09: unchanged behavior. Can be paired with external smoothing to
+replace the removed population_firing_rate utility.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.binned_meanrate">
+<span class="sig-name descname"><span class="pre">binned_meanrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kHz'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.binned_meanrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.binned_meanrate" title="Link to this definition"></a></dt>
+<dd><p>Calculate the mean firing rate across the population in each time bin.</p>
+<p>The rate is calculated as the number of events in each bin divided by the bin
+size and number of units. The unit may be either <cite>Hz</cite> or <cite>kHz</cite> (default).</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.rates">
+<span class="sig-name descname"><span class="pre">rates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kHz'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.rates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.rates" title="Link to this definition"></a></dt>
+<dd><p>Calculate the mean firing rate of each neuron as an average number of events per
+time over the length of the data. The unit may be <cite>Hz</cite> or <cite>kHz</cite> (default).</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.resampled_isi">
+<span class="sig-name descname"><span class="pre">resampled_isi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.resampled_isi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.resampled_isi" title="Link to this definition"></a></dt>
+<dd><p>Calculate firing rate of each unit at the given times by calculating the
+interspike intervals and interpolating their inverse.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subset" title="Link to this definition"></a></dt>
+<dd><p>Return a new SpikeData with spike times for only some units, selected either by
+their indices or by an ID stored under a given key in the neuron_attributes.</p>
+<p>Units are included in the output according to their order in self.train, not the
+order in the unit list (which is treated as a set).</p>
+<p>If IDs are not unique, every neuron which matches is included in the output.
+Neurons whose neuron_attributes entry does not have the key are always excluded.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.subtime">
+<span class="sig-name descname"><span class="pre">subtime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subtime" title="Link to this definition"></a></dt>
+<dd><p>Return a new SpikeData with only spikes in a time range, closed on top but open
+on the bottom unless the lower bound is zero, consistent with the binning
+methods. This is to ensure no overlap between adjacent slices.</p>
+<p>Start and end can be negative, in which case they are counted backwards from the
+end. They can also be None or Ellipsis, in which case that end of the data is
+not truncated. All metadata and neuron data are propagated, while raw data is
+sliced to the same range of times, including all samples in the closed interval.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.__getitem__">
+<span class="sig-name descname"><span class="pre">__getitem__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.__getitem__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.__getitem__" title="Link to this definition"></a></dt>
+<dd><p>If a slice is provided, it is taken in time as with self.subtime(), but if an
+iterable is provided, it is taken as a list of neuron indices to select using
+self.subset().</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.append">
+<span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spikeData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.append"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.append" title="Link to this definition"></a></dt>
+<dd><p>Append the spike times from another SpikeData object to this one, optionally
+offsetting them by a given amount from the end of the current data.</p>
+<p>The two SpikeData objects must have the same number of neurons.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.sparse_raster">
+<span class="sig-name descname"><span class="pre">sparse_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.sparse_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.sparse_raster" title="Link to this definition"></a></dt>
+<dd><p>Bin all spike times and create a sparse array where entry (i,j) is the number of
+times unit i fired in bin j.</p>
+<p>Bins are left-open and right-closed intervals except the first, which will
+capture any spikes occurring exactly at t=0.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.raster">
+<span class="sig-name descname"><span class="pre">raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.raster" title="Link to this definition"></a></dt>
+<dd><p>Bin all spike times and create a dense array where entry (i,j) is the number of
+times cell i fired in bin j.</p>
+<p>Bins are left-open and right-closed intervals except the first, which will
+capture any spikes occurring exactly at t=0.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.interspike_intervals">
+<span class="sig-name descname"><span class="pre">interspike_intervals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.interspike_intervals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.interspike_intervals" title="Link to this definition"></a></dt>
+<dd><p>Produce a list of arrays of interspike intervals per unit.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.concatenate_spike_data">
+<span class="sig-name descname"><span class="pre">concatenate_spike_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.concatenate_spike_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.concatenate_spike_data" title="Link to this definition"></a></dt>
+<dd><p>Add the units from another SpikeData object to this one. The new units are
+assigned indices starting from the end of the current data. If the new units
+have a longer spike train, it is truncated to the length of the current data.</p>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.spike_time_tilings">
+<span class="sig-name descname"><span class="pre">spike_time_tilings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.spike_time_tilings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.spike_time_tilings" title="Link to this definition"></a></dt>
+<dd><p>Compute the full spike time tiling coefficient matrix. STTC is a metric for
+correlation between spike trains with some improved intuitive properties
+compared to the Pearson correlation coefficient. Spike trains are lists of spike
+times sorted in ascending order.</p>
+<dl class="simple">
+<dt>[1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</dt><dd><p>comparison of methods and application to the study of retinal waves. Jouranl
+of Neuroscience 34:43, 14288–14303 (2014).</p>
+</dd>
+</dl>
+<p>Refactor 2025-09: behavior unchanged; helpers are colocated below.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.spike_time_tiling">
+<span class="sig-name descname"><span class="pre">spike_time_tiling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.spike_time_tiling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.spike_time_tiling" title="Link to this definition"></a></dt>
+<dd><p>Calculate the spike time tiling coefficient between two units within
+this SpikeData. STTC is a metric for correlation between spike trains with some
+improved intuitive properties compared to the Pearson correlation coefficient.
+Spike trains are lists of spike times sorted in ascending order.</p>
+<dl class="simple">
+<dt>[1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</dt><dd><p>comparison of methods and application to the study of retinal waves. Jouranl
+of Neuroscience 34:43, 14288–14303 (2014).</p>
+</dd>
+</dl>
+<p>Refactor 2025-09: behavior unchanged; uses reorganized helpers.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.latencies">
+<span class="sig-name descname"><span class="pre">latencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.latencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.latencies" title="Link to this definition"></a></dt>
+<dd><p>Given a sorted list of times, compute the latencies from that time to each spike
+in each spike train within a window.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>times</strong> – list of times</p></li>
+<li><p><strong>window_ms</strong> – window in ms</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>2d list, each row is a list of latencies
+from a time to each spike in the train</p>
+</dd>
+</dl>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.latencies_to_index">
+<span class="sig-name descname"><span class="pre">latencies_to_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.latencies_to_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.latencies_to_index" title="Link to this definition"></a></dt>
+<dd><p>Compute the latency from one unit to all other units via self.latencies().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>i</strong> – index of the unit</p></li>
+<li><p><strong>window_ms</strong> – window in ms</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>2d list, each row is a list of latencies per neuron</p>
+</dd>
+</dl>
+<p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.to_hdf5">
+<span class="sig-name descname"><span class="pre">to_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ragged'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raster'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'idces'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.to_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.to_hdf5" title="Link to this definition"></a></dt>
+<dd><p>Export this SpikeData to an HDF5 file with flexible formatting options.</p>
+<p>Supports four different storage styles to accommodate various analysis workflows:
+1. ‘raster’: Dense 2D array (units × time bins) for binned spike counts
+2. ‘ragged’: Flat spike times with index array (efficient for sparse data)
+3. ‘group’: Separate dataset per unit within a group (easy unit access)
+4. ‘paired’: Two parallel arrays of unit indices and spike times</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Path to the output HDF5 file</p></li>
+<li><p><strong>style</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'raster'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ragged'</span></code>, <code class="docutils literal notranslate"><span class="pre">'group'</span></code>, <code class="docutils literal notranslate"><span class="pre">'paired'</span></code>]</span>) – Storage format style. Defaults to ‘ragged’ for efficiency.</p></li>
+<li><p><strong>parameters</strong> (<em># Optional raw data</em>)</p></li>
+<li><p><strong>raster_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Dataset name for raster data (style=’raster’)</p></li>
+<li><p><strong>raster_bin_size_ms</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</span>) – Bin size in milliseconds for rasterization.
+Required for ‘raster’ style.</p></li>
+<li><p><strong>parameters</strong></p></li>
+<li><p><strong>spike_times_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Dataset name for flat spike times (style=’ragged’)</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Dataset name for cumulative spike counts
+per unit (style=’ragged’)</p></li>
+<li><p><strong>spike_times_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'ms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'s'</span></code>, <code class="docutils literal notranslate"><span class="pre">'samples'</span></code>]</span>) – Time unit for spike times in ragged format</p></li>
+<li><p><strong>parameters</strong></p></li>
+<li><p><strong>fs_Hz</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</span>) – Sampling frequency in Hz, required when converting to ‘samples’ unit</p></li>
+<li><p><strong>parameters</strong></p></li>
+<li><p><strong>group_per_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Group name containing per-unit datasets (style=’group’)</p></li>
+<li><p><strong>group_time_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'ms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'s'</span></code>, <code class="docutils literal notranslate"><span class="pre">'samples'</span></code>]</span>) – Time unit for individual unit datasets</p></li>
+<li><p><strong>parameters</strong></p></li>
+<li><p><strong>idces_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Dataset name for unit indices (style=’paired’)</p></li>
+<li><p><strong>times_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Dataset name for spike times (style=’paired’)</p></li>
+<li><p><strong>times_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'ms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'s'</span></code>, <code class="docutils literal notranslate"><span class="pre">'samples'</span></code>]</span>) – Time unit for paired times</p></li>
+<li><p><strong>parameters</strong></p></li>
+<li><p><strong>raw_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span>) – Reserved for future raw data export</p></li>
+<li><p><strong>raw_time_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span>) – Reserved for future raw time axis export</p></li>
+<li><p><strong>raw_time_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'ms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'s'</span></code>, <code class="docutils literal notranslate"><span class="pre">'samples'</span></code>]</span>) – Time unit for raw data timestamps</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All spike times are stored internally in milliseconds and converted
+to the requested output unit. When using ‘samples’ unit, fs_Hz must
+be provided for proper conversion.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.to_nwb">
+<span class="sig-name descname"><span class="pre">to_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.to_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.to_nwb" title="Link to this definition"></a></dt>
+<dd><p>Export this SpikeData to a minimal NWB-like file using h5py.</p>
+<p>Creates an NWB-compatible file structure with spike times stored in the
+standard ‘/units’ group format. This produces a minimal but valid NWB
+file that can be round-tripped with the NWB loader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Path to the output NWB file (.nwb extension recommended)</p></li>
+<li><p><strong>spike_times_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Name of the dataset containing flattened spike
+times in seconds. Standard NWB uses “spike_times”.</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Name of the dataset containing cumulative
+spike counts per unit for indexing into spike_times. Standard
+NWB uses “spike_times_index”.</p></li>
+<li><p><strong>group</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Name of the HDF5 group to contain the spike data. Standard
+NWB uses “units” for the units table.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Spike times are automatically converted from internal milliseconds
+to seconds as required by the NWB standard</p></li>
+<li><p>The output file contains only the essential spike timing data,
+not the full NWB metadata structure</p></li>
+<li><p>Compatible with both pynwb and h5py-based NWB readers</p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.to_kilosort">
+<span class="sig-name descname"><span class="pre">to_kilosort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_clusters_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_clusters.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'samples'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.to_kilosort"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.to_kilosort" title="Link to this definition"></a></dt>
+<dd><p>Export this SpikeData to a KiloSort/Phy-like folder structure.</p>
+<p>Creates the standard KiloSort output format with two numpy arrays:
+- spike_times.npy: All spike times across units
+- spike_clusters.npy: Corresponding cluster/unit ID for each spike</p>
+<p>This format is compatible with Phy for manual curation and other
+spike sorting analysis tools.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Output directory path. Will be created if it doesn’t exist.</p></li>
+<li><p><strong>fs_Hz</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></span>) – Sampling frequency in Hz. Required for time unit conversion,
+especially when using ‘samples’ (the KiloSort default).</p></li>
+<li><p><strong>spike_times_file</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Filename for the spike times array. Standard
+KiloSort uses “spike_times.npy”.</p></li>
+<li><p><strong>spike_clusters_file</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></span>) – Filename for the cluster assignments array.
+Standard KiloSort uses “spike_clusters.npy”.</p></li>
+<li><p><strong>time_unit</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'samples'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'s'</span></code>]</span>) – Output time unit for spike times:
+- ‘samples’: Sample indices (requires fs_Hz for conversion)
+- ‘ms’: Milliseconds (matches internal SpikeData format)
+- ‘s’: Seconds</p></li>
+<li><p><strong>cluster_ids</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]]</span>) – Optional list of cluster IDs to assign to each unit.
+Must have length equal to self.N. If None, uses sequential
+integers [0, 1, 2, …].</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Paths to the created (spike_times_file, spike_clusters_file)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If fs_Hz &lt;= 0 or cluster_ids length doesn’t match self.N</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Empty units (no spikes) are skipped in the output arrays</p></li>
+<li><p>Cluster IDs are mapped to units in order, so cluster_ids[i]
+corresponds to unit i in the SpikeData</p></li>
+<li><p>The ‘samples’ time unit is most common for KiloSort workflows</p></li>
+</ul>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="standalone-functions">
+<h2>Standalone Functions<a class="headerlink" href="#standalone-functions" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="spikedata.spike_time_tiling">
+<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">spike_time_tiling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tA</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tB</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#spike_time_tiling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.spike_time_tiling" title="Link to this definition"></a></dt>
+<dd><p>Calculate the spike time tiling coefficient [1] between two spike trains. STTC is a
+metric for correlation between spike trains with some improved intuitive properties
+compared to the Pearson correlation coefficient. Spike trains are lists of spike
+times sorted in ascending order.</p>
+<dl class="simple">
+<dt>[1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</dt><dd><p>comparison of methods and application to the study of retinal waves. Journal of
+Neuroscience 34:43, 14288–14303 (2014).</p>
+</dd>
+</dl>
+<p>Refactor 2025-09: behavior unchanged; helpers colocated below for clarity.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikedata.randomize">
+<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">randomize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">swap_per_spike</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#randomize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.randomize" title="Link to this definition"></a></dt>
+<dd><p>Randomize a binary spike raster using degree-preserving double-edge swaps.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ar</strong> (<em>array_like</em>) – Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.</p></li>
+<li><p><strong>swap_per_spike</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Target number of successful swaps per spike.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Randomized binary matrix with the same shape and row/column sums.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikedata.get_pop_rate">
+<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">get_pop_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_spk_mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SQUARE_WIDTH</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GAUSS_SIGMA</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#get_pop_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.get_pop_rate" title="Link to this definition"></a></dt>
+<dd><p>Compute population firing rate by smoothing the summed spike counts.</p>
+<p>First apply a moving-average (square) window, then optionally apply a Gaussian
+smoothing window parameterized by GAUSS_SIGMA (in samples).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikedata.get_bursts">
+<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">get_bursts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_acc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">THR_BURST</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_BURST_DIFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BURST_EDGE_MULT_THRESH</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#get_bursts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.get_bursts" title="Link to this definition"></a></dt>
+<dd><p>Detect bursts from a population rate vector using thresholded peak finding and
+amplitude-scaled edge detection.</p>
+<p>Returns (tburst, edges, peak_amp).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikedata.swap">
+<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">swap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idxs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#swap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.swap" title="Link to this definition"></a></dt>
+<dd><p>Attempt one double-edge swap in a binary spike raster while preserving
+per-row and per-column sums.</p>
+<p>The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
+if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the
+indices are distinct, swaps them so spikes move to those positions.</p>
+<p>Returns True if a swap was performed, otherwise False.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_loaders.html" class="btn btn-neutral float-right" title="data_loaders module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, IntegratedAnalysisTools Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
