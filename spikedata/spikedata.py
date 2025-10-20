@@ -36,12 +36,14 @@ No behavior changes were made to remaining APIs unless noted in their docstrings
 import heapq
 import itertools
 import warnings
-from typing import Literal, Optional, Union, List, Tuple
+from typing import Literal, Optional, Union, List, Tuple, Dict, Any
 
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
 
+from .neuron_attributes import NeuronAttributes
 from .utils import (
     spike_time_tiling,
     butter_filter,
@@ -58,6 +60,7 @@ from .utils import (
 
 __all__ = [
     "SpikeData",
+    "NeuronAttributes",
     "spike_time_tiling",
     "swap",
     "randomize",
@@ -88,8 +91,9 @@ class SpikeData:
 
     - length: The length of the spike train, defaults to the time of the last spike.
 
-    - neuron_attributes: A list of attribute objects for each neuron. Each item should
-      be a dataclass containing a consistent set of fields.
+    - neuron_attributes: A NeuronAttributes object containing metadata for each neuron,
+      stored as a pandas DataFrame with standard columns like unit_id, cluster_id,
+      electrode_id, firing_rate_hz, and custom attributes.
 
     - metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -228,7 +232,7 @@ class SpikeData:
         *,
         N=None,
         length=None,
-        neuron_attributes=None,
+        neuron_attributes: Optional[Union[NeuronAttributes, pd.DataFrame, Dict[str, Any]]] = None,
         metadata={},
         raw_data=None,
         raw_time: Optional[Union[NDArray, float]] = None,
@@ -242,6 +246,27 @@ class SpikeData:
         corresponds to the times given in `raw_time`. The `raw_time` argument
         can also be a sample rate in kHz, in which case it is generated
         assuming that the start of the raw data corresponds with t=0.
+
+        Parameters
+        ----------
+        train : list of array-like
+            List of spike trains, where each element is an array of spike times in ms.
+        N : int, optional
+            Number of units. If None, inferred from train length.
+        length : float, optional
+            Total length of recording in ms. If None, uses time of last spike.
+        neuron_attributes : NeuronAttributes, DataFrame, dict, or None
+            Neuron metadata. Can be:
+            - NeuronAttributes object
+            - pandas DataFrame (will be converted to NeuronAttributes)
+            - dict (will be converted to NeuronAttributes via from_dict)
+            - None (no attributes)
+        metadata : dict
+            Recording-level metadata.
+        raw_data : array-like, optional
+            Raw continuous data.
+        raw_time : array-like or float, optional
+            Time vector for raw_data or sampling rate in kHz.
         """
         # Make sure each individual spike train is sorted. As a side effect,
         # also copy each array to avoid aliasing.
@@ -275,20 +300,28 @@ class SpikeData:
                 "Must provide both or neither of " "`raw_data` and `raw_time`."
             )
 
-        # Add metadata and neuron_attributes, then validate that neuron_attributes
-        # contains the right number of neurons.
-        #
-        # Note that if there is no metadata, it should be an empty dict, because that
-        # way arbitrary fields can be added later, but null neuron_attributes requires
-        # storing None so we don't get misaligned by concatenating an empty list later.
+        # Add metadata
         self.metadata = metadata.copy()
-        self.neuron_attributes = None
-        if neuron_attributes:
-            self.neuron_attributes = neuron_attributes.copy()
-            if len(neuron_attributes) != self.N:
-                raise ValueError(
-                    f"neuron_attributes has {len(neuron_attributes)} "
-                    f"instead of {self.N} items."
+
+        # Handle neuron_attributes: convert various input types to NeuronAttributes
+        self.neuron_attributes: Optional[NeuronAttributes] = None
+        if neuron_attributes is not None:
+            if isinstance(neuron_attributes, NeuronAttributes):
+                self.neuron_attributes = neuron_attributes
+                # Validate it matches self.N
+                self.neuron_attributes.validate_n_neurons(self.N)
+            elif isinstance(neuron_attributes, pd.DataFrame):
+                self.neuron_attributes = NeuronAttributes.from_dataframe(
+                    neuron_attributes, n_neurons=self.N
+                )
+            elif isinstance(neuron_attributes, dict):
+                self.neuron_attributes = NeuronAttributes.from_dict(
+                    neuron_attributes, n_neurons=self.N
+                )
+            else:
+                raise TypeError(
+                    f"neuron_attributes must be NeuronAttributes, DataFrame, dict, or None, "
+                    f"not {type(neuron_attributes).__name__}"
                 )
 
     @property
@@ -398,26 +431,31 @@ class SpikeData:
         if by is not None:
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
-            _missing = object()
-            units = {
-                i
-                for i in range(self.N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
-            }
+            # Get the attribute column and find matching units
+            try:
+                attr_values = self.neuron_attributes.get_attribute(by)
+                units = {i for i in range(self.N) if attr_values[i] in units}
+            except KeyError:
+                raise ValueError(f"Attribute '{by}' not found in neuron_attributes")
 
+        # Collect matching trains and their indices
         train = []
-        neuron_attributes = []
+        indices = []
         for i, ts in enumerate(self.train):
             if i in units:
                 train.append(ts)
-                if self.neuron_attributes is not None:
-                    neuron_attributes.append(self.neuron_attributes[i])
+                indices.append(i)
+
+        # Subset neuron_attributes if present
+        subset_attrs = None
+        if self.neuron_attributes is not None:
+            subset_attrs = self.neuron_attributes.subset(indices)
 
         return SpikeData(
             train,
             length=self.length,
             N=len(train),
-            neuron_attributes=neuron_attributes or None,
+            neuron_attributes=subset_attrs,
             metadata=self.metadata,
             raw_time=self.raw_time,
             raw_data=self.raw_data,
@@ -495,11 +533,27 @@ class SpikeData:
         raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
         raw_time = np.concatenate((self.raw_time, spikeData.raw_time))
         length = self.length + spikeData.length + offset
+
+        # Note: append() concatenates spike trains in TIME, not adding new neurons,
+        # so neuron_attributes should remain the same (just use self's attributes)
+        # If both have attributes but they differ, issue a warning
+        appended_attrs = self.neuron_attributes
+        if self.neuron_attributes is not None and spikeData.neuron_attributes is not None:
+            # Check if they're different
+            df1 = self.neuron_attributes.to_dataframe()
+            df2 = spikeData.neuron_attributes.to_dataframe()
+            if not df1.equals(df2):
+                warnings.warn(
+                    "Appending SpikeData with different neuron_attributes. "
+                    "Using attributes from the first SpikeData object.",
+                    RuntimeWarning,
+                )
+
         return SpikeData(
             train,
             length=length,
             N=self.N,
-            neuron_attributes=self.neuron_attributes,
+            neuron_attributes=appended_attrs,
             raw_time=raw_time,
             raw_data=raw_data,
             metadata={
@@ -571,13 +625,109 @@ class SpikeData:
         self.raw_data += sd.raw_data
         self.raw_time += sd.raw_time
         self.metadata.update(sd.metadata)
-        if self.neuron_attributes and sd.neuron_attributes:
-            self.neuron_attributes += sd.neuron_attributes
-        elif self.neuron_attributes or sd.neuron_attributes:
+
+        # Concatenate neuron_attributes
+        if self.neuron_attributes is not None and sd.neuron_attributes is not None:
+            self.neuron_attributes = self.neuron_attributes.concat(sd.neuron_attributes)
+        elif self.neuron_attributes is not None or sd.neuron_attributes is not None:
             warnings.warn(
-                "Concatenating SpikeData where one has no neuron_attributes.",
+                "Concatenating SpikeData where one has no neuron_attributes. "
+                "Result will have no neuron_attributes.",
                 RuntimeWarning,
             )
+            self.neuron_attributes = None
+
+    def set_neuron_attribute(self, column: str, values: Union[np.ndarray, List]) -> None:
+        """
+        Set or update a neuron attribute column.
+
+        If neuron_attributes doesn't exist yet, creates an empty NeuronAttributes
+        with this column.
+
+        Parameters
+        ----------
+        column : str
+            Name of the attribute column.
+        values : array-like
+            Values for the attribute. Must have length equal to self.N.
+
+        Examples
+        --------
+        >>> sd.set_neuron_attribute('quality', ['good', 'good', 'mua', 'good'])
+        >>> sd.set_neuron_attribute('snr', [4.2, 6.8, 3.1, 5.5])
+        """
+        if self.neuron_attributes is None:
+            # Create new NeuronAttributes with this column
+            self.neuron_attributes = NeuronAttributes.from_dict(
+                {column: values}, n_neurons=self.N
+            )
+        else:
+            self.neuron_attributes.set_attribute(column, values)
+
+    def get_neuron_attribute(self, column: str) -> np.ndarray:
+        """
+        Get values for a specific neuron attribute column.
+
+        Parameters
+        ----------
+        column : str
+            Name of the attribute column.
+
+        Returns
+        -------
+        np.ndarray
+            Array of attribute values.
+
+        Raises
+        ------
+        ValueError
+            If neuron_attributes doesn't exist.
+        KeyError
+            If column doesn't exist in neuron_attributes.
+
+        Examples
+        --------
+        >>> firing_rates = sd.get_neuron_attribute('firing_rate_hz')
+        >>> cluster_ids = sd.get_neuron_attribute('cluster_id')
+        """
+        if self.neuron_attributes is None:
+            raise ValueError("No neuron_attributes available.")
+        return self.neuron_attributes.get_attribute(column)
+
+    def compute_firing_rates(self, unit: Literal['Hz', 'kHz'] = 'Hz') -> np.ndarray:
+        """
+        Compute mean firing rates for all neurons and store in neuron_attributes.
+
+        The rates are calculated as the number of spikes divided by the recording
+        length. The computed rates are stored in the 'firing_rate_hz' column
+        (regardless of the unit parameter, which only affects the return value).
+
+        Parameters
+        ----------
+        unit : {'Hz', 'kHz'}, optional
+            Unit for the returned firing rates. Default is 'Hz'.
+            Note: stored in neuron_attributes as 'firing_rate_hz' in Hz regardless.
+
+        Returns
+        -------
+        np.ndarray
+            Array of firing rates in the specified unit.
+
+        Examples
+        --------
+        >>> rates = sd.compute_firing_rates(unit='Hz')
+        >>> # Access later via:
+        >>> rates = sd.get_neuron_attribute('firing_rate_hz')
+        """
+        rates_hz = self.rates(unit='Hz')
+        self.set_neuron_attribute('firing_rate_hz', rates_hz)
+        
+        if unit == 'Hz':
+            return rates_hz
+        elif unit == 'kHz':
+            return rates_hz / 1e3
+        else:
+            raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
     def spike_time_tilings(self, delt=20.0):
         """

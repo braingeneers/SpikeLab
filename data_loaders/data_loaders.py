@@ -20,13 +20,14 @@ import os
 import warnings
 
 import numpy as np
+import pandas as pd
 
 try:
     import h5py  # type: ignore
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
-from spikedata import SpikeData
+from spikedata import SpikeData, NeuronAttributes
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -90,6 +91,32 @@ def _trains_from_flat_index(
     return trains
 
 
+def _load_neuron_attributes_from_hdf5(
+    f,  # h5py.File-like
+    n_neurons: int,
+) -> Optional[NeuronAttributes]:
+    """Load neuron attributes from HDF5 file if /neuron_attributes group exists."""
+    if 'neuron_attributes' not in f:
+        return None
+
+    try:
+        attr_group = f['neuron_attributes']
+        attr_data = {}
+
+        # Read each dataset in the group as a column
+        for key in attr_group.keys():
+            data = np.asarray(attr_group[key])
+            if len(data) == n_neurons:
+                attr_data[key] = data
+
+        if attr_data:
+            return NeuronAttributes.from_dict(attr_data, n_neurons=n_neurons)
+    except Exception as e:
+        warnings.warn(f"Failed to load neuron_attributes from HDF5: {e}")
+
+    return None
+
+
 def _read_raw_arrays(
     f,  # h5py.File-like
     raw_dataset: Optional[str],
@@ -143,11 +170,13 @@ def _build_spikedata(
     metadata: Optional[Mapping[str, object]] = None,
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
+    neuron_attributes: Optional[NeuronAttributes] = None,
 ) -> SpikeData:
     """Internal helper to construct a SpikeData with sensible defaults.
 
     - Infers `length_ms` from the last spike if not provided.
     - Copies metadata and attaches optional raw arrays.
+    - Accepts optional neuron_attributes.
     """
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
@@ -158,6 +187,7 @@ def _build_spikedata(
         metadata=dict(metadata) if metadata else {},
         raw_data=raw_data,
         raw_time=raw_time,
+        neuron_attributes=neuron_attributes,
     )
 
 
@@ -302,7 +332,9 @@ def load_spikedata_from_hdf5(
             raster = np.asarray(f[raster_dataset])
             if raster.ndim != 2:
                 raise ValueError("raster_dataset must be 2D (units, time)")
-            sd = SpikeData.from_raster(raster, raster_bin_size_ms)
+            n_neurons = raster.shape[0]
+            neuron_attrs = _load_neuron_attributes_from_hdf5(f, n_neurons)
+            sd = SpikeData.from_raster(raster, raster_bin_size_ms, neuron_attributes=neuron_attrs)
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -313,12 +345,14 @@ def load_spikedata_from_hdf5(
             trains = _trains_from_flat_index(
                 flat, index, unit=spike_times_unit, fs_Hz=fs_Hz
             )
+            neuron_attrs = _load_neuron_attributes_from_hdf5(f, len(trains))
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
                 metadata=meta,
                 raw_data=raw_data,
                 raw_time=raw_time,
+                neuron_attributes=neuron_attrs,
             )
 
         if group_per_unit is not None:
@@ -326,19 +360,22 @@ def load_spikedata_from_hdf5(
             grp = f[group_per_unit]
             keys = sorted(list(grp.keys()))
             trains = [_to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
+            neuron_attrs = _load_neuron_attributes_from_hdf5(f, len(trains))
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
                 metadata=meta,
                 raw_data=raw_data,
                 raw_time=raw_time,
+                neuron_attributes=neuron_attrs,
             )
 
         # Style (4): paired indices and times arrays
         idces = np.asarray(f[idces_dataset])  # type: ignore
         times = _to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
-        sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms)
+        neuron_attrs = _load_neuron_attributes_from_hdf5(f, N)
+        sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms, neuron_attributes=neuron_attrs)
         sd.metadata.update(meta)
         return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -401,8 +438,11 @@ def load_spikedata_from_nwb(
     Prefers pynwb; falls back to h5py reading VectorData/VectorIndex at
     '/units/spike_times' and '/units/spike_times_index'. Times are in seconds
     and converted to milliseconds.
+
+    Extracts all available columns from the Units table into neuron_attributes.
     """
     trains: List[np.ndarray] = []
+    neuron_attrs_df: Optional[pd.DataFrame] = None
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
 
     if prefer_pynwb:
@@ -413,10 +453,22 @@ def load_spikedata_from_nwb(
                 nwb = io.read()
                 if getattr(nwb, "units", None) is None:
                     raise ValueError("NWB file has no Units table")
-                for row in nwb.units.to_dataframe().itertuples():  # type: ignore
+                units_df = nwb.units.to_dataframe()  # type: ignore
+                for row in units_df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
-            return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+                # Extract neuron attributes (excluding spike_times column)
+                if len(units_df.columns) > 1:
+                    neuron_attrs_df = units_df.drop(columns=['spike_times'], errors='ignore').copy()
+                    # Reset index to 0-based integer
+                    neuron_attrs_df.reset_index(drop=True, inplace=True)
+
+            neuron_attrs = None
+            if neuron_attrs_df is not None and not neuron_attrs_df.empty:
+                neuron_attrs = NeuronAttributes.from_dataframe(neuron_attrs_df, n_neurons=len(trains))
+
+            return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
         except Exception as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
@@ -444,7 +496,26 @@ def load_spikedata_from_nwb(
         trains.extend(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+        # Extract other attributes from the units group (h5py fallback)
+        attr_data = {}
+        for key in unit_grp.keys():
+            if key not in [st_key, idx_key] and not key.endswith('_index'):
+                try:
+                    data = np.asarray(unit_grp[key])
+                    # Check if it's a VectorData with matching length
+                    if len(data) == len(trains) or (key + '_index' in unit_grp.keys()):
+                        # If has an index, it's ragged - skip for now
+                        if key + '_index' not in unit_grp.keys():
+                            attr_data[key] = data
+                except Exception:
+                    pass  # Skip columns that can't be read as simple arrays
+
+        neuron_attrs = None
+        if attr_data:
+            neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=len(trains))
+
+    return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
 
 
 # ----------------------------
@@ -461,10 +532,13 @@ def load_spikedata_from_spikeinterface(
 ) -> SpikeData:
     """Convert a SpikeInterface SortingExtractor-like object to SpikeData.
 
+    Extracts all available unit properties into neuron_attributes.
+
     Parameters
     ----------
     sorting : object
-        Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...).
+        Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...),
+        and optionally get_property_keys() and get_property().
     sampling_frequency : float | None
         Optional override for sampling frequency (Hz).
     unit_ids : sequence | None
@@ -491,8 +565,36 @@ def load_spikedata_from_spikeinterface(
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
         trains.append(_to_ms(st.astype(float), "samples", fs))
 
+    # Extract neuron attributes from SpikeInterface properties
+    neuron_attrs = None
+    try:
+        get_property_keys = sorting.get_property_keys  # type: ignore[attr-defined]
+        get_property = sorting.get_property  # type: ignore[attr-defined]
+
+        property_keys = get_property_keys()
+        if property_keys:
+            attr_data = {}
+            for prop_key in property_keys:
+                try:
+                    prop_values = []
+                    for uid in ids:
+                        val = get_property(prop_key, uid)
+                        prop_values.append(val)
+                    attr_data[prop_key] = prop_values
+                except Exception:
+                    pass  # Skip properties that can't be extracted
+
+            # Add unit_id column
+            attr_data['unit_id'] = ids
+
+            if attr_data:
+                neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=len(trains))
+    except (AttributeError, Exception):
+        # SortingExtractor doesn't have properties or extraction failed
+        pass
+
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
-    return _build_spikedata(trains, metadata=meta)
+    return _build_spikedata(trains, metadata=meta, neuron_attributes=neuron_attrs)
 
 
 # ----------------------------
@@ -518,7 +620,8 @@ def load_spikedata_from_kilosort(
 
     Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
     and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
-    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata.
+    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata and
+    extracts attributes from TSV into neuron_attributes.
     """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
@@ -528,22 +631,23 @@ def load_spikedata_from_kilosort(
         raise ValueError("spike_times and spike_clusters length mismatch")
 
     keep_clusters: Optional[set] = None
+    cluster_info_df: Optional[pd.DataFrame] = None
+
+    # Try to load cluster info TSV/CSV
     if cluster_info_tsv is not None:
         tsv_path = os.path.join(folder, cluster_info_tsv)
         if os.path.exists(tsv_path):
             try:
-                import pandas as pd
-
-                df = pd.read_csv(tsv_path, sep="\t")
+                cluster_info_df = pd.read_csv(tsv_path, sep="\t")
                 label_col = (
                     "group"
-                    if "group" in df.columns
-                    else ("KSLabel" if "KSLabel" in df.columns else None)
+                    if "group" in cluster_info_df.columns
+                    else ("KSLabel" if "KSLabel" in cluster_info_df.columns else None)
                 )
                 id_col = (
                     "cluster_id"
-                    if "cluster_id" in df.columns
-                    else ("id" if "id" in df.columns else None)
+                    if "cluster_id" in cluster_info_df.columns
+                    else ("id" if "id" in cluster_info_df.columns else None)
                 )
                 if id_col is None or label_col is None:
                     warnings.warn(
@@ -551,19 +655,30 @@ def load_spikedata_from_kilosort(
                     )
                 else:
                     if include_noise:
-                        keep_clusters = set(df[id_col].astype(int).tolist())
+                        keep_clusters = set(cluster_info_df[id_col].astype(int).tolist())
                     else:
                         mask = (
-                            df[label_col]
+                            cluster_info_df[label_col]
                             .astype(str)
                             .str.lower()
                             .isin(["good", "mua", "mua good"])
                         )  # permissive
-                        keep_clusters = set(df.loc[mask, id_col].astype(int).tolist())
+                        keep_clusters = set(cluster_info_df.loc[mask, id_col].astype(int).tolist())
             except Exception as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
                 )
+                cluster_info_df = None
+    else:
+        # Try to find cluster_info.tsv or cluster_group.tsv automatically
+        for possible_name in ['cluster_info.tsv', 'cluster_group.tsv', 'cluster_KSLabel.tsv']:
+            possible_path = os.path.join(folder, possible_name)
+            if os.path.exists(possible_path):
+                try:
+                    cluster_info_df = pd.read_csv(possible_path, sep="\t")
+                    break
+                except Exception:
+                    pass
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
@@ -581,7 +696,35 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+    # Build neuron_attributes from cluster_info_df
+    neuron_attrs = None
+    if cluster_info_df is not None:
+        # Determine ID column
+        id_col = None
+        for candidate in ['cluster_id', 'id']:
+            if candidate in cluster_info_df.columns:
+                id_col = candidate
+                break
+
+        if id_col is not None:
+            # Filter and reorder to match our trains
+            cluster_info_df = cluster_info_df.set_index(id_col)
+            attrs_list = []
+            for clu_id in metadata_units:
+                if clu_id in cluster_info_df.index:
+                    attrs_list.append(cluster_info_df.loc[clu_id].to_dict())
+                else:
+                    # Missing data - use NaN
+                    attrs_list.append({col: np.nan for col in cluster_info_df.columns})
+
+            if attrs_list:
+                attrs_df = pd.DataFrame(attrs_list)
+                # Add cluster_id as a column (standard name)
+                attrs_df.insert(0, 'cluster_id', metadata_units)
+                neuron_attrs = NeuronAttributes.from_dataframe(attrs_df, n_neurons=len(trains))
+
+    return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
 
 
 # ----------------------------

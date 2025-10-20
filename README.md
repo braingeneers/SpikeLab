@@ -28,16 +28,20 @@ pip install -e ".[dev]"
 from spikedata import SpikeData
 from data_loaders import load_spikedata_from_nwb
 
-# Load spike data from NWB file
+# Load spike data from NWB file (includes neuron attributes)
 sd = load_spikedata_from_nwb("recording.nwb")
 
 # Compute firing rates
 rates = sd.rates(bin_size=100.0)
 
+# Work with neuron attributes
+sd.set_neuron_attribute('quality', ['good', 'good', 'mua'])
+cluster_ids = sd.get_neuron_attribute('cluster_id')
+
 # Get a spike raster
 raster = sd.raster(bin_size=1.0)
 
-# Export to different format
+# Export to different format (preserves neuron attributes)
 sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 ```
 

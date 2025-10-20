@@ -90,6 +90,26 @@ def _times_from_ms(
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 
+def _save_neuron_attributes_to_hdf5(
+    f,  # h5py.File-like
+    sd: "SpikeData",
+) -> None:
+    """Save neuron attributes to HDF5 file in /neuron_attributes group."""
+    if sd.neuron_attributes is None:
+        return
+
+    try:
+        attr_group = f.create_group('neuron_attributes')
+        df = sd.neuron_attributes.to_dataframe()
+
+        # Save each column as a dataset
+        for col in df.columns:
+            data = df[col].values
+            attr_group.create_dataset(col, data=data)
+    except Exception as e:
+        warnings.warn(f"Failed to save neuron_attributes to HDF5: {e}")
+
+
 def export_spikedata_to_hdf5(
     sd: "SpikeData",
     filepath: str,
@@ -211,6 +231,9 @@ def export_spikedata_to_hdf5(
                 raise ValueError("raw_time_unit must be one of 's','ms','samples'")
             f.create_dataset(raw_time_dataset, data=raw_time_out)
 
+        # Save neuron_attributes if present
+        _save_neuron_attributes_to_hdf5(f, sd)
+
         if style == "raster":
             if raster_bin_size_ms is None or raster_bin_size_ms <= 0:
                 raise ValueError(
@@ -317,6 +340,16 @@ def export_spikedata_to_nwb(
         g.create_dataset(spike_times_dataset, data=flat_s)
         g.create_dataset(spike_times_index_dataset, data=index)
 
+        # Save neuron_attributes as additional columns in the units group
+        if sd.neuron_attributes is not None:
+            try:
+                df = sd.neuron_attributes.to_dataframe()
+                for col in df.columns:
+                    if col != 'spike_times':  # Avoid collision with spike_times dataset
+                        g.create_dataset(col, data=df[col].values)
+            except Exception as e:
+                warnings.warn(f"Failed to save neuron_attributes to NWB: {e}")
+
 
 def export_spikedata_to_kilosort(
     sd: "SpikeData",
@@ -418,6 +451,22 @@ def export_spikedata_to_kilosort(
     spike_clusters_path = os.path.join(folder, spike_clusters_file)
     np.save(spike_times_path, times_out)
     np.save(spike_clusters_path, clusters)
+
+    # Save neuron_attributes as cluster_info.tsv if available
+    if sd.neuron_attributes is not None:
+        try:
+            import pandas as pd
+            
+            df = sd.neuron_attributes.to_dataframe()
+            # Use cluster_ids for the cluster_id column if it exists, otherwise add it
+            if 'cluster_id' not in df.columns:
+                df.insert(0, 'cluster_id', list(cluster_ids))
+            
+            cluster_info_path = os.path.join(folder, 'cluster_info.tsv')
+            df.to_csv(cluster_info_path, sep='\t', index=False)
+        except Exception as e:
+            warnings.warn(f"Failed to save cluster_info.tsv: {e}")
+
     return spike_times_path, spike_clusters_path
 
 
