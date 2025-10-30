@@ -601,3 +601,83 @@ class SpikeDataTest(unittest.TestCase):
         self.assertTrue(148 <= tburst[1] <= 152)
         self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
         self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
+    
+    def test_get_frac_active(self):
+        """Test get_frac_active method for calculating burst participation rates.
+        
+        - Creates a known spike pattern with predictable burst participation
+        - Verifies correct calculation of unit participation per burst
+        - Verifies correct calculation of burst participation per unit
+        - Checks backbone unit identification using threshold
+        """
+        # Create spike trains with specific firing patterns
+        # Unit 0 fires at times 1, 3, 4, 7 (active in burst 1 only)
+        # Unit 1 fires at times 2, 4, 6, 9 (active in both bursts)
+        # Unit 2 fires at times 3, 6, 8 (active in burst 2 only)
+        spike_trains = [
+            np.array([1, 3, 4, 7]),  # Unit 0
+            np.array([2, 4, 6, 9]),  # Unit 1
+            np.array([3, 6, 8])      # Unit 2
+        ]
+        
+        # Create SpikeData object
+        sd = SpikeData(spike_trains)
+        
+        # Define burst edges
+        edges = np.array([
+            [1, 4],   # First burst from t=1 to t=4
+            [6, 9]    # Second burst from t=6 to t=9
+        ])
+        
+        # Set parameters
+        min_spikes = 2
+        backbone_threshold = 0.55
+        
+        # Call the method
+        frac_per_unit, frac_per_burst, backbone_units = sd.get_frac_active(
+            edges, min_spikes, backbone_threshold
+        )
+        
+        # Expected values based on our spike pattern:
+        # Unit 0: active in 1/2 bursts (has 3 spikes in burst 1, 1 in burst 2)
+        # Unit 1: active in 2/2 bursts (has 2 spikes in burst 1, 2 in burst 2)
+        # Unit 2: active in 1/2 bursts (has 1 spike in burst 1, 2 in burst 2)
+        # Burst 1: 2/3 units active (units 0 and 1)
+        # Burst 2: 2/3 units active (units 1 and 2)
+        # Only unit 1 is a backbone unit (>= 0.55 participation rate)
+        
+        expected_frac_per_unit = np.array([0.5, 1.0, 0.5])
+        expected_frac_per_burst = np.array([2/3, 2/3])
+        expected_backbone_units = np.array([1])
+        
+        # Verify results
+        self.assertClose(frac_per_unit, expected_frac_per_unit)
+        self.assertClose(frac_per_burst, expected_frac_per_burst)
+        self.assertTrue(np.array_equal(backbone_units, expected_backbone_units))
+        
+        # Test with different parameters
+        # Increase min_spikes to require 3 spikes per burst
+        min_spikes_high = 3
+        frac_per_unit_high, frac_per_burst_high, backbone_high = sd.get_frac_active(
+            edges, min_spikes_high, backbone_threshold
+        )
+        
+        # Now only unit 0 is active in burst 1, no units active in burst 2
+        expected_high_unit = np.array([0.5, 0.0, 0.0])
+        expected_high_burst = np.array([1/3, 0.0])
+        expected_high_backbone = np.array([])
+        
+        self.assertClose(frac_per_unit_high, expected_high_unit)
+        self.assertClose(frac_per_burst_high, expected_high_burst)
+        self.assertTrue(np.array_equal(backbone_high, expected_high_backbone))
+        
+        # Test with lower backbone threshold
+        low_threshold = 0.4
+        _, _, backbone_low = sd.get_frac_active(
+            edges, min_spikes, low_threshold
+        )
+        
+        # With lower threshold, all units should be backbone
+        expected_low_backbone = np.array([0, 1, 2])
+        
+        self.assertTrue(np.array_equal(backbone_low, expected_low_backbone))
