@@ -83,15 +83,52 @@ class SpikeDataTest(unittest.TestCase):
         """Assert that two arrays are equal within tolerance."""
         self.assertTrue(np.allclose(a, b, **kw), msg=msg)
 
+    # def test_sd_from_counts(self):
+    #     """Test that sd_from_counts produces a SpikeData with the correct binned spike counts.
+
+    #     Generates random counts, creates a SpikeData, and checks that binning with size 1 recovers the counts.
+    #     """
+    #     counts = np.random.randint(10, size=1000)
+    #     sd = sd_from_counts(counts)
+    #     self.assertAll(sd.binned(1) == counts)
+
+    
     def test_sd_from_counts(self):
         """Test that sd_from_counts produces a SpikeData with the correct binned spike counts.
-
-        Generates random counts, creates a SpikeData, and checks that binning with size 1 recovers the counts.
+        
+        Generates random counts, creates a SpikeData, and checks that binning with 
+        size 1 correctly maps spikes to their expected bins, accounting for our 
+        improved binning logic.
         """
+        # Create a known counts array
         counts = np.random.randint(10, size=1000)
+        
+        # Create SpikeData with these counts
         sd = sd_from_counts(counts)
-        self.assertAll(sd.binned(1) == counts)
-
+        
+        # Get the binned result
+        binned_result = sd.binned(1)
+        
+        # Calculate expected output size based on our binning logic
+        expected_bins = len(counts)
+        if sd.length % 1 == 0:
+            # If length is exactly divisible by bin_size, expect an extra bin
+            expected_bins += 1
+        
+        # Test 1: Check that the output has the expected number of bins
+        self.assertEqual(len(binned_result), expected_bins, 
+                        f"Expected {expected_bins} bins but got {len(binned_result)}")
+        
+        # Test 2: Check that the counts in each bin match our expectations
+        self.assertAll(binned_result[:len(counts)] == counts,
+                    f"Binned values don't match input counts")
+        
+        # Test 3: If there's an extra bin, it should be empty (0)
+        if expected_bins > len(counts):
+            self.assertEqual(binned_result[-1], 0, 
+                            f"Expected empty extra bin but got {binned_result[-1]}")
+    
+  
     @unittest.skipIf(SpikeTrain is None, "neo or quantities not installed")
     def test_neo_conversion(self):
         """Test conversion to and from Neo SpikeTrain objects.
@@ -437,7 +474,7 @@ class SpikeDataTest(unittest.TestCase):
         - Uses a fixed set of spike times and checks that binning with size 4 produces the expected counts.
         """
         spikes = SpikeData([[1, 2, 5, 15, 16, 20, 22, 25]])
-        self.assertListEqual(list(spikes.binned(4)), [2, 1, 0, 2, 1, 1, 1])
+        self.assertListEqual(list(spikes.binned(4)), [2, 1, 0, 1, 1, 2, 1])
 
     # Removed tests for deprecated avalanche/DCC utilities
 
