@@ -83,15 +83,6 @@ class SpikeDataTest(unittest.TestCase):
         """Assert that two arrays are equal within tolerance."""
         self.assertTrue(np.allclose(a, b, **kw), msg=msg)
 
-    # def test_sd_from_counts(self):
-    #     """Test that sd_from_counts produces a SpikeData with the correct binned spike counts.
-
-    #     Generates random counts, creates a SpikeData, and checks that binning with size 1 recovers the counts.
-    #     """
-    #     counts = np.random.randint(10, size=1000)
-    #     sd = sd_from_counts(counts)
-    #     self.assertAll(sd.binned(1) == counts)
-
     def test_sd_from_counts(self):
         """Test that sd_from_counts produces a SpikeData with the correct binned spike counts.
 
@@ -185,10 +176,7 @@ class SpikeDataTest(unittest.TestCase):
 
         # Test the raster constructor. We can't expect equality because of
         # finite bin size, but we can check equality for the rasters.
-        # bin_size = 1.0
-        # r = sd.raster(bin_size) != 0
-        # r2 = SpikeData.from_raster(r, bin_size).raster(bin_size)
-        # self.assertAll(r == r2)
+
         bin_size = 1.0
         r = sd.raster(bin_size) != 0
         sd_from_r = SpikeData.from_raster(r, bin_size)
@@ -246,46 +234,6 @@ class SpikeDataTest(unittest.TestCase):
         # Regression test for overlap parameter of frames().
         for i, frame in enumerate(sd.frames(20, overlap=10)):
             self.assertSpikeDataEqual(frame, sd.subtime(i * 10, i * 10 + 20))
-
-    # def test_raster(self):
-    #     """Test raster and sparse_raster methods for spike count preservation and binning rules.
-
-    #     - Checks that the raster and sparse_raster representations preserve spike counts.
-    #     - Verifies that raster shapes are consistent for different spike counts.
-    #     - Tests binning rules for edge cases and consistency with binned().
-    #     """
-    #     N = 10000
-    #     sd = random_spikedata(10, N)
-
-    #     # Try both a sparse and a dense raster.
-    #     self.assertEqual(sd.raster().sum(), N)
-    #     self.assertAll(sd.sparse_raster() == sd.raster())
-
-    #     # Make sure the length of the raster is going to be consistent
-    #     # no matter how many spikes there are.
-    #     N = 10
-    #     length = 1e4
-    #     sdA = SpikeData.from_idces_times(
-    #         np.zeros(N, int), np.random.rand(N) * length, length=length
-    #     )
-    #     sdB = SpikeData.from_idces_times(
-    #         np.zeros(N, int), np.random.rand(N) * length, length=length
-    #     )
-    #     self.assertEqual(sdA.raster().shape, sdB.raster().shape)
-
-    #     # Corner cases of raster binning rules: spikes exactly at
-    #     # 0 end up in the first bin, but other bins should be
-    #     # lower-open and upper-closed.
-    #     ground_truth = [[1, 1, 0, 1]]
-    #
-    #     sd = SpikeData([[0, 20, 40]])
-    #     self.assertEqual(sd.length, 40)
-    #     self.assertAll(sd.raster(10) == ground_truth)
-
-    #     # Also verify that binning rules are consistent between the
-    #     # raster and other binning methods.
-    #     binned = np.array([list(sd.binned(10))])
-    #     self.assertAll(sd.raster(10) == binned)
 
     def test_raster(self):
         """Test raster and sparse_raster methods for spike count preservation and binning rules.
