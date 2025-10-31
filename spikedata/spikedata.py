@@ -528,6 +528,12 @@ class SpikeData:
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
         length = int(np.ceil(self.length / bin_size))
+        if (self.length % bin_size) == 0:
+            #if length is 40 and bin size is 10, you don't want 40 falling into bin that 
+            #should only contain times 30-39. The other bins only have 10 times considered in each
+            # So its best to show this spike in a new bin 
+            length +=1
+    
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         ret = sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
