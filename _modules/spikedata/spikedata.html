@@ -793,13 +793,20 @@
 
 <span class="sd">        Refactor 2025-09: unchanged behavior.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ts</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-            <span class="nb">int</span>
-        <span class="p">)</span>
+        <span class="c1"># indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(</span>
+        <span class="c1">#     int</span>
+        <span class="c1"># )</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">ts</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span>
         <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
         <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">%</span> <span class="n">bin_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># if length is 40 and bin size is 10, you don&#39;t want 40 falling into bin that</span>
+            <span class="c1"># should only contain times 30-39. The other bins only have 10 times considered in each</span>
+            <span class="c1"># So its best to show this spike in a new bin</span>
+            <span class="n">length</span> <span class="o">+=</span> <span class="mi">1</span>
+
         <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
         <span class="c1"># Use csr_matrix for SciPy &lt; 1.8 compatibility (csr_array not available)</span>
         <span class="n">ret</span> <span class="o">=</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
@@ -954,6 +961,70 @@
 <span class="sd">        Refactor 2025-09: unchanged behavior.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">latencies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">window_ms</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.get_frac_active">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.get_frac_active">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_frac_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">MIN_SPIKES</span><span class="p">,</span> <span class="n">backbone_threshold</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inputs:</span>
+
+<span class="sd">        t_spk_mat : numpy.ndarray</span>
+<span class="sd">            Spike matrix of shape (N, T) where T is time bins and N is units</span>
+<span class="sd">            This computed by turning self.train into sparse spike matrix via self.sparse_raster()</span>
+<span class="sd">        edges : numpy.ndarray</span>
+<span class="sd">            Array of shape (B, 2) containing [start, end] indices for each burst</span>
+<span class="sd">        MIN_SPIKES : int</span>
+<span class="sd">            Minimum number of spikes required for a unit to be considered active in a burst</span>
+<span class="sd">        BACKBONE_THRESHOLD : float between 0-1</span>
+<span class="sd">            Minimum fraction of bursts a unit must be active in to be considered a backbone unit</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        frac_per_unit : numpy.ndarray</span>
+<span class="sd">            - 1D array where each value represents a neuron and the fraction of burtsts that involve that neuron.</span>
+<span class="sd">            - Example) A value of .75 in the array means Neuron A is active in 75% of bursts</span>
+
+<span class="sd">        frac_per_burst : numpy.ndarray</span>
+<span class="sd">            - 1D array where each value represents a burst and the fraction of neurons that are active</span>
+<span class="sd">            in that burst.</span>
+<span class="sd">            - Example) A value of .75 in the array means Burst A involves 75% of neurons.</span>
+
+<span class="sd">        backbone_units : numpy.ndarray</span>
+<span class="sd">            1D array of the neuron/unit indices that are backbone units.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+
+        <span class="c1"># initiate result array</span>
+        <span class="n">spikes_per_burst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">t_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># for each unit</span>
+        <span class="k">for</span> <span class="n">unit</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">t_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+
+            <span class="c1"># obtain spike time indices. +1 since these are 1 indexes</span>
+            <span class="n">unit_spk_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">t_spk_mat</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:])[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># for each burst</span>
+            <span class="k">for</span> <span class="n">burst</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+
+                <span class="c1"># obtain all spike times within burst</span>
+                <span class="n">burst_times</span> <span class="o">=</span> <span class="n">unit_spk_times</span><span class="p">[</span>
+                    <span class="p">(</span><span class="n">unit_spk_times</span> <span class="o">&gt;=</span> <span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">unit_spk_times</span> <span class="o">&lt;=</span> <span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="p">]</span>
+
+                <span class="c1"># store number of spikes in burst</span>
+                <span class="n">spikes_per_burst</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="n">burst</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">burst_times</span><span class="p">)</span>
+
+        <span class="c1"># determine bursts above MIN_SPIKES</span>
+        <span class="n">above_thresh</span> <span class="o">=</span> <span class="n">spikes_per_burst</span> <span class="o">&gt;=</span> <span class="n">MIN_SPIKES</span>
+
+        <span class="c1"># compute fraction of bursts above threshold per unit</span>
+        <span class="n">frac_per_unit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">above_thresh</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">frac_per_burst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">above_thresh</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">t_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">backbone_units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">frac_per_unit</span> <span class="o">&gt;=</span> <span class="n">backbone_threshold</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">frac_per_unit</span><span class="p">,</span> <span class="n">frac_per_burst</span><span class="p">,</span> <span class="n">backbone_units</span></div>
 
 
     <span class="c1"># ----------------------------</span>

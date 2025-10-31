@@ -536,6 +536,39 @@ from a time to each spike in the train</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.get_frac_active">
+<span class="sig-name descname"><span class="pre">get_frac_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_SPIKES</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backbone_threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.get_frac_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.get_frac_active" title="Link to this definition"></a></dt>
+<dd><p>Inputs:</p>
+<dl class="simple">
+<dt>t_spk_mat<span class="classifier">numpy.ndarray</span></dt><dd><p>Spike matrix of shape (N, T) where T is time bins and N is units
+This computed by turning self.train into sparse spike matrix via self.sparse_raster()</p>
+</dd>
+<dt>edges<span class="classifier">numpy.ndarray</span></dt><dd><p>Array of shape (B, 2) containing [start, end] indices for each burst</p>
+</dd>
+<dt>MIN_SPIKES<span class="classifier">int</span></dt><dd><p>Minimum number of spikes required for a unit to be considered active in a burst</p>
+</dd>
+<dt>BACKBONE_THRESHOLD<span class="classifier">float between 0-1</span></dt><dd><p>Minimum fraction of bursts a unit must be active in to be considered a backbone unit</p>
+</dd>
+</dl>
+<p>Returns:</p>
+<dl>
+<dt>frac_per_unit<span class="classifier">numpy.ndarray</span></dt><dd><ul class="simple">
+<li><p>1D array where each value represents a neuron and the fraction of burtsts that involve that neuron.</p></li>
+<li><p>Example) A value of .75 in the array means Neuron A is active in 75% of bursts</p></li>
+</ul>
+</dd>
+<dt>frac_per_burst<span class="classifier">numpy.ndarray</span></dt><dd><ul class="simple">
+<li><p>1D array where each value represents a burst and the fraction of neurons that are active</p></li>
+</ul>
+<p>in that burst.
+- Example) A value of .75 in the array means Burst A involves 75% of neurons.</p>
+</dd>
+<dt>backbone_units<span class="classifier">numpy.ndarray</span></dt><dd><p>1D array of the neuron/unit indices that are backbone units.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.to_hdf5">
 <span class="sig-name descname"><span class="pre">to_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ragged'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raster'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'idces'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.to_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.to_hdf5" title="Link to this definition"></a></dt>
 <dd><p>Export this SpikeData to an HDF5 file with flexible formatting options.</p>
