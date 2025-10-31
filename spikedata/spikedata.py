@@ -518,22 +518,20 @@ class SpikeData:
 
         Refactor 2025-09: unchanged behavior.
         """
-        #indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
-       #     int
-        #)
-        indices = np.hstack([np.floor(ts / bin_size) for ts in self.train]).astype(
-            int
-        )
+        # indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
+        #     int
+        # )
+        indices = np.hstack([np.floor(ts / bin_size) for ts in self.train]).astype(int)
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
         length = int(np.ceil(self.length / bin_size))
         if (self.length % bin_size) == 0:
-            #if length is 40 and bin size is 10, you don't want 40 falling into bin that 
-            #should only contain times 30-39. The other bins only have 10 times considered in each
-            # So its best to show this spike in a new bin 
-            length +=1
-    
+            # if length is 40 and bin size is 10, you don't want 40 falling into bin that
+            # should only contain times 30-39. The other bins only have 10 times considered in each
+            # So its best to show this spike in a new bin
+            length += 1
+
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         ret = sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
@@ -667,10 +665,11 @@ class SpikeData:
         Refactor 2025-09: unchanged behavior.
         """
         return self.latencies(self.train[i], window_ms)
+
     def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold):
         """
         Inputs:
-        
+
         t_spk_mat : numpy.ndarray
             Spike matrix of shape (N, T) where T is time bins and N is units
             This computed by turning self.train into sparse spike matrix via self.sparse_raster()
@@ -680,27 +679,25 @@ class SpikeData:
             Minimum number of spikes required for a unit to be considered active in a burst
         BACKBONE_THRESHOLD : float between 0-1
             Minimum fraction of bursts a unit must be active in to be considered a backbone unit
-            
+
         Returns:
 
         frac_per_unit : numpy.ndarray
-            - 1D array where each value represents a neuron and the fraction of burtsts that involve that neuron. 
+            - 1D array where each value represents a neuron and the fraction of burtsts that involve that neuron.
             - Example) A value of .75 in the array means Neuron A is active in 75% of bursts
 
         frac_per_burst : numpy.ndarray
-            - 1D array where each value represents a burst and the fraction of neurons that are active 
+            - 1D array where each value represents a burst and the fraction of neurons that are active
             in that burst.
             - Example) A value of .75 in the array means Burst A involves 75% of neurons.
 
         backbone_units : numpy.ndarray
-            1D array of the neuron/unit indices that are backbone units. 
+            1D array of the neuron/unit indices that are backbone units.
         """
         t_spk_mat = self.sparse_raster(bin_size=1).toarray()
 
-
         # initiate result array
         spikes_per_burst = np.zeros((t_spk_mat.shape[0], edges.shape[0]))
-
 
         # for each unit
         for unit in range(t_spk_mat.shape[0]):
@@ -712,7 +709,10 @@ class SpikeData:
             for burst in range(edges.shape[0]):
 
                 # obtain all spike times within burst
-                burst_times = unit_spk_times[(unit_spk_times >= edges[burst, 0]) & (unit_spk_times <= edges[burst, 1])]
+                burst_times = unit_spk_times[
+                    (unit_spk_times >= edges[burst, 0])
+                    & (unit_spk_times <= edges[burst, 1])
+                ]
 
                 # store number of spikes in burst
                 spikes_per_burst[unit, burst] = len(burst_times)
@@ -724,7 +724,6 @@ class SpikeData:
         frac_per_unit = np.sum(above_thresh, axis=1) / edges.shape[0]
         frac_per_burst = np.sum(above_thresh, axis=0) / t_spk_mat.shape[0]
 
-        
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
 
