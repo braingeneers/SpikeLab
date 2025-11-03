@@ -308,5 +308,160 @@ class NeuronAttributes:
     def __str__(self) -> str:
         """Return string representation."""
         return self.__repr__()
+    
+    def calculate_mean_waveforms(
+        self,
+        spikedata: 'SpikeData',  # type: ignore
+        ms_before: float = 1.0,
+        ms_after: float = 2.0,
+        max_spikes: Optional[int] = 1000,
+        auto_save: bool = True
+    ) -> Dict[str, np.ndarray]:
+        """
+        Calculate mean waveforms for each neuron from raw data.
+        
+        Extracts the waveform from the channel with the largest amplitude for each unit.
+        Automatically stores waveforms as 'mean_waveform' attribute and derived metrics
+        in neuron_attributes.
+        
+        Parameters
+        ----------
+        spikedata : SpikeData
+            The parent SpikeData object containing spike trains and raw data.
+        ms_before : float
+            Milliseconds before spike peak to include in waveform.
+        ms_after : float
+            Milliseconds after spike peak to include in waveform.
+        max_spikes : int, optional
+            Maximum number of spikes to use per neuron (for efficiency).
+            If None, uses all spikes.
+        auto_save : bool, optional
+            If True (default), automatically saves mean waveforms as 'mean_waveform'
+            attribute. Each neuron's waveform is stored as a 1D array (samples).
+        
+        Returns
+        -------
+        dict
+            Dictionary with keys:
+            - 'mean_waveforms': ndarray of shape (n_neurons, n_samples) - best channel per unit
+            - 'std_waveforms': ndarray of shape (n_neurons, n_samples) - std on best channel
+            - 'best_channels': ndarray of shape (n_neurons,) - channel index with largest amplitude
+            - 'n_spikes_used': ndarray of shape (n_neurons,) - count of spikes used
+            - 'time_ms': ndarray with time axis relative to spike (0 = spike peak)
+        
+        Raises
+        ------
+        ValueError
+            If SpikeData doesn't have raw_data and raw_time.
+        
+        Examples
+        --------
+        >>> # Calculate and automatically save mean waveforms
+        >>> wf_data = sd.neuron_attributes.calculate_mean_waveforms(sd)
+        >>> # Access saved waveforms
+        >>> mean_waveforms = sd.neuron_attributes.get_attribute('mean_waveform')
+        >>> # Get waveform for neuron 0
+        >>> neuron_0_waveform = mean_waveforms[0]  # Shape: (n_samples,)
+        >>> # Get which channel was used
+        >>> best_channel = sd.neuron_attributes.get_attribute('waveform_channel')[0]
+        """
+        # Check that raw data exists
+        if not hasattr(spikedata, 'raw_data') or spikedata.raw_data.size == 0:
+            raise ValueError(
+                "SpikeData must have raw_data and raw_time to extract waveforms. "
+                "Load data with raw traces or use a recording loader."
+            )
+        
+        raw_data = spikedata.raw_data # Raw data is a 2D array of shape (channels, samples)
+        raw_time = spikedata.raw_time # Raw time is a 1D array of shape (samples)
+        
+        # Determine sampling rate in kHz
+        if np.ndim(raw_time) == 0:
+            # raw_time is already a sampling rate in kHz
+            fs_khz = float(raw_time)
+        else:
+            # Calculate from time vector (assumes uniform sampling)
+            dt_ms = np.mean(np.diff(raw_time)) # dt_ms is the time between samples in milliseconds
+            fs_khz = 1.0 / dt_ms # fs_khz is the sampling rate in kHz
+        
+        # Convert time windows to samples
+        before_samples = int(ms_before * fs_khz) # before_samples is the number of samples before the spike
+        after_samples = int(ms_after * fs_khz) + 1 # +1 to include the spike itself
+        total_samples = before_samples + after_samples
+        
+        # Get dimensions
+        if raw_data.ndim == 1:
+            raw_data = raw_data.reshape(1, -1) # If raw_data is a 1D array, reshape it to a 2D array
+        
+        # Initialize output arrays - now only storing best channel per unit
+        mean_waveforms = np.zeros((self.n_neurons, total_samples))
+        std_waveforms = np.zeros((self.n_neurons, total_samples))
+        best_channels = np.zeros(self.n_neurons, dtype=int)
+        n_spikes_used = np.zeros(self.n_neurons, dtype=int)
+        
+        # Extract waveforms for each neuron
+        for neuron_idx in range(self.n_neurons):
+            spike_times = spikedata.train[neuron_idx] # spike_times is a 1D array of shape (n_spikes)
+            
+            if len(spike_times) == 0:
+                continue # If there are no spikes, skip this neuron
+            
+            # Optionally subsample spikes - if max_spikes is not None, subsample the spikes to the maximum number of spikes
+            if max_spikes is not None and len(spike_times) > max_spikes:
+                indices = np.random.choice(len(spike_times), max_spikes, replace=False)
+                spike_times = spike_times[indices]
+            
+            # Convert spike times to samples
+            spike_samples = (spike_times * fs_khz).astype(int) # spike_samples is a 1D array of shape (n_spikes)
+            
+            # Extract waveforms for this neuron (all channels)
+            waveforms_list = []
+            for spike_sample in spike_samples:
+                start = spike_sample - before_samples
+                end = spike_sample + after_samples
+                
+                # Skip if out of bounds
+                if start < 0 or end > raw_data.shape[1]:
+                    continue
+                
+                waveform = raw_data[:, start:end]
+                waveforms_list.append(waveform) # waveform is a 2D array of shape (channels, samples)
+            
+            if len(waveforms_list) > 0:
+                waveforms = np.array(waveforms_list)  # waveforms is a 3D array of shape (n_spikes, n_channels, n_samples)
+                mean_wf_all_ch = np.mean(waveforms, axis=0)  # (n_channels, n_samples)
+                
+                # Find channel with largest peak-to-peak amplitude
+                amplitudes = np.max(mean_wf_all_ch, axis=1) - np.min(mean_wf_all_ch, axis=1)
+                best_ch = np.argmax(amplitudes) # best_ch is the channel index with the largest peak-to-peak amplitude
+                best_channels[neuron_idx] = best_ch
+                
+                # Store only the best channel waveform
+                mean_waveforms[neuron_idx] = mean_wf_all_ch[best_ch]
+                std_waveforms[neuron_idx] = np.std(waveforms[:, best_ch, :], axis=0)
+                n_spikes_used[neuron_idx] = len(waveforms_list)
+        
+        # Create time axis
+        time_ms = np.linspace(-ms_before, ms_after, total_samples)
+        
+        # Automatically save to neuron_attributes if requested
+        if auto_save:
+            # Store mean waveforms as array of 1D arrays (one per neuron)
+            # Each element is shape (n_samples,) from the best channel
+            waveform_objects = np.empty(self.n_neurons, dtype=object)
+            for i in range(self.n_neurons):
+                waveform_objects[i] = mean_waveforms[i]
+            
+            self.set_attribute('mean_waveform', waveform_objects)
+            self.set_attribute('waveform_channel', best_channels)
+            self.set_attribute('waveform_n_spikes', n_spikes_used)
+        
+        return {
+            'mean_waveforms': mean_waveforms,
+            'std_waveforms': std_waveforms,
+            'best_channels': best_channels,
+            'n_spikes_used': n_spikes_used,
+            'time_ms': time_ms
+        }
 
 

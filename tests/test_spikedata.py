@@ -4,6 +4,7 @@ import pathlib
 import sys
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 try:
@@ -18,7 +19,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
-from spikedata import SpikeData
+from spikedata import SpikeData, NeuronAttributes
 
 
 @dataclass
@@ -450,23 +451,28 @@ class SpikeDataTest(unittest.TestCase):
         - Verifies that subset and subtime propagate/copy metadata and neuron_attributes correctly.
         """
         # Make sure there's an error if the metadata is gibberish.
-        with self.assertRaises(ValueError):
-            SpikeData([], N=5, length=100, neuron_attributes=[{}, {}])
+        # loads of dataframe without a column called 'unit_id'
+        with self.assertRaises(TypeError):
+            SpikeData([], N=5, length=100, neuron_attributes=pd.DataFrame([{}, {}]))
 
         # Overall propagation testing...
+        np.random.seed(42)  # For reproducibility
+        test_attrs = NeuronAttributes.from_dict(
+            {'size': np.random.rand(5)}, n_neurons=5
+        )
         foo = SpikeData(
             [],
             N=5,
             length=1000,
             metadata=dict(name="Marvin"),
-            neuron_attributes=[MockNeuronAttributes(ξ) for ξ in np.random.rand(5)],
+            neuron_attributes=test_attrs,
         )
 
         # Make sure subset propagates all metadata and correctly
         # subsets the neuron_attributes.
         subset = [1, 3]
         assert foo.neuron_attributes is not None
-        truth = [foo.neuron_attributes[i] for i in subset]
+        truth = foo.neuron_attributes.subset(subset)
         bar = foo.subset(subset)
         self.assertDictEqual(foo.metadata, bar.metadata)
         self.assertNeuronAttributesEqual(truth, bar.neuron_attributes)
@@ -481,10 +487,10 @@ class SpikeDataTest(unittest.TestCase):
         self.assertNeuronAttributesEqual(bar.neuron_attributes, baz.neuron_attributes)
 
     def assertNeuronAttributesEqual(self, nda, ndb, msg=None):
-        """Assert that two lists of neuron attributes are equal elementwise."""
+        """Assert that two NeuronAttributes objects are equal."""
         self.assertEqual(len(nda), len(ndb))
-        for n, m in zip(nda, ndb):
-            self.assertEqual(n, m)
+        # Compare the underlying DataFrames
+        pd.testing.assert_frame_equal(nda.to_dataframe(), ndb.to_dataframe())
 
     def test_raw_data(self):
         """Test handling of raw_data and raw_time in SpikeData.

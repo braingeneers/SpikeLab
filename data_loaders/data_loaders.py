@@ -22,10 +22,19 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import zipfile
+import os
+
 try:
     import h5py  # type: ignore
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
+
+
+try:
+    import boto3  # type: ignore
+except Exception:  # pragma: no cover
+    boto3 = None  # type: ignore
 
 from spikedata import SpikeData, NeuronAttributes
 
@@ -36,6 +45,9 @@ __all__ = [
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
+    "load_spikedata_from_acqm",
+    "download_s3_to_local",
+    "load_spikedata_from_s3",
 ]
 
 
@@ -50,6 +62,17 @@ def _ensure_h5py():
     if h5py is None:
         raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
 
+
+def _ensure_boto3():
+    """Ensure the optional boto3 dependency is available.
+
+    Raises
+    ------
+    ImportError
+        If boto3 is not installed and an S3 loader is invoked.
+    """
+    if boto3 is None:
+        raise ImportError("boto3 is required for S3 loaders. `pip install boto3`.")
 
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
     """Convert a vector of times to milliseconds.
@@ -192,6 +215,113 @@ def _build_spikedata(
 
 
 # ----------------------------
+# S3
+# ----------------------------
+
+def download_s3_to_local(
+    src: str,
+    dst: str,
+    *,
+    endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+    **s3_client_kwargs
+) -> None:
+    """Download a file from S3 to local filesystem.
+    
+    Parameters
+    ----------
+    src : str
+        S3 URI in the format 's3://bucket/key/path'.
+    dst : str
+        Local destination file path.
+    endpoint_url : str, optional
+        S3 endpoint URL. Defaults to Nautilus endpoint.
+    **s3_client_kwargs
+        Additional keyword arguments passed to boto3.client().
+        
+    Raises
+    ------
+    RuntimeError
+        If src doesn't start with 's3://'.
+    ImportError
+        If boto3 is not installed.
+        
+    Examples
+    --------
+    >>> download_s3_to_local('s3://my-bucket/data.h5', '/tmp/data.h5')
+    >>>
+    """
+    _ensure_boto3()
+    
+    if not src.startswith('s3://'):
+        raise RuntimeError(f'Input filepath must start with s3://! Got: {src}')
+    
+    print(f'Downloading {src} to {dst} with boto3 version: {boto3.__version__}')
+    
+    # Parse S3 URI
+    bucket, key = src[len('s3://'):].split('/', maxsplit=1)
+    
+    # Create S3 client
+    s3_client = boto3.client('s3', endpoint_url=endpoint_url, **s3_client_kwargs)
+    
+    # Download file
+    s3_client.download_file(bucket, key, dst)
+    print(f'Successfully downloaded to {dst}')
+
+
+def _resolve_s3_path(
+    filepath: str,
+    cache_dir: Optional[str] = None,
+    endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+) -> str:
+    """Resolve an S3 path by downloading to cache if needed.
+    
+    Parameters
+    ----------
+    filepath : str
+        Either a local path or an S3 URI (s3://...).
+    cache_dir : str, optional
+        Directory to cache downloaded S3 files. If None, uses a temp directory.
+    endpoint_url : str
+        S3 endpoint URL.
+        
+    Returns
+    -------
+    str
+        Local file path (either original if local, or cached if from S3).
+    """
+    if not filepath.startswith('s3://'):
+        return filepath
+    
+    import tempfile
+    
+    # Determine cache location
+    if cache_dir is None:
+        cache_dir = tempfile.mkdtemp(prefix='spikedata_s3_')
+    else:
+        os.makedirs(cache_dir, exist_ok=True)
+    
+    # Create local filename from S3 key
+    basename = os.path.basename(filepath)
+    local_path = os.path.join(cache_dir, basename)
+    
+    # Download if not already cached
+    if not os.path.exists(local_path):
+        download_s3_to_local(filepath, local_path, endpoint_url=endpoint_url)
+
+    # If the file is a zip file, unzip it
+    if local_path.endswith('.zip'):
+        with zipfile.ZipFile(local_path, 'r') as zip_ref:
+            zip_ref.extractall(cache_dir)
+        local_path = os.path.join(cache_dir, os.path.basename(local_path).replace('.zip', ''))
+
+    else:
+        print(f'Using cached file: {local_path}')
+    
+    return local_path
+    
+
+
+# ----------------------------
 # HDF5
 # ----------------------------
 
@@ -199,6 +329,8 @@ def _build_spikedata(
 def load_spikedata_from_hdf5(
     filepath: str,
     *,
+    cache_dir: Optional[str] = None,
+    s3_endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
     raster_dataset: Optional[str] = None,
     raster_bin_size_ms: Optional[float] = None,
     spike_times_dataset: Optional[str] = None,
@@ -298,7 +430,15 @@ def load_spikedata_from_hdf5(
 
     # Load from paired arrays
     sd = load_spikedata_from_hdf5("file.h5", idces_dataset="unit_ids", times_dataset="spike_times")
+
+    # Direct S3 support in loaders (if you modify existing functions)
+    sd = load_spikedata_from_hdf5('s3://my-bucket/recording.h5',
+                                  raster_dataset='spikes',
+                                  raster_bin_size_ms=1.0)
     """
+    # Resolve S3 path if needed
+    filepath = _resolve_s3_path(filepath, cache_dir, s3_endpoint_url)
+    
     _ensure_h5py()
 
     # Validate exactly one style is provided
@@ -576,11 +716,9 @@ def load_spikedata_from_spikeinterface(
             attr_data = {}
             for prop_key in property_keys:
                 try:
-                    prop_values = []
-                    for uid in ids:
-                        val = get_property(prop_key, uid)
-                        prop_values.append(val)
-                    attr_data[prop_key] = prop_values
+                    # Get all property values at once (SpikeInterface API returns array for all units)
+                    prop_values = get_property(prop_key, ids)
+                    attr_data[prop_key] = list(prop_values)
                 except Exception:
                     pass  # Skip properties that can't be extracted
 
@@ -725,6 +863,177 @@ def load_spikedata_from_kilosort(
                 neuron_attrs = NeuronAttributes.from_dataframe(attrs_df, n_neurons=len(trains))
 
     return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
+
+
+# ----------------------------
+# ACQM (NPZ format)
+# ----------------------------
+
+
+def load_spikedata_from_acqm(
+    filepath: str,
+    *,
+    cache_dir: Optional[str] = None,
+    s3_endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+    length_ms: Optional[float] = None,
+) -> SpikeData:
+    """Load spike trains from an ACQM file (.acqm or .acqm.zip stored as NPZ).
+
+    ACQM files are numpy compressed archives containing spike train data with the following structure:
+    - train: dict mapping unit IDs to spike time arrays (in samples)
+    - neuron_data: dict mapping unit IDs to metadata dicts with per-neuron attributes
+    - fs: sampling frequency in Hz
+    - config: optional recording configuration dict
+    - redundant_pairs: optional array of redundant unit pairs
+
+    Spike times are converted from samples to milliseconds using the stored sampling frequency.
+    Neuron metadata is extracted into neuron_attributes.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the ACQM file (local or S3 URI starting with 's3://').
+        Can be .acqm.zip (handled as npz) or regular .npz file.
+    cache_dir : str, optional
+        If filepath is an S3 URI, directory to cache downloaded files.
+    s3_endpoint_url : str
+        S3 endpoint URL (only used if filepath is S3 URI).
+    length_ms : float, optional
+        Recording duration in milliseconds (inferred if not provided).
+
+    Returns
+    -------
+    SpikeData
+        The loaded spike train data with neuron attributes.
+
+    Raises
+    ------
+    ValueError
+        If the file is missing required fields (train, fs) or has invalid data.
+    ImportError
+        If boto3 is required but not installed (for S3 URIs).
+
+    Examples
+    --------
+    # Load from local file
+    >>> sd = load_spikedata_from_acqm("recording_acqm.zip")
+
+    # Load from S3
+    >>> sd = load_spikedata_from_acqm("s3://my-bucket/data/recording.acqm.zip")
+
+    # Access neuron attributes
+    >>> print(sd.neuron_attributes.df['channel'])
+    """
+    # Resolve S3 path if needed
+    filepath = _resolve_s3_path(filepath, cache_dir, s3_endpoint_url)
+
+    # Load the npz file
+    try:
+        data = np.load(filepath, allow_pickle=True)
+    except Exception as e:
+        raise ValueError(f"Failed to load ACQM file '{filepath}': {e}") from e
+
+    # Validate required fields
+    if 'train' not in data:
+        raise ValueError("ACQM file missing required 'train' field")
+    if 'fs' not in data:
+        raise ValueError("ACQM file missing required 'fs' (sampling frequency) field")
+
+    # Extract sampling frequency
+    fs_Hz = float(data['fs'])
+    if fs_Hz <= 0:
+        raise ValueError(f"Invalid sampling frequency: {fs_Hz} Hz")
+
+    # Extract train dict and convert to list of spike trains
+    train_dict = data['train'].item()
+    if not isinstance(train_dict, dict):
+        raise ValueError("'train' field must be a dictionary mapping unit IDs to spike times")
+
+    # Sort unit IDs for consistent ordering
+    unit_ids = sorted(train_dict.keys())
+    trains: List[np.ndarray] = []
+    for uid in unit_ids:
+        spike_times_samples = np.asarray(train_dict[uid], dtype=float)
+        spike_times_ms = _to_ms(spike_times_samples, "samples", fs_Hz)
+        trains.append(np.sort(spike_times_ms))  # Ensure sorted
+
+    # Extract neuron attributes if available
+    neuron_attrs = None
+    if 'neuron_data' in data:
+        try:
+            neuron_data_dict = data['neuron_data'].item()
+            if isinstance(neuron_data_dict, dict) and neuron_data_dict:
+                # Build a dataframe from neuron_data
+                attrs_list = []
+                for uid in unit_ids:
+                    if uid in neuron_data_dict:
+                        neuron_info = neuron_data_dict[uid]
+                        if isinstance(neuron_info, dict):
+                            # Flatten nested structures (keep only scalar/array values)
+                            flat_info = {}
+                            for key, value in neuron_info.items():
+                                # Skip large arrays like waveforms, neighbor_templates
+                                if key in ['waveforms', 'neighbor_templates', 'amplitudes']:
+                                    continue
+                                # Convert arrays to strings/tuples for scalar storage
+                                if isinstance(value, np.ndarray):
+                                    if value.size <= 3:  # Small arrays like position
+                                        flat_info[key] = tuple(value.tolist())
+                                    elif key in ['neighbor_channels', 'neighbor_positions']:
+                                        # Store as comma-separated string for readability
+                                        flat_info[key] = str(value.tolist())
+                                    else:
+                                        # Skip large arrays
+                                        continue
+                                else:
+                                    flat_info[key] = value
+                            attrs_list.append(flat_info)
+                        else:
+                            attrs_list.append({})
+                    else:
+                        attrs_list.append({})
+
+                if attrs_list:
+                    attrs_df = pd.DataFrame(attrs_list)
+                    # Ensure unit_id column exists
+                    if 'unit_id' not in attrs_df.columns:
+                        attrs_df.insert(0, 'unit_id', unit_ids)
+                    neuron_attrs = NeuronAttributes.from_dataframe(attrs_df, n_neurons=len(trains))
+        except Exception as e:
+            warnings.warn(f"Failed to load neuron_data from ACQM: {e}")
+
+    # Build metadata
+    meta = {
+        "source_file": os.path.abspath(filepath),
+        "source_format": "ACQM",
+        "unit_ids": unit_ids,
+        "fs_Hz": fs_Hz,
+    }
+
+    # Add config if present
+    if 'config' in data:
+        try:
+            config = data['config'].item()
+            if isinstance(config, dict):
+                meta['config'] = config
+        except Exception:
+            pass
+
+    # Add redundant_pairs if present
+    if 'redundant_pairs' in data:
+        try:
+            redundant_pairs = np.asarray(data['redundant_pairs'])
+            if redundant_pairs.size > 0:
+                meta['redundant_pairs'] = redundant_pairs.tolist()
+        except Exception:
+            pass
+
+    return _build_spikedata(
+        trains,
+        length_ms=length_ms,
+        metadata=meta,
+        neuron_attributes=neuron_attrs,
+    )
 
 
 # ----------------------------

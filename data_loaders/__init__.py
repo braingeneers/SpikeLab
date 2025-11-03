@@ -12,6 +12,8 @@ from .data_loaders import (
     load_spikedata_from_kilosort,
     load_spikedata_from_spikeinterface,
     load_spikedata_from_spikeinterface_recording,
+    load_spikedata_from_acqm,
+    download_s3_to_local,
 )
 
 __all__ = [
@@ -21,4 +23,6 @@ __all__ = [
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
+    "load_spikedata_from_acqm",
+    "download_s3_to_local",
 ]
