@@ -2,18 +2,20 @@ class RateData:
     def __init__(
         self,
         inst_Frate_data,
-        subset_neurons = [],
-        subset_time_range = [],
+        # subset_neurons = [],
+        # subset_time_range = [],
         N = None,
         length = None,
     ):
-        self.inst_Frate_data = inst_Frate_data
-        if self.inst_Frate_data.ndim != 2:
+        if inst_Frate_data.ndim != 2:
             raise ValueError(f"rates must be a 2D array, got shape {self.inst_Frate_data.shape}")
+        self.inst_Frate_data = inst_Frate_data
+
         
         self.N = inst_Frate_data.shape[0]
         self.length = inst_Frate_data.shape[1]
         self.subset_neurons = range(self.N)
+        # Time is 0 indexed. So if someone says they want time 8, this refers to time 7-8.
         self.subset_time_range = (0,length-1)
 
 
