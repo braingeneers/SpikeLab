@@ -17,6 +17,8 @@ Import convenience:
        load_spikedata_from_kilosort,
        load_spikedata_from_spikeinterface,
        load_spikedata_from_spikeinterface_recording,
+       load_spikedata_from_acqm,
+       download_s3_to_local,  # For S3 support
    )
 
 ----
@@ -30,6 +32,7 @@ Import convenience:
    data_loaders/nwb
    data_loaders/kilosort
    data_loaders/spikeinterface
+   data_loaders/acqm
 
 ----
 
@@ -38,4 +41,5 @@ Notes
 
 * Times are stored in milliseconds in ``SpikeData``.
 * Optional dependencies are imported lazily (e.g., ``h5py``, ``pynwb``, ``pandas``).
+* **S3 Support**: HDF5 and ACQM loaders support S3 URIs (requires ``boto3``). Files are automatically downloaded and cached.
 * See ``tests/test_dataloaders.py`` for runnable examples and edge cases.

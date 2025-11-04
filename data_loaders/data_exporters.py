@@ -94,7 +94,13 @@ def _save_neuron_attributes_to_hdf5(
     f,  # h5py.File-like
     sd: "SpikeData",
 ) -> None:
-    """Save neuron attributes to HDF5 file in /neuron_attributes group."""
+    """Save neuron attributes to HDF5 file in /neuron_attributes group.
+    
+    Handles different data types appropriately:
+    - Numeric/string columns: saved directly as datasets
+    - Object dtype containing arrays: saved as variable-length datasets
+    - Other object types: converted to strings
+    """
     if sd.neuron_attributes is None:
         return
 
@@ -105,7 +111,38 @@ def _save_neuron_attributes_to_hdf5(
         # Save each column as a dataset
         for col in df.columns:
             data = df[col].values
-            attr_group.create_dataset(col, data=data)
+            
+            # Handle object dtype columns specially
+            if data.dtype == object:
+                # Check if it's an array of arrays (like waveforms)
+                if len(data) > 0 and isinstance(data[0], np.ndarray):
+                    # Create variable-length dataset for arrays
+                    try:
+                        dt = h5py.vlen_dtype(np.dtype('float64'))
+                        dset = attr_group.create_dataset(col, (len(data),), dtype=dt)
+                        for i, arr in enumerate(data):
+                            if arr is not None and isinstance(arr, np.ndarray):
+                                dset[i] = arr.astype(np.float64).flatten()
+                            else:
+                                dset[i] = np.array([], dtype=np.float64)
+                    except Exception as e:
+                        warnings.warn(f"Failed to save column '{col}' as variable-length array: {e}")
+                        continue
+                else:
+                    # Convert other object types to strings
+                    try:
+                        str_data = np.array([str(x) for x in data], dtype='S')
+                        attr_group.create_dataset(col, data=str_data)
+                    except Exception as e:
+                        warnings.warn(f"Failed to save column '{col}' as strings: {e}")
+                        continue
+            else:
+                # Regular numeric or fixed-length string data
+                try:
+                    attr_group.create_dataset(col, data=data)
+                except Exception as e:
+                    warnings.warn(f"Failed to save column '{col}': {e}")
+                    continue
     except Exception as e:
         warnings.warn(f"Failed to save neuron_attributes to HDF5: {e}")
 
@@ -346,7 +383,39 @@ def export_spikedata_to_nwb(
                 df = sd.neuron_attributes.to_dataframe()
                 for col in df.columns:
                     if col != 'spike_times':  # Avoid collision with spike_times dataset
-                        g.create_dataset(col, data=df[col].values)
+                        data = df[col].values
+                        
+                        # Handle object dtype columns specially for NWB
+                        if data.dtype == object:
+                            # Check if it's an array of arrays (like waveforms)
+                            if len(data) > 0 and isinstance(data[0], np.ndarray):
+                                # Create variable-length dataset for arrays
+                                try:
+                                    dt = h5py.vlen_dtype(np.dtype('float64'))
+                                    dset = g.create_dataset(col, (len(data),), dtype=dt)
+                                    for i, arr in enumerate(data):
+                                        if arr is not None and isinstance(arr, np.ndarray):
+                                            dset[i] = arr.astype(np.float64).flatten()
+                                        else:
+                                            dset[i] = np.array([], dtype=np.float64)
+                                except Exception as e:
+                                    warnings.warn(f"Failed to save NWB column '{col}': {e}")
+                                    continue
+                            else:
+                                # Convert other object types to strings
+                                try:
+                                    str_data = np.array([str(x) for x in data], dtype='S')
+                                    g.create_dataset(col, data=str_data)
+                                except Exception as e:
+                                    warnings.warn(f"Failed to save NWB column '{col}' as strings: {e}")
+                                    continue
+                        else:
+                            # Regular numeric data
+                            try:
+                                g.create_dataset(col, data=data)
+                            except Exception as e:
+                                warnings.warn(f"Failed to save NWB column '{col}': {e}")
+                                continue
             except Exception as e:
                 warnings.warn(f"Failed to save neuron_attributes to NWB: {e}")
 

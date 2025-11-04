@@ -80,6 +80,7 @@ Load from various file formats:
        load_spikedata_from_hdf5,
        load_spikedata_from_nwb,
        load_spikedata_from_kilosort,
+       load_spikedata_from_acqm,
    )
 
    # From HDF5 (NWB-like ragged arrays)
@@ -95,6 +96,37 @@ Load from various file formats:
 
    # From KiloSort/Phy output
    sd = load_spikedata_from_kilosort("path/to/kilosort/", fs_Hz=30000.0)
+   
+   # From ACQM files (local or S3)
+   sd = load_spikedata_from_acqm("recording.acqm.zip")
+
+Loading from S3
+^^^^^^^^^^^^^^^
+
+HDF5 and ACQM loaders support loading directly from S3 storage:
+
+.. code-block:: python
+
+   # From S3 with automatic caching
+   sd = load_spikedata_from_acqm(
+       "s3://my-bucket/data/recording_acqm.zip",
+       cache_dir="/path/to/cache"
+   )
+   
+   # HDF5 from S3
+   sd = load_spikedata_from_hdf5(
+       "s3://my-bucket/data/recording.h5",
+       spike_times_dataset="/units/spike_times",
+       spike_times_index_dataset="/units/spike_times_index",
+       spike_times_unit="s",
+       cache_dir="/path/to/cache"
+   )
+
+**Requirements:** Install boto3 for S3 support:
+
+.. code-block:: bash
+
+   pip install boto3
 
 Basic Analysis
 ^^^^^^^^^^^^^^

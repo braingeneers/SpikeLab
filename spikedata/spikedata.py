@@ -729,6 +729,95 @@ class SpikeData:
         else:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
+    def get_sttc_matrix(self, delt: float = 20.0, use_cache: bool = True) -> np.ndarray:
+        """
+        Get the spike time tiling coefficient (STTC) correlation matrix with caching.
+        
+        This method wraps spike_time_tilings() and provides intelligent caching to avoid
+        recomputing expensive STTC matrices. The cache is stored per delt value.
+        
+        Parameters
+        ----------
+        delt : float, optional
+            Time window parameter in milliseconds for STTC calculation. Default is 20.0.
+        use_cache : bool, optional
+            If True (default), return cached result if available. If False, recompute
+            and update cache.
+        
+        Returns
+        -------
+        np.ndarray
+            N × N symmetric matrix of STTC values, where N is the number of neurons.
+            Diagonal elements are 1.0 (perfect correlation with self).
+        
+        Notes
+        -----
+        - STTC computation is O(N²) and can be expensive for large datasets
+        - Cache is stored in self._sttc_cache dictionary keyed by delt value
+        - Use clear_sttc_cache() to free memory if needed
+        - Cache persists across subset/subtime operations to avoid unnecessary recomputation
+        
+        Examples
+        --------
+        >>> # First call computes and caches
+        >>> sttc = sd.get_sttc_matrix(delt=20.0)
+        >>> 
+        >>> # Subsequent calls with same delt use cache (fast)
+        >>> sttc_again = sd.get_sttc_matrix(delt=20.0)
+        >>> 
+        >>> # Different delt values are cached separately
+        >>> sttc_40 = sd.get_sttc_matrix(delt=40.0)
+        >>> 
+        >>> # Force recomputation
+        >>> sttc_fresh = sd.get_sttc_matrix(delt=20.0, use_cache=False)
+        >>> 
+        >>> # Clear cache to free memory
+        >>> sd.clear_sttc_cache()
+        """
+        # Initialize cache if it doesn't exist
+        if not hasattr(self, '_sttc_cache'):
+            self._sttc_cache = {}
+        
+        # Check cache
+        if use_cache and delt in self._sttc_cache:
+            return self._sttc_cache[delt]
+        
+        # Compute STTC matrix
+        sttc_matrix = self.spike_time_tilings(delt=delt)
+        
+        # Store in cache
+        self._sttc_cache[delt] = sttc_matrix
+        
+        return sttc_matrix
+    
+    def clear_sttc_cache(self, delt: Optional[float] = None) -> None:
+        """
+        Clear cached STTC matrices to free memory.
+        
+        Parameters
+        ----------
+        delt : float, optional
+            If provided, only clear the cache for this specific delt value.
+            If None (default), clear all cached STTC matrices.
+        
+        Examples
+        --------
+        >>> # Clear all cached STTC matrices
+        >>> sd.clear_sttc_cache()
+        >>> 
+        >>> # Clear only the cache for delt=20.0
+        >>> sd.clear_sttc_cache(delt=20.0)
+        """
+        if not hasattr(self, '_sttc_cache'):
+            return
+        
+        if delt is None:
+            # Clear all caches
+            self._sttc_cache = {}
+        elif delt in self._sttc_cache:
+            # Clear specific cache
+            del self._sttc_cache[delt]
+
     def spike_time_tilings(self, delt=20.0):
         """
         Compute the full spike time tiling coefficient matrix. STTC is a metric for

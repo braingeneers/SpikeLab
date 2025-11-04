@@ -7,6 +7,7 @@ This section contains the complete API documentation auto-generated from docstri
    :maxdepth: 2
 
    spikedata
+   neuron_attributes
    data_loaders
    data_exporters
 

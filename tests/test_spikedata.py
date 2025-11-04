@@ -735,3 +735,135 @@ class SpikeDataTest(unittest.TestCase):
         expected_low_backbone = np.array([0, 1, 2])
 
         self.assertTrue(np.array_equal(backbone_low, expected_low_backbone))
+
+    def test_sttc_matrix_caching(self):
+        """Test STTC matrix caching functionality."""
+        # Create test data
+        sd = random_spikedata(5, 100)
+        
+        # First call should compute
+        sttc1 = sd.get_sttc_matrix(delt=20.0)
+        
+        # Verify it's a valid STTC matrix
+        self.assertEqual(sttc1.shape, (5, 5))
+        self.assertTrue(np.all(sttc1 >= -1) and np.all(sttc1 <= 1))
+        self.assertTrue(np.allclose(np.diag(sttc1), 1.0))  # Diagonal should be 1
+        
+        # Second call should return cached result
+        sttc2 = sd.get_sttc_matrix(delt=20.0)
+        self.assertTrue(np.array_equal(sttc1, sttc2))
+        
+        # Verify cache was actually used (should be same object)
+        self.assertIs(sttc1, sttc2)
+        
+    def test_sttc_matrix_different_delt_values(self):
+        """Test that different delt values are cached separately."""
+        sd = random_spikedata(5, 200)  # Use more spikes for reliable differences
+        
+        # Cache two different delt values
+        sttc_20 = sd.get_sttc_matrix(delt=20.0)
+        sttc_40 = sd.get_sttc_matrix(delt=40.0)
+        
+        # Both should be valid STTC matrices
+        self.assertEqual(sttc_20.shape, sttc_40.shape)
+        
+        # Retrieving again should get cached versions (same object)
+        sttc_20_again = sd.get_sttc_matrix(delt=20.0)
+        sttc_40_again = sd.get_sttc_matrix(delt=40.0)
+        
+        self.assertIs(sttc_20, sttc_20_again)
+        self.assertIs(sttc_40, sttc_40_again)
+        
+        # Cache should have both entries
+        self.assertIn(20.0, sd._sttc_cache)
+        self.assertIn(40.0, sd._sttc_cache)
+    
+    def test_sttc_matrix_use_cache_false(self):
+        """Test that use_cache=False forces recomputation."""
+        sd = random_spikedata(3, 50)
+        
+        # First call
+        sttc1 = sd.get_sttc_matrix(delt=20.0)
+        
+        # Second call with use_cache=False should recompute
+        sttc2 = sd.get_sttc_matrix(delt=20.0, use_cache=False)
+        
+        # Results should be equal but not the same object
+        self.assertTrue(np.array_equal(sttc1, sttc2))
+        # Note: They might be the same object if recomputation yields identical array,
+        # but they should at least be equal
+        
+    def test_clear_sttc_cache_all(self):
+        """Test clearing all cached STTC matrices."""
+        sd = random_spikedata(3, 50)
+        
+        # Cache multiple delt values
+        sd.get_sttc_matrix(delt=20.0)
+        sd.get_sttc_matrix(delt=40.0)
+        
+        # Clear all caches
+        sd.clear_sttc_cache()
+        
+        # Verify cache is empty
+        self.assertEqual(len(sd._sttc_cache), 0)
+        
+    def test_clear_sttc_cache_specific(self):
+        """Test clearing cache for specific delt value."""
+        sd = random_spikedata(3, 50)
+        
+        # Cache two different delt values
+        sd.get_sttc_matrix(delt=20.0)
+        sd.get_sttc_matrix(delt=40.0)
+        
+        # Clear only delt=20.0
+        sd.clear_sttc_cache(delt=20.0)
+        
+        # delt=20.0 should be gone, but delt=40.0 should remain
+        self.assertNotIn(20.0, sd._sttc_cache)
+        self.assertIn(40.0, sd._sttc_cache)
+        
+    def test_sttc_cache_performance(self):
+        """Test that caching provides performance improvement."""
+        import time
+        
+        # Create larger dataset for measurable timing
+        sd = random_spikedata(20, 500)
+        
+        # Time first call (computes)
+        start = time.time()
+        sttc1 = sd.get_sttc_matrix(delt=20.0)
+        compute_time = time.time() - start
+        
+        # Time second call (cached)
+        start = time.time()
+        sttc2 = sd.get_sttc_matrix(delt=20.0)
+        cache_time = time.time() - start
+        
+        # Cached call should be much faster (at least 10x)
+        # Use a conservative threshold since timing can vary
+        self.assertLess(cache_time, compute_time / 10)
+        
+    def test_sttc_cache_no_cache_attribute_initially(self):
+        """Test that _sttc_cache is created on first use."""
+        sd = random_spikedata(3, 50)
+        
+        # Initially should not have _sttc_cache
+        self.assertFalse(hasattr(sd, '_sttc_cache'))
+        
+        # After first call, it should exist
+        sd.get_sttc_matrix(delt=20.0)
+        self.assertTrue(hasattr(sd, '_sttc_cache'))
+        self.assertIsInstance(sd._sttc_cache, dict)
+        
+    def test_sttc_cache_matches_direct_computation(self):
+        """Test that cached STTC matches spike_time_tilings()."""
+        sd = random_spikedata(5, 100)
+        
+        # Compute via new cached method
+        sttc_cached = sd.get_sttc_matrix(delt=25.0)
+        
+        # Compute via original method
+        sttc_direct = sd.spike_time_tilings(delt=25.0)
+        
+        # Should be identical
+        self.assertTrue(np.allclose(sttc_cached, sttc_direct))

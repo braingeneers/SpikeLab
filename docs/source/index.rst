@@ -39,6 +39,7 @@ Contents
 
    getting_started
    spikedata
+   neuron_attributes/index
    data_loaders
    data_exporters
 

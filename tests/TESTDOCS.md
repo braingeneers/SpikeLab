@@ -189,6 +189,32 @@ This document explains what each test does in detail and why it matters. It is i
   - Purpose: Accepts datasets whose names end with `spike_times` and `spike_times_index`.
   - Why: Robustness to minor naming variations seen in some NWB exports.
 
+### ACQM and S3 Support (`TestACQMLoader`)
+- **test_acqm_basic**
+  - Purpose: Loads ACQM file (NPZ with spike trains, metadata, neuron data) and validates conversion from samples to milliseconds.
+  - Why: Ensures ACQM format handling, sampling frequency application, and neuron attributes extraction.
+  - Verifies neuron count, duration, spike time conversion, and metadata preservation (fs_Hz, config, redundant_pairs).
+
+- **test_acqm_neuron_attributes**
+  - Purpose: Validates extraction of neuron attributes from ACQM neuron_data structure.
+  - Why: ACQM files contain rich per-neuron metadata (cluster_id, channel, position) that must be preserved.
+  - Verifies presence of standard columns and filtering of large arrays (waveforms, templates).
+
+- **test_acqm_s3_mock** (if boto3 available)
+  - Purpose: Mocks S3 download to test S3 URI handling and caching logic without actual S3 access.
+  - Why: Validates S3 URI parsing, cache directory creation, and download integration.
+  - Verifies caching behavior: first access downloads, subsequent uses cache.
+
+- **test_download_s3_to_local** (if boto3 available)
+  - Purpose: Tests direct S3 download function with mocked boto3 client.
+  - Why: Ensures S3 download infrastructure works correctly for both ACQM and HDF5 loaders.
+  - Verifies bucket/key parsing, endpoint URL handling, and file writing.
+
+- **test_hdf5_s3_support**
+  - Purpose: Tests HDF5 loader with S3 URI and caching.
+  - Why: Extends HDF5 loader functionality to cloud storage for large datasets.
+  - Verifies automatic S3 resolution and cache reuse.
+
 ### KiloSort and SpikeInterface (`TestKiloSortAndSpikeInterface`)
 - **test_kilosort_basic**
   - Purpose: Loads two clusters, verifies per-cluster times in ms and metadata `cluster_ids` alignment with train order.
@@ -279,6 +305,89 @@ This document explains what each test does in detail and why it matters. It is i
   - Purpose: Tests KiloSort export with custom cluster ID assignment instead of default unit index mapping.
   - Why: Preserves original cluster IDs from spike sorting results or enables specific numbering schemes. Important for data provenance.
   - Key checks: Custom cluster IDs [10, 5, 7] correctly assigned; spike counts match expected values; empty units handled properly (don't contribute spikes to output).
+
+---
+
+## NeuronAttributes tests (`tests/test_neuron_attributes.py`)
+
+### ISI Statistics Tests
+- **test_compute_isi_statistics**
+  - Purpose: Validates computation of seven ISI-based metrics (mean, median, CV, skewness, burst index, pause ratio, refractory violations).
+  - Why: ISI statistics characterize firing patterns and are essential for cell classification and quality control.
+  - Verifies correct calculation for regular, bursting, and irregular spike trains.
+
+- **test_compute_isi_statistics_auto_save**
+  - Purpose: Tests auto_save=True default behavior stores all metrics in neuron_attributes.
+  - Why: Ensures computed metrics persist for later use without manual storage.
+  - Verifies all seven columns present after computation.
+
+- **test_isi_statistics_empty_neurons**
+  - Purpose: Handles neurons with no spikes (returns NaN for metrics).
+  - Why: Robustness for sparse datasets with inactive neurons.
+  - Verifies NaN returned for empty spike trains, not errors.
+
+### Latency Statistics Tests
+- **test_compute_latency_statistics**
+  - Purpose: Validates latency computation relative to reference neuron (mean, median, jitter).
+  - Why: Latency analysis identifies functional connectivity and temporal coordination.
+  - Verifies positive/negative latencies for followers/leaders and window size handling.
+
+- **test_latency_statistics_auto_save**
+  - Purpose: Tests auto_save=True stores latency metrics in neuron_attributes.
+  - Why: Persistence of computed timing relationships.
+  - Verifies three latency columns saved.
+
+- **test_latency_statistics_window**
+  - Purpose: Validates window_ms parameter correctly filters latencies.
+  - Why: Window size affects which spike pairs are considered relevant.
+  - Verifies NaN for spikes outside window, values for spikes within.
+
+### Burst Participation Tests
+- **test_compute_burst_participation**
+  - Purpose: Validates burst participation calculation and backbone unit identification.
+  - Why: Identifies neurons driving network activity versus bystanders.
+  - Verifies participation fractions, backbone classification, and metadata storage.
+
+- **test_burst_participation_auto_save**
+  - Purpose: Tests auto_save=True stores burst metrics in neuron_attributes.
+  - Why: Persistence of burst analysis results.
+  - Verifies burst_participation and is_backbone_unit columns.
+
+- **test_burst_participation_metadata**
+  - Purpose: Validates storage of burst analysis metadata in spikedata.metadata.
+  - Why: Preserves analysis parameters for reproducibility.
+  - Verifies burst_edges, parameters, and counts stored correctly.
+
+- **test_get_frac_active**
+  - Purpose: Tests low-level burst participation calculation (SpikeData.get_frac_active).
+  - Why: Direct validation of burst detection logic before neuron_attributes integration.
+  - Verifies per-unit and per-burst fractions, backbone classification.
+
+### STTC Caching Tests
+- **test_get_sttc_matrix_caching**
+  - Purpose: Validates STTC matrix caching mechanism provides identical results.
+  - Why: STTC is expensive (O(N²)); caching provides major speedup.
+  - Verifies first call computes, second call returns same result from cache.
+
+- **test_get_sttc_matrix_use_cache_false**
+  - Purpose: Tests use_cache=False forces recomputation.
+  - Why: Allows bypassing cache when needed for testing or validation.
+  - Verifies new computation occurs and result matches.
+
+- **test_sttc_cache_delt_separation**
+  - Purpose: Validates different delt values cached separately.
+  - Why: Multi-scale analysis requires caching multiple parameter values.
+  - Verifies delt=20.0 and delt=40.0 cached independently.
+
+- **test_clear_sttc_cache**
+  - Purpose: Tests cache clearing for memory management.
+  - Why: Large datasets need cache clearing to free memory.
+  - Verifies clear_sttc_cache() removes cached matrices, both specific and all.
+
+- **test_sttc_cache_performance**
+  - Purpose: Benchmarks caching speedup (typically 100-1000x).
+  - Why: Validates performance benefit of caching.
+  - Verifies cached access much faster than initial computation.
 
 ---
 

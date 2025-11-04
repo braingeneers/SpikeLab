@@ -26,6 +26,8 @@ Parameters
 * **raw_time_unit** (``'s' | 'ms' | 'samples'``): Unit of ``raw_time_dataset``.
 * **length_ms** (``float | None``): Recording duration; inferred from last spike if not provided.
 * **metadata** (``Mapping[str, object] | None``): Extra metadata to attach; ``source_file`` is added automatically.
+* **cache_dir** (``str | None``): Directory for caching S3 downloads. Only used if filepath is an S3 URI. Default: None
+* **s3_endpoint_url** (``str | None``): S3 endpoint URL. Only used if filepath is an S3 URI. Default: ``'https://s3-west.nrp-nautilus.io'`` (Nautilus)
 
 Returns
 ^^^^^^^
@@ -67,4 +69,45 @@ Specify exactly one:
 * **Paired** (indices, times): ``idces_dataset`` + ``times_dataset`` + ``times_unit``
 
 Optional raw attachments: ``raw_dataset`` + ``raw_time_dataset`` with ``raw_time_unit`` in ``s/ms/samples`` (needs ``fs_Hz`` for samples).
+
+S3 Support
+^^^^^^^^^^
+
+Load HDF5 files directly from S3 storage:
+
+.. code-block:: python
+
+   # Load from S3 URI
+   sd = load_spikedata_from_hdf5(
+       "s3://my-bucket/data/recording.h5",
+       spike_times_dataset="/units/spike_times",
+       spike_times_index_dataset="/units/spike_times_index",
+       spike_times_unit="s"
+   )
+   
+   # With custom cache directory
+   sd = load_spikedata_from_hdf5(
+       "s3://my-bucket/data/recording.h5",
+       spike_times_dataset="/units/spike_times",
+       spike_times_index_dataset="/units/spike_times_index",
+       spike_times_unit="s",
+       cache_dir="/path/to/cache"
+   )
+   
+   # With custom S3 endpoint
+   sd = load_spikedata_from_hdf5(
+       "s3://my-bucket/data/recording.h5",
+       spike_times_dataset="/units/spike_times",
+       spike_times_index_dataset="/units/spike_times_index",
+       spike_times_unit="s",
+       s3_endpoint_url="https://s3.amazonaws.com"
+   )
+
+**Requirements:** S3 support requires ``boto3``:
+
+.. code-block:: bash
+
+   pip install boto3
+
+**Caching:** S3 files are automatically downloaded and cached in ``cache_dir`` (or a temporary directory if not specified). Subsequent loads with the same ``cache_dir`` will use the cached file.
 

@@ -28,7 +28,7 @@ Class Attributes
    :maxdepth: 2
    :caption: Contents
 
-   class_methods/index
+   spikedata_methods/index
    standalone_utilities
    migration_tips
 

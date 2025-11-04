@@ -14,7 +14,7 @@ These helpers avoid hard dependencies: optional libraries are imported lazily.
 
 from __future__ import annotations
 
-from typing import List, Mapping, Optional, Sequence, Union
+from typing import Dict, Any, List, Mapping, Optional, Sequence, Union
 
 import os
 import warnings
@@ -118,7 +118,13 @@ def _load_neuron_attributes_from_hdf5(
     f,  # h5py.File-like
     n_neurons: int,
 ) -> Optional[NeuronAttributes]:
-    """Load neuron attributes from HDF5 file if /neuron_attributes group exists."""
+    """Load neuron attributes from HDF5 file if /neuron_attributes group exists.
+    
+    Handles different data types appropriately:
+    - Regular datasets: loaded directly
+    - Variable-length datasets (e.g., waveforms): loaded as object arrays of numpy arrays
+    - String datasets: decoded from bytes if necessary
+    """
     if 'neuron_attributes' not in f:
         return None
 
@@ -128,7 +134,26 @@ def _load_neuron_attributes_from_hdf5(
 
         # Read each dataset in the group as a column
         for key in attr_group.keys():
-            data = np.asarray(attr_group[key])
+            dset = attr_group[key]
+            
+            # Check if it's a variable-length dataset
+            if h5py.check_vlen_dtype(dset.dtype):
+                # Load variable-length data (like waveforms) as object array
+                data = np.empty(len(dset), dtype=object)
+                for i in range(len(dset)):
+                    arr = np.array(dset[i])
+                    data[i] = arr if len(arr) > 0 else np.array([])
+            else:
+                # Regular dataset
+                data = np.asarray(dset)
+                
+                # Decode bytes to strings if needed
+                if data.dtype.kind == 'S':
+                    try:
+                        data = np.array([s.decode('utf-8') if isinstance(s, bytes) else s for s in data])
+                    except Exception:
+                        pass  # Keep as bytes if decoding fails
+            
             if len(data) == n_neurons:
                 attr_data[key] = data
 
@@ -642,7 +667,25 @@ def load_spikedata_from_nwb(
         for key in unit_grp.keys():
             if key not in [st_key, idx_key] and not key.endswith('_index'):
                 try:
-                    data = np.asarray(unit_grp[key])
+                    dset = unit_grp[key]
+                    
+                    # Check if it's a variable-length dataset
+                    if h5py.check_vlen_dtype(dset.dtype):
+                        # Load variable-length data (like waveforms) as object array
+                        data = np.empty(len(dset), dtype=object)
+                        for i in range(len(dset)):
+                            arr = np.array(dset[i])
+                            data[i] = arr if len(arr) > 0 else np.array([])
+                    else:
+                        data = np.asarray(dset)
+                        
+                        # Decode bytes to strings if needed
+                        if data.dtype.kind == 'S':
+                            try:
+                                data = np.array([s.decode('utf-8') if isinstance(s, bytes) else s for s in data])
+                            except Exception:
+                                pass  # Keep as bytes if decoding fails
+                    
                     # Check if it's a VectorData with matching length
                     if len(data) == len(trains) or (key + '_index' in unit_grp.keys()):
                         # If has an index, it's ragged - skip for now
@@ -740,6 +783,224 @@ def load_spikedata_from_spikeinterface(
 # ----------------------------
 
 
+def _extract_kilosort_neuron_attributes(
+    folder: str,
+    cluster_ids: List[int],
+    spike_times: np.ndarray,
+    spike_clusters: np.ndarray,
+    fs_Hz: float,
+    cluster_info_df: Optional[pd.DataFrame] = None,
+) -> Optional[NeuronAttributes]:
+    """
+    Extract comprehensive neuron attributes from KiloSort/Phy outputs.
+    
+    This function loads and computes:
+    - channel: Peak channel for each cluster
+    - electrode: Electrode number (same as channel in most cases)
+    - x, y coordinates: Spatial position from channel_positions.npy
+    - average_waveform: Mean waveform template
+    - snr: Signal-to-noise ratio
+    - amplitude: Mean spike amplitude
+    - isi_violations: ISI violation rate (spikes < 2ms / total spikes)
+    
+    Plus any additional columns from cluster_info.tsv
+    
+    Parameters
+    ----------
+    folder : str
+        Path to KiloSort/Phy output directory
+    cluster_ids : List[int]
+        List of cluster IDs to extract (in order matching trains)
+    spike_times : np.ndarray
+        All spike times
+    spike_clusters : np.ndarray
+        Cluster assignment for each spike
+    fs_Hz : float
+        Sampling frequency in Hz
+    cluster_info_df : pd.DataFrame, optional
+        Pre-loaded cluster info TSV data
+        
+    Returns
+    -------
+    NeuronAttributes or None
+        Extracted attributes or None if extraction fails
+    """
+    n_neurons = len(cluster_ids)
+    attr_data: Dict[str, List[Any]] = {'cluster_id': cluster_ids}
+    
+    # Try to load channel positions
+    channel_positions = None
+    channel_positions_path = os.path.join(folder, 'channel_positions.npy')
+    if os.path.exists(channel_positions_path):
+        try:
+            channel_positions = np.load(channel_positions_path)
+        except Exception as e:
+            warnings.warn(f"Failed to load channel_positions.npy: {e}")
+    
+    # Try to load templates
+    templates = None
+    templates_path = os.path.join(folder, 'templates.npy')
+    if os.path.exists(templates_path):
+        try:
+            templates = np.load(templates_path)  # Shape: (n_templates, n_samples, n_channels)
+        except Exception as e:
+            warnings.warn(f"Failed to load templates.npy: {e}")
+    
+    # Try to load spike templates (maps each spike to a template)
+    spike_templates = None
+    spike_templates_path = os.path.join(folder, 'spike_templates.npy')
+    if os.path.exists(spike_templates_path):
+        try:
+            spike_templates = np.load(spike_templates_path)
+        except Exception as e:
+            warnings.warn(f"Failed to load spike_templates.npy: {e}")
+    
+    # Try to load amplitudes
+    amplitudes_npy = None
+    amplitudes_path = os.path.join(folder, 'amplitudes.npy')
+    if os.path.exists(amplitudes_path):
+        try:
+            amplitudes_npy = np.load(amplitudes_path)
+        except Exception as e:
+            warnings.warn(f"Failed to load amplitudes.npy: {e}")
+    
+    # Initialize attribute lists
+    channels = []
+    electrodes = []
+    x_coords = []
+    y_coords = []
+    avg_waveforms = []
+    snrs = []
+    amplitudes = []
+    isi_violations = []
+    
+    # Process each cluster
+    for clu_id in cluster_ids:
+        # Get spikes for this cluster
+        spike_mask = (spike_clusters == clu_id).astype(bool)
+        cluster_spike_times = spike_times[spike_mask]
+        
+        # === Channel (peak channel) ===
+        peak_channel = np.nan
+        if templates is not None and spike_templates is not None:
+            # Find the template(s) used by this cluster
+            cluster_templates = spike_templates[spike_mask]
+            if len(cluster_templates) > 0:
+                # Use the most common template
+                template_idx = int(np.median(cluster_templates))
+                if 0 <= template_idx < templates.shape[0]:
+                    # Find peak channel (channel with max amplitude)
+                    template_waveform = templates[template_idx]  # (n_samples, n_channels)
+                    peak_amplitudes = np.max(np.abs(template_waveform), axis=0)
+                    peak_channel = int(np.argmax(peak_amplitudes))
+        
+        channels.append(peak_channel)
+        electrodes.append(peak_channel)  # In most setups, electrode == channel
+        
+        # === X, Y coordinates ===
+        x_coord = np.nan
+        y_coord = np.nan
+        if channel_positions is not None and not np.isnan(peak_channel):
+            peak_ch_int = int(peak_channel)
+            if 0 <= peak_ch_int < channel_positions.shape[0]:
+                x_coord = float(channel_positions[peak_ch_int, 0])
+                y_coord = float(channel_positions[peak_ch_int, 1])
+        
+        x_coords.append(x_coord)
+        y_coords.append(y_coord)
+        
+        # === Average waveform ===
+        avg_waveform = None
+        if templates is not None and spike_templates is not None and not np.isnan(peak_channel):
+            cluster_templates = spike_templates[spike_mask]
+            if len(cluster_templates) > 0:
+                template_idx = int(np.median(cluster_templates))
+                if 0 <= template_idx < templates.shape[0]:
+                    peak_ch_int = int(peak_channel)
+                    # Extract waveform from peak channel
+                    avg_waveform = templates[template_idx, :, peak_ch_int]
+        
+        avg_waveforms.append(avg_waveform)
+        
+        # === SNR ===
+        snr = np.nan
+        if avg_waveform is not None:
+            # SNR = peak-to-peak amplitude / (2 * std of baseline)
+            # Baseline: first and last 20% of waveform
+            wf_len = len(avg_waveform)
+            baseline_idx = int(wf_len * 0.2)
+            baseline = np.concatenate([avg_waveform[:baseline_idx], avg_waveform[-baseline_idx:]])
+            baseline_std = np.std(baseline)
+            if baseline_std > 0:
+                peak_to_peak = np.ptp(avg_waveform)
+                snr = peak_to_peak / (2 * baseline_std)
+        
+        snrs.append(snr)
+        
+        # === Amplitude ===
+        amplitude = np.nan
+        if amplitudes_npy is not None:
+            cluster_amplitudes = amplitudes_npy[spike_mask]
+            if len(cluster_amplitudes) > 0:
+                amplitude = float(np.mean(cluster_amplitudes))
+        elif avg_waveform is not None:
+            # Fallback: use peak-to-peak of template
+            amplitude = float(np.ptp(avg_waveform))
+        
+        amplitudes.append(amplitude)
+        
+        # === ISI violations ===
+        isi_violation_rate = np.nan
+        if len(cluster_spike_times) > 1:
+            # Convert to seconds for ISI calculation
+            spike_times_sec = cluster_spike_times.astype(float) / fs_Hz
+            isis = np.diff(np.sort(spike_times_sec))
+            # Violations: ISI < 2ms (0.002 seconds)
+            violations = np.sum(isis < 0.002)
+            isi_violation_rate = violations / len(isis) if len(isis) > 0 else 0.0
+        
+        isi_violations.append(isi_violation_rate)
+    
+    # Add computed attributes
+    attr_data['channel'] = channels
+    attr_data['electrode'] = electrodes
+    attr_data['x'] = x_coords
+    attr_data['y'] = y_coords
+    attr_data['average_waveform'] = avg_waveforms
+    attr_data['snr'] = snrs
+    attr_data['amplitude'] = amplitudes
+    attr_data['isi_violations'] = isi_violations
+    
+    # Add any additional attributes from cluster_info.tsv
+    if cluster_info_df is not None:
+        # Determine ID column
+        id_col = None
+        for candidate in ['cluster_id', 'id']:
+            if candidate in cluster_info_df.columns:
+                id_col = candidate
+                break
+        
+        if id_col is not None:
+            cluster_info_df = cluster_info_df.set_index(id_col)
+            for col in cluster_info_df.columns:
+                if col not in attr_data:  # Don't overwrite computed attributes
+                    col_data = []
+                    for clu_id in cluster_ids:
+                        if clu_id in cluster_info_df.index:
+                            col_data.append(cluster_info_df.loc[clu_id, col])
+                        else:
+                            col_data.append(np.nan)
+                    attr_data[col] = col_data
+    
+    # Create NeuronAttributes
+    try:
+        neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=n_neurons)
+        return neuron_attrs
+    except Exception as e:
+        warnings.warn(f"Failed to create NeuronAttributes: {e}")
+        return None
+
+
 def load_spikedata_from_kilosort(
     folder: str,
     *,
@@ -750,16 +1011,62 @@ def load_spikedata_from_kilosort(
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
+    extract_attributes: bool = True,
 ) -> SpikeData:
     """
-    # misses critical information about waveform data - load if it same in file and put in spikedata
+    Load KiloSort/Phy outputs into SpikeData with comprehensive neuron attributes.
 
-    Load KiloSort/Phy outputs into SpikeData.
-
-    Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
+    Reads spike_times.npy and spike_clusters.npy; groups times per cluster
     and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
-    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata and
-    extracts attributes from TSV into neuron_attributes.
+    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata.
+    
+    When extract_attributes=True (default), automatically extracts and computes:
+    - channel: Peak channel for each cluster
+    - electrode: Electrode number
+    - x, y: Spatial coordinates from channel_positions.npy
+    - average_waveform: Mean waveform template from templates.npy
+    - snr: Signal-to-noise ratio computed from waveform
+    - amplitude: Mean spike amplitude from amplitudes.npy
+    - isi_violations: ISI violation rate (proportion of ISIs < 2ms)
+    - Plus any additional columns from cluster_info.tsv
+    
+    Parameters
+    ----------
+    folder : str
+        Path to KiloSort/Phy output directory
+    fs_Hz : float
+        Sampling frequency in Hz
+    spike_times_file : str, optional
+        Name of spike times file (default: "spike_times.npy")
+    spike_clusters_file : str, optional
+        Name of spike clusters file (default: "spike_clusters.npy")
+    cluster_info_tsv : str, optional
+        Name of cluster info TSV file. If None, automatically searches for
+        'cluster_info.tsv', 'cluster_group.tsv', or 'cluster_KSLabel.tsv'
+    time_unit : str, optional
+        Unit of spike times: 'samples' (default), 's', or 'ms'
+    include_noise : bool, optional
+        If False (default), only load clusters labeled as 'good' or 'mua'
+    length_ms : float, optional
+        Recording length in milliseconds
+    extract_attributes : bool, optional
+        If True (default), extract comprehensive neuron attributes from Phy files
+        
+    Returns
+    -------
+    SpikeData
+        SpikeData object with trains and neuron_attributes populated
+        
+    Notes
+    -----
+    The function looks for these optional files in the folder:
+    - channel_positions.npy: (n_channels, 2) array of (x, y) coordinates
+    - templates.npy: (n_templates, n_samples, n_channels) waveform templates
+    - spike_templates.npy: (n_spikes,) template index for each spike
+    - amplitudes.npy: (n_spikes,) amplitude for each spike
+    - cluster_info.tsv: metadata table with columns like 'group', 'KSLabel', etc.
+    
+    Missing files are handled gracefully with warnings.
     """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
@@ -835,32 +1142,17 @@ def load_spikedata_from_kilosort(
         "fs_Hz": fs_Hz,
     }
 
-    # Build neuron_attributes from cluster_info_df
+    # Extract comprehensive neuron_attributes if requested
     neuron_attrs = None
-    if cluster_info_df is not None:
-        # Determine ID column
-        id_col = None
-        for candidate in ['cluster_id', 'id']:
-            if candidate in cluster_info_df.columns:
-                id_col = candidate
-                break
-
-        if id_col is not None:
-            # Filter and reorder to match our trains
-            cluster_info_df = cluster_info_df.set_index(id_col)
-            attrs_list = []
-            for clu_id in metadata_units:
-                if clu_id in cluster_info_df.index:
-                    attrs_list.append(cluster_info_df.loc[clu_id].to_dict())
-                else:
-                    # Missing data - use NaN
-                    attrs_list.append({col: np.nan for col in cluster_info_df.columns})
-
-            if attrs_list:
-                attrs_df = pd.DataFrame(attrs_list)
-                # Add cluster_id as a column (standard name)
-                attrs_df.insert(0, 'cluster_id', metadata_units)
-                neuron_attrs = NeuronAttributes.from_dataframe(attrs_df, n_neurons=len(trains))
+    if extract_attributes:
+        neuron_attrs = _extract_kilosort_neuron_attributes(
+            folder=folder,
+            cluster_ids=metadata_units,
+            spike_times=spike_times,
+            spike_clusters=spike_clusters,
+            fs_Hz=fs_Hz,
+            cluster_info_df=cluster_info_df,
+        )
 
     return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
 
@@ -877,7 +1169,7 @@ def load_spikedata_from_acqm(
     s3_endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
     length_ms: Optional[float] = None,
 ) -> SpikeData:
-    """Load spike trains from an ACQM file (.acqm or .acqm.zip stored as NPZ).
+    """Load spike trains from an ACQM file (_acqm or _acqm.zip stored as NPZ).
 
     ACQM files are numpy compressed archives containing spike train data with the following structure:
     - train: dict mapping unit IDs to spike time arrays (in samples)
@@ -887,13 +1179,13 @@ def load_spikedata_from_acqm(
     - redundant_pairs: optional array of redundant unit pairs
 
     Spike times are converted from samples to milliseconds using the stored sampling frequency.
-    Neuron metadata is extracted into neuron_attributes.
+    Neuron metadata is extracted into neuron_attributes, including average waveforms if available.
 
     Parameters
     ----------
     filepath : str
         Path to the ACQM file (local or S3 URI starting with 's3://').
-        Can be .acqm.zip (handled as npz) or regular .npz file.
+        Can be _acqm.zip (handled as npz) or regular .npz file.
     cache_dir : str, optional
         If filepath is an S3 URI, directory to cache downloaded files.
     s3_endpoint_url : str
@@ -919,10 +1211,11 @@ def load_spikedata_from_acqm(
     >>> sd = load_spikedata_from_acqm("recording_acqm.zip")
 
     # Load from S3
-    >>> sd = load_spikedata_from_acqm("s3://my-bucket/data/recording.acqm.zip")
+    >>> sd = load_spikedata_from_acqm("s3://my-bucket/data/recording_acqm.zip")
 
     # Access neuron attributes
     >>> print(sd.neuron_attributes.df['channel'])
+    >>> waveforms = sd.neuron_attributes.df['avg_waveform']
     """
     # Resolve S3 path if needed
     filepath = _resolve_s3_path(filepath, cache_dir, s3_endpoint_url)
@@ -972,8 +1265,23 @@ def load_spikedata_from_acqm(
                             # Flatten nested structures (keep only scalar/array values)
                             flat_info = {}
                             for key, value in neuron_info.items():
-                                # Skip large arrays like waveforms, neighbor_templates
-                                if key in ['waveforms', 'neighbor_templates', 'amplitudes']:
+                                # Store average waveform if present
+                                if key == 'waveforms':
+                                    if isinstance(value, np.ndarray) and value.size > 0:
+                                        # Compute average waveform across all instances
+                                        if value.ndim >= 1:
+                                            avg_waveform = np.mean(value, axis=0) if value.ndim > 1 else value
+                                            flat_info['avg_waveform'] = avg_waveform
+                                    continue
+                                # Store average amplitude if present
+                                if key == 'amplitudes':
+                                    if isinstance(value, np.ndarray) and value.size > 0:
+                                        # Compute average amplitude across all spikes
+                                        avg_amplitude = np.mean(value)
+                                        flat_info['avg_amplitude'] = avg_amplitude
+                                    continue
+                                # Skip other large arrays
+                                if key in ['neighbor_templates']:
                                     continue
                                 # Convert arrays to strings/tuples for scalar storage
                                 if isinstance(value, np.ndarray):
@@ -1034,7 +1342,6 @@ def load_spikedata_from_acqm(
         metadata=meta,
         neuron_attributes=neuron_attrs,
     )
-
 
 # ----------------------------
 # SpikeInterface BaseRecording -> SpikeData via thresholding
