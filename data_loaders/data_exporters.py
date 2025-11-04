@@ -95,7 +95,7 @@ def _save_neuron_attributes_to_hdf5(
     sd: "SpikeData",
 ) -> None:
     """Save neuron attributes to HDF5 file in /neuron_attributes group.
-    
+
     Handles different data types appropriately:
     - Numeric/string columns: saved directly as datasets
     - Object dtype containing arrays: saved as variable-length datasets
@@ -105,20 +105,20 @@ def _save_neuron_attributes_to_hdf5(
         return
 
     try:
-        attr_group = f.create_group('neuron_attributes')
+        attr_group = f.create_group("neuron_attributes")
         df = sd.neuron_attributes.to_dataframe()
 
         # Save each column as a dataset
         for col in df.columns:
             data = df[col].values
-            
+
             # Handle object dtype columns specially
             if data.dtype == object:
                 # Check if it's an array of arrays (like waveforms)
                 if len(data) > 0 and isinstance(data[0], np.ndarray):
                     # Create variable-length dataset for arrays
                     try:
-                        dt = h5py.vlen_dtype(np.dtype('float64'))
+                        dt = h5py.vlen_dtype(np.dtype("float64"))
                         dset = attr_group.create_dataset(col, (len(data),), dtype=dt)
                         for i, arr in enumerate(data):
                             if arr is not None and isinstance(arr, np.ndarray):
@@ -126,12 +126,14 @@ def _save_neuron_attributes_to_hdf5(
                             else:
                                 dset[i] = np.array([], dtype=np.float64)
                     except Exception as e:
-                        warnings.warn(f"Failed to save column '{col}' as variable-length array: {e}")
+                        warnings.warn(
+                            f"Failed to save column '{col}' as variable-length array: {e}"
+                        )
                         continue
                 else:
                     # Convert other object types to strings
                     try:
-                        str_data = np.array([str(x) for x in data], dtype='S')
+                        str_data = np.array([str(x) for x in data], dtype="S")
                         attr_group.create_dataset(col, data=str_data)
                     except Exception as e:
                         warnings.warn(f"Failed to save column '{col}' as strings: {e}")
@@ -382,32 +384,40 @@ def export_spikedata_to_nwb(
             try:
                 df = sd.neuron_attributes.to_dataframe()
                 for col in df.columns:
-                    if col != 'spike_times':  # Avoid collision with spike_times dataset
+                    if col != "spike_times":  # Avoid collision with spike_times dataset
                         data = df[col].values
-                        
+
                         # Handle object dtype columns specially for NWB
                         if data.dtype == object:
                             # Check if it's an array of arrays (like waveforms)
                             if len(data) > 0 and isinstance(data[0], np.ndarray):
                                 # Create variable-length dataset for arrays
                                 try:
-                                    dt = h5py.vlen_dtype(np.dtype('float64'))
+                                    dt = h5py.vlen_dtype(np.dtype("float64"))
                                     dset = g.create_dataset(col, (len(data),), dtype=dt)
                                     for i, arr in enumerate(data):
-                                        if arr is not None and isinstance(arr, np.ndarray):
+                                        if arr is not None and isinstance(
+                                            arr, np.ndarray
+                                        ):
                                             dset[i] = arr.astype(np.float64).flatten()
                                         else:
                                             dset[i] = np.array([], dtype=np.float64)
                                 except Exception as e:
-                                    warnings.warn(f"Failed to save NWB column '{col}': {e}")
+                                    warnings.warn(
+                                        f"Failed to save NWB column '{col}': {e}"
+                                    )
                                     continue
                             else:
                                 # Convert other object types to strings
                                 try:
-                                    str_data = np.array([str(x) for x in data], dtype='S')
+                                    str_data = np.array(
+                                        [str(x) for x in data], dtype="S"
+                                    )
                                     g.create_dataset(col, data=str_data)
                                 except Exception as e:
-                                    warnings.warn(f"Failed to save NWB column '{col}' as strings: {e}")
+                                    warnings.warn(
+                                        f"Failed to save NWB column '{col}' as strings: {e}"
+                                    )
                                     continue
                         else:
                             # Regular numeric data
@@ -525,14 +535,14 @@ def export_spikedata_to_kilosort(
     if sd.neuron_attributes is not None:
         try:
             import pandas as pd
-            
+
             df = sd.neuron_attributes.to_dataframe()
             # Use cluster_ids for the cluster_id column if it exists, otherwise add it
-            if 'cluster_id' not in df.columns:
-                df.insert(0, 'cluster_id', list(cluster_ids))
-            
-            cluster_info_path = os.path.join(folder, 'cluster_info.tsv')
-            df.to_csv(cluster_info_path, sep='\t', index=False)
+            if "cluster_id" not in df.columns:
+                df.insert(0, "cluster_id", list(cluster_ids))
+
+            cluster_info_path = os.path.join(folder, "cluster_info.tsv")
+            df.to_csv(cluster_info_path, sep="\t", index=False)
         except Exception as e:
             warnings.warn(f"Failed to save cluster_info.tsv: {e}")
 

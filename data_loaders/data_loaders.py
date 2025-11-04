@@ -74,6 +74,7 @@ def _ensure_boto3():
     if boto3 is None:
         raise ImportError("boto3 is required for S3 loaders. `pip install boto3`.")
 
+
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
     """Convert a vector of times to milliseconds.
 
@@ -119,23 +120,23 @@ def _load_neuron_attributes_from_hdf5(
     n_neurons: int,
 ) -> Optional[NeuronAttributes]:
     """Load neuron attributes from HDF5 file if /neuron_attributes group exists.
-    
+
     Handles different data types appropriately:
     - Regular datasets: loaded directly
     - Variable-length datasets (e.g., waveforms): loaded as object arrays of numpy arrays
     - String datasets: decoded from bytes if necessary
     """
-    if 'neuron_attributes' not in f:
+    if "neuron_attributes" not in f:
         return None
 
     try:
-        attr_group = f['neuron_attributes']
+        attr_group = f["neuron_attributes"]
         attr_data = {}
 
         # Read each dataset in the group as a column
         for key in attr_group.keys():
             dset = attr_group[key]
-            
+
             # Check if it's a variable-length dataset
             if h5py.check_vlen_dtype(dset.dtype):
                 # Load variable-length data (like waveforms) as object array
@@ -146,14 +147,19 @@ def _load_neuron_attributes_from_hdf5(
             else:
                 # Regular dataset
                 data = np.asarray(dset)
-                
+
                 # Decode bytes to strings if needed
-                if data.dtype.kind == 'S':
+                if data.dtype.kind == "S":
                     try:
-                        data = np.array([s.decode('utf-8') if isinstance(s, bytes) else s for s in data])
+                        data = np.array(
+                            [
+                                s.decode("utf-8") if isinstance(s, bytes) else s
+                                for s in data
+                            ]
+                        )
                     except Exception:
                         pass  # Keep as bytes if decoding fails
-            
+
             if len(data) == n_neurons:
                 attr_data[key] = data
 
@@ -243,15 +249,16 @@ def _build_spikedata(
 # S3
 # ----------------------------
 
+
 def download_s3_to_local(
     src: str,
     dst: str,
     *,
-    endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
-    **s3_client_kwargs
+    endpoint_url: str = "https://s3-west.nrp-nautilus.io",
+    **s3_client_kwargs,
 ) -> None:
     """Download a file from S3 to local filesystem.
-    
+
     Parameters
     ----------
     src : str
@@ -262,44 +269,44 @@ def download_s3_to_local(
         S3 endpoint URL. Defaults to Nautilus endpoint.
     **s3_client_kwargs
         Additional keyword arguments passed to boto3.client().
-        
+
     Raises
     ------
     RuntimeError
         If src doesn't start with 's3://'.
     ImportError
         If boto3 is not installed.
-        
+
     Examples
     --------
     >>> download_s3_to_local('s3://my-bucket/data.h5', '/tmp/data.h5')
     >>>
     """
     _ensure_boto3()
-    
-    if not src.startswith('s3://'):
-        raise RuntimeError(f'Input filepath must start with s3://! Got: {src}')
-    
-    print(f'Downloading {src} to {dst} with boto3 version: {boto3.__version__}')
-    
+
+    if not src.startswith("s3://"):
+        raise RuntimeError(f"Input filepath must start with s3://! Got: {src}")
+
+    print(f"Downloading {src} to {dst} with boto3 version: {boto3.__version__}")
+
     # Parse S3 URI
-    bucket, key = src[len('s3://'):].split('/', maxsplit=1)
-    
+    bucket, key = src[len("s3://") :].split("/", maxsplit=1)
+
     # Create S3 client
-    s3_client = boto3.client('s3', endpoint_url=endpoint_url, **s3_client_kwargs)
-    
+    s3_client = boto3.client("s3", endpoint_url=endpoint_url, **s3_client_kwargs)
+
     # Download file
     s3_client.download_file(bucket, key, dst)
-    print(f'Successfully downloaded to {dst}')
+    print(f"Successfully downloaded to {dst}")
 
 
 def _resolve_s3_path(
     filepath: str,
     cache_dir: Optional[str] = None,
-    endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+    endpoint_url: str = "https://s3-west.nrp-nautilus.io",
 ) -> str:
     """Resolve an S3 path by downloading to cache if needed.
-    
+
     Parameters
     ----------
     filepath : str
@@ -308,42 +315,43 @@ def _resolve_s3_path(
         Directory to cache downloaded S3 files. If None, uses a temp directory.
     endpoint_url : str
         S3 endpoint URL.
-        
+
     Returns
     -------
     str
         Local file path (either original if local, or cached if from S3).
     """
-    if not filepath.startswith('s3://'):
+    if not filepath.startswith("s3://"):
         return filepath
-    
+
     import tempfile
-    
+
     # Determine cache location
     if cache_dir is None:
-        cache_dir = tempfile.mkdtemp(prefix='spikedata_s3_')
+        cache_dir = tempfile.mkdtemp(prefix="spikedata_s3_")
     else:
         os.makedirs(cache_dir, exist_ok=True)
-    
+
     # Create local filename from S3 key
     basename = os.path.basename(filepath)
     local_path = os.path.join(cache_dir, basename)
-    
+
     # Download if not already cached
     if not os.path.exists(local_path):
         download_s3_to_local(filepath, local_path, endpoint_url=endpoint_url)
 
     # If the file is a zip file, unzip it
-    if local_path.endswith('.zip'):
-        with zipfile.ZipFile(local_path, 'r') as zip_ref:
+    if local_path.endswith(".zip"):
+        with zipfile.ZipFile(local_path, "r") as zip_ref:
             zip_ref.extractall(cache_dir)
-        local_path = os.path.join(cache_dir, os.path.basename(local_path).replace('.zip', ''))
+        local_path = os.path.join(
+            cache_dir, os.path.basename(local_path).replace(".zip", "")
+        )
 
     else:
-        print(f'Using cached file: {local_path}')
-    
+        print(f"Using cached file: {local_path}")
+
     return local_path
-    
 
 
 # ----------------------------
@@ -355,7 +363,7 @@ def load_spikedata_from_hdf5(
     filepath: str,
     *,
     cache_dir: Optional[str] = None,
-    s3_endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+    s3_endpoint_url: str = "https://s3-west.nrp-nautilus.io",
     raster_dataset: Optional[str] = None,
     raster_bin_size_ms: Optional[float] = None,
     spike_times_dataset: Optional[str] = None,
@@ -463,7 +471,7 @@ def load_spikedata_from_hdf5(
     """
     # Resolve S3 path if needed
     filepath = _resolve_s3_path(filepath, cache_dir, s3_endpoint_url)
-    
+
     _ensure_h5py()
 
     # Validate exactly one style is provided
@@ -499,7 +507,9 @@ def load_spikedata_from_hdf5(
                 raise ValueError("raster_dataset must be 2D (units, time)")
             n_neurons = raster.shape[0]
             neuron_attrs = _load_neuron_attributes_from_hdf5(f, n_neurons)
-            sd = SpikeData.from_raster(raster, raster_bin_size_ms, neuron_attributes=neuron_attrs)
+            sd = SpikeData.from_raster(
+                raster, raster_bin_size_ms, neuron_attributes=neuron_attrs
+            )
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -540,7 +550,9 @@ def load_spikedata_from_hdf5(
         times = _to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
         neuron_attrs = _load_neuron_attributes_from_hdf5(f, N)
-        sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms, neuron_attributes=neuron_attrs)
+        sd = SpikeData.from_idces_times(
+            idces, times, N=N, length=length_ms, neuron_attributes=neuron_attrs
+        )
         sd.metadata.update(meta)
         return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -625,15 +637,24 @@ def load_spikedata_from_nwb(
 
                 # Extract neuron attributes (excluding spike_times column)
                 if len(units_df.columns) > 1:
-                    neuron_attrs_df = units_df.drop(columns=['spike_times'], errors='ignore').copy()
+                    neuron_attrs_df = units_df.drop(
+                        columns=["spike_times"], errors="ignore"
+                    ).copy()
                     # Reset index to 0-based integer
                     neuron_attrs_df.reset_index(drop=True, inplace=True)
 
             neuron_attrs = None
             if neuron_attrs_df is not None and not neuron_attrs_df.empty:
-                neuron_attrs = NeuronAttributes.from_dataframe(neuron_attrs_df, n_neurons=len(trains))
+                neuron_attrs = NeuronAttributes.from_dataframe(
+                    neuron_attrs_df, n_neurons=len(trains)
+                )
 
-            return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
+            return _build_spikedata(
+                trains,
+                length_ms=length_ms,
+                metadata=meta,
+                neuron_attributes=neuron_attrs,
+            )
         except Exception as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
@@ -665,10 +686,10 @@ def load_spikedata_from_nwb(
         # Extract other attributes from the units group (h5py fallback)
         attr_data = {}
         for key in unit_grp.keys():
-            if key not in [st_key, idx_key] and not key.endswith('_index'):
+            if key not in [st_key, idx_key] and not key.endswith("_index"):
                 try:
                     dset = unit_grp[key]
-                    
+
                     # Check if it's a variable-length dataset
                     if h5py.check_vlen_dtype(dset.dtype):
                         # Load variable-length data (like waveforms) as object array
@@ -678,18 +699,23 @@ def load_spikedata_from_nwb(
                             data[i] = arr if len(arr) > 0 else np.array([])
                     else:
                         data = np.asarray(dset)
-                        
+
                         # Decode bytes to strings if needed
-                        if data.dtype.kind == 'S':
+                        if data.dtype.kind == "S":
                             try:
-                                data = np.array([s.decode('utf-8') if isinstance(s, bytes) else s for s in data])
+                                data = np.array(
+                                    [
+                                        s.decode("utf-8") if isinstance(s, bytes) else s
+                                        for s in data
+                                    ]
+                                )
                             except Exception:
                                 pass  # Keep as bytes if decoding fails
-                    
+
                     # Check if it's a VectorData with matching length
-                    if len(data) == len(trains) or (key + '_index' in unit_grp.keys()):
+                    if len(data) == len(trains) or (key + "_index" in unit_grp.keys()):
                         # If has an index, it's ragged - skip for now
-                        if key + '_index' not in unit_grp.keys():
+                        if key + "_index" not in unit_grp.keys():
                             attr_data[key] = data
                 except Exception:
                     pass  # Skip columns that can't be read as simple arrays
@@ -698,7 +724,9 @@ def load_spikedata_from_nwb(
         if attr_data:
             neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=len(trains))
 
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs
+    )
 
 
 # ----------------------------
@@ -766,10 +794,12 @@ def load_spikedata_from_spikeinterface(
                     pass  # Skip properties that can't be extracted
 
             # Add unit_id column
-            attr_data['unit_id'] = ids
+            attr_data["unit_id"] = ids
 
             if attr_data:
-                neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=len(trains))
+                neuron_attrs = NeuronAttributes.from_dict(
+                    attr_data, n_neurons=len(trains)
+                )
     except (AttributeError, Exception):
         # SortingExtractor doesn't have properties or extraction failed
         pass
@@ -793,7 +823,7 @@ def _extract_kilosort_neuron_attributes(
 ) -> Optional[NeuronAttributes]:
     """
     Extract comprehensive neuron attributes from KiloSort/Phy outputs.
-    
+
     This function loads and computes:
     - channel: Peak channel for each cluster
     - electrode: Electrode number (same as channel in most cases)
@@ -802,9 +832,9 @@ def _extract_kilosort_neuron_attributes(
     - snr: Signal-to-noise ratio
     - amplitude: Mean spike amplitude
     - isi_violations: ISI violation rate (spikes < 2ms / total spikes)
-    
+
     Plus any additional columns from cluster_info.tsv
-    
+
     Parameters
     ----------
     folder : str
@@ -819,51 +849,53 @@ def _extract_kilosort_neuron_attributes(
         Sampling frequency in Hz
     cluster_info_df : pd.DataFrame, optional
         Pre-loaded cluster info TSV data
-        
+
     Returns
     -------
     NeuronAttributes or None
         Extracted attributes or None if extraction fails
     """
     n_neurons = len(cluster_ids)
-    attr_data: Dict[str, List[Any]] = {'cluster_id': cluster_ids}
-    
+    attr_data: Dict[str, List[Any]] = {"cluster_id": cluster_ids}
+
     # Try to load channel positions
     channel_positions = None
-    channel_positions_path = os.path.join(folder, 'channel_positions.npy')
+    channel_positions_path = os.path.join(folder, "channel_positions.npy")
     if os.path.exists(channel_positions_path):
         try:
             channel_positions = np.load(channel_positions_path)
         except Exception as e:
             warnings.warn(f"Failed to load channel_positions.npy: {e}")
-    
+
     # Try to load templates
     templates = None
-    templates_path = os.path.join(folder, 'templates.npy')
+    templates_path = os.path.join(folder, "templates.npy")
     if os.path.exists(templates_path):
         try:
-            templates = np.load(templates_path)  # Shape: (n_templates, n_samples, n_channels)
+            templates = np.load(
+                templates_path
+            )  # Shape: (n_templates, n_samples, n_channels)
         except Exception as e:
             warnings.warn(f"Failed to load templates.npy: {e}")
-    
+
     # Try to load spike templates (maps each spike to a template)
     spike_templates = None
-    spike_templates_path = os.path.join(folder, 'spike_templates.npy')
+    spike_templates_path = os.path.join(folder, "spike_templates.npy")
     if os.path.exists(spike_templates_path):
         try:
             spike_templates = np.load(spike_templates_path)
         except Exception as e:
             warnings.warn(f"Failed to load spike_templates.npy: {e}")
-    
+
     # Try to load amplitudes
     amplitudes_npy = None
-    amplitudes_path = os.path.join(folder, 'amplitudes.npy')
+    amplitudes_path = os.path.join(folder, "amplitudes.npy")
     if os.path.exists(amplitudes_path):
         try:
             amplitudes_npy = np.load(amplitudes_path)
         except Exception as e:
             warnings.warn(f"Failed to load amplitudes.npy: {e}")
-    
+
     # Initialize attribute lists
     channels = []
     electrodes = []
@@ -873,13 +905,13 @@ def _extract_kilosort_neuron_attributes(
     snrs = []
     amplitudes = []
     isi_violations = []
-    
+
     # Process each cluster
     for clu_id in cluster_ids:
         # Get spikes for this cluster
         spike_mask = (spike_clusters == clu_id).astype(bool)
         cluster_spike_times = spike_times[spike_mask]
-        
+
         # === Channel (peak channel) ===
         peak_channel = np.nan
         if templates is not None and spike_templates is not None:
@@ -890,13 +922,15 @@ def _extract_kilosort_neuron_attributes(
                 template_idx = int(np.median(cluster_templates))
                 if 0 <= template_idx < templates.shape[0]:
                     # Find peak channel (channel with max amplitude)
-                    template_waveform = templates[template_idx]  # (n_samples, n_channels)
+                    template_waveform = templates[
+                        template_idx
+                    ]  # (n_samples, n_channels)
                     peak_amplitudes = np.max(np.abs(template_waveform), axis=0)
                     peak_channel = int(np.argmax(peak_amplitudes))
-        
+
         channels.append(peak_channel)
         electrodes.append(peak_channel)  # In most setups, electrode == channel
-        
+
         # === X, Y coordinates ===
         x_coord = np.nan
         y_coord = np.nan
@@ -905,13 +939,17 @@ def _extract_kilosort_neuron_attributes(
             if 0 <= peak_ch_int < channel_positions.shape[0]:
                 x_coord = float(channel_positions[peak_ch_int, 0])
                 y_coord = float(channel_positions[peak_ch_int, 1])
-        
+
         x_coords.append(x_coord)
         y_coords.append(y_coord)
-        
+
         # === Average waveform ===
         avg_waveform = None
-        if templates is not None and spike_templates is not None and not np.isnan(peak_channel):
+        if (
+            templates is not None
+            and spike_templates is not None
+            and not np.isnan(peak_channel)
+        ):
             cluster_templates = spike_templates[spike_mask]
             if len(cluster_templates) > 0:
                 template_idx = int(np.median(cluster_templates))
@@ -919,9 +957,9 @@ def _extract_kilosort_neuron_attributes(
                     peak_ch_int = int(peak_channel)
                     # Extract waveform from peak channel
                     avg_waveform = templates[template_idx, :, peak_ch_int]
-        
+
         avg_waveforms.append(avg_waveform)
-        
+
         # === SNR ===
         snr = np.nan
         if avg_waveform is not None:
@@ -929,14 +967,16 @@ def _extract_kilosort_neuron_attributes(
             # Baseline: first and last 20% of waveform
             wf_len = len(avg_waveform)
             baseline_idx = int(wf_len * 0.2)
-            baseline = np.concatenate([avg_waveform[:baseline_idx], avg_waveform[-baseline_idx:]])
+            baseline = np.concatenate(
+                [avg_waveform[:baseline_idx], avg_waveform[-baseline_idx:]]
+            )
             baseline_std = np.std(baseline)
             if baseline_std > 0:
                 peak_to_peak = np.ptp(avg_waveform)
                 snr = peak_to_peak / (2 * baseline_std)
-        
+
         snrs.append(snr)
-        
+
         # === Amplitude ===
         amplitude = np.nan
         if amplitudes_npy is not None:
@@ -946,9 +986,9 @@ def _extract_kilosort_neuron_attributes(
         elif avg_waveform is not None:
             # Fallback: use peak-to-peak of template
             amplitude = float(np.ptp(avg_waveform))
-        
+
         amplitudes.append(amplitude)
-        
+
         # === ISI violations ===
         isi_violation_rate = np.nan
         if len(cluster_spike_times) > 1:
@@ -958,28 +998,28 @@ def _extract_kilosort_neuron_attributes(
             # Violations: ISI < 2ms (0.002 seconds)
             violations = np.sum(isis < 0.002)
             isi_violation_rate = violations / len(isis) if len(isis) > 0 else 0.0
-        
+
         isi_violations.append(isi_violation_rate)
-    
+
     # Add computed attributes
-    attr_data['channel'] = channels
-    attr_data['electrode'] = electrodes
-    attr_data['x'] = x_coords
-    attr_data['y'] = y_coords
-    attr_data['average_waveform'] = avg_waveforms
-    attr_data['snr'] = snrs
-    attr_data['amplitude'] = amplitudes
-    attr_data['isi_violations'] = isi_violations
-    
+    attr_data["channel"] = channels
+    attr_data["electrode"] = electrodes
+    attr_data["x"] = x_coords
+    attr_data["y"] = y_coords
+    attr_data["average_waveform"] = avg_waveforms
+    attr_data["snr"] = snrs
+    attr_data["amplitude"] = amplitudes
+    attr_data["isi_violations"] = isi_violations
+
     # Add any additional attributes from cluster_info.tsv
     if cluster_info_df is not None:
         # Determine ID column
         id_col = None
-        for candidate in ['cluster_id', 'id']:
+        for candidate in ["cluster_id", "id"]:
             if candidate in cluster_info_df.columns:
                 id_col = candidate
                 break
-        
+
         if id_col is not None:
             cluster_info_df = cluster_info_df.set_index(id_col)
             for col in cluster_info_df.columns:
@@ -991,7 +1031,7 @@ def _extract_kilosort_neuron_attributes(
                         else:
                             col_data.append(np.nan)
                     attr_data[col] = col_data
-    
+
     # Create NeuronAttributes
     try:
         neuron_attrs = NeuronAttributes.from_dict(attr_data, n_neurons=n_neurons)
@@ -1019,7 +1059,7 @@ def load_spikedata_from_kilosort(
     Reads spike_times.npy and spike_clusters.npy; groups times per cluster
     and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
     "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata.
-    
+
     When extract_attributes=True (default), automatically extracts and computes:
     - channel: Peak channel for each cluster
     - electrode: Electrode number
@@ -1029,7 +1069,7 @@ def load_spikedata_from_kilosort(
     - amplitude: Mean spike amplitude from amplitudes.npy
     - isi_violations: ISI violation rate (proportion of ISIs < 2ms)
     - Plus any additional columns from cluster_info.tsv
-    
+
     Parameters
     ----------
     folder : str
@@ -1051,12 +1091,12 @@ def load_spikedata_from_kilosort(
         Recording length in milliseconds
     extract_attributes : bool, optional
         If True (default), extract comprehensive neuron attributes from Phy files
-        
+
     Returns
     -------
     SpikeData
         SpikeData object with trains and neuron_attributes populated
-        
+
     Notes
     -----
     The function looks for these optional files in the folder:
@@ -1065,7 +1105,7 @@ def load_spikedata_from_kilosort(
     - spike_templates.npy: (n_spikes,) template index for each spike
     - amplitudes.npy: (n_spikes,) amplitude for each spike
     - cluster_info.tsv: metadata table with columns like 'group', 'KSLabel', etc.
-    
+
     Missing files are handled gracefully with warnings.
     """
     st_path = os.path.join(folder, spike_times_file)
@@ -1100,7 +1140,9 @@ def load_spikedata_from_kilosort(
                     )
                 else:
                     if include_noise:
-                        keep_clusters = set(cluster_info_df[id_col].astype(int).tolist())
+                        keep_clusters = set(
+                            cluster_info_df[id_col].astype(int).tolist()
+                        )
                     else:
                         mask = (
                             cluster_info_df[label_col]
@@ -1108,7 +1150,9 @@ def load_spikedata_from_kilosort(
                             .str.lower()
                             .isin(["good", "mua", "mua good"])
                         )  # permissive
-                        keep_clusters = set(cluster_info_df.loc[mask, id_col].astype(int).tolist())
+                        keep_clusters = set(
+                            cluster_info_df.loc[mask, id_col].astype(int).tolist()
+                        )
             except Exception as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
@@ -1116,7 +1160,11 @@ def load_spikedata_from_kilosort(
                 cluster_info_df = None
     else:
         # Try to find cluster_info.tsv or cluster_group.tsv automatically
-        for possible_name in ['cluster_info.tsv', 'cluster_group.tsv', 'cluster_KSLabel.tsv']:
+        for possible_name in [
+            "cluster_info.tsv",
+            "cluster_group.tsv",
+            "cluster_KSLabel.tsv",
+        ]:
             possible_path = os.path.join(folder, possible_name)
             if os.path.exists(possible_path):
                 try:
@@ -1154,7 +1202,9 @@ def load_spikedata_from_kilosort(
             cluster_info_df=cluster_info_df,
         )
 
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs)
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attrs
+    )
 
 
 # ----------------------------
@@ -1166,7 +1216,7 @@ def load_spikedata_from_acqm(
     filepath: str,
     *,
     cache_dir: Optional[str] = None,
-    s3_endpoint_url: str = 'https://s3-west.nrp-nautilus.io',
+    s3_endpoint_url: str = "https://s3-west.nrp-nautilus.io",
     length_ms: Optional[float] = None,
 ) -> SpikeData:
     """Load spike trains from an ACQM file (_acqm or _acqm.zip stored as NPZ).
@@ -1227,20 +1277,22 @@ def load_spikedata_from_acqm(
         raise ValueError(f"Failed to load ACQM file '{filepath}': {e}") from e
 
     # Validate required fields
-    if 'train' not in data:
+    if "train" not in data:
         raise ValueError("ACQM file missing required 'train' field")
-    if 'fs' not in data:
+    if "fs" not in data:
         raise ValueError("ACQM file missing required 'fs' (sampling frequency) field")
 
     # Extract sampling frequency
-    fs_Hz = float(data['fs'])
+    fs_Hz = float(data["fs"])
     if fs_Hz <= 0:
         raise ValueError(f"Invalid sampling frequency: {fs_Hz} Hz")
 
     # Extract train dict and convert to list of spike trains
-    train_dict = data['train'].item()
+    train_dict = data["train"].item()
     if not isinstance(train_dict, dict):
-        raise ValueError("'train' field must be a dictionary mapping unit IDs to spike times")
+        raise ValueError(
+            "'train' field must be a dictionary mapping unit IDs to spike times"
+        )
 
     # Sort unit IDs for consistent ordering
     unit_ids = sorted(train_dict.keys())
@@ -1252,9 +1304,9 @@ def load_spikedata_from_acqm(
 
     # Extract neuron attributes if available
     neuron_attrs = None
-    if 'neuron_data' in data:
+    if "neuron_data" in data:
         try:
-            neuron_data_dict = data['neuron_data'].item()
+            neuron_data_dict = data["neuron_data"].item()
             if isinstance(neuron_data_dict, dict) and neuron_data_dict:
                 # Build a dataframe from neuron_data
                 attrs_list = []
@@ -1266,28 +1318,35 @@ def load_spikedata_from_acqm(
                             flat_info = {}
                             for key, value in neuron_info.items():
                                 # Store average waveform if present
-                                if key == 'waveforms':
+                                if key == "waveforms":
                                     if isinstance(value, np.ndarray) and value.size > 0:
                                         # Compute average waveform across all instances
                                         if value.ndim >= 1:
-                                            avg_waveform = np.mean(value, axis=0) if value.ndim > 1 else value
-                                            flat_info['avg_waveform'] = avg_waveform
+                                            avg_waveform = (
+                                                np.mean(value, axis=0)
+                                                if value.ndim > 1
+                                                else value
+                                            )
+                                            flat_info["avg_waveform"] = avg_waveform
                                     continue
                                 # Store average amplitude if present
-                                if key == 'amplitudes':
+                                if key == "amplitudes":
                                     if isinstance(value, np.ndarray) and value.size > 0:
                                         # Compute average amplitude across all spikes
                                         avg_amplitude = np.mean(value)
-                                        flat_info['avg_amplitude'] = avg_amplitude
+                                        flat_info["avg_amplitude"] = avg_amplitude
                                     continue
                                 # Skip other large arrays
-                                if key in ['neighbor_templates']:
+                                if key in ["neighbor_templates"]:
                                     continue
                                 # Convert arrays to strings/tuples for scalar storage
                                 if isinstance(value, np.ndarray):
                                     if value.size <= 3:  # Small arrays like position
                                         flat_info[key] = tuple(value.tolist())
-                                    elif key in ['neighbor_channels', 'neighbor_positions']:
+                                    elif key in [
+                                        "neighbor_channels",
+                                        "neighbor_positions",
+                                    ]:
                                         # Store as comma-separated string for readability
                                         flat_info[key] = str(value.tolist())
                                     else:
@@ -1304,9 +1363,11 @@ def load_spikedata_from_acqm(
                 if attrs_list:
                     attrs_df = pd.DataFrame(attrs_list)
                     # Ensure unit_id column exists
-                    if 'unit_id' not in attrs_df.columns:
-                        attrs_df.insert(0, 'unit_id', unit_ids)
-                    neuron_attrs = NeuronAttributes.from_dataframe(attrs_df, n_neurons=len(trains))
+                    if "unit_id" not in attrs_df.columns:
+                        attrs_df.insert(0, "unit_id", unit_ids)
+                    neuron_attrs = NeuronAttributes.from_dataframe(
+                        attrs_df, n_neurons=len(trains)
+                    )
         except Exception as e:
             warnings.warn(f"Failed to load neuron_data from ACQM: {e}")
 
@@ -1319,20 +1380,20 @@ def load_spikedata_from_acqm(
     }
 
     # Add config if present
-    if 'config' in data:
+    if "config" in data:
         try:
-            config = data['config'].item()
+            config = data["config"].item()
             if isinstance(config, dict):
-                meta['config'] = config
+                meta["config"] = config
         except Exception:
             pass
 
     # Add redundant_pairs if present
-    if 'redundant_pairs' in data:
+    if "redundant_pairs" in data:
         try:
-            redundant_pairs = np.asarray(data['redundant_pairs'])
+            redundant_pairs = np.asarray(data["redundant_pairs"])
             if redundant_pairs.size > 0:
-                meta['redundant_pairs'] = redundant_pairs.tolist()
+                meta["redundant_pairs"] = redundant_pairs.tolist()
         except Exception:
             pass
 
@@ -1342,6 +1403,7 @@ def load_spikedata_from_acqm(
         metadata=meta,
         neuron_attributes=neuron_attrs,
     )
+
 
 # ----------------------------
 # SpikeInterface BaseRecording -> SpikeData via thresholding

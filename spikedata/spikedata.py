@@ -1,36 +1,36 @@
 """
-    SpikeData core module.
+SpikeData core module.
 
-    Refactor (2025-09): API simplification and STTC reorganization
-    ------------------------------------------------------------
-    This module was refactored to streamline the public API and colocate related
-    spike time tiling (STTC) helpers. The following previously exported items were
-    removed to reduce surface area and will be replaced by focused utilities:
+Refactor (2025-09): API simplification and STTC reorganization
+------------------------------------------------------------
+This module was refactored to streamline the public API and colocate related
+spike time tiling (STTC) helpers. The following previously exported items were
+removed to reduce surface area and will be replaced by focused utilities:
 
-    - Nest/NEST features: NestIDNeuronAttributes, SpikeData.from_nest
-    - MuscleBeachTools: SpikeData.from_mbt_neurons
-    - ISI analytics: SpikeData.isi_skewness, SpikeData.isi_log_histogram,
-    SpikeData.isi_threshold_cma
-    - Burst/avalanche/DCC: SpikeData.burstiness_index, SpikeData.avalanches,
-    SpikeData.avalanche_duration_size, SpikeData.deviation_from_criticality,
-    DCCResult, _p_and_alpha
-    - Randomization: SpikeData.randomized, randomize_raster, randomize_raster_greedy,
-    randomize_raster_okun, _okun_swap, best_effort_sample
-    - Rates/correlations/hist utils: population_firing_rate (function and method),
-    fano_factors, pearson, cumulative_moving_average, burst_detection
+- Nest/NEST features: NestIDNeuronAttributes, SpikeData.from_nest
+- MuscleBeachTools: SpikeData.from_mbt_neurons
+- ISI analytics: SpikeData.isi_skewness, SpikeData.isi_log_histogram,
+SpikeData.isi_threshold_cma
+- Burst/avalanche/DCC: SpikeData.burstiness_index, SpikeData.avalanches,
+SpikeData.avalanche_duration_size, SpikeData.deviation_from_criticality,
+DCCResult, _p_and_alpha
+- Randomization: SpikeData.randomized, randomize_raster, randomize_raster_greedy,
+randomize_raster_okun, _okun_swap, best_effort_sample
+- Rates/correlations/hist utils: population_firing_rate (function and method),
+fano_factors, pearson, cumulative_moving_average, burst_detection
 
-    Reorganization:
-    - STTC helpers `_sttc_ta` and `_sttc_na` are colocated with the public
-    `spike_time_tiling` function for clarity. Behavior is unchanged.
+Reorganization:
+- STTC helpers `_sttc_ta` and `_sttc_na` are colocated with the public
+`spike_time_tiling` function for clarity. Behavior is unchanged.
 
-    Notes for users migrating from older versions:
-    - Population rate: use `SpikeData.binned(bin_size)` and smooth externally
-    (e.g., `np.convolve`) to reproduce prior behavior.
-    - Pairwise correlations: compute with your preferred method (e.g., NumPy or
-    SciPy) on `SpikeData.raster()` output.
-    - Burst-related functionality will be provided by replacement modules.
+Notes for users migrating from older versions:
+- Population rate: use `SpikeData.binned(bin_size)` and smooth externally
+(e.g., `np.convolve`) to reproduce prior behavior.
+- Pairwise correlations: compute with your preferred method (e.g., NumPy or
+SciPy) on `SpikeData.raster()` output.
+- Burst-related functionality will be provided by replacement modules.
 
-    No behavior changes were made to remaining APIs unless noted in their docstrings.
+No behavior changes were made to remaining APIs unless noted in their docstrings.
 """
 
 import heapq
@@ -232,7 +232,9 @@ class SpikeData:
         *,
         N=None,
         length=None,
-        neuron_attributes: Optional[Union[NeuronAttributes, pd.DataFrame, Dict[str, Any]]] = None,
+        neuron_attributes: Optional[
+            Union[NeuronAttributes, pd.DataFrame, Dict[str, Any]]
+        ] = None,
         metadata={},
         raw_data=None,
         raw_time: Optional[Union[NDArray, float]] = None,
@@ -538,7 +540,10 @@ class SpikeData:
         # so neuron_attributes should remain the same (just use self's attributes)
         # If both have attributes but they differ, issue a warning
         appended_attrs = self.neuron_attributes
-        if self.neuron_attributes is not None and spikeData.neuron_attributes is not None:
+        if (
+            self.neuron_attributes is not None
+            and spikeData.neuron_attributes is not None
+        ):
             # Check if they're different
             df1 = self.neuron_attributes.to_dataframe()
             df2 = spikeData.neuron_attributes.to_dataframe()
@@ -637,7 +642,9 @@ class SpikeData:
             )
             self.neuron_attributes = None
 
-    def set_neuron_attribute(self, column: str, values: Union[np.ndarray, List]) -> None:
+    def set_neuron_attribute(
+        self, column: str, values: Union[np.ndarray, List]
+    ) -> None:
         """
         Set or update a neuron attribute column.
 
@@ -694,7 +701,7 @@ class SpikeData:
             raise ValueError("No neuron_attributes available.")
         return self.neuron_attributes.get_attribute(column)
 
-    def compute_firing_rates(self, unit: Literal['Hz', 'kHz'] = 'Hz') -> np.ndarray:
+    def compute_firing_rates(self, unit: Literal["Hz", "kHz"] = "Hz") -> np.ndarray:
         """
         Compute mean firing rates for all neurons and store in neuron_attributes.
 
@@ -719,12 +726,12 @@ class SpikeData:
         >>> # Access later via:
         >>> rates = sd.get_neuron_attribute('firing_rate_hz')
         """
-        rates_hz = self.rates(unit='Hz')
-        self.set_neuron_attribute('firing_rate_hz', rates_hz)
-        
-        if unit == 'Hz':
+        rates_hz = self.rates(unit="Hz")
+        self.set_neuron_attribute("firing_rate_hz", rates_hz)
+
+        if unit == "Hz":
             return rates_hz
-        elif unit == 'kHz':
+        elif unit == "kHz":
             return rates_hz / 1e3
         else:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
@@ -732,10 +739,10 @@ class SpikeData:
     def get_sttc_matrix(self, delt: float = 20.0, use_cache: bool = True) -> np.ndarray:
         """
         Get the spike time tiling coefficient (STTC) correlation matrix with caching.
-        
+
         This method wraps spike_time_tilings() and provides intelligent caching to avoid
         recomputing expensive STTC matrices. The cache is stored per delt value.
-        
+
         Parameters
         ----------
         delt : float, optional
@@ -743,74 +750,74 @@ class SpikeData:
         use_cache : bool, optional
             If True (default), return cached result if available. If False, recompute
             and update cache.
-        
+
         Returns
         -------
         np.ndarray
             N × N symmetric matrix of STTC values, where N is the number of neurons.
             Diagonal elements are 1.0 (perfect correlation with self).
-        
+
         Notes
         -----
         - STTC computation is O(N²) and can be expensive for large datasets
         - Cache is stored in self._sttc_cache dictionary keyed by delt value
         - Use clear_sttc_cache() to free memory if needed
         - Cache persists across subset/subtime operations to avoid unnecessary recomputation
-        
+
         Examples
         --------
         >>> # First call computes and caches
         >>> sttc = sd.get_sttc_matrix(delt=20.0)
-        >>> 
+        >>>
         >>> # Subsequent calls with same delt use cache (fast)
         >>> sttc_again = sd.get_sttc_matrix(delt=20.0)
-        >>> 
+        >>>
         >>> # Different delt values are cached separately
         >>> sttc_40 = sd.get_sttc_matrix(delt=40.0)
-        >>> 
+        >>>
         >>> # Force recomputation
         >>> sttc_fresh = sd.get_sttc_matrix(delt=20.0, use_cache=False)
-        >>> 
+        >>>
         >>> # Clear cache to free memory
         >>> sd.clear_sttc_cache()
         """
         # Initialize cache if it doesn't exist
-        if not hasattr(self, '_sttc_cache'):
+        if not hasattr(self, "_sttc_cache"):
             self._sttc_cache = {}
-        
+
         # Check cache
         if use_cache and delt in self._sttc_cache:
             return self._sttc_cache[delt]
-        
+
         # Compute STTC matrix
         sttc_matrix = self.spike_time_tilings(delt=delt)
-        
+
         # Store in cache
         self._sttc_cache[delt] = sttc_matrix
-        
+
         return sttc_matrix
-    
+
     def clear_sttc_cache(self, delt: Optional[float] = None) -> None:
         """
         Clear cached STTC matrices to free memory.
-        
+
         Parameters
         ----------
         delt : float, optional
             If provided, only clear the cache for this specific delt value.
             If None (default), clear all cached STTC matrices.
-        
+
         Examples
         --------
         >>> # Clear all cached STTC matrices
         >>> sd.clear_sttc_cache()
-        >>> 
+        >>>
         >>> # Clear only the cache for delt=20.0
         >>> sd.clear_sttc_cache(delt=20.0)
         """
-        if not hasattr(self, '_sttc_cache'):
+        if not hasattr(self, "_sttc_cache"):
             return
-        
+
         if delt is None:
             # Clear all caches
             self._sttc_cache = {}

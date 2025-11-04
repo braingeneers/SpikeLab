@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
+
 class NeuronAttributes:
     """
     Wrapper class for managing neuron attributes as a pandas DataFrame.
@@ -36,7 +37,7 @@ class NeuronAttributes:
         Spatial location:
             - unit_x, unit_y, unit_z: Unit position coordinates (μm)
             - electrode_x, electrode_y, electrode_z: Electrode coordinates (μm)
-            
+
         Note: Store spatial coordinates as separate x, y, z columns for best
         compatibility with pandas operations. Combine using np.column_stack()
         when needed for analysis.
@@ -59,13 +60,13 @@ class NeuronAttributes:
     ...     'cluster_id': [1, 1, 2],
     ...     'firing_rate_hz': [5.2, 8.1, 3.4]
     ... }, n_neurons=3)
-    >>> 
+    >>>
     >>> # Access as DataFrame
     >>> df = attrs.to_dataframe()
-    >>> 
+    >>>
     >>> # Get specific attribute
     >>> rates = attrs.get_attribute('firing_rate_hz')
-    >>> 
+    >>>
     >>> # Set new attribute
     >>> attrs.set_attribute('quality', ['good', 'good', 'mua'])
     """
@@ -73,29 +74,45 @@ class NeuronAttributes:
     # Standard column names for validation and documentation
     STANDARD_COLUMNS = {
         # Core attributes
-        'unit_id', 'cluster_id', 'electrode_id', 'channel', 'firing_rate_hz',
+        "unit_id",
+        "cluster_id",
+        "electrode_id",
+        "channel",
+        "firing_rate_hz",
         # Quality metrics
-        'snr', 'amplitude', 'isolation_distance', 'isi_violations',
+        "snr",
+        "amplitude",
+        "isolation_distance",
+        "isi_violations",
         # Spatial location (separate coordinate columns)
-        'unit_x', 'unit_y', 'unit_z',
-        'electrode_x', 'electrode_y', 'electrode_z',
+        "unit_x",
+        "unit_y",
+        "unit_z",
+        "electrode_x",
+        "electrode_y",
+        "electrode_z",
         # ISI-based temporal patterns
-        'mean_isi_ms', 'median_isi_ms', 'cv_isi', 'isi_skewness',
-        'burst_index', 'pause_ratio', 'refractory_violations',
+        "mean_isi_ms",
+        "median_isi_ms",
+        "cv_isi",
+        "isi_skewness",
+        "burst_index",
+        "pause_ratio",
+        "refractory_violations",
         # Latency statistics
-        'mean_latency_ms', 'median_latency_ms', 'latency_jitter_ms',
+        "mean_latency_ms",
+        "median_latency_ms",
+        "latency_jitter_ms",
         # Burst participation
-        'burst_participation', 'is_backbone_unit',
+        "burst_participation",
+        "is_backbone_unit",
         # Waveform attributes
-        'mean_waveform', 'waveform_channel', 'waveform_n_spikes'
+        "mean_waveform",
+        "waveform_channel",
+        "waveform_n_spikes",
     }
 
-    def __init__(
-        self,
-        df: pd.DataFrame,
-        n_neurons: int,
-        validate: bool = True
-    ):
+    def __init__(self, df: pd.DataFrame, n_neurons: int, validate: bool = True):
         """
         Initialize NeuronAttributes from a DataFrame.
 
@@ -156,17 +173,19 @@ class NeuronAttributes:
         for col in self._df.columns:
             if col not in self.STANDARD_COLUMNS:
                 # Check for potential typos in standard columns
-                col_lower = col.lower().replace('_', '').replace('-', '')
+                col_lower = col.lower().replace("_", "").replace("-", "")
                 for std_col in self.STANDARD_COLUMNS:
-                    std_lower = std_col.lower().replace('_', '').replace('-', '')
+                    std_lower = std_col.lower().replace("_", "").replace("-", "")
                     if col_lower == std_lower and col != std_col:
                         warnings.warn(
                             f"Column '{col}' looks like standard column '{std_col}'. "
                             f"Consider using the standard name for consistency.",
-                            UserWarning
+                            UserWarning,
                         )
 
-    def set_attribute(self, column: str, values: Union[np.ndarray, List, pd.Series]) -> None:
+    def set_attribute(
+        self, column: str, values: Union[np.ndarray, List, pd.Series]
+    ) -> None:
         """
         Set or update a neuron attribute column.
 
@@ -213,7 +232,7 @@ class NeuronAttributes:
             raise KeyError(f"Column '{column}' not found in neuron attributes.")
         return self._df[column].values
 
-    def subset(self, indices: Union[List[int], np.ndarray]) -> 'NeuronAttributes':
+    def subset(self, indices: Union[List[int], np.ndarray]) -> "NeuronAttributes":
         """
         Select a subset of neurons by their indices.
 
@@ -232,7 +251,7 @@ class NeuronAttributes:
         subset_df.index = pd.RangeIndex(len(subset_df))
         return NeuronAttributes(subset_df, n_neurons=len(indices), validate=False)
 
-    def concat(self, other: 'NeuronAttributes') -> 'NeuronAttributes':
+    def concat(self, other: "NeuronAttributes") -> "NeuronAttributes":
         """
         Concatenate with another NeuronAttributes object.
 
@@ -264,7 +283,7 @@ class NeuronAttributes:
         return self._df.copy()
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], n_neurons: int) -> 'NeuronAttributes':
+    def from_dict(cls, data: Dict[str, Any], n_neurons: int) -> "NeuronAttributes":
         """
         Create NeuronAttributes from a dictionary.
 
@@ -284,7 +303,9 @@ class NeuronAttributes:
         return cls(df, n_neurons=n_neurons, validate=True)
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame, n_neurons: Optional[int] = None) -> 'NeuronAttributes':
+    def from_dataframe(
+        cls, df: pd.DataFrame, n_neurons: Optional[int] = None
+    ) -> "NeuronAttributes":
         """
         Create NeuronAttributes from a pandas DataFrame.
 
@@ -315,22 +336,22 @@ class NeuronAttributes:
     def __str__(self) -> str:
         """Return string representation."""
         return self.__repr__()
-    
+
     def calculate_mean_waveforms(
         self,
-        spikedata: 'SpikeData',  # type: ignore
+        spikedata: "SpikeData",  # type: ignore
         ms_before: float = 1.0,
         ms_after: float = 2.0,
         max_spikes: Optional[int] = 1000,
-        auto_save: bool = True
+        auto_save: bool = True,
     ) -> Dict[str, np.ndarray]:
         """
         Calculate mean waveforms for each neuron from raw data.
-        
+
         Extracts the waveform from the channel with the largest amplitude for each unit.
         Automatically stores waveforms as 'mean_waveform' attribute and derived metrics
         in neuron_attributes.
-        
+
         Parameters
         ----------
         spikedata : SpikeData
@@ -345,7 +366,7 @@ class NeuronAttributes:
         auto_save : bool, optional
             If True (default), automatically saves mean waveforms as 'mean_waveform'
             attribute. Each neuron's waveform is stored as a 1D array (samples).
-        
+
         Returns
         -------
         dict
@@ -355,12 +376,12 @@ class NeuronAttributes:
             - 'best_channels': ndarray of shape (n_neurons,) - channel index with largest amplitude
             - 'n_spikes_used': ndarray of shape (n_neurons,) - count of spikes used
             - 'time_ms': ndarray with time axis relative to spike (0 = spike peak)
-        
+
         Raises
         ------
         ValueError
             If SpikeData doesn't have raw_data and raw_time.
-        
+
         Examples
         --------
         >>> # Calculate and automatically save mean waveforms
@@ -373,84 +394,104 @@ class NeuronAttributes:
         >>> best_channel = sd.neuron_attributes.get_attribute('waveform_channel')[0]
         """
         # Check that raw data exists
-        if not hasattr(spikedata, 'raw_data') or spikedata.raw_data.size == 0:
+        if not hasattr(spikedata, "raw_data") or spikedata.raw_data.size == 0:
             raise ValueError(
                 "SpikeData must have raw_data and raw_time to extract waveforms. "
                 "Load data with raw traces or use a recording loader."
             )
-        
-        raw_data = spikedata.raw_data # Raw data is a 2D array of shape (channels, samples)
-        raw_time = spikedata.raw_time # Raw time is a 1D array of shape (samples)
-        
+
+        raw_data = (
+            spikedata.raw_data
+        )  # Raw data is a 2D array of shape (channels, samples)
+        raw_time = spikedata.raw_time  # Raw time is a 1D array of shape (samples)
+
         # Determine sampling rate in kHz
         if np.ndim(raw_time) == 0:
             # raw_time is already a sampling rate in kHz
             fs_khz = float(raw_time)
         else:
             # Calculate from time vector (assumes uniform sampling)
-            dt_ms = np.mean(np.diff(raw_time)) # dt_ms is the time between samples in milliseconds
-            fs_khz = 1.0 / dt_ms # fs_khz is the sampling rate in kHz
-        
+            dt_ms = np.mean(
+                np.diff(raw_time)
+            )  # dt_ms is the time between samples in milliseconds
+            fs_khz = 1.0 / dt_ms  # fs_khz is the sampling rate in kHz
+
         # Convert time windows to samples
-        before_samples = int(ms_before * fs_khz) # before_samples is the number of samples before the spike
-        after_samples = int(ms_after * fs_khz) + 1 # +1 to include the spike itself
+        before_samples = int(
+            ms_before * fs_khz
+        )  # before_samples is the number of samples before the spike
+        after_samples = int(ms_after * fs_khz) + 1  # +1 to include the spike itself
         total_samples = before_samples + after_samples
-        
+
         # Get dimensions
         if raw_data.ndim == 1:
-            raw_data = raw_data.reshape(1, -1) # If raw_data is a 1D array, reshape it to a 2D array
-        
+            raw_data = raw_data.reshape(
+                1, -1
+            )  # If raw_data is a 1D array, reshape it to a 2D array
+
         # Initialize output arrays - now only storing best channel per unit
         mean_waveforms = np.zeros((self.n_neurons, total_samples))
         std_waveforms = np.zeros((self.n_neurons, total_samples))
         best_channels = np.zeros(self.n_neurons, dtype=int)
         n_spikes_used = np.zeros(self.n_neurons, dtype=int)
-        
+
         # Extract waveforms for each neuron
         for neuron_idx in range(self.n_neurons):
-            spike_times = spikedata.train[neuron_idx] # spike_times is a 1D array of shape (n_spikes)
-            
+            spike_times = spikedata.train[
+                neuron_idx
+            ]  # spike_times is a 1D array of shape (n_spikes)
+
             if len(spike_times) == 0:
-                continue # If there are no spikes, skip this neuron
-            
+                continue  # If there are no spikes, skip this neuron
+
             # Optionally subsample spikes - if max_spikes is not None, subsample the spikes to the maximum number of spikes
             if max_spikes is not None and len(spike_times) > max_spikes:
                 indices = np.random.choice(len(spike_times), max_spikes, replace=False)
                 spike_times = spike_times[indices]
-            
+
             # Convert spike times to samples
-            spike_samples = (spike_times * fs_khz).astype(int) # spike_samples is a 1D array of shape (n_spikes)
-            
+            spike_samples = (spike_times * fs_khz).astype(
+                int
+            )  # spike_samples is a 1D array of shape (n_spikes)
+
             # Extract waveforms for this neuron (all channels)
             waveforms_list = []
             for spike_sample in spike_samples:
                 start = spike_sample - before_samples
                 end = spike_sample + after_samples
-                
+
                 # Skip if out of bounds
                 if start < 0 or end > raw_data.shape[1]:
                     continue
-                
+
                 waveform = raw_data[:, start:end]
-                waveforms_list.append(waveform) # waveform is a 2D array of shape (channels, samples)
-            
+                waveforms_list.append(
+                    waveform
+                )  # waveform is a 2D array of shape (channels, samples)
+
             if len(waveforms_list) > 0:
-                waveforms = np.array(waveforms_list)  # waveforms is a 3D array of shape (n_spikes, n_channels, n_samples)
+                waveforms = np.array(
+                    waveforms_list
+                )  # waveforms is a 3D array of shape (n_spikes, n_channels, n_samples)
                 mean_wf_all_ch = np.mean(waveforms, axis=0)  # (n_channels, n_samples)
-                
+
                 # Find channel with largest peak-to-peak amplitude
-                amplitudes = np.max(mean_wf_all_ch, axis=1) - np.min(mean_wf_all_ch, axis=1)
-                best_ch = np.argmax(amplitudes) # best_ch is the channel index with the largest peak-to-peak amplitude
+                amplitudes = np.max(mean_wf_all_ch, axis=1) - np.min(
+                    mean_wf_all_ch, axis=1
+                )
+                best_ch = np.argmax(
+                    amplitudes
+                )  # best_ch is the channel index with the largest peak-to-peak amplitude
                 best_channels[neuron_idx] = best_ch
-                
+
                 # Store only the best channel waveform
                 mean_waveforms[neuron_idx] = mean_wf_all_ch[best_ch]
                 std_waveforms[neuron_idx] = np.std(waveforms[:, best_ch, :], axis=0)
                 n_spikes_used[neuron_idx] = len(waveforms_list)
-        
+
         # Create time axis
         time_ms = np.linspace(-ms_before, ms_after, total_samples)
-        
+
         # Automatically save to neuron_attributes if requested
         if auto_save:
             # Store mean waveforms as array of 1D arrays (one per neuron)
@@ -458,37 +499,35 @@ class NeuronAttributes:
             waveform_objects = np.empty(self.n_neurons, dtype=object)
             for i in range(self.n_neurons):
                 waveform_objects[i] = mean_waveforms[i]
-            
-            self.set_attribute('mean_waveform', waveform_objects)
-            self.set_attribute('waveform_channel', best_channels)
-            self.set_attribute('waveform_n_spikes', n_spikes_used)
-        
+
+            self.set_attribute("mean_waveform", waveform_objects)
+            self.set_attribute("waveform_channel", best_channels)
+            self.set_attribute("waveform_n_spikes", n_spikes_used)
+
         return {
-            'mean_waveforms': mean_waveforms,
-            'std_waveforms': std_waveforms,
-            'best_channels': best_channels,
-            'n_spikes_used': n_spikes_used,
-            'time_ms': time_ms
+            "mean_waveforms": mean_waveforms,
+            "std_waveforms": std_waveforms,
+            "best_channels": best_channels,
+            "n_spikes_used": n_spikes_used,
+            "time_ms": time_ms,
         }
 
     def compute_isi_statistics(
-        self,
-        spikedata: 'SpikeData',  # type: ignore
-        auto_save: bool = True
+        self, spikedata: "SpikeData", auto_save: bool = True  # type: ignore
     ) -> Dict[str, np.ndarray]:
         """
         Compute interspike interval (ISI) based statistics for temporal firing patterns.
-        
+
         Calculates various ISI-based metrics that characterize the temporal structure
         of neuronal firing, including regularity (CV), burstiness, and quality metrics.
-        
+
         Parameters
         ----------
         spikedata : SpikeData
             The parent SpikeData object containing spike trains.
         auto_save : bool, optional
             If True (default), automatically saves computed metrics to neuron_attributes.
-        
+
         Returns
         -------
         dict
@@ -500,7 +539,7 @@ class NeuronAttributes:
             - 'burst_index': Fraction of ISIs < 10ms (burstiness measure)
             - 'pause_ratio': Fraction of ISIs > 100ms (long pauses)
             - 'refractory_violations': Count of ISIs < 2ms (quality metric)
-        
+
         Notes
         -----
         - Units with no spikes will have NaN values for all metrics
@@ -508,7 +547,7 @@ class NeuronAttributes:
           values near 1 indicate Poisson-like, values > 1 indicate irregular/bursting
         - Burst index: higher values indicate more bursty firing
         - Refractory violations: should be 0 or very low for good quality units
-        
+
         Examples
         --------
         >>> # Compute and save ISI statistics
@@ -518,10 +557,10 @@ class NeuronAttributes:
         >>> regular_neurons = np.where(cv_values < 0.5)[0]
         """
         from scipy import stats
-        
+
         # Get ISIs from SpikeData
         isis = spikedata.interspike_intervals()
-        
+
         # Initialize result arrays
         mean_isi = np.zeros(self.n_neurons)
         median_isi = np.zeros(self.n_neurons)
@@ -530,7 +569,7 @@ class NeuronAttributes:
         burst_index = np.zeros(self.n_neurons)
         pause_ratio = np.zeros(self.n_neurons)
         refractory_violations = np.zeros(self.n_neurons, dtype=int)
-        
+
         # Compute metrics for each neuron
         for i, isi in enumerate(isis):
             if len(isi) == 0:
@@ -546,62 +585,62 @@ class NeuronAttributes:
                 # Basic statistics
                 mean_isi[i] = np.mean(isi)
                 median_isi[i] = np.median(isi)
-                
+
                 # Coefficient of variation (regularity)
                 if mean_isi[i] > 0:
                     cv_isi[i] = np.std(isi) / mean_isi[i]
                 else:
                     cv_isi[i] = np.nan
-                
+
                 # Skewness (using scipy for robust calculation)
                 if len(isi) >= 3:  # Need at least 3 points for skewness
                     isi_skewness[i] = stats.skew(isi)
                 else:
                     isi_skewness[i] = np.nan
-                
+
                 # Burst index: fraction of short ISIs (< 10ms)
                 burst_index[i] = np.sum(isi < 10.0) / len(isi)
-                
+
                 # Pause ratio: fraction of long ISIs (> 100ms)
                 pause_ratio[i] = np.sum(isi > 100.0) / len(isi)
-                
+
                 # Refractory violations: ISIs < 2ms (quality metric)
                 refractory_violations[i] = np.sum(isi < 2.0)
-        
+
         # Auto-save to neuron_attributes if requested
         if auto_save:
-            self.set_attribute('mean_isi_ms', mean_isi)
-            self.set_attribute('median_isi_ms', median_isi)
-            self.set_attribute('cv_isi', cv_isi)
-            self.set_attribute('isi_skewness', isi_skewness)
-            self.set_attribute('burst_index', burst_index)
-            self.set_attribute('pause_ratio', pause_ratio)
-            self.set_attribute('refractory_violations', refractory_violations)
-        
+            self.set_attribute("mean_isi_ms", mean_isi)
+            self.set_attribute("median_isi_ms", median_isi)
+            self.set_attribute("cv_isi", cv_isi)
+            self.set_attribute("isi_skewness", isi_skewness)
+            self.set_attribute("burst_index", burst_index)
+            self.set_attribute("pause_ratio", pause_ratio)
+            self.set_attribute("refractory_violations", refractory_violations)
+
         return {
-            'mean_isi_ms': mean_isi,
-            'median_isi_ms': median_isi,
-            'cv_isi': cv_isi,
-            'isi_skewness': isi_skewness,
-            'burst_index': burst_index,
-            'pause_ratio': pause_ratio,
-            'refractory_violations': refractory_violations
+            "mean_isi_ms": mean_isi,
+            "median_isi_ms": median_isi,
+            "cv_isi": cv_isi,
+            "isi_skewness": isi_skewness,
+            "burst_index": burst_index,
+            "pause_ratio": pause_ratio,
+            "refractory_violations": refractory_violations,
         }
 
     def compute_latency_statistics(
         self,
-        spikedata: 'SpikeData',  # type: ignore
+        spikedata: "SpikeData",  # type: ignore
         reference_neuron: int,
         window_ms: float = 100.0,
-        auto_save: bool = True
+        auto_save: bool = True,
     ) -> Dict[str, np.ndarray]:
         """
         Compute latency statistics relative to a reference neuron.
-        
+
         Calculates mean latency and jitter for each neuron relative to the spike
         times of a reference neuron, useful for identifying functional connectivity
         and response timing.
-        
+
         Parameters
         ----------
         spikedata : SpikeData
@@ -612,7 +651,7 @@ class NeuronAttributes:
             Maximum latency window in milliseconds. Default is 100.0.
         auto_save : bool, optional
             If True (default), automatically saves computed metrics to neuron_attributes.
-        
+
         Returns
         -------
         dict
@@ -620,14 +659,14 @@ class NeuronAttributes:
             - 'mean_latency_ms': Mean latency to reference neuron in milliseconds
             - 'median_latency_ms': Median latency (more robust to outliers)
             - 'latency_jitter_ms': Standard deviation of latencies (temporal precision)
-        
+
         Notes
         -----
         - Neurons with no spikes within the window will have NaN values
         - Positive latencies indicate the neuron fires after the reference
         - Negative latencies indicate the neuron fires before the reference
         - Low jitter indicates precise temporal relationship
-        
+
         Examples
         --------
         >>> # Compute latencies relative to neuron 0 (e.g., a pacemaker)
@@ -640,12 +679,12 @@ class NeuronAttributes:
         """
         # Get latencies from SpikeData
         latencies = spikedata.latencies_to_index(reference_neuron, window_ms=window_ms)
-        
+
         # Initialize result arrays
         mean_latency = np.zeros(self.n_neurons)
         median_latency = np.zeros(self.n_neurons)
         latency_jitter = np.zeros(self.n_neurons)
-        
+
         # Compute statistics for each neuron
         for i, lat in enumerate(latencies):
             if len(lat) == 0:
@@ -658,34 +697,34 @@ class NeuronAttributes:
                 mean_latency[i] = np.mean(lat_array)
                 median_latency[i] = np.median(lat_array)
                 latency_jitter[i] = np.std(lat_array)
-        
+
         # Auto-save to neuron_attributes if requested
         if auto_save:
-            self.set_attribute('mean_latency_ms', mean_latency)
-            self.set_attribute('median_latency_ms', median_latency)
-            self.set_attribute('latency_jitter_ms', latency_jitter)
-        
+            self.set_attribute("mean_latency_ms", mean_latency)
+            self.set_attribute("median_latency_ms", median_latency)
+            self.set_attribute("latency_jitter_ms", latency_jitter)
+
         return {
-            'mean_latency_ms': mean_latency,
-            'median_latency_ms': median_latency,
-            'latency_jitter_ms': latency_jitter
+            "mean_latency_ms": mean_latency,
+            "median_latency_ms": median_latency,
+            "latency_jitter_ms": latency_jitter,
         }
 
     def compute_burst_participation(
         self,
-        spikedata: 'SpikeData',  # type: ignore
+        spikedata: "SpikeData",  # type: ignore
         burst_edges: np.ndarray,
         min_spikes: int = 5,
         backbone_threshold: float = 0.5,
-        auto_save: bool = True
+        auto_save: bool = True,
     ) -> Dict[str, np.ndarray]:
         """
         Compute burst participation metrics for network burst analysis.
-        
+
         Uses SpikeData.get_frac_active() to calculate which neurons participate in
         detected network bursts and identifies "backbone" neurons that consistently
         participate.
-        
+
         Parameters
         ----------
         spikedata : SpikeData
@@ -702,7 +741,7 @@ class NeuronAttributes:
         auto_save : bool, optional
             If True (default), automatically saves computed metrics to neuron_attributes
             and metadata.
-        
+
         Returns
         -------
         dict
@@ -711,27 +750,27 @@ class NeuronAttributes:
             - 'is_backbone_unit': Boolean array indicating backbone neurons
             - 'backbone_indices': Indices of neurons classified as backbone units
             - 'frac_per_burst': Fraction of neurons active in each burst
-        
+
         Notes
         -----
         - Burst edges should be in milliseconds matching SpikeData time units
         - Backbone neurons are those that reliably participate in network activity
         - Results are also stored in spikedata.metadata if auto_save=True
-        
+
         Examples
         --------
         >>> # First detect bursts (using external method or manual detection)
         >>> burst_edges = np.array([[100, 200], [500, 600], [1000, 1100]])  # ms
-        >>> 
+        >>>
         >>> # Compute participation
         >>> burst_stats = sd.neuron_attributes.compute_burst_participation(
         ...     sd, burst_edges, min_spikes=3, backbone_threshold=0.7
         ... )
-        >>> 
+        >>>
         >>> # Find backbone neurons
         >>> backbone = burst_stats['backbone_indices']
         >>> print(f"Found {len(backbone)} backbone neurons")
-        >>> 
+        >>>
         >>> # Access saved attributes
         >>> participation = sd.neuron_attributes.get_attribute('burst_participation')
         """
@@ -739,33 +778,39 @@ class NeuronAttributes:
         frac_per_unit, frac_per_burst, backbone_units = spikedata.get_frac_active(
             burst_edges, min_spikes, backbone_threshold
         )
-        
+
         # Create boolean array for backbone units
         is_backbone = np.zeros(self.n_neurons, dtype=bool)
         is_backbone[backbone_units] = True
-        
+
         # Auto-save to neuron_attributes if requested
         if auto_save:
-            self.set_attribute('burst_participation', frac_per_unit)
-            self.set_attribute('is_backbone_unit', is_backbone)
-            
+            self.set_attribute("burst_participation", frac_per_unit)
+            self.set_attribute("is_backbone_unit", is_backbone)
+
             # Also save burst-level info to metadata
             # Note: This modifies the parent SpikeData's metadata
             # Store as dict to make it JSON-serializable
-            spikedata.metadata['burst_analysis'] = {
-                'burst_edges': burst_edges.tolist() if isinstance(burst_edges, np.ndarray) else burst_edges,
-                'min_spikes': min_spikes,
-                'backbone_threshold': backbone_threshold,
-                'n_bursts': len(burst_edges),
-                'n_backbone_units': len(backbone_units),
-                'frac_per_burst': frac_per_burst.tolist() if isinstance(frac_per_burst, np.ndarray) else frac_per_burst
+            spikedata.metadata["burst_analysis"] = {
+                "burst_edges": (
+                    burst_edges.tolist()
+                    if isinstance(burst_edges, np.ndarray)
+                    else burst_edges
+                ),
+                "min_spikes": min_spikes,
+                "backbone_threshold": backbone_threshold,
+                "n_bursts": len(burst_edges),
+                "n_backbone_units": len(backbone_units),
+                "frac_per_burst": (
+                    frac_per_burst.tolist()
+                    if isinstance(frac_per_burst, np.ndarray)
+                    else frac_per_burst
+                ),
             }
-        
+
         return {
-            'burst_participation': frac_per_unit,
-            'is_backbone_unit': is_backbone,
-            'backbone_indices': backbone_units,
-            'frac_per_burst': frac_per_burst
+            "burst_participation": frac_per_unit,
+            "is_backbone_unit": is_backbone,
+            "backbone_indices": backbone_units,
+            "frac_per_burst": frac_per_burst,
         }
-
-
