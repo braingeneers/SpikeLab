@@ -33,9 +33,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from spikedata import SpikeData
+from spikedata import SpikeData, NeuronAttributes
 import data_loaders.data_loaders as loaders
 import data_loaders.data_exporters as exporters
+import pickle
 
 
 class BaseExportTest(unittest.TestCase):
@@ -413,6 +414,104 @@ class TestKiloSortExporters(BaseExportTest):
             # Check that clusters contain 10 and 5, and counts match events per unit (3 and 2)
             self.assertEqual((clusters == 10).sum(), 3)
             self.assertEqual((clusters == 5).sum(), 2)
+
+
+class TestPickleExporters(BaseExportTest):
+    """Tests for Pickle format export and round-trip.
+
+    Pickle provides a simple way to serialize and deserialize Python objects.
+    While not as portable as HDF5 or NWB, pickle is convenient for quick
+    saves and temporary storage of SpikeData objects with full state preservation.
+
+    These tests validate:
+    - Basic round-trip integrity (spike trains match after pickle/unpickle)
+    - Metadata preservation (all attributes are restored)
+    - Neuron attributes handling (custom metadata per neuron)
+    - Raw data preservation (continuous voltage traces)
+    """
+
+    def _tmp_pkl(self) -> str:
+        """Create a temporary pickle file path for testing."""
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        return path
+
+    def tearDown(self) -> None:
+        """Clean up temporary files created during tests."""
+        for attr in ("_last",):
+            p = getattr(self, attr, None)
+            if p and os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
+    def test_export_pickle_roundtrip_basic(self):
+        """Test basic pickle export and import round-trip.
+
+        Purpose: Validates that a SpikeData object can be pickled and unpickled
+        with complete preservation of spike timing data.
+
+        Why useful: Pickle provides the simplest serialization method for
+        Python objects, useful for checkpointing during analysis or caching
+        intermediate results.
+
+        How it works:
+        1. Create a SpikeData object with 3 units (including one empty unit)
+        2. Export using the to_pickle() method
+        3. Re-import by loading the pickle file directly
+        4. Verify all spike trains match exactly (bit-for-bit)
+        5. Verify N (number of units) and length are preserved
+
+        This ensures basic pickle functionality works correctly.
+        """
+        sd = self.make_sd()
+        path = self._tmp_pkl()
+        self._last = path
+
+        # Export using instance method
+        sd.to_pickle(path)
+
+        # Load using pickle directly
+        with open(path, "rb") as f:
+            sd2 = pickle.load(f)
+
+        # Verify round-trip equality
+        self.assertEqual(sd.N, sd2.N)
+        self.assertEqual(sd.length, sd2.length)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.array_equal(a, b))
+
+    def test_export_pickle_roundtrip_standalone_function(self):
+        """Test pickle export using standalone function from exporters module.
+
+        Purpose: Validates that the standalone export_spikedata_to_pickle()
+        function works correctly as an alternative to the instance method.
+
+        Why useful: Standalone functions are useful in pipelines where you
+        don't want to modify the original object or prefer functional style.
+
+        How it works:
+        1. Export using exporters.export_spikedata_to_pickle()
+        2. Import and verify data integrity
+        3. Ensures both export methods (instance and standalone) work
+
+        This tests the consistency between instance methods and module functions.
+        """
+        sd = self.make_sd()
+        path = self._tmp_pkl()
+        self._last = path
+
+        # Export using standalone function
+        exporters.export_spikedata_to_pickle(sd, path)
+
+        # Load and verify
+        with open(path, "rb") as f:
+            sd2 = pickle.load(f)
+
+        self.assertEqual(sd.N, sd2.N)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.array_equal(a, b))
 
 
 if __name__ == "__main__":

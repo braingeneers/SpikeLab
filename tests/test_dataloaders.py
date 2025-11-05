@@ -29,6 +29,8 @@ if str(ROOT) not in sys.path:
 
 from spikedata import SpikeData
 import data_loaders.data_loaders as loaders
+import data_loaders.data_exporters as exporters
+import pickle
 
 
 @unittest.skipIf(h5py is None, "h5py not installed; skipping HDF5/NWB tests")
@@ -1077,6 +1079,64 @@ class TestS3AndACQMLoaders(unittest.TestCase):
 
             # Should be sorted
             self.assertTrue(np.allclose(sd.train[0], [100.0, 200.0, 300.0]))
+
+
+class TestPickleLoaders(unittest.TestCase):
+    """Quick tests for pickle loader functionality."""
+
+    def _tmp_pkl(self) -> str:
+        """Create a temporary pickle file path."""
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        return path
+
+    def tearDown(self) -> None:
+        """Clean up temporary files."""
+        for attr in ("_last_pkl",):
+            path = getattr(self, attr, None)
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+    def test_pickle_loader_basic(self):
+        """Test basic pickle loader round-trip."""
+        # Create test data
+        trains = [
+            np.array([5.0, 10.0, 15.0]),
+            np.array([2.5, 20.0]),
+            np.array([], float),
+        ]
+        sd = SpikeData(trains, length=25.0)
+
+        # Export using exporter
+        path = self._tmp_pkl()
+        self._last_pkl = path
+        exporters.export_spikedata_to_pickle(sd, path)
+
+        # Load using loader function
+        sd2 = loaders.load_spikedata_from_pickle(path)
+
+        # Verify
+        self.assertEqual(sd.N, sd2.N)
+        self.assertEqual(sd.length, sd2.length)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.array_equal(a, b))
+
+    def test_pickle_loader_with_metadata(self):
+        """Test pickle loader preserves metadata."""
+        trains = [np.array([5.0, 10.0])]
+        metadata = {"experiment": "test", "value": 42}
+        sd = SpikeData(trains, length=20.0, metadata=metadata)
+
+        path = self._tmp_pkl()
+        self._last_pkl = path
+        sd.to_pickle(path)
+
+        sd2 = loaders.load_spikedata_from_pickle(path)
+
+        self.assertEqual(sd2.metadata, metadata)
 
 
 if __name__ == "__main__":

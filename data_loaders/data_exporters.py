@@ -20,6 +20,12 @@ from typing import Iterable, Literal, Optional, Sequence, Tuple, Union, TYPE_CHE
 
 import os
 import warnings
+import pickle
+
+import zipfile
+
+
+import boto3
 
 import numpy as np
 
@@ -32,6 +38,9 @@ if TYPE_CHECKING:  # avoid runtime circular import
     from spikedata import SpikeData  # noqa: F401
 
 TimeUnit = Literal["ms", "s", "samples"]
+
+s3_client = boto3.client('s3', endpoint_url='https://s3-west.nrp-nautilus.io')
+braingeneers_bucket = 'braingeneers'
 
 
 def _ensure_h5py():
@@ -88,6 +97,16 @@ def _times_from_ms(
         # Use round-to-nearest to produce integer samples
         return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+def _save_to_s3(file_path: str) -> None:
+    """Save HDF5 file to S3 bucket."""
+    if not file_path.startswith(f's3://{braingeneers_bucket}/ephys/'):
+        raise ValueError(f'URI is unexpected and non-canonical ({file_path})!  Skipping upload to s3.')
+    # Get the key from the filepath
+    key = file_path.replace(f's3://{braingeneers_bucket}/ephys/', '')
+    # Save the file to S3
+    s3_client.upload_file(file_path, braingeneers_bucket, key)
+    print(f'Saved {file_path} to S3 bucket {braingeneers_bucket} as {key} with boto3 version: {boto3.__version__}')
 
 
 def _save_neuron_attributes_to_hdf5(
@@ -548,9 +567,56 @@ def export_spikedata_to_kilosort(
 
     return spike_times_path, spike_clusters_path
 
+def export_pickle_to_s3(sd: "SpikeData", file_path: str) -> None:
+    """Export a SpikeData object to a pickle file and save it to S3.
+    Parameters
+    ----------
+    sd : SpikeData
+        The SpikeData object to export.
+    file_path : str
+        Path to the output pickle file. Must be a valid S3 URI.
+
+    Notes
+    -----
+    - The file is saved to S3 in a zip file with the pickle file inside.
+
+    Examples
+    --------
+    >>> from data_loaders.data_exporters import export_pickle_to_s3
+    >>> export_pickle_to_s3(sd, 's3://my-bucket/data/recording.pkl')
+    """
+
+    # Create a temporary pickle file name
+    pickle_name = os.path.basename(file_path)
+    if not pickle_name.endswith('.pkl'):
+        pickle_name = pickle_name + '.pkl'
+    
+    # Add .zip extension if not present
+    zip_path = file_path if file_path.endswith('.zip') else file_path + '.zip'
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # Write pickle data directly to zip
+        with zipf.open(pickle_name, 'w') as f:
+            pickle.dump(sd, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    _save_to_s3(zip_path)
+
+def export_spikedata_to_pickle(sd: "SpikeData", file_path: str) -> None:
+    """Export a SpikeData object to a pickle file.
+    Parameters
+    ----------
+    sd : SpikeData
+        The SpikeData object to export.
+    file_path : str
+        Path to the output pickle file.
+    """
+    with open(file_path, 'wb') as f:
+        pickle.dump(sd, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 __all__ = [
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
+    "export_pickle_to_s3",
+    "export_spikedata_to_pickle",
 ]

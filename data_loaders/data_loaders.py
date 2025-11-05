@@ -36,6 +36,10 @@ try:
 except Exception:  # pragma: no cover
     boto3 = None  # type: ignore
 
+import pickle
+
+
+
 from spikedata import SpikeData, NeuronAttributes
 
 __all__ = [
@@ -48,6 +52,8 @@ __all__ = [
     "load_spikedata_from_acqm",
     "download_s3_to_local",
     "load_spikedata_from_s3",
+    "load_spikedata_from_pickle",
+    "load_spikedata_from_pickle_zip",
 ]
 
 
@@ -1404,7 +1410,35 @@ def load_spikedata_from_acqm(
         neuron_attributes=neuron_attrs,
     )
 
+# ----------------------------
+# Pickle files
+# ----------------------------
 
+def load_spikedata_from_pickle(file_path: str) -> SpikeData:
+    """Load a SpikeData object from a pickle file or a zip file containing a pickle file.
+    Parameters
+    ----------
+    file_path : str
+        Path to the pickle file. Must be a valid S3 URI.
+    """
+    if file_path.endswith('.zip'):
+        return load_spikedata_from_pickle_zip(file_path)
+    else:
+        with open(file_path, 'rb') as f:
+            sd = pickle.load(f)
+        return sd
+
+def load_spikedata_from_pickle_zip(file_path: str) -> SpikeData:
+    """Load a SpikeData object from a zip file containing a pickle file.
+    Parameters
+    ----------
+    file_path : str
+        Path to the zip file. Must be a valid S3 URI.
+    """
+    with zipfile.ZipFile(file_path, 'r') as zipf:
+        with zipf.open('data.pkl', 'r') as f:
+            sd = pickle.load(f)
+    return sd
 # ----------------------------
 # SpikeInterface BaseRecording -> SpikeData via thresholding
 # ----------------------------

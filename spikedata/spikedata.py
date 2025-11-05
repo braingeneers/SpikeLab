@@ -1169,3 +1169,23 @@ class SpikeData:
             time_unit=time_unit,  # type: ignore[arg-type]
             cluster_ids=cluster_ids,
         )
+
+    def to_pickle(self, file_path: str) -> None:
+        """Export this SpikeData object to a pickle file.
+        Parameters
+        ----------
+        file_path : str
+            Path to the output pickle file.
+        """
+        from data_loaders.data_exporters import export_spikedata_to_pickle
+        export_spikedata_to_pickle(self, file_path)
+
+    def to_pickle_s3(self, file_path: str) -> None:
+        """Export this SpikeData object to a pickle file and save it to S3.
+        Parameters
+        ----------
+        file_path : str
+            Path to the output pickle file. Must be a valid S3 URI.
+        """
+        from data_loaders.data_exporters import export_pickle_to_s3
+        export_pickle_to_s3(self, file_path)
