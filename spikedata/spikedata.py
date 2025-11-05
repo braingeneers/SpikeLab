@@ -1178,6 +1178,7 @@ class SpikeData:
             Path to the output pickle file.
         """
         from data_loaders.data_exporters import export_spikedata_to_pickle
+
         export_spikedata_to_pickle(self, file_path)
 
     def to_pickle_s3(self, file_path: str) -> None:
@@ -1188,4 +1189,5 @@ class SpikeData:
             Path to the output pickle file. Must be a valid S3 URI.
         """
         from data_loaders.data_exporters import export_pickle_to_s3
+
         export_pickle_to_s3(self, file_path)
