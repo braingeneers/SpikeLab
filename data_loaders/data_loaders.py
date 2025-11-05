@@ -50,7 +50,6 @@ __all__ = [
     "load_spikedata_from_spikeinterface_recording",
     "load_spikedata_from_acqm",
     "download_s3_to_local",
-    "load_spikedata_from_s3",
     "load_spikedata_from_pickle",
     "load_spikedata_from_pickle_zip",
 ]
