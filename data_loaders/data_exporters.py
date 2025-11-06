@@ -97,15 +97,15 @@ def _times_from_ms(
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 
-def _save_to_s3(file_path: str, bucket_name: str = "braingeneers", endpoint_url: str = "https://s3-west.nrp-nautilus.io", **s3_client_kwargs) -> None:
+def _save_to_s3(file_path: str, bucket_name: str, endpoint_url: str, **s3_client_kwargs) -> None:
     """Save HDF5 file to S3 bucket."""
 
-    if not file_path.startswith(f"s3://{bucket_name}/ephys/"):
+    if not file_path.startswith(f"s3://{bucket_name}/"):
         raise ValueError(
             f"URI is unexpected and non-canonical ({file_path})!  Skipping upload to s3."
         )
     # Get the key from the filepath
-    key = file_path.replace(f"s3://{bucket_name}/ephys/", "")
+    key = file_path.replace(f"s3://{bucket_name}/", "")
     # Save the file to S3
     s3_client = boto3.client("s3", endpoint_url=endpoint_url, **s3_client_kwargs)
     s3_client.upload_file(file_path, bucket_name, key)
@@ -573,7 +573,7 @@ def export_spikedata_to_kilosort(
     return spike_times_path, spike_clusters_path
 
 
-def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str = "braingeneers", endpoint_url: str = "https://s3-west.nrp-nautilus.io", **s3_client_kwargs) -> None:
+def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str, endpoint_url: str, **s3_client_kwargs) -> None:
     """Export a SpikeData object to a pickle file and save it to S3.
     Parameters
     ----------
@@ -581,7 +581,12 @@ def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str = "bra
         The SpikeData object to export.
     file_path : str
         Path to the output pickle file. Must be a valid S3 URI.
-
+    bucket_name : str
+        Name of the S3 bucket to save the file to.
+    endpoint_url : str
+        URL of the S3 endpoint to use.
+    **s3_client_kwargs
+        Additional keyword arguments passed to boto3.client().
     Notes
     -----
     - The file is saved to S3 in a zip file with the pickle file inside.
@@ -589,7 +594,7 @@ def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str = "bra
     Examples
     --------
     >>> from data_loaders.data_exporters import export_pickle_to_s3
-    >>> export_pickle_to_s3(sd, 's3://my-bucket/data/recording.pkl')
+    >>> export_pickle_to_s3(sd, 's3://my-bucket/data/recording.pkl', bucket_name="my-bucket", endpoint_url="https://s3-west.nrp-nautilus.io")
     """
 
 
@@ -607,7 +612,7 @@ def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str = "bra
             pickle.dump(sd, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     _save_to_s3(zip_path, bucket_name=bucket_name, endpoint_url=endpoint_url, **s3_client_kwargs)
-    print(f"Saved {zip_path} to S3 bucket {bucket_name} as {zip_path.replace(f"s3://{bucket_name}/ephys/", "")} with boto3 version: {boto3.__version__}")
+    print(f"Saved {zip_path} to S3 bucket {bucket_name} as {zip_path.replace(f"s3://{bucket_name}/", "")} with boto3 version: {boto3.__version__}")
 
 
 def export_spikedata_to_pickle(sd: "SpikeData", file_path: str) -> None:
