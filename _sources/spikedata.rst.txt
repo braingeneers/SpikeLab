@@ -15,6 +15,7 @@ Key Features
 * Supports loading from various formats (indices/times, rasters, events, Neo objects)
 * Stores metadata, neuron attributes, and optional raw timeseries data
 * Provides methods for binning, rate calculation, interspike interval analysis, subsetting, concatenation, time slicing, latency analysis, and spike time tiling coefficient (STTC) computation
+* Supports channel-based aggregation and mapping when channel information is available in neuron attributes
 
 Class Attributes
 ----------------

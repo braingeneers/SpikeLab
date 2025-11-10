@@ -132,6 +132,31 @@ Analyze interspike intervals:
    # Get resampled ISI distribution
    pooled_isis = sd.resampled_isi(num_samples=1000)
 
+Channel-Based Analysis
+^^^^^^^^^^^^^^^^^^^^^^
+
+When channel information is available in ``neuron_attributes``, you can aggregate spikes by channel:
+
+.. code-block:: python
+
+   from dataclasses import dataclass
+   
+   @dataclass
+   class NeuronAttrs:
+       channel: int
+   
+   # Create SpikeData with channel information
+   attrs = [NeuronAttrs(channel=i % 4) for i in range(10)]  # 10 neurons on 4 channels
+   sd = SpikeData(spike_trains, neuron_attributes=attrs, length=100.0)
+   
+   # Get mapping of neurons to channels
+   neuron_to_channel = sd.neuron_to_channel_map()
+   # Returns: {0: 0, 1: 1, 2: 2, 3: 3, 4: 0, 5: 1, ...}
+   
+   # Get raster aggregated by channel (channels × time bins)
+   channel_raster = sd.channel_raster(bin_size=10.0)
+   # Shape: (4, n_bins) - spikes from all neurons on each channel are summed
+
 Subsetting and Time Slicing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

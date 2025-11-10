@@ -55,6 +55,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#loading-data">Loading Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#channel-based-analysis">Channel-Based Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#exporting-data">Exporting Data</a></li>
 </ul>
@@ -332,6 +333,29 @@ make<span class="w"> </span>html
 
 <span class="c1"># Get resampled ISI distribution</span>
 <span class="n">pooled_isis</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="channel-based-analysis">
+<h3>Channel-Based Analysis<a class="headerlink" href="#channel-based-analysis" title="Link to this heading"></a></h3>
+<p>When channel information is available in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>, you can aggregate spikes by channel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NeuronAttrs</span><span class="p">:</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="c1"># Create SpikeData with channel information</span>
+<span class="n">attrs</span> <span class="o">=</span> <span class="p">[</span><span class="n">NeuronAttrs</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">i</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>  <span class="c1"># 10 neurons on 4 channels</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">spike_trains</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+
+<span class="c1"># Get mapping of neurons to channels</span>
+<span class="n">neuron_to_channel</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_to_channel_map</span><span class="p">()</span>
+<span class="c1"># Returns: {0: 0, 1: 1, 2: 2, 3: 3, 4: 0, 5: 1, ...}</span>
+
+<span class="c1"># Get raster aggregated by channel (channels × time bins)</span>
+<span class="n">channel_raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">channel_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="c1"># Shape: (4, n_bins) - spikes from all neurons on each channel are summed</span>
 </pre></div>
 </div>
 </section>

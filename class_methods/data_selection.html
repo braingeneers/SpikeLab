@@ -55,6 +55,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#channel-based-analysis">Channel-Based Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
 </ul>
@@ -264,6 +265,34 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code>: Concatenated object.</p></li>
 </ul>
+</section>
+<hr class="docutils" />
+<section id="neuron-to-channel-map-channel-attr-none">
+<h2>neuron_to_channel_map(channel_attr=None)<a class="headerlink" href="#neuron-to-channel-map-channel-attr-none" title="Link to this heading"></a></h2>
+<p>Return a mapping from neuron indices to channel indices.</p>
+<p>Extracts channel information from <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>. If <code class="docutils literal notranslate"><span class="pre">channel_attr</span></code> is not specified, attempts to find channel information using common attribute names: <code class="docutils literal notranslate"><span class="pre">'channel'</span></code>, <code class="docutils literal notranslate"><span class="pre">'channel_id'</span></code>, <code class="docutils literal notranslate"><span class="pre">'channel_index'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, <code class="docutils literal notranslate"><span class="pre">'channel_idx'</span></code>.</p>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">channel_attr</span></code> (str, optional): Name of the attribute in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> that contains the channel index. If None, searches for common attribute names.</p></li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dict[int,</span> <span class="pre">int]</span></code>: Dictionary mapping neuron index (int) to channel index (int). If <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> is None or no channel information is found, returns an empty dict.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NeuronAttrs</span><span class="p">:</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="n">attrs</span> <span class="o">=</span> <span class="p">[</span><span class="n">NeuronAttrs</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">i</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">([[]]</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+<span class="n">mapping</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_to_channel_map</span><span class="p">()</span>
+<span class="c1"># mapping[0] -&gt; 0 (neuron 0 maps to channel 0)</span>
+<span class="c1"># mapping[5] -&gt; 1 (neuron 5 maps to channel 1)</span>
+</pre></div>
+</div>
 </section>
 </section>
 

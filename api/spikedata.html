@@ -55,6 +55,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#channel-based-analysis">Channel-Based Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
 </ul>
@@ -402,6 +403,46 @@ Neurons whose neuron_attributes entry does not have the key are always excluded.
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.neuron_to_channel_map">
+<span class="sig-name descname"><span class="pre">neuron_to_channel_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel_attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.neuron_to_channel_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.neuron_to_channel_map" title="Link to this definition"></a></dt>
+<dd><p>Return a mapping from neuron indices to channel indices.</p>
+<p>Extracts channel information from neuron_attributes. If channel_attr is not
+specified, attempts to find channel information using common attribute names:
+‘channel’, ‘channel_id’, ‘channel_index’, ‘ch’, ‘channel_idx’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>channel_attr</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span>) – Optional name of the attribute in neuron_attributes that
+contains the channel index. If None, searches for common attribute names.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict mapping neuron index (int) to channel index (int). If neuron_attributes
+is None or no channel information is found, returns an empty dict.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If neuron_attributes is None and channel information is required,
+    or if the specified channel_attr doesn’t exist for all neurons.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nd">@dataclass</span>
+<span class="gp">... </span><span class="k">class</span><span class="w"> </span><span class="nc">NeuronAttrs</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">channel</span><span class="p">:</span> <span class="nb">int</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">attrs</span> <span class="o">=</span> <span class="p">[</span><span class="n">NeuronAttrs</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">i</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">([[]]</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mapping</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_to_channel_map</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mapping</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># neuron 0 -&gt; channel 0</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mapping</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>  <span class="c1"># neuron 5 -&gt; channel 1</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.subtime">
 <span class="sig-name descname"><span class="pre">subtime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subtime" title="Link to this definition"></a></dt>
 <dd><p>Return a new SpikeData with only spikes in a time range, closed on top but open
@@ -449,6 +490,48 @@ times cell i fired in bin j.</p>
 <p>Bins are left-open and right-closed intervals except the first, which will
 capture any spikes occurring exactly at t=0.</p>
 <p>Refactor 2025-09: unchanged behavior.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.channel_raster">
+<span class="sig-name descname"><span class="pre">channel_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.channel_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.channel_raster" title="Link to this definition"></a></dt>
+<dd><p>Create a raster aggregated by channel instead of neuron.</p>
+<p>Returns a dense array where entry (c,j) is the total number of spikes from all
+neurons on channel c in bin j. Channels are determined from neuron_attributes
+using the same logic as neuron_to_channel_map().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size</strong> – Bin size in milliseconds (same as raster()).</p></li>
+<li><p><strong>channel_attr</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</span>) – Optional name of the attribute in neuron_attributes that
+contains the channel index. If None, searches for common attribute names.
+See neuron_to_channel_map() for details.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray of shape (n_channels, n_bins) where n_channels is the number
+of unique channels found.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If neuron_attributes is None or no channel information can be found.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nd">@dataclass</span>
+<span class="gp">... </span><span class="k">class</span><span class="w"> </span><span class="nc">NeuronAttrs</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">channel</span><span class="p">:</span> <span class="nb">int</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create 6 neurons: 0,1 on channel 0; 2,3 on channel 1; 4,5 on channel 2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">attrs</span> <span class="o">=</span> <span class="p">[</span><span class="n">NeuronAttrs</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">i</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trains</span> <span class="o">=</span> <span class="p">[[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">15.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">25.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">30.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">35.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">40.0</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">trains</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">50.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ch_raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">channel_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ch_raster</span><span class="o">.</span><span class="n">shape</span>  <span class="c1"># (3 channels, time bins)</span>
+<span class="go">(3, ...)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ch_raster</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>  <span class="c1"># Channel 0 should have 3 spikes total</span>
+<span class="go">3</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
