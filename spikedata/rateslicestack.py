@@ -3,7 +3,7 @@ import RateData
 import numpy as np
 
 
-class SliceStack:
+class RateSliceStack:
     # There are a few options of input time formats:
     # Option 1:
     # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
@@ -132,3 +132,41 @@ class SliceStack:
         # Converts to a 3d array
         event_stack = np.stack(event_matrix)
         self.event_stack = event_matrix
+
+    def order_neurons_across_bursts(self):
+        #burst_matrices is B x N x T
+        burst_matrices = self.event_stack
+        #This list will be size bursts x neuron_id
+        neuron_max_indices_across_bursts = []
+        for burst_index in range(burst_matrices.shape[0]):
+            burst = burst_matrices[burst_index,:,:]
+            # I NEED TO GO BACK AND DO TESTS IN IPYNB WITH SHAPES BEFORE PROCEEDING
+            # This list will be size N (number of neurons)
+            neuron_max_indices_per_burst = []
+            for neuron_index in range(burst.shape[0]):
+                neuron = burst[neuron_index,:]
+                max_index = np.argmax(neuron)
+                #
+                neuron_max_indices_per_burst.append(max_index)
+            
+            neuron_max_indices_across_bursts.append(neuron_max_indices_per_burst)
+            #This is BxN and each value is the time bin that has max firing rate 
+            
+        neuron_max_indices_array = np.array(neuron_max_indices_across_bursts)
+        #This gives you a list of size N
+        neuron_median_indices = np.median(neuron_max_indices_array, axis=0)
+
+        #arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
+        #So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
+
+        neurons_ids_in_order = np.argsort(neuron_median_indices)
+        #Reorder the neurons in orginal burst_matrices so that they are in temporal order
+        reordered_burst_matrices = burst_matrices[:,neurons_ids_in_order,:]
+        #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
+        return reordered_burst_matrices, neurons_ids_in_order
+
+
+
+
+
+
