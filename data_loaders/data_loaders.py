@@ -25,17 +25,6 @@ import pandas as pd
 import zipfile
 import os
 
-try:
-    import h5py  # type: ignore
-except Exception:  # pragma: no cover
-    h5py = None  # type: ignore
-
-
-try:
-    import boto3  # type: ignore
-except Exception:  # pragma: no cover
-    boto3 = None  # type: ignore
-
 import pickle
 
 
@@ -63,6 +52,12 @@ def _ensure_h5py():
     ImportError
         If h5py is not installed and an HDF5/NWB loader is invoked.
     """
+    global h5py
+    try:
+        import h5py  # type: ignore
+    except Exception:  # pragma: no cover
+        h5py = None
+
     if h5py is None:
         raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
 
@@ -75,6 +70,12 @@ def _ensure_boto3():
     ImportError
         If boto3 is not installed and an S3 loader is invoked.
     """
+    global boto3
+    try:
+        import boto3  # type: ignore
+    except Exception:  # pragma: no cover
+        boto3 = None
+
     if boto3 is None:
         raise ImportError("boto3 is required for S3 loaders. `pip install boto3`.")
 

@@ -24,17 +24,8 @@ import pickle
 
 import zipfile
 
-try:
-    import boto3
-except Exception:  # pragma: no cover
-    boto3 = None  # type: ignore
-
 import numpy as np
 
-try:  # optional dependency for file formats based on HDF5
-    import h5py  # type: ignore
-except Exception:  # pragma: no cover
-    h5py = None  # type: ignore
 
 if TYPE_CHECKING:  # avoid runtime circular import
     from spikedata import SpikeData  # noqa: F401
@@ -48,6 +39,12 @@ def _ensure_h5py():
     Raises:
         ImportError: If h5py is not installed.
     """
+    global h5py
+    try:
+        import h5py  # type: ignore
+    except Exception:  # pragma: no cover
+        h5py = None
+
     if h5py is None:
         raise ImportError(
             "h5py is required for HDF5/NWB exporters. `pip install h5py`."
@@ -115,6 +112,14 @@ def _save_to_s3(
         **s3_client_kwargs: Additional arguments passed to boto3.client().
     """
 
+    global boto3
+    try:
+        import boto3  # type: ignore
+    except Exception:  # pragma: no cover
+        boto3 = None
+
+    if boto3 is None:
+        raise ImportError("boto3 is required for S3 exporters. `pip install boto3`.")
     if not s3_uri.startswith(f"s3://{bucket_name}/"):
         raise ValueError(
             f"URI is unexpected and non-canonical ({s3_uri})!  Skipping upload to s3."
