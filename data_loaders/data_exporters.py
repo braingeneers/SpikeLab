@@ -41,6 +41,7 @@ if TYPE_CHECKING:  # avoid runtime circular import
 
 TimeUnit = Literal["ms", "s", "samples"]
 
+
 def _ensure_h5py():
     """Ensure h5py is available for HDF5-based exporters.
 
@@ -97,20 +98,34 @@ def _times_from_ms(
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 
-def _save_to_s3(file_path: str, bucket_name: str, endpoint_url: str, **s3_client_kwargs) -> None:
-    """Save HDF5 file to S3 bucket."""
+def _save_to_s3(
+    local_path: str,
+    s3_uri: str,
+    bucket_name: str,
+    endpoint_url: str,
+    **s3_client_kwargs,
+) -> None:
+    """Save a local file to S3 bucket.
 
-    if not file_path.startswith(f"s3://{bucket_name}/"):
+    Parameters:
+        local_path: Path to the local file to upload.
+        s3_uri: Full S3 URI where the file should be saved (e.g., "s3://bucket/path/file.ext").
+        bucket_name: Name of the S3 bucket.
+        endpoint_url: S3 endpoint URL.
+        **s3_client_kwargs: Additional arguments passed to boto3.client().
+    """
+
+    if not s3_uri.startswith(f"s3://{bucket_name}/"):
         raise ValueError(
-            f"URI is unexpected and non-canonical ({file_path})!  Skipping upload to s3."
+            f"URI is unexpected and non-canonical ({s3_uri})!  Skipping upload to s3."
         )
-    # Get the key from the filepath
-    key = file_path.replace(f"s3://{bucket_name}/", "")
-    # Save the file to S3
+    # Get the key from the S3 URI
+    key = s3_uri.replace(f"s3://{bucket_name}/", "")
+    # Save the local file to S3
     s3_client = boto3.client("s3", endpoint_url=endpoint_url, **s3_client_kwargs)
-    s3_client.upload_file(file_path, bucket_name, key)
+    s3_client.upload_file(local_path, bucket_name, key)
     print(
-        f"Saved {file_path} to S3 bucket {bucket_name} as {key} with boto3 version: {boto3.__version__}"
+        f"Saved {local_path} to S3 bucket {bucket_name} as {key} with boto3 version: {boto3.__version__}"
     )
 
 
@@ -127,6 +142,11 @@ def _save_neuron_attributes_to_hdf5(
     """
     if sd.neuron_attributes is None:
         return
+
+    if h5py is None:
+        raise ImportError(
+            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
+        )
 
     try:
         attr_group = f.create_group("neuron_attributes")
@@ -573,7 +593,13 @@ def export_spikedata_to_kilosort(
     return spike_times_path, spike_clusters_path
 
 
-def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str, endpoint_url: str, **s3_client_kwargs) -> None:
+def export_pickle_to_s3(
+    sd: "SpikeData",
+    file_path: str,
+    bucket_name: str,
+    endpoint_url: str,
+    **s3_client_kwargs,
+) -> None:
     """Export a SpikeData object to a pickle file and save it to S3.
     Parameters
     ----------
@@ -596,23 +622,44 @@ def export_pickle_to_s3(sd: "SpikeData", file_path: str, bucket_name: str, endpo
     >>> from data_loaders.data_exporters import export_pickle_to_s3
     >>> export_pickle_to_s3(sd, 's3://my-bucket/data/recording.pkl', bucket_name="my-bucket", endpoint_url="https://s3-west.nrp-nautilus.io")
     """
-
+    import tempfile
 
     # Create a temporary pickle file name
     pickle_name = os.path.basename(file_path)
     if not pickle_name.endswith(".pkl"):
         pickle_name = pickle_name + ".pkl"
 
-    # Add .zip extension if not present
-    zip_path = file_path if file_path.endswith(".zip") else file_path + ".zip"
+    # Construct the S3 URI for the zip file
+    s3_zip_uri = file_path if file_path.endswith(".zip") else file_path + ".zip"
 
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        # Write pickle data directly to zip
-        with zipf.open(pickle_name, "w") as f:
-            pickle.dump(sd, f, protocol=pickle.HIGHEST_PROTOCOL)
+    # Create a temporary local zip file
+    with tempfile.NamedTemporaryFile(
+        mode="wb", suffix=".zip", delete=False
+    ) as tmp_file:
+        local_zip_path = tmp_file.name
 
-    _save_to_s3(zip_path, bucket_name=bucket_name, endpoint_url=endpoint_url, **s3_client_kwargs)
-    print(f"Saved {zip_path} to S3 bucket {bucket_name} as {zip_path.replace(f"s3://{bucket_name}/", "")} with boto3 version: {boto3.__version__}")
+    try:
+        # Create the zip file locally
+        with zipfile.ZipFile(local_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            # Write pickle data directly to zip
+            with zipf.open(pickle_name, "w") as f:
+                pickle.dump(sd, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # Upload the local zip file to S3
+        _save_to_s3(
+            local_zip_path,
+            s3_zip_uri,
+            bucket_name=bucket_name,
+            endpoint_url=endpoint_url,
+            **s3_client_kwargs,
+        )
+        print(
+            f"Saved {local_zip_path} to S3 bucket {bucket_name} as {s3_zip_uri.replace(f's3://{bucket_name}/', '')} with boto3 version: {boto3.__version__}"
+        )
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(local_zip_path):
+            os.remove(local_zip_path)
 
 
 def export_spikedata_to_pickle(sd: "SpikeData", file_path: str) -> None:
