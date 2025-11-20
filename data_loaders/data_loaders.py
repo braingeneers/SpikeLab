@@ -259,7 +259,7 @@ def download_s3_to_local(
     src: str,
     dst: str,
     *,
-    endpoint_url: str = "https://s3-west.nrp-nautilus.io",
+    endpoint_url: str,
     **s3_client_kwargs,
 ) -> None:
     """Download a file from S3 to local filesystem.
@@ -307,8 +307,10 @@ def download_s3_to_local(
 
 def _resolve_s3_path(
     filepath: str,
+    *,
     cache_dir: Optional[str] = None,
-    endpoint_url: str = "https://s3-west.nrp-nautilus.io",
+    endpoint_url: str,
+    **s3_client_kwargs,
 ) -> str:
     """Resolve an S3 path by downloading to cache if needed.
 
@@ -320,7 +322,8 @@ def _resolve_s3_path(
         Directory to cache downloaded S3 files. If None, uses a temp directory.
     endpoint_url : str
         S3 endpoint URL.
-
+    **s3_client_kwargs
+        Additional keyword arguments passed to boto3.client().
     Returns
     -------
     str
@@ -343,7 +346,9 @@ def _resolve_s3_path(
 
     # Download if not already cached
     if not os.path.exists(local_path):
-        download_s3_to_local(filepath, local_path, endpoint_url=endpoint_url)
+        download_s3_to_local(
+            filepath, local_path, endpoint_url=endpoint_url, **s3_client_kwargs
+        )
 
     # If the file is a zip file, unzip it
     if local_path.endswith(".zip"):
@@ -368,7 +373,7 @@ def load_spikedata_from_hdf5(
     filepath: str,
     *,
     cache_dir: Optional[str] = None,
-    s3_endpoint_url: str = "https://s3-west.nrp-nautilus.io",
+    s3_endpoint_url: str,
     raster_dataset: Optional[str] = None,
     raster_bin_size_ms: Optional[float] = None,
     spike_times_dataset: Optional[str] = None,
@@ -1221,7 +1226,7 @@ def load_spikedata_from_acqm(
     filepath: str,
     *,
     cache_dir: Optional[str] = None,
-    s3_endpoint_url: str = "https://s3-west.nrp-nautilus.io",
+    s3_endpoint_url: str,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
     """Load spike trains from an ACQM file (_acqm or _acqm.zip stored as NPZ).
