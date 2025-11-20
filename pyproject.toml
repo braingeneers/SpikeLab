@@ -32,7 +32,7 @@ docs = [
 ]
 
 data_loaders = [
-  "boto3==1.35.99",
+  "boto3<=1.35.99",
   "spikeinterface>=0.100.0",
   "h5py>=3.0",
 ]
