@@ -31,9 +31,12 @@ docs = [
   "sphinx-autodoc-typehints>=1.25",
 ]
 
-s3_data_loaders = [
-  "boto3>=1.35.99"
+data_loaders = [
+  "boto3==1.35.99",
+  "spikeinterface>=0.100.0",
+  "h5py>=3.0",
 ]
+
 
 [tool.black]
 line-length = 88
