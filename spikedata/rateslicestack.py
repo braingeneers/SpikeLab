@@ -7,14 +7,14 @@ class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
     # There are a few options of input time formats:
     # Option 1:
-        # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
-        # of a burst/stimulation event. Each tuple must have same duration
+    # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
+    # of a burst/stimulation event. Each tuple must have same duration
 
     # Option 2 (Note both of the following must be input to work):
-        # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
-        #      with time bounds
-        # time_bounds: Single tuple (left_bound, right_bound).
-        #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
+    # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
+    #      with time bounds
+    # time_bounds: Single tuple (left_bound, right_bound).
+    #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
 
     # slice_or_rate_obj: Either SpikeData or RateData object. Constructor handles the rest
     # sigma_ms: Smoothing factor for computing isi if you input a SpikeData object
@@ -130,11 +130,9 @@ class RateSliceStack:
         # This makes event stack be N x T x B
         self.event_stack = event_stack
 
-    
-    
     def order_neurons_across_bursts(self):
-        """ 
-        Reorders the neurons in bursts from earliest to latest peak firing rate. 
+        """
+        Reorders the neurons in bursts from earliest to latest peak firing rate.
 
         Parameters:
             - No inputs. It uses the underlying 3D self.event_stack matrix that is NxTxB (neuron x time_bin x burst/event)
@@ -142,31 +140,29 @@ class RateSliceStack:
             - reordered_burst_matrices: This is 3D self.event_stack but the 0th dimension N is reordered temporally
                                         Now, the first neuron is the one that usually fires off across all bursts
             - neurons_ids_in_order: Array of original neuron indices sorted by their typical firing order.
-                                    For example, [3, 1, 0, 2] means neuron 3 fires first, then neuron 1, 
+                                    For example, [3, 1, 0, 2] means neuron 3 fires first, then neuron 1,
                                     then neuron 0, then neuron 2. So neuron 3 is now the first neuron in reordered_burst_matrices.
                                     Use this to map back to original neuron IDs.
 
         """
-        #burst_matrices is N x T x B
+        # burst_matrices is N x T x B
         burst_matrices = self.event_stack
 
-        #This is a matrix (NxB) where row is neuron, and each column is a burst. Value is the time index
+        # This is a matrix (NxB) where row is neuron, and each column is a burst. Value is the time index
         # firing rate peak for neuron N in burst B
         neuron_max_indices_array = np.argmax(burst_matrices, axis=1)
-        
-        #This gives you a list of size N. Now you have median peak time for each neuron
+
+        # This gives you a list of size N. Now you have median peak time for each neuron
         neuron_median_indices = np.median(neuron_max_indices_array, axis=1)
 
-        #arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
-        #So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
+        # arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
+        # So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
 
         neurons_ids_in_order = np.argsort(neuron_median_indices)
-        #Reorder the neurons in orginal burst_matrices so that they are in temporal order
-        reordered_burst_matrices = burst_matrices[neurons_ids_in_order,:,:]
-        #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
+        # Reorder the neurons in orginal burst_matrices so that they are in temporal order
+        reordered_burst_matrices = burst_matrices[neurons_ids_in_order, :, :]
+        # Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
         return reordered_burst_matrices, neurons_ids_in_order
-    
-
 
     # def order_neurons_across_bursts(self):
     #     #burst_matrices is B x N x T
@@ -183,10 +179,10 @@ class RateSliceStack:
     #             max_index = np.argmax(neuron)
     #             #
     #             neuron_max_indices_per_burst.append(max_index)
-            
+
     #         neuron_max_indices_across_bursts.append(neuron_max_indices_per_burst)
-    #         #This is BxN and each value is the time bin that has max firing rate 
-            
+    #         #This is BxN and each value is the time bin that has max firing rate
+
     #     neuron_max_indices_array = np.array(neuron_max_indices_across_bursts)
     #     #This gives you a list of size N
     #     neuron_median_indices = np.median(neuron_max_indices_array, axis=0)
@@ -199,9 +195,3 @@ class RateSliceStack:
     #     reordered_burst_matrices = burst_matrices[:,neurons_ids_in_order,:]
     #     #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
     #     return reordered_burst_matrices, neurons_ids_in_order
-
-
-
-
-
-
