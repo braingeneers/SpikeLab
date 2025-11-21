@@ -124,6 +124,18 @@ class SpikeSliceStack:
         self.spike_stack = event_stack
 
     def to_sparse_matrices(self):
+        """
+        Transforms the list of spike objects from self.spike_stack into a 3D sparse spike matrices of NxTxB (neuron x time_bin x burst/event)
+        
+
+        Parameters:
+            - No input: It uses the underlying self.spike_stack.
+        Returns:
+            - sparse_stack: 3D sparse spike matrix of size NxTxB where each value is 
+                            a 1 or 0 if there is a spike in that for neuron in a time_bin 
+                            at a given burst.
+
+        """
         sparse_list =[]
         for i in len(self.spike_stack):
             spike_obj_slice = self.spike_stack[i]
