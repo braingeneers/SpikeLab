@@ -133,6 +133,20 @@ class RateSliceStack:
     
     
     def order_neurons_across_bursts(self):
+        """ 
+        Reorders the neurons in bursts from earliest to latest peak firing rate. 
+
+        Parameters:
+            - No inputs. It uses the underlying 3D self.event_stack matrix that is NxTxB (neuron x time_bin x burst/event)
+        Returns:
+            - reordered_burst_matrices: This is 3D self.event_stack but the 0th dimension N is reordered temporally
+                                        Now, the first neuron is the one that usually fires off across all bursts
+            - neurons_ids_in_order: Array of original neuron indices sorted by their typical firing order.
+                                    For example, [3, 1, 0, 2] means neuron 3 fires first, then neuron 1, 
+                                    then neuron 0, then neuron 2. So neuron 3 is now the first neuron in reordered_burst_matrices.
+                                    Use this to map back to original neuron IDs.
+
+        """
         #burst_matrices is N x T x B
         burst_matrices = self.event_stack
 
