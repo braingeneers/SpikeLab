@@ -4,15 +4,17 @@ import numpy as np
 
 
 class SpikeSliceStack:
+    # This is an object that contains a collection of spike objects as a list
     # There are a few options of input time formats:
     # Option 1:
-    # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
-    # of a burst/stimulation event
+        # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
+        # of a burst/stimulation event. Each tuple must have same duration
+
     # Option 2 (Note both of the following must be input to work):
-    # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
-    #      with time bounds
-    # time_bounds: Single tuple (left_bound, right_bound).
-    #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
+        # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
+        #      with time bounds
+        # time_bounds: Single tuple (left_bound, right_bound).
+        #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
 
     # slice_or_rate_obj: Either SpikeData or RateData object. Constructor handles the rest
     # sigma_ms: Smoothing factor for computing isi if you input a SpikeData object
@@ -35,12 +37,6 @@ class SpikeSliceStack:
             )
 
         # This is to check that one of the time options is selected
-        if times_start_to_end is None and (time_peaks is None or time_bounds is None):
-            raise ValueError(
-                "Must provide either times_start_to_end or both times_peaks and time_bounds"
-            )
-
-        # This is the case where option 2 is used
         if times_start_to_end is None:
             if time_peaks is None or time_bounds is None:
                 raise ValueError(
@@ -88,9 +84,9 @@ class SpikeSliceStack:
                 continue
 
             # Check if any times are beyond the end of the recording
-            if time_peaks is not None:
-                if time_window[1] > time_peaks[-1]:
-                    continue
+            # if time_peaks is not None:
+            #     if time_window[1] > time_peaks[-1]:
+            #         continue
 
             time_diff_check.append(time_window[1] - time_window[0])
             # We only want to address time windows that are above 0 (recording start) and below recording end
@@ -123,9 +119,9 @@ class SpikeSliceStack:
         #         #Look into times
         #         burst_matrix = data_obj.resampled_isi(all_times, sigma_ms)
         #         burst_stack.append(burst_matrix)
-        # Converts to a 3d array
-        event_stack = np.stack(event_matrix)
-        self.spike_stack = event_matrix
+        
+        #event_stack = np.stack(event_stack)
+        self.spike_stack = event_stack
 
     def to_sparse_matrices(self):
         sparse_list =[]
@@ -134,7 +130,8 @@ class SpikeSliceStack:
             event_matrix = spike_obj_slice.sparse_raster(bin_size = 1)
 
             sparse_list.append(event_matrix)
-        sparse_stack = np.stack(sparse_list)
+        sparse_stack = np.stack(sparse_list,axis=2)
+        # Make sparse stack into N x T x B
         return sparse_stack
         
         
