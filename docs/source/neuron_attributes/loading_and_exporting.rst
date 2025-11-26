@@ -34,13 +34,10 @@ From KiloSort
    sd = load_spikedata_from_kilosort(
        'kilosort_output/',
        fs_Hz=30000,
-       cluster_info_tsv='cluster_info.tsv'
    )
    
-   # Cluster info is automatically loaded into neuron_attributes
-   cluster_ids = sd.get_neuron_attribute('cluster_id')
-
-If a ``cluster_info.tsv`` file is present, all columns are loaded as neuron attributes.
+   # Neuron info is automatically loaded into neuron_attributes
+   electrode_ids = sd.get_neuron_attribute('electrode_id')
 
 From HDF5
 ^^^^^^^^^
@@ -73,7 +70,7 @@ From ACQM Files
    # ACQM files include neuron metadata
    if sd.neuron_attributes is not None:
        df = sd.neuron_attributes.to_dataframe()
-       print(df[['cluster_id', 'channel', 'position']])
+       print(df[['unit_id', 'channel', 'position']])
 
 ACQM files (NPZ format) contain a ``neuron_data`` dictionary with cluster IDs, channels, positions, and other metadata that are automatically extracted.
 
@@ -128,12 +125,10 @@ To KiloSort
 
 .. code-block:: python
 
-   # Attributes saved as cluster_info.tsv
+   # Export to KiloSort format
    sd.to_kilosort('kilosort_output/', fs_Hz=30000)
    
-   # Creates spike_times.npy, spike_clusters.npy, and cluster_info.tsv
-
-Neuron attributes are saved as a tab-separated file (``cluster_info.tsv``) that can be loaded by Phy and other tools.
+   # Creates spike_times.npy and spike_clusters.npy
 
 Round-Trip Examples
 -------------------
@@ -171,7 +166,7 @@ NWB Round-Trip
    from data_loaders import load_spikedata_from_nwb
    
    # Add attributes
-   sd.set_neuron_attribute('cluster_id', [1, 2, 3])
+   sd.set_neuron_attribute('electrode_id', [1, 2, 3])
    sd.set_neuron_attribute('quality', ['good', 'good', 'mua'])
    
    # Export

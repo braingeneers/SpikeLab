@@ -197,7 +197,7 @@ This document explains what each test does in detail and why it matters. It is i
 
 - **test_acqm_neuron_attributes**
   - Purpose: Validates extraction of neuron attributes from ACQM neuron_data structure.
-  - Why: ACQM files contain rich per-neuron metadata (cluster_id, channel, position) that must be preserved.
+  - Why: ACQM files contain rich per-neuron metadata (channel, position) that must be preserved.
   - Verifies presence of standard columns and filtering of large arrays (waveforms, templates).
 
 - **test_acqm_s3_mock** (if boto3 available)
@@ -217,7 +217,7 @@ This document explains what each test does in detail and why it matters. It is i
 
 ### KiloSort and SpikeInterface (`TestKiloSortAndSpikeInterface`)
 - **test_kilosort_basic**
-  - Purpose: Loads two clusters, verifies per-cluster times in ms and metadata `cluster_ids` alignment with train order.
+  - Purpose: Loads two clusters, verifies per-cluster times in ms.
   - Why: Validates basic KiloSort flow and deterministic ordering by cluster id.
 
 - **test_spikeinterface_mock**
@@ -240,8 +240,8 @@ This document explains what each test does in detail and why it matters. It is i
   - Purpose: Empty KiloSort arrays yield zero units and zero length without errors.
   - Why: Edge-case robustness when no spikes were detected.
 
-- **test_kilosort_metadata_cluster_ids_alignment**
-  - Purpose: `cluster_ids` metadata is sorted and matches train order (ascending by cluster id).
+- **test_kilosort_sorted_trains**
+  - Purpose: Trains are sorted in ascending cluster order.
   - Why: Ensures metadata integrity for downstream labeling.
 
 - **test_kilosort_tsv_missing_columns_keeps_all**
@@ -301,8 +301,8 @@ This document explains what each test does in detail and why it matters. It is i
   - Why: KiloSort format is widely used in spike sorting community. Ensures compatibility with KiloSort, Phy, and other tools using this simple but effective format.
   - Key checks: Unit indices map to cluster IDs; spike times converted to sample indices; round-trip through KiloSort loader preserves data; loader sorts by cluster ID matching export order.
 
-- **test_export_kilosort_custom_cluster_ids**
-  - Purpose: Tests KiloSort export with custom cluster ID assignment instead of default unit index mapping.
+- **test_export_kilosort_default_cluster_ids**
+  - Purpose: Tests KiloSort export with default sequential cluster ID assignment.
   - Why: Preserves original cluster IDs from spike sorting results or enables specific numbering schemes. Important for data provenance.
   - Key checks: Custom cluster IDs [10, 5, 7] correctly assigned; spike counts match expected values; empty units handled properly (don't contribute spikes to output).
 

@@ -51,7 +51,6 @@ Core Attributes
 ~~~~~~~~~~~~~~~
 
 * ``unit_id`` - Unique identifier for each neuron
-* ``cluster_id`` - Cluster assignment
 * ``electrode_id`` - Physical electrode identifier  
 * ``channel`` - Recording channel number
 * ``firing_rate_hz`` - Mean firing rate in Hz
@@ -87,7 +86,7 @@ Creating NeuronAttributes
     # From dictionary
     attrs = NeuronAttributes.from_dict({
         'unit_id': [1, 2, 3],
-        'cluster_id': [10, 20, 30],
+        'electrode_id': [10, 20, 30],
         'firing_rate_hz': [5.2, 8.1, 3.4]
     }, n_neurons=3)
     
@@ -136,7 +135,7 @@ Integration with SpikeData
         trains,
         neuron_attributes={
             'unit_id': [1, 2, 3],
-            'cluster_id': [10, 20, 30]
+            'electrode_id': [10, 20, 30]
         }
     )
     

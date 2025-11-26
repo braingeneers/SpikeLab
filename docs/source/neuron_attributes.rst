@@ -15,7 +15,6 @@ Quick Start
        trains,
        neuron_attributes={
            'unit_id': [1, 2, 3],
-           'cluster_id': [10, 20, 30]
        }
    )
    
@@ -78,22 +77,21 @@ Accessing Attributes
 .. code-block:: python
 
    # Single attribute
-   cluster_ids = sd.get_neuron_attribute('cluster_id')
+   unit_ids = sd.get_neuron_attribute('unit_id')
    
    # All attributes as DataFrame
    df = sd.neuron_attributes.to_dataframe()
    
    # Filter by attribute
-   good_neurons = sd.subset(['good'], by='quality')
+   good_units = sd.subset(unit_ids[unit_ids == 1])
 
 Standard Column Names
 ---------------------
 
-**Core**: unit_id, cluster_id, electrode_id, channel, firing_rate_hz
+**Core**: unit_id, electrode_id, channel, firing_rate_hz
 
 **ISI Metrics**: mean_isi_ms, median_isi_ms, cv_isi, isi_skewness, burst_index, pause_ratio, refractory_violations
 
-**Latency**: mean_latency_ms, median_latency_ms, latency_jitter_ms
 
 **Burst**: burst_participation, is_backbone_unit
 

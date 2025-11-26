@@ -20,7 +20,6 @@ The simplest approach is to pass a dictionary of column names to lists of values
        trains,
        neuron_attributes={
            'unit_id': [101, 102, 103],
-           'cluster_id': [1, 1, 2],
            'electrode_id': [0, 1, 1],
            'firing_rate_hz': [5.2, 8.1, 3.4],
            'snr': [4.2, 6.8, 3.1]
@@ -42,7 +41,7 @@ You can also pass a pandas DataFrame directly:
    # Create a DataFrame with neuron metadata
    attrs_df = pd.DataFrame({
        'unit_id': [101, 102, 103],
-       'cluster_id': [1, 1, 2],
+       'electrode_id': [1, 1, 2],
        'quality': ['good', 'good', 'mua']
    })
    
@@ -61,7 +60,7 @@ For more control, create a ``NeuronAttributes`` object first:
    
    attrs = NeuronAttributes.from_dict({
        'unit_id': [1, 2, 3],
-       'cluster_id': [10, 20, 30]
+       'electrode_id': [10, 20, 30]
    }, n_neurons=3)
    
    sd = SpikeData(trains, neuron_attributes=attrs)
@@ -85,7 +84,7 @@ If you don't have attributes at creation time, you can add them later or start w
    )
    
    # Add attributes later
-   sd.set_neuron_attribute('cluster_id', [1, 1, 2, 2, 3])
+   sd.set_neuron_attribute('electrode_id', [1, 1, 2, 2, 3])
 
 Standard Column Names
 ---------------------
@@ -95,7 +94,6 @@ While you can use any column names, the following standard names are recommended
 **Core Attributes:**
 
 * ``unit_id``: Unique identifier for each neuron
-* ``cluster_id``: Cluster assignment (multiple neurons can share a cluster_id)
 * ``electrode_id``: Physical electrode identifier
 * ``channel``: Recording channel number
 * ``firing_rate_hz``: Mean firing rate in Hz

@@ -15,7 +15,6 @@ Parameters
 * **spike_times_file** (``str``, default ``'spike_times.npy'``): Filename for spike times.
 * **spike_clusters_file** (``str``, default ``'spike_clusters.npy'``): Filename for cluster assignments.
 * **time_unit** (``'samples'|'ms'|'s'``, default ``'samples'``): Time unit for spike times.
-* **cluster_ids** (``list|array|None``): Custom cluster IDs mapping; if ``None``, uses 0-based indices.
 
 Example
 ^^^^^^^

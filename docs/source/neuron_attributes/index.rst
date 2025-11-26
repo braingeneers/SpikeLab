@@ -27,13 +27,13 @@ Quick Start
        trains,
        neuron_attributes={
            'unit_id': [1, 2, 3],
-           'cluster_id': [10, 20, 30],
+           'electrode_id': [10, 20, 30],
            'firing_rate_hz': [5.2, 8.1, 3.4]
        }
    )
    
    # Access attributes
-   cluster_ids = sd.get_neuron_attribute('cluster_id')
+   electrode_ids = sd.get_neuron_attribute('electrode_id')
    
    # Compute and store metrics
    sd.compute_firing_rates(unit='Hz')

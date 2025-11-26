@@ -487,7 +487,6 @@ def export_spikedata_to_kilosort(
     spike_times_file: str = "spike_times.npy",
     spike_clusters_file: str = "spike_clusters.npy",
     time_unit: TimeUnit = "samples",
-    cluster_ids: Optional[Sequence[int]] = None,
 ) -> Tuple[str, str]:
     """Export SpikeData to a KiloSort/Phy-like folder.
 
@@ -498,8 +497,7 @@ def export_spikedata_to_kilosort(
 
     The function flattens all spike trains into two parallel arrays where
     each spike gets a timestamp and cluster assignment. Units are mapped to
-    cluster IDs either using the provided cluster_ids sequence or by default
-    using sequential integers (0, 1, 2, ...).
+    sequential integers (0, 1, 2, ...).
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
@@ -515,16 +513,12 @@ def export_spikedata_to_kilosort(
                              - 'samples': Integer sample indices (default, KiloSort standard)
                              - 'ms': Milliseconds (float)
                              - 's': Seconds (float)
-        cluster_ids (Optional[Sequence[int]]): Custom cluster IDs for each unit.
-                                              If None, uses sequential integers 0, 1, 2, ...
-                                              Length must match sd.N.
 
     Returns:
         Tuple[str, str]: Paths to the created spike_times.npy and spike_clusters.npy files.
 
     Raises:
-        ValueError: If fs_Hz is not positive, or if cluster_ids length doesn't match sd.N,
-                   or if time_unit is invalid.
+        ValueError: If fs_Hz is not positive or if time_unit is invalid.
         OSError: If the folder cannot be created.
 
     Notes:
@@ -532,17 +526,14 @@ def export_spikedata_to_kilosort(
         - Spike times are sorted by unit order, not chronologically.
         - Empty units (no spikes) don't contribute entries to the output arrays.
         - The 'samples' time unit produces integer arrays suitable for KiloSort/Phy.
-        - Cluster IDs can be arbitrary integers and don't need to be sequential.
 
     Examples:
         >>> # Export with default sample-based timing
         >>> paths = export_spikedata_to_kilosort(sd, "kilosort_output", fs_Hz=30000)
         >>> print(f"Created {paths[0]} and {paths[1]}")
 
-        >>> # Export with custom cluster IDs and millisecond timing
-        >>> export_spikedata_to_kilosort(sd, "output", fs_Hz=30000,
-        ...                              time_unit="ms",
-        ...                              cluster_ids=[10, 20, 30])
+        >>> # Export with millisecond timing
+        >>> export_spikedata_to_kilosort(sd, "output", fs_Hz=30000, time_unit="ms")
     """
     if not fs_Hz or fs_Hz <= 0:
         raise ValueError("A positive fs_Hz is required for KiloSort export")
@@ -557,11 +548,8 @@ def export_spikedata_to_kilosort(
         idces.extend([unit_index] * len(tms))
         times_ms.extend(tms.tolist())
 
-    # Map units -> cluster ids
-    if cluster_ids is None:
-        cluster_ids = list(range(sd.N))
-    if len(cluster_ids) != sd.N:
-        raise ValueError("cluster_ids length must match sd.N")
+    # Map units to sequential cluster indices
+    cluster_ids = list(range(sd.N))
     clusters = np.array([int(cluster_ids[i]) for i in idces], dtype=int)
 
     # Convert times
@@ -579,21 +567,6 @@ def export_spikedata_to_kilosort(
     spike_clusters_path = os.path.join(folder, spike_clusters_file)
     np.save(spike_times_path, times_out)
     np.save(spike_clusters_path, clusters)
-
-    # Save neuron_attributes as cluster_info.tsv if available
-    if sd.neuron_attributes is not None:
-        try:
-            import pandas as pd
-
-            df = sd.neuron_attributes.to_dataframe()
-            # Use cluster_ids for the cluster_id column if it exists, otherwise add it
-            if "cluster_id" not in df.columns:
-                df.insert(0, "cluster_id", list(cluster_ids))
-
-            cluster_info_path = os.path.join(folder, "cluster_info.tsv")
-            df.to_csv(cluster_info_path, sep="\t", index=False)
-        except Exception as e:
-            warnings.warn(f"Failed to save cluster_info.tsv: {e}")
 
     return spike_times_path, spike_clusters_path
 

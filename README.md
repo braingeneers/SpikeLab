@@ -36,7 +36,7 @@ rates = sd.rates(bin_size=100.0)
 
 # Work with neuron attributes
 sd.set_neuron_attribute('quality', ['good', 'good', 'mua'])
-cluster_ids = sd.get_neuron_attribute('cluster_id')
+electrode_ids = sd.get_neuron_attribute('electrode_id')
 
 # Get a spike raster
 raster = sd.raster(bin_size=1.0)

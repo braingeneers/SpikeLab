@@ -35,12 +35,11 @@ Export spike data to a minimal NWB-compatible file (HDF5 backend).
 
 ----
 
-to_kilosort(folder, fs_Hz, spike_times_file='spike_times.npy', spike_clusters_file='spike_clusters.npy', time_unit='samples', cluster_ids=None)
----------------------------------------------------------------------------------------------------------------------------------------------------
+to_kilosort(folder, fs_Hz, spike_times_file='spike_times.npy', spike_clusters_file='spike_clusters.npy', time_unit='samples')
+-----------------------------------------------------------------------------------------------------------------------------------
 
 Export spike data to KiloSort/Phy format.
 
 * Produces ``spike_times.npy`` and ``spike_clusters.npy``
 * ``time_unit``: ``'samples'`` (default, requires ``fs_Hz``), ``'ms'``, or ``'s'``
-* ``cluster_ids`` maps SpikeData unit indices to arbitrary cluster IDs
 

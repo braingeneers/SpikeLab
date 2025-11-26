@@ -92,7 +92,7 @@ class SpikeData:
     - length: The length of the spike train, defaults to the time of the last spike.
 
     - neuron_attributes: A NeuronAttributes object containing metadata for each neuron,
-      stored as a pandas DataFrame with standard columns like unit_id, cluster_id,
+      stored as a pandas DataFrame with standard columns like unit_id,
       electrode_id, firing_rate_hz, and custom attributes.
 
     - metadata: A dictionary containing any additional information or metadata about the
@@ -695,7 +695,6 @@ class SpikeData:
         Examples
         --------
         >>> firing_rates = sd.get_neuron_attribute('firing_rate_hz')
-        >>> cluster_ids = sd.get_neuron_attribute('cluster_id')
         """
         if self.neuron_attributes is None:
             raise ValueError("No neuron_attributes available.")
@@ -1117,7 +1116,6 @@ class SpikeData:
         spike_times_file: str = "spike_times.npy",
         spike_clusters_file: str = "spike_clusters.npy",
         time_unit: "Literal['samples','ms','s']" = "samples",
-        cluster_ids: Optional[List[int]] = None,
     ) -> Tuple[str, str]:
         """Export this SpikeData to a KiloSort/Phy-like folder structure.
 
@@ -1140,20 +1138,16 @@ class SpikeData:
                 - 'samples': Sample indices (requires fs_Hz for conversion)
                 - 'ms': Milliseconds (matches internal SpikeData format)
                 - 's': Seconds
-            cluster_ids: Optional list of cluster IDs to assign to each unit.
-                Must have length equal to self.N. If None, uses sequential
-                integers [0, 1, 2, ...].
 
         Returns:
             tuple[str, str]: Paths to the created (spike_times_file, spike_clusters_file)
 
         Raises:
-            ValueError: If fs_Hz <= 0 or cluster_ids length doesn't match self.N
+            ValueError: If fs_Hz <= 0
 
         Note:
             - Empty units (no spikes) are skipped in the output arrays
-            - Cluster IDs are mapped to units in order, so cluster_ids[i]
-              corresponds to unit i in the SpikeData
+            - Units are mapped to sequential unit indices [0, 1, 2, ...]
             - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
@@ -1167,7 +1161,6 @@ class SpikeData:
             spike_times_file=spike_times_file,
             spike_clusters_file=spike_clusters_file,
             time_unit=time_unit,  # type: ignore[arg-type]
-            cluster_ids=cluster_ids,
         )
 
     def to_pickle(self, file_path: str) -> None:

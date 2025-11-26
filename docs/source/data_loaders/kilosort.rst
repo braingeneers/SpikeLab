@@ -13,15 +13,14 @@ Parameters
 * **fs_Hz** (``float``): Sampling frequency (Hz) when ``time_unit='samples'``.
 * **spike_times_file** (``str``, default ``'spike_times.npy'``): File with spike times.
 * **spike_clusters_file** (``str``, default ``'spike_clusters.npy'``): File with cluster assignments.
-* **cluster_info_tsv** (``str | None``): Optional TSV file with cluster metadata (``group``/``KSLabel``, ``cluster_id``/``id``).
 * **time_unit** (``'samples' | 's' | 'ms'``, default ``'samples'``): Unit of ``spike_times.npy``.
-* **include_noise** (``bool``, default ``False``): If ``False``, keep only clusters labeled ``good``/``mua`` when TSV provided; if ``True``, keep all clusters.
+* **include_noise** (``bool``, default ``False``): Reserved for future use.
 * **length_ms** (``float | None``): Recording duration; inferred from last spike if not provided.
 
 Returns
 ^^^^^^^
 
-* **SpikeData**: Spike trains grouped by cluster; metadata contains ``cluster_ids``, ``fs_Hz``, and ``source_folder``.
+* **SpikeData**: Spike trains grouped by cluster; metadata contains ``fs_Hz`` and ``source_folder``.
 
 Raises
 ^^^^^^
@@ -36,6 +35,5 @@ Example
    sd = load_spikedata_from_kilosort(
        "path/to/ks/",
        fs_Hz=30000.0,
-       cluster_info_tsv="cluster_info.tsv",  # optional
    )
 

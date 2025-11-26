@@ -825,11 +825,9 @@ def load_spikedata_from_spikeinterface(
 
 def _extract_kilosort_neuron_attributes(
     folder: str,
-    cluster_ids: List[int],
     spike_times: np.ndarray,
     spike_clusters: np.ndarray,
     fs_Hz: float,
-    cluster_info_df: Optional[pd.DataFrame] = None,
 ) -> Optional[NeuronAttributes]:
     """
     Extract comprehensive neuron attributes from KiloSort/Phy outputs.
@@ -843,22 +841,17 @@ def _extract_kilosort_neuron_attributes(
     - amplitude: Mean spike amplitude
     - isi_violations: ISI violation rate (spikes < 2ms / total spikes)
 
-    Plus any additional columns from cluster_info.tsv
-
     Parameters
     ----------
     folder : str
         Path to KiloSort/Phy output directory
-    cluster_ids : List[int]
-        List of cluster IDs to extract (in order matching trains)
+    
     spike_times : np.ndarray
         All spike times
     spike_clusters : np.ndarray
         Cluster assignment for each spike
     fs_Hz : float
         Sampling frequency in Hz
-    cluster_info_df : pd.DataFrame, optional
-        Pre-loaded cluster info TSV data
 
     Returns
     -------
@@ -866,7 +859,7 @@ def _extract_kilosort_neuron_attributes(
         Extracted attributes or None if extraction fails
     """
     n_neurons = len(cluster_ids)
-    attr_data: Dict[str, List[Any]] = {"cluster_id": cluster_ids}
+    attr_data: Dict[str, List[Any]] = {}
 
     # Try to load channel positions
     channel_positions = None
@@ -912,9 +905,8 @@ def _extract_kilosort_neuron_attributes(
     x_coords = []
     y_coords = []
     avg_waveforms = []
-    snrs = []
     amplitudes = []
-    isi_violations = []
+
 
     # Process each cluster
     for clu_id in cluster_ids:
@@ -958,34 +950,18 @@ def _extract_kilosort_neuron_attributes(
         if (
             templates is not None
             and spike_templates is not None
-            and not np.isnan(peak_channel)
+            and channel_positions is not None
         ):
             cluster_templates = spike_templates[spike_mask]
             if len(cluster_templates) > 0:
                 template_idx = int(np.median(cluster_templates))
                 if 0 <= template_idx < templates.shape[0]:
-                    peak_ch_int = int(peak_channel)
-                    # Extract waveform from peak channel
-                    avg_waveform = templates[template_idx, :, peak_ch_int]
+                    # Extract waveforms from all channels
+                    # Shape: (n_samples, n_channels)
+                    avg_waveform = templates[template_idx, :, :]
 
         avg_waveforms.append(avg_waveform)
 
-        # === SNR ===
-        snr = np.nan
-        if avg_waveform is not None:
-            # SNR = peak-to-peak amplitude / (2 * std of baseline)
-            # Baseline: first and last 20% of waveform
-            wf_len = len(avg_waveform)
-            baseline_idx = int(wf_len * 0.2)
-            baseline = np.concatenate(
-                [avg_waveform[:baseline_idx], avg_waveform[-baseline_idx:]]
-            )
-            baseline_std = np.std(baseline)
-            if baseline_std > 0:
-                peak_to_peak = np.ptp(avg_waveform)
-                snr = peak_to_peak / (2 * baseline_std)
-
-        snrs.append(snr)
 
         # === Amplitude ===
         amplitude = np.nan
@@ -994,22 +970,18 @@ def _extract_kilosort_neuron_attributes(
             if len(cluster_amplitudes) > 0:
                 amplitude = float(np.mean(cluster_amplitudes))
         elif avg_waveform is not None:
-            # Fallback: use peak-to-peak of template
-            amplitude = float(np.ptp(avg_waveform))
+            # Fallback: use peak-to-peak of template from peak channel
+            if avg_waveform.ndim == 2 and not np.isnan(peak_channel):
+                # Multi-channel waveform, use peak channel
+                peak_ch_int = int(peak_channel)
+                if 0 <= peak_ch_int < avg_waveform.shape[1]:
+                    amplitude = float(np.ptp(avg_waveform[:, peak_ch_int]))
+            elif avg_waveform.ndim == 1:
+                # Single channel waveform (legacy)
+                amplitude = float(np.ptp(avg_waveform))
 
         amplitudes.append(amplitude)
 
-        # === ISI violations ===
-        isi_violation_rate = np.nan
-        if len(cluster_spike_times) > 1:
-            # Convert to seconds for ISI calculation
-            spike_times_sec = cluster_spike_times.astype(float) / fs_Hz
-            isis = np.diff(np.sort(spike_times_sec))
-            # Violations: ISI < 2ms (0.002 seconds)
-            violations = np.sum(isis < 0.002)
-            isi_violation_rate = violations / len(isis) if len(isis) > 0 else 0.0
-
-        isi_violations.append(isi_violation_rate)
 
     # Add computed attributes
     attr_data["channel"] = channels
@@ -1017,30 +989,7 @@ def _extract_kilosort_neuron_attributes(
     attr_data["x"] = x_coords
     attr_data["y"] = y_coords
     attr_data["average_waveform"] = avg_waveforms
-    attr_data["snr"] = snrs
     attr_data["amplitude"] = amplitudes
-    attr_data["isi_violations"] = isi_violations
-
-    # Add any additional attributes from cluster_info.tsv
-    if cluster_info_df is not None:
-        # Determine ID column
-        id_col = None
-        for candidate in ["cluster_id", "id"]:
-            if candidate in cluster_info_df.columns:
-                id_col = candidate
-                break
-
-        if id_col is not None:
-            cluster_info_df = cluster_info_df.set_index(id_col)
-            for col in cluster_info_df.columns:
-                if col not in attr_data:  # Don't overwrite computed attributes
-                    col_data = []
-                    for clu_id in cluster_ids:
-                        if clu_id in cluster_info_df.index:
-                            col_data.append(cluster_info_df.loc[clu_id, col])
-                        else:
-                            col_data.append(np.nan)
-                    attr_data[col] = col_data
 
     # Create NeuronAttributes
     try:
@@ -1057,7 +1006,6 @@ def load_spikedata_from_kilosort(
     fs_Hz: float,
     spike_times_file: str = "spike_times.npy",
     spike_clusters_file: str = "spike_clusters.npy",
-    cluster_info_tsv: Optional[str] = None,
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
@@ -1078,7 +1026,6 @@ def load_spikedata_from_kilosort(
     - snr: Signal-to-noise ratio computed from waveform
     - amplitude: Mean spike amplitude from amplitudes.npy
     - isi_violations: ISI violation rate (proportion of ISIs < 2ms)
-    - Plus any additional columns from cluster_info.tsv
 
     Parameters
     ----------
@@ -1090,9 +1037,6 @@ def load_spikedata_from_kilosort(
         Name of spike times file (default: "spike_times.npy")
     spike_clusters_file : str, optional
         Name of spike clusters file (default: "spike_clusters.npy")
-    cluster_info_tsv : str, optional
-        Name of cluster info TSV file. If None, automatically searches for
-        'cluster_info.tsv', 'cluster_group.tsv', or 'cluster_KSLabel.tsv'
     time_unit : str, optional
         Unit of spike times: 'samples' (default), 's', or 'ms'
     include_noise : bool, optional
@@ -1114,7 +1058,6 @@ def load_spikedata_from_kilosort(
     - templates.npy: (n_templates, n_samples, n_channels) waveform templates
     - spike_templates.npy: (n_spikes,) template index for each spike
     - amplitudes.npy: (n_spikes,) amplitude for each spike
-    - cluster_info.tsv: metadata table with columns like 'group', 'KSLabel', etc.
 
     Missing files are handled gracefully with warnings.
     """
@@ -1125,69 +1068,9 @@ def load_spikedata_from_kilosort(
     if spike_times.shape[0] != spike_clusters.shape[0]:
         raise ValueError("spike_times and spike_clusters length mismatch")
 
-    keep_clusters: Optional[set] = None
-    cluster_info_df: Optional[pd.DataFrame] = None
-
-    # Try to load cluster info TSV/CSV
-    if cluster_info_tsv is not None:
-        tsv_path = os.path.join(folder, cluster_info_tsv)
-        if os.path.exists(tsv_path):
-            try:
-                cluster_info_df = pd.read_csv(tsv_path, sep="\t")
-                label_col = (
-                    "group"
-                    if "group" in cluster_info_df.columns
-                    else ("KSLabel" if "KSLabel" in cluster_info_df.columns else None)
-                )
-                id_col = (
-                    "cluster_id"
-                    if "cluster_id" in cluster_info_df.columns
-                    else ("id" if "id" in cluster_info_df.columns else None)
-                )
-                if id_col is None or label_col is None:
-                    warnings.warn(
-                        "Could not find id/label columns in cluster TSV; keeping all clusters"
-                    )
-                else:
-                    if include_noise:
-                        keep_clusters = set(
-                            cluster_info_df[id_col].astype(int).tolist()
-                        )
-                    else:
-                        mask = (
-                            cluster_info_df[label_col]
-                            .astype(str)
-                            .str.lower()
-                            .isin(["good", "mua", "mua good"])
-                        )  # permissive
-                        keep_clusters = set(
-                            cluster_info_df.loc[mask, id_col].astype(int).tolist()
-                        )
-            except Exception as e:
-                warnings.warn(
-                    f"Failed parsing cluster info TSV: {e}; keeping all clusters"
-                )
-                cluster_info_df = None
-    else:
-        # Try to find cluster_info.tsv or cluster_group.tsv automatically
-        for possible_name in [
-            "cluster_info.tsv",
-            "cluster_group.tsv",
-            "cluster_KSLabel.tsv",
-        ]:
-            possible_path = os.path.join(folder, possible_name)
-            if os.path.exists(possible_path):
-                try:
-                    cluster_info_df = pd.read_csv(possible_path, sep="\t")
-                    break
-                except Exception:
-                    pass
-
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
     for clu in np.unique(spike_clusters):
-        if keep_clusters is not None and int(clu) not in keep_clusters:
-            continue
         times = spike_times[spike_clusters == clu]
         times_ms = _to_ms(times.astype(float), time_unit, fs_Hz)
         trains.append(np.sort(times_ms))
@@ -1196,7 +1079,6 @@ def load_spikedata_from_kilosort(
     meta = {
         "source_folder": os.path.abspath(folder),
         "source_format": "KiloSort",
-        "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
 
@@ -1205,11 +1087,9 @@ def load_spikedata_from_kilosort(
     if extract_attributes:
         neuron_attrs = _extract_kilosort_neuron_attributes(
             folder=folder,
-            cluster_ids=metadata_units,
             spike_times=spike_times,
             spike_clusters=spike_clusters,
             fs_Hz=fs_Hz,
-            cluster_info_df=cluster_info_df,
         )
 
     return _build_spikedata(
@@ -1327,17 +1207,11 @@ def load_spikedata_from_acqm(
                             # Flatten nested structures (keep only scalar/array values)
                             flat_info = {}
                             for key, value in neuron_info.items():
-                                # Store average waveform if present
+                                # Store waveform if present
                                 if key == "waveforms":
                                     if isinstance(value, np.ndarray) and value.size > 0:
-                                        # Compute average waveform across all instances
-                                        if value.ndim >= 1:
-                                            avg_waveform = (
-                                                np.mean(value, axis=0)
-                                                if value.ndim > 1
-                                                else value
-                                            )
-                                            flat_info["avg_waveform"] = avg_waveform
+                                        # Store the waveform array directly
+                                        flat_info["average_waveform"] = value
                                     continue
                                 # Store average amplitude if present
                                 if key == "amplitudes":

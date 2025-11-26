@@ -32,7 +32,7 @@ ACQM File Format
 ACQM files are NPZ archives with the following structure:
 
 * ``train``: Dict mapping unit IDs → spike time arrays (in samples)
-* ``neuron_data``: Dict mapping unit IDs → metadata dicts (cluster_id, channel, position, etc.)
+* ``neuron_data``: Dict mapping unit IDs → metadata dicts (channel, position, etc.)
 * ``fs``: Sampling frequency in Hz
 * ``config``: Optional recording configuration dict
 * ``redundant_pairs``: Optional array of redundant unit pairs
@@ -58,7 +58,7 @@ Loading from Local File
    # Access neuron attributes
    if sd.neuron_attributes:
        df = sd.neuron_attributes.to_dataframe()
-       print(df[['cluster_id', 'channel', 'position']])
+       print(df[['channel', 'position']])
 
 S3 Support
 ^^^^^^^^^^
@@ -259,7 +259,6 @@ ACQM files typically include per-neuron metadata:
        df = sd.neuron_attributes.to_dataframe()
        
        # Common attributes:
-       # - cluster_id: Cluster assignment
        # - channel: Recording channel
        # - position: Electrode position or neuron location
        # - quality: Quality metric from spike sorting
@@ -267,10 +266,10 @@ ACQM files typically include per-neuron metadata:
        # Filter by channel
        channel_10_neurons = sd.subset([10], by='channel')
        
-       # Group by cluster
-       for cluster_id in df['cluster_id'].unique():
-           cluster_neurons = sd.subset([cluster_id], by='cluster_id')
-           print(f"Cluster {cluster_id}: {cluster_neurons.N} neurons")
+       # Group by unit_id
+       for unit_id in df['unit_id'].unique():
+           unit_neurons = sd.subset([unit_id], by='unit_id')
+           print(f"Unit {unit_id}: {unit_neurons.N} neurons")
 
 
 Best Practices
@@ -296,7 +295,7 @@ Example:
    
    if sd.neuron_attributes:
        df = sd.neuron_attributes.to_dataframe()
-       assert 'cluster_id' in df.columns, "Missing cluster IDs"
+       assert 'unit_id' in df.columns, "Missing unit IDs"
 
 Downloading Files Manually
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

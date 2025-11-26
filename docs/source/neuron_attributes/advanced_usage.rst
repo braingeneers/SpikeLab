@@ -111,7 +111,7 @@ Add your own validation logic:
        df = sd.neuron_attributes.to_dataframe()
        
        # Check required columns
-       required = ['unit_id', 'cluster_id']
+       required = ['unit_id', 'electrode_id']
        missing = [col for col in required if col not in df.columns]
        if missing:
            raise ValueError(f"Missing required columns: {missing}")
@@ -179,7 +179,7 @@ For large datasets, optimize attribute operations:
    
    # For very large attribute sets, work with views
    # (only if you know what you're doing)
-   df_view = df[['cluster_id', 'firing_rate_hz']]  # Smaller working set
+   df_view = df[['unit_id', 'firing_rate_hz']]  # Smaller working set
 
 Migration from Old System
 --------------------------
@@ -197,11 +197,11 @@ Old Way (Removed)
    @dataclass
    class NeuronInfo:
        unit_id: int
-       cluster_id: int
+       electrode_id: int
    
    neuron_attrs = [
-       NeuronInfo(unit_id=1, cluster_id=10),
-       NeuronInfo(unit_id=2, cluster_id=20),
+       NeuronInfo(unit_id=1, electrode_id=10),
+       NeuronInfo(unit_id=2, electrode_id=20),
    ]
    
    sd = SpikeData(trains, neuron_attributes=neuron_attrs)
@@ -219,7 +219,7 @@ New Way (Current)
        trains,
        neuron_attributes={
            'unit_id': [1, 2],
-           'cluster_id': [10, 20]
+           'electrode_id': [10, 20]
        }
    )
    

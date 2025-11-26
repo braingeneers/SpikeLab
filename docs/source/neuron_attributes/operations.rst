@@ -118,7 +118,7 @@ When iterating over time frames, each frame inherits neuron attributes:
    # Iterate over time frames
    for frame in sd.frames(frame_size=1000.0, overlap=100.0):
        # Each frame has the same neuron attributes
-       cluster_ids = frame.get_neuron_attribute('cluster_id')
+       electrode_ids = frame.get_neuron_attribute('electrode_id')
        
        # Compute frame-specific metrics
        rates = frame.rates(bin_size=100.0)
@@ -169,12 +169,12 @@ Cluster-Based Analysis
    # Analyze each cluster separately
    df = sd.neuron_attributes.to_dataframe()
    
-   for cluster_id in df['cluster_id'].unique():
-       # Get neurons in this cluster
-       cluster_neurons = df[df['cluster_id'] == cluster_id].index.tolist()
-       sd_cluster = sd.subset(cluster_neurons)
+   for electrode_id in df['electrode_id'].unique():
+       # Get neurons on this electrode
+       electrode_neurons = df[df['electrode_id'] == electrode_id].index.tolist()
+       sd_electrode = sd.subset(electrode_neurons)
        
-       # Analyze cluster
-       print(f"Cluster {cluster_id}: {sd_cluster.N} neurons")
+       # Analyze electrode
+       print(f"Electrode {electrode_id}: {sd_electrode.N} neurons")
        rates = sd_cluster.binned_meanrate(bin_size=100.0)
 

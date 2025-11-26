@@ -23,7 +23,6 @@ class NeuronAttributes:
     Standard column names (optional but recommended):
         Core attributes:
             - unit_id: Unique identifier for each neuron
-            - cluster_id: Cluster assignment (multiple neurons can share)
             - electrode_id: Physical electrode identifier
             - channel: Recording channel number
             - firing_rate_hz: Mean firing rate in Hz
@@ -57,7 +56,6 @@ class NeuronAttributes:
     >>> # Create from dictionary
     >>> attrs = NeuronAttributes.from_dict({
     ...     'unit_id': [101, 102, 103],
-    ...     'cluster_id': [1, 1, 2],
     ...     'firing_rate_hz': [5.2, 8.1, 3.4]
     ... }, n_neurons=3)
     >>>
@@ -75,7 +73,6 @@ class NeuronAttributes:
     STANDARD_COLUMNS = {
         # Core attributes
         "unit_id",
-        "cluster_id",
         "electrode_id",
         "channel",
         "firing_rate_hz",

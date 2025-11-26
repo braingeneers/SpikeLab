@@ -418,8 +418,8 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test loading KiloSort output with two clusters.
 
         Creates 'spike_times.npy' and 'spike_clusters.npy' for two clusters,
-        loads them, and checks that the cluster_ids metadata matches the trains,
-        and that spike times are correctly converted to ms and sorted by cluster id.
+        loads them, and checks that spike times are correctly converted to ms 
+        and sorted by cluster id.
         """
         with tempfile.TemporaryDirectory() as d:
             # two clusters: 2 spikes in 0, 1 spike in 1
@@ -429,8 +429,6 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
 
             sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
-            # cluster_ids metadata should align with trains
-            self.assertEqual(len(sd.train), len(sd.metadata.get("cluster_ids", [])))
             # Expected times in ms
             all_trains_ms = [np.array([10.0, 20.0]), np.array([15.0])]
             # order by cluster id ascending
@@ -560,13 +558,12 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             self.assertEqual(sd.N, 0)
             self.assertEqual(sd.length, 0.0)
 
-    def test_kilosort_metadata_cluster_ids_alignment(self):
+    def test_kilosort_sorted_trains(self):
         """
-        Test that KiloSort cluster_ids metadata aligns with sorted trains.
+        Test that KiloSort trains are sorted by cluster id.
 
         Writes 'spike_times.npy' and 'spike_clusters.npy' with two cluster ids,
-        loads them, and checks that the cluster_ids metadata is sorted and matches
-        the order of spike trains.
+        loads them, and checks that trains are sorted in ascending cluster order.
         """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15, 30])
@@ -574,28 +571,23 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             np.save(os.path.join(d, "spike_times.npy"), spike_times)
             np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
             sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
-            # cluster_ids sorted ascending (np.unique order)
-            self.assertEqual(sd.metadata.get("cluster_ids"), [3, 5])
+            # Should have 2 trains (clusters 3 and 5)
+            self.assertEqual(sd.N, 2)
 
-    def test_kilosort_tsv_missing_columns_keeps_all(self):
+    def test_kilosort_all_clusters_loaded(self):
         """
-        Test that KiloSort loader keeps all clusters if cluster_info.tsv is missing expected columns.
+        Test that KiloSort loader loads all clusters.
 
-        Writes 'spike_times.npy', 'spike_clusters.npy', and a cluster_info.tsv file
-        without the expected columns, loads them, and checks that all clusters are kept.
+        Writes 'spike_times.npy', 'spike_clusters.npy' and checks that all
+        clusters are loaded.
         """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15])
             spike_clusters = np.array([0, 0, 1])
             np.save(os.path.join(d, "spike_times.npy"), spike_times)
             np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
-            # Create TSV without expected columns to trigger warning path
-            with open(os.path.join(d, "cluster_info.tsv"), "w") as f:
-                f.write("foo\tbar\n1\tbaz\n")
-            sd = loaders.load_spikedata_from_kilosort(
-                d, fs_Hz=1000.0, cluster_info_tsv="cluster_info.tsv"
-            )
-            # Should keep both clusters 0 and 1
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+            # Should load both clusters 0 and 1
             self.assertEqual(len(sd.train), 2)
 
     def test_kilosort_neuron_attributes_extraction(self):
@@ -664,17 +656,10 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             amplitudes = np.array([1.0, 1.2, 1.1, 0.5, 0.6])
             np.save(os.path.join(d, "amplitudes.npy"), amplitudes)
 
-            # Create cluster_info.tsv with additional metadata
-            with open(os.path.join(d, "cluster_info.tsv"), "w") as f:
-                f.write("cluster_id\tgroup\tquality_metric\n")
-                f.write("0\tgood\t0.95\n")
-                f.write("1\tgood\t0.87\n")
-
             # Load with attribute extraction
             sd = loaders.load_spikedata_from_kilosort(
                 d,
                 fs_Hz=1000.0,
-                cluster_info_tsv="cluster_info.tsv",
                 extract_attributes=True,
             )
 
@@ -688,9 +673,6 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
 
             # Verify shape
             self.assertEqual(len(attrs), 2)
-
-            # Verify cluster_id
-            self.assertEqual(list(attrs["cluster_id"]), [0, 1])
 
             # Verify channel extraction (peak channel)
             self.assertEqual(attrs.loc[0, "channel"], 2)  # template 0 peaks on ch 2

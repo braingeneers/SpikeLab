@@ -384,36 +384,31 @@ class TestKiloSortExporters(BaseExportTest):
             for a, b in zip(sd.train, sd2.train):
                 self.assertTrue(np.allclose(q(a), b))
 
-    def test_export_kilosort_custom_cluster_ids(self):
-        """Test KiloSort export with custom cluster ID assignment.
+    def test_export_kilosort_default_cluster_ids(self):
+        """Test KiloSort export with default sequential cluster IDs.
 
-        Purpose: Validates that custom cluster IDs can be assigned to units
-        instead of using the default unit index mapping.
-
-        Why useful: Sometimes you want to preserve original cluster IDs from
-        a spike sorting result, or use a specific numbering scheme that doesn't
-        start from 0. This flexibility is important for data provenance.
+        Purpose: Validates that units are assigned sequential cluster IDs
+        starting from 0.
 
         How it works:
-        1. Export with custom cluster IDs [10, 5, 7] instead of [0, 1, 2]
+        1. Export with default cluster IDs (0, 1, 2)
         2. Load the raw NumPy files directly (not through loader)
-        3. Verify that cluster IDs 10 and 5 appear with correct spike counts
-        4. Unit 0 (3 spikes) → cluster 10, Unit 1 (2 spikes) → cluster 5
-        5. Unit 2 (empty) → cluster 7 with 0 spikes (not present in arrays)
+        3. Verify that cluster IDs 0 and 1 appear with correct spike counts
+        4. Unit 0 (3 spikes) → cluster 0, Unit 1 (2 spikes) → cluster 1
+        5. Unit 2 (empty) → cluster 2 with 0 spikes (not present in arrays)
 
         This test ensures the cluster ID mapping works correctly and that
         empty units are handled properly (they don't contribute any spikes
         to the output arrays).
         """
         sd = self.make_sd()
-        # Swap cluster ids to ensure mapping is honored
         with tempfile.TemporaryDirectory() as d:
-            sd.to_kilosort(d, fs_Hz=1000.0, cluster_ids=[10, 5, 7])
+            sd.to_kilosort(d, fs_Hz=1000.0)
             times = np.load(os.path.join(d, "spike_times.npy"))
             clusters = np.load(os.path.join(d, "spike_clusters.npy"))
-            # Check that clusters contain 10 and 5, and counts match events per unit (3 and 2)
-            self.assertEqual((clusters == 10).sum(), 3)
-            self.assertEqual((clusters == 5).sum(), 2)
+            # Check that clusters contain 0 and 1, and counts match events per unit (3 and 2)
+            self.assertEqual((clusters == 0).sum(), 3)
+            self.assertEqual((clusters == 1).sum(), 2)
 
 
 class TestPickleExporters(BaseExportTest):
