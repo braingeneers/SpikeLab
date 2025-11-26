@@ -25,7 +25,8 @@ class NeuronAttributes:
             - unit_id: Unique identifier for each neuron
             - electrode_id: Physical electrode identifier
             - channel: Recording channel number
-            - firing_rate_hz: Mean firing rate in Hz
+            - unit_x, unit_y: Unit position coordinates (μm) in 2D
+
 
         Quality metrics:
             - snr: Signal-to-noise ratio
@@ -34,8 +35,7 @@ class NeuronAttributes:
             - isi_violations: ISI violation rate
 
         Spatial location:
-            - unit_x, unit_y, unit_z: Unit position coordinates (μm)
-            - electrode_x, electrode_y, electrode_z: Electrode coordinates (μm)
+            - electrode_x, electrode_y: Electrode coordinates (μm) in 2D
 
         Note: Store spatial coordinates as separate x, y, z columns for best
         compatibility with pandas operations. Combine using np.column_stack()
@@ -811,3 +811,17 @@ class NeuronAttributes:
             "backbone_indices": backbone_units,
             "frac_per_burst": frac_per_burst,
         }
+
+class ComputeMetrics:
+    """
+    Class for computing metrics on NeuronAttributes.
+    - firing_rate_hz: Mean firing rate in Hz
+
+    """
+    def __init__(self, neuron_attributes: NeuronAttributes):
+        self.neuron_attributes = neuron_attributes
+    def compute_firing_rates(self, unit: Literal["Hz", "kHz"] = "Hz") -> np.ndarray:
+        """
+        Compute mean firing rates for all neurons and store in neuron_attributes.
+        """
+        return self.neuron_attributes.compute_firing_rates(unit)
