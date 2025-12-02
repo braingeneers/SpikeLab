@@ -23,8 +23,6 @@ def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
     [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
         comparison of methods and application to the study of retinal waves. Journal of
         Neuroscience 34:43, 14288–14303 (2014).
-
-    Refactor 2025-09: behavior unchanged; helpers colocated below for clarity.
     """
     if length is None:
         length = float(max(tA[-1], tB[-1]))
@@ -53,8 +51,6 @@ def _sttc_ta(tA, delt: float, tmax: float) -> float:
     """
     Helper function for spike time tiling coefficients: calculate the total amount of
     time within a range delt of spikes within the given sorted list of spike times tA.
-
-    Refactor 2025-09: definition colocated here for clarity; behavior unchanged.
     """
     if len(tA) == 0:
         return 0.0
@@ -68,8 +64,6 @@ def _sttc_na(tA, tB, delt: float) -> int:
     Helper function for spike time tiling coefficients: given two sorted lists of spike
     times, calculate the number of spikes in spike train A within delt of any spike in
     spike train B.
-
-    Refactor 2025-09: definition colocated here for clarity; behavior unchanged.
     """
     if len(tB) == 0:
         return 0
