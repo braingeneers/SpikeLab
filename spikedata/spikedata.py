@@ -41,6 +41,7 @@ from typing import Literal, Optional, Union, List, Tuple
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
+from scipy.stats import norm
 
 from .utils import (
     spike_time_tiling,
@@ -51,18 +52,14 @@ from .utils import (
     _resampled_isi,
     _train_from_i_t_list,
     swap,
-    randomize,
-    get_pop_rate,
-    get_bursts,
+    randomize
 )
 
 __all__ = [
     "SpikeData",
     "spike_time_tiling",
     "swap",
-    "randomize",
-    "get_pop_rate",
-    "get_bursts",
+    "randomize"
 ]
 
 
@@ -923,3 +920,163 @@ class SpikeData:
             time_unit=time_unit,  # type: ignore[arg-type]
             cluster_ids=cluster_ids,
         )
+
+    def get_pop_rate(self, SQUARE_WIDTH, GAUSS_SIGMA, raster_bin_size_ms=20.0):
+        """
+        Compute population firing rate by smoothing the summed spike counts.
+
+        First apply a moving-average (square) window, then apply a Gaussian
+        smoothing window parameterized by GAUSS_SIGMA (in samples).
+
+        Args:
+            SQUARE_WIDTH (int): Square window width for calculating pop_rate
+            GUASS_SIGMA (int): Gaussian window sigma for calculating pop_rate
+            raster_bin_size_ms (float): Bin size for calculating population rate in ms 
+        """
+        t_spk_mat = self.sparse_raster(raster_bin_size_ms)  # Shape: (neurons, time_bins)
+        summed_spikes = np.asarray(t_spk_mat.sum(axis=0)).flatten()  # Sum once across neurons dimension
+
+        # Pass square window
+        if SQUARE_WIDTH > 0:
+            square_smooth_summed_spike = np.convolve(
+                summed_spikes,
+                np.ones(SQUARE_WIDTH) / SQUARE_WIDTH,
+                mode="same",
+            )
+        else:
+            square_smooth_summed_spike = summed_spikes
+
+        # Pass gaussian window
+        if GAUSS_SIGMA > 0:
+            gauss_window = norm.pdf(
+                np.arange(-3 * GAUSS_SIGMA, 3 * GAUSS_SIGMA + 1), 0, GAUSS_SIGMA
+            )
+            pop_rate = np.convolve(
+                square_smooth_summed_spike,
+                gauss_window / np.sum(gauss_window),
+                mode="same",
+            )
+        else:
+            pop_rate = square_smooth_summed_spike
+
+        return pop_rate
+
+    def get_bursts(self, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH,
+    SQUARE_WIDTH=100, GAUSS_SIGMA=20, ACC_SQUARE_WIDTH=5, ACC_GAUSS_SIGMA=5,
+    raster_bin_size_ms=20.0, PEAK_TO_TROUGH=True
+    ):
+        """
+        Detect bursts from a population rate vector using thresholded peak finding and
+        amplitude-scaled edge detection.
+
+        Args:
+            THR_BURST (float): Threshold multiplier for burst peak detection 
+            MIN_BURST_DIFF (int): Minimum time between detected bursts
+            BURST_EDGE_MULT_THRESH (float): Threshold multiplier for burst edge detection
+            SQUARE_WIDTH (int): Square window width for calculating pop_rate
+            GUASS_SIGMA (int): gaussian window sigma for calculating pop_rate
+            ACC_SQUARE_WIDTH (int): square window width for calculating pop_rate_acc
+            ACC_GUASS_SIGMA (int): gaussian window sigma for calculating pop_rate_acc
+            raster_bin_size_ms (int): bin size for calculating population rate in ms
+            PEAK_TO_TROUGH (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)  
+
+        Note:
+            - Using the peak-to-zero calculations may result in several bursts being detected at one peak
+            - In the case that duplicate bursts are detected, prints an error with potential fixes
+
+        Returns (tburst, edges, peak_amp).
+        """
+        # Get pop rates and rms
+        pop_rate = self.get_pop_rate(SQUARE_WIDTH, GAUSS_SIGMA, raster_bin_size_ms=raster_bin_size_ms)
+        pop_rate_acc = self.get_pop_rate(ACC_SQUARE_WIDTH, ACC_GAUSS_SIGMA, raster_bin_size_ms=raster_bin_size_ms)
+        pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+
+        # Find peaks
+        peaks, _ = signal.find_peaks(
+            pop_rate, height=pop_rms * THR_BURST, distance=MIN_BURST_DIFF
+        )
+        peak_amp = pop_rate[peaks]
+
+        edges = np.full((len(peaks), 2), np.nan)
+        tburst = np.full(len(peaks), np.nan)
+
+        # Helper function
+        def trough_between(i0, i1):
+            """Find the minimum value (trough) between two indices."""
+            L, R = int(i0), int(i1)
+            if R - L <= 1:
+                return None
+            seg = pop_rate[L:R]
+            return L + int(np.argmin(seg))
+
+        for burst in range(len(peaks)):
+            pk = int(peaks[burst])
+            pk_val = float(pop_rate[pk])
+                
+            # Determine baseline
+            if PEAK_TO_TROUGH: # Peak-to-trough case
+                # Find troughs to left and right
+                tL = trough_between(peaks[burst-1], pk) if burst > 0 else None
+                tR = trough_between(pk, peaks[burst+1]) if burst < len(peaks) - 1 else None
+
+                # If only one trough is found, use it
+                if tL is None and tR is None:
+                    continue
+                elif tL is None:
+                    ti_val = float(pop_rate[tR])
+                elif tR is None:
+                    ti_val = float(pop_rate[tL])
+                # If two troughs are found, use higher one
+                # This is expected except at the edges
+                else:
+                    tL_val = float(pop_rate[tL])
+                    tR_val = float(pop_rate[tR])
+                    ti_val = max(tL_val, tR_val)
+            else: # Peak-to-zero case
+                ti_val = 0.0
+            
+            # Calculate edge threshold
+            delta = max(0.0, pk_val - ti_val)
+            edge_level = ti_val + BURST_EDGE_MULT_THRESH * delta
+                    
+            # Find edges where signal crosses threshold
+            frames_below_thresh = np.where(pop_rate < edge_level)[0]
+            rel_frames = pk - frames_below_thresh
+
+            if (
+                len(rel_frames) == 0
+                or len(rel_frames[rel_frames > 0]) == 0
+                or len(rel_frames[rel_frames < 0]) == 0
+            ):
+                continue
+
+            rel_burst_start = np.min(rel_frames[rel_frames > 0])
+            rel_burst_end = np.max(rel_frames[rel_frames < 0])
+
+            edges[burst, :] = [peaks[burst] - rel_burst_start, peaks[burst] - rel_burst_end]
+
+            # Refine peak location using accurate population rate
+            if len(pop_rate_acc) == len(pop_rate):
+                segment = pop_rate_acc[int(edges[burst, 0]) : int(edges[burst, 1])]
+                acc_peak = np.argmax(segment)
+                peak_val = np.max(segment)
+                tburst[burst] = acc_peak + edges[burst, 0]
+                peak_amp[burst] = peak_val
+            else:
+                tburst[burst] = peaks[burst]
+
+        # Filter out invalid bursts
+        edges = edges[~np.isnan(tburst), :]
+        peak_amp = peak_amp[~np.isnan(tburst)]
+        tburst = tburst[~np.isnan(tburst)]
+
+        # Check for duplicate bursts
+        unique_bursts, counts = np.unique(tburst, return_counts=True)
+        duplicates = unique_bursts[counts > 1]
+        if(len(duplicates) != 0):
+            print(f"\n{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}.\n"+
+            f"This is likely due identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True.\n"+
+            f"Otherwise, consider increasing BURST_EDGE_MULT_THRESH if this burst duration is longer than you would expect for your data.\n"+
+            f"Alternatively, increase MIN_BURST_DIFF to prevent two bursts from being detected too close to each other.\n")
+
+        return tburst, edges, peak_amp
