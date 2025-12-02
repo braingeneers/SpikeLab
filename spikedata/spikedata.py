@@ -420,6 +420,68 @@ class SpikeData:
             raw_data=self.raw_data,
         )
 
+    def neuron_to_channel_map(
+        self, channel_attr: Optional[str] = None
+    ) -> dict[int, int]:
+        """
+        Return a mapping from neuron indices to channel indices.
+
+        Extracts channel information from neuron_attributes. If channel_attr is not
+        specified, attempts to find channel information using common attribute names:
+        'channel', 'channel_id', 'channel_index', 'ch', 'channel_idx'.
+
+        Args:
+            channel_attr: Optional name of the attribute in neuron_attributes that
+                contains the channel index. If None, searches for common attribute names.
+
+        Returns:
+            dict mapping neuron index (int) to channel index (int). If neuron_attributes
+            is None or no channel information is found, returns an empty dict.
+
+        Raises:
+            ValueError: If neuron_attributes is None and channel information is required,
+                or if the specified channel_attr doesn't exist for all neurons.
+
+        Example:
+            >>> from dataclasses import dataclass
+            >>> @dataclass
+            ... class NeuronAttrs:
+            ...     channel: int
+            >>> attrs = [NeuronAttrs(channel=i % 4) for i in range(10)]
+            >>> sd = SpikeData([[]] * 10, neuron_attributes=attrs, length=100.0)
+            >>> mapping = sd.neuron_to_channel_map()
+            >>> mapping[0]  # neuron 0 -> channel 0
+            0
+            >>> mapping[5]  # neuron 5 -> channel 1
+            1
+        """
+        if self.neuron_attributes is None or self.N == 0:
+            return {}
+
+        # Common attribute names to try if channel_attr is not specified
+        common_names = ["channel", "channel_id", "channel_index", "ch", "channel_idx"]
+
+        # Determine which attribute to use
+        attr_name = channel_attr
+        if attr_name is None:
+            # Try to find a channel attribute automatically
+            for name in common_names:
+                if hasattr(self.neuron_attributes[0], name):
+                    attr_name = name
+                    break
+            if attr_name is None:
+                return {}
+
+        # Build the mapping
+        mapping = {}
+        _missing = object()
+        for i in range(self.N):
+            channel_val = getattr(self.neuron_attributes[i], attr_name, _missing)
+            if channel_val is not _missing and channel_val is not None:
+                mapping[i] = int(channel_val)
+
+        return mapping
+
     def subtime(self, start, end):
         """
         Return a new SpikeData with only spikes in a time range, closed on top but open
@@ -545,6 +607,70 @@ class SpikeData:
         Refactor 2025-09: unchanged behavior.
         """
         return self.sparse_raster(bin_size).toarray()
+
+    def channel_raster(self, bin_size=20.0, channel_attr: Optional[str] = None):
+        """
+        Create a raster aggregated by channel instead of neuron.
+
+        Returns a dense array where entry (c,j) is the total number of spikes from all
+        neurons on channel c in bin j. Channels are determined from neuron_attributes
+        using the same logic as neuron_to_channel_map().
+
+        Args:
+            bin_size: Bin size in milliseconds (same as raster()).
+            channel_attr: Optional name of the attribute in neuron_attributes that
+                contains the channel index. If None, searches for common attribute names.
+                See neuron_to_channel_map() for details.
+
+        Returns:
+            numpy.ndarray of shape (n_channels, n_bins) where n_channels is the number
+            of unique channels found.
+
+        Raises:
+            ValueError: If neuron_attributes is None or no channel information can be found.
+
+        Example:
+            >>> from dataclasses import dataclass
+            >>> @dataclass
+            ... class NeuronAttrs:
+            ...     channel: int
+            >>> # Create 6 neurons: 0,1 on channel 0; 2,3 on channel 1; 4,5 on channel 2
+            >>> attrs = [NeuronAttrs(channel=i // 2) for i in range(6)]
+            >>> trains = [[10.0, 20.0], [15.0], [25.0], [30.0], [35.0], [40.0]]
+            >>> sd = SpikeData(trains, neuron_attributes=attrs, length=50.0)
+            >>> ch_raster = sd.channel_raster(bin_size=10.0)
+            >>> ch_raster.shape  # (3 channels, time bins)
+            (3, ...)
+            >>> ch_raster[0, :].sum()  # Channel 0 should have 3 spikes total
+            3
+        """
+        # Get neuron-to-channel mapping
+        neuron_to_channel = self.neuron_to_channel_map(channel_attr)
+        if not neuron_to_channel:
+            raise ValueError(
+                "No channel information found in neuron_attributes. "
+                "Ensure neuron_attributes contains channel information or specify channel_attr."
+            )
+
+        # Get the neuron raster
+        neuron_raster = self.raster(bin_size)
+
+        # Find unique channels and create reverse mapping (channel -> position)
+        unique_channels = sorted(set(neuron_to_channel.values()))
+        n_channels = len(unique_channels)
+        n_bins = neuron_raster.shape[1]
+        channel_to_pos = {ch: pos for pos, ch in enumerate(unique_channels)}
+
+        # Initialize channel raster
+        channel_raster = np.zeros((n_channels, n_bins), dtype=neuron_raster.dtype)
+
+        # Aggregate spikes by channel
+        for neuron_idx, channel_idx in neuron_to_channel.items():
+            if neuron_idx < neuron_raster.shape[0]:
+                channel_pos = channel_to_pos[channel_idx]
+                channel_raster[channel_pos, :] += neuron_raster[neuron_idx, :]
+
+        return channel_raster
 
     def interspike_intervals(self):
         """Produce a list of arrays of interspike intervals per unit.
