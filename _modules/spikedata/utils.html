@@ -249,8 +249,6 @@
 <span class="sd">    [1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</span>
 <span class="sd">        comparison of methods and application to the study of retinal waves. Journal of</span>
 <span class="sd">        Neuroscience 34:43, 14288–14303 (2014).</span>
-
-<span class="sd">    Refactor 2025-09: behavior unchanged; helpers colocated below for clarity.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tB</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
@@ -280,8 +278,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Helper function for spike time tiling coefficients: calculate the total amount of</span>
 <span class="sd">    time within a range delt of spikes within the given sorted list of spike times tA.</span>
-
-<span class="sd">    Refactor 2025-09: definition colocated here for clarity; behavior unchanged.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
@@ -295,8 +291,6 @@
 <span class="sd">    Helper function for spike time tiling coefficients: given two sorted lists of spike</span>
 <span class="sd">    times, calculate the number of spikes in spike train A within delt of any spike in</span>
 <span class="sd">    spike train B.</span>
-
-<span class="sd">    Refactor 2025-09: definition colocated here for clarity; behavior unchanged.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">0</span>

@@ -269,7 +269,6 @@ are converted to milliseconds using the sample rate saved in the Neuron object.<
 <dd><p>Create a SpikeData object with N total units based on lists of unit indices and
 spike times. If N is not provided, it is set to one more than the maximum index.</p>
 <p>All metadata parameters of the regular constructor are accepted.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -281,7 +280,6 @@ where T is a number of time bins.</p>
 evenly spaced within each bin. For example, if a unit fires 3 times in a 10 ms
 bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.</p>
 <p>All metadata parameters of the regular constructor are accepted.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -291,7 +289,6 @@ bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.</p>
 events, each an (index, time) pair. If N is not provided, it is
 set to one more than the maximum index.</p>
 <p>All metadata parameters of the regular constructor are accepted.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -300,7 +297,6 @@ set to one more than the maximum index.</p>
 <dd><p>Create a SpikeData object from a list of neo.SpikeTrain objects. The spike times
 can be in any units, as they will be converted to regular np.arrays in units of
 milliseconds.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -312,7 +308,6 @@ electrophysiological data formatted as an array with shape (channels, time).</p>
 filter with passband 300 Hz to 6 kHz. To use different filter parameters, pass a
 dictionary, which will be passed as keyword arguments to butter_filter(). If
 filter is falsy, no filtering is done.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -361,8 +356,6 @@ with a fixed <cite>overlap</cite>.</p>
 <dd><p>Quantize time into intervals of bin_size and counts the number of events in
 each bin, considered as a lower half-open interval of times, with the exception
 that events at time precisely zero will be included in the first bin.</p>
-<p>Refactor 2025-09: unchanged behavior. Can be paired with external smoothing to
-replace the removed population_firing_rate utility.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -371,7 +364,6 @@ replace the removed population_firing_rate utility.</p>
 <dd><p>Calculate the mean firing rate across the population in each time bin.</p>
 <p>The rate is calculated as the number of events in each bin divided by the bin
 size and number of units. The unit may be either <cite>Hz</cite> or <cite>kHz</cite> (default).</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -379,7 +371,6 @@ size and number of units. The unit may be either <cite>Hz</cite> or <cite>kHz</c
 <span class="sig-name descname"><span class="pre">rates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kHz'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.rates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.rates" title="Link to this definition"></a></dt>
 <dd><p>Calculate the mean firing rate of each neuron as an average number of events per
 time over the length of the data. The unit may be <cite>Hz</cite> or <cite>kHz</cite> (default).</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -387,7 +378,6 @@ time over the length of the data. The unit may be <cite>Hz</cite> or <cite>kHz</
 <span class="sig-name descname"><span class="pre">resampled_isi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.resampled_isi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.resampled_isi" title="Link to this definition"></a></dt>
 <dd><p>Calculate firing rate of each unit at the given times by calculating the
 interspike intervals and interpolating their inverse.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -399,7 +389,6 @@ their indices or by an ID stored under a given key in the neuron_attributes.</p>
 order in the unit list (which is treated as a set).</p>
 <p>If IDs are not unique, every neuron which matches is included in the output.
 Neurons whose neuron_attributes entry does not have the key are always excluded.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -452,7 +441,6 @@ methods. This is to ensure no overlap between adjacent slices.</p>
 end. They can also be None or Ellipsis, in which case that end of the data is
 not truncated. All metadata and neuron data are propagated, while raw data is
 sliced to the same range of times, including all samples in the closed interval.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -469,7 +457,6 @@ self.subset().</p>
 <dd><p>Append the spike times from another SpikeData object to this one, optionally
 offsetting them by a given amount from the end of the current data.</p>
 <p>The two SpikeData objects must have the same number of neurons.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -479,7 +466,6 @@ offsetting them by a given amount from the end of the current data.</p>
 times unit i fired in bin j.</p>
 <p>Bins are left-open and right-closed intervals except the first, which will
 capture any spikes occurring exactly at t=0.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -489,7 +475,6 @@ capture any spikes occurring exactly at t=0.</p>
 times cell i fired in bin j.</p>
 <p>Bins are left-open and right-closed intervals except the first, which will
 capture any spikes occurring exactly at t=0.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -538,7 +523,6 @@ of unique channels found.</p>
 <dt class="sig sig-object py" id="spikedata.SpikeData.interspike_intervals">
 <span class="sig-name descname"><span class="pre">interspike_intervals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.interspike_intervals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.interspike_intervals" title="Link to this definition"></a></dt>
 <dd><p>Produce a list of arrays of interspike intervals per unit.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -547,7 +531,6 @@ of unique channels found.</p>
 <dd><p>Add the units from another SpikeData object to this one. The new units are
 assigned indices starting from the end of the current data. If the new units
 have a longer spike train, it is truncated to the length of the current data.</p>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -562,7 +545,6 @@ times sorted in ascending order.</p>
 of Neuroscience 34:43, 14288–14303 (2014).</p>
 </dd>
 </dl>
-<p>Refactor 2025-09: behavior unchanged; helpers are colocated below.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -577,7 +559,6 @@ Spike trains are lists of spike times sorted in ascending order.</p>
 of Neuroscience 34:43, 14288–14303 (2014).</p>
 </dd>
 </dl>
-<p>Refactor 2025-09: behavior unchanged; uses reorganized helpers.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -597,7 +578,6 @@ in each spike train within a window.</p>
 from a time to each spike in the train</p>
 </dd>
 </dl>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -615,7 +595,6 @@ from a time to each spike in the train</p>
 <dd class="field-even"><p>2d list, each row is a list of latencies per neuron</p>
 </dd>
 </dl>
-<p>Refactor 2025-09: unchanged behavior.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -803,7 +782,6 @@ times sorted in ascending order.</p>
 Neuroscience 34:43, 14288–14303 (2014).</p>
 </dd>
 </dl>
-<p>Refactor 2025-09: behavior unchanged; helpers colocated below for clarity.</p>
 </dd></dl>
 
 <dl class="py function">
