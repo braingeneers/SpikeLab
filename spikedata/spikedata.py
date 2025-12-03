@@ -115,8 +115,6 @@ class SpikeData:
         spike times. If N is not provided, it is set to one more than the maximum index.
 
         All metadata parameters of the regular constructor are accepted.
-
-        Refactor 2025-09: unchanged behavior.
         """
         return SpikeData(_train_from_i_t_list(idces, times, N), N=N, **kwargs)
 
@@ -131,8 +129,6 @@ class SpikeData:
         bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.
 
         All metadata parameters of the regular constructor are accepted.
-
-        Refactor 2025-09: unchanged behavior.
         """
         N, T = raster.shape
         train = [[] for _ in range(N)]
@@ -152,8 +148,6 @@ class SpikeData:
         set to one more than the maximum index.
 
         All metadata parameters of the regular constructor are accepted.
-
-        Refactor 2025-09: unchanged behavior.
         """
         idces, times = [], []
         for i, t in events:
@@ -167,8 +161,6 @@ class SpikeData:
         Create a SpikeData object from a list of neo.SpikeTrain objects. The spike times
         can be in any units, as they will be converted to regular np.arrays in units of
         milliseconds.
-
-        Refactor 2025-09: unchanged behavior.
         """
         # This is done in a weird way that involves an extra copy of the data because
         # there's no way to convert the units without modifying the object or importing
@@ -198,8 +190,6 @@ class SpikeData:
         filter with passband 300 Hz to 6 kHz. To use different filter parameters, pass a
         dictionary, which will be passed as keyword arguments to butter_filter(). If
         filter is falsy, no filtering is done.
-
-        Refactor 2025-09: unchanged behavior.
         """
         if filter:
             if filter is True:
@@ -332,8 +322,6 @@ class SpikeData:
         each bin, considered as a lower half-open interval of times, with the exception
         that events at time precisely zero will be included in the first bin.
 
-        Refactor 2025-09: unchanged behavior. Can be paired with external smoothing to
-        replace the removed population_firing_rate utility.
         """
         # sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array
         return np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
@@ -345,7 +333,6 @@ class SpikeData:
         The rate is calculated as the number of events in each bin divided by the bin
         size and number of units. The unit may be either `Hz` or `kHz` (default).
 
-        Refactor 2025-09: unchanged behavior.
         """
         binned_rate = self.binned(bin_size) / self.N / bin_size
         if unit == "Hz":
@@ -359,8 +346,6 @@ class SpikeData:
         """
         Calculate the mean firing rate of each neuron as an average number of events per
         time over the length of the data. The unit may be `Hz` or `kHz` (default).
-
-        Refactor 2025-09: unchanged behavior.
         """
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
@@ -374,8 +359,6 @@ class SpikeData:
         """
         Calculate firing rate of each unit at the given times by calculating the
         interspike intervals and interpolating their inverse.
-
-        Refactor 2025-09: unchanged behavior.
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
@@ -389,8 +372,6 @@ class SpikeData:
 
         If IDs are not unique, every neuron which matches is included in the output.
         Neurons whose neuron_attributes entry does not have the key are always excluded.
-
-        Refactor 2025-09: unchanged behavior.
         """
         if isinstance(units, int):
             units = [units]
@@ -496,7 +477,6 @@ class SpikeData:
         not truncated. All metadata and neuron data are propagated, while raw data is
         sliced to the same range of times, including all samples in the closed interval.
 
-        Refactor 2025-09: unchanged behavior.
         """
         if start is None or start is Ellipsis:
             start = 0
@@ -545,8 +525,6 @@ class SpikeData:
         offsetting them by a given amount from the end of the current data.
 
         The two SpikeData objects must have the same number of neurons.
-
-        Refactor 2025-09: unchanged behavior.
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
@@ -577,8 +555,6 @@ class SpikeData:
 
         Bins are left-open and right-closed intervals except the first, which will
         capture any spikes occurring exactly at t=0.
-
-        Refactor 2025-09: unchanged behavior.
         """
         # indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
         #     int
@@ -606,8 +582,6 @@ class SpikeData:
 
         Bins are left-open and right-closed intervals except the first, which will
         capture any spikes occurring exactly at t=0.
-
-        Refactor 2025-09: unchanged behavior.
         """
         return self.sparse_raster(bin_size).toarray()
 
@@ -676,10 +650,7 @@ class SpikeData:
         return channel_raster
 
     def interspike_intervals(self):
-        """Produce a list of arrays of interspike intervals per unit.
-
-        Refactor 2025-09: unchanged behavior.
-        """
+        """Produce a list of arrays of interspike intervals per unit."""
         return [np.diff(ts) for ts in self.train]
 
     def concatenate_spike_data(self, sd):
@@ -687,8 +658,6 @@ class SpikeData:
         Add the units from another SpikeData object to this one. The new units are
         assigned indices starting from the end of the current data. If the new units
         have a longer spike train, it is truncated to the length of the current data.
-
-        Refactor 2025-09: unchanged behavior.
         """
         if sd.length != self.length:
             sd = sd.subtime(0, self.length)
@@ -715,8 +684,6 @@ class SpikeData:
         [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
             comparison of methods and application to the study of retinal waves. Jouranl
             of Neuroscience 34:43, 14288–14303 (2014).
-
-        Refactor 2025-09: behavior unchanged; helpers are colocated below.
         """
         T = self.length
         ts = [_sttc_ta(ts, delt, T) / T for ts in self.train]
@@ -739,8 +706,6 @@ class SpikeData:
         [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
             comparison of methods and application to the study of retinal waves. Jouranl
             of Neuroscience 34:43, 14288–14303 (2014).
-
-        Refactor 2025-09: behavior unchanged; uses reorganized helpers.
         """
         return spike_time_tiling(self.train[i], self.train[j], delt, self.length)
 
@@ -753,8 +718,6 @@ class SpikeData:
         :param window_ms: window in ms
         :return: 2d list, each row is a list of latencies
                         from a time to each spike in the train
-
-        Refactor 2025-09: unchanged behavior.
         """
         latencies = []
         if len(times) == 0:
@@ -787,8 +750,6 @@ class SpikeData:
         :param i: index of the unit
         :param window_ms: window in ms
         :return: 2d list, each row is a list of latencies per neuron
-
-        Refactor 2025-09: unchanged behavior.
         """
         return self.latencies(self.train[i], window_ms)
 
