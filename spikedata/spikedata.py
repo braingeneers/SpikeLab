@@ -1,36 +1,5 @@
 """
 SpikeData core module.
-
-Refactor (2025-09): API simplification and STTC reorganization
-------------------------------------------------------------
-This module was refactored to streamline the public API and colocate related
-spike time tiling (STTC) helpers. The following previously exported items were
-removed to reduce surface area and will be replaced by focused utilities:
-
-- Nest/NEST features: NestIDNeuronAttributes, SpikeData.from_nest
-- MuscleBeachTools: SpikeData.from_mbt_neurons
-- ISI analytics: SpikeData.isi_skewness, SpikeData.isi_log_histogram,
-  SpikeData.isi_threshold_cma
-- Burst/avalanche/DCC: SpikeData.burstiness_index, SpikeData.avalanches,
-  SpikeData.avalanche_duration_size, SpikeData.deviation_from_criticality,
-  DCCResult, _p_and_alpha
-- Randomization: SpikeData.randomized, randomize_raster, randomize_raster_greedy,
-  randomize_raster_okun, _okun_swap, best_effort_sample
-- Rates/correlations/hist utils: population_firing_rate (function and method),
-  fano_factors, pearson, cumulative_moving_average, burst_detection
-
-Reorganization:
-- STTC helpers `_sttc_ta` and `_sttc_na` are colocated with the public
-  `spike_time_tiling` function for clarity. Behavior is unchanged.
-
-Notes for users migrating from older versions:
-- Population rate: use `SpikeData.binned(bin_size)` and smooth externally
-  (e.g., `np.convolve`) to reproduce prior behavior.
-- Pairwise correlations: compute with your preferred method (e.g., NumPy or
-  SciPy) on `SpikeData.raster()` output.
-- Burst-related functionality will be provided by replacement modules.
-
-No behavior changes were made to remaining APIs unless noted in their docstrings.
 """
 
 import heapq
@@ -73,11 +42,6 @@ class SpikeData:
     This class provides a way to load, process, and analyze spike data from different
     input types, including lists of indices and times, lists of channel-time pairs,
     or prebuilt spike trains.
-
-    Refactor 2025-09:
-    - Removed niche/deprecated features (nest/mbt constructors, burst/avalanche/DCC,
-      randomization, legacy correlation/utilities). Core loading, binning, rates,
-      and STTC functionality remain unchanged.
 
     Each instance of SpikeData has the following attributes:
 

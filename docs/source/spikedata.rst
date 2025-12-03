@@ -6,7 +6,6 @@ Overview
 
 The ``SpikeData`` class provides a unified, extensible interface for representing, manipulating, and analyzing neuronal spike train data. It is designed to support a wide range of neuroscience data analysis workflows, with a focus on clarity, performance, and interoperability.
 
-The 2025-09 refactor streamlines the API, focusing on core spike train operations and removing legacy or niche features.
 
 Key Features
 ^^^^^^^^^^^^
@@ -34,19 +33,3 @@ Class Attributes
    migration_tips
 
 For detailed API documentation with docstrings, see the :doc:`api/index`.
-
-
-API Changes in 2025-09 Refactor
---------------------------------
-
-Removed/Deprecated
-^^^^^^^^^^^^^^^^^^
-
-The following features were removed in the 2025-09 refactor:
-
-* NEST/MuscleBeachTools integration (``NestIDNeuronAttributes``, ``from_nest``, ``from_mbt_neurons``)
-* ISI analytics (``isi_skewness``, ``isi_log_histogram``, ``isi_threshold_cma``)
-* Burst/avalanche/DCC analysis (``burstiness_index``, ``avalanches``, ``avalanche_duration_size``, ``deviation_from_criticality``, ``DCCResult``, ``_p_and_alpha``)
-* Randomization utilities (``randomized``, ``randomize_raster``, ``randomize_raster_greedy``, ``randomize_raster_okun``, ``_okun_swap``, ``best_effort_sample``)
-* Population/correlation/histogram utilities (``population_firing_rate``, ``fano_factors``, ``pearson``, ``cumulative_moving_average``, ``burst_detection``)
-
