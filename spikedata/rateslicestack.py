@@ -1,7 +1,32 @@
 import SpikeData
 import RateData
 import numpy as np
+from scipy import signal
+def compute_cross_correlation(ref_rate, comp_rate):
+        """
+        Compute normalized cross correlation between two firing rate signals.
+        
+        Parameters:
+        -----------
+        ref_rate : array
+            Reference firing rate signal (1D)
+        comp_rate : array
+            Comparison firing rate signal (1D)
+            
+        Returns:
+        --------
+        max_corr : float
+            Maximum correlation coefficient
+        """
+        # compute cross correlation
+        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
+            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
+            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
 
+        # obtain maximum correlation
+        max_corr = np.max(r)
+        
+        return max_corr
 
 class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
@@ -195,3 +220,81 @@ class RateSliceStack:
     #     reordered_burst_matrices = burst_matrices[:,neurons_ids_in_order,:]
     #     #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
     #     return reordered_burst_matrices, neurons_ids_in_order
+   
+
+
+    def get_burst_to_burst_corr_from_stack(self, MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3):
+        """
+        Compute burst-to-burst correlation using RateSliceStack object.
+
+        Using Min_rate since this doesn't have t_spike matrix
+        
+        Parameters:
+        -----------
+        rate_slice_stack : RateSliceStack
+            Your RateSliceStack object containing event_stack (N x T x B)
+        MIN_RATE_THRESHOLD : float
+            Minimum mean firing rate to consider a burst valid for that neuron
+        MIN_FRAC : float
+            Maximum fraction of bursts that can be skipped (default 0.3 = 30%)
+            
+        Returns:
+        --------
+        all_burst_corr_scores : array, shape (N, B, B)
+            Pairwise correlation scores between all burst pairs for each neuron
+        av_burst_corr_scores : array, shape (N,)
+            Average correlation per neuron across all valid burst pairs
+        """
+        # Get dimensions
+        event_stack = self.event_stack
+        num_neurons = event_stack.shape[0]  # N
+        num_time_bins = event_stack.shape[1]  # T
+        num_bursts = event_stack.shape[2]  # B
+        
+        # Initialize result matrices
+        av_burst_corr_scores = np.full(num_neurons, np.nan)
+        all_burst_corr_scores = np.full((num_neurons, num_bursts, num_bursts), np.nan)
+        
+        # For each neuron
+        for neuron in range(num_neurons):
+            # Make list of comparison bursts
+            comp_bursts = list(range(num_bursts))
+            
+            # Counter for skipped bursts
+            counter = 0
+            
+            # For each reference burst
+            for ref_b in range(num_bursts):
+                # Remove ref burst from comp bursts
+                comp_bursts = [b for b in comp_bursts if b != ref_b]
+                
+                # Extract firing rate for this neuron in this burst
+                # Shape: (T,) - 1D array of firing rates over time
+                ref_rate = event_stack[neuron, :, ref_b]
+                
+                # Check if mean firing rate is above threshold
+                if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
+                    counter += 1
+                    continue
+                
+                # For each comparison burst
+                for comp_b in comp_bursts:
+                    # Extract firing rate for this neuron in comparison burst
+                    comp_rate = event_stack[neuron, :, comp_b]
+                    
+                    # Check if mean firing rate is above threshold
+                    if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
+                        continue
+                    
+                    # Compute cross correlation
+                    max_corr = compute_cross_correlation(ref_rate, comp_rate)
+                    
+                    # Store results
+                    all_burst_corr_scores[neuron, comp_b, ref_b] = max_corr
+            
+            # If less than MIN_FRAC bursts were skipped
+            if counter / num_bursts <= MIN_FRAC:
+                # Average results over all pairs
+                av_burst_corr_scores[neuron] = np.nanmean(all_burst_corr_scores[neuron, :, :])
+        
+        return all_burst_corr_scores, av_burst_corr_scores

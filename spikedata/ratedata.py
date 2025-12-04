@@ -1,6 +1,7 @@
 import numpy as np
 
 
+
 class RateData:
     # It's like SpikeData but its underlying data is instaneous firing rates, not
     # sparse spike matrices.
@@ -13,8 +14,8 @@ class RateData:
     def __init__(
         self,
         inst_Frate_data,
-        neuron_ids,
         times,
+        neuron_ids = None,
         # subset_neurons = [],
         # subset_time_range = [],
         N=None,
@@ -24,19 +25,20 @@ class RateData:
             raise ValueError(
                 f"rates must be a 2D array, got shape {self.inst_Frate_data.shape}"
             )
-        if len(neuron_ids) != inst_Frate_data.shape[0]:
-            raise ValueError(
-                "Number of rows in inst_Frate_data must be the same as length of neuron_ids"
-            )
+        
         if len(times) != inst_Frate_data.shape[1]:
             raise ValueError(
                 "Number of columns in inst_Frate_data must be the same as length of times"
             )
+        
 
         if any(x < 0 for x in times):
             raise ValueError("No negative values are allowed in times.")
         if not isinstance(times, np.ndarray):
             times = np.array(times)
+        
+        if neuron_ids is None:
+            neuron_ids = np.arange(inst_Frate_data.shape[0])
 
         if not isinstance(neuron_ids, np.ndarray):
             neuron_ids = np.array(neuron_ids)
@@ -64,22 +66,29 @@ class RateData:
         Returns:
             RateData: New RateData object containing only the specified neurons
         """
-        neuron_indices = []
+        # neuron_indices = []
 
-        for i in range(len(units)):
-            curr_neuron_id = units[i]
-            for j in range(len(self.neuron_ids)):
-                if self.neuron_ids[j] == curr_neuron_id:
-                    neuron_indices.append(j)
-        if len(neuron_indices) == 0:
-            raise ValueError("Input Neuron_ids do not exist for this RateData Object")
+        # for i in range(len(units)):
+        #     curr_neuron_id = units[i]
+        #     for j in range(len(self.neuron_ids)):
+        #         if self.neuron_ids[j] == curr_neuron_id:
+        #             neuron_indices.append(j)
+        # if len(neuron_indices) == 0:
+        #     raise ValueError("Input Neuron_ids do not exist for this RateData Object")
+        
+        if max(units) >= self.inst_Frate_data.shape[0]:
+            raise ValueError("Unit out of range")
+        
 
-        output = self.inst_Frate_data[neuron_indices, :]
+        output = self.inst_Frate_data[units, :]
+        selected_ids = self.neuron_ids[units] 
         # for neuron in units:
         #     neuron_firing_rate = self.inst_Frate_data[neuron,:]
         #     output.append(neuron_firing_rate)
         #     neuron_ids.append(neuron)
-        return RateData(inst_Frate_data=output, neuron_ids=units, times=self.times)
+        return RateData(inst_Frate_data=output, 
+                        times=self.times,
+                        neuron_ids=selected_ids)
 
     def subtime(self, start, end):
         """
@@ -116,6 +125,7 @@ class RateData:
         new_times = self.times[mask]
         return RateData(
             inst_Frate_data=output,
-            neuron_ids=self.neuron_ids,
-            times=new_times,
+            times=new_times
         )
+    
+   
