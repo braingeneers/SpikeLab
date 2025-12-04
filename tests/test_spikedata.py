@@ -598,7 +598,7 @@ class SpikeDataTest(unittest.TestCase):
         SQUARE_WIDTH = 5
         GAUSS_SIGMA = 0
 
-        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+        pop = spikedata.get_pop_rate(t_spk_mat, squre_width = SQUARE_WIDTH, square_width=GAUSS_SIGMA)
         truth = np.convolve(
             np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
         )
@@ -617,7 +617,7 @@ class SpikeDataTest(unittest.TestCase):
         SQUARE_WIDTH = 0
         GAUSS_SIGMA = 2
 
-        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+        pop = spikedata.get_pop_rate(t_spk_mat, square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA)
 
         self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
         self.assertTrue(np.isclose(pop[T // 2 - 1], pop[T // 2 + 1]))

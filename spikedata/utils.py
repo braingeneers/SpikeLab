@@ -7,7 +7,8 @@ from scipy.stats import norm
 __all__ = [
     "spike_time_tiling",
     "swap",
-    "randomize"
+    "randomize",
+    "trough_between"
 ]
 
 
@@ -237,3 +238,20 @@ def randomize(ar, swap_per_spike=5):
         )
 
     return ar
+
+def trough_between(i0, i1, pop_rate):
+    """
+    Helper function for get_bursts(). Finds the minimum value (trough) between two indices.
+    
+    Parameters:
+    i0, i1 (int): Time bin indices of the bursts
+    pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
+
+    Returns:
+    (int): Time bin index of minimum value (trough) between peaks
+    """
+    L, R = int(i0), int(i1)
+    if R - L <= 1:
+        return None
+    seg = pop_rate[L:R]
+    return L + int(np.argmin(seg))
