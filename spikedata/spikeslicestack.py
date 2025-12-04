@@ -30,7 +30,7 @@ class SpikeSliceStack:
         sigma_ms=10,
         step_size=1,
     ):
-        if not isinstance(data_obj, (SpikeData)):
+        if not isinstance(data_obj, SpikeData):
             # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
             raise TypeError("data_obj must be a SpikeData object")
 

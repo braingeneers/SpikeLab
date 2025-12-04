@@ -41,6 +41,7 @@ from typing import Literal, Optional, Union, List, Tuple
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
+import RateData
 
 from .utils import (
     spike_time_tiling,
@@ -436,6 +437,14 @@ class SpikeData:
 
         Refactor 2025-09: unchanged behavior.
         """
+        """
+        Luka Version:
+       - Start is inclusive and end is exclusive.
+       - Start/end refers to actual spike time, not an index
+       - Recall spike_train is a matrix where each row is a neuron, and its values are spike times
+
+
+        """
         if start is None or start is Ellipsis:
             start = 0
         elif start < 0:
@@ -449,13 +458,13 @@ class SpikeData:
             end = self.length
 
         # Special case out the start=0 case by nopping the comparison.
-        lower = start if start > 0 else -np.inf
+        # lower = start if start > 0 else -np.inf
 
         # Subset the spike train by time.
-        train = [t[(t > lower) & (t <= end)] - start for t in self.train]
+        train = [t[(t >= start) & (t < end)] - start for t in self.train]
 
         # Subset and propagate the raw data.
-        rawmask = (self.raw_time >= lower) & (self.raw_time <= end)
+        rawmask = (self.raw_time >= start) & (self.raw_time < end)
         return SpikeData(
             train,
             length=end - start,
