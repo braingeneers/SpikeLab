@@ -1,37 +1,10 @@
 import numpy as np
 from scipy import signal
 
-def compute_cross_correlation(ref_rate, comp_rate):
-        """
-        Compute normalized cross correlation between two firing rate signals.
-        
-        Parameters:
-        -----------
-        ref_rate : array
-            Reference firing rate signal (1D)
-        comp_rate : array
-            Comparison firing rate signal (1D)
-            
-        Returns:
-        --------
-        max_corr : float
-            Maximum correlation coefficient
-        """
-        # compute cross correlation
-        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
-
-        # obtain maximum correlation
-        max_corr = np.max(r)
-        
-        return max_corr
 def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
         """
         Compute normalized cross correlation with lag information.
         
-        This is the SAME correlation computation from get_burst_to_burst_corr,
-        but enhanced to also return lag information.
         
         Parameters:
         -----------
@@ -72,7 +45,7 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
             max_corr = np.max(r)
             max_lag_idx = np.argmax(r) - center
         
-        return r, max_corr, max_lag_idx
+        return max_corr, max_lag_idx
 
 
 class RateData:
@@ -214,7 +187,7 @@ class RateData:
             for n2 in range(num_neurons):
                 reference_signal = rate_matrix[n1,:]
                 compare_signal = rate_matrix[n2,:]
-                _, max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal)
+                max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal, max_lag = 350)
 
                 corr_matrix_this_burst[n1,n2] = max_corr
                 lag_matrix_this_burst[n1,n2] = max_lag_idx

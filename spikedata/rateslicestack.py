@@ -2,37 +2,36 @@ import SpikeData
 import RateData
 import numpy as np
 from scipy import signal
-def compute_cross_correlation(ref_rate, comp_rate):
-        """
-        Compute normalized cross correlation between two firing rate signals.
+# def compute_cross_correlation(ref_rate, comp_rate):
+#         """
+#         Compute normalized cross correlation between two firing rate signals.
         
-        Parameters:
-        -----------
-        ref_rate : array
-            Reference firing rate signal (1D)
-        comp_rate : array
-            Comparison firing rate signal (1D)
+#         Parameters:
+#         -----------
+#         ref_rate : array
+#             Reference firing rate signal (1D)
+#         comp_rate : array
+#             Comparison firing rate signal (1D)
             
-        Returns:
-        --------
-        max_corr : float
-            Maximum correlation coefficient
-        """
-        # compute cross correlation
-        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
+#         Returns:
+#         --------
+#         max_corr : float
+#             Maximum correlation coefficient
+#         """
+#         # compute cross correlation
+#         r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
+#             signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
+#             signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
 
-        # obtain maximum correlation
-        max_corr = np.max(r)
+#         # obtain maximum correlation
+#         max_corr = np.max(r)
         
-        return max_corr
+#         return max_corr
 def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
         """
         Compute normalized cross correlation with lag information.
         
-        This is the SAME correlation computation from get_burst_to_burst_corr,
-        but enhanced to also return lag information.
+       
         
         Parameters:
         -----------
@@ -73,7 +72,7 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
             max_corr = np.max(r)
             max_lag_idx = np.argmax(r) - center
         
-        return r, max_corr, max_lag_idx
+        return max_corr, max_lag_idx
 
 class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
@@ -333,8 +332,10 @@ class RateSliceStack:
                     if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
                         continue
                     
-                    # Compute cross correlation
-                    max_corr = compute_cross_correlation(ref_rate, comp_rate)
+                    # Compute cross correlation. Only use 10 ms since we are comparing bursts, and bursts
+                    # are centered around 0 which is burst peak. That means we expect that burst 1 and burst 2 will have 
+                    # max acvitivty near 0
+                    max_corr, _ = compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag = 10)
                     
                     # Store results
                     all_burst_corr_scores[neuron, comp_b, ref_b] = max_corr
@@ -343,7 +344,7 @@ class RateSliceStack:
             if counter / num_bursts <= MIN_FRAC:
                 # Average results over all pairs
                 av_burst_corr_scores[neuron] = np.nanmean(all_burst_corr_scores[neuron, :, :])
-        
+        #all_burst_corr_scores is NxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
         return all_burst_corr_scores, av_burst_corr_scores
     def neuron_to_neuron_correlation(self):
         event_stack = self.event_stack
@@ -367,7 +368,7 @@ class RateSliceStack:
                 for n2 in range(num_neurons):
                     reference_signal = rate_matrix[n1,:]
                     compare_signal = rate_matrix[n2,:]
-                    _, max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal)
+                    max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal, max_lag = 350)
 
                     corr_matrix_this_burst[n1,n2] = max_corr
                     lag_matrix_this_burst[n1,n2] = max_lag_idx
@@ -377,7 +378,8 @@ class RateSliceStack:
             lower_tri_idx = np.tril_indices(num_neurons, k=-1)
             output_max_corr[b, :] = corr_matrix_this_burst[lower_tri_idx]
             output_max_lag[b, :] = lag_matrix_this_burst[lower_tri_idx]
-        #Outputs are B x F where F is the number of values under the diagnol in matrix.
+        # With full matrix, it is B x N x N. But we want lower triangle of NxN correlation
+        # Outputs are B x F where F is the number of values under the diagnol in matrix.
         # Each burst is a 1xF, represting the neuron correaltions in that one burst
         # We should make a function where you can input n1 and n2, and it will extract 
         # the correaltion from a 1xF input
