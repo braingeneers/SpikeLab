@@ -40,7 +40,15 @@ class TestHDF5Loaders(unittest.TestCase):
         return path
 
     def tearDown(self) -> None:
-        """Remove any temporary HDF5 files created during the test."""
+        """
+        Remove any temporary HDF5 files created during the tests.
+
+        Parameters:
+        - None
+
+        Returns:
+        - None
+        """
         for attr in ("_last_h5_path",):
             path: Optional[str] = getattr(self, attr, None)
             if path and os.path.exists(path):
@@ -53,9 +61,15 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading a 2D raster dataset from HDF5.
 
-        Creates a small 2D integer array, writes it as 'raster' to HDF5,
-        loads it using load_spikedata_from_hdf5, and checks that the
-        resulting SpikeData object has the correct raster and unit count.
+
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Creates a small 2D integer array
+        (Method 2)  Writes it as 'raster' to HDF5
+        (Method 3)  Loads it using load_spikedata_from_hdf5
+        (Test Case 1)  Checks that the resulting SpikeData object has the correct raster and unit count.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -74,8 +88,12 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test that loading a non-2D raster dataset raises ValueError.
 
-        Writes a 1D array as 'raster' and checks that load_spikedata_from_hdf5
-        raises a ValueError due to incorrect shape.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a 1D array as 'raster'
+        (Test Case 1)  Checks that load_spikedata_from_hdf5 raises a ValueError due to incorrect shape.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -90,8 +108,13 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test that specifying multiple input styles raises ValueError.
 
-        Writes both a 'raster' dataset and a 'units' group, then attempts to
-        load with both raster and group_per_unit arguments, expecting a ValueError.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes both a 'raster' dataset and a 'units' group
+        (Method 2)  Attempts to load with both raster and group_per_unit arguments
+        (Test Case 1)  Checks that load_spikedata_from_hdf5 raises a ValueError due to multiple styles.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -110,8 +133,13 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading spike indices and times in milliseconds from HDF5.
 
-        Writes 'idces' and 'times' datasets, loads them, and checks that
-        the SpikeData object returns the same indices and times.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'idces' and 'times' datasets
+        (Method 2)  Loads them using load_spikedata_from_hdf5
+        (Test Case 1)  Checks that the idces_times method returns the correct indices and times.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -132,9 +160,13 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading spike times from a group-per-unit structure in seconds.
 
-        Writes a 'units' group with two datasets (one per unit) containing
-        spike times in seconds, loads them, and checks that the times are
-        correctly converted to milliseconds.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'units' group with two datasets (one per unit) containing spike times in seconds
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with group_time_unit="s"
+        (Test Case 1)  Checks that the resulting SpikeData object has the correct times in milliseconds.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -154,9 +186,16 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading group-per-unit structure with empty units.
 
-        Writes a 'units' group with two empty datasets, loads them, and checks
-        that the resulting SpikeData object has two units, zero length, and
-        empty spike trains.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'units' group with two empty datasets
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with group_time_unit="ms"
+        (Test Case 1)  Checks that the resulting SpikeData object has two units,
+        (Test Case 2)  Checks that the length method returns 0.0
+        (Test Case 3)  Checks that the train[0] is an empty list
+        (Test Case 4)  Checks that the train[1] is an empty list
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -176,9 +215,14 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading ragged spike times from flat arrays and index.
 
-        Writes a flat 'spike_times' array and a 'spike_times_index' array
-        indicating the end of each unit's spike times, loads them, and checks
-        that the times are correctly split and converted to ms.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a flat 'spike_times' array and a 'spike_times_index' array
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with spike_times_unit="s"
+        (Test Case 1)  Checks that the train[0] is [100.0, 200.0]
+        (Test Case 2)  Checks that the train[1] is [500.0]
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -202,8 +246,15 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading spike indices and times in samples with specified sampling rate.
 
-        Writes 'idces' and 'times' datasets (times in samples), loads them with
-        fs_Hz=1000, and checks that times are correctly converted to ms.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'idces' and 'times' datasets (times in samples)
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with times_unit="samples" and fs_Hz=1000.0
+        (Test Cases 1-2)  Checks that the idces_times method returns the correct indices and times.
+        train[0] and train[1] are the correct spike times in milliseconds.
+
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -227,9 +278,15 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading and attaching raw data and raw time from HDF5.
 
-        Writes a 'raster', 'raw', and two raw time datasets (one in seconds,
-        one in samples). Loads both, checking that raw_time is correctly
-        converted to ms in both cases.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'raster', 'raw', and two raw time datasets (one in seconds, one in samples)
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with raw_time_unit="s" and raw_time_unit="samples"
+        (Test Case 1)  Checks that the raw_data.shape is (2, 5)
+        (Test Case 2)  Checks that the raw_time is [0.0, 0.001, 0.002, 0.003, 0.004] from the seconds dataset
+        (Test Case 3)  Checks that the raw_time is [0.0, 1.0, 2.0, 3.0, 4.0] from the samples dataset
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -269,8 +326,13 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test that loading from an HDF5 file with no recognizable style raises ValueError.
 
-        Creates an empty HDF5 file and checks that load_spikedata_from_hdf5
-        raises a ValueError due to missing required datasets/groups.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes an empty HDF5 file
+        (Method 2)  Loads it using load_spikedata_from_hdf5 without specifying a style
+        (Test Case 1)  Checks that load_spikedata_from_hdf5 raises a ValueError due to missing required datasets/groups.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -283,8 +345,13 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test that loading times in samples without specifying fs_Hz raises ValueError.
 
-        Writes 'idces' and 'times' (in samples) but omits fs_Hz, expecting
-        load_spikedata_from_hdf5 to raise a ValueError.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'idces' and 'times' (in samples)
+        (Method 2)  Loads them using load_spikedata_from_hdf5 with times_unit="samples"
+        (Test Case 1)  Checks that load_spikedata_from_hdf5 raises a ValueError due to missing fs_Hz.
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -302,9 +369,14 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test thresholding of raw data loaded from HDF5.
 
-        Writes a 'raw' dataset with two channels, one containing a supra-threshold
-        segment. Loads and thresholds the data, checking that at least one event
-        is detected on the active channel.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a 'raw' dataset with two channels, one containing a supra-threshold segment
+        (Method 2)  Loads it using load_spikedata_from_hdf5_raw_thresholded
+        (Test Case 1)  Checks that the resulting SpikeData object has the correct number of units
+        (Test Case 2)  Checks that the train[0] is not empty
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -336,9 +408,14 @@ class TestNWBLoader(unittest.TestCase):
         """
         Test loading NWB units group using h5py.
 
-        Creates a minimal NWB-like file with a 'units' group containing
-        'spike_times' and 'spike_times_index', loads it, and checks that
-        spike trains are correctly split and converted to ms.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a minimal NWB-like file with a 'units' group containing 'spike_times' and 'spike_times_index'
+        (Method 2)  Loads it using load_spikedata_from_nwb
+        (Test Case 1)  Checks that the train[0] is [100.0, 200.0]
+        (Test Case 2)  Checks that the train[1] is [500.0]
         """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
@@ -362,8 +439,13 @@ class TestNWBLoader(unittest.TestCase):
         """
         Test that loading an NWB file missing the 'units' group raises ValueError.
 
-        Creates an empty NWB file and checks that load_spikedata_from_nwb
-        raises a ValueError due to missing 'units'.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes an empty NWB file
+        (Method 2)  Loads it using load_spikedata_from_nwb
+        (Test Case 1)  Checks that load_spikedata_from_nwb raises a ValueError due to missing 'units'.
         """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
@@ -382,9 +464,14 @@ class TestNWBLoader(unittest.TestCase):
         """
         Test loading NWB units group with alternative dataset names.
 
-        Creates a 'units' group with datasets ending in 'spike_times' and
-        'spike_times_index' but with prefixes, loads it, and checks that
-        spike trains are correctly parsed and converted to ms.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a 'units' group with datasets ending in 'spike_times' and 'spike_times_index' but with prefixes
+        (Method 2)  Loads it using load_spikedata_from_nwb
+        (Test Case 1)  Checks that the train[0] is [200.0]
+        (Test Case 2)  Checks that the train[1] is [700.0]
         """
         fd, path = tempfile.mkstemp(suffix=".nwb")
         os.close(fd)
@@ -409,9 +496,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test loading KiloSort output with two clusters.
 
-        Creates 'spike_times.npy' and 'spike_clusters.npy' for two clusters,
-        loads them, and checks that the cluster_ids metadata matches the trains,
-        and that spike times are correctly converted to ms and sorted by cluster id.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'spike_times.npy' and 'spike_clusters.npy' for two clusters
+        (Method 2)  Loads them using load_spikedata_from_kilosort
+        (Test Case 1)  Checks that the cluster_ids metadata matches the trains
+        (Test Case 2)  Checks that the spike times are correctly converted to ms and sorted by cluster id
         """
         with tempfile.TemporaryDirectory() as d:
             # two clusters: 2 spikes in 0, 1 spike in 1
@@ -433,9 +525,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test loading from a mock SpikeInterface SortingExtractor.
 
-        Defines a mock sorting object with two units and known spike trains,
-        loads it, and checks that spike times are correctly converted to ms
-        using the provided sampling frequency.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a mock sorting object with two units and known spike trains
+        (Method 2)  Loads it using load_spikedata_from_spikeinterface
+        (Test Case 1)  Checks that the train[0] is [10.0, 20.0]
+        (Test Case 2)  Checks that the train[1] is [2.5]
         """
 
         class MockSorting:
@@ -463,9 +560,17 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test thresholding on a mock SpikeInterface RecordingExtractor.
 
-        Defines a mock recording object with a supra-threshold burst on one channel,
-        loads and thresholds it, and checks that at least one event is detected.
-        Also tests that time x channels input is transposed automatically.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a mock recording object with a supra-threshold burst on one channel
+        (Method 2)  Loads it using load_spikedata_from_spikeinterface_recording
+        (Test Case 1)  Checks that the resulting SpikeData object has the correct number of units
+        (Test Case 2)  Checks that at least one event is detected on the active channel
+        (Test Case 3)  Checks that the time x channels input is transposed automatically
+        (Test Case 4)  Checks that at least one event is detected on the active channel post transposition
+
         """
 
         class MockRecording:
@@ -503,9 +608,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test loading a subset of units and overriding sampling frequency.
 
-        Defines a mock sorting object with two units and no sampling frequency,
-        loads only one unit with a provided sampling frequency, and checks that
-        the spike train is correct and in ms.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a mock sorting object with two units and no sampling frequency
+        (Method 2)  Loads it using load_spikedata_from_spikeinterface
+        (Test Case 1)  Checks that the resulting SpikeData object has the correct number of units
+        (Test Case 2)  Checks that the train[0] is [0.0, 10.0]
         """
 
         class MockSorting2:
@@ -529,7 +639,13 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test that passing an invalid object to load_spikedata_from_spikeinterface raises TypeError.
 
-        Defines a class with no required methods and checks that loading raises TypeError.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes a class with no required methods
+        (Method 2)  Loads it using load_spikedata_from_spikeinterface
+        (Test Case 1)  Checks that load_spikedata_from_spikeinterface raises TypeError
         """
 
         class BadSorting:
@@ -542,8 +658,14 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test loading KiloSort output with empty arrays.
 
-        Writes empty 'spike_times.npy' and 'spike_clusters.npy', loads them,
-        and checks that the resulting SpikeData object has zero units and zero length.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes empty 'spike_times.npy' and 'spike_clusters.npy'
+        (Method 2)  Loads them using load_spikedata_from_kilosort
+        (Test Case 1)  Checks that the resulting SpikeData object has zero units
+        (Test Case 2)  Checks that the length is 0.0
         """
         with tempfile.TemporaryDirectory() as d:
             np.save(os.path.join(d, "spike_times.npy"), np.array([], dtype=int))
@@ -556,9 +678,13 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test that KiloSort cluster_ids metadata aligns with sorted trains.
 
-        Writes 'spike_times.npy' and 'spike_clusters.npy' with two cluster ids,
-        loads them, and checks that the cluster_ids metadata is sorted and matches
-        the order of spike trains.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'spike_times.npy' and 'spike_clusters.npy' with two cluster ids
+        (Method 2)  Loads them using load_spikedata_from_kilosort
+        (Test Case 1)  Checks that the cluster_ids metadata is sorted and matches the order of spike trains
         """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15, 30])
@@ -573,8 +699,13 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         """
         Test that KiloSort loader keeps all clusters if cluster_info.tsv is missing expected columns.
 
-        Writes 'spike_times.npy', 'spike_clusters.npy', and a cluster_info.tsv file
-        without the expected columns, loads them, and checks that all clusters are kept.
+        Parameters:
+        - None
+
+        Tests:
+        (Method 1)  Writes 'spike_times.npy', 'spike_clusters.npy', and a cluster_info.tsv file without the expected columns
+        (Method 2)  Loads them using load_spikedata_from_kilosort
+        (Test Case 1)  Checks that all clusters are kept
         """
         with tempfile.TemporaryDirectory() as d:
             spike_times = np.array([10, 20, 15])
