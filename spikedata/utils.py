@@ -5,7 +5,7 @@ from scipy import ndimage, signal
 from scipy.stats import norm
 
 __all__ = [
-    "spike_time_tiling",
+    "spike_time_tiling_method",
     "swap",
     "randomize",
     "get_pop_rate",
@@ -13,16 +13,22 @@ __all__ = [
 ]
 
 
-def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
+def spike_time_tiling_method(tA, tB, delt=20.0, length: Optional[float] = None):
     """
-    Calculate the spike time tiling coefficient [1] between two spike trains. STTC is a
-    metric for correlation between spike trains with some improved intuitive properties
-    compared to the Pearson correlation coefficient. Spike trains are lists of spike
-    times sorted in ascending order.
+    Calculate the spike time tiling coefficient method between two spike trains. 
 
-    [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
-        comparison of methods and application to the study of retinal waves. Journal of
-        Neuroscience 34:43, 14288–14303 (2014).
+    Parameters:
+    - tA (list): List of spike times for the first spike train
+    - tB (list): List of spike times for the second spike train
+    - delt (float): Time window in milliseconds (default: 20.0)
+    - length (float): Total duration in milliseconds (optional)
+
+    Returns:
+        - float: Spike time tiling coefficient between the two spike trains
+
+    Notes:
+    - STTC is a metric for correlation between spike trains with some improved intuitive properties
+    compared to the Pearson correlation coefficient.
     """
     if length is None:
         length = float(max(tA[-1], tB[-1]))
@@ -36,7 +42,19 @@ def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
 
 
 def _spike_time_tiling(tA, tB, TA, TB, delt):
-    "Internal helper method for the second half of STTC calculation."
+    """
+    Internal helper method for the second half of STTC calculation.
+
+    Parameters:
+    - tA (list): List of spike times for the first spike train
+    - tB (list): List of spike times for the second spike train
+    - TA (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tA
+    - TB (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tB
+    - delt (float): Time window in milliseconds
+
+    Returns:
+    - float: Spike time tiling coefficient between the two spike trains
+    """
     if len(tA) == 0 or len(tB) == 0:
         return 0
     PA = _sttc_na(tA, tB, delt) / len(tA)
@@ -51,6 +69,14 @@ def _sttc_ta(tA, delt: float, tmax: float) -> float:
     """
     Helper function for spike time tiling coefficients: calculate the total amount of
     time within a range delt of spikes within the given sorted list of spike times tA.
+
+    Parameters:
+    - tA (list): List of spike times for the first spike train
+    - delt (float): Time window in milliseconds
+    - tmax (float): Total duration in milliseconds
+
+    Returns:
+    - float: Total amount of time within a range delt of spikes within the given sorted list of spike times tA
     """
     if len(tA) == 0:
         return 0.0
@@ -64,6 +90,14 @@ def _sttc_na(tA, tB, delt: float) -> int:
     Helper function for spike time tiling coefficients: given two sorted lists of spike
     times, calculate the number of spikes in spike train A within delt of any spike in
     spike train B.
+
+    Parameters:
+    - tA (list): List of spike times for the first spike train
+    - tB (list): List of spike times for the second spike train
+    - delt (float): Time window in milliseconds
+
+    Returns:
+    - int: Number of spikes in spike train A within delt of any spike in spike train B
     """
     if len(tB) == 0:
         return 0
@@ -85,9 +119,19 @@ def _sttc_na(tA, tB, delt: float) -> int:
 def _resampled_isi(spikes, times, sigma_ms):
     """
     Helper method for calculating the firing rate of a spike train at specific times,
-    based on the reciprocal inter-spike interval. It is assumed to have been sampled
-    halfway between any two given spikes, interpolated, and then smoothed by a Gaussian
-    kernel with the given width.
+    based on the reciprocal inter-spike interval. 
+
+    Parameters:
+    - spikes (list): List of spike times
+    - times (list): List of times
+    - sigma_ms (float): Standard deviation in milliseconds
+
+    Returns:
+    - numpy.ndarray: Firing rate at specific times
+
+    Notes:
+    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then 
+    smoothed by a Gaussian kernel with the given width.
     """
     if len(spikes) == 0:
         return np.zeros_like(times)
@@ -110,8 +154,16 @@ def _resampled_isi(spikes, times, sigma_ms):
 
 def _train_from_i_t_list(idces, times, N):
     """
-    Helper method for SpikeData constructors: given lists of spike times and indices,
-    produce a list whose ith entry is a list of the spike times of the ith unit.
+    Helper method for SpikeData constructors: Given lists of spike times and unit indices, 
+    produces a list where each entry contains the spike times for the corresponding unit.
+
+    Parameters:
+    - idces (list): List of spike indices
+    - times (list): List of spike times
+    - N (int): Number of units
+
+    Returns:
+    - list: List whose ith entry is a list of the spike times of the ith unit
     """
     idces, times = np.asarray(idces), np.asarray(times)
     if N is None:
@@ -133,19 +185,19 @@ def butter_filter(
     """
     A digital butterworth filter. Type is based on input value.
 
-    Inputs:
-        data: array_like data to be filtered
-        lowcut: low cutoff frequency. If None or 0, highcut must be a number.
-                Filter is lowpass.
-        highcut: high cutoff frequency. If None, lowpass must be a non-zero number.
-                 Filter is highpass.
-        If lowcut and highcut are both give, this filter is bandpass.
-        In this case, lowcut must be smaller than highcut.
-        fs: sample rate
-        order: order of the filter
+    Parameters:
+    - data (array_like): Data to be filtered
+    - lowcut (float): Low cutoff frequency. If None or 0, highcut must be a number.
+    - highcut (float): High cutoff frequency. If None, lowpass must be a non-zero number.
+    - fs (float): Sample rate
+    - order (int): Order of the filter
 
     Returns:
-        The filtered output with the same shape as data
+    - numpy.ndarray: The filtered output with the same shape as data
+
+    Notes:
+    - If lowcut and highcut are both give, this filter is bandpass.
+    - In this case, lowcut must be smaller than highcut.
     """
     if lowcut is None and highcut is None:
         raise ValueError(
@@ -173,14 +225,19 @@ def butter_filter(
 
 def swap(ar, idxs):
     """
-    Attempt one double-edge swap in a binary spike raster while preserving
-    per-row and per-column sums.
+    Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
 
-    The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
-    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the
-    indices are distinct, swaps them so spikes move to those positions.
+    Parameters:
+    - ar (numpy.ndarray): Binary spike raster
+    - idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
 
-    Returns True if a swap was performed, otherwise False.
+    Returns:
+    - bool: True if a swap was performed, otherwise False
+
+    Notes:
+    - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
+    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct, 
+    swaps them so that spikes move to those positions.
     """
     idx0 = np.random.randint(len(idxs[0]))
     idx1 = np.random.randint(len(idxs[0]))
@@ -199,17 +256,12 @@ def randomize(ar, swap_per_spike=5):
     """
     Randomize a binary spike raster using degree-preserving double-edge swaps.
 
-    Parameters
-    ----------
-    ar : array_like
-        Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
-    swap_per_spike : int
-        Target number of successful swaps per spike.
+    Parameters:
+    - ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
+    - swap_per_spike (int): Target number of successful swaps per spike.
 
-    Returns
-    -------
-    ndarray
-        Randomized binary matrix with the same shape and row/column sums.
+    Returns:
+    - numpy.ndarray: Randomized binary matrix with the same shape and row/column sums.
     """
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
@@ -238,8 +290,17 @@ def randomize(ar, swap_per_spike=5):
 def get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA):
     """
     Compute population firing rate by smoothing the summed spike counts.
+    
+    Parameters:
+    - t_spk_mat (numpy.ndarray): Binary spike raster matrix shaped (neurons, time) or (time, neurons).
+    - SQUARE_WIDTH (int): Width of the moving-average (square) window.
+    - GAUSS_SIGMA (float): Standard deviation of the Gaussian smoothing window.
 
-    First apply a moving-average (square) window, then optionally apply a Gaussian
+    Returns:
+    - numpy.ndarray: Population firing rate vector.
+
+    Notes:
+    - First apply a moving-average (square) window, then optionally apply a Gaussian
     smoothing window parameterized by GAUSS_SIGMA (in samples).
     """
     if SQUARE_WIDTH > 0:
@@ -270,10 +331,20 @@ def get_bursts(
     pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
 ):
     """
-    Detect bursts from a population rate vector using thresholded peak finding and
-    amplitude-scaled edge detection.
+    Detect bursts from a population rate vector using thresholded peak finding and amplitude-scaled edge detection.
+    
+    Parameters:
+    - pop_rate (numpy.ndarray): Population firing rate vector.
+    - pop_rate_acc (numpy.ndarray): Optional accumulator with same length as pop_rate for peak localization; pass an empty list to skip.
+    - THR_BURST (float): Multiplier on RMS(pop_rate) for peak height threshold.
+    - MIN_BURST_DIFF (int): Minimum distance (samples) between consecutive peaks.
+    - BURST_EDGE_MULT_THRESH (float): Edge threshold as a fraction of each burst's peak amplitude.
 
-    Returns (tburst, edges, peak_amp).
+
+    Returns:
+    - tburst (numpy.ndarray): Peak times for each burst
+    - edges (numpy.ndarray): Edge indices for each burst
+    - peak_amp (numpy.ndarray): Peak amplitudes for each burst
     """
     pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
 

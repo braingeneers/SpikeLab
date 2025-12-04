@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
 
 from .utils import (
-    spike_time_tiling,
+    spike_time_tiling_method,
     butter_filter,
     _sttc_ta,
     _sttc_na,
@@ -27,7 +27,7 @@ from .utils import (
 
 __all__ = [
     "SpikeData",
-    "spike_time_tiling",
+    "spike_time_tiling_method",
     "swap",
     "randomize",
     "get_pop_rate",
@@ -821,7 +821,7 @@ class SpikeData:
         - STTC is a metric for correlation between spike trains with some improved intuitive properties
         compared to the Pearson correlation coefficient.
         """
-        return spike_time_tiling(self.train[i], self.train[j], delt, self.length)
+        return spike_time_tiling_method(self.train[i], self.train[j], delt, self.length)
 
     def latencies(self, times, window_ms=100.0):
         """
