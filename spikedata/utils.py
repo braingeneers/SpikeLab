@@ -295,16 +295,7 @@ def trough_between(i0, i1, pop_rate):
     """
     Compute population firing rate by smoothing the summed spike counts.
 
-    Parameters:
-    - t_spk_mat (numpy.ndarray): Binary spike raster matrix shaped (neurons, time) or (time, neurons).
-    - SQUARE_WIDTH (int): Width of the moving-average (square) window.
-    - GAUSS_SIGMA (float): Standard deviation of the Gaussian smoothing window.
-
-    Returns:
-    - numpy.ndarray: Population firing rate vector.
-
-    Notes:
-    - First apply a moving-average (square) window, then optionally apply a Gaussian
+    First apply a moving-average (square) window, then optionally apply a Gaussian
     smoothing window parameterized by GAUSS_SIGMA (in samples).
     """
     if SQUARE_WIDTH > 0:
@@ -335,20 +326,10 @@ def get_bursts(
     pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
 ):
     """
-    Detect bursts from a population rate vector using thresholded peak finding and amplitude-scaled edge detection.
+    Detect bursts from a population rate vector using thresholded peak finding and
+    amplitude-scaled edge detection.
 
-    Parameters:
-    - pop_rate (numpy.ndarray): Population firing rate vector.
-    - pop_rate_acc (numpy.ndarray): Optional accumulator with same length as pop_rate for peak localization; pass an empty list to skip.
-    - THR_BURST (float): Multiplier on RMS(pop_rate) for peak height threshold.
-    - MIN_BURST_DIFF (int): Minimum distance (samples) between consecutive peaks.
-    - BURST_EDGE_MULT_THRESH (float): Edge threshold as a fraction of each burst's peak amplitude.
-
-
-    Returns:
-    - tburst (numpy.ndarray): Peak times for each burst
-    - edges (numpy.ndarray): Edge indices for each burst
-    - peak_amp (numpy.ndarray): Peak amplitudes for each burst
+    Returns (tburst, edges, peak_amp).
     """
     pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
 
