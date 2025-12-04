@@ -15,7 +15,7 @@ __all__ = [
 
 def spike_time_tiling_method(tA, tB, delt=20.0, length: Optional[float] = None):
     """
-    Calculate the spike time tiling coefficient method between two spike trains. 
+    Calculate the spike time tiling coefficient method between two spike trains.
 
     Parameters:
     - tA (list): List of spike times for the first spike train
@@ -119,7 +119,7 @@ def _sttc_na(tA, tB, delt: float) -> int:
 def _resampled_isi(spikes, times, sigma_ms):
     """
     Helper method for calculating the firing rate of a spike train at specific times,
-    based on the reciprocal inter-spike interval. 
+    based on the reciprocal inter-spike interval.
 
     Parameters:
     - spikes (list): List of spike times
@@ -130,7 +130,7 @@ def _resampled_isi(spikes, times, sigma_ms):
     - numpy.ndarray: Firing rate at specific times
 
     Notes:
-    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then 
+    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
     smoothed by a Gaussian kernel with the given width.
     """
     if len(spikes) == 0:
@@ -154,7 +154,7 @@ def _resampled_isi(spikes, times, sigma_ms):
 
 def _train_from_i_t_list(idces, times, N):
     """
-    Helper method for SpikeData constructors: Given lists of spike times and unit indices, 
+    Helper method for SpikeData constructors: Given lists of spike times and unit indices,
     produces a list where each entry contains the spike times for the corresponding unit.
 
     Parameters:
@@ -236,7 +236,7 @@ def swap(ar, idxs):
 
     Notes:
     - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
-    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct, 
+    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct,
     swaps them so that spikes move to those positions.
     """
     idx0 = np.random.randint(len(idxs[0]))
@@ -290,7 +290,7 @@ def randomize(ar, swap_per_spike=5):
 def get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA):
     """
     Compute population firing rate by smoothing the summed spike counts.
-    
+
     Parameters:
     - t_spk_mat (numpy.ndarray): Binary spike raster matrix shaped (neurons, time) or (time, neurons).
     - SQUARE_WIDTH (int): Width of the moving-average (square) window.
@@ -332,7 +332,7 @@ def get_bursts(
 ):
     """
     Detect bursts from a population rate vector using thresholded peak finding and amplitude-scaled edge detection.
-    
+
     Parameters:
     - pop_rate (numpy.ndarray): Population firing rate vector.
     - pop_rate_acc (numpy.ndarray): Optional accumulator with same length as pop_rate for peak localization; pass an empty list to skip.
