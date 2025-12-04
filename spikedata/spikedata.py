@@ -44,7 +44,7 @@ from scipy import ndimage, signal, sparse
 from .ratedata import RateData
 
 from .utils import (
-    spike_time_tiling,
+    spike_time_tiling_method,
     butter_filter,
     _sttc_ta,
     _sttc_na,
@@ -56,30 +56,14 @@ from .utils import (
     trough_between,
 )
 
-__all__ = ["SpikeData", "NeuronAttributes", "spike_time_tiling", "swap", "randomize"]
-
-
-class NeuronAttributes:
-    """Preset neuron attributes with None defaults. Analyses populate these fields."""
-
-    def __init__(self):
-        # Identity (from loaders)
-        self.channel = None  # int: Recording channel index
-        self.location = None  # tuple or dict: Unit physical location
-        self.electrode = {}  # dict: Electrode metadata
-
-        # Firing metrics
-        self.firing_rate = None  # float: Mean firing rate (Hz)
-        self.spike_count = None  # int: Total spike count
-
-        # Burst metrics
-        self.is_backbone = None  # bool: Whether unit is a backbone unit
-
-        # Waveform
-        self.waveform = None  # np.ndarray: Average waveform template
-
-        # Custom/misc storage
-        self.misc = {}  # dict: Arbitrary user data
+__all__ = [
+    "SpikeData",
+    "spike_time_tiling_method",
+    "swap",
+    "randomize",
+    "get_pop_rate",
+    "get_bursts",
+]
 
 
 class SpikeData:
@@ -762,7 +746,7 @@ class SpikeData:
 
         Refactor 2025-09: behavior unchanged; uses reorganized helpers.
         """
-        return spike_time_tiling(self.train[i], self.train[j], delt, self.length)
+        return spike_time_tiling_method(self.train[i], self.train[j], delt, self.length)
 
     def latencies(self, times, window_ms=100.0):
         """
