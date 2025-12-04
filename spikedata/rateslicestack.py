@@ -27,6 +27,53 @@ def compute_cross_correlation(ref_rate, comp_rate):
         max_corr = np.max(r)
         
         return max_corr
+def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
+        """
+        Compute normalized cross correlation with lag information.
+        
+        This is the SAME correlation computation from get_burst_to_burst_corr,
+        but enhanced to also return lag information.
+        
+        Parameters:
+        -----------
+        ref_rate : array
+            Reference firing rate signal
+        comp_rate : array
+            Comparison firing rate signal
+        max_lag : int, optional
+            Maximum lag in frames to search for correlation.
+            If None, searches all possible lags.
+            
+        Returns:
+        --------
+        r : array
+            Full cross-correlation function at all lags
+        max_corr : float
+            Maximum correlation coefficient
+        max_lag_idx : int
+            Lag (in frames) at which maximum correlation occurs
+        """
+        # THIS IS THE EXACT SAME CORRELATION COMPUTATION FROM YOUR BOSS'S CODE
+        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
+            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
+            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
+        
+        center = int(len(r) / 2)
+        
+        # ADDED: Restrict search to max_lag if specified
+        if max_lag is not None:
+            search_start = max(0, center - max_lag)
+            search_end = min(len(r), center + max_lag + 1)
+            search_window = r[search_start:search_end]
+            
+            max_corr = np.max(search_window)
+            max_lag_idx = np.argmax(search_window) + search_start - center
+        else:
+            # ORIGINAL: Just get max from entire array
+            max_corr = np.max(r)
+            max_lag_idx = np.argmax(r) - center
+        
+        return r, max_corr, max_lag_idx
 
 class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
@@ -298,3 +345,47 @@ class RateSliceStack:
                 av_burst_corr_scores[neuron] = np.nanmean(all_burst_corr_scores[neuron, :, :])
         
         return all_burst_corr_scores, av_burst_corr_scores
+    def neuron_to_neuron_correlation(self):
+        event_stack = self.event_stack
+        num_neurons = event_stack.shape[0]  # N
+        num_time_bins = event_stack.shape[1]  # T
+        num_bursts = event_stack.shape[2]  # B
+
+        num_values_under_diagnol = num_neurons * (num_neurons - 1) // 2
+        output_max_corr = np.full((num_bursts, num_values_under_diagnol), np.nan)
+        output_max_lag = np.full((num_bursts, num_values_under_diagnol), np.nan)
+
+
+        
+
+        for b in range(num_bursts):
+            corr_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
+            lag_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
+
+            rate_matrix = event_stack[:,:,b]
+            for n1 in range(num_neurons):
+                for n2 in range(num_neurons):
+                    reference_signal = rate_matrix[n1,:]
+                    compare_signal = rate_matrix[n2,:]
+                    _, max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal)
+
+                    corr_matrix_this_burst[n1,n2] = max_corr
+                    lag_matrix_this_burst[n1,n2] = max_lag_idx
+                    
+            # output_max_corr.append(corr_matrix_this_burst)
+            # output_max_lag.append(lag_matrix_this_burst)
+            lower_tri_idx = np.tril_indices(num_neurons, k=-1)
+            output_max_corr[b, :] = corr_matrix_this_burst[lower_tri_idx]
+            output_max_lag[b, :] = lag_matrix_this_burst[lower_tri_idx]
+        #Outputs are B x F where F is the number of values under the diagnol in matrix.
+        # Each burst is a 1xF, represting the neuron correaltions in that one burst
+        # We should make a function where you can input n1 and n2, and it will extract 
+        # the correaltion from a 1xF input
+
+        return output_max_corr, output_max_lag
+        
+
+            
+                
+
+
