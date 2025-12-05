@@ -2,32 +2,9 @@ import SpikeData
 import RateData
 import numpy as np
 from scipy import signal
-# def compute_cross_correlation(ref_rate, comp_rate):
-#         """
-#         Compute normalized cross correlation between two firing rate signals.
-        
-#         Parameters:
-#         -----------
-#         ref_rate : array
-#             Reference firing rate signal (1D)
-#         comp_rate : array
-#             Comparison firing rate signal (1D)
-            
-#         Returns:
-#         --------
-#         max_corr : float
-#             Maximum correlation coefficient
-#         """
-#         # compute cross correlation
-#         r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-#             signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-#             signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
+from sklearn.decomposition import PCA
 
-#         # obtain maximum correlation
-#         max_corr = np.max(r)
-        
-#         return max_corr
-def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
+def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag):
         """
         Compute normalized cross correlation with lag information.
         
@@ -73,6 +50,101 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
             max_lag_idx = np.argmax(r) - center
         
         return max_corr, max_lag_idx
+
+
+def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag):
+    """
+    Compute cosine similarity with lag information.
+    
+    Parameters:
+    -----------
+    ref_rate : array
+        Reference firing rate signal
+    comp_rate : array
+        Comparison firing rate signal
+    max_lag : int, optional
+        Maximum lag in frames to search for similarity.
+        If None, searches all possible lags.
+    
+    Returns:
+    --------
+    max_sim : float
+        Maximum cosine similarity coefficient
+    max_lag_idx : int
+        Lag (in frames) at which maximum similarity occurs
+    """
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    ref_rate = np.array(ref_rate).flatten()
+    comp_rate = np.array(comp_rate).flatten()
+    
+    # Determine the range of lags to search
+    if max_lag is not None:
+        lag_range = range(-max_lag, max_lag + 1)
+    else:
+        # Search all possible lags
+        max_possible_lag = len(ref_rate) - 1
+        lag_range = range(-max_possible_lag, max_possible_lag + 1)
+    
+    similarities = []
+    valid_lags = []
+    
+    # Compute cosine similarity at each lag
+    for lag in lag_range:
+        if lag < 0:
+            # comp_rate leads ref_rate (shift comp_rate left, or ref_rate right)
+            ref_segment = ref_rate[-lag:]
+            comp_segment = comp_rate[:lag]
+        elif lag > 0:
+            # ref_rate leads comp_rate (shift ref_rate left, or comp_rate right)
+            ref_segment = ref_rate[:-lag]
+            comp_segment = comp_rate[lag:]
+        else:
+            # No lag
+            ref_segment = ref_rate
+            comp_segment = comp_rate
+        
+        # Skip if segments are too short
+        if len(ref_segment) > 0 and len(comp_segment) > 0:
+            sim = cosine_similarity(ref_segment.reshape(1, -1), 
+                                   comp_segment.reshape(1, -1))[0, 0]
+            similarities.append(sim)
+            valid_lags.append(lag)
+    
+    # Find maximum similarity and corresponding lag
+    similarities = np.array(similarities)
+    valid_lags = np.array(valid_lags)
+    
+    max_idx = np.argmax(similarities)
+    max_sim = similarities[max_idx]
+    max_lag_idx = valid_lags[max_idx]
+    
+    return max_sim, max_lag_idx
+
+def extract_lower_triangle_features(matrix_3d):
+        """
+        Extract lower triangle (excluding diagonal) from each matrix in a 3D array.
+        Vectorized for efficiency.
+        
+        Parameters:
+        -----------
+        matrix_3d : array, shape (B, N, N)
+            3D array where each slice [b, :, :] is a symmetric N×N matrix
+            
+        Returns:
+        --------
+        features : array, shape (B, F)
+            2D array where each row contains lower triangle values
+            F = N*(N-1)/2 (number of unique pairs)
+        """
+        num_samples = matrix_3d.shape[0]  # B
+        num_items = matrix_3d.shape[1]    # N
+        
+        # Get lower triangle indices
+        lower_tri_idx = np.tril_indices(num_items, k=-1)
+        
+        # Extract all lower triangles at once (vectorized)
+        features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
 
 class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
@@ -266,10 +338,11 @@ class RateSliceStack:
     #     reordered_burst_matrices = burst_matrices[:,neurons_ids_in_order,:]
     #     #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
     #     return reordered_burst_matrices, neurons_ids_in_order
+
    
 
 
-    def get_burst_to_burst_corr_from_stack(self, MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3):
+    def get_burst_to_burst_neuron_corr_from_stack(self,compare_func =compute_cross_correlation_with_lag,  MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3, max_lag = 350):
         """
         Compute burst-to-burst correlation using RateSliceStack object.
 
@@ -335,7 +408,7 @@ class RateSliceStack:
                     # Compute cross correlation. Only use 10 ms since we are comparing bursts, and bursts
                     # are centered around 0 which is burst peak. That means we expect that burst 1 and burst 2 will have 
                     # max acvitivty near 0
-                    max_corr, _ = compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag = 10)
+                    max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
                     
                     # Store results
                     all_burst_corr_scores[neuron, comp_b, ref_b] = max_corr
@@ -345,16 +418,22 @@ class RateSliceStack:
                 # Average results over all pairs
                 av_burst_corr_scores[neuron] = np.nanmean(all_burst_corr_scores[neuron, :, :])
         #all_burst_corr_scores is NxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
+        # Keep as is, make helper function for converting BxB into below diagnol
         return all_burst_corr_scores, av_burst_corr_scores
-    def neuron_to_neuron_correlation(self):
+    
+    def neuron_to_neuron_correlation(self, compare_func =compute_cross_correlation_with_lag, max_lag=350):
         event_stack = self.event_stack
         num_neurons = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
         num_bursts = event_stack.shape[2]  # B
 
         num_values_under_diagnol = num_neurons * (num_neurons - 1) // 2
-        output_max_corr = np.full((num_bursts, num_values_under_diagnol), np.nan)
-        output_max_lag = np.full((num_bursts, num_values_under_diagnol), np.nan)
+        # output_max_corr = np.full((num_bursts, num_values_under_diagnol), np.nan)
+        # output_max_lag = np.full((num_bursts, num_values_under_diagnol), np.nan)
+        output_max_corr = np.full((num_bursts, num_neurons, num_neurons), np.nan)
+        output_max_lag = np.full((num_bursts, num_neurons, num_neurons), np.nan)
+        av_output_max_corr = np.full(num_bursts, np.nan)
+        av_output_max_lag = np.full(num_bursts, np.nan)
 
 
         
@@ -368,23 +447,145 @@ class RateSliceStack:
                 for n2 in range(num_neurons):
                     reference_signal = rate_matrix[n1,:]
                     compare_signal = rate_matrix[n2,:]
-                    max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal, max_lag = 350)
+                    max_corr, max_lag_idx = compare_func(reference_signal, compare_signal, max_lag)
 
                     corr_matrix_this_burst[n1,n2] = max_corr
                     lag_matrix_this_burst[n1,n2] = max_lag_idx
                     
             # output_max_corr.append(corr_matrix_this_burst)
             # output_max_lag.append(lag_matrix_this_burst)
-            lower_tri_idx = np.tril_indices(num_neurons, k=-1)
-            output_max_corr[b, :] = corr_matrix_this_burst[lower_tri_idx]
-            output_max_lag[b, :] = lag_matrix_this_burst[lower_tri_idx]
+
+            output_max_corr[b, :] = corr_matrix_this_burst
+            output_max_lag[b, :] = lag_matrix_this_burst
+
+            # lower_tri_idx = np.tril_indices(num_neurons, k=-1)
+            # output_max_corr[b, :] = corr_matrix_this_burst[lower_tri_idx]
+            # output_max_lag[b, :] = lag_matrix_this_burst[lower_tri_idx]
+
+
         # With full matrix, it is B x N x N. But we want lower triangle of NxN correlation
         # Outputs are B x F where F is the number of values under the diagnol in matrix.
         # Each burst is a 1xF, represting the neuron correaltions in that one burst
+
         # We should make a function where you can input n1 and n2, and it will extract 
         # the correaltion from a 1xF input
+            av_output_max_corr[b] = np.nanmean(output_max_corr[b, :, :])
+            av_output_max_lag[b] = np.nanmean(output_max_lag[b, :, :])
+            
 
-        return output_max_corr, output_max_lag
+        return output_max_corr, av_output_max_corr, output_max_lag, av_output_max_lag
+    
+
+    
+    def get_burst_to_burst_time_corr_from_stack(self, compare_func = compute_cosine_similarity_with_lag, max_lag = 0):
+        """
+        Compute burst-to-burst cosine similarity using RateSliceStack object.
+        At which moments during the burst are all bursts most similar to each other?
+
+        Using Min_rate since this doesn't have t_spike matrix
+        
+        Parameters:
+        -----------
+        rate_slice_stack : RateSliceStack
+            Your RateSliceStack object containing event_stack (N x T x B)
+        MIN_RATE_THRESHOLD : float
+            Minimum mean firing rate to consider a burst valid for that neuron
+        MIN_FRAC : float
+            Maximum fraction of bursts that can be skipped (default 0.3 = 30%)
+            
+        Returns:
+        --------
+        all_burst_corr_scores : array, shape (N, B, B)
+            Pairwise correlation scores between all burst pairs for each neuron
+        av_burst_corr_scores : array, shape (N,)
+            Average correlation per neuron across all valid burst pairs
+        """
+        # Get dimensions
+        event_stack = self.event_stack
+        num_neurons = event_stack.shape[0]  # N
+        num_time_bins = event_stack.shape[1]  # T
+        num_bursts = event_stack.shape[2]  # B
+        
+        # Initialize result matrices
+        av_burst_corr_scores = np.full(num_time_bins, np.nan)
+        all_burst_corr_scores = np.full((num_time_bins, num_bursts, num_bursts), np.nan)
+        
+        # For each neuron
+        for time in range(num_time_bins):
+            # Make list of comparison bursts
+            comp_bursts = list(range(num_bursts))
+            
+            # Counter for skipped bursts
+            counter = 0
+            
+            # For each reference burst
+            for ref_b in range(num_bursts):
+                # Remove ref burst from comp bursts
+                comp_bursts = [b for b in comp_bursts if b != ref_b]
+                
+                # Extract firing rate for this neuron in this burst
+                # Shape: (T,) - 1D array of firing rates over time
+                ref_rate = event_stack[:, time, ref_b]
+                
+                # # Check if mean firing rate is above threshold
+                # if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
+                #     counter += 1
+                #     continue
+                
+                # For each comparison burst
+                for comp_b in comp_bursts:
+                    # Extract firing rate for this neuron in comparison burst
+                    comp_rate = event_stack[:, time, comp_b]
+                    
+                    # # Check if mean firing rate is above threshold
+                    # if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
+                    #     continue
+                    
+                    # Compute cross correlation. Only use 10 ms since we are comparing bursts, and bursts
+                    # are centered around 0 which is burst peak. That means we expect that burst 1 and burst 2 will have 
+                    # max acvitivty near 0
+                    max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
+                    
+                    # Store results
+                    all_burst_corr_scores[time, comp_b, ref_b] = max_corr
+            
+           
+            av_burst_corr_scores[time] = np.nanmean(all_burst_corr_scores[time,:, :])
+        #all_burst_corr_scores is TxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
+
+        return all_burst_corr_scores, av_burst_corr_scores
+    
+    
+        
+        return features
+    def PCA_on_lower_diagnol_corr_matrix(self,all_burst_corr_scores, n_components =2):
+        """
+        Apply PCA to reduce feature dimensions.
+        
+        Parameters:
+        -----------
+        feature_matrix : array, shape (B, F)
+            Each row is a burst, each column is a feature
+            
+        n_components : int
+            Number of components (default: 2)
+            
+        Returns:
+        --------
+        pca_result : array, shape (B, n_components)
+            Reduced representation
+        """
+         #lower triangle is B x F (or N x F if you input N x B x B) (or T x F if you input T x Bx B)
+        lower_triangle= extract_lower_triangle_features(all_burst_corr_scores)
+
+        pca = PCA(n_components=n_components)
+        pca_result = pca.fit_transform(lower_triangle)
+        
+        
+        return pca_result
+
+
+
         
 
             
