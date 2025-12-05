@@ -101,7 +101,10 @@ class TestHDF5Exporters(BaseExportTest):
         with time unit conversion from milliseconds to seconds.
 
         Parameters:
-        - None
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        - spike_times_unit (str): the time unit for the spike times ("s")
+        - spike_times_dataset (str): the name of the dataset for the spike times
+        - spike_times_index_dataset (str): the name of the dataset for the spike times index
 
         Tests:
         (Method 1) Export SpikeData to HDF5 using ragged style with seconds time unit
@@ -137,7 +140,10 @@ class TestHDF5Exporters(BaseExportTest):
         Test group-per-unit export with sample-based time units.
 
         Parameters:
-        - None
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        - group_per_unit (str): the name of the group for the units
+        - group_time_unit (str): the time unit for the spike times ("samples")
+        - fs_Hz (float): the sampling frequency in Hz
 
         Tests:
         (Method 1) Export using group style with 1000 Hz sampling rate (1 sample = 1 ms)
@@ -181,7 +187,10 @@ class TestHDF5Exporters(BaseExportTest):
         Tests paired arrays export with millisecond time units.
 
         Parameters:
-        - None
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+            - times_unit (str): the time unit for the spike times ("ms")
+            - idces_dataset (str): the name of the dataset for the unit indices
+            - times_dataset (str): the name of the dataset for the spike times
 
         Tests:
         (Method 1) Export creates two datasets: unit indices and corresponding spike times
@@ -217,7 +226,8 @@ class TestHDF5Exporters(BaseExportTest):
         Test raster export for binned spike count analysis.
 
         Parameters:
-        - None
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        - raster_bin_size_ms (float): the bin size in milliseconds for rasterization
 
         Tests:
         (Method 1) Export specifies a 5ms bin size for rasterization
@@ -245,7 +255,9 @@ class TestHDF5Exporters(BaseExportTest):
         Tests export of raw data arrays alongside spike data.
 
         Parameters:
-        - None
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        - raw_data (np.ndarray): a 2D float array of shape (2, 10) containing mock raw voltage data
+        - raw_time (np.ndarray): a 1D float array of shape (10) containing mock raw time data
 
         Tests:
         (Method 1) Creates SpikeData with mock raw voltage data and time arrays
@@ -292,13 +304,17 @@ class TestNWBExporters(BaseExportTest):
     """
 
     def _tmp_nwb(self) -> str:
-        """Create a temporary NWB file path for testing."""
+        """
+        Creates a temporary NWB file path for testing.
+        """
         fd, path = tempfile.mkstemp(suffix=(".nwb"))
         os.close(fd)
         return path
 
     def tearDown(self) -> None:
-        """Clean up temporary files created during tests."""
+        """
+        Clean up temporary files created during tests
+        """
         for attr in ("_last",):
             p = getattr(self, attr, None)
             if p and os.path.exists(p):
@@ -308,24 +324,23 @@ class TestNWBExporters(BaseExportTest):
                     pass
 
     def test_export_nwb_roundtrip(self):
-        """Test NWB export and import round-trip compatibility.
+        """
+        Tests that SpikeData can be exported to NWB format and
+        successfully re-imported with round-trip compatibility / identical spike timing data.
 
-        Purpose: Validates that SpikeData can be exported to NWB format and
-        successfully re-imported with identical spike timing data.
+        Parameters:
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
 
-        Why useful: NWB is becoming the standard for sharing neurophysiology data.
-        This ensures our export creates valid NWB files that maintain data integrity
-        and can be used with other NWB-compatible tools.
+        Tests:
+        (Method 1) Export SpikeData using the NWB exporter (uses ragged array format internally)
+        (Method 2) Times are automatically converted to seconds (NWB standard)
+        (Method 3) Data is organized in /units group with standard dataset names
+        (Method 4) Re-import using NWB loader with prefer_pynwb=False (h5py-based)
+        (Test Case 1) Verify all spike trains match original within floating-point precision
 
-        How it works:
-        1. Export SpikeData using the NWB exporter (uses ragged array format internally)
-        2. Times are automatically converted to seconds (NWB standard)
-        3. Data is organized in /units group with standard dataset names
-        4. Re-import using NWB loader with prefer_pynwb=False (h5py-based)
-        5. Verify all spike trains match original within floating-point precision
-
-        This test ensures NWB format compliance and round-trip data integrity.
-        The use of prefer_pynwb=False tests our h5py-based NWB reader rather than
+        Notes:
+        - This test ensures NWB format compliance and round-trip data integrity.
+        - The use of prefer_pynwb=False tests our h5py-based NWB reader rather than
         the full pynwb library, ensuring compatibility with our minimal NWB export.
         """
         sd = self.make_sd()
@@ -355,24 +370,22 @@ class TestKiloSortExporters(BaseExportTest):
     """
 
     def test_export_kilosort_roundtrip_samples(self):
-        """Test KiloSort export and import with sample-based timing.
+        """
+        Test KiloSort export and import with sample-based timing.
 
-        Purpose: Validates that SpikeData can be exported to KiloSort format
-        and re-imported with correct spike timing and unit assignment.
+        Parameters:
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
 
-        Why useful: KiloSort format is widely used in the spike sorting community.
-        This ensures compatibility with KiloSort, Phy, and other tools that use
-        this simple but effective format.
-
-        How it works:
-        1. Export SpikeData to KiloSort format with 1000 Hz sampling rate
-        2. Each unit index becomes a cluster ID (0, 1, 2, ...)
-        3. Spike times are converted from milliseconds to sample indices
-        4. Creates spike_times.npy and spike_clusters.npy files
-        5. Round-trip through KiloSort loader
-        6. Verify spike trains match (loader sorts by cluster ID, which matches our order)
-
-        Tests both the export logic and the assumption that unit indices map directly
+        Tests:
+        (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
+        (Method 2) Each unit index becomes a cluster ID (0, 1, 2, ...)
+        (Method 3) Spike times are converted from milliseconds to sample indices
+        (Method 4) Creates spike_times.npy and spike_clusters.npy files
+        (Method 5) Round-trip through KiloSort loader
+        (Test Case 1) Verify spike trains match (loader sorts by cluster ID, which matches our order)
+       
+       Notes:
+        - Tests both the export logic and the assumption that unit indices map directly
         to cluster IDs in ascending order.
         """
         sd = self.make_sd()
@@ -392,23 +405,28 @@ class TestKiloSortExporters(BaseExportTest):
                 self.assertTrue(np.allclose(q(a), b))
 
     def test_export_kilosort_custom_cluster_ids(self):
-        """Test KiloSort export with custom cluster ID assignment.
+        """
+        Tests KiloSort export with custom cluster ID assignment.
 
-        Purpose: Validates that custom cluster IDs can be assigned to units
-        instead of using the default unit index mapping.
+        Parameters:
+        - sd (SpikeData): a SpikeData object with 3 units and known spike trains
+        - cluster_ids (list): a list of custom cluster IDs to use instead of the default [0, 1, 2]
+        - d (str): the path to the temporary kilosort directory containing:
+            - spike_times.npy (np.ndarray): a 1D integer array of spike times
+            - spike_clusters.npy (np.ndarray): a 1D integer array of spike clusters
 
-        Why useful: Sometimes you want to preserve original cluster IDs from
-        a spike sorting result, or use a specific numbering scheme that doesn't
-        start from 0. This flexibility is important for data provenance.
+        Tests:
+        (Method 1) Export with custom cluster IDs [10, 5, 7] instead of [0, 1, 2]
+        (Method 2) Load the raw NumPy files directly (not through loader)
+        (Method 3) Verify that cluster IDs 10 and 5 appear with correct spike counts
+        (Method 4) Unit 0 (3 spikes) → cluster 10, Unit 1 (2 spikes) → cluster 5
+        (Method 5) Unit 2 (empty) → cluster 7 with 0 spikes (not present in arrays)
+        (Test Case 1) Verify the cluster ID mapping works correctly with clusters 
+        10 and 5, and counts match events per unit (3 and 2)
 
-        How it works:
-        1. Export with custom cluster IDs [10, 5, 7] instead of [0, 1, 2]
-        2. Load the raw NumPy files directly (not through loader)
-        3. Verify that cluster IDs 10 and 5 appear with correct spike counts
-        4. Unit 0 (3 spikes) → cluster 10, Unit 1 (2 spikes) → cluster 5
-        5. Unit 2 (empty) → cluster 7 with 0 spikes (not present in arrays)
 
-        This test ensures the cluster ID mapping works correctly and that
+        Notes:
+        - This test ensures the cluster ID mapping works correctly and that
         empty units are handled properly (they don't contribute any spikes
         to the output arrays).
         """
