@@ -63,13 +63,14 @@ class TestHDF5Loaders(unittest.TestCase):
 
 
         Parameters:
-        - None
+        - raster (np.ndarray): a 2D integer array of shape (units, time bins)
 
         Tests:
-        (Method 1)  Creates a small 2D integer array
-        (Method 2)  Writes it as 'raster' to HDF5
-        (Method 3)  Loads it using load_spikedata_from_hdf5
+        (Method 1)  Creates a small 2D integer array and writes it as 'raster' to HDF5
+        (Method 2)  Loads it using load_spikedata_from_hdf5 with raster_bin_size_ms=10.0
         (Test Case 1)  Checks that the resulting SpikeData object has the correct raster and unit count.
+
+        Notes:
         """
         path = self._tmp_h5()
         self._last_h5_path = path
@@ -89,7 +90,7 @@ class TestHDF5Loaders(unittest.TestCase):
         Test that loading a non-2D raster dataset raises ValueError.
 
         Parameters:
-        - None
+        - raster (np.ndarray): a 1D array
 
         Tests:
         (Method 1)  Writes a 1D array as 'raster'
@@ -109,7 +110,7 @@ class TestHDF5Loaders(unittest.TestCase):
         Test that specifying multiple input styles raises ValueError.
 
         Parameters:
-        - None
+        - raster (np.ndarray): a 2D integer array of shape (units, time bins)
 
         Tests:
         (Method 1)  Writes both a 'raster' dataset and a 'units' group
@@ -134,7 +135,8 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading spike indices and times in milliseconds from HDF5.
 
         Parameters:
-        - None
+        - idces (np.ndarray): a 1D integer array of spike indices
+        - times_ms (np.ndarray): a 1D float array of spike times in milliseconds
 
         Tests:
         (Method 1)  Writes 'idces' and 'times' datasets
@@ -161,7 +163,7 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading spike times from a group-per-unit structure in seconds.
 
         Parameters:
-        - None
+        - units (np.ndarray): a 1D float array of spike times in seconds
 
         Tests:
         (Method 1)  Writes 'units' group with two datasets (one per unit) containing spike times in seconds
@@ -187,7 +189,7 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading group-per-unit structure with empty units.
 
         Parameters:
-        - None
+        - units (np.ndarray): an empty 1D float array of spike times in milliseconds
 
         Tests:
         (Method 1)  Writes 'units' group with two empty datasets
@@ -216,7 +218,8 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading ragged spike times from flat arrays and index.
 
         Parameters:
-        - None
+        - flat (np.ndarray): a 1D float array of spike times
+        - index (np.ndarray): a 1D integer array of spike indices
 
         Tests:
         (Method 1)  Writes a flat 'spike_times' array and a 'spike_times_index' array
@@ -247,7 +250,8 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading spike indices and times in samples with specified sampling rate.
 
         Parameters:
-        - None
+        - idces (np.ndarray): a 1D integer array of spike indices
+        - times_samp (np.ndarray): a 1D float array of spike times in samples
 
         Tests:
         (Method 1)  Writes 'idces' and 'times' datasets (times in samples)
@@ -279,7 +283,10 @@ class TestHDF5Loaders(unittest.TestCase):
         Test loading and attaching raw data and raw time from HDF5.
 
         Parameters:
-        - None
+        - raster (np.ndarray): a 2D integer array of shape (units, time bins)
+        - raw (np.ndarray): a 2D float array of shape (channels, time bins)
+        - raw_time_s (np.ndarray): a 1D float array of raw time in seconds
+        - raw_time_samples (np.ndarray): a 1D integer array of raw time in samples
 
         Tests:
         (Method 1)  Writes 'raster', 'raw', and two raw time datasets (one in seconds, one in samples)
@@ -327,7 +334,7 @@ class TestHDF5Loaders(unittest.TestCase):
         Test that loading from an HDF5 file with no recognizable style raises ValueError.
 
         Parameters:
-        - None
+        - path (str): the path to the HDF5 file
 
         Tests:
         (Method 1)  Writes an empty HDF5 file
@@ -346,7 +353,9 @@ class TestHDF5Loaders(unittest.TestCase):
         Test that loading times in samples without specifying fs_Hz raises ValueError.
 
         Parameters:
-        - None
+        - path (str): the path to the HDF5 file
+        - idces (np.ndarray): a 1D integer array of spike indices
+        - times_samples (np.ndarray): a 1D float array of spike times in samples
 
         Tests:
         (Method 1)  Writes 'idces' and 'times' (in samples)
@@ -370,7 +379,8 @@ class TestHDF5Loaders(unittest.TestCase):
         Test thresholding of raw data loaded from HDF5.
 
         Parameters:
-        - None
+        - path (str): the path to the HDF5 file
+        - data (np.ndarray): a 2D float array of shape (channels, time bins)
 
         Tests:
         (Method 1)  Writes a 'raw' dataset with two channels, one containing a supra-threshold segment
@@ -409,7 +419,10 @@ class TestNWBLoader(unittest.TestCase):
         Test loading NWB units group using h5py.
 
         Parameters:
-        - None
+        - h5py file object: a file object opened in write mode containing:
+            - a 'units' group
+            - a 'spike_times' (np.ndarray): a 1D float array of spike times in seconds
+            - a 'spike_times_index' (np.ndarray): a 1D integer array of spike indices
 
         Tests:
         (Method 1)  Writes a minimal NWB-like file with a 'units' group containing 'spike_times' and 'spike_times_index'
@@ -440,7 +453,7 @@ class TestNWBLoader(unittest.TestCase):
         Test that loading an NWB file missing the 'units' group raises ValueError.
 
         Parameters:
-        - None
+        - h5py file object: an empty HDF5 file opened in write mode
 
         Tests:
         (Method 1)  Writes an empty NWB file
@@ -465,7 +478,10 @@ class TestNWBLoader(unittest.TestCase):
         Test loading NWB units group with alternative dataset names.
 
         Parameters:
-        - None
+        - h5py file object: a file object opened in write mode containing:
+            - a 'units' group
+            - a 'xx_spike_times' (np.ndarray): a 1D float array of spike times in seconds
+            - a 'xx_spike_times_index' (np.ndarray): a 1D integer array of spike indices
 
         Tests:
         (Method 1)  Writes a 'units' group with datasets ending in 'spike_times' and 'spike_times_index' but with prefixes
@@ -497,7 +513,8 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test loading KiloSort output with two clusters.
 
         Parameters:
-        - None
+        - spike_times (np.ndarray): a 1D float array of spike times in samples
+        - spike_clusters (np.ndarray): a 1D integer array of spike clusters
 
         Tests:
         (Method 1)  Writes 'spike_times.npy' and 'spike_clusters.npy' for two clusters
@@ -526,7 +543,7 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test loading from a mock SpikeInterface SortingExtractor.
 
         Parameters:
-        - None
+        - sorting (MockSorting): a mock sorting object with two units and known spike trains
 
         Tests:
         (Method 1)  Writes a mock sorting object with two units and known spike trains
@@ -561,7 +578,8 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test thresholding on a mock SpikeInterface RecordingExtractor.
 
         Parameters:
-        - None
+        - data (np.ndarray): a 2D float array of shape (channels, time bins)
+        - fs (float): the sampling frequency in Hz
 
         Tests:
         (Method 1)  Writes a mock recording object with a supra-threshold burst on one channel
@@ -609,7 +627,7 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test loading a subset of units and overriding sampling frequency.
 
         Parameters:
-        - None
+        - sorting (MockSorting2): a mock sorting object with two units and no sampling frequency
 
         Tests:
         (Method 1)  Writes a mock sorting object with two units and no sampling frequency
@@ -640,7 +658,7 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test that passing an invalid object to load_spikedata_from_spikeinterface raises TypeError.
 
         Parameters:
-        - None
+        - BadSorting: a class with no required methods
 
         Tests:
         (Method 1)  Writes a class with no required methods
@@ -659,7 +677,9 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test loading KiloSort output with empty arrays.
 
         Parameters:
-        - None
+        - d (str): the path to the temporary kilosort directory containing:
+            - spike_times (np.ndarray): a 1D integer array of spike times
+            - spike_clusters (np.ndarray): a 1D integer array of spike clusters
 
         Tests:
         (Method 1)  Writes empty 'spike_times.npy' and 'spike_clusters.npy'
@@ -679,7 +699,9 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test that KiloSort cluster_ids metadata aligns with sorted trains.
 
         Parameters:
-        - None
+        - d (str): the path to the temporary kilosort directory containing:
+            - spike_times (np.ndarray): a 1D integer array of spike times
+            - spike_clusters (np.ndarray): a 1D integer array of spike clusters
 
         Tests:
         (Method 1)  Writes 'spike_times.npy' and 'spike_clusters.npy' with two cluster ids
@@ -700,7 +722,10 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
         Test that KiloSort loader keeps all clusters if cluster_info.tsv is missing expected columns.
 
         Parameters:
-        - None
+        - d (str): the path to the temporary kilosort directory containing:
+            - spike_times (np.ndarray): a 1D integer array of spike times
+            - spike_clusters (np.ndarray): a 1D integer array of spike clusters
+            - cluster_info.tsv (str): a TSV file with cluster metadata
 
         Tests:
         (Method 1)  Writes 'spike_times.npy', 'spike_clusters.npy', and a cluster_info.tsv file without the expected columns
