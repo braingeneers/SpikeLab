@@ -586,69 +586,105 @@ class SpikeDataTest(unittest.TestCase):
     def test_get_pop_rate_square_only_matches_convolution(self):
         """Test get_pop_rate with square window only (no Gaussian) matches direct convolution.
 
-        - Constructs a spike matrix with known spike times.
+        - Constructs a SpikeData object with known spike times.
         - Compares get_pop_rate output to numpy convolution of summed spike train.
         """
+
+        trains = [
+            [10, 20, 50, 70, 80],  # neuron 0
+            [15, 20, 55, 70],  # neuron 1
+            [20, 25, 60],  # neuron 2
+        ]
+
         T, N = 100, 3
         t_spk_mat = np.zeros((T, N))
-        t_spk_mat[[10, 20, 50, 70, 80], 0] = 1
-        t_spk_mat[[15, 20, 55, 70], 1] = 1
-        t_spk_mat[[20, 25, 60], 2] = 1
+        t_spk_mat[trains[0], 0] = 1
+        t_spk_mat[trains[1], 1] = 1
+        t_spk_mat[trains[2], 2] = 1
+
+        sd = SpikeData(trains, length=T)
 
         SQUARE_WIDTH = 5
         GAUSS_SIGMA = 0
 
-        pop = spikedata.get_pop_rate(t_spk_mat, squre_width = SQUARE_WIDTH, square_width=GAUSS_SIGMA)
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+        )
         truth = np.convolve(
             np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
         )
+
         self.assertTrue(np.allclose(pop, truth))
 
     def test_get_pop_rate_gaussian_only_impulse(self):
         """Test get_pop_rate with Gaussian kernel only (no square) for a single impulse.
 
-        - Places a single spike in the center of the spike matrix.
+        - Creates a SpikeData with a single spike in the center.
         - Checks that the output is a normalized Gaussian and is symmetric.
         """
-        T, N = 101, 1
-        t_spk_mat = np.zeros((T, N))
-        t_spk_mat[T // 2, 0] = 1
+        T = 101
+
+        # Create a single spike at the center (t=50.5ms)
+        trains = [[50.5]]
+        sd = SpikeData(trains, length=T)
 
         SQUARE_WIDTH = 0
         GAUSS_SIGMA = 2
 
-        pop = spikedata.get_pop_rate(t_spk_mat, square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA)
-
-        self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
-        self.assertTrue(np.isclose(pop[T // 2 - 1], pop[T // 2 + 1]))
-
-    def test_get_bursts_detects_simple_peaks(self):
-        """Test get_bursts for correct detection of simple burst peaks.
-
-        - Creates a population rate with two clear peaks.
-        - Checks that get_bursts finds two bursts, with correct peak and edge locations.
-        """
-        T = 200
-        pop_rate = np.zeros(T)
-        pop_rate[45:56] = np.array([0, 2, 4, 6, 8, 10, 8, 6, 4, 2, 0])
-        pop_rate[145:156] = np.array([0, 3, 6, 9, 12, 15, 12, 9, 6, 3, 0])
-
-        pop_rate_acc = []
-        THR_BURST = 0.5
-        MIN_BURST_DIFF = 10
-        BURST_EDGE_MULT_THRESH = 0.2
-
-        tburst, edges, peak_amp = spikedata.get_bursts(
-            pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
         )
 
-        self.assertEqual(len(tburst), 2)
-        self.assertEqual(len(peak_amp), 2)
-        self.assertEqual(edges.shape, (2, 2))
-        self.assertTrue(48 <= tburst[0] <= 52)
-        self.assertTrue(148 <= tburst[1] <= 152)
-        self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
-        self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
+        self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
+        self.assertTrue(np.isclose(pop[50 - 1], pop[50 + 1]))
+
+
+def test_get_bursts_detects_simple_peaks(self):
+    """Test get_bursts for correct detection of simple burst peaks.
+
+    - Creates a SpikeData with spike patterns forming two clear peaks.
+    - Checks that get_bursts finds two bursts, with correct peak and edge locations.
+    """
+    T = 200
+
+    # Create spike trains with two bursts
+    trains = [
+        [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+        [48, 49, 50, 51, 52],
+        [50, 50, 50],
+        [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
+        [148, 149, 150, 151, 152],
+        [150, 150, 150, 150],
+    ]
+
+    sd = SpikeData(trains, length=T)
+
+    THR_BURST = 0.5
+    MIN_BURST_DIFF = 10
+    BURST_EDGE_MULT_THRESH = 0.2
+
+    tburst, edges, peak_amp = sd.get_bursts(
+        thr_burst=THR_BURST,
+        min_burst_diff=MIN_BURST_DIFF,
+        burst_edge_mult_thresh=BURST_EDGE_MULT_THRESH,
+        square_width=5,
+        gauss_sigma=2,
+        raster_bin_size_ms=1.0,
+    )
+
+    # Should detect 2 bursts
+    self.assertEqual(len(tburst), 2)
+    self.assertEqual(len(peak_amp), 2)
+    self.assertEqual(edges.shape, (2, 2))
+
+    # First burst should be around t=50
+    self.assertTrue(48 <= tburst[0] <= 52)
+    # Second burst should be around t=150
+    self.assertTrue(148 <= tburst[1] <= 152)
+
+    # Check that edges bracket the peaks
+    self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
+    self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
 
     def test_get_frac_active(self):
         """Test get_frac_active method for calculating burst participation rates.

@@ -4,12 +4,7 @@ import numpy as np
 from scipy import ndimage, signal
 from scipy.stats import norm
 
-__all__ = [
-    "spike_time_tiling",
-    "swap",
-    "randomize",
-    "trough_between"
-]
+__all__ = ["spike_time_tiling", "swap", "randomize", "trough_between"]
 
 
 def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -239,10 +234,11 @@ def randomize(ar, swap_per_spike=5):
 
     return ar
 
+
 def trough_between(i0, i1, pop_rate):
     """
     Helper function for get_bursts(). Finds the minimum value (trough) between two indices.
-    
+
     Parameters:
     i0, i1 (int): Time bin indices of the bursts
     pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin

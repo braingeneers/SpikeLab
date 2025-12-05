@@ -53,15 +53,10 @@ from .utils import (
     _train_from_i_t_list,
     swap,
     randomize,
-    trough_between
+    trough_between,
 )
 
-__all__ = [
-    "SpikeData",
-    "spike_time_tiling",
-    "swap",
-    "randomize"
-]
+__all__ = ["SpikeData", "spike_time_tiling", "swap", "randomize"]
 
 
 class SpikeData:
@@ -1050,7 +1045,7 @@ class SpikeData:
 
     def get_pop_rate(self, square_width, gauss_sigma, raster_bin_size_ms=1.0):
         """
-        Compute population firing rate by smoothing the summed spike counts using 
+        Compute population firing rate by smoothing the summed spike counts using
         a moving-average (square) window, then a Gaussian smoothing window.
 
         Parameters:
@@ -1061,8 +1056,12 @@ class SpikeData:
         Returns:
         pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
         """
-        t_spk_mat = self.sparse_raster(raster_bin_size_ms)  # Shape: (neurons, time_bins)
-        summed_spikes = np.asarray(t_spk_mat.sum(axis=0)).flatten()  # Sum once across neurons dimension
+        t_spk_mat = self.sparse_raster(
+            raster_bin_size_ms
+        )  # Shape: (neurons, time_bins)
+        summed_spikes = np.asarray(
+            t_spk_mat.sum(axis=0)
+        ).flatten()  # Sum once across neurons dimension
 
         # Pass square window
         if square_width > 0:
@@ -1089,16 +1088,26 @@ class SpikeData:
 
         return pop_rate
 
-    def get_bursts(self, thr_burst, min_burst_diff, burst_edge_mult_thresh,
-    square_width=100, gauss_sigma=20, acc_square_width=5, acc_gauss_sigma=5,
-    raster_bin_size_ms=1.0, peak_to_trough=True, pop_rate=None, pop_rate_acc=None
+    def get_bursts(
+        self,
+        thr_burst,
+        min_burst_diff,
+        burst_edge_mult_thresh,
+        square_width=100,
+        gauss_sigma=20,
+        acc_square_width=5,
+        acc_gauss_sigma=5,
+        raster_bin_size_ms=1.0,
+        peak_to_trough=True,
+        pop_rate=None,
+        pop_rate_acc=None,
     ):
         """
         Detect bursts from a population rate vector using thresholded peak finding and
         amplitude-scaled edge detection.
 
         Parameters:
-        thr_burst (float): Threshold multiplier for burst peak detection 
+        thr_burst (float): Threshold multiplier for burst peak detection
         min_burst_diff (int): Minimum time between detected bursts (in bins)
         burst_edge_mult_thresh (float): Threshold multiplier for burst edge detection
         square_width (int): Square window width for calculating pop_rate (in bins)
@@ -1106,7 +1115,7 @@ class SpikeData:
         acc_square_width (int): Square window width for calculating pop_rate_acc (in bins)
         acc_gauss_sigma (int): Gaussian window sigma for calculating pop_rate_acc (in bins)
         raster_bin_size_ms (int): Time bin size for calculating population rate in ms
-        peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)  
+        peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)
         pop_rate (np.ndarray[float64], optional): Pre-calculated smoothed population spiking data in spikes per bin
         pop_rate_acc (np.ndarray[float64], optional): Pre-calculated accurate smoothed population spiking data in spikes per bin
 
@@ -1122,9 +1131,13 @@ class SpikeData:
         """
         # Get pop rates and rms
         if pop_rate is None:
-            pop_rate = self.get_pop_rate(square_width, gauss_sigma, raster_bin_size_ms=raster_bin_size_ms)
+            pop_rate = self.get_pop_rate(
+                square_width, gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
+            )
         if pop_rate_acc is None:
-            pop_rate_acc = self.get_pop_rate(acc_square_width, acc_gauss_sigma, raster_bin_size_ms=raster_bin_size_ms)
+            pop_rate_acc = self.get_pop_rate(
+                acc_square_width, acc_gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
+            )
         pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
 
         # Find peaks
@@ -1139,12 +1152,20 @@ class SpikeData:
         for burst in range(len(peaks)):
             pk = int(peaks[burst])
             pk_val = float(pop_rate[pk])
-                
+
             # Determine baseline
-            if peak_to_trough: # Peak-to-trough case
+            if peak_to_trough:  # Peak-to-trough case
                 # Find troughs to left and right
-                tL = trough_between(peaks[burst-1], pk, pop_rate) if burst > 0 else None
-                tR = trough_between(pk, peaks[burst+1], pop_rate) if burst < len(peaks) - 1 else None
+                tL = (
+                    trough_between(peaks[burst - 1], pk, pop_rate)
+                    if burst > 0
+                    else None
+                )
+                tR = (
+                    trough_between(pk, peaks[burst + 1], pop_rate)
+                    if burst < len(peaks) - 1
+                    else None
+                )
 
                 # If only one trough is found, use it
                 if tL is None and tR is None:
@@ -1159,13 +1180,13 @@ class SpikeData:
                     tL_val = float(pop_rate[tL])
                     tR_val = float(pop_rate[tR])
                     ti_val = max(tL_val, tR_val)
-            else: # Peak-to-zero case
+            else:  # Peak-to-zero case
                 ti_val = 0.0
-            
+
             # Calculate edge threshold
             delta = max(0.0, pk_val - ti_val)
             edge_level = ti_val + burst_edge_mult_thresh * delta
-                    
+
             # Find edges where signal crosses threshold
             frames_below_thresh = np.where(pop_rate < edge_level)[0]
             rel_frames = pk - frames_below_thresh
@@ -1180,7 +1201,10 @@ class SpikeData:
             rel_burst_start = np.min(rel_frames[rel_frames > 0])
             rel_burst_end = np.max(rel_frames[rel_frames < 0])
 
-            edges[burst, :] = [peaks[burst] - rel_burst_start, peaks[burst] - rel_burst_end]
+            edges[burst, :] = [
+                peaks[burst] - rel_burst_start,
+                peaks[burst] - rel_burst_end,
+            ]
 
             # Refine peak location using accurate population rate
             if len(pop_rate_acc) == len(pop_rate):
@@ -1200,10 +1224,12 @@ class SpikeData:
         # Check for duplicate bursts
         unique_bursts, counts = np.unique(tburst, return_counts=True)
         duplicates = unique_bursts[counts > 1]
-        if(len(duplicates) != 0):
-            print(f"\n{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}.\n"+
-            f"This is likely due identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True.\n"+
-            f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data.\n"+
-            f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.\n")
+        if len(duplicates) != 0:
+            print(
+                f"\n{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}.\n"
+                + f"This is likely due identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True.\n"
+                + f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data.\n"
+                + f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.\n"
+            )
 
         return tburst, edges, peak_amp
