@@ -371,22 +371,22 @@ class TestKiloSortExporters(BaseExportTest):
 
     def test_export_kilosort_roundtrip_samples(self):
         """
-        Test KiloSort export and import with sample-based timing.
+         Test KiloSort export and import with sample-based timing.
 
-        Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
+         Parameters:
+         - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
 
-        Tests:
-        (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
-        (Method 2) Each unit index becomes a cluster ID (0, 1, 2, ...)
-        (Method 3) Spike times are converted from milliseconds to sample indices
-        (Method 4) Creates spike_times.npy and spike_clusters.npy files
-        (Method 5) Round-trip through KiloSort loader
-        (Test Case 1) Verify spike trains match (loader sorts by cluster ID, which matches our order)
-       
-       Notes:
-        - Tests both the export logic and the assumption that unit indices map directly
-        to cluster IDs in ascending order.
+         Tests:
+         (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
+         (Method 2) Each unit index becomes a cluster ID (0, 1, 2, ...)
+         (Method 3) Spike times are converted from milliseconds to sample indices
+         (Method 4) Creates spike_times.npy and spike_clusters.npy files
+         (Method 5) Round-trip through KiloSort loader
+         (Test Case 1) Verify spike trains match (loader sorts by cluster ID, which matches our order)
+
+        Notes:
+         - Tests both the export logic and the assumption that unit indices map directly
+         to cluster IDs in ascending order.
         """
         sd = self.make_sd()
         with tempfile.TemporaryDirectory() as d:
@@ -421,7 +421,7 @@ class TestKiloSortExporters(BaseExportTest):
         (Method 3) Verify that cluster IDs 10 and 5 appear with correct spike counts
         (Method 4) Unit 0 (3 spikes) → cluster 10, Unit 1 (2 spikes) → cluster 5
         (Method 5) Unit 2 (empty) → cluster 7 with 0 spikes (not present in arrays)
-        (Test Case 1) Verify the cluster ID mapping works correctly with clusters 
+        (Test Case 1) Verify the cluster ID mapping works correctly with clusters
         10 and 5, and counts match events per unit (3 and 2)
 
 
