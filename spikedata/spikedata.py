@@ -191,12 +191,20 @@ class SpikeData:
         Create a SpikeData object from raw data by filtering and thresholding raw
         electrophysiological data formatted as an array with shape (channels, time).
 
-        If filter is True (default), filter the data using a third-order Butterworth
-        filter with passband 300 Hz to 6 kHz. To use different filter parameters, pass a
-        dictionary, which will be passed as keyword arguments to butter_filter(). If
-        filter is falsy, no filtering is done.
+        Parameters:
+        - data (numpy.ndarray): Raw data with shape (channels, time)
+        - fs_Hz (float): Sampling frequency in Hz
+        - threshold_sigma (float): Threshold in units of per-channel standard deviation
+        - filter (dict or bool): Filter configuration or False to disable filtering; if True, a third-order Butterworth filter with passband 300 Hz to 6 kHz is used.
+        - hysteresis (bool): Use hysteresis for thresholding
+        - direction (str): Direction of thresholding ('both', 'up', 'down')
 
-        Refactor 2025-09: unchanged behavior.
+        Returns:
+        - SpikeData object (SpikeData): Object with the given raw data.
+
+        Notes:
+        -  To use different filter parameters, pass a dictionary, which will be passed as keyword arguments to butter_filter().
+        -  If filter is False, no filtering is done.
         """
         if filter:
             if filter is True:
