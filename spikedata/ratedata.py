@@ -1,52 +1,9 @@
 import numpy as np
 from scipy import signal
 
-def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=350):
-        """
-        Compute normalized cross correlation with lag information.
-        
-        
-        Parameters:
-        -----------
-        ref_rate : array
-            Reference firing rate signal
-        comp_rate : array
-            Comparison firing rate signal
-        max_lag : int, optional
-            Maximum lag in frames to search for correlation.
-            If None, searches all possible lags.
-            
-        Returns:
-        --------
-        r : array
-            Full cross-correlation function at all lags
-        max_corr : float
-            Maximum correlation coefficient
-        max_lag_idx : int
-            Lag (in frames) at which maximum correlation occurs
-        """
-        # THIS IS THE EXACT SAME CORRELATION COMPUTATION FROM YOUR BOSS'S CODE
-        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
-        
-        center = int(len(r) / 2)
-        
-        # ADDED: Restrict search to max_lag if specified
-        if max_lag is not None:
-            search_start = max(0, center - max_lag)
-            search_end = min(len(r), center + max_lag + 1)
-            search_window = r[search_start:search_end]
-            
-            max_corr = np.max(search_window)
-            max_lag_idx = np.argmax(search_window) + search_start - center
-        else:
-            # ORIGINAL: Just get max from entire array
-            max_corr = np.max(r)
-            max_lag_idx = np.argmax(r) - center
-        
-        return max_corr, max_lag_idx
-
+from .utils import(
+    compute_cross_correlation_with_lag
+)
 
 class RateData:
     # It's like SpikeData but its underlying data is instaneous firing rates, not
@@ -61,11 +18,11 @@ class RateData:
         self,
         inst_Frate_data,
         times,
-        neuron_ids = None,
+        neuron_attributes = None,
         # subset_neurons = [],
         # subset_time_range = [],
-        N=None,
-        # length=None
+        N=None
+        #length=None
     ):
         if inst_Frate_data.ndim != 2:
             raise ValueError(
@@ -83,17 +40,26 @@ class RateData:
         if not isinstance(times, np.ndarray):
             times = np.array(times)
         
-        if neuron_ids is None:
-            neuron_ids = np.arange(inst_Frate_data.shape[0])
+        # if neuron_ids is None:
+        #     neuron_ids = np.arange(inst_Frate_data.shape[0])
 
-        if not isinstance(neuron_ids, np.ndarray):
-            neuron_ids = np.array(neuron_ids)
+        # if not isinstance(neuron_ids, np.ndarray):
+        #     neuron_ids = np.array(neuron_ids)
+        
 
         self.inst_Frate_data = inst_Frate_data
-        self.neuron_ids = neuron_ids
+        # self.neuron_ids = neuron_ids
         self.times = times
 
         self.N = inst_Frate_data.shape[0]
+        self.neuron_attributes = None
+        if neuron_attributes:
+            self.neuron_attributes = neuron_attributes.copy()
+            if len(neuron_attributes) != self.N:
+                raise ValueError(
+                    f"neuron_attributes has {len(neuron_attributes)} items "
+                    f"but inst_Frate_data has {self.N} rows"
+                )
 
         # self.length = times[-1] if len(times) > 0 else 0
 
@@ -101,13 +67,13 @@ class RateData:
         # # Time is 0 indexed. So if someone says they want time 8, this refers to time 7-8.
         # self.subset_time_range = (times[0], times[-1])
 
-    def subset(self, units):
+    def subset(self, units, by = None):
         """
         Extract a subset of neurons from the rate data.
 
         Parameters:
-            units: List or array of neuron indices to extract (old)
-            units: List or array of neuron_ids to extract
+            units: List or array of neuron indices to extract 
+            by = "id" allows you to use and track neuron_attributes
 
         Returns:
             RateData: New RateData object containing only the specified neurons
@@ -121,22 +87,42 @@ class RateData:
         #             neuron_indices.append(j)
         # if len(neuron_indices) == 0:
         #     raise ValueError("Input Neuron_ids do not exist for this RateData Object")
-        
-        if max(units) >= self.inst_Frate_data.shape[0]:
-            raise ValueError("Unit out of range")
+
+        if isinstance(units, int):
+            units = [units]
+        units = set(units)
+        if by is not None:
+            # VALUE-BASED: Look up by neuron_attribute
+            if self.neuron_attributes is None:
+                raise ValueError("can't use `by` without `neuron_attributes`")
+            
+            _missing = object()
+            units = {
+                i
+                for i in range(self.N)
+                if getattr(self.neuron_attributes[i], by, _missing) in units
+            }
+        units = sorted(units)
+
+        # if max(units) >= self.inst_Frate_data.shape[0]:
+        #     raise ValueError("Unit out of range")
         
 
         output = self.inst_Frate_data[units, :]
-        selected_ids = self.neuron_ids[units] 
+        neuron_attributes = None
+        if self.neuron_attributes is not None:
+            neuron_attributes = [self.neuron_attributes[i] for i in units]
+
+       #selected_ids = self.neuron_ids[units] 
         # for neuron in units:
         #     neuron_firing_rate = self.inst_Frate_data[neuron,:]
         #     output.append(neuron_firing_rate)
         #     neuron_ids.append(neuron)
         return RateData(inst_Frate_data=output, 
                         times=self.times,
-                        neuron_ids=selected_ids)
+                        neuron_attributes=neuron_attributes)
 
-    def subtime(self, start, end):
+    def subtime(self, start, end, shift_time=True):
         """
         Extract a subset of time points from the rate data.
 
@@ -157,6 +143,34 @@ class RateData:
         #     subset_neurons=self.subset_neurons,
         #     subset_time_range=(start, end),
         # )
+        length = self.times[-1] if len(self.times) > 0 else 0
+
+        if start is None or start is Ellipsis:
+            start = self.times[0] if len(self.times) > 0 else 0
+        elif start < 0:
+            start += length
+            if start < 0:
+                raise ValueError(
+                    f"start ({start - length}) is too negative. "
+                    f"Minimum allowed is -{length}"
+                )
+        
+        # Handle end
+        if end is None or end is Ellipsis:
+            end = length
+        elif end < 0:
+            end += length
+            if end < 0:
+                raise ValueError(
+                    f"end ({end - length}) is too negative. "
+                    f"Minimum allowed is -{length}"
+                )
+        
+        # Validate
+        if start >= end:
+            raise ValueError(
+                f"start ({start}) must be less than end ({end})"
+            )
 
         mask = (self.times >= start) & (self.times < end)
 
@@ -169,18 +183,40 @@ class RateData:
 
         output = self.inst_Frate_data[:, mask]
         new_times = self.times[mask]
+        if shift_time:
+            new_times = new_times - new_times[0]
         return RateData(
             inst_Frate_data=output,
             times=new_times
         )
-    def neuron_to_neuron_correlation_in_one_burst(self):
+    
+    def subtime_by_index(self, start_idx, end_idx, shift_time=True):
+        """Extract time range by INDICES"""
+
+        if start_idx < 0 or start_idx >= len(self.times):
+            raise ValueError(f"start_idx {start_idx} out of range")
+        if end_idx <= start_idx or end_idx > len(self.times):
+            raise ValueError(f"end_idx {end_idx} invalid")
+        
+        output = self.inst_Frate_data[:, start_idx:end_idx]
+        new_times = self.times[start_idx:end_idx]
+        
+        if shift_time:
+            new_times = new_times - new_times[0]
+        
+        return RateData(
+            inst_Frate_data=output,
+            times=new_times
+        )
+    
+    def neuron_pairwise_fr_corr(self):
 
         rate_matrix = self.inst_Frate_data
         
         num_neurons = self.inst_Frate_data.shape[0]  # N
         num_time_bins = self.inst_Frate_data.shape[1]  # T
-        corr_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
-        lag_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
+        corr_matrix_this_event = np.full((num_neurons, num_neurons), np.nan)
+        lag_matrix_this_event = np.full((num_neurons, num_neurons), np.nan)
 
             
         for n1 in range(num_neurons):
@@ -189,12 +225,12 @@ class RateData:
                 compare_signal = rate_matrix[n2,:]
                 max_corr, max_lag_idx = compute_cross_correlation_with_lag(reference_signal, compare_signal, max_lag = 350)
 
-                corr_matrix_this_burst[n1,n2] = max_corr
-                lag_matrix_this_burst[n1,n2] = max_lag_idx
+                corr_matrix_this_event[n1,n2] = max_corr
+                lag_matrix_this_event[n1,n2] = max_lag_idx
                 
         
         #Output is NxN
 
-        return corr_matrix_this_burst, lag_matrix_this_burst
+        return corr_matrix_this_event, lag_matrix_this_event
     
    
