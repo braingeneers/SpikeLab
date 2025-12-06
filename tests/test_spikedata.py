@@ -502,49 +502,57 @@ class SpikeDataTest(unittest.TestCase):
         # Any spike train should be exactly equal to itself, and the
         # result shouldn't depend on which train is A and which is B.
         foo = random_spikedata(2, N)
-        self.assertEqual(foo.spike_time_tiling(0, 0, 1), 1.0)
-        self.assertEqual(foo.spike_time_tiling(1, 1, 1), 1.0)
-        self.assertEqual(foo.spike_time_tiling(0, 1, 1), foo.spike_time_tiling(1, 0, 1))
+        self.assertEqual(foo.spike_time_tiling_pairwise(0, 0, 1), 1.0)
+        self.assertEqual(foo.spike_time_tiling_pairwise(1, 1, 1), 1.0)
+        self.assertEqual(
+            foo.spike_time_tiling_pairwise(0, 1, 1),
+            foo.spike_time_tiling_pairwise(1, 0, 1),
+        )
 
         # Exactly the same thing, but for the matrix of STTCs.
-        sttc = foo.spike_time_tilings(1)
+        sttc = foo.spike_time_tiling_pairwise(1)
         self.assertEqual(sttc.shape, (2, 2))
         self.assertEqual(sttc[0, 1], sttc[1, 0])
         self.assertEqual(sttc[0, 0], 1.0)
         self.assertEqual(sttc[1, 1], 1.0)
-        self.assertEqual(sttc[0, 1], foo.spike_time_tiling(0, 1, 1))
+        self.assertEqual(sttc[0, 1], foo.spike_time_tiling_pairwise(0, 1, 1))
 
         # Default arguments, inferred value of tmax.
         tmax = max(np.ptp(foo.train[0]), np.ptp(foo.train[1]))
-        self.assertEqual(foo.spike_time_tiling(0, 1), foo.spike_time_tiling(0, 1, tmax))
+        self.assertEqual(
+            foo.spike_time_tiling_pairwise(0, 1),
+            foo.spike_time_tiling_pairwise(0, 1, tmax),
+        )
 
         # The uncorrelated spike trains above should stay near zero.
         # I'm not sure how many significant figures to expect with the
         # randomness, though, so it's really easy to pass.
-        self.assertAlmostEqual(foo.spike_time_tiling(0, 1, 1), 0, 1)
+        self.assertAlmostEqual(foo.spike_time_tiling_pairwise(0, 1, 1), 0, 1)
 
         # Two spike trains that are in complete disagreement. This
         # should be exactly -0.8, but there's systematic error
         # proportional to 1/N, even in their original implementation.
         bar = SpikeData([np.arange(N) + 0.0, np.arange(N) + 0.5])
-        self.assertAlmostEqual(bar.spike_time_tiling(0, 1, 0.4), -0.8, int(np.log10(N)))
+        self.assertAlmostEqual(
+            bar.spike_time_tiling_pairwise(0, 1, 0.4), -0.8, int(np.log10(N))
+        )
 
         # As you vary dt, that alternating spike train actually gets
         # the STTC to go continuously from 0 to approach a limit of
         # lim(dt to 0.5) STTC(dt) = -1, but STTC(dt >= 0.5) = 0.
-        self.assertEqual(bar.spike_time_tiling(0, 1, 0.5), 0)
+        self.assertEqual(bar.spike_time_tiling_pairwise(0, 1, 0.5), 0)
 
         # Make sure it stays within range even for spike trains with
         # completely random lengths.
         for _ in range(100):
             baz = SpikeData([np.random.rand(np.random.poisson(100)) for _ in range(2)])
-            sttc = baz.spike_time_tiling(0, 1, np.random.lognormal())
+            sttc = baz.spike_time_tiling_pairwise(0, 1, np.random.lognormal())
             self.assertLessEqual(sttc, 1)
             self.assertGreaterEqual(sttc, -1)
 
         # STTC of an empty spike train should definitely be 0!
         fish = SpikeData([[], np.random.rand(100)])
-        sttc = fish.spike_time_tiling(0, 1, 0.01)
+        sttc = fish.spike_time_tiling_pairwise(0, 1, 0.01)
         self.assertEqual(sttc, 0)
 
     def test_binning_doesnt_lose_spikes(self):

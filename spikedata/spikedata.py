@@ -733,7 +733,7 @@ class SpikeData:
                 )
         return ret
 
-    def spike_time_tiling_pair(self, i, j, delt=20.0):
+    def spike_time_tiling_pairwise(self, i, j, delt=20.0):
         """
         Calculate the spike time tiling coefficient between two units within
         this SpikeData. STTC is a metric for correlation between spike trains with some
