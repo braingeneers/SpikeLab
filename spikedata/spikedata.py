@@ -502,10 +502,25 @@ class SpikeData:
 
         Refactor 2025-09: unchanged behavior.
         """
+        """
+        Luka Version:
+       - Start is inclusive and end is exclusive.
+       - Start/end refers to actual spike time, not an index
+       - Recall spike_train is a list of lists where each row is a neuron, and its values are spike times
+
+
+        """
         if start is None or start is Ellipsis:
             start = 0
         elif start < 0:
             start += self.length
+            if start < 0:
+                raise ValueError(
+                    f"start ({start - self.length}) is too negative. "
+                    f"Minimum allowed is -{self.length} (recording length)"
+                )
+        elif start > self.length:
+            start = self.length
 
         if end is None or end is Ellipsis:
             end = self.length
@@ -513,6 +528,12 @@ class SpikeData:
             end += self.length
         elif end > self.length:
             end = self.length
+
+        if start >= end:
+            raise ValueError(
+                f"start ({start}) must be less than end ({end}). "
+                f"Cannot create subtime with invalid range."
+            )
 
         # Special case out the start=0 case by nopping the comparison.
         # lower = start if start > 0 else -np.inf

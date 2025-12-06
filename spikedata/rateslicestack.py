@@ -2,149 +2,19 @@ import SpikeData
 import RateData
 import numpy as np
 from scipy import signal
-from sklearn.decomposition import PCA
-
-def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag):
-        """
-        Compute normalized cross correlation with lag information.
-        
-       
-        
-        Parameters:
-        -----------
-        ref_rate : array
-            Reference firing rate signal
-        comp_rate : array
-            Comparison firing rate signal
-        max_lag : int, optional
-            Maximum lag in frames to search for correlation.
-            If None, searches all possible lags.
-            
-        Returns:
-        --------
-        r : array
-            Full cross-correlation function at all lags
-        max_corr : float
-            Maximum correlation coefficient
-        max_lag_idx : int
-            Lag (in frames) at which maximum correlation occurs
-        """
-        # THIS IS THE EXACT SAME CORRELATION COMPUTATION FROM YOUR BOSS'S CODE
-        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
-        
-        center = int(len(r) / 2)
-        
-        # ADDED: Restrict search to max_lag if specified
-        if max_lag is not None:
-            search_start = max(0, center - max_lag)
-            search_end = min(len(r), center + max_lag + 1)
-            search_window = r[search_start:search_end]
-            
-            max_corr = np.max(search_window)
-            max_lag_idx = np.argmax(search_window) + search_start - center
-        else:
-            # ORIGINAL: Just get max from entire array
-            max_corr = np.max(r)
-            max_lag_idx = np.argmax(r) - center
-        
-        return max_corr, max_lag_idx
 
 
-def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag):
-    """
-    Compute cosine similarity with lag information.
-    
-    Parameters:
-    -----------
-    ref_rate : array
-        Reference firing rate signal
-    comp_rate : array
-        Comparison firing rate signal
-    max_lag : int, optional
-        Maximum lag in frames to search for similarity.
-        If None, searches all possible lags.
-    
-    Returns:
-    --------
-    max_sim : float
-        Maximum cosine similarity coefficient
-    max_lag_idx : int
-        Lag (in frames) at which maximum similarity occurs
-    """
-    from sklearn.metrics.pairwise import cosine_similarity
-    
-    ref_rate = np.array(ref_rate).flatten()
-    comp_rate = np.array(comp_rate).flatten()
-    
-    # Determine the range of lags to search
-    if max_lag is not None:
-        lag_range = range(-max_lag, max_lag + 1)
-    else:
-        # Search all possible lags
-        max_possible_lag = len(ref_rate) - 1
-        lag_range = range(-max_possible_lag, max_possible_lag + 1)
-    
-    similarities = []
-    valid_lags = []
-    
-    # Compute cosine similarity at each lag
-    for lag in lag_range:
-        if lag < 0:
-            # comp_rate leads ref_rate (shift comp_rate left, or ref_rate right)
-            ref_segment = ref_rate[-lag:]
-            comp_segment = comp_rate[:lag]
-        elif lag > 0:
-            # ref_rate leads comp_rate (shift ref_rate left, or comp_rate right)
-            ref_segment = ref_rate[:-lag]
-            comp_segment = comp_rate[lag:]
-        else:
-            # No lag
-            ref_segment = ref_rate
-            comp_segment = comp_rate
-        
-        # Skip if segments are too short
-        if len(ref_segment) > 0 and len(comp_segment) > 0:
-            sim = cosine_similarity(ref_segment.reshape(1, -1), 
-                                   comp_segment.reshape(1, -1))[0, 0]
-            similarities.append(sim)
-            valid_lags.append(lag)
-    
-    # Find maximum similarity and corresponding lag
-    similarities = np.array(similarities)
-    valid_lags = np.array(valid_lags)
-    
-    max_idx = np.argmax(similarities)
-    max_sim = similarities[max_idx]
-    max_lag_idx = valid_lags[max_idx]
-    
-    return max_sim, max_lag_idx
+from .utils import(
+    compute_cross_correlation_with_lag,
+    compute_cosine_similarity_with_lag,
+    extract_lower_triangle_features,
+    PCA_reduction
+)
 
-def extract_lower_triangle_features(matrix_3d):
-        """
-        Extract lower triangle (excluding diagonal) from each matrix in a 3D array.
-        Vectorized for efficiency.
-        
-        Parameters:
-        -----------
-        matrix_3d : array, shape (B, N, N)
-            3D array where each slice [b, :, :] is a symmetric N×N matrix
-            
-        Returns:
-        --------
-        features : array, shape (B, F)
-            2D array where each row contains lower triangle values
-            F = N*(N-1)/2 (number of unique pairs)
-        """
-        num_samples = matrix_3d.shape[0]  # B
-        num_items = matrix_3d.shape[1]    # N
-        
-        # Get lower triangle indices
-        lower_tri_idx = np.tril_indices(num_items, k=-1)
-        
-        # Extract all lower triangles at once (vectorized)
-        features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+
+
+
+
 
 class RateSliceStack:
     # This is an object that contains a collection of sparse matrices in 3D matrix form
@@ -342,7 +212,7 @@ class RateSliceStack:
    
 
 
-    def get_burst_to_burst_neuron_corr_from_stack(self,compare_func =compute_cross_correlation_with_lag,  MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3, max_lag = 350):
+    def get_slice_to_slice_neuron_corr_from_stack(self,compare_func =compute_cross_correlation_with_lag,  MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3, max_lag = 350):
         """
         Compute burst-to-burst correlation using RateSliceStack object.
 
@@ -352,6 +222,8 @@ class RateSliceStack:
         -----------
         rate_slice_stack : RateSliceStack
             Your RateSliceStack object containing event_stack (N x T x B)
+        compare_func:
+            Specify if you want to compare signals with correaltion or cosine similarity functions.
         MIN_RATE_THRESHOLD : float
             Minimum mean firing rate to consider a burst valid for that neuron
         MIN_FRAC : float
@@ -477,7 +349,7 @@ class RateSliceStack:
     
 
     
-    def get_burst_to_burst_time_corr_from_stack(self, compare_func = compute_cosine_similarity_with_lag, max_lag = 0):
+    def get_slice_to_slice_time_corr_from_stack(self, compare_func = compute_cosine_similarity_with_lag, max_lag = 0):
         """
         Compute burst-to-burst cosine similarity using RateSliceStack object.
         At which moments during the burst are all bursts most similar to each other?
@@ -488,10 +360,8 @@ class RateSliceStack:
         -----------
         rate_slice_stack : RateSliceStack
             Your RateSliceStack object containing event_stack (N x T x B)
-        MIN_RATE_THRESHOLD : float
-            Minimum mean firing rate to consider a burst valid for that neuron
-        MIN_FRAC : float
-            Maximum fraction of bursts that can be skipped (default 0.3 = 30%)
+        compare_func:
+            Specify if you want to compare signals with correaltion or cosine similarity functions.
             
         Returns:
         --------
@@ -557,7 +427,6 @@ class RateSliceStack:
     
     
         
-        return features
     def PCA_on_lower_diagnol_corr_matrix(self,all_burst_corr_scores, n_components =2):
         """
         Apply PCA to reduce feature dimensions.
@@ -577,18 +446,24 @@ class RateSliceStack:
         """
          #lower triangle is B x F (or N x F if you input N x B x B) (or T x F if you input T x Bx B)
         lower_triangle= extract_lower_triangle_features(all_burst_corr_scores)
+        pca_result = PCA_reduction(lower_triangle, n_components)
 
-        pca = PCA(n_components=n_components)
-        pca_result = pca.fit_transform(lower_triangle)
-        
         
         return pca_result
+    
+    
+    
 
 
 
         
 
-            
+    # Make a equation for converting 3D matrix into list of rate datas 
+    # Have rate data have actual nxn function
+    # Make a class for nxn matrices. This will have lower triangle function as well
+    # And PCa function
+    # So then output of get_slice_to_slice_neuron_corr_from_stack would instead be a list
+    # of this nxn object instead of a 3d matrix
                 
 
 

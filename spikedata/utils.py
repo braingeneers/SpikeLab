@@ -4,7 +4,17 @@ import numpy as np
 from scipy import ndimage, signal
 from scipy.stats import norm
 
-__all__ = ["spike_time_tiling", "swap", "randomize", "trough_between"]
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import PCA
+
+__all__ = [
+    "spike_time_tiling",
+    "swap",
+    "randomize",
+    "get_pop_rate",
+    "get_bursts",
+]
 
 
 def spike_time_tiling(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -231,17 +241,238 @@ def randomize(ar, swap_per_spike=5):
 
 def trough_between(i0, i1, pop_rate):
     """
-    Helper function for get_bursts(). Finds the minimum value (trough) between two indices.
+    Compute population firing rate by smoothing the summed spike counts.
 
-    Parameters:
-    i0, i1 (int): Time bin indices of the bursts
-    pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
-
-    Returns:
-    (int): Time bin index of minimum value (trough) between peaks
+    First apply a moving-average (square) window, then optionally apply a Gaussian
+    smoothing window parameterized by GAUSS_SIGMA (in samples).
     """
-    L, R = int(i0), int(i1)
-    if R - L <= 1:
-        return None
-    seg = pop_rate[L:R]
-    return L + int(np.argmin(seg))
+    if SQUARE_WIDTH > 0:
+        square_smooth_summed_spike = np.convolve(
+            np.sum(t_spk_mat, axis=1),
+            np.ones(SQUARE_WIDTH) / SQUARE_WIDTH,
+            mode="same",
+        )
+    else:
+        square_smooth_summed_spike = np.sum(t_spk_mat, axis=1)
+
+    if GAUSS_SIGMA > 0:
+        gauss_window = norm.pdf(
+            np.arange(-3 * GAUSS_SIGMA, 3 * GAUSS_SIGMA + 1), 0, GAUSS_SIGMA
+        )
+        pop_rate = np.convolve(
+            square_smooth_summed_spike,
+            gauss_window / np.sum(gauss_window),
+            mode="same",
+        )
+    else:
+        pop_rate = square_smooth_summed_spike
+
+    return pop_rate
+
+
+def get_bursts(
+    pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
+):
+    """
+    Detect bursts from a population rate vector using thresholded peak finding and
+    amplitude-scaled edge detection.
+
+    Returns (tburst, edges, peak_amp).
+    """
+    pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+
+    peaks, _ = signal.find_peaks(
+        pop_rate, height=pop_rms * THR_BURST, distance=MIN_BURST_DIFF
+    )
+    peak_amp = pop_rate[peaks]
+
+    edges = np.full((len(peaks), 2), np.nan)
+    tburst = np.full(len(peaks), np.nan)
+
+    for burst in range(len(peaks)):
+        frames_below_thresh = np.where(
+            pop_rate < peak_amp[burst] * BURST_EDGE_MULT_THRESH
+        )[0]
+        rel_frames = peaks[burst] - frames_below_thresh
+
+        if (
+            len(rel_frames) == 0
+            or len(rel_frames[rel_frames > 0]) == 0
+            or len(rel_frames[rel_frames < 0]) == 0
+        ):
+            continue
+
+        rel_burst_start = np.min(rel_frames[rel_frames > 0])
+        rel_burst_end = np.max(rel_frames[rel_frames < 0])
+
+        edges[burst, :] = [peaks[burst] - rel_burst_start, peaks[burst] - rel_burst_end]
+
+        if len(pop_rate_acc) == len(pop_rate):
+            segment = pop_rate_acc[int(edges[burst, 0]) : int(edges[burst, 1])]
+            acc_peak = np.argmax(segment)
+            peak_val = np.max(segment)
+            tburst[burst] = acc_peak + edges[burst, 0]
+            peak_amp[burst] = peak_val
+        else:
+            tburst[burst] = peaks[burst]
+
+    edges = edges[~np.isnan(tburst), :]
+    peak_amp = peak_amp[~np.isnan(tburst)]
+    tburst = tburst[~np.isnan(tburst)]
+
+    return tburst, edges, peak_amp
+
+def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag):
+        """
+        Compute normalized cross correlation with lag information.
+        
+       
+        
+        Parameters:
+        -----------
+        ref_rate : array
+            Reference firing rate signal
+        comp_rate : array
+            Comparison firing rate signal
+        max_lag : int, optional
+            Maximum lag in frames to search for correlation.
+            If None, searches all possible lags.
+            
+        Returns:
+        --------
+        r : array
+            Full cross-correlation function at all lags
+        max_corr : float
+            Maximum correlation coefficient
+        max_lag_idx : int
+            Lag (in frames) at which maximum correlation occurs
+        """
+        # r is the correlation between ref and comp. Each value is sum of elementwise products 
+        # for each possible lag and it is normalized so each value is between -1 and 1
+        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
+            #Below is the normalziation method. You take signal's correaltion of itself, and 
+            # take the center value which is lag = 0, and use that for normalizing
+            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
+            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
+        
+        center = int(len(r) / 2)
+        
+        
+        if max_lag is not None:
+            # If you have a max_lag parameter, this will limit which values in r you 
+            # can consider for the max computation
+            search_start = max(0, center - max_lag)
+            search_end = min(len(r), center + max_lag + 1)
+            search_window = r[search_start:search_end]
+            
+            max_corr = np.max(search_window)
+            max_lag_idx = np.argmax(search_window) + search_start - center
+        else:
+            # This is the case where you don't specify max_lag, so you search entirety of r for max
+            max_corr = np.max(r)
+            max_lag_idx = np.argmax(r) - center
+        
+        return max_corr, max_lag_idx
+
+
+def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag):
+    """
+    Compute cosine similarity with lag information.
+    
+    Parameters:
+    -----------
+    ref_rate : array
+        Reference firing rate signal
+    comp_rate : array
+        Comparison firing rate signal
+    max_lag : int, optional
+        Maximum lag in frames to search for similarity.
+        If None, searches all possible lags.
+    
+    Returns:
+    --------
+    max_sim : float
+        Maximum cosine similarity coefficient
+    max_lag_idx : int
+        Lag (in frames) at which maximum similarity occurs
+    """
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    ref_rate = np.array(ref_rate).flatten()
+    comp_rate = np.array(comp_rate).flatten()
+    
+   
+    if max_lag is not None:
+        # If you have a max_lag parameter, this will limit which values in r you 
+        # can consider for the max computation
+        lag_range = range(-max_lag, max_lag + 1)
+    else:
+        # This is the case where you don't specify max_lag, so you search entirety of r for max
+        max_possible_lag = len(ref_rate) - 1
+        lag_range = range(-max_possible_lag, max_possible_lag + 1)
+    
+    similarities = []
+    valid_lags = []
+    
+    # Compute cosine similarity at each lag, and makes a case for negative, positive or no lag
+    for lag in lag_range:
+        if lag < 0:
+            # comp_rate leads ref_rate (shift comp_rate left, or ref_rate right)
+            ref_segment = ref_rate[-lag:]
+            comp_segment = comp_rate[:lag]
+        elif lag > 0:
+            # ref_rate leads comp_rate (shift ref_rate left, or comp_rate right)
+            ref_segment = ref_rate[:-lag]
+            comp_segment = comp_rate[lag:]
+        else:
+            # No lag
+            ref_segment = ref_rate
+            comp_segment = comp_rate
+        
+        # Skip if segments are too short
+        if len(ref_segment) > 0 and len(comp_segment) > 0:
+            sim = cosine_similarity(ref_segment.reshape(1, -1), 
+                                   comp_segment.reshape(1, -1))[0, 0]
+            similarities.append(sim)
+            valid_lags.append(lag)
+    
+    # Find maximum similarity and corresponding lag
+    similarities = np.array(similarities)
+    valid_lags = np.array(valid_lags)
+    
+    max_idx = np.argmax(similarities)
+    max_sim = similarities[max_idx]
+    max_lag_idx = valid_lags[max_idx]
+    
+    return max_sim, max_lag_idx
+
+def extract_lower_triangle_features(matrix_3d):
+        """
+        Extract lower triangle (excluding diagonal) from each matrix in a 3D array.
+        Vectorized for efficiency.
+        
+        Parameters:
+        -----------
+        matrix_3d : array, shape (B, N, N)
+            3D array where each slice [b, :, :] is a symmetric N×N matrix
+            
+        Returns:
+        --------
+        features : array, shape (B, F)
+            2D array where each row contains lower triangle values
+            F = N*(N-1)/2 (number of unique pairs)
+        """
+        num_samples = matrix_3d.shape[0]  # B
+        num_items = matrix_3d.shape[1]    # N
+        
+        # Get lower triangle indices
+        lower_tri_idx = np.tril_indices(num_items, k=-1)
+        
+        # Extract all lower triangles at once (vectorized)
+        features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+        return features
+def PCA_reduction(matrix_2d,n_components=2):
+        pca = PCA(n_components=n_components)
+        pca_result = pca.fit_transform(matrix_2d)
+        
+        return pca_result
