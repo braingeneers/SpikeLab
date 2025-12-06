@@ -597,7 +597,7 @@ class SpikeDataTest(unittest.TestCase):
         ]
 
         T, N = 100, 3
-        t_spk_mat = np.zeros((T, N))
+        t_spk_mat = np.zeros((T+1, N)) #T+1 because get_pop_rate adds a bin when len%bin_size==0
         t_spk_mat[trains[0], 0] = 1
         t_spk_mat[trains[1], 1] = 1
         t_spk_mat[trains[2], 2] = 1
@@ -667,9 +667,10 @@ def test_get_bursts_detects_simple_peaks(self):
         thr_burst=THR_BURST,
         min_burst_diff=MIN_BURST_DIFF,
         burst_edge_mult_thresh=BURST_EDGE_MULT_THRESH,
-        square_width=5,
-        gauss_sigma=2,
-        raster_bin_size_ms=1.0,
+        square_width=0,
+        gauss_sigma=0,
+        pop_rate_acc=[],
+        raster_bin_size_ms=1.0
     )
 
     # Should detect 2 bursts
