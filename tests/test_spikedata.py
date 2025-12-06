@@ -597,7 +597,9 @@ class SpikeDataTest(unittest.TestCase):
         ]
 
         T, N = 100, 3
-        t_spk_mat = np.zeros((T+1, N)) #T+1 because get_pop_rate adds a bin when len%bin_size==0
+        t_spk_mat = np.zeros(
+            (T + 1, N)
+        )  # T+1 because get_pop_rate adds a bin when len%bin_size==0
         t_spk_mat[trains[0], 0] = 1
         t_spk_mat[trains[1], 1] = 1
         t_spk_mat[trains[2], 2] = 1
@@ -638,54 +640,54 @@ class SpikeDataTest(unittest.TestCase):
         self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
         self.assertTrue(np.isclose(pop[50 - 1], pop[50 + 1]))
 
+    def test_get_bursts_detects_simple_peaks(self):
+        """Test get_bursts for correct detection of simple burst peaks.
 
-def test_get_bursts_detects_simple_peaks(self):
-    """Test get_bursts for correct detection of simple burst peaks.
+        - Creates a SpikeData with spike patterns forming two clear peaks.
+        - Checks that get_bursts finds two bursts, with correct peak and edge locations.
+        """
+        T = 200
 
-    - Creates a SpikeData with spike patterns forming two clear peaks.
-    - Checks that get_bursts finds two bursts, with correct peak and edge locations.
-    """
-    T = 200
+        # Create spike trains with two bursts
+        trains = [
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+            [48, 49, 50, 51, 52],
+            [50, 50, 50],
+            [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
+            [148, 149, 150, 151, 152],
+            [150, 150, 150, 150],
+        ]
 
-    # Create spike trains with two bursts
-    trains = [
-        [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
-        [48, 49, 50, 51, 52],
-        [50, 50, 50],
-        [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
-        [148, 149, 150, 151, 152],
-        [150, 150, 150, 150],
-    ]
+        sd = SpikeData(trains, length=T)
 
-    sd = SpikeData(trains, length=T)
+        THR_BURST = 0.5
+        MIN_BURST_DIFF = 10
+        BURST_EDGE_MULT_THRESH = 0.2
 
-    THR_BURST = 0.5
-    MIN_BURST_DIFF = 10
-    BURST_EDGE_MULT_THRESH = 0.2
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=THR_BURST,
+            min_burst_diff=MIN_BURST_DIFF,
+            burst_edge_mult_thresh=BURST_EDGE_MULT_THRESH,
+            square_width=0,
+            gauss_sigma=0,
+            acc_square_width=0,
+            acc_gauss_sigma=0,
+            raster_bin_size_ms=1.0,
+        )
 
-    tburst, edges, peak_amp = sd.get_bursts(
-        thr_burst=THR_BURST,
-        min_burst_diff=MIN_BURST_DIFF,
-        burst_edge_mult_thresh=BURST_EDGE_MULT_THRESH,
-        square_width=0,
-        gauss_sigma=0,
-        pop_rate_acc=[],
-        raster_bin_size_ms=1.0
-    )
+        # Should detect 2 bursts
+        self.assertEqual(len(tburst), 2)
+        self.assertEqual(len(peak_amp), 2)
+        self.assertEqual(edges.shape, (2, 2))
 
-    # Should detect 2 bursts
-    self.assertEqual(len(tburst), 2)
-    self.assertEqual(len(peak_amp), 2)
-    self.assertEqual(edges.shape, (2, 2))
+        # First burst should be around t=50
+        self.assertTrue(48 <= tburst[0] <= 52)
+        # Second burst should be around t=150
+        self.assertTrue(148 <= tburst[1] <= 152)
 
-    # First burst should be around t=50
-    self.assertTrue(48 <= tburst[0] <= 52)
-    # Second burst should be around t=150
-    self.assertTrue(148 <= tburst[1] <= 152)
-
-    # Check that edges bracket the peaks
-    self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
-    self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
+        # Check that edges bracket the peaks
+        self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
+        self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
 
     def test_get_frac_active(self):
         """Test get_frac_active method for calculating burst participation rates.
