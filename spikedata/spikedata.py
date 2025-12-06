@@ -110,12 +110,20 @@ class SpikeData:
     @staticmethod
     def from_idces_times(idces, times, N=None, **kwargs):
         """
-        Create a SpikeData object with N total units based on lists of unit indices and
-        spike times. If N is not provided, it is set to one more than the maximum index.
+        Create a SpikeData object based on a list of N units indices and
+        spike times.
 
-        All metadata parameters of the regular constructor are accepted.
+        Parameters:
+        - idces (list): List of unit indices
+        - times (list): List of spike times
+        - N (int): Number of units (optional)
+        - **kwargs: Additional keyword arguments for the SpikeData constructor
 
-        Refactor 2025-09: unchanged behavior.
+        Returns:
+        spike_data (SpikeData): A new SpikeData object with the given unit indices and spike times.
+
+        Notes:
+            - This method is a wrapper around the _train_from_i_t_list helper function.
         """
         return SpikeData(_train_from_i_t_list(idces, times, N), N=N, **kwargs)
 
