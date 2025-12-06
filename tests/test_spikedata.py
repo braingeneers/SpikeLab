@@ -510,7 +510,7 @@ class SpikeDataTest(unittest.TestCase):
         )
 
         # Exactly the same thing, but for the matrix of STTCs.
-        sttc = foo.spike_time_tiling_pairwise(1)
+        sttc = foo.spike_time_tilings(1)
         self.assertEqual(sttc.shape, (2, 2))
         self.assertEqual(sttc[0, 1], sttc[1, 0])
         self.assertEqual(sttc[0, 0], 1.0)
