@@ -83,7 +83,7 @@ class SpikeData:
         - **kwargs: Additional keyword arguments for the SpikeData constructor
 
         Returns:
-        SpikeData object: A new SpikeData object with the given unit indices and spike times.
+        spike_data (SpikeData): A new SpikeData object with the given unit indices and spike times.
 
         Notes:
             - This method is a wrapper around the _train_from_i_t_list helper function.
