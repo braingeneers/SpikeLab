@@ -186,7 +186,7 @@ class SpikeData:
 
         Notes:
         -  To use different filter parameters, pass a dictionary, which will be passed as keyword arguments to butter_filter().
-        If filter is False, no filtering is done.
+        -  If filter is False, no filtering is done.
         """
         if filter:
             if filter is True:
