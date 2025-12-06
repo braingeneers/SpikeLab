@@ -160,8 +160,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#standalone-functions">Standalone Functions</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 </ul>
 </li>
@@ -765,6 +763,46 @@ corresponds to unit i in the SpikeData</p></li>
 </div>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.get_pop_rate">
+<span class="sig-name descname"><span class="pre">get_pop_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">square_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gauss_sigma</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.get_pop_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.get_pop_rate" title="Link to this definition"></a></dt>
+<dd><p>Compute population firing rate by smoothing the summed spike counts using
+a moving-average (square) window, then a Gaussian smoothing window.</p>
+<p>Parameters:
+square_width (int): Width of square smoothing window in bins
+gauss_sigma (int): Sigma of Guassian smoothing window in bins
+raster_bin_size_ms (float): Size of raster bins in ms</p>
+<p>Returns:
+pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.get_bursts">
+<span class="sig-name descname"><span class="pre">get_bursts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">thr_burst</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_burst_diff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_edge_mult_thresh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">square_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gauss_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acc_square_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acc_gauss_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_to_trough</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_acc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.get_bursts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.get_bursts" title="Link to this definition"></a></dt>
+<dd><p>Detect bursts from a population rate vector using thresholded peak finding and
+amplitude-scaled edge detection.</p>
+<p>Parameters:
+thr_burst (float): Threshold multiplier for burst peak detection
+min_burst_diff (int): Minimum time between detected bursts (in bins)
+burst_edge_mult_thresh (float): Threshold multiplier for burst edge detection
+square_width (int): Square window width for calculating pop_rate (in bins)
+gauss_sigma (int): Gaussian window sigma for calculating pop_rate (in bins)
+acc_square_width (int): Square window width for calculating pop_rate_acc (in bins)
+acc_gauss_sigma (int): Gaussian window sigma for calculating pop_rate_acc (in bins)
+raster_bin_size_ms (int): Time bin size for calculating population rate in ms
+peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)
+pop_rate (np.ndarray[float64], optional): Pre-calculated smoothed population spiking data in spikes per bin
+pop_rate_acc (np.ndarray[float64], optional): Pre-calculated accurate smoothed population spiking data in spikes per bin</p>
+<p>Returns:
+tburst (np.ndarray[float64]): Time bin indices of detected bursts
+edges (np.ndarray[float64]): Time bin indices of burst edges (Shape = (N,2))
+peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indices</p>
+<p>Note:
+- Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas
+- Using the peak-to-zero calculations may result in several bursts being detected at one peak
+- In the case that duplicate bursts are detected, prints an error with potential fixes</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -802,22 +840,6 @@ Neuroscience 34:43, 14288–14303 (2014).</p>
 <dd class="field-odd"><p>ndarray</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="spikedata.get_pop_rate">
-<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">get_pop_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_spk_mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SQUARE_WIDTH</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GAUSS_SIGMA</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#get_pop_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.get_pop_rate" title="Link to this definition"></a></dt>
-<dd><p>Compute population firing rate by smoothing the summed spike counts.</p>
-<p>First apply a moving-average (square) window, then optionally apply a Gaussian
-smoothing window parameterized by GAUSS_SIGMA (in samples).</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="spikedata.get_bursts">
-<span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">get_bursts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_acc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">THR_BURST</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_BURST_DIFF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">BURST_EDGE_MULT_THRESH</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/utils.html#get_bursts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.get_bursts" title="Link to this definition"></a></dt>
-<dd><p>Detect bursts from a population rate vector using thresholded peak finding and
-amplitude-scaled edge detection.</p>
-<p>Returns (tburst, edges, peak_amp).</p>
 </dd></dl>
 
 <dl class="py function">

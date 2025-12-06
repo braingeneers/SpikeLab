@@ -157,8 +157,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../api/spikedata.html#standalone-functions">Standalone Functions</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.spike_time_tiling"><code class="docutils literal notranslate"><span class="pre">spike_time_tiling()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.get_pop_rate"><code class="docutils literal notranslate"><span class="pre">get_pop_rate()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.get_bursts"><code class="docutils literal notranslate"><span class="pre">get_bursts()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../api/spikedata.html#spikedata.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
 </ul>
 </li>
@@ -228,13 +226,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">signal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">norm</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;spike_time_tiling&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;swap&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;randomize&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;get_pop_rate&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;get_bursts&quot;</span><span class="p">,</span>
-<span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;spike_time_tiling&quot;</span><span class="p">,</span> <span class="s2">&quot;swap&quot;</span><span class="p">,</span> <span class="s2">&quot;randomize&quot;</span><span class="p">,</span> <span class="s2">&quot;trough_between&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="spike_time_tiling">
@@ -468,94 +460,22 @@
 
 
 
-<div class="viewcode-block" id="get_pop_rate">
-<a class="viewcode-back" href="../../api/spikedata.html#spikedata.get_pop_rate">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_pop_rate</span><span class="p">(</span><span class="n">t_spk_mat</span><span class="p">,</span> <span class="n">SQUARE_WIDTH</span><span class="p">,</span> <span class="n">GAUSS_SIGMA</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">trough_between</span><span class="p">(</span><span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">pop_rate</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute population firing rate by smoothing the summed spike counts.</span>
+<span class="sd">    Helper function for get_bursts(). Finds the minimum value (trough) between two indices.</span>
 
-<span class="sd">    First apply a moving-average (square) window, then optionally apply a Gaussian</span>
-<span class="sd">    smoothing window parameterized by GAUSS_SIGMA (in samples).</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    i0, i1 (int): Time bin indices of the bursts</span>
+<span class="sd">    pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    (int): Time bin index of minimum value (trough) between peaks</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">SQUARE_WIDTH</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">square_smooth_summed_spike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">t_spk_mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">SQUARE_WIDTH</span><span class="p">)</span> <span class="o">/</span> <span class="n">SQUARE_WIDTH</span><span class="p">,</span>
-            <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">square_smooth_summed_spike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">t_spk_mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">GAUSS_SIGMA</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">gauss_window</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span> <span class="o">*</span> <span class="n">GAUSS_SIGMA</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">GAUSS_SIGMA</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">GAUSS_SIGMA</span>
-        <span class="p">)</span>
-        <span class="n">pop_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span>
-            <span class="n">square_smooth_summed_spike</span><span class="p">,</span>
-            <span class="n">gauss_window</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">gauss_window</span><span class="p">),</span>
-            <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">pop_rate</span> <span class="o">=</span> <span class="n">square_smooth_summed_spike</span>
-
-    <span class="k">return</span> <span class="n">pop_rate</span></div>
-
-
-
-<div class="viewcode-block" id="get_bursts">
-<a class="viewcode-back" href="../../api/spikedata.html#spikedata.get_bursts">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_bursts</span><span class="p">(</span>
-    <span class="n">pop_rate</span><span class="p">,</span> <span class="n">pop_rate_acc</span><span class="p">,</span> <span class="n">THR_BURST</span><span class="p">,</span> <span class="n">MIN_BURST_DIFF</span><span class="p">,</span> <span class="n">BURST_EDGE_MULT_THRESH</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Detect bursts from a population rate vector using thresholded peak finding and</span>
-<span class="sd">    amplitude-scaled edge detection.</span>
-
-<span class="sd">    Returns (tburst, edges, peak_amp).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">pop_rms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">pop_rate</span><span class="p">)))</span>
-
-    <span class="n">peaks</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">find_peaks</span><span class="p">(</span>
-        <span class="n">pop_rate</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="n">pop_rms</span> <span class="o">*</span> <span class="n">THR_BURST</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="n">MIN_BURST_DIFF</span>
-    <span class="p">)</span>
-    <span class="n">peak_amp</span> <span class="o">=</span> <span class="n">pop_rate</span><span class="p">[</span><span class="n">peaks</span><span class="p">]</span>
-
-    <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">peaks</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="n">tburst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">peaks</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">burst</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">peaks</span><span class="p">)):</span>
-        <span class="n">frames_below_thresh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-            <span class="n">pop_rate</span> <span class="o">&lt;</span> <span class="n">peak_amp</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">*</span> <span class="n">BURST_EDGE_MULT_THRESH</span>
-        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">rel_frames</span> <span class="o">=</span> <span class="n">peaks</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">-</span> <span class="n">frames_below_thresh</span>
-
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">len</span><span class="p">(</span><span class="n">rel_frames</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
-            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">rel_frames</span><span class="p">[</span><span class="n">rel_frames</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span>
-            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">rel_frames</span><span class="p">[</span><span class="n">rel_frames</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span>
-        <span class="p">):</span>
-            <span class="k">continue</span>
-
-        <span class="n">rel_burst_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">rel_frames</span><span class="p">[</span><span class="n">rel_frames</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
-        <span class="n">rel_burst_end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">rel_frames</span><span class="p">[</span><span class="n">rel_frames</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span>
-
-        <span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">peaks</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">-</span> <span class="n">rel_burst_start</span><span class="p">,</span> <span class="n">peaks</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">-</span> <span class="n">rel_burst_end</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pop_rate_acc</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">pop_rate</span><span class="p">):</span>
-            <span class="n">segment</span> <span class="o">=</span> <span class="n">pop_rate_acc</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="mi">1</span><span class="p">])]</span>
-            <span class="n">acc_peak</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
-            <span class="n">peak_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
-            <span class="n">tburst</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">=</span> <span class="n">acc_peak</span> <span class="o">+</span> <span class="n">edges</span><span class="p">[</span><span class="n">burst</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-            <span class="n">peak_amp</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">=</span> <span class="n">peak_val</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">tburst</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span> <span class="o">=</span> <span class="n">peaks</span><span class="p">[</span><span class="n">burst</span><span class="p">]</span>
-
-    <span class="n">edges</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">tburst</span><span class="p">),</span> <span class="p">:]</span>
-    <span class="n">peak_amp</span> <span class="o">=</span> <span class="n">peak_amp</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">tburst</span><span class="p">)]</span>
-    <span class="n">tburst</span> <span class="o">=</span> <span class="n">tburst</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">tburst</span><span class="p">)]</span>
-
-    <span class="k">return</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span></div>
-
+    <span class="n">L</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">i0</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">i1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">R</span> <span class="o">-</span> <span class="n">L</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">pop_rate</span><span class="p">[</span><span class="n">L</span><span class="p">:</span><span class="n">R</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">L</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">seg</span><span class="p">))</span>
 </pre></div>
 
            </div>
