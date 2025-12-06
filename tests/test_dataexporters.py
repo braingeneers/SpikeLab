@@ -313,7 +313,7 @@ class TestNWBExporters(BaseExportTest):
 
     def tearDown(self) -> None:
         """
-        Clean up temporary files created during tests
+        Clean up temporary files created during tests.
         """
         for attr in ("_last",):
             p = getattr(self, attr, None)
