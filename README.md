@@ -14,8 +14,17 @@ IntegratedAnalysisTools provides a unified framework for working with neuronal s
 
 ## Installation
 
+### Using pip
+
 ```bash
 pip install integrated-analysis-tools
+```
+
+### Using conda
+
+```bash
+conda env create -f environment.yml
+conda activate integrated-analysis-tools
 ```
 
 For development:
@@ -23,6 +32,16 @@ For development:
 ```bash
 git clone https://github.com/braingeneers/IntegratedAnalysisTools.git
 cd IntegratedAnalysisTools
+pip install -e ".[dev]"
+```
+
+Or with conda:
+
+```bash
+git clone https://github.com/braingeneers/IntegratedAnalysisTools.git
+cd IntegratedAnalysisTools
+conda env create -f environment.yml
+conda activate integrated-analysis-tools
 pip install -e ".[dev]"
 ```
 
