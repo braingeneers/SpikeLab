@@ -118,7 +118,9 @@ async def load_from_hdf5(
 
         if style == "raster":
             if raster_dataset is None or raster_bin_size_ms is None:
-                raise ValueError("raster_dataset and raster_bin_size_ms required for raster style")
+                raise ValueError(
+                    "raster_dataset and raster_bin_size_ms required for raster style"
+                )
             kwargs["raster_dataset"] = raster_dataset
             kwargs["raster_bin_size_ms"] = raster_bin_size_ms
         elif style == "ragged":
@@ -134,7 +136,9 @@ async def load_from_hdf5(
             kwargs["group_per_unit"] = group_per_unit
         elif style == "paired":
             if idces_dataset is None or times_dataset is None:
-                raise ValueError("idces_dataset and times_dataset required for paired style")
+                raise ValueError(
+                    "idces_dataset and times_dataset required for paired style"
+                )
             kwargs["idces_dataset"] = idces_dataset
             kwargs["times_dataset"] = times_dataset
         else:
@@ -261,7 +265,9 @@ async def load_from_kilosort(
     if is_s3_url(folder_path):
         # For S3 folders, we'd need to download the specific files
         # This is a simplified version - in practice you might want more sophisticated handling
-        raise NotImplementedError("S3 folder paths for KiloSort not yet fully supported")
+        raise NotImplementedError(
+            "S3 folder paths for KiloSort not yet fully supported"
+        )
     else:
         local_folder = folder_path
 
@@ -360,4 +366,3 @@ async def load_from_hdf5_thresholded(
                 os.unlink(local_path)
             except Exception:
                 pass
-

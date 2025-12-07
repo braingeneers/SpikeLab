@@ -138,7 +138,10 @@ def download_from_s3(
         temp_file.close()
 
     # Ensure directory exists
-    os.makedirs(os.path.dirname(local_path) if os.path.dirname(local_path) else ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(local_path) if os.path.dirname(local_path) else ".",
+        exist_ok=True,
+    )
 
     try:
         # Download the file
@@ -199,4 +202,3 @@ def ensure_local_file(
     if not os.path.exists(file_path_or_url):
         raise FileNotFoundError(f"File not found: {file_path_or_url}")
     return file_path_or_url, False
-

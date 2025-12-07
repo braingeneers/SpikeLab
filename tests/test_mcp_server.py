@@ -41,6 +41,7 @@ try:
     )
     from mcp_server.sessions import SessionManager, get_session_manager
     from spikedata import SpikeData
+
     MCP_AVAILABLE = True
 except ImportError as e:
     MCP_IMPORT_ERROR = str(e)
@@ -50,6 +51,7 @@ if MCP_AVAILABLE:
     try:
         from mcp_server.server import server
         from mcp_server.tools import analysis, data_loaders, exporters
+
         MCP_SERVER_AVAILABLE = True
     except ImportError as e:
         MCP_IMPORT_ERROR = str(e)
@@ -74,6 +76,7 @@ pytestmark_server = pytest.mark.skipif(
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_spikedata():
@@ -185,6 +188,7 @@ class TestS3Utils:
 # Session Management Tests
 # ============================================================================
 
+
 class TestSessionManagement:
     """Test session management functionality."""
 
@@ -193,7 +197,7 @@ class TestSessionManagement:
         """Test creating and retrieving sessions."""
         session_manager = SessionManager()
         session_id = session_manager.create_session(sample_spikedata)
-        
+
         retrieved = session_manager.get_session(session_id)
         assert retrieved is not None
         assert retrieved.N == sample_spikedata.N
@@ -203,7 +207,7 @@ class TestSessionManagement:
         """Test session expiration."""
         session_manager = SessionManager()
         session_id = session_manager.create_session(sample_spikedata, ttl_seconds=0.1)
-        
+
         assert session_manager.get_session(session_id) is not None
         time.sleep(0.2)
         assert session_manager.get_session(session_id) is None
@@ -213,7 +217,7 @@ class TestSessionManagement:
         """Test updating and deleting sessions."""
         session_manager = SessionManager()
         session_id = session_manager.create_session(sample_spikedata)
-        
+
         new_sd = SpikeData([[1.0, 2.0]], length=10.0)
         assert session_manager.update_session(session_id, new_sd) is True
         assert session_manager.delete_session(session_id) is True
@@ -223,6 +227,7 @@ class TestSessionManagement:
 # ============================================================================
 # Data Loader Tests
 # ============================================================================
+
 
 class TestDataLoaders:
     """Test data loading tools."""
@@ -286,6 +291,7 @@ class TestDataLoaders:
 # Analysis Tools Tests
 # ============================================================================
 
+
 class TestAnalysisTools:
     """Test analysis tools."""
 
@@ -345,6 +351,7 @@ class TestAnalysisTools:
 # ============================================================================
 # Export Tools Tests
 # ============================================================================
+
 
 class TestExportTools:
     """Test export tools."""
@@ -407,6 +414,7 @@ class TestExportTools:
 # Server Integration Tests
 # ============================================================================
 
+
 class TestServerIntegration:
     """Test server integration and tool registration."""
 
@@ -416,6 +424,7 @@ class TestServerIntegration:
         """Test that tools are registered."""
         # Access the registered handler through the server's request handlers
         from mcp_server.server import _list_tools
+
         tools = await _list_tools()
         assert isinstance(tools, list)
         assert len(tools) > 0
@@ -430,6 +439,7 @@ class TestServerIntegration:
     async def test_tool_schemas(self):
         """Test tool schemas are valid."""
         from mcp_server.server import _list_tools
+
         tools = await _list_tools()
         for tool in tools:
             assert hasattr(tool, "name")
@@ -443,6 +453,7 @@ class TestServerIntegration:
     async def test_call_tool(self, mock_compute):
         """Test calling a tool through the server."""
         from mcp_server.server import _call_tool
+
         mock_compute.return_value = {
             "rates": [0.1, 0.2, 0.3],
             "unit": "kHz",
@@ -463,6 +474,7 @@ class TestServerIntegration:
     async def test_call_tool_unknown(self):
         """Test error handling for unknown tool."""
         from mcp_server.server import _call_tool
+
         result = await _call_tool("unknown_tool", {})
         data = json.loads(result[0].text)
         assert "error" in data

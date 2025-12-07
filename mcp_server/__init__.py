@@ -6,4 +6,3 @@ spike data analysis capabilities through a chat interface.
 """
 
 __version__ = "0.1.0"
-

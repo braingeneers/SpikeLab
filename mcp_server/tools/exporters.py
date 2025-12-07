@@ -35,7 +35,9 @@ def _upload_to_s3(
 ) -> str:
     """Upload a local file to S3."""
     if boto3 is None:
-        raise ImportError("boto3 is required for S3 uploads. Install it with: pip install boto3")
+        raise ImportError(
+            "boto3 is required for S3 uploads. Install it with: pip install boto3"
+        )
 
     from mcp_server.s3_utils import parse_s3_url
 
@@ -136,7 +138,10 @@ async def export_to_hdf5(
     else:
         local_path = file_path
         # Ensure directory exists
-        os.makedirs(os.path.dirname(local_path) if os.path.dirname(local_path) else ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(local_path) if os.path.dirname(local_path) else ".",
+            exist_ok=True,
+        )
 
     # Build export kwargs
     kwargs = {
@@ -239,7 +244,10 @@ async def export_to_nwb(
         temp_file.close()
     else:
         local_path = file_path
-        os.makedirs(os.path.dirname(local_path) if os.path.dirname(local_path) else ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(local_path) if os.path.dirname(local_path) else ".",
+            exist_ok=True,
+        )
 
     try:
         export_spikedata_to_nwb(
@@ -320,7 +328,9 @@ async def export_to_kilosort(
     if is_s3:
         # For S3, we'd need to handle folder uploads
         # This is simplified - in practice you might want more sophisticated handling
-        raise NotImplementedError("S3 folder paths for KiloSort export not yet fully supported")
+        raise NotImplementedError(
+            "S3 folder paths for KiloSort export not yet fully supported"
+        )
     else:
         local_folder = folder_path
         os.makedirs(local_folder, exist_ok=True)
@@ -339,4 +349,3 @@ async def export_to_kilosort(
         "folder_path": local_folder,
         "files": [spike_times_path, spike_clusters_path],
     }
-

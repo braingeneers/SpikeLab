@@ -30,7 +30,9 @@ class SessionManager:
         self._sessions: Dict[str, Dict] = {}
         self.default_ttl = default_ttl_seconds
 
-    def create_session(self, spikedata: SpikeData, ttl_seconds: Optional[int] = None) -> str:
+    def create_session(
+        self, spikedata: SpikeData, ttl_seconds: Optional[int] = None
+    ) -> str:
         """
         Create a new session with a SpikeData object.
 
@@ -117,7 +119,9 @@ class SessionManager:
         """
         now = time.time()
         expired = [
-            sid for sid, session in self._sessions.items() if now > session["expires_at"]
+            sid
+            for sid, session in self._sessions.items()
+            if now > session["expires_at"]
         ]
         for sid in expired:
             del self._sessions[sid]
@@ -169,4 +173,3 @@ _session_manager = SessionManager()
 def get_session_manager() -> SessionManager:
     """Get the global session manager instance."""
     return _session_manager
-

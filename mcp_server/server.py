@@ -33,32 +33,96 @@ async def _list_tools() -> list[types.Tool]:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "file_path": {"type": "string", "description": "Local file path or S3 URL"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local file path or S3 URL",
+                        },
                         "style": {
                             "type": "string",
                             "enum": ["raster", "ragged", "group", "paired"],
                             "description": "Input style",
                             "default": "ragged",
                         },
-                        "raster_dataset": {"type": "string", "description": "Dataset path for raster (style='raster')"},
-                        "raster_bin_size_ms": {"type": "number", "description": "Bin size in ms (style='raster')"},
-                        "spike_times_dataset": {"type": "string", "description": "Dataset path for spike times (style='ragged')"},
-                        "spike_times_index_dataset": {"type": "string", "description": "Dataset path for spike times index (style='ragged')"},
-                        "spike_times_unit": {"type": "string", "enum": ["s", "ms", "samples"], "default": "s"},
-                        "fs_Hz": {"type": "number", "description": "Sampling frequency in Hz"},
-                        "group_per_unit": {"type": "string", "description": "Group path (style='group')"},
-                        "group_time_unit": {"type": "string", "enum": ["s", "ms", "samples"], "default": "s"},
-                        "idces_dataset": {"type": "string", "description": "Dataset path for unit indices (style='paired')"},
-                        "times_dataset": {"type": "string", "description": "Dataset path for spike times (style='paired')"},
-                        "times_unit": {"type": "string", "enum": ["s", "ms", "samples"], "default": "s"},
-                        "raw_dataset": {"type": "string", "description": "Optional raw data dataset"},
-                        "raw_time_dataset": {"type": "string", "description": "Optional raw time dataset"},
-                        "raw_time_unit": {"type": "string", "enum": ["s", "ms", "samples"], "default": "s"},
-                        "length_ms": {"type": "number", "description": "Optional recording length in ms"},
-                        "aws_access_key_id": {"type": "string", "description": "Optional AWS access key"},
-                        "aws_secret_access_key": {"type": "string", "description": "Optional AWS secret key"},
-                        "aws_session_token": {"type": "string", "description": "Optional AWS session token"},
-                        "region_name": {"type": "string", "description": "Optional AWS region"},
+                        "raster_dataset": {
+                            "type": "string",
+                            "description": "Dataset path for raster (style='raster')",
+                        },
+                        "raster_bin_size_ms": {
+                            "type": "number",
+                            "description": "Bin size in ms (style='raster')",
+                        },
+                        "spike_times_dataset": {
+                            "type": "string",
+                            "description": "Dataset path for spike times (style='ragged')",
+                        },
+                        "spike_times_index_dataset": {
+                            "type": "string",
+                            "description": "Dataset path for spike times index (style='ragged')",
+                        },
+                        "spike_times_unit": {
+                            "type": "string",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
+                        },
+                        "fs_Hz": {
+                            "type": "number",
+                            "description": "Sampling frequency in Hz",
+                        },
+                        "group_per_unit": {
+                            "type": "string",
+                            "description": "Group path (style='group')",
+                        },
+                        "group_time_unit": {
+                            "type": "string",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
+                        },
+                        "idces_dataset": {
+                            "type": "string",
+                            "description": "Dataset path for unit indices (style='paired')",
+                        },
+                        "times_dataset": {
+                            "type": "string",
+                            "description": "Dataset path for spike times (style='paired')",
+                        },
+                        "times_unit": {
+                            "type": "string",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
+                        },
+                        "raw_dataset": {
+                            "type": "string",
+                            "description": "Optional raw data dataset",
+                        },
+                        "raw_time_dataset": {
+                            "type": "string",
+                            "description": "Optional raw time dataset",
+                        },
+                        "raw_time_unit": {
+                            "type": "string",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
+                        },
+                        "length_ms": {
+                            "type": "number",
+                            "description": "Optional recording length in ms",
+                        },
+                        "aws_access_key_id": {
+                            "type": "string",
+                            "description": "Optional AWS access key",
+                        },
+                        "aws_secret_access_key": {
+                            "type": "string",
+                            "description": "Optional AWS secret key",
+                        },
+                        "aws_session_token": {
+                            "type": "string",
+                            "description": "Optional AWS session token",
+                        },
+                        "region_name": {
+                            "type": "string",
+                            "description": "Optional AWS region",
+                        },
                     },
                     "required": ["file_path"],
                 },
@@ -69,9 +133,15 @@ async def _list_tools() -> list[types.Tool]:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "file_path": {"type": "string", "description": "Local file path or S3 URL"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local file path or S3 URL",
+                        },
                         "prefer_pynwb": {"type": "boolean", "default": True},
-                        "length_ms": {"type": "number", "description": "Optional recording length in ms"},
+                        "length_ms": {
+                            "type": "number",
+                            "description": "Optional recording length in ms",
+                        },
                         "aws_access_key_id": {"type": "string"},
                         "aws_secret_access_key": {"type": "string"},
                         "aws_session_token": {"type": "string"},
@@ -86,12 +156,31 @@ async def _list_tools() -> list[types.Tool]:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "folder_path": {"type": "string", "description": "Local folder path"},
-                        "fs_Hz": {"type": "number", "description": "Sampling frequency in Hz"},
-                        "spike_times_file": {"type": "string", "default": "spike_times.npy"},
-                        "spike_clusters_file": {"type": "string", "default": "spike_clusters.npy"},
-                        "cluster_info_tsv": {"type": "string", "description": "Optional cluster_info.tsv path"},
-                        "time_unit": {"type": "string", "enum": ["samples", "ms", "s"], "default": "samples"},
+                        "folder_path": {
+                            "type": "string",
+                            "description": "Local folder path",
+                        },
+                        "fs_Hz": {
+                            "type": "number",
+                            "description": "Sampling frequency in Hz",
+                        },
+                        "spike_times_file": {
+                            "type": "string",
+                            "default": "spike_times.npy",
+                        },
+                        "spike_clusters_file": {
+                            "type": "string",
+                            "default": "spike_clusters.npy",
+                        },
+                        "cluster_info_tsv": {
+                            "type": "string",
+                            "description": "Optional cluster_info.tsv path",
+                        },
+                        "time_unit": {
+                            "type": "string",
+                            "enum": ["samples", "ms", "s"],
+                            "default": "samples",
+                        },
                         "include_noise": {"type": "boolean", "default": False},
                         "length_ms": {"type": "number"},
                         "aws_access_key_id": {"type": "string"},
@@ -109,12 +198,19 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "file_path": {"type": "string"},
-                        "dataset": {"type": "string", "description": "HDF5 dataset path"},
+                        "dataset": {
+                            "type": "string",
+                            "description": "HDF5 dataset path",
+                        },
                         "fs_Hz": {"type": "number"},
                         "threshold_sigma": {"type": "number", "default": 5.0},
                         "filter": {"type": "boolean", "default": True},
                         "hysteresis": {"type": "boolean", "default": True},
-                        "direction": {"type": "string", "enum": ["both", "up", "down"], "default": "both"},
+                        "direction": {
+                            "type": "string",
+                            "enum": ["both", "up", "down"],
+                            "default": "both",
+                        },
                         "aws_access_key_id": {"type": "string"},
                         "aws_secret_access_key": {"type": "string"},
                         "aws_session_token": {"type": "string"},
@@ -136,7 +232,11 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "unit": {"type": "string", "enum": ["Hz", "kHz"], "default": "kHz"},
+                        "unit": {
+                            "type": "string",
+                            "enum": ["Hz", "kHz"],
+                            "default": "kHz",
+                        },
                     },
                     "required": ["session_id"],
                 },
@@ -161,7 +261,11 @@ async def _list_tools() -> list[types.Tool]:
                     "properties": {
                         "session_id": {"type": "string"},
                         "bin_size": {"type": "number", "default": 40.0},
-                        "unit": {"type": "string", "enum": ["Hz", "kHz"], "default": "kHz"},
+                        "unit": {
+                            "type": "string",
+                            "enum": ["Hz", "kHz"],
+                            "default": "kHz",
+                        },
                     },
                     "required": ["session_id"],
                 },
@@ -198,7 +302,10 @@ async def _list_tools() -> list[types.Tool]:
                     "properties": {
                         "session_id": {"type": "string"},
                         "bin_size": {"type": "number", "default": 20.0},
-                        "channel_attr": {"type": "string", "description": "Channel attribute name"},
+                        "channel_attr": {
+                            "type": "string",
+                            "description": "Channel attribute name",
+                        },
                     },
                     "required": ["session_id"],
                 },
@@ -219,7 +326,11 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "times": {"type": "array", "items": {"type": "number"}, "description": "List of times in ms"},
+                        "times": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "List of times in ms",
+                        },
                         "sigma_ms": {"type": "number", "default": 10.0},
                     },
                     "required": ["session_id", "times"],
@@ -246,8 +357,15 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "units": {"type": "array", "items": {"type": "integer"}, "description": "List of unit indices"},
-                        "by": {"type": "string", "description": "Attribute name to select by"},
+                        "units": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of unit indices",
+                        },
+                        "by": {
+                            "type": "string",
+                            "description": "Attribute name to select by",
+                        },
                         "create_new_session": {"type": "boolean", "default": False},
                     },
                     "required": ["session_id", "units"],
@@ -286,7 +404,11 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "times": {"type": "array", "items": {"type": "number"}, "description": "List of reference times in ms"},
+                        "times": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "List of reference times in ms",
+                        },
                         "window_ms": {"type": "number", "default": 100.0},
                     },
                     "required": ["session_id", "times"],
@@ -318,9 +440,17 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "List of [start, end] pairs for each burst",
                         },
                         "min_spikes": {"type": "integer"},
-                        "backbone_threshold": {"type": "number", "description": "Threshold between 0-1"},
+                        "backbone_threshold": {
+                            "type": "number",
+                            "description": "Threshold between 0-1",
+                        },
                     },
-                    "required": ["session_id", "edges", "min_spikes", "backbone_threshold"],
+                    "required": [
+                        "session_id",
+                        "edges",
+                        "min_spikes",
+                        "backbone_threshold",
+                    ],
                 },
             ),
             types.Tool(
@@ -354,7 +484,10 @@ async def _list_tools() -> list[types.Tool]:
                     "type": "object",
                     "properties": {
                         "session_id": {"type": "string"},
-                        "file_path": {"type": "string", "description": "Local file path or S3 URL"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local file path or S3 URL",
+                        },
                         "style": {
                             "type": "string",
                             "enum": ["raster", "ragged", "group", "paired"],
@@ -362,18 +495,40 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "raster_dataset": {"type": "string"},
                         "raster_bin_size_ms": {"type": "number"},
-                        "spike_times_dataset": {"type": "string", "default": "spike_times"},
-                        "spike_times_index_dataset": {"type": "string", "default": "spike_times_index"},
-                        "spike_times_unit": {"type": "string", "enum": ["ms", "s", "samples"], "default": "s"},
+                        "spike_times_dataset": {
+                            "type": "string",
+                            "default": "spike_times",
+                        },
+                        "spike_times_index_dataset": {
+                            "type": "string",
+                            "default": "spike_times_index",
+                        },
+                        "spike_times_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "s",
+                        },
                         "fs_Hz": {"type": "number"},
                         "group_per_unit": {"type": "string", "default": "units"},
-                        "group_time_unit": {"type": "string", "enum": ["ms", "s", "samples"], "default": "s"},
+                        "group_time_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "s",
+                        },
                         "idces_dataset": {"type": "string", "default": "idces"},
                         "times_dataset": {"type": "string", "default": "times"},
-                        "times_unit": {"type": "string", "enum": ["ms", "s", "samples"], "default": "ms"},
+                        "times_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "ms",
+                        },
                         "raw_dataset": {"type": "string"},
                         "raw_time_dataset": {"type": "string"},
-                        "raw_time_unit": {"type": "string", "enum": ["ms", "s", "samples"], "default": "ms"},
+                        "raw_time_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "ms",
+                        },
                         "aws_access_key_id": {"type": "string"},
                         "aws_secret_access_key": {"type": "string"},
                         "aws_session_token": {"type": "string"},
@@ -390,8 +545,14 @@ async def _list_tools() -> list[types.Tool]:
                     "properties": {
                         "session_id": {"type": "string"},
                         "file_path": {"type": "string"},
-                        "spike_times_dataset": {"type": "string", "default": "spike_times"},
-                        "spike_times_index_dataset": {"type": "string", "default": "spike_times_index"},
+                        "spike_times_dataset": {
+                            "type": "string",
+                            "default": "spike_times",
+                        },
+                        "spike_times_index_dataset": {
+                            "type": "string",
+                            "default": "spike_times_index",
+                        },
                         "group": {"type": "string", "default": "units"},
                         "aws_access_key_id": {"type": "string"},
                         "aws_secret_access_key": {"type": "string"},
@@ -410,9 +571,19 @@ async def _list_tools() -> list[types.Tool]:
                         "session_id": {"type": "string"},
                         "folder_path": {"type": "string"},
                         "fs_Hz": {"type": "number"},
-                        "spike_times_file": {"type": "string", "default": "spike_times.npy"},
-                        "spike_clusters_file": {"type": "string", "default": "spike_clusters.npy"},
-                        "time_unit": {"type": "string", "enum": ["samples", "ms", "s"], "default": "samples"},
+                        "spike_times_file": {
+                            "type": "string",
+                            "default": "spike_times.npy",
+                        },
+                        "spike_clusters_file": {
+                            "type": "string",
+                            "default": "spike_clusters.npy",
+                        },
+                        "time_unit": {
+                            "type": "string",
+                            "enum": ["samples", "ms", "s"],
+                            "default": "samples",
+                        },
                         "cluster_ids": {"type": "array", "items": {"type": "integer"}},
                         "aws_access_key_id": {"type": "string"},
                         "aws_secret_access_key": {"type": "string"},
@@ -508,4 +679,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
