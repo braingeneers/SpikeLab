@@ -478,10 +478,10 @@ def load_spikedata_from_kilosort(
         length_ms (float, optional): Recording duration in milliseconds.
     Returns: sd (SpikeData): The loaded spike train data.
 
-    Note: 
+    Note:
     - Misses critical information about waveform data - load if it same in file and put in spikedata
     - Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
-    and converts to ms using fs_Hz. 
+    and converts to ms using fs_Hz.
     """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
@@ -588,7 +588,7 @@ def load_spikedata_from_spikeinterface_recording(
         filter (dict | bool): If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
         hysteresis (bool): Use rising-edge detection if True.
         direction (str): 'both' | 'up' | 'down'.
-        
+
     Returns: sd (SpikeData): The converted spike train data.
     """
     # Resolve sampling frequency
