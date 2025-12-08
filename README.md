@@ -14,13 +14,6 @@ IntegratedAnalysisTools provides a unified framework for working with neuronal s
 
 ## Installation
 
-### Using conda
-
-```bash
-conda env create -f environment.yml
-conda activate integrated-analysis-tools
-```
-
 For development:
 
 ```bash
@@ -60,7 +53,7 @@ sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 
 ## Documentation
 
-**📖 [Read the full documentation](docs/build/html/index.html)**
+**📖 [Read the full documentation](https://braingeneers.github.io/IntegratedAnalysisTools/)**
 
 To build the documentation locally:
 
@@ -75,7 +68,3 @@ The built documentation will be in `docs/build/html/index.html`.
 ## Contributing
 
 Contributions are welcome! Please see the [GitHub repository](https://github.com/braingeneers/IntegratedAnalysisTools) for guidelines.
-
-## License
-
-See [LICENSE](LICENSE) for details.
