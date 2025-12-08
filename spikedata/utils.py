@@ -291,7 +291,7 @@ def randomize(ar, swap_per_spike=5):
     return ar
 
 
-def trough_between(i0, i1, pop_rate):
+def trough_between(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA):
     """
     Compute population firing rate by smoothing the summed spike counts.
 
