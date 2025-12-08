@@ -40,9 +40,7 @@ class TestHDF5Loaders(unittest.TestCase):
         return path
 
     def tearDown(self) -> None:
-        """
-        Remove any temporary HDF5 files created during the tests.
-        """
+        """Remove any temporary HDF5 files created during the tests."""
         for attr in ("_last_h5_path",):
             path: Optional[str] = getattr(self, attr, None)
             if path and os.path.exists(path):

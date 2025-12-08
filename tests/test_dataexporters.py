@@ -76,17 +76,13 @@ class TestHDF5Exporters(BaseExportTest):
     """
 
     def _tmp_h5(self) -> str:
-        """
-        Creates a temporary HDF5 file path for testing.
-        """
+        """Creates a temporary HDF5 file path for testing."""
         fd, path = tempfile.mkstemp(suffix=(".h5"))
         os.close(fd)
         return path
 
     def tearDown(self) -> None:
-        """
-        Cleans up temporary files created during tests.
-        """
+        """Clean up temporary files created during tests."""
         for attr in ("_last",):
             p = getattr(self, attr, None)
             if p and os.path.exists(p):
@@ -304,17 +300,13 @@ class TestNWBExporters(BaseExportTest):
     """
 
     def _tmp_nwb(self) -> str:
-        """
-        Creates a temporary NWB file path for testing.
-        """
+        """Creates a temporary NWB file path for testing."""
         fd, path = tempfile.mkstemp(suffix=(".nwb"))
         os.close(fd)
         return path
 
     def tearDown(self) -> None:
-        """
-        Clean up temporary files created during tests.
-        """
+        """Clean up temporary files created during tests."""
         for attr in ("_last",):
             p = getattr(self, attr, None)
             if p and os.path.exists(p):
