@@ -45,25 +45,28 @@ def _ensure_h5py():
 
 
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
-    """Convert a vector of times to milliseconds.
+    """
+    Convert a vector of times to milliseconds.
 
-    Parameters
-    ----------
-    values : np.ndarray
-        Time values.
-    unit : str
-        's' (seconds), 'ms' (milliseconds), or 'samples'.
-    fs_Hz : float | None
-        Sampling frequency (Hz). Required when unit == 'samples'.
+    Parameters:
+    values (np.ndarray): Time values.
+    unit (str): 's' (seconds), 'ms' (milliseconds), or 'samples'.
+    fs_Hz (float | None): Sampling frequency (Hz). Required when unit == 'samples'.
+
+    Returns:
+    values_ms (np.ndarray): Time values in milliseconds.
     """
     if unit == "ms":
-        return values.astype(float)
+        values_ms = values.astype(float)
+        return values_ms
     if unit == "s":
-        return values.astype(float) * 1e3
+        values_ms = values.astype(float) * 1e3
+        return values_ms
     if unit == "samples":
         if not fs_Hz or fs_Hz <= 0:
             raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
-        return values.astype(float) / fs_Hz * 1e3
+        values_ms = values.astype(float) / fs_Hz * 1e3
+        return values_ms
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 

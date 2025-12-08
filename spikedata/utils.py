@@ -16,6 +16,9 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
     """
     Calculate the spike time tiling coefficient between two spike trains.
 
+    Formula:
+    STTC = (PA - TB) / (1 - PA * TB) if PA * TB != 1 else 0 + (PB - TA) / (1 - PB * TA) if PB * TA != 1 else 0
+
     Parameters:
     tA (list): List of spike times for the first spike train
     tB (list): List of spike times for the second spike train
@@ -24,10 +27,6 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
 
     Returns:
     sttc (float): Spike time tiling coefficient between the two spike trains
-
-    Notes:
-    - STTC is a metric for correlation between spike trains with some improved intuitive properties
-    compared to the Pearson correlation coefficient.
     """
     if length is None:
         length = float(max(tA[-1], tB[-1]))
