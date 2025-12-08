@@ -59,8 +59,7 @@ def _sttc_ta(tA, delt: float, tmax: float) -> float:
         return 0.0
 
     base = min(delt, tA[0]) + min(delt, tmax - tA[-1])
-    ta = base + np.minimum(np.diff(tA), 2 * delt).sum()
-    return ta
+    return base + np.minimum(np.diff(tA), 2 * delt).sum()
 
 
 def _sttc_na(tA, tB, delt: float) -> int:
