@@ -364,7 +364,6 @@ class SpikeData:
         binned_rate = self.binned(bin_size) / self.N / bin_size
         if unit == "Hz":
             return 1e3 * binned_rate
-
         elif unit == "kHz":
             return binned_rate
         else:
