@@ -303,10 +303,6 @@ class SpikeData:
         Generate a matched pair of numpy arrays containing unit indices and times for
         all events.
 
-
-        Parameters:
-        events (list): List of (index, time) pairs
-
         Returns:
         idces (numpy.ndarray): Array of unit indices
         times (numpy.ndarray): Array of times for all events.
