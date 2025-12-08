@@ -934,7 +934,6 @@ class SpikeData:
         frac_per_burst : numpy.ndarray
             - 1D array where each value represents a burst and the fraction of neurons that are active
             in that burst.
-            Example) A value of .75 in the array means Burst A involves 75% of neurons.
 
         backbone_units : numpy.ndarray
             1D array of the neuron/unit indices that are backbone units.
