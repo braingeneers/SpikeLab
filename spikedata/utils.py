@@ -8,8 +8,7 @@ __all__ = [
     "get_sttc",
     "swap",
     "randomize",
-    "get_pop_rate",
-    "get_bursts",
+    "trough_between",
 ]
 
 
@@ -287,85 +286,19 @@ def randomize(ar, swap_per_spike=5):
     return ar
 
 
-def get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA):
+def trough_between(i0, i1, pop_rate):
     """
-    Compute population firing rate by smoothing the summed spike counts.
+    Helper function for get_bursts(). Finds the minimum value (trough) between two indices.
 
-    First apply a moving-average (square) window, then optionally apply a Gaussian
-    smoothing window parameterized by GAUSS_SIGMA (in samples).
+    Parameters:
+    i0, i1 (int): Time bin indices of the bursts
+    pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
+
+    Returns:
+    (int): Time bin index of minimum value (trough) between peaks
     """
-    if SQUARE_WIDTH > 0:
-        square_smooth_summed_spike = np.convolve(
-            np.sum(t_spk_mat, axis=1),
-            np.ones(SQUARE_WIDTH) / SQUARE_WIDTH,
-            mode="same",
-        )
-    else:
-        square_smooth_summed_spike = np.sum(t_spk_mat, axis=1)
-
-    if GAUSS_SIGMA > 0:
-        gauss_window = norm.pdf(
-            np.arange(-3 * GAUSS_SIGMA, 3 * GAUSS_SIGMA + 1), 0, GAUSS_SIGMA
-        )
-        pop_rate = np.convolve(
-            square_smooth_summed_spike,
-            gauss_window / np.sum(gauss_window),
-            mode="same",
-        )
-    else:
-        pop_rate = square_smooth_summed_spike
-
-    return pop_rate
-
-
-def get_bursts(
-    pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
-):
-    """
-    Detect bursts from a population rate vector using thresholded peak finding and
-    amplitude-scaled edge detection.
-
-    Returns (tburst, edges, peak_amp).
-    """
-    pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
-
-    peaks, _ = signal.find_peaks(
-        pop_rate, height=pop_rms * THR_BURST, distance=MIN_BURST_DIFF
-    )
-    peak_amp = pop_rate[peaks]
-
-    edges = np.full((len(peaks), 2), np.nan)
-    tburst = np.full(len(peaks), np.nan)
-
-    for burst in range(len(peaks)):
-        frames_below_thresh = np.where(
-            pop_rate < peak_amp[burst] * BURST_EDGE_MULT_THRESH
-        )[0]
-        rel_frames = peaks[burst] - frames_below_thresh
-
-        if (
-            len(rel_frames) == 0
-            or len(rel_frames[rel_frames > 0]) == 0
-            or len(rel_frames[rel_frames < 0]) == 0
-        ):
-            continue
-
-        rel_burst_start = np.min(rel_frames[rel_frames > 0])
-        rel_burst_end = np.max(rel_frames[rel_frames < 0])
-
-        edges[burst, :] = [peaks[burst] - rel_burst_start, peaks[burst] - rel_burst_end]
-
-        if len(pop_rate_acc) == len(pop_rate):
-            segment = pop_rate_acc[int(edges[burst, 0]) : int(edges[burst, 1])]
-            acc_peak = np.argmax(segment)
-            peak_val = np.max(segment)
-            tburst[burst] = acc_peak + edges[burst, 0]
-            peak_amp[burst] = peak_val
-        else:
-            tburst[burst] = peaks[burst]
-
-    edges = edges[~np.isnan(tburst), :]
-    peak_amp = peak_amp[~np.isnan(tburst)]
-    tburst = tburst[~np.isnan(tburst)]
-
-    return tburst, edges, peak_amp
+    L, R = int(i0), int(i1)
+    if R - L <= 1:
+        return None
+    seg = pop_rate[L:R]
+    return L + int(np.argmin(seg))
