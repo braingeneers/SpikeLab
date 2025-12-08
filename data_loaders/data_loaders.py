@@ -3,10 +3,10 @@ Lightweight loaders that convert common neurophysiology formats into
 `spikedata.SpikeData` objects.
 
 Supported inputs (best-effort, optional deps):
-- HDF5 (generic): spike times, (indices,times), or raster matrices
-- NWB: reads Units table spike_times (via pynwb if available, else h5py)
-- KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)
-- SpikeInterface: from a SortingExtractor
+HDF5 (generic): spike times, (indices,times), or raster matrices
+NWB: reads Units table spike_times (via pynwb if available, else h5py)
+KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)
+SpikeInterface: from a SortingExtractor
 
 Times are converted to milliseconds to match `SpikeData` conventions.
 These helpers avoid hard dependencies: optional libraries are imported lazily.
@@ -39,13 +39,7 @@ __all__ = [
 
 
 def _ensure_h5py():
-    """Ensure the optional h5py dependency is available.
-
-    Raises
-    ------
-    ImportError
-        If h5py is not installed and an HDF5/NWB loader is invoked.
-    """
+    """Ensure the optional h5py dependency is available."""
     if h5py is None:
         raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
 
@@ -147,8 +141,8 @@ def _build_spikedata(
 ) -> SpikeData:
     """Internal helper to construct a SpikeData with sensible defaults.
 
-    - Infers `length_ms` from the last spike if not provided.
-    - Copies metadata and attaches optional raw arrays.
+    Infers `length_ms` from the last spike if not provided.
+    Copies metadata and attaches optional raw arrays.
     """
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
@@ -198,41 +192,41 @@ def load_spikedata_from_hdf5(
     **Input Styles:**
 
     1. **Raster Matrix**
-        - Use when the HDF5 file contains a 2D array representing spike counts or a binary raster.
-        - Arguments:
+        Use when the HDF5 file contains a 2D array representing spike counts or a binary raster.
+        Arguments:
             - `raster_dataset` (str): Path to the dataset containing the raster/counts matrix (shape: units × time).
             - `raster_bin_size_ms` (float): Bin width in milliseconds.
-        - The matrix is interpreted as (units × time bins), where each entry is the spike count (or 0/1 for binary).
-        - Example: `raster_dataset="/spikes/raster", raster_bin_size_ms=1.0`
+        The matrix is interpreted as (units × time bins), where each entry is the spike count (or 0/1 for binary).
+        Example: `raster_dataset="/spikes/raster", raster_bin_size_ms=1.0`
 
     2. **Ragged Arrays (NWB-style)**
-        - Use when spike times for all units are concatenated into a single array, with an index array marking the end of each unit's spike times.
-        - Arguments:
+        Use when spike times for all units are concatenated into a single array, with an index array marking the end of each unit's spike times.
+        Arguments:
             - `spike_times_dataset` (str): Path to the flat array of spike times.
             - `spike_times_index_dataset` (str): Path to the array of indices (end positions for each unit).
             - `spike_times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
             - `fs_Hz` (float, optional): Required if unit is 'samples'.
-        - Example: `spike_times_dataset="/units/spike_times", spike_times_index_dataset="/units/spike_times_index"`
+        Example: `spike_times_dataset="/units/spike_times", spike_times_index_dataset="/units/spike_times_index"`
 
     3. **Group-per-Unit**
-        - Use when each unit's spike times are stored as a separate dataset within a group.
-        - Arguments:
+        Use when each unit's spike times are stored as a separate dataset within a group.
+        Arguments:
             - `group_per_unit` (str): Path to the group containing one dataset per unit.
             - `group_time_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
             - `fs_Hz` (float, optional): Required if unit is 'samples'.
-        - Example: `group_per_unit="/spikes/unit_times"`
+        Example: `group_per_unit="/spikes/unit_times"`
 
     4. **Paired Arrays (Indices and Times)**
-        - Use when there are two parallel arrays: one for unit indices and one for spike times.
-        - Arguments:
+        Use when there are two parallel arrays: one for unit indices and one for spike times.
+        Arguments:
             - `idces_dataset` (str): Path to the array of unit indices (int).
             - `times_dataset` (str): Path to the array of spike times.
             - `times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
             - `fs_Hz` (float, optional): Required if unit is 'samples'.
-        - Example: `idces_dataset="/spikes/unit_ids", times_dataset="/spikes/times"`
+        Example: `idces_dataset="/spikes/unit_ids", times_dataset="/spikes/times"`
 
     **Optional Raw Data:**
-        - You may also attach raw analog data and its timebase by specifying:
+        You may also attach raw analog data and its timebase by specifying:
             - `raw_dataset` (str): Path to the raw data array.
             - `raw_time_dataset` (str): Path to the time vector for the raw data.
             - `raw_time_unit` (str): Unit of the raw time vector ('s', 'ms', or 'samples').
@@ -626,9 +620,9 @@ def load_spikedata_from_spikeinterface_recording(
     the returned trace matrix is inferred (smaller dimension assumed channels).
 
     Expected `recording` interface (duck-typed):
-      - get_traces(segment_index=..., ...) -> ndarray (channels,time) or (time,channels)
-      - sampling_frequency attribute or get_sampling_frequency() method
-      - get_num_channels() is optional and not strictly required
+      get_traces(segment_index=..., ...) -> ndarray (channels,time) or (time,channels)
+      sampling_frequency attribute or get_sampling_frequency() method
+      get_num_channels() is optional and not strictly required
     """
     # Resolve sampling frequency
     if hasattr(recording, "get_sampling_frequency"):

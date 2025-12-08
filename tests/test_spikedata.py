@@ -31,10 +31,10 @@ def sd_from_counts(counts):
     Generates a SpikeData whose raster matches given counts.
 
     Parameters:
-    - counts (list): a list of integers representing the number of spikes in each bin
+    counts (list): a list of integers representing the number of spikes in each bin
 
     Returns:
-    - SpikeData: a SpikeData object whose raster matches the given counts
+    SpikeData: a SpikeData object whose raster matches the given counts
 
     Notes:
     - Each bin i will have counts[i] spikes, all at time i+0.5.
@@ -51,12 +51,12 @@ def random_spikedata(units, spikes, rate=1.0):
     Spikes are randomly assigned to units and times are uniformly distributed.
 
     Parameters:
-    - units (int): the number of units
-    - spikes (int): the total number of spikes
-    - rate (float): the overall mean firing rate
+    units (int): the number of units
+    spikes (int): the total number of spikes
+    rate (float): the overall mean firing rate
 
     Returns:
-    - SpikeData: a SpikeData object with the given number of units, total number of spikes, and overall mean firing rate
+    SpikeData: a SpikeData object with the given number of units, total number of spikes, and overall mean firing rate
     """
     idces = np.random.randint(units, size=spikes)
     times = np.random.rand(spikes) * spikes / rate / units
@@ -71,9 +71,9 @@ class SpikeDataTest(unittest.TestCase):
         Asserts that two SpikeData objects contain the same data.
 
         Parameters:
-        - sda (SpikeData): the first SpikeData object to compare
-        - sdb (SpikeData): the second SpikeData object to compare
-        - msg (str): an optional message to display if the assertion fails
+        sda (SpikeData): the first SpikeData object to compare
+        sdb (SpikeData): the second SpikeData object to compare
+        msg (str): an optional message to display if the assertion fails
 
         Tests:
         (Test Case 1) Compares the spike trains for equality in length and values (within tolerance).
@@ -86,11 +86,11 @@ class SpikeDataTest(unittest.TestCase):
         Asserts that a subtime of a SpikeData is correct.
 
         Parameters:
-        - sd (SpikeData): the original SpikeData object
-        - sdsub (SpikeData): the subtime SpikeData object
-        - tmin (float): the minimum time
-        - tmax (float): the maximum time
-        - msg (str): an optional message to display if the assertion fails
+        sd (SpikeData): the original SpikeData object
+        sdsub (SpikeData): the subtime SpikeData object
+        tmin (float): the minimum time
+        tmax (float): the maximum time
+        msg (str): an optional message to display if the assertion fails
 
         Tests:
         (Test Case 1) Checks that the subtime has the correct length and that all spikes are within the expected window.
@@ -112,8 +112,8 @@ class SpikeDataTest(unittest.TestCase):
         Asserts that all elements in a boolean array are True.
 
         Parameters:
-        - bools (array): a boolean array
-        - msg (str): an optional message to display if the assertion fails
+        bools (array): a boolean array
+        msg (str): an optional message to display if the assertion fails
 
         Tests:
         (Test Case 1) Checks that all elements in the boolean array are True.
@@ -125,9 +125,9 @@ class SpikeDataTest(unittest.TestCase):
         Asserts that two arrays are equal within tolerance.
 
         Parameters:
-        - a (array): the first array to compare
-        - b (array): the second array to compare
-        - msg (str): an optional message to display if the assertion fails
+        a (array): the first array to compare
+        b (array): the second array to compare
+        msg (str): an optional message to display if the assertion fails
 
         Tests:
         (Test Case 1) Checks that the two arrays are equal within tolerance.
@@ -139,7 +139,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests that sd_from_counts produces a SpikeData with the correct binned spike counts.
 
         Parameters:
-        - counts (array): a random array of integers
+        counts (array): a random array of integers
 
         Tests:
         (Test Case 1) Tests that sd_from_counts produces a SpikeData with the correct binned spike counts.
@@ -192,9 +192,9 @@ class SpikeDataTest(unittest.TestCase):
         Tests conversion to and from Neo SpikeTrain objects.
 
         Parameters:
-        - times (array): a random array of spike times
-        - idces (array): a random array of spike indices
-        - sd (SpikeData): a random SpikeData object
+        times (array): a random array of spike times
+        idces (array): a random array of spike indices
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Converts a random SpikeData to Neo SpikeTrains and back, and checks for equality.
@@ -216,8 +216,8 @@ class SpikeDataTest(unittest.TestCase):
         Comprehensive test of SpikeData constructors and methods.
 
         Parameters:
-        - times (array): a random array of spike times
-        - idces (array): a random array of spike indices
+        times (array): a random array of spike times
+        idces (array): a random array of spike indices
 
         Tests:
         (Test Case 1) Tests two-argument constructor and spike time list with from_idces_times().
@@ -326,8 +326,8 @@ class SpikeDataTest(unittest.TestCase):
         Tests raster and sparse_raster methods for spike count preservation and binning rules.
 
         Parameters:
-        - N (int): the number of spikes
-        - sd (SpikeData): a random SpikeData object
+        N (int): the number of spikes
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that the raster and sparse_raster representations preserve spike counts.
@@ -377,8 +377,8 @@ class SpikeDataTest(unittest.TestCase):
         Tests rates() method for correct spike rate calculation and unit handling.
 
         Parameters:
-        - counts (array): a random array of spike counts
-        - sd (SpikeData): a random SpikeData object
+        counts (array): a random array of spike counts
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that rates() returns correct spike counts for each train.
@@ -399,8 +399,8 @@ class SpikeDataTest(unittest.TestCase):
         Tests interspike_intervals() for correct ISI calculation.
 
         Parameters:
-        - N (int): the number of spikes
-        - sd (SpikeData): a random SpikeData object
+        N (int): the number of spikes
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that a uniform spike train yields uniform ISIs.
@@ -431,7 +431,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests the _sttc_ta helper for correct calculation of total available time.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Cases) Tests trivial and edge cases for spike overlap and time window.
@@ -450,7 +450,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests the _sttc_na helper for correct calculation of number of spikes in window.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Cases) Tests base cases, interval inclusion, and multiple spike coverage.
@@ -482,8 +482,8 @@ class SpikeDataTest(unittest.TestCase):
         Tests spike_time_tiling and spike_time_tilings for correct STTC calculation.
 
         Parameters:
-        - N (int): the number of spikes
-        - sd (SpikeData): a random SpikeData object
+        N (int): the number of spikes
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Cases) Tests that STTC is 1 for identical trains, symmetric, and correct for anti-correlated trains.
@@ -494,65 +494,63 @@ class SpikeDataTest(unittest.TestCase):
         # Any spike train should be exactly equal to itself, and the
         # result shouldn't depend on which train is A and which is B.
         foo = random_spikedata(2, N)
-        self.assertEqual(foo.spike_time_tiling_pairwise(0, 0, 1), 1.0)
-        self.assertEqual(foo.spike_time_tiling_pairwise(1, 1, 1), 1.0)
+        self.assertEqual(foo.spike_time_tiling(0, 0, 1), 1.0)
+        self.assertEqual(foo.spike_time_tiling(1, 1, 1), 1.0)
         self.assertEqual(
-            foo.spike_time_tiling_pairwise(0, 1, 1),
-            foo.spike_time_tiling_pairwise(1, 0, 1),
+            foo.spike_time_tiling(0, 1, 1),
+            foo.spike_time_tiling(1, 0, 1),
         )
 
         # Exactly the same thing, but for the matrix of STTCs.
-        sttc = foo.spike_time_tiling_pairwise(1)
+        sttc = foo.spike_time_tilings(1)
         self.assertEqual(sttc.shape, (2, 2))
         self.assertEqual(sttc[0, 1], sttc[1, 0])
         self.assertEqual(sttc[0, 0], 1.0)
         self.assertEqual(sttc[1, 1], 1.0)
-        self.assertEqual(sttc[0, 1], foo.spike_time_tiling_pairwise(0, 1, 1))
+        self.assertEqual(sttc[0, 1], foo.spike_time_tiling(0, 1, 1))
 
         # Default arguments, inferred value of tmax.
         tmax = max(np.ptp(foo.train[0]), np.ptp(foo.train[1]))
         self.assertEqual(
-            foo.spike_time_tiling_pairwise(0, 1),
-            foo.spike_time_tiling_pairwise(0, 1, tmax),
+            foo.spike_time_tiling(0, 1),
+            foo.spike_time_tiling(0, 1, tmax),
         )
 
         # The uncorrelated spike trains above should stay near zero.
         # I'm not sure how many significant figures to expect with the
         # randomness, though, so it's really easy to pass.
-        self.assertAlmostEqual(foo.spike_time_tiling_pairwise(0, 1, 1), 0, 1)
+        self.assertAlmostEqual(foo.spike_time_tiling(0, 1, 1), 0, 1)
 
         # Two spike trains that are in complete disagreement. This
         # should be exactly -0.8, but there's systematic error
         # proportional to 1/N, even in their original implementation.
         bar = SpikeData([np.arange(N) + 0.0, np.arange(N) + 0.5])
-        self.assertAlmostEqual(
-            bar.spike_time_tiling_pairwise(0, 1, 0.4), -0.8, int(np.log10(N))
-        )
+        self.assertAlmostEqual(bar.spike_time_tiling(0, 1, 0.4), -0.8, int(np.log10(N)))
 
         # As you vary dt, that alternating spike train actually gets
         # the STTC to go continuously from 0 to approach a limit of
         # lim(dt to 0.5) STTC(dt) = -1, but STTC(dt >= 0.5) = 0.
-        self.assertEqual(bar.spike_time_tiling_pairwise(0, 1, 0.5), 0)
+        self.assertEqual(bar.spike_time_tiling(0, 1, 0.5), 0)
 
         # Make sure it stays within range even for spike trains with
         # completely random lengths.
         for _ in range(100):
             baz = SpikeData([np.random.rand(np.random.poisson(100)) for _ in range(2)])
-            sttc = baz.spike_time_tiling_pairwise(0, 1, np.random.lognormal())
+            sttc = baz.spike_time_tiling(0, 1, np.random.lognormal())
             self.assertLessEqual(sttc, 1)
             self.assertGreaterEqual(sttc, -1)
 
         # STTC of an empty spike train should definitely be 0!
         fish = SpikeData([[], np.random.rand(100)])
-        sttc = fish.spike_time_tiling_pairwise(0, 1, 0.01)
+        sttc = fish.spike_time_tiling(0, 1, 0.01)
         self.assertEqual(sttc, 0)
 
     def test_binning_doesnt_lose_spikes(self):
         """
         Tests that binning does not lose spikes.
         Parameters:
-        - N (int): the number of spikes
-        - sd (SpikeData): a random SpikeData object
+        N (int): the number of spikes
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Method 1) Generates a Poisson spike train
@@ -568,7 +566,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests binned() method for correct bin assignment.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that binning with size 4 produces the expected counts.
@@ -585,7 +583,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests propagation and copying of metadata and neuron_attributes.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that invalid neuron_attributes raise an error.
@@ -633,7 +631,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests handling of raw_data and raw_time in SpikeData.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that providing only one of raw_data/raw_time raises an error.
@@ -673,7 +671,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests resampled_isi and _resampled_isi for correct ISI-based rate calculation.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that a constant-rate neuron yields the correct rate at all times.
@@ -696,7 +694,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests latencies() for correct calculation of spike latencies relative to reference times.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that latencies are correct for shifted spike trains.
@@ -722,7 +720,7 @@ class SpikeDataTest(unittest.TestCase):
         Tests that spikedata.randomize preserves row and column marginals.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
+        sd (SpikeData): a random SpikeData object
 
         Tests:
         (Test Case 1) Tests that spikedata.randomize preserves row and column marginals.
@@ -750,12 +748,12 @@ class SpikeDataTest(unittest.TestCase):
         Tests get_pop_rate with square window only (no Gaussian) matches direct convolution.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - T (int): the number of time bins
-        - N (int): the number of neurons
-        - SQUARE_WIDTH (int): the width of the square window
-        - GAUSS_SIGMA (float): the sigma of the Gaussian window
-        - pop (numpy.ndarray): the population rate
+        sd (SpikeData): a random SpikeData object
+        T (int): the number of time bins
+        N (int): the number of neurons
+        SQUARE_WIDTH (int): the width of the square window
+        GAUSS_SIGMA (float): the sigma of the Gaussian window
+        pop (numpy.ndarray): the population rate
 
         Tests:
         (Method 1) Constructs a spike matrix with known spike times.
@@ -795,12 +793,12 @@ class SpikeDataTest(unittest.TestCase):
         Tests get_pop_rate with Gaussian kernel only (no square) for a single impulse.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - T (int): the number of time bins
-        - N (int): the number of neurons
-        - SQUARE_WIDTH (int): the width of the square window
-        - GAUSS_SIGMA (float): the sigma of the Gaussian window
-        - pop (numpy.ndarray): the population rate
+        sd (SpikeData): a random SpikeData object
+        T (int): the number of time bins
+        N (int): the number of neurons
+        SQUARE_WIDTH (int): the width of the square window
+        GAUSS_SIGMA (float): the sigma of the Gaussian window
+        pop (numpy.ndarray): the population rate
 
         Tests:
         (Method 1) Places a single spike in the center of the spike matrix.
@@ -827,13 +825,13 @@ class SpikeDataTest(unittest.TestCase):
         Tests get_bursts for correct detection of simple burst peaks.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - T (int): the number of time bins
-        - pop_rate (numpy.ndarray): the population rate
-        - pop_rate_acc (list): the accumulator for the population rate
-        - THR_BURST (float): the threshold for the burst
-        - MIN_BURST_DIFF (int): the minimum distance between consecutive peaks
-        - BURST_EDGE_MULT_THRESH (float): the edge threshold as a fraction of each burst's peak amplitude
+        sd (SpikeData): a random SpikeData object
+        T (int): the number of time bins
+        pop_rate (numpy.ndarray): the population rate
+        pop_rate_acc (list): the accumulator for the population rate
+        THR_BURST (float): the threshold for the burst
+        MIN_BURST_DIFF (int): the minimum distance between consecutive peaks
+        BURST_EDGE_MULT_THRESH (float): the edge threshold as a fraction of each burst's peak amplitude
 
         Tests:
         (Method 1) Creates a population rate with two clear peaks.
@@ -887,10 +885,10 @@ class SpikeDataTest(unittest.TestCase):
         Tests get_frac_active method for calculating burst participation rates.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - edges (numpy.ndarray): the burst edges
-        - min_spikes (int): the minimum number of spikes per burst
-        - backbone_threshold (float): the threshold for the backbone units
+        sd (SpikeData): a random SpikeData object
+        edges (numpy.ndarray): the burst edges
+        min_spikes (int): the minimum number of spikes per burst
+        backbone_threshold (float): the threshold for the backbone units
 
         Tests:
         (Method 1) Creates a known spike pattern with predictable burst participation
@@ -975,10 +973,10 @@ class SpikeDataTest(unittest.TestCase):
         Tests neuron_to_channel_map for correct channel mapping extraction.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - attrs (list): the neuron attributes
-        - trains (list): the spike trains
-        - mapping (dict): the channel mapping
+        sd (SpikeData): a random SpikeData object
+        attrs (list): the neuron attributes
+        trains (list): the spike trains
+        mapping (dict): the channel mapping
 
         Tests:
         (Test Case 1) Tests basic functionality with standard 'channel' attribute
@@ -1072,10 +1070,10 @@ class SpikeDataTest(unittest.TestCase):
         Tests channel_raster for correct channel aggregation.
 
         Parameters:
-        - sd (SpikeData): a random SpikeData object
-        - attrs (list): the neuron attributes
-        - trains (list): the spike trains
-        - ch_raster (numpy.ndarray): the channel raster
+        sd (SpikeData): a random SpikeData object
+        attrs (list): the neuron attributes
+        trains (list): the spike trains
+        ch_raster (numpy.ndarray): the channel raster
 
         Tests:
         (Test Case 1) Tests basic aggregation of multiple neurons per channel
