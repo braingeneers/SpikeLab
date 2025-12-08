@@ -44,7 +44,7 @@ class BaseExportTest(unittest.TestCase):
     Creates a simple, deterministic SpikeData object with:
     - 3 units: one with 3 spikes, one with 2 spikes, one empty
     - 25ms total length
-    - Predictable spike times for easy validation
+    Predictable spike times for easy validation
 
     This standardized test data ensures consistent behavior across all export formats.
     """
@@ -101,10 +101,10 @@ class TestHDF5Exporters(BaseExportTest):
         with time unit conversion from milliseconds to seconds.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
-        - spike_times_unit (str): the time unit for the spike times ("s")
-        - spike_times_dataset (str): the name of the dataset for the spike times
-        - spike_times_index_dataset (str): the name of the dataset for the spike times index
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        spike_times_unit (str): the time unit for the spike times ("s")
+        spike_times_dataset (str): the name of the dataset for the spike times
+        spike_times_index_dataset (str): the name of the dataset for the spike times index
 
         Tests:
         (Method 1) Export SpikeData to HDF5 using ragged style with seconds time unit
@@ -140,10 +140,10 @@ class TestHDF5Exporters(BaseExportTest):
         Test group-per-unit export with sample-based time units.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
-        - group_per_unit (str): the name of the group for the units
-        - group_time_unit (str): the time unit for the spike times ("samples")
-        - fs_Hz (float): the sampling frequency in Hz
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        group_per_unit (str): the name of the group for the units
+        group_time_unit (str): the time unit for the spike times ("samples")
+        fs_Hz (float): the sampling frequency in Hz
 
         Tests:
         (Method 1) Export using group style with 1000 Hz sampling rate (1 sample = 1 ms)
@@ -187,10 +187,10 @@ class TestHDF5Exporters(BaseExportTest):
         Tests paired arrays export with millisecond time units.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
-            - times_unit (str): the time unit for the spike times ("ms")
-            - idces_dataset (str): the name of the dataset for the unit indices
-            - times_dataset (str): the name of the dataset for the spike times
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+            times_unit (str): the time unit for the spike times ("ms")
+            idces_dataset (str): the name of the dataset for the unit indices
+            times_dataset (str): the name of the dataset for the spike times
 
         Tests:
         (Method 1) Export creates two datasets: unit indices and corresponding spike times
@@ -226,8 +226,8 @@ class TestHDF5Exporters(BaseExportTest):
         Test raster export for binned spike count analysis.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
-        - raster_bin_size_ms (float): the bin size in milliseconds for rasterization
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        raster_bin_size_ms (float): the bin size in milliseconds for rasterization
 
         Tests:
         (Method 1) Export specifies a 5ms bin size for rasterization
@@ -255,9 +255,9 @@ class TestHDF5Exporters(BaseExportTest):
         Tests export of raw data arrays alongside spike data.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
-        - raw_data (np.ndarray): a 2D float array of shape (2, 10) containing mock raw voltage data
-        - raw_time (np.ndarray): a 1D float array of shape (10) containing mock raw time data
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded
+        raw_data (np.ndarray): a 2D float array of shape (2, 10) containing mock raw voltage data
+        raw_time (np.ndarray): a 1D float array of shape (10) containing mock raw time data
 
         Tests:
         (Method 1) Creates SpikeData with mock raw voltage data and time arrays
@@ -329,7 +329,7 @@ class TestNWBExporters(BaseExportTest):
         successfully re-imported with round-trip compatibility / identical spike timing data.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
 
         Tests:
         (Method 1) Export SpikeData using the NWB exporter (uses ragged array format internally)
@@ -362,8 +362,8 @@ class TestKiloSortExporters(BaseExportTest):
     by Phy (manual curation GUI) and other spike sorting tools.
 
     The format consists of:
-    - spike_times.npy: All spike times (usually in samples)
-    - spike_clusters.npy: Cluster ID for each spike
+    spike_times.npy: All spike times (usually in samples)
+    spike_clusters.npy: Cluster ID for each spike
 
     These tests validate the export creates properly formatted files and handles
     cluster ID assignment correctly.
@@ -374,7 +374,7 @@ class TestKiloSortExporters(BaseExportTest):
          Test KiloSort export and import with sample-based timing.
 
          Parameters:
-         - sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
+         sd (SpikeData): a SpikeData object with 3 units and known spike trains loaded at 1000 Hz
 
          Tests:
          (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
@@ -409,11 +409,11 @@ class TestKiloSortExporters(BaseExportTest):
         Tests KiloSort export with custom cluster ID assignment.
 
         Parameters:
-        - sd (SpikeData): a SpikeData object with 3 units and known spike trains
-        - cluster_ids (list): a list of custom cluster IDs to use instead of the default [0, 1, 2]
-        - d (str): the path to the temporary kilosort directory containing:
-            - spike_times.npy (np.ndarray): a 1D integer array of spike times
-            - spike_clusters.npy (np.ndarray): a 1D integer array of spike clusters
+        sd (SpikeData): a SpikeData object with 3 units and known spike trains
+        cluster_ids (list): a list of custom cluster IDs to use instead of the default [0, 1, 2]
+        d (str): the path to the temporary kilosort directory containing:
+            spike_times.npy (np.ndarray): a 1D integer array of spike times
+            spike_clusters.npy (np.ndarray): a 1D integer array of spike clusters
 
         Tests:
         (Method 1) Export with custom cluster IDs [10, 5, 7] instead of [0, 1, 2]

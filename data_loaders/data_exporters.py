@@ -35,11 +35,7 @@ TimeUnit = Literal["ms", "s", "samples"]
 
 
 def _ensure_h5py():
-    """Ensure h5py is available for HDF5-based exporters.
-
-    Raises:
-        ImportError: If h5py is not installed.
-    """
+    """Ensure h5py is available for HDF5-based exporters."""
     if h5py is None:
         raise ImportError(
             "h5py is required for HDF5/NWB exporters. `pip install h5py`."
@@ -49,7 +45,8 @@ def _ensure_h5py():
 def _times_from_ms(
     times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
 ) -> np.ndarray:
-    """Convert times from milliseconds to the requested unit.
+    """
+    Convert times from milliseconds to the requested unit.
 
     This helper function converts spike times from the internal millisecond
     representation to the target time unit for export. The conversion depends
@@ -70,13 +67,6 @@ def _times_from_ms(
     Raises:
         ValueError: If unit is 'samples' but fs_Hz is not provided or <= 0,
                    or if unit is not one of the valid options.
-
-    Examples:
-        >>> times_ms = np.array([100.0, 200.0, 300.0])
-        >>> _times_from_ms(times_ms, 's', None)
-        array([0.1, 0.2, 0.3])
-        >>> _times_from_ms(times_ms, 'samples', 1000.0)
-        array([100, 200, 300])
     """
     if unit == "ms":
         return times_ms.astype(float)
@@ -115,7 +105,8 @@ def export_spikedata_to_hdf5(
     raw_time_dataset: Optional[str] = None,
     raw_time_unit: TimeUnit = "ms",
 ) -> None:
-    """Export a SpikeData to a generic HDF5 file using a chosen style.
+    """
+    Export a SpikeData to a generic HDF5 file using a chosen style.
 
     This function provides four different export styles to accommodate various
     data formats and analysis workflows. The spike times from SpikeData (stored
@@ -297,15 +288,6 @@ def export_spikedata_to_nwb(
         - Empty units (no spikes) are handled correctly in the index array.
         - This is compatible with the load_spikedata_from_nwb function when
           prefer_pynwb=False.
-
-    Examples:
-        >>> # Export to standard NWB format
-        >>> export_spikedata_to_nwb(sd, "experiment.nwb")
-
-        >>> # Export with custom dataset names
-        >>> export_spikedata_to_nwb(sd, "data.nwb",
-        ...                         spike_times_dataset="my_spike_times",
-        ...                         group="my_units")
     """
     _ensure_h5py()
     counts = [len(t) for t in sd.train]
@@ -361,27 +343,12 @@ def export_spikedata_to_kilosort(
     Returns:
         Tuple[str, str]: Paths to the created spike_times.npy and spike_clusters.npy files.
 
-    Raises:
-        ValueError: If fs_Hz is not positive, or if cluster_ids length doesn't match sd.N,
-                   or if time_unit is invalid.
-        OSError: If the folder cannot be created.
-
     Notes:
         - The output arrays have the same length (one entry per spike across all units).
         - Spike times are sorted by unit order, not chronologically.
         - Empty units (no spikes) don't contribute entries to the output arrays.
         - The 'samples' time unit produces integer arrays suitable for KiloSort/Phy.
         - Cluster IDs can be arbitrary integers and don't need to be sequential.
-
-    Examples:
-        >>> # Export with default sample-based timing
-        >>> paths = export_spikedata_to_kilosort(sd, "kilosort_output", fs_Hz=30000)
-        >>> print(f"Created {paths[0]} and {paths[1]}")
-
-        >>> # Export with custom cluster IDs and millisecond timing
-        >>> export_spikedata_to_kilosort(sd, "output", fs_Hz=30000,
-        ...                              time_unit="ms",
-        ...                              cluster_ids=[10, 20, 30])
     """
     if not fs_Hz or fs_Hz <= 0:
         raise ValueError("A positive fs_Hz is required for KiloSort export")
