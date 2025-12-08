@@ -114,8 +114,7 @@ class SpikeData:
             train[i].extend(times)
 
         kwargs.setdefault("length", T * bin_size_ms)
-        sd = SpikeData(train, **kwargs)
-        return sd
+        return SpikeData(train, **kwargs)
 
     @staticmethod
     def from_events(events, N=None, **kwargs):
@@ -138,8 +137,7 @@ class SpikeData:
         for i, t in events:
             idces.append(i)
             times.append(t)
-        sd = SpikeData.from_idces_times(idces, times, N, **kwargs)
-        return sd
+        return SpikeData.from_idces_times(idces, times, N, **kwargs)
 
     @staticmethod
     def from_neo_spiketrains(spiketrains, **kwargs):
@@ -156,8 +154,7 @@ class SpikeData:
         for st in trains:
             st.units = "ms"
 
-        sd = SpikeData([np.asarray(st) for st in spiketrains], **kwargs)
-        return sd
+        return SpikeData([np.asarray(st) for st in spiketrains], **kwargs)
 
     @staticmethod
     def from_thresholding(
@@ -204,10 +201,9 @@ class SpikeData:
         if hysteresis:
             raster = np.diff(np.array(raster, dtype=int), axis=1) == 1
 
-        sd = SpikeData.from_raster(
+        return SpikeData.from_raster(
             raster, 1e3 / fs_Hz, raw_data=data, raw_time=fs_Hz / 1e3
         )
-        return sd
 
     def __init__(
         self,
@@ -325,8 +321,7 @@ class SpikeData:
         for i, t in self.events:
             idces.append(i)
             times.append(t)
-        idces, times = np.array(idces), np.array(times)
-        return idces, times
+        return np.array(idces), np.array(times)
 
     def frames(self, length, overlap=0):
         """
@@ -341,8 +336,7 @@ class SpikeData:
         frames (generator): Generator of SpikeData objects corresponding to subwindows.
         """
         for start in np.arange(0, self.length, length - overlap):
-            frame = self.subtime(start, start + length)
-            yield frame
+            yield self.subtime(start, start + length)
 
     def binned(self, bin_size=40.0):
         """
@@ -357,8 +351,7 @@ class SpikeData:
         binned_raster (numpy.ndarray): Array of the number of events in each bin.
         """
         # sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array
-        binned_raster = np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
-        return binned_raster
+        return np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
 
     def binned_meanrate(self, bin_size=40, unit="kHz"):
         """
@@ -418,8 +411,7 @@ class SpikeData:
         - This method calculates firing rate of each unit at the given times by calculating the
         interspike intervals and interpolating their inverse.
         """
-        rates = np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
-        return rates
+        return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
     def subset(self, units, by=None):
         """
@@ -460,7 +452,7 @@ class SpikeData:
                 if self.neuron_attributes is not None:
                     neuron_attributes.append(self.neuron_attributes[i])
 
-        sd = SpikeData(
+        return SpikeData(
             train,
             length=self.length,
             N=len(train),
@@ -469,7 +461,6 @@ class SpikeData:
             raw_time=self.raw_time,
             raw_data=self.raw_data,
         )
-        return sd
 
     def neuron_to_channel_map(
         self, channel_attr: Optional[str] = None
@@ -557,7 +548,7 @@ class SpikeData:
 
         # Subset and propagate the raw data.
         rawmask = (self.raw_time >= lower) & (self.raw_time <= end)
-        sd = SpikeData(
+        return SpikeData(
             train,
             length=end - start,
             N=self.N,
@@ -566,7 +557,6 @@ class SpikeData:
             raw_time=self.raw_time[rawmask] - start,
             raw_data=self.raw_data[..., rawmask],
         )
-        return sd
 
     def __getitem__(self, key):
         """
@@ -583,8 +573,7 @@ class SpikeData:
         if isinstance(key, slice):
             return self.subtime(key.start, key.stop)
         else:
-            sd = self.subset(key)
-            return sd
+            return self.subset(key)
 
     def append(self, spikeData, offset=0):
         """
@@ -610,7 +599,7 @@ class SpikeData:
         raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
         raw_time = np.concatenate((self.raw_time, spikeData.raw_time))
         length = self.length + spikeData.length + offset
-        sd = SpikeData(
+        return SpikeData(
             train,
             length=length,
             N=self.N,
@@ -622,7 +611,6 @@ class SpikeData:
                 **self.metadata,
             },
         )
-        return sd
 
     def sparse_raster(self, bin_size=20.0):
         """
@@ -656,8 +644,7 @@ class SpikeData:
 
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
-        raster = sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
-        return raster
+        return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
 
     def raster(self, bin_size=20.0):
         """
@@ -675,8 +662,7 @@ class SpikeData:
         - Bins are left-open and right-closed intervals except the first, which will
         capture any spikes occurring exactly at t=0.
         """
-        raster = self.sparse_raster(bin_size).toarray()
-        return raster
+        return self.sparse_raster(bin_size).toarray()
 
     def channel_raster(self, bin_size=20.0, channel_attr: Optional[str] = None):
         """
@@ -733,8 +719,7 @@ class SpikeData:
         Returns:
         isis (list): List of arrays of interspike intervals per unit.
         """
-        isis = [np.diff(ts) for ts in self.train]
-        return isis
+        return [np.diff(ts) for ts in self.train]
 
     def concatenate_spike_data(self, sd):
         """Add the units from another SpikeData object to this one."""
@@ -798,8 +783,7 @@ class SpikeData:
         ret (float): Spike time tiling coefficient between the two units.
 
         """
-        ret = get_sttc(self.train[i], self.train[j], delt, self.length)
-        return ret
+        return get_sttc(self.train[i], self.train[j], delt, self.length)
 
     def latencies(self, times, window_ms=100.0):
         """
@@ -848,8 +832,7 @@ class SpikeData:
         Returns:
         latencies (list): 2d list, each row is a list of latencies per neuron
         """
-        latencies = self.latencies(self.train[i], window_ms)
-        return latencies
+        return self.latencies(self.train[i], window_ms)
 
     def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold):
         """
