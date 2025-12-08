@@ -230,8 +230,6 @@ class SpikeData:
         raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional)
         raw_time (numpy.ndarray or float): Raw time vector with shape (time) or sample rate in kHz (optional)
 
-        Returns:
-        SpikeData object (SpikeData): Object with the given spike trains.
 
         Notes:
         - Arbitrary raw timeseries data, not associated with particular units,
