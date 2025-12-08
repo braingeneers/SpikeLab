@@ -14,12 +14,6 @@ IntegratedAnalysisTools provides a unified framework for working with neuronal s
 
 ## Installation
 
-### Using pip
-
-```bash
-pip install integrated-analysis-tools
-```
-
 ### Using conda
 
 ```bash
