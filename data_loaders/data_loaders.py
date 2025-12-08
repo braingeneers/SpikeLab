@@ -3,10 +3,10 @@ Lightweight loaders that convert common neurophysiology formats into
 `spikedata.SpikeData` objects.
 
 Supported inputs (best-effort, optional deps):
-HDF5 (generic): spike times, (indices,times), or raster matrices
-NWB: reads Units table spike_times (via pynwb if available, else h5py)
-KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)
-SpikeInterface: from a SortingExtractor
+    - HDF5 (generic): spike times, (indices,times), or raster matrices
+    - NWB: reads Units table spike_times (via pynwb if available, else h5py)
+    - KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)
+    - SpikeInterface: from a SortingExtractor
 
 Times are converted to milliseconds to match `SpikeData` conventions.
 These helpers avoid hard dependencies: optional libraries are imported lazily.
