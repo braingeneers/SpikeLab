@@ -53,7 +53,6 @@ class TestHDF5Loaders(unittest.TestCase):
         """
         Test loading a 2D raster dataset from HDF5.
 
-
         Parameters:
         raster (np.ndarray): a 2D integer array of shape (units, time bins)
 

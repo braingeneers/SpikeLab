@@ -46,29 +46,7 @@ def _ensure_h5py():
 def _times_from_ms(
     times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
 ) -> np.ndarray:
-    """
-    Convert times from milliseconds to the requested unit.
-
-    This helper function converts spike times from the internal millisecond
-    representation to the target time unit for export. The conversion depends
-    on the target unit:
-    - 'ms': No conversion (identity)
-    - 's': Divide by 1000 to convert milliseconds to seconds
-    - 'samples': Multiply by sampling frequency and convert to integer sample indices
-
-    Parameters:
-        times_ms (np.ndarray): Array of spike times in milliseconds.
-        unit (TimeUnit): Target time unit ('ms', 's', or 'samples').
-        fs_Hz (Optional[float]): Sampling frequency in Hz. Required when unit='samples'.
-
-    Returns:
-        np.ndarray: Converted times in the requested unit. For 'samples', returns
-                   integer array; otherwise returns float array.
-
-    Raises:
-        ValueError: If unit is 'samples' but fs_Hz is not provided or <= 0,
-                   or if unit is not one of the valid options.
-    """
+    """Convert times from milliseconds to the requested unit."""
     if unit == "ms":
         return times_ms.astype(float)
     if unit == "s":
@@ -108,11 +86,6 @@ def export_spikedata_to_hdf5(
 ) -> None:
     """
     Export a SpikeData to a generic HDF5 file using a chosen style.
-
-    This function provides four different export styles to accommodate various
-    data formats and analysis workflows. The spike times from SpikeData (stored
-    internally in milliseconds) are converted to the requested time units for
-    the output file.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
@@ -154,20 +127,12 @@ def export_spikedata_to_hdf5(
                    fs_Hz is needed but not provided for 'samples' unit.
 
     Notes:
+        - Spike times are automatically converted from milliseconds to the requested unit.
         - The function creates or overwrites the target HDF5 file.
         - Raw data is only written if both raw_dataset and raw_time_dataset are
           provided and the SpikeData contains raw_data and raw_time attributes.
         - For raster style, the bin size is stored as an attribute for provenance.
         - Parameters mirror the corresponding loader function to ease round-tripping.
-
-    Examples:
-        >>> # Export as ragged arrays in seconds
-        >>> export_spikedata_to_hdf5(sd, "output.h5", style="ragged",
-        ...                          spike_times_unit="s")
-
-        >>> # Export as raster with 1ms bins
-        >>> export_spikedata_to_hdf5(sd, "output.h5", style="raster",
-        ...                          raster_bin_size_ms=1.0)
     """
     _ensure_h5py()
 
@@ -257,17 +222,8 @@ def export_spikedata_to_nwb(
     spike_times_index_dataset: str = "spike_times_index",
     group: str = "units",
 ) -> None:
-    """Export SpikeData to a minimal NWB-like file using h5py.
-
-    Creates a minimal NWB-compatible HDF5 file containing spike times in the
-    standard ragged array format used by the NWB specification. The output
-    uses seconds as the time unit, which is the NWB standard for spike times.
-    This format is sufficient for round-tripping with the NWB loader when
-    prefer_pynwb=False.
-
-    The function creates an HDF5 file with the structure:
-    /{group}/{spike_times_dataset} - concatenated spike times in seconds
-    /{group}/{spike_times_index_dataset} - cumulative spike counts per unit
+    """
+    Export SpikeData to a minimal NWB-like file using h5py.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
@@ -311,17 +267,8 @@ def export_spikedata_to_kilosort(
     time_unit: TimeUnit = "samples",
     cluster_ids: Optional[Sequence[int]] = None,
 ) -> Tuple[str, str]:
-    """Export SpikeData to a KiloSort/Phy-like folder.
-
-    Creates the standard KiloSort output format consisting of two numpy arrays:
-    spike_times.npy and spike_clusters.npy. Each spike event is represented
-    by its timestamp and the cluster (unit) ID it belongs to. This format
-    is compatible with Phy for manual curation and other spike sorting tools.
-
-    The function flattens all spike trains into two parallel arrays where
-    each spike gets a timestamp and cluster assignment. Units are mapped to
-    cluster IDs either using the provided cluster_ids sequence or by default
-    using sequential integers (0, 1, 2, ...).
+    """
+    Export SpikeData to a KiloSort/Phy-like folder.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.

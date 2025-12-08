@@ -45,17 +45,7 @@ def _ensure_h5py():
 
 
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
-    """
-    Convert a vector of times to milliseconds.
-
-    Parameters:
-    values (np.ndarray): Time values.
-    unit (str): 's' (seconds), 'ms' (milliseconds), or 'samples'.
-    fs_Hz (float | None): Sampling frequency (Hz). Required when unit == 'samples'.
-
-    Returns:
-    values_ms (np.ndarray): Time values in milliseconds.
-    """
+    """Convert a vector of times to milliseconds."""
     if unit == "ms":
         values_ms = values.astype(float)
         return values_ms
@@ -88,7 +78,7 @@ def _trains_from_flat_index(
 
 
 def _read_raw_arrays(
-    f,  # h5py.File-like
+    f,
     raw_dataset: Optional[str],
     raw_time_dataset: Optional[str],
     raw_time_unit: str,
@@ -142,11 +132,7 @@ def _build_spikedata(
     raw_time: Optional[Union[np.ndarray, float]] = None,
     neuron_attributes: Optional[List[NeuronAttributes]] = None,
 ) -> SpikeData:
-    """Internal helper to construct a SpikeData with sensible defaults.
-
-    Infers `length_ms` from the last spike if not provided.
-    Copies metadata and attaches optional raw arrays.
-    """
+    """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
         length_ms = float(max(last)) if last else 0.0
@@ -188,85 +174,53 @@ def load_spikedata_from_hdf5(
     """
     Load spike trains from a generic HDF5 file using one of four supported input styles.
 
-    This function provides a flexible interface for loading spike train data from HDF5 files
-    that may be organized in different ways. Exactly one of the following four input styles
-    must be specified via the corresponding arguments:
+    Input Styles:
 
-    **Input Styles:**
-
-    1. **Raster Matrix**
+    1. Raster Matrix
         Use when the HDF5 file contains a 2D array representing spike counts or a binary raster.
-        Arguments:
-            - `raster_dataset` (str): Path to the dataset containing the raster/counts matrix (shape: units × time).
-            - `raster_bin_size_ms` (float): Bin width in milliseconds.
+        Parameters:
+            raster_dataset (str): Path to the dataset containing the raster/counts matrix (shape: units × time).
+            raster_bin_size_ms (float): Bin width in milliseconds.
         The matrix is interpreted as (units × time bins), where each entry is the spike count (or 0/1 for binary).
         Example: `raster_dataset="/spikes/raster", raster_bin_size_ms=1.0`
 
-    2. **Ragged Arrays (NWB-style)**
+    2. Ragged Arrays (NWB-style)
         Use when spike times for all units are concatenated into a single array, with an index array marking the end of each unit's spike times.
-        Arguments:
-            - `spike_times_dataset` (str): Path to the flat array of spike times.
-            - `spike_times_index_dataset` (str): Path to the array of indices (end positions for each unit).
-            - `spike_times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
-            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        Parameters:
+            spike_times_dataset (str): Path to the flat array of spike times.
+            spike_times_index_dataset (str): Path to the array of indices (end positions for each unit).
+            spike_times_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
+            fs_Hz (float, optional): Required if unit is 'samples'.
         Example: `spike_times_dataset="/units/spike_times", spike_times_index_dataset="/units/spike_times_index"`
 
-    3. **Group-per-Unit**
+    3. Group-per-Unit
         Use when each unit's spike times are stored as a separate dataset within a group.
-        Arguments:
-            - `group_per_unit` (str): Path to the group containing one dataset per unit.
-            - `group_time_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
-            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        Parameters:
+            group_per_unit (str): Path to the group containing one dataset per unit.
+            group_time_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
+            fs_Hz (float, optional): Required if unit is 'samples'.
         Example: `group_per_unit="/spikes/unit_times"`
 
-    4. **Paired Arrays (Indices and Times)**
+    4. Paired Arrays (Indices and Times)
         Use when there are two parallel arrays: one for unit indices and one for spike times.
-        Arguments:
-            - `idces_dataset` (str): Path to the array of unit indices (int).
-            - `times_dataset` (str): Path to the array of spike times.
-            - `times_unit` (str): Unit of the spike times ('s', 'ms', or 'samples').
-            - `fs_Hz` (float, optional): Required if unit is 'samples'.
+        Parameters:
+            idces_dataset (str): Path to the array of unit indices (int).
+            times_dataset (str): Path to the array of spike times.
+            times_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
+            fs_Hz (float, optional): Required if unit is 'samples'.
         Example: `idces_dataset="/spikes/unit_ids", times_dataset="/spikes/times"`
 
-    **Optional Raw Data:**
+    Optional Raw Data:
         You may also attach raw analog data and its timebase by specifying:
-            - `raw_dataset` (str): Path to the raw data array.
-            - `raw_time_dataset` (str): Path to the time vector for the raw data.
-            - `raw_time_unit` (str): Unit of the raw time vector ('s', 'ms', or 'samples').
-            - `fs_Hz` (float, required if 'samples'): Sampling frequency for conversion.
+            raw_dataset (str): Path to the raw data array.
+            raw_time_dataset (str): Path to the time vector for the raw data.
+            raw_time_unit (str): Unit of the raw time vector ('s', 'ms', or 'samples').
+            fs_Hz (float, required if 'samples'): Sampling frequency for conversion.
 
-    **Parameters**
-    ----------
-    filepath : str
-        Path to the HDF5 file.
-    length_ms : float, optional
-        Recording duration in milliseconds (inferred if not provided).
-    metadata : dict, optional
-        Additional metadata to attach to the SpikeData object.
 
-    Returns
-    -------
-    SpikeData
-        The loaded spike train data.
+    Returns: ret (SpikeData): The loaded spike train data.
 
-    Raises
-    ------
-    ValueError
-        If not exactly one input style is specified, or if required arguments are missing.
-
-    Examples
-    --------
-    # Load from a raster matrix
-    sd = load_spikedata_from_hdf5("file.h5", raster_dataset="raster", raster_bin_size_ms=1.0)
-
-    # Load from ragged arrays (NWB-style)
-    sd = load_spikedata_from_hdf5("file.h5", spike_times_dataset="spike_times", spike_times_index_dataset="spike_times_index")
-
-    # Load from group-per-unit
-    sd = load_spikedata_from_hdf5("file.h5", group_per_unit="unit_group")
-
-    # Load from paired arrays
-    sd = load_spikedata_from_hdf5("file.h5", idces_dataset="unit_ids", times_dataset="spike_times")
+    Raises: ValueError: If not exactly one input style is specified, or if required arguments are missing.
     """
     _ensure_h5py()
 
@@ -352,29 +306,23 @@ def load_spikedata_from_hdf5_raw_thresholded(
     hysteresis: bool = True,
     direction: str = "both",
 ) -> SpikeData:
-    """Threshold-and-detect spikes from an HDF5 dataset of raw traces.
+    """
+    Threshold-and-detect spikes from an HDF5 dataset of raw traces.
 
-    Parameters
-    ----------
-    filepath : str
-        Path to HDF5 file.
-    dataset : str
-        HDF5 dataset path containing raw traces shaped (channels, time).
-    fs_Hz : float
-        Sampling frequency in Hz.
-    threshold_sigma : float
-        Threshold in units of per-channel standard deviation.
-    filter : dict | bool
-        If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
-    hysteresis : bool
-        Use rising-edge detection if True.
-    direction : str
-        'both' | 'up' | 'down'.
+    Parameters:
+        filepath (str): Path to HDF5 file.
+        dataset (str): HDF5 dataset path containing raw traces shaped (channels, time).
+        fs_Hz (float): Sampling frequency in Hz.
+        threshold_sigma (float): Threshold in units of per-channel standard deviation.
+        filter (dict | bool): If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
+        hysteresis (bool): Use rising-edge detection if True.
+        direction (str): 'both' | 'up' | 'down'.
+    Returns: sd (SpikeData): The detected spike train data.
     """
     _ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
-    return SpikeData.from_thresholding(
+    sd = SpikeData.from_thresholding(
         data,
         fs_Hz=fs_Hz,
         threshold_sigma=threshold_sigma,
@@ -382,6 +330,7 @@ def load_spikedata_from_hdf5_raw_thresholded(
         hysteresis=hysteresis,
         direction=direction,  # type: ignore[arg-type]
     )
+    return sd
 
 
 # ----------------------------
@@ -395,11 +344,15 @@ def load_spikedata_from_nwb(
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
-    """Load spike trains from an NWB file's Units table.
+    """
+    Load spike trains from an NWB file's Units table.
 
-    Prefers pynwb; falls back to h5py reading VectorData/VectorIndex at
-    '/units/spike_times' and '/units/spike_times_index'. Times are in seconds
-    and converted to milliseconds.
+    Parameters:
+        filepath (str): Path to the NWB file.
+        prefer_pynwb (bool): If True, try pynwb first; if False, try h5py.
+        length_ms (float, optional): Recording duration in milliseconds.
+
+    Returns: sd (SpikeData): The loaded spike train data.
     """
     trains: List[np.ndarray] = []
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
@@ -443,7 +396,8 @@ def load_spikedata_from_nwb(
         trains.extend(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    return sd
 
 
 # ----------------------------
@@ -460,16 +414,13 @@ def load_spikedata_from_spikeinterface(
 ) -> SpikeData:
     """Convert a SpikeInterface SortingExtractor-like object to SpikeData.
 
-    Parameters
-    ----------
-    sorting : object
-        Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...).
-    sampling_frequency : float | None
-        Optional override for sampling frequency (Hz).
-    unit_ids : sequence | None
-        Optional subset of unit IDs to include.
-    segment_index : int
-        Segment index for multi-segment sortings.
+    Parameters:
+        sorting (object): Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...).
+        sampling_frequency (float, optional): Optional override for sampling frequency (Hz).
+        unit_ids (sequence, optional): Optional subset of unit IDs to include.
+        segment_index (int): Segment index for multi-segment sortings.
+
+    Returns: sd (SpikeData): The converted spike train data.
     """
     try:
         get_unit_ids = sorting.get_unit_ids  # type: ignore[attr-defined]
@@ -516,9 +467,21 @@ def load_spikedata_from_kilosort(
 
     Load KiloSort/Phy outputs into SpikeData.
 
-    Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
-    and converts to ms using fs_Hz. If a TSV is provided, optionally filter to
-    "good"/"mua" unless include_noise=True. Stores cluster IDs in metadata.
+    Parameters:
+        folder (str): Path to the KiloSort/Phy output directory.
+        fs_Hz (float): Sampling frequency in Hz.
+        spike_times_file (str): Path to the spike_times.npy file.
+        spike_clusters_file (str): Path to the spike_clusters.npy file.
+        cluster_info_tsv (str, optional): Path to the cluster info TSV file.
+        time_unit (str): Unit of the spike times ('samples', 's', or 'ms').
+        include_noise (bool): If True, include noise clusters.
+        length_ms (float, optional): Recording duration in milliseconds.
+    Returns: sd (SpikeData): The loaded spike train data.
+
+    Note: 
+    - Misses critical information about waveform data - load if it same in file and put in spikedata
+    - Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
+    and converts to ms using fs_Hz. 
     """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
@@ -597,9 +560,7 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    sd = _build_spikedata(
-        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
-    )
+    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
     return sd
 
 
@@ -617,15 +578,18 @@ def load_spikedata_from_spikeinterface_recording(
     hysteresis: bool = True,
     direction: str = "both",
 ) -> SpikeData:
-    """Convert a SpikeInterface BaseRecording-like object into SpikeData.
+    """
+    Convert a SpikeInterface BaseRecording-like object into SpikeData.
 
-    Spikes are detected by thresholding the raw traces. The orientation of
-    the returned trace matrix is inferred (smaller dimension assumed channels).
-
-    Expected `recording` interface (duck-typed):
-      get_traces(segment_index=..., ...) -> ndarray (channels,time) or (time,channels)
-      sampling_frequency attribute or get_sampling_frequency() method
-      get_num_channels() is optional and not strictly required
+    Parameters:
+        recording (object): Exposes get_traces(segment_index=..., ...), get_sampling_frequency(), get_num_channels().
+        segment_index (int): Segment index for multi-segment recordings.
+        threshold_sigma (float): Threshold in units of per-channel standard deviation.
+        filter (dict | bool): If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
+        hysteresis (bool): Use rising-edge detection if True.
+        direction (str): 'both' | 'up' | 'down'.
+        
+    Returns: sd (SpikeData): The converted spike train data.
     """
     # Resolve sampling frequency
     if hasattr(recording, "get_sampling_frequency"):
