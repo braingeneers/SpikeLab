@@ -335,7 +335,7 @@ class TestKiloSortExporters(BaseExportTest):
         """
          Test KiloSort export and import with sample-based timing.
 
-         Tests:
+         Test:
          (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
          (Method 2) Each unit index becomes a cluster ID (0, 1, 2, ...)
          (Method 3) Spike times are converted from milliseconds to sample indices
