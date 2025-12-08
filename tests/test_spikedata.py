@@ -45,7 +45,7 @@ def sd_from_counts(counts):
 
 def random_spikedata(units, spikes, rate=1.0):
     """
-    Generates SpikeData with a given number of units, total number of
+    Generates SpikeData from synthetic data with a given number of units, total number of
     spikes, and overall mean firing rate.
 
     Spikes are randomly assigned to units and times are uniformly distributed.

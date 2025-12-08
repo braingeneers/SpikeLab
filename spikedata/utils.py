@@ -40,19 +40,7 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
 
 
 def _spike_time_tiling(tA, tB, TA, TB, delt):
-    """
-    Internal helper method for the second half of STTC calculation.
-
-    Parameters:
-    tA (list): List of spike times for the first spike train
-    tB (list): List of spike times for the second spike train
-    TA (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tA
-    TB (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tB
-    delt (float): Time window in milliseconds
-
-    Returns:
-    sttc (float): Spike time tiling coefficient between the two spike trains
-    """
+    """Internal helper method for the second half of STTC calculation."""
     if len(tA) == 0 or len(tB) == 0:
         return 0
     PA = _sttc_na(tA, tB, delt) / len(tA)
@@ -65,38 +53,18 @@ def _spike_time_tiling(tA, tB, TA, TB, delt):
 
 def _sttc_ta(tA, delt: float, tmax: float) -> float:
     """
-    Helper function for spike time tiling coefficients: calculate the total amount of
-    time within a range delt of spikes within the given sorted list of spike times tA.
-
-    Parameters:
-    tA (list): List of spike times for the first spike train
-    delt (float): Time window in milliseconds
-    tmax (float): Total duration in milliseconds
-
-    Returns:
-    ta (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tA
+    Helper function for STTC: calculate the total amount of time within a range delt of spikes within tA.
     """
     if len(tA) == 0:
         return 0.0
 
     base = min(delt, tA[0]) + min(delt, tmax - tA[-1])
-    return base + np.minimum(np.diff(tA), 2 * delt).sum()
+    ta = base + np.minimum(np.diff(tA), 2 * delt).sum()
+    return ta
 
 
 def _sttc_na(tA, tB, delt: float) -> int:
-    """
-    Helper function for spike time tiling coefficients: given two sorted lists of spike
-    times, calculate the number of spikes in spike train A within delt of any spike in
-    spike train B.
-
-    Parameters:
-    tA (list): List of spike times for the first spike train
-    tB (list): List of spike times for the second spike train
-    delt (float): Time window in milliseconds
-
-    Returns:
-    num_spikes (int): Number of spikes in spike train A within delt of any spike in spike train B
-    """
+    """Helper function for STTC: Calculate the number of spikes in tA within delt of any spike in tB."""
     if len(tB) == 0:
         return 0
     tA, tB = np.asarray(tA), np.asarray(tB)
