@@ -474,7 +474,7 @@ def load_spikedata_from_kilosort(
     Returns: sd (SpikeData): The loaded spike train data.
 
     Note:
-    - Misses critical information about waveform data - load if it same in file and put in spikedata
+    - This loader does not extract or include waveform data; only spike times and cluster assignments are loaded.
     - Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
     and converts to ms using fs_Hz.
     """
