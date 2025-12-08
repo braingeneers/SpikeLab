@@ -63,8 +63,6 @@ class TestHDF5Loaders(unittest.TestCase):
         (Method 1)  Creates a small 2D integer array and writes it as 'raster' to HDF5
         (Method 2)  Loads it using load_spikedata_from_hdf5 with raster_bin_size_ms=10.0
         (Test Case 1)  Checks that the resulting SpikeData object has the correct raster and unit count.
-
-        Notes:
         """
         path = self._tmp_h5()
         self._last_h5_path = path

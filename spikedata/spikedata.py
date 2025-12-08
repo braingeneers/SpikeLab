@@ -171,15 +171,14 @@ class SpikeData:
     @staticmethod
     def from_neo_spiketrains(spiketrains, **kwargs):
         """
-        Create a SpikeData object from a list of neo.SpikeTrain objects. The spike times
-        can be in any units, as they will be converted to regular np.arrays in units of
-        milliseconds.
+        Create a SpikeData object from a list of neo.SpikeTrain objects.
+        Parameters:
+        - spiketrains (list): List of neo.SpikeTrain objects
+        - **kwargs: Additional keyword arguments for the SpikeData constructor
 
-        Refactor 2025-09: unchanged behavior.
+        Returns:
+        - SpikeData object (SpikeData): Object with the given spike trains in milliseconds.
         """
-        # This is done in a weird way that involves an extra copy of the data because
-        # there's no way to convert the units without modifying the object or importing
-        # Quantities. So we copy and in-place change units.
         trains = [st.copy() for st in spiketrains]
         for st in trains:
             st.units = "ms"
@@ -328,8 +327,6 @@ class SpikeData:
 
         Returns:
         - numpy.ndarray: Array of spike times for all units in time order.
-
-        Notes:
         """
         return heapq.merge(*self.train)
 
@@ -382,8 +379,6 @@ class SpikeData:
 
         Returns:
         - generator: Generator of SpikeData objects corresponding to subwindows.
-
-        Notes:
         """
         for start in np.arange(0, self.length, length - overlap):
             yield self.subtime(start, start + length)
@@ -394,8 +389,11 @@ class SpikeData:
         each bin, considered as a lower half-open interval of times, with the exception
         that events at time precisely zero will be included in the first bin.
 
-        Refactor 2025-09: unchanged behavior. Can be paired with external smoothing to
-        replace the removed population_firing_rate utility.
+        Parameters:
+        - bin_size (float): Size of the time bin in milliseconds
+
+        Returns:
+        - numpy.ndarray: Array of the number of events in each bin.
         """
         # sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array
         return np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
@@ -421,9 +419,13 @@ class SpikeData:
     def rates(self, unit="kHz", store_as: Optional[str] = "firing_rate"):
         """
         Calculate the mean firing rate of each neuron as an average number of events per
-        time over the length of the data. The unit may be `Hz` or `kHz` (default).
+        time over the length of the data.
 
-        Refactor 2025-09: unchanged behavior.
+        Parameters:
+        - unit (str): Unit of the firing rate ('Hz' or 'kHz')
+
+        Returns:
+        - numpy.ndarray: Array of the firing rate of each neuron.
         """
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
@@ -592,8 +594,6 @@ class SpikeData:
 
         Returns:
         - SpikeData object: New SpikeData object with the selected units.
-
-        Notes:
         """
         if isinstance(key, slice):
             return self.subtime(key.start, key.stop)
@@ -697,11 +697,13 @@ class SpikeData:
 
     def concatenate_spike_data(self, sd):
         """
-        Add the units from another SpikeData object to this one. The new units are
-        assigned indices starting from the end of the current data. If the new units
-        have a longer spike train, it is truncated to the length of the current data.
+        Add the units from another SpikeData object to this one.
 
-        Refactor 2025-09: unchanged behavior.
+        Parameters:
+        - sd (SpikeData): SpikeData object to concatenate
+
+        Returns:
+        - None
         """
         if sd.length != self.length:
             sd = sd.subtime(0, self.length)
