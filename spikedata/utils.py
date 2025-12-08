@@ -28,7 +28,7 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
     length (float): Total duration in milliseconds (optional)
 
     Returns:
-        float: Spike time tiling coefficient between the two spike trains
+    sttc (float): Spike time tiling coefficient between the two spike trains
 
     Notes:
     - STTC is a metric for correlation between spike trains with some improved intuitive properties
@@ -57,7 +57,7 @@ def _spike_time_tiling(tA, tB, TA, TB, delt):
     delt (float): Time window in milliseconds
 
     Returns:
-    float: Spike time tiling coefficient between the two spike trains
+    sttc (float): Spike time tiling coefficient between the two spike trains
     """
     if len(tA) == 0 or len(tB) == 0:
         return 0
@@ -80,7 +80,7 @@ def _sttc_ta(tA, delt: float, tmax: float) -> float:
     tmax (float): Total duration in milliseconds
 
     Returns:
-    float: Total amount of time within a range delt of spikes within the given sorted list of spike times tA
+    ta (float): Total amount of time within a range delt of spikes within the given sorted list of spike times tA
     """
     if len(tA) == 0:
         return 0.0
@@ -101,7 +101,7 @@ def _sttc_na(tA, tB, delt: float) -> int:
     delt (float): Time window in milliseconds
 
     Returns:
-    int: Number of spikes in spike train A within delt of any spike in spike train B
+    num_spikes (int): Number of spikes in spike train A within delt of any spike in spike train B
     """
     if len(tB) == 0:
         return 0
@@ -131,7 +131,7 @@ def _resampled_isi(spikes, times, sigma_ms):
     sigma_ms (float): Standard deviation in milliseconds
 
     Returns:
-    numpy.ndarray: Firing rate at specific times
+    fr (numpy.ndarray): Firing rate at specific times
 
     Notes:
     - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
@@ -167,7 +167,7 @@ def _train_from_i_t_list(idces, times, N):
     N (int): Number of units
 
     Returns:
-    list: List whose ith entry is a list of the spike times of the ith unit
+    ret (list): List whose ith entry is a list of the spike times of the ith unit
     """
     idces, times = np.asarray(idces), np.asarray(times)
     if N is None:
@@ -197,7 +197,7 @@ def butter_filter(
     order (int): Order of the filter
 
     Returns:
-    numpy.ndarray: The filtered output with the same shape as data
+    filtered_traces (numpy.ndarray): The filtered output with the same shape as data
 
     Notes:
     - If lowcut and highcut are both give, this filter is bandpass.
@@ -236,7 +236,7 @@ def swap(ar, idxs):
     idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
 
     Returns:
-    bool: True if a swap was performed, otherwise False
+    success (bool): True if a swap was performed
 
     Notes:
     - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
@@ -265,7 +265,7 @@ def randomize(ar, swap_per_spike=5):
     swap_per_spike (int): Target number of successful swaps per spike.
 
     Returns:
-    numpy.ndarray: Randomized binary matrix with the same shape and row/column sums.
+    randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
     """
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
@@ -297,6 +297,14 @@ def trough_between(i0, i1, pop_rate):
 
     First apply a moving-average (square) window, then optionally apply a Gaussian
     smoothing window parameterized by GAUSS_SIGMA (in samples).
+
+    Parameters:
+    t_spk_mat (numpy.ndarray): Time-major spike matrix (T × N), values 0/1 or counts
+    SQUARE_WIDTH (int): Moving-average window width (samples), 0 to disable
+    GAUSS_SIGMA (float): Gaussian sigma (samples) for additional smoothing, 0 to disable
+
+    Returns:
+    pop_rate (numpy.ndarray): Population rate vector of length T
     """
     if SQUARE_WIDTH > 0:
         square_smooth_summed_spike = np.convolve(
@@ -329,7 +337,17 @@ def get_bursts(
     Detect bursts from a population rate vector using thresholded peak finding and
     amplitude-scaled edge detection.
 
-    Returns (tburst, edges, peak_amp).
+    Parameters:
+    pop_rate (numpy.ndarray): Population rate vector (length T)
+    pop_rate_acc (numpy.ndarray): Optional accumulator with same length T for peak localization; pass an empty list to skip
+    THR_BURST (float): Multiplier on RMS(pop_rate) for peak height threshold
+    MIN_BURST_DIFF (int): Minimum distance (samples) between consecutive peaks
+    BURST_EDGE_MULT_THRESH (float): Edge threshold as a fraction of each burst's peak amplitude
+
+    Returns:
+    tburst (numpy.ndarray): Peak times
+    edges (numpy.ndarray): Edge indices per burst
+    peak_amp (numpy.ndarray): Peak amplitudes
     """
     pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
 
@@ -366,72 +384,10 @@ def get_bursts(
             tburst[burst] = acc_peak + edges[burst, 0]
             peak_amp[burst] = peak_val
         else:
-            # No lag
-            ref_segment = ref_rate
-            comp_segment = comp_rate
+            tburst[burst] = peaks[burst]
 
-        # Skip if segments are too short
-        if len(ref_segment) > 0 and len(comp_segment) > 0:
-            sim = cosine_similarity(
-                ref_segment.reshape(1, -1), comp_segment.reshape(1, -1)
-            )[0, 0]
-            similarities.append(sim)
-            valid_lags.append(lag)
+    edges = edges[~np.isnan(tburst), :]
+    peak_amp = peak_amp[~np.isnan(tburst)]
+    tburst = tburst[~np.isnan(tburst)]
 
-    # Find maximum similarity and corresponding lag
-    similarities = np.array(similarities)
-    valid_lags = np.array(valid_lags)
-
-    max_idx = np.argmax(similarities)
-    max_sim = similarities[max_idx]
-    max_lag_idx = valid_lags[max_idx]
-
-    return max_sim, max_lag_idx
-
-
-def extract_lower_triangle_features(matrix_3d):
-    """
-    Extract lower triangle (excluding diagonal) from each correlation matrix in a 3D array.
-
-    Parameters:
-    -----------
-    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
-                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
-
-    Returns:
-    --------
-    features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
-                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
-    """
-    if matrix_3d.shape[1] != matrix_3d.shape[2]:
-        raise ValueError(
-            "The input 3D matrix must have the same size for the last 2 dimensions."
-        )
-    num_samples = matrix_3d.shape[0]  # S
-    num_items = matrix_3d.shape[1]  # U
-
-    # Get lower triangle indices
-    lower_tri_idx = np.tril_indices(num_items, k=-1)
-
-    # Extract all lower triangles at once (vectorized)
-    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
-    return features
-
-
-def PCA_reduction(matrix_2d, n_components=2):
-    """
-    Compute PCA dimensionality reduction on axis 1 of a 2d matrix
-
-    Parameters:
-    -----------
-    matrix_2d (array): 2D matrix where values must be int, float, or bool
-
-    Returns:
-    --------
-    pca_result (array): 2D matrix of shape (rows, n_components)
-    """
-
-    pca = PCA(n_components=n_components)
-    pca_result = pca.fit_transform(matrix_2d)
-
-    return pca_result
+    return tburst, edges, peak_amp
