@@ -22,6 +22,16 @@ cd IntegratedAnalysisTools
 pip install -e ".[dev]"
 ```
 
+Or with conda:
+
+```bash
+git clone https://github.com/braingeneers/IntegratedAnalysisTools.git
+cd IntegratedAnalysisTools
+conda env create -f environment.yml
+conda activate integrated-analysis-tools
+pip install -e ".[dev]"
+```
+
 ## Quick Start
 
 ```python
