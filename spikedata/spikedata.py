@@ -151,8 +151,6 @@ class SpikeData:
 
         Returns:
         - SpikeData object (SpikeData): Object with the given spike trains in milliseconds.
-
-        Notes:
         """
         trains = [st.copy() for st in spiketrains]
         for st in trains:
@@ -301,8 +299,6 @@ class SpikeData:
 
         Returns:
         - numpy.ndarray: Array of spike times for all units in time order.
-
-        Notes:
         """
         return heapq.merge(*self.train)
 
@@ -355,8 +351,6 @@ class SpikeData:
 
         Returns:
         - generator: Generator of SpikeData objects corresponding to subwindows.
-
-        Notes:
         """
         for start in np.arange(0, self.length, length - overlap):
             yield self.subtime(start, start + length)
@@ -372,8 +366,6 @@ class SpikeData:
 
         Returns:
         - numpy.ndarray: Array of the number of events in each bin.
-
-        Notes:
         """
         # sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array
         return np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
@@ -410,8 +402,6 @@ class SpikeData:
 
         Returns:
         - numpy.ndarray: Array of the firing rate of each neuron.
-
-        Notes:
         """
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
@@ -594,8 +584,6 @@ class SpikeData:
 
         Returns:
         - SpikeData object: New SpikeData object with the selected units.
-
-        Notes:
         """
         if isinstance(key, slice):
             return self.subtime(key.start, key.stop)
@@ -758,8 +746,6 @@ class SpikeData:
 
         Returns:
         - None
-
-        Notes:
         """
         if sd.length != self.length:
             sd = sd.subtime(0, self.length)

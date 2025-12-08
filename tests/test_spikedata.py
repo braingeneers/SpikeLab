@@ -77,8 +77,6 @@ class SpikeDataTest(unittest.TestCase):
 
         Tests:
         (Test Case 1) Compares the spike trains for equality in length and values (within tolerance).
-
-        Notes:
         """
         for a, b in zip(sda.train, sdb.train):
             self.assertTrue(len(a) == len(b) and np.allclose(a, b), msg=msg)
@@ -96,8 +94,6 @@ class SpikeDataTest(unittest.TestCase):
 
         Tests:
         (Test Case 1) Checks that the subtime has the correct length and that all spikes are within the expected window.
-
-        Notes:
         """
         self.assertEqual(len(sd.train), len(sdsub.train))
         self.assertEqual(sdsub.length, tmax - tmin)
@@ -121,8 +117,6 @@ class SpikeDataTest(unittest.TestCase):
 
         Tests:
         (Test Case 1) Checks that all elements in the boolean array are True.
-
-        Notes:
         """
         self.assertTrue(np.all(bools), msg=msg)
 
@@ -204,8 +198,6 @@ class SpikeDataTest(unittest.TestCase):
 
         Tests:
         (Test Case 1) Converts a random SpikeData to Neo SpikeTrains and back, and checks for equality.
-
-        Notes:
         """
         times = np.random.rand(100) * 100
         idces = np.random.randint(5, size=100)
