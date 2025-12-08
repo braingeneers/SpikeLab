@@ -47,16 +47,13 @@ def _ensure_h5py():
 def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
     """Convert a vector of times to milliseconds."""
     if unit == "ms":
-        values_ms = values.astype(float)
-        return values_ms
+        return values.astype(float)
     if unit == "s":
-        values_ms = values.astype(float) * 1e3
-        return values_ms
+        return values.astype(float) * 1e3
     if unit == "samples":
         if not fs_Hz or fs_Hz <= 0:
             raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
-        values_ms = values.astype(float) / fs_Hz * 1e3
-        return values_ms
+        return values.astype(float) / fs_Hz * 1e3
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 
@@ -320,7 +317,7 @@ def load_spikedata_from_hdf5_raw_thresholded(
     _ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
-    sd = SpikeData.from_thresholding(
+    return SpikeData.from_thresholding(
         data,
         fs_Hz=fs_Hz,
         threshold_sigma=threshold_sigma,
@@ -328,7 +325,6 @@ def load_spikedata_from_hdf5_raw_thresholded(
         hysteresis=hysteresis,
         direction=direction,  # type: ignore[arg-type]
     )
-    return sd
 
 
 # ----------------------------
@@ -394,8 +390,7 @@ def load_spikedata_from_nwb(
         trains.extend(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
-    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
-    return sd
+    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
 
 
 # ----------------------------
@@ -541,8 +536,7 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
-    return sd
+    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
 
 
 # ----------------------------
