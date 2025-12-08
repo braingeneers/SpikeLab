@@ -215,7 +215,7 @@ def load_spikedata_from_hdf5(
             fs_Hz (float, required if 'samples'): Sampling frequency for conversion.
 
 
-    Returns: ret (SpikeData): The loaded spike train data.
+    Returns: sd (SpikeData): The loaded spike train data.
 
     Raises: ValueError: If not exactly one input style is specified, or if required arguments are missing.
     """
