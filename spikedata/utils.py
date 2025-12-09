@@ -322,98 +322,89 @@ def get_bursts(
 
     return tburst, edges, peak_amp
 
-def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag):
-        """
-        Compute normalized cross correlation with lag information.
-        
-       
-        
-        Parameters:
-        -----------
-        ref_rate : array
-            Reference firing rate signal
-        comp_rate : array
-            Comparison firing rate signal
-        max_lag : int, optional
-            Maximum lag in frames to search for correlation.
-            If None, searches all possible lags.
-            
-        Returns:
-        --------
-        r : array
-            Full cross-correlation function at all lags
-        max_corr : float
-            Maximum correlation coefficient
-        max_lag_idx : int
-            Lag (in frames) at which maximum correlation occurs
-        """
-        # r is the correlation between ref and comp. Each value is sum of elementwise products 
-        # for each possible lag and it is normalized so each value is between -1 and 1
-        r = signal.correlate(ref_rate, comp_rate, mode='same') / np.sqrt(
-            #Below is the normalziation method. You take signal's correaltion of itself, and 
-            # take the center value which is lag = 0, and use that for normalizing
-            signal.correlate(ref_rate, ref_rate, mode='same')[int(len(ref_rate) / 2)] *
-            signal.correlate(comp_rate, comp_rate, mode='same')[int(len(comp_rate) / 2)])
-        
-        center = int(len(r) / 2)
-        
-        
-        if max_lag is not None:
-            # If you have a max_lag parameter, this will limit which values in r you 
-            # can consider for the max computation
-            search_start = max(0, center - max_lag)
-            search_end = min(len(r), center + max_lag + 1)
-            search_window = r[search_start:search_end]
-            
-            max_corr = np.max(search_window)
-            max_lag_idx = np.argmax(search_window) + search_start - center
-        else:
-            # This is the case where you don't specify max_lag, so you search entirety of r for max
-            max_corr = np.max(r)
-            max_lag_idx = np.argmax(r) - center
-        
-        return max_corr, max_lag_idx
 
-
-def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag):
+def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     """
-    Compute cosine similarity with lag information.
-    
+    Compute normalized cross correlation with lag information.
+
+
+
     Parameters:
     -----------
-    ref_rate : array
-        Reference firing rate signal
-    comp_rate : array
-        Comparison firing rate signal
-    max_lag : int, optional
-        Maximum lag in frames to search for similarity.
-        If None, searches all possible lags.
-    
+    - ref_rate (array): Reference firing rate signal
+    - comp_rate (array): Comparison firing rate signal
+    - max_lag (int): Maximum lag in frames to search for similarity.
+                        If None, searches all possible lags.
+
     Returns:
     --------
-    max_sim : float
-        Maximum cosine similarity coefficient
-    max_lag_idx : int
-        Lag (in frames) at which maximum similarity occurs
+    - max_corr (float): Maximum correlation coefficient
+    - max_lag_idx (int): Lag (in frames) at which maximum correlation occurs
+    """
+    # r is the correlation between ref and comp. Each value is sum of elementwise products
+    # for each possible lag and it is normalized so each value is between -1 and 1
+    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(
+        # Below is the normalziation method. You take signal's correaltion of itself, and
+        # take the center value which is lag = 0, and use that for normalizing
+        signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
+        * signal.correlate(comp_rate, comp_rate, mode="same")[int(len(comp_rate) / 2)]
+    )
+
+    center = int(len(r) / 2)
+
+    if max_lag is None:
+        max_lag = 0
+
+    if max_lag == 0:
+        # Only check zero lag (no time shift)
+        max_corr = r[center]
+        max_lag_idx = 0
+    else:
+        # Search within max_lag window
+        search_start = max(0, center - max_lag)
+        search_end = min(len(r), center + max_lag + 1)
+        search_window = r[search_start:search_end]
+
+        max_corr = np.max(search_window)
+        max_lag_idx = np.argmax(search_window) + search_start - center
+
+    return max_corr, max_lag_idx
+
+
+def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
+    """
+    Compute cosine similarity with lag information.
+
+    Parameters:
+    -----------
+    ref_rate (array): Reference firing rate signal
+    comp_rate (array): Comparison firing rate signal
+    max_lag (int): Maximum lag in frames to search for similarity.
+                  If None, searches all possible lags.
+
+    Returns:
+    --------
+    max_sim (float): Maximum cosine similarity coefficient
+    max_lag_idx (int): Lag (in frames) at which maximum similarity occurs
     """
     from sklearn.metrics.pairwise import cosine_similarity
-    
+
     ref_rate = np.array(ref_rate).flatten()
     comp_rate = np.array(comp_rate).flatten()
-    
-   
-    if max_lag is not None:
-        # If you have a max_lag parameter, this will limit which values in r you 
-        # can consider for the max computation
-        lag_range = range(-max_lag, max_lag + 1)
-    else:
-        # This is the case where you don't specify max_lag, so you search entirety of r for max
-        max_possible_lag = len(ref_rate) - 1
-        lag_range = range(-max_possible_lag, max_possible_lag + 1)
-    
+
+    # Handle None case (convert to 0)
+    if max_lag is None:
+        max_lag = 0
+
+    if max_lag == 0:
+        # Only check zero lag
+        sim = cosine_similarity(ref_rate.reshape(1, -1), comp_rate.reshape(1, -1))[0, 0]
+        return sim, 0
+    lag_range = range(-max_lag, max_lag + 1)
+
     similarities = []
     valid_lags = []
-    
+
     # Compute cosine similarity at each lag, and makes a case for negative, positive or no lag
     for lag in lag_range:
         if lag < 0:
@@ -428,51 +419,65 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag):
             # No lag
             ref_segment = ref_rate
             comp_segment = comp_rate
-        
+
         # Skip if segments are too short
         if len(ref_segment) > 0 and len(comp_segment) > 0:
-            sim = cosine_similarity(ref_segment.reshape(1, -1), 
-                                   comp_segment.reshape(1, -1))[0, 0]
+            sim = cosine_similarity(
+                ref_segment.reshape(1, -1), comp_segment.reshape(1, -1)
+            )[0, 0]
             similarities.append(sim)
             valid_lags.append(lag)
-    
+
     # Find maximum similarity and corresponding lag
     similarities = np.array(similarities)
     valid_lags = np.array(valid_lags)
-    
+
     max_idx = np.argmax(similarities)
     max_sim = similarities[max_idx]
     max_lag_idx = valid_lags[max_idx]
-    
+
     return max_sim, max_lag_idx
 
+
 def extract_lower_triangle_features(matrix_3d):
-        """
-        Extract lower triangle (excluding diagonal) from each matrix in a 3D array.
-        Vectorized for efficiency.
-        
-        Parameters:
-        -----------
-        matrix_3d : array, shape (B, N, N)
-            3D array where each slice [b, :, :] is a symmetric N×N matrix
-            
-        Returns:
-        --------
-        features : array, shape (B, F)
-            2D array where each row contains lower triangle values
-            F = N*(N-1)/2 (number of unique pairs)
-        """
-        num_samples = matrix_3d.shape[0]  # B
-        num_items = matrix_3d.shape[1]    # N
-        
-        # Get lower triangle indices
-        lower_tri_idx = np.tril_indices(num_items, k=-1)
-        
-        # Extract all lower triangles at once (vectorized)
-        features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
-        return features
-def PCA_reduction(matrix_2d,n_components=2):
-        pca = PCA(n_components=n_components)
-        pca_result = pca.fit_transform(matrix_2d)
-        
-        return pca_result
+    """
+    Extract lower triangle (excluding diagonal) from each correlation matrix in a 3D array.
+
+    Parameters:
+    -----------
+    matrix_3d (array): 3D correaltion matrix of shape (B, N, N) [b, :, :] is a symmetric N×N matrix
+                       (this is just an example, can also be N x B x B. It just must be a 3d correlation matrix)
+
+    Returns:
+    --------
+    features (array): 2D matrix of shape (B, F) each row contains lower triangle values for that correlation matrix
+                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
+    """
+    num_samples = matrix_3d.shape[0]  # B
+    num_items = matrix_3d.shape[1]  # N
+
+    # Get lower triangle indices
+    lower_tri_idx = np.tril_indices(num_items, k=-1)
+
+    # Extract all lower triangles at once (vectorized)
+    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+    return features
+
+
+def PCA_reduction(matrix_2d, n_components=2):
+    """
+    Compute PCA dimensionality reduction on axis 1 of a 2d matrix
+
+    Parameters:
+    -----------
+    matrix_2d (array): 2D matrix of shape (rows, columns).
+
+    Returns:
+    --------
+    pca_result (array): 2D matrix of shape (rows, n_components)
+    """
+
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(matrix_2d)
+
+    return pca_result
