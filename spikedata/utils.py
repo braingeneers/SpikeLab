@@ -161,7 +161,7 @@ def butter_filter(
     filtered_traces (numpy.ndarray): The filtered output with the same shape as data
 
     Notes:
-    - If lowcut and highcut are both give, this filter is bandpass.
+    - If lowcut and highcut are both given, this filter is bandpass.
     - In this case, lowcut must be smaller than highcut.
     """
     if lowcut is None and highcut is None:
