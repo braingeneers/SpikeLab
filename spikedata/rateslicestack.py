@@ -2,37 +2,47 @@ import SpikeData
 import RateData
 import numpy as np
 from scipy import signal
+from .ratedata import *
+from .spikedata import *
 
 
-from .utils import(
+from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
     extract_lower_triangle_features,
-    PCA_reduction
+    PCA_reduction,
 )
 
 
-
-
-
-
 class RateSliceStack:
-    # This is an object that contains a collection of sparse matrices in 3D matrix form
-    # There are a few options of input time formats:
-    # Option 1:
-    # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
-    # of a burst/stimulation event. Each tuple must have same duration
+    """
+    Parameters:
+    -----------
+    data_obj (SpikeData or RateData): A data object in either one of these forms.
+    There are 2 options for time input:
+        Option #1
+            times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
+                                       represents the start and end times of a burst/stimulation event.
+                                       Each tuple must have same duration.
+        Option #2 (both of the following must be input for this option)
+            time_peaks (list): List of times as int or float where there is a burst peak or stimulation event.
+                               This variable must be pairedwith time bounds
+            time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
+                                250 ms before peak and 500 ms after peak.
+    sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object
 
-    # Option 2 (Note both of the following must be input to work):
-    # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
-    #      with time bounds
-    # time_bounds: Single tuple (left_bound, right_bound).
-    #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
+    Instance Variables:
+    --------
+    self.event_stack (array): 3D array of shape (N, T, B) where
+        - N: number of  units/neurons
+        - T: number of time bins per slice
+        - B: number of slices/bursts/events
+    self.times (list of tuples): List of (start, end) time bounds for each slice, sorted chronologically. Length equals B (number of slices).
+                            Example: [(100, 200), (500, 600), (1000, 1100)]
+    self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
+                       Example: 1.0 means time bins are at [100, 101, 102, ...] ms
 
-    # slice_or_rate_obj: Either SpikeData or RateData object. Constructor handles the rest
-    # sigma_ms: Smoothing factor for computing isi if you input a SpikeData object
-    # step_size: How many time_steps per unit?
-    #   For example, (start,end) = (0,10) could be 10 timestemps if step_size =1, or 2 timesteps if step_size = 5
+    """
 
     def __init__(
         self,
@@ -41,7 +51,6 @@ class RateSliceStack:
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
-        step_size=1,
     ):
         if not isinstance(data_obj, (SpikeData, RateData)):
             # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
@@ -96,11 +105,6 @@ class RateSliceStack:
             if time_window[0] < 0:
                 continue
 
-            # Check if any times are beyond the end of the recording
-            # if time_peaks is not None:
-            #     if time_window[1] > time_peaks[-1]:
-            #         continue
-
             time_diff_check.append(time_window[1] - time_window[0])
             # We only want to address time windows that are above 0 (recording start) and below recording end
             valid_time_tuples.append(time_window)
@@ -113,9 +117,15 @@ class RateSliceStack:
         # Actual constructor
 
         if isinstance(data_obj, SpikeData):
-            all_times = np.arange(0, data_obj.length)
+            # Make it step_size 1
+            all_times = np.arange(0, data_obj.length, 1.0)
             inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
-            data_obj = RateData(inst_Frate_matrix)
+            data_obj = RateData(inst_Frate_matrix, all_times)
+
+        if len(data_obj.times) > 1:
+            self.step_size = data_obj.times[1] - data_obj.times[0]
+        else:
+            self.step_size = 1.0
 
         self.times = times_start_to_end
         event_stack = []
@@ -128,342 +138,251 @@ class RateSliceStack:
                 event_matrix = rate_obj_slice.inst_Frate_data
                 event_stack.append(event_matrix)
 
-        # if isinstance(data_obj, SpikeData):
-        #     # Here, I may be mistaken but I didn't see a need to do subtime because
-        #     #I can specify times directly from resampled isi and extract burst events.
-        #     for time in times:
-        #         start = time[0]
-        #         end = time[1]
-        #         all_times = np.arange(start, end, step_size)
-        #         #Look into times
-        #         burst_matrix = data_obj.resampled_isi(all_times, sigma_ms)
-        #         burst_stack.append(burst_matrix)
         # Converts to a 3d array
         event_stack = np.stack(event_stack, axis=2)
         # This makes event stack be N x T x B
         self.event_stack = event_stack
 
-    def order_neurons_across_bursts(self):
+    def order_units_across_bursts(self):
         """
         Reorders the neurons in bursts from earliest to latest peak firing rate.
 
         Parameters:
-            - No inputs. It uses the underlying 3D self.event_stack matrix that is NxTxB (neuron x time_bin x burst/event)
+        No inputs. It uses the underlying 3D self.event_stack matrix that is NxTxB (neuron x time_bin x burst/event)
         Returns:
-            - reordered_burst_matrices: This is 3D self.event_stack but the 0th dimension N is reordered temporally
-                                        Now, the first neuron is the one that usually fires off across all bursts
-            - neurons_ids_in_order: Array of original neuron indices sorted by their typical firing order.
-                                    For example, [3, 1, 0, 2] means neuron 3 fires first, then neuron 1,
-                                    then neuron 0, then neuron 2. So neuron 3 is now the first neuron in reordered_burst_matrices.
-                                    Use this to map back to original neuron IDs.
-
+        --------
+        reordered_burst_matrices: This is 3D self.event_stack but the 0th dimension N is reordered temporally
+                                    Now, the first neuron is the one that usually fires off across all bursts
+        neurons_ids_in_order: Array of original neuron indices sorted by their typical firing order.
+                                For example, [3, 1, 0, 2] means neuron 3 fires first, then neuron 1,
+                                then neuron 0, then neuron 2. So neuron 3 is now the first neuron in reordered_burst_matrices.
+                                Use this to map back to original neuron IDs.
         """
         # burst_matrices is N x T x B
-        burst_matrices = self.event_stack
+        slice_matrices = self.event_stack
 
-        # This is a matrix (NxB) where row is neuron, and each column is a burst. Value is the time index
+        # This is a matrix (NxB) where row is neuron, and each column is a burst/slice/event. Value is the time index
         # firing rate peak for neuron N in burst B
-        neuron_max_indices_array = np.argmax(burst_matrices, axis=1)
+        unit_max_indices_array = np.argmax(slice_matrices, axis=1)
 
         # This gives you a list of size N. Now you have median peak time for each neuron
-        neuron_median_indices = np.median(neuron_max_indices_array, axis=1)
+        unit_median_indices = np.median(unit_max_indices_array, axis=1)
 
         # arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
         # So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
 
-        neurons_ids_in_order = np.argsort(neuron_median_indices)
-        # Reorder the neurons in orginal burst_matrices so that they are in temporal order
-        reordered_burst_matrices = burst_matrices[neurons_ids_in_order, :, :]
-        # Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
-        return reordered_burst_matrices, neurons_ids_in_order
+        unit_ids_in_order = np.argsort(unit_median_indices)
+        # Reorder the neurons in orginal slice_matrices so that they are in temporal order
+        reordered_slice_matrices = slice_matrices[unit_ids_in_order, :, :]
+        # Returns the reordered bursts/slices/events, the unit ids in order so you can see which unit fires when
+        return reordered_slice_matrices, unit_ids_in_order
 
-    # def order_neurons_across_bursts(self):
-    #     #burst_matrices is B x N x T
-    #     burst_matrices = self.event_stack
-    #     #This list will be size bursts x neuron_id
-    #     neuron_max_indices_across_bursts = []
-    #     for burst_index in range(burst_matrices.shape[0]):
-    #         burst = burst_matrices[burst_index,:,:]
-    #         # I NEED TO GO BACK AND DO TESTS IN IPYNB WITH SHAPES BEFORE PROCEEDING
-    #         # This list will be size N (number of neurons)
-    #         neuron_max_indices_per_burst = []
-    #         for neuron_index in range(burst.shape[0]):
-    #             neuron = burst[neuron_index,:]
-    #             max_index = np.argmax(neuron)
-    #             #
-    #             neuron_max_indices_per_burst.append(max_index)
-
-    #         neuron_max_indices_across_bursts.append(neuron_max_indices_per_burst)
-    #         #This is BxN and each value is the time bin that has max firing rate
-
-    #     neuron_max_indices_array = np.array(neuron_max_indices_across_bursts)
-    #     #This gives you a list of size N
-    #     neuron_median_indices = np.median(neuron_max_indices_array, axis=0)
-
-    #     #arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
-    #     #So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
-
-    #     neurons_ids_in_order = np.argsort(neuron_median_indices)
-    #     #Reorder the neurons in orginal burst_matrices so that they are in temporal order
-    #     reordered_burst_matrices = burst_matrices[:,neurons_ids_in_order,:]
-    #     #Returns the reordered bursts, the neuron ids in order so you can see which neuron fires when
-    #     return reordered_burst_matrices, neurons_ids_in_order
-
-   
-
-
-    def get_slice_to_slice_neuron_corr_from_stack(self,compare_func =compute_cross_correlation_with_lag,  MIN_RATE_THRESHOLD=0.1, MIN_FRAC=0.3, max_lag = 350):
+    def get_slice_to_slice_unit_corr_from_stack(
+        self,
+        compare_func=compute_cross_correlation_with_lag,
+        MIN_RATE_THRESHOLD=0.1,
+        MIN_FRAC=0.3,
+        max_lag=350,
+    ):
         """
-        Compute burst-to-burst correlation using RateSliceStack object.
+        Compute slice-to-slice (aka burst-to-burst) similarity along the 0th axis of RateSliceStack self.event_stack (N x T x B)
+        This is done along the unit axis, making the output size be (N x B x B) and requiring thresholding to make
+        units and slices that are inactive be Nan.
 
-        Using Min_rate since this doesn't have t_spike matrix
-        
+
         Parameters:
         -----------
-        rate_slice_stack : RateSliceStack
-            Your RateSliceStack object containing event_stack (N x T x B)
-        compare_func:
-            Specify if you want to compare signals with correaltion or cosine similarity functions.
-        MIN_RATE_THRESHOLD : float
-            Minimum mean firing rate to consider a burst valid for that neuron
-        MIN_FRAC : float
-            Maximum fraction of bursts that can be skipped (default 0.3 = 30%)
-            
+        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
+                                          The default is cross correlation. These functions can be insepcted further in utils.py
+        MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice/burst/event valid for that neuron
+        MIN_FRAC (float): Maximum fraction of slice/burst/events that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
+        max_lag (int): Maximum lag in frames to search for similarity. If None, searches all possible lags.
+
         Returns:
         --------
-        all_burst_corr_scores : array, shape (N, B, B)
-            Pairwise correlation scores between all burst pairs for each neuron
-        av_burst_corr_scores : array, shape (N,)
-            Average correlation per neuron across all valid burst pairs
+        all_slice_corr_scores (array): Pairwise correlation scores between all slice/burst/event pairs for each unit shape (N, B, B)
+        av_slice_corr_scores (array): Average correlation per neuron across all valid slice/burst/event pairs shape (N,)
+
         """
         # Get dimensions
         event_stack = self.event_stack
-        num_neurons = event_stack.shape[0]  # N
+        num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
-        num_bursts = event_stack.shape[2]  # B
-        
+        num_slices = event_stack.shape[2]  # B
+
         # Initialize result matrices
-        av_burst_corr_scores = np.full(num_neurons, np.nan)
-        all_burst_corr_scores = np.full((num_neurons, num_bursts, num_bursts), np.nan)
-        
+        av_slice_corr_scores = np.full(num_units, np.nan)
+        all_slice_corr_scores = np.full((num_units, num_slices, num_slices), np.nan)
+
         # For each neuron
-        for neuron in range(num_neurons):
-            # Make list of comparison bursts
-            comp_bursts = list(range(num_bursts))
-            
-            # Counter for skipped bursts
+        for unit in range(num_units):
+            # Counter for skipped slices
             counter = 0
-            
-            # For each reference burst
-            for ref_b in range(num_bursts):
-                # Remove ref burst from comp bursts
-                comp_bursts = [b for b in comp_bursts if b != ref_b]
-                
-                # Extract firing rate for this neuron in this burst
-                # Shape: (T,) - 1D array of firing rates over time
-                ref_rate = event_stack[neuron, :, ref_b]
-                
+
+            # Loop through each slice. This is your reference signal
+            for ref_b in range(num_slices):
+                # Reference vector
+                ref_rate = event_stack[unit, :, ref_b]
+
                 # Check if mean firing rate is above threshold
                 if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
+                    # Count each time a reference slice is inactive for this unit
                     counter += 1
                     continue
-                
-                # For each comparison burst
-                for comp_b in comp_bursts:
-                    # Extract firing rate for this neuron in comparison burst
-                    comp_rate = event_stack[neuron, :, comp_b]
-                    
+
+                for comp_b in range(num_slices):
+                    # Comp vector
+                    comp_rate = event_stack[unit, :, comp_b]
+
                     # Check if mean firing rate is above threshold
                     if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
                         continue
-                    
-                    # Compute cross correlation. Only use 10 ms since we are comparing bursts, and bursts
-                    # are centered around 0 which is burst peak. That means we expect that burst 1 and burst 2 will have 
-                    # max acvitivty near 0
+
+                    # Compute similarity, we only want one output, not the lagged one.
                     max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
-                    
+
                     # Store results
-                    all_burst_corr_scores[neuron, comp_b, ref_b] = max_corr
-            
+                    all_slice_corr_scores[unit, comp_b, ref_b] = max_corr
+
             # If less than MIN_FRAC bursts were skipped
-            if counter / num_bursts <= MIN_FRAC:
+            if counter / num_slices <= MIN_FRAC:
                 # Average results over all pairs
-                av_burst_corr_scores[neuron] = np.nanmean(all_burst_corr_scores[neuron, :, :])
-        #all_burst_corr_scores is NxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
+                av_slice_corr_scores[unit] = np.nanmean(
+                    all_slice_corr_scores[unit, :, :]
+                )
+        # all_burst_corr_scores is NxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
         # Keep as is, make helper function for converting BxB into below diagnol
-        return all_burst_corr_scores, av_burst_corr_scores
-    
-    def neuron_to_neuron_correlation(self, compare_func =compute_cross_correlation_with_lag, max_lag=350):
-        event_stack = self.event_stack
-        num_neurons = event_stack.shape[0]  # N
-        num_time_bins = event_stack.shape[1]  # T
-        num_bursts = event_stack.shape[2]  # B
+        return all_slice_corr_scores, av_slice_corr_scores
 
-        num_values_under_diagnol = num_neurons * (num_neurons - 1) // 2
-        # output_max_corr = np.full((num_bursts, num_values_under_diagnol), np.nan)
-        # output_max_lag = np.full((num_bursts, num_values_under_diagnol), np.nan)
-        output_max_corr = np.full((num_bursts, num_neurons, num_neurons), np.nan)
-        output_max_lag = np.full((num_bursts, num_neurons, num_neurons), np.nan)
-        av_output_max_corr = np.full(num_bursts, np.nan)
-        av_output_max_lag = np.full(num_bursts, np.nan)
-
-
-        
-
-        for b in range(num_bursts):
-            corr_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
-            lag_matrix_this_burst = np.full((num_neurons, num_neurons), np.nan)
-
-            rate_matrix = event_stack[:,:,b]
-            for n1 in range(num_neurons):
-                for n2 in range(num_neurons):
-                    reference_signal = rate_matrix[n1,:]
-                    compare_signal = rate_matrix[n2,:]
-                    max_corr, max_lag_idx = compare_func(reference_signal, compare_signal, max_lag)
-
-                    corr_matrix_this_burst[n1,n2] = max_corr
-                    lag_matrix_this_burst[n1,n2] = max_lag_idx
-                    
-            # output_max_corr.append(corr_matrix_this_burst)
-            # output_max_lag.append(lag_matrix_this_burst)
-
-            output_max_corr[b, :] = corr_matrix_this_burst
-            output_max_lag[b, :] = lag_matrix_this_burst
-
-            # lower_tri_idx = np.tril_indices(num_neurons, k=-1)
-            # output_max_corr[b, :] = corr_matrix_this_burst[lower_tri_idx]
-            # output_max_lag[b, :] = lag_matrix_this_burst[lower_tri_idx]
-
-
-        # With full matrix, it is B x N x N. But we want lower triangle of NxN correlation
-        # Outputs are B x F where F is the number of values under the diagnol in matrix.
-        # Each burst is a 1xF, represting the neuron correaltions in that one burst
-
-        # We should make a function where you can input n1 and n2, and it will extract 
-        # the correaltion from a 1xF input
-            av_output_max_corr[b] = np.nanmean(output_max_corr[b, :, :])
-            av_output_max_lag[b] = np.nanmean(output_max_lag[b, :, :])
-            
-
-        return output_max_corr, av_output_max_corr, output_max_lag, av_output_max_lag
-    
-
-    
-    def get_slice_to_slice_time_corr_from_stack(self, compare_func = compute_cosine_similarity_with_lag, max_lag = 0):
+    def get_slice_to_slice_time_corr_from_stack(
+        self, compare_func=compute_cosine_similarity_with_lag, max_lag=0
+    ):
         """
-        Compute burst-to-burst cosine similarity using RateSliceStack object.
-        At which moments during the burst are all bursts most similar to each other?
+        Compute slice-to-slice (aka burst-to-burst) similarity along the 1st axis of RateSliceStack self.event_stack (N x T x B)
+        This is done along the time axis, making the output size be (T x B x B) which doesn't require thresholding.
 
-        Using Min_rate since this doesn't have t_spike matrix
-        
         Parameters:
         -----------
-        rate_slice_stack : RateSliceStack
-            Your RateSliceStack object containing event_stack (N x T x B)
-        compare_func:
-            Specify if you want to compare signals with correaltion or cosine similarity functions.
-            
+        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
+                                          The default is cosine similarity. These functions can be insepcted further in utils.py
+        max_lag (int): Maximum lag in frames to search for similarity. If None, searches all possible lags.
+
         Returns:
         --------
-        all_burst_corr_scores : array, shape (N, B, B)
-            Pairwise correlation scores between all burst pairs for each neuron
-        av_burst_corr_scores : array, shape (N,)
-            Average correlation per neuron across all valid burst pairs
+        all_slice_corr_scores (array): Pairwise correlation scores between all slice/burst/event pairs for each time_bin shape (T, B, B)
+        av_slice_corr_scores (array): Average correlation per time_bin across all valid slice/burst/event pairs shape (T,)
+
         """
         # Get dimensions
         event_stack = self.event_stack
-        num_neurons = event_stack.shape[0]  # N
+        num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
-        num_bursts = event_stack.shape[2]  # B
-        
+        num_slices = event_stack.shape[2]  # B
+
         # Initialize result matrices
-        av_burst_corr_scores = np.full(num_time_bins, np.nan)
-        all_burst_corr_scores = np.full((num_time_bins, num_bursts, num_bursts), np.nan)
-        
+        av_slice_corr_scores = np.full(num_time_bins, np.nan)
+        all_slice_corr_scores = np.full((num_time_bins, num_slices, num_slices), np.nan)
+
         # For each neuron
         for time in range(num_time_bins):
-            # Make list of comparison bursts
-            comp_bursts = list(range(num_bursts))
-            
-            # Counter for skipped bursts
-            counter = 0
-            
-            # For each reference burst
-            for ref_b in range(num_bursts):
-                # Remove ref burst from comp bursts
-                comp_bursts = [b for b in comp_bursts if b != ref_b]
-                
-                # Extract firing rate for this neuron in this burst
-                # Shape: (T,) - 1D array of firing rates over time
-                ref_rate = event_stack[:, time, ref_b]
-                
-                # # Check if mean firing rate is above threshold
-                # if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
-                #     counter += 1
-                #     continue
-                
-                # For each comparison burst
-                for comp_b in comp_bursts:
-                    # Extract firing rate for this neuron in comparison burst
-                    comp_rate = event_stack[:, time, comp_b]
-                    
-                    # # Check if mean firing rate is above threshold
-                    # if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
-                    #     continue
-                    
-                    # Compute cross correlation. Only use 10 ms since we are comparing bursts, and bursts
-                    # are centered around 0 which is burst peak. That means we expect that burst 1 and burst 2 will have 
-                    # max acvitivty near 0
-                    max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
-                    
-                    # Store results
-                    all_burst_corr_scores[time, comp_b, ref_b] = max_corr
-            
-           
-            av_burst_corr_scores[time] = np.nanmean(all_burst_corr_scores[time,:, :])
-        #all_burst_corr_scores is TxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
 
-        return all_burst_corr_scores, av_burst_corr_scores
-    
-    
-        
-    def PCA_on_lower_diagnol_corr_matrix(self,all_burst_corr_scores, n_components =2):
+            # For each reference burst
+            for ref_b in range(num_slices):
+                # Reference vector
+                ref_rate = event_stack[:, time, ref_b]
+
+                # Start at ref_b since the output must be symmetric, so we only need to do half the computation.
+                for comp_b in range(ref_b, num_slices):
+                    # Comparison vector
+                    comp_rate = event_stack[:, time, comp_b]
+
+                    # Compute similarity
+                    max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
+
+                    # Store results
+                    all_slice_corr_scores[time, comp_b, ref_b] = max_corr
+
+                    all_slice_corr_scores[time, ref_b, comp_b] = max_corr
+
+            av_slice_corr_scores[time] = np.nanmean(all_slice_corr_scores[time, :, :])
+        # all_slice_corr_scores is TxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
+
+        return all_slice_corr_scores, av_slice_corr_scores
+
+    def PCA_on_lower_diagnol_corr_matrix(self, all_burst_corr_scores, n_components=2):
         """
         Apply PCA to reduce feature dimensions.
-        
+
         Parameters:
         -----------
         feature_matrix : array, shape (B, F)
             Each row is a burst, each column is a feature
-            
+
         n_components : int
             Number of components (default: 2)
-            
+
         Returns:
         --------
         pca_result : array, shape (B, n_components)
             Reduced representation
         """
-         #lower triangle is B x F (or N x F if you input N x B x B) (or T x F if you input T x Bx B)
-        lower_triangle= extract_lower_triangle_features(all_burst_corr_scores)
+        # lower triangle is B x F (or N x F if you input N x B x B) (or T x F if you input T x Bx B)
+        lower_triangle = extract_lower_triangle_features(all_burst_corr_scores)
         pca_result = PCA_reduction(lower_triangle, n_components)
 
-        
         return pca_result
-    
-    
-    
 
+    def convert_to_list_of_RateData(self):
+        output = []
+        # N x T x B
+        for slice in range(self.event_stack.shape[2]):
+            matrix = self.event_stack[:, :, slice]
+            start, end = self.times[slice]
+            time = start + np.arange(matrix.shape[1]) * self.step_size
+            if time[-1] > end:
+                # Extremely rare edge case with floating point calculation. Should never happen but just in case
+                time = np.clip(time, start, end - np.finfo(float).eps)
+            # time = np.arange(start, end, self.step_size)
+            rate_obj = RateData(matrix, time)
+            output.append(rate_obj)
+        return output
 
+    def unit_to_unit_correlation(
+        self, compare_func=compute_cross_correlation_with_lag, max_lag=10
+    ):
+        """
+        Compute unit-to-unit similarity along the last axis of RateSliceStack self.event_stack (N x T x B)
+        This is done along the slice axis, making the output size be (B x N x N) which doesn't require thresholding.
 
-        
+        Parameters:
+        -----------
+        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
+                                          The default is cosine similarity. These functions can be insepcted further in utils.py
+        max_lag (int): Maximum lag in frames to search for similarity. If None, searches all possible lags.
 
-    # Make a equation for converting 3D matrix into list of rate datas 
-    # Have rate data have actual nxn function
-    # Make a class for nxn matrices. This will have lower triangle function as well
-    # And PCa function
-    # So then output of get_slice_to_slice_neuron_corr_from_stack would instead be a list
-    # of this nxn object instead of a 3d matrix
-                
+        Returns:
+        --------
+        max_corr_array (array): Pairwise correlation scores between all unit pairs for each slice. Shape is (B, N, N)
+        max_corr_lag_array (array): Lag where correlation between pair is at max. Shape is (B, N, N)
+        av_max_corr (array): Average correlation per time_bin across all valid slice/burst/event pairs shape (B,)
+        av_max_corr_lag (array): Average lag where correlation between pair is at max.
 
-
+        """
+        max_corr_stack = []
+        max_corr_lag_stack = []
+        rate_data_stack = self.convert_to_list_of_RateData()
+        for i in range(len(rate_data_stack)):
+            rate_data = rate_data_stack[i]
+            # This gives 2 NxN matrices
+            max_corr_matrix, lag_corr_matrix = rate_data.get_pairwise_fr_corr(
+                compare_func, max_lag
+            )
+            max_corr_stack.append(max_corr_matrix)
+            max_corr_lag_stack.append(lag_corr_matrix)
+        # Make the list of correlation matrices into a 3d matrix
+        max_corr_array = np.stack(max_corr_stack, axis=0)
+        max_corr_lag_array = np.stack(max_corr_lag_stack, axis=0)
+        # Find the averages to get a single dimension array of averages
+        av_max_corr = np.nanmean(max_corr_array, axis=(1, 2))  # shape (B,)
+        av_max_corr_lag = np.nanmean(max_corr_lag_array, axis=(1, 2))  # shape (B,)
+        return max_corr_array, max_corr_lag_array, av_max_corr, av_max_corr_lag
