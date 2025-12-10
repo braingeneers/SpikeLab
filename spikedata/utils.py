@@ -340,13 +340,22 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     - ref_rate (array): Reference firing rate signal
     - comp_rate (array): Comparison firing rate signal
     - max_lag (int): Maximum lag in frames to search for similarity.
-                        If None, searches all possible lags.
+                     If None, lag is set to 0.
 
     Returns:
     --------
     - max_corr (float): Maximum correlation coefficient
     - max_lag_idx (int): Lag (in frames) at which maximum correlation occurs
     """
+    if max_lag is None:
+        max_lag = 0
+
+    # Fast path for zero lag (no time shift)
+    if max_lag == 0:
+        max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(
+            np.sum(ref_rate**2) * np.sum(comp_rate**2)
+        )
+        return max_corr, 0
     # r is the correlation between ref and comp. Each value is sum of elementwise products
     # for each possible lag and it is normalized so each value is between -1 and 1
     r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(
@@ -358,21 +367,13 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
 
     center = int(len(r) / 2)
 
-    if max_lag is None:
-        max_lag = 0
+    # Search within max_lag window
+    search_start = max(0, center - max_lag)
+    search_end = min(len(r), center + max_lag + 1)
+    search_window = r[search_start:search_end]
 
-    if max_lag == 0:
-        # Only check zero lag (no time shift)
-        max_corr = r[center]
-        max_lag_idx = 0
-    else:
-        # Search within max_lag window
-        search_start = max(0, center - max_lag)
-        search_end = min(len(r), center + max_lag + 1)
-        search_window = r[search_start:search_end]
-
-        max_corr = np.max(search_window)
-        max_lag_idx = np.argmax(search_window) + search_start - center
+    max_corr = np.max(search_window)
+    max_lag_idx = np.argmax(search_window) + search_start - center
 
     return max_corr, max_lag_idx
 
@@ -386,7 +387,7 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     ref_rate (array): Reference firing rate signal
     comp_rate (array): Comparison firing rate signal
     max_lag (int): Maximum lag in frames to search for similarity.
-                  If None, searches all possible lags.
+                   If None, lag is set to 0.
 
     Returns:
     --------
@@ -476,7 +477,7 @@ def PCA_reduction(matrix_2d, n_components=2):
 
     Parameters:
     -----------
-    matrix_2d (array): 2D matrix of shape (rows, columns).
+    matrix_2d (array): 2D matrix where values must be int, float, or bool
 
     Returns:
     --------

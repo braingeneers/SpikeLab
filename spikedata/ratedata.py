@@ -6,10 +6,15 @@ from .utils import compute_cross_correlation_with_lag
 
 class RateData:
     """
+    Description:
+    -----------
+    A data structure where the underlying data is a 2D instantneous firing rate matrix. This object allows the user
+    to perform a set of functions upon this data, including unit to unit correlation matrix computations.
+
     Parameters:
     -----------
-    inst_Frate_data (array): 2D array of shape (N, T). Each value is the instanteous firing rate.
-        - N: number of  units/neurons
+    inst_Frate_data (array): 2D array of shape (U, T). Each value is the instanteous firing rate.
+        - U: number of  units/neurons
         - T: number of time bins
     times (list): List of time values that each column index in inst_Frate_data represents.
                   For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
@@ -61,8 +66,10 @@ class RateData:
         Extract a subset of neurons from the rate data.
 
         Parameters:
-        units (list or array): Neuron indices to extract
-        by : "id" allows you to use and track neuron_attributes
+        units (list or array): Neuron indices to extract.
+                               If by is not None, then units are the neuron_id you want to extract.
+        by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
+                     If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
 
         Returns:
         RateData: New RateData object containing only the specified neurons
@@ -97,7 +104,7 @@ class RateData:
 
     def subtime(self, start, end, shift_time=True):
         """
-        Extract a subset of time points from the rate data using time values.
+        Extract a subset of time points from the rate data using time values. Index-based if by = None.
 
         Parameters:
         start (int/float): Starting time value (inclusive)
@@ -157,7 +164,7 @@ class RateData:
 
     def subtime_by_index(self, start_idx, end_idx, shift_time=True):
         """
-        Extract a subset of time points from the rate data using time values.
+        Extract a subset of time points from the rate data using time index values.
 
         Parameters:
         start (int): Starting time index (inclusive)
@@ -190,10 +197,15 @@ class RateData:
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10
     ):
         """
-        Takes the object's underlying firing rate matrix (N, T) and computes the unit to unit correlation
+        Takes the object's underlying firing rate matrix (N, T) and computes the unit to unit similarity,
+        and the similarity metric is set with compare_func.
 
         Parameters:
+        compare_func (method in utils): Specify if you want to compare signals with cross-correlation or cosine similarity functions.
+                                        The default is cross correlation. These functions can be insepcted further in utils.py
         max_lag (int): Max number of lag steps around 0 user wants to be considered for finding the max correlation.
+                       If None, lag is set to 0.
+
 
         Returns:
         corr_matrix_this_event (array): Matrix of maximum correlation coefficients between all neuron pairs.
@@ -203,6 +215,7 @@ class RateData:
                                          lag_matrix[i, j] is the lag where correlation between i and j is maximal.
                                          Positive lag means neuron j leads neuron i (j fires earlier).
                                          Negative lag means neuron i leads neuron j (i fires earlier).
+                                         Diagonal is always 0 (self-correlation is perfectly aligned, so max corr at 0 lag.)
         """
 
         rate_matrix = self.inst_Frate_data
