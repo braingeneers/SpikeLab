@@ -24,27 +24,31 @@ class RateSliceStack:
         - T: Time bins
         - S: Slices (can be bursts, events, etc)
     If the user inputs an event_matrix, then no other parameters are needed. Otherwise, all parameters are required.
+    The instance variables are the same despite the input option and all methods will work the same. 
 
     Parameters:
     -----------
-    There are 2 options for underlying data input:
-        Option #1
-            data_obj (SpikeData or RateData or 3D matrix): A data object in either one of these forms.
-        Option #2
-            event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
-    There are 2 options for time input:
-        Option #1
-            times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
-                                       represents the start and end times of a desired slice/event/burst.
-                                       Each tuple must have same duration.
-        Option #2 (both of the following must be input for this option)
-            time_peaks (list): List of times as int or float where there is a burst peak or stimulation event.
-                               This variable must be pairedwith time bounds
-            time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
-                                250 ms before peak and 500 ms after peak.
-    sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object. Otherwise, not used
+    You can either inpute data_obj or event_matrix as your underlying data.
+    Option #1: data_obj
+        data_obj (SpikeData or RateData or 3D matrix): A data object in either one of these forms.
+        There are 2 choices for time input:
+            Choice A)
+                times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
+                                        represents the start and end times of a desired slice.
+                                        Each tuple must have same duration.
+            Choice B) (both of the following must be input for this option)
+                time_peaks (list): List of times as int or float where there is a burst peak or stimulation event.
+                                This variable must be pairedwith time bounds
+                time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
+                                    250 ms before peak and 500 ms after peak.
+        sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object. Otherwise, not used
 
-
+    Option #2: event_matrix
+        event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
+        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and 
+                                   end times of a desired slice. Each tuple must have same duration. Length must equal S.
+                                   If none, will be automatically computed with step_size 1.0
+        step_size (float): Time resolution in milliseconds between consecutive time bins. If None, becomes 1.0.
 
     Instance Variables:
     --------
@@ -52,7 +56,7 @@ class RateSliceStack:
         - U: Nuber of units (refers to neuron/neuron clusters)
         - T: Number of time bins
         - S: Number of slices (can be bursts, events, etc)
-    self.times (list of tuples): List of (start, end) time bounds for each slice, sorted chronologically. Length equals B (number of slices).
+    self.times (list of tuples): List of (start, end) time bounds for each slice, sorted chronologically. Length equals S (number of slices).
                             Example: [(100, 200), (500, 600), (1000, 1100)]
     self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
                             Example: 1.0 means time bins are at [100, 101, 102, ...] ms
@@ -61,47 +65,111 @@ class RateSliceStack:
 
     def __init__(
         self,
-        data_obj,
+        data_obj, #Option 1
         times_start_to_end=None,
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
-        event_matrix=None,
+        
+        event_matrix=None, #Option 2
+        step_size = None
     ):
-        # if not isinstance(data_obj, (SpikeData, RateData)):
-        #     # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
-        #     raise TypeError(
-        #         "data_obj must either be a SpikeData object or RateData object"
-        #     )
-        # if event_matrix is not None:
-        #     if not isinstance(event_matrix, np.ndarray):
-        #         raise TypeError(
-        #         "event_matrix must be an array"
-        #     )
-        #     if event_matrix.ndim != 3:
-        #         raise ValueError(
-        #             "event_matrix needs 3 dimensions"
-        #         )
-
-        # This is to check that one of the time options is selected
-        if times_start_to_end is None:
-            if time_peaks is None or time_bounds is None:
-                raise ValueError(
-                    "Must provide either times_start_to_end or both times_peaks and time_bounds"
-                )
-
-            # If we're using peaks+bounds, validate them
-            if not isinstance(time_bounds, tuple) or len(time_bounds) != 2:
+        #Option 1: Using data_obj
+        if data_obj is not None:
+            if not isinstance(data_obj, (SpikeData, RateData)):
+                # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
                 raise TypeError(
-                    "time_bounds must be a tuple of (before, after) durations"
+                    "data_obj must either be a SpikeData object or RateData object"
                 )
 
-            # Convert peaks and bounds to start_to_end format
-            before, after = time_bounds
-            time_peaks = sorted(time_peaks)
-            times_start_to_end = [(t - before, t + after) for t in time_peaks]
+            # This is to check that one of the time options is selected
+            if times_start_to_end is None:
+                if time_peaks is None or time_bounds is None:
+                    raise ValueError(
+                        "Must provide either times_start_to_end or both times_peaks and time_bounds"
+                    )
 
-        # Now that everything is times_start_to_end format, checking if inputs are correct types
+                # If we're using peaks+bounds, validate them
+                if not isinstance(time_bounds, tuple) or len(time_bounds) != 2:
+                    raise TypeError(
+                        "time_bounds must be a tuple of (before, after) durations"
+                    )
+
+                # Convert peaks and bounds to start_to_end format
+                before, after = time_bounds
+                time_peaks = sorted(time_peaks)
+                times_start_to_end = [(t - before, t + after) for t in time_peaks]
+
+            # Now that everything is times_start_to_end format, checking if inputs are correct types
+            times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
+    
+
+            # Actual constructor
+
+            if isinstance(data_obj, SpikeData):
+                # Make it step_size 1
+                all_times = np.arange(0, data_obj.length, 1.0)
+                inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
+                data_obj = RateData(inst_Frate_matrix, all_times)
+
+            if len(data_obj.times) > 1:
+                self.step_size = data_obj.times[1] - data_obj.times[0]
+            else:
+                self.step_size = 1.0
+
+            self.times = times_start_to_end
+            event_stack = []
+            if isinstance(data_obj, RateData):
+                # I use subtime here to extract a burst event and its time value based subtime
+                for time in times_start_to_end:
+                    start = time[0]
+                    end = time[1]
+                    rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
+                    event_matrix = rate_obj_slice.inst_Frate_data
+                    event_stack.append(event_matrix)
+
+            # Converts to a 3d array
+            event_stack = np.stack(event_stack, axis=2)
+            # This makes event stack be U x T x S
+            self.event_stack = event_stack
+            return
+        #Option 2
+        if event_matrix is not None:
+            if not isinstance(event_matrix, np.ndarray):
+                raise TypeError("event_matrix must be a numpy array")
+            if event_matrix.ndim != 3:
+                raise ValueError(
+                    f"event_matrix must be 3D (U x T x S), got {event_matrix.ndim}D array"
+                )
+            if step_size is None:
+                self.step_size = 1.0
+            else:
+                self.step_size = step_size
+            if times_start_to_end is None:
+                slice_duration = event_matrix.shape[1] * self.step_size
+                times_start_to_end = []
+                for i in range(event_matrix.shape[2]):  
+                    start = i * slice_duration
+                    end = (i + 1) * slice_duration
+                    tup = (start, end)
+                    times_start_to_end.append(tup)
+            else:
+                times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
+                #Make sure there is a (start,end) tuple for each slice
+                if len(times_start_to_end) != event_matrix.shape[2]:
+                    raise ValueError(
+                        "times_start_to_end must have the same length as the last dimension of event_matrix"
+                    )
+            self.event_stack = event_matrix
+            self.times = times_start_to_end
+            
+            return
+        
+        raise ValueError("Must provide either data_obj or event_matrix")
+
+
+    
+    def _validate_time_start_to_end(self, times_start_to_end):
         if not isinstance(times_start_to_end, list):
             raise TypeError("times must be a list of tuples")
         time_diff_check = []
@@ -133,45 +201,14 @@ class RateSliceStack:
             time_diff_check.append(time_window[1] - time_window[0])
             # We only want to address time windows that are above 0 (recording start) and below recording end
             valid_time_tuples.append(time_window)
-
-        if len(set(time_diff_check)) > 1:
-            raise ValueError("All time windows must have the same length")
-
-        times_start_to_end = valid_time_tuples
-
-        # Actual constructor
-
-        if isinstance(data_obj, SpikeData):
-            # Make it step_size 1
-            all_times = np.arange(0, data_obj.length, 1.0)
-            inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
-            data_obj = RateData(inst_Frate_matrix, all_times)
-
-        if len(data_obj.times) > 1:
-            self.step_size = data_obj.times[1] - data_obj.times[0]
-        else:
-            self.step_size = 1.0
-
-        self.times = times_start_to_end
-        event_stack = []
-        if isinstance(data_obj, RateData):
-            # I use subtime here to extract a burst event and its time value based subtime
-            for time in times_start_to_end:
-                start = time[0]
-                end = time[1]
-                rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
-                event_matrix = rate_obj_slice.inst_Frate_data
-                event_stack.append(event_matrix)
-
-        # Converts to a 3d array
-        event_stack = np.stack(event_stack, axis=2)
-        # This makes event stack be U x T x S
-        self.event_stack = event_stack
+            if len(set(time_diff_check)) > 1:
+                raise ValueError("All time windows must have the same length")
+        return valid_time_tuples
 
     def order_units_across_slices(self, agg_func, MIN_RATE_THRESHOLD=0.1):
         """
         Reorders the units across slices from earliest to latest peak firing rate in underlying 3D self.event_stack matrix
-        that is UxTxS (units x time_bin x slice/burst/event)
+        that is UxTxS (units x time_bin x slice)
 
         Parameters:
         agg_func (string): This should be either "median" or "mean". This is for calculating the median/mean time when that
@@ -189,14 +226,16 @@ class RateSliceStack:
                                   For example, [3, 1, 0, 2] means unit/neuron 3 fires first, then unit/neuron 1,
                                   then unit/neuron 0, then unit/neuron 2. So unit/neuron 3 is now the first unit/neuron in reordered_burst_matrices.
                                   Use this to map back to original unit/neuron IDs.
-        unit_std_indices(array): Array of the size U. Shows the standard deviation of max firing rate times for a unit.
+        unit_std_indices(array): Array of the size U. Shows the standard deviation of max firing rate times for units in original order.
                                  If a unit has lower standard deviation, it means it has a similar firing rate time across
-                                 all bursts.
+                                 all bursts. For example, [.1,.5,.6] means that unit 0 has standard deviation of .1
+        unit_peak_times(array): Array of size U. Shows the typical max firing time_bins for each unit in original order.
+                                For example, [2,8,5] means that unit 0 typically peak firing rate occuringa in time_bin 2
         """
-        # burst_matrices is N x T x B
+        # burst_matrices is U x T x S
         slice_matrices = self.event_stack
 
-        # This is a matrix (UxS) where row is unit, and each column is a burst/slice/event. Value is the time index
+        # This is a matrix (UxS) where row is unit, and each column is a burst. Value is the time index
         # firing rate peak for unit U in slice S
         unit_max_indices_matrix = np.argmax(slice_matrices, axis=1)
         # This matrix is same size as one above, but instead of time_bins with max rates, the values are the max rates
@@ -211,11 +250,11 @@ class RateSliceStack:
 
         # This gives you a list of size N. Now you have median peak time for each neuron
         if agg_func == "median":
-            unit_agg_indices = np.round(
+            unit_peak_times = np.round(
                 np.nanmedian(unit_max_indices_matrix, axis=1)
             ).astype(int)
         elif agg_func == "mean":
-            unit_agg_indices = np.round(
+            unit_peak_times = np.round(
                 np.nanmean(unit_max_indices_matrix, axis=1)
             ).astype(int)
         else:
@@ -226,11 +265,11 @@ class RateSliceStack:
         # arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
         # So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
 
-        unit_ids_in_order = np.argsort(unit_agg_indices)
+        unit_ids_in_order = np.argsort(unit_peak_times)
         # Reorder the units in orginal slice_matrices so that they are in temporal order
         reordered_slice_matrices = slice_matrices[unit_ids_in_order, :, :]
 
-        return reordered_slice_matrices, unit_ids_in_order, unit_std_indices
+        return reordered_slice_matrices, unit_ids_in_order, unit_std_indices, unit_peak_times
 
     def get_slice_to_slice_unit_corr_from_stack(
         self,
@@ -247,14 +286,14 @@ class RateSliceStack:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
                                           The default is cross correlation. These functions can be insepcted further in utils.py
-        MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice/burst/event valid for that neuron
-        MIN_FRAC (float): Maximum fraction of slice/burst/events that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
+        MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice valid for that neuron
+        MIN_FRAC (float): Maximum fraction of slice that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
 
         Returns:
         --------
-        all_slice_corr_scores (array): Pairwise correlation scores between all slice pairs for each unit shape (N, B, B)
-        av_slice_corr_scores (array): Average correlation per neuron across all valid slice pairs shape (N,)
+        all_slice_corr_scores (array): Pairwise correlation scores between all slice pairs for each unit shape (U, S, S)
+        av_slice_corr_scores (array): Average correlation per neuron across all valid slice pairs shape (U,)
 
         """
         # Get dimensions
@@ -308,7 +347,7 @@ class RateSliceStack:
                         unit, lower_tri_indices[0], lower_tri_indices[1]
                     ]
                 )
-        # all_burst_corr_scores is NxBxB and av_burst_corr_scores is N since its the mean correlation across all bursts.
+        # all_burst_corr_scores is UxSxS and av_burst_corr_scores is N since its the mean correlation across all bursts.
         return all_slice_corr_scores, av_slice_corr_scores
 
     def get_slice_to_slice_time_corr_from_stack(
@@ -387,7 +426,7 @@ class RateSliceStack:
         pca_result : array, shape (B, n_components)
             Reduced representation
         """
-        # lower triangle is B x F (or N x F if you input N x B x B) (or T x F if you input T x Bx B)
+        # lower triangle is S x F (or U x F if you input U x S x S) (or T x F if you input T x S x S)
         lower_triangle = extract_lower_triangle_features(all_burst_corr_scores)
         pca_result = PCA_reduction(lower_triangle, n_components)
 
@@ -406,7 +445,7 @@ class RateSliceStack:
         output (list): List of RateData objects. Length of list = S
         """
         output = []
-        # N x T x B
+        # U x T x S
         for slice in range(self.event_stack.shape[2]):
             matrix = self.event_stack[:, :, slice]
             start, end = self.times[slice]
@@ -434,10 +473,10 @@ class RateSliceStack:
 
         Returns:
         --------
-        max_corr_array (array): Pairwise correlation scores between all unit pairs for each slice. Shape is (B, N, N)
-        max_corr_lag_array (array): Lag where correlation between pair is at max. Shape is (B, N, N)
-        av_max_corr (array): Average correlation per time_bin across all valid slice/burst/event pairs shape (B,)
-        av_max_corr_lag (array): Average lag where correlation between pair is at max.
+        max_corr_array (array): Pairwise correlation scores between all unit pairs for each slice. Shape is (S, U, U)
+        max_corr_lag_array (array): Lag where correlation between pair is at max. Shape is (S, U, U)
+        av_max_corr (array): Average correlation per time_bin across all valid slice pairs. Shape is (S,)
+        av_max_corr_lag (array): Average lag where correlation between pair is at max. Shape is (S,)
 
         """
         max_corr_stack = []
@@ -445,7 +484,7 @@ class RateSliceStack:
         rate_data_stack = self.convert_to_list_of_RateData()
         for i in range(len(rate_data_stack)):
             rate_data = rate_data_stack[i]
-            # This gives 2 NxN matrices
+            # This gives 2 UxU matrices
             max_corr_matrix, lag_corr_matrix = rate_data.get_pairwise_fr_corr(
                 compare_func, max_lag
             )
