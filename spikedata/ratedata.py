@@ -23,8 +23,8 @@ class RateData:
 
     Instance Variables:
     --------
-    self.inst_Frate_data (array): 2D array of shape (N, T). Each value is the instanteous firing rate.
-        - N: number of  units/neurons
+    self.inst_Frate_data (array): 2D array of shape (U, T). Each value is the instanteous firing rate.
+        - U: number of  units/neurons
         - T: number of time bins
     self.times (list): List of time values that each column index in inst_Frate_data represents.
                   For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
@@ -63,16 +63,16 @@ class RateData:
 
     def subset(self, units, by=None):
         """
-        Extract a subset of neurons from the rate data.
+        Extract a subset of units/neurons from the rate data. Index-based if by = None.
 
         Parameters:
-        units (list or array): Neuron indices to extract.
+        units (list or array): Unit indices to extract.
                                If by is not None, then units are the neuron_id you want to extract.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
 
         Returns:
-        RateData: New RateData object containing only the specified neurons
+        RateData: New RateData object containing only the specified units
         """
 
         if isinstance(units, int):
@@ -104,7 +104,7 @@ class RateData:
 
     def subtime(self, start, end, shift_time=True):
         """
-        Extract a subset of time points from the rate data using time values. Index-based if by = None.
+        Extract a subset of time points from the rate data using time values. 
 
         Parameters:
         start (int/float): Starting time value (inclusive)
@@ -197,7 +197,7 @@ class RateData:
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10
     ):
         """
-        Takes the object's underlying firing rate matrix (N, T) and computes the unit to unit similarity,
+        Takes the object's underlying firing rate matrix (U, T) and computes the unit to unit similarity,
         and the similarity metric is set with compare_func.
 
         Parameters:
@@ -208,13 +208,13 @@ class RateData:
 
 
         Returns:
-        corr_matrix_this_event (array): Matrix of maximum correlation coefficients between all neuron pairs.
-                                          matrix[i, j] is the max correlation between neuron i and neuron j.
+        corr_matrix_this_event (array): Matrix of maximum correlation coefficients between all unit/neuron pairs.
+                                          matrix[i, j] is the max correlation between unit i and unit j.
                                           Values range from -1 to 1. Diagonal is always 1 (self-correlation).
         lag_matrix_this_event (array): Matrix of time lags (in time bins) at which maximum correlation occurs.
                                          lag_matrix[i, j] is the lag where correlation between i and j is maximal.
-                                         Positive lag means neuron j leads neuron i (j fires earlier).
-                                         Negative lag means neuron i leads neuron j (i fires earlier).
+                                         Positive lag means unit j leads unit i (j fires earlier).
+                                         Negative lag means unit i leads unit j (i fires earlier).
                                          Diagonal is always 0 (self-correlation is perfectly aligned, so max corr at 0 lag.)
         """
 
@@ -239,6 +239,6 @@ class RateData:
                 corr_matrix_this_event[n2, n1] = max_corr
                 lag_matrix_this_event[n2, n1] = -max_lag_idx
 
-        # Output is NxN
+        # Output is UxU
 
         return corr_matrix_this_event, lag_matrix_this_event
