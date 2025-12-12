@@ -250,12 +250,12 @@ def trough_between(i0, i1, pop_rate):
     (int): Time bin index of minimum value (trough) between peaks
     """
     L, R = int(i0), int(i1)
-  
+
     if R - L <= 1:
         return None
-      
+
     seg = pop_rate[L:R]
-    
+
     return L + int(np.argmin(seg))
 
 
