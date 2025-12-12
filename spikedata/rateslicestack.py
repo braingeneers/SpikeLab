@@ -1,9 +1,7 @@
-import SpikeData
-import RateData
 import numpy as np
 from scipy import signal
-from .ratedata import *
-from .spikedata import *
+from .ratedata import RateData
+from .spikedata import SpikeData
 
 
 from .utils import (
@@ -24,7 +22,7 @@ class RateSliceStack:
         - T: Time bins
         - S: Slices (can be bursts, events, etc)
     If the user inputs an event_matrix, then no other parameters are needed. Otherwise, all parameters are required.
-    The instance variables are the same despite the input option and all methods will work the same. 
+    The instance variables are the same despite the input option and all methods will work the same.
 
     Parameters:
     -----------
@@ -45,7 +43,7 @@ class RateSliceStack:
 
     Option #2: event_matrix
         event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
-        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and 
+        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and
                                    end times of a desired slice. Each tuple must have same duration. Length must equal S.
                                    If none, will be automatically computed with step_size 1.0
         step_size (float): Time resolution in milliseconds between consecutive time bins. If None, becomes 1.0.
@@ -65,16 +63,15 @@ class RateSliceStack:
 
     def __init__(
         self,
-        data_obj, #Option 1
+        data_obj,  # Option 1
         times_start_to_end=None,
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
-        
-        event_matrix=None, #Option 2
-        step_size = None
+        event_matrix=None,  # Option 2
+        step_size=None,
     ):
-        #Option 1: Using data_obj
+        # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
                 # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
@@ -102,7 +99,6 @@ class RateSliceStack:
 
             # Now that everything is times_start_to_end format, checking if inputs are correct types
             times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
-    
 
             # Actual constructor
 
@@ -133,7 +129,7 @@ class RateSliceStack:
             # This makes event stack be U x T x S
             self.event_stack = event_stack
             return
-        #Option 2
+        # Option 2
         if event_matrix is not None:
             if not isinstance(event_matrix, np.ndarray):
                 raise TypeError("event_matrix must be a numpy array")
@@ -148,27 +144,27 @@ class RateSliceStack:
             if times_start_to_end is None:
                 slice_duration = event_matrix.shape[1] * self.step_size
                 times_start_to_end = []
-                for i in range(event_matrix.shape[2]):  
+                for i in range(event_matrix.shape[2]):
                     start = i * slice_duration
                     end = (i + 1) * slice_duration
                     tup = (start, end)
                     times_start_to_end.append(tup)
             else:
-                times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
-                #Make sure there is a (start,end) tuple for each slice
+                times_start_to_end = self._validate_time_start_to_end(
+                    times_start_to_end
+                )
+                # Make sure there is a (start,end) tuple for each slice
                 if len(times_start_to_end) != event_matrix.shape[2]:
                     raise ValueError(
                         "times_start_to_end must have the same length as the last dimension of event_matrix"
                     )
             self.event_stack = event_matrix
             self.times = times_start_to_end
-            
+
             return
-        
+
         raise ValueError("Must provide either data_obj or event_matrix")
 
-
-    
     def _validate_time_start_to_end(self, times_start_to_end):
         if not isinstance(times_start_to_end, list):
             raise TypeError("times must be a list of tuples")
@@ -229,8 +225,8 @@ class RateSliceStack:
         unit_std_indices(array): Array of the size U. Shows the standard deviation of max firing rate times for units in original order.
                                  If a unit has lower standard deviation, it means it has a similar firing rate time across
                                  all bursts. For example, [.1,.5,.6] means that unit 0 has standard deviation of .1
-        unit_peak_times(array): Array of size U. Shows the typical max firing time_bins for each unit in original order.
-                                For example, [2,8,5] means that unit 0 typically peak firing rate occuringa in time_bin 2
+        unit_peak_times(array): Array of size U. Contains the median/mean (depending on agg_func input) firing peak time_bins for each unit
+                                in original order. For example, [2,8,5] means that unit 0's mean/median peak firing rate occurs in time_bin 2
         """
         # burst_matrices is U x T x S
         slice_matrices = self.event_stack
@@ -269,7 +265,12 @@ class RateSliceStack:
         # Reorder the units in orginal slice_matrices so that they are in temporal order
         reordered_slice_matrices = slice_matrices[unit_ids_in_order, :, :]
 
-        return reordered_slice_matrices, unit_ids_in_order, unit_std_indices, unit_peak_times
+        return (
+            reordered_slice_matrices,
+            unit_ids_in_order,
+            unit_std_indices,
+            unit_peak_times,
+        )
 
     def get_slice_to_slice_unit_corr_from_stack(
         self,
