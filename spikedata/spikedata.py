@@ -41,6 +41,7 @@ from typing import Literal, Optional, Union, List, Tuple
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
+from .ratedata import RateData
 
 from .utils import (
     spike_time_tiling,

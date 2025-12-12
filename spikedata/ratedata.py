@@ -104,7 +104,7 @@ class RateData:
 
     def subtime(self, start, end, shift_time=True):
         """
-        Extract a subset of time points from the rate data using time values. 
+        Extract a subset of time points from the rate data using time values.
 
         Parameters:
         start (int/float): Starting time value (inclusive)
