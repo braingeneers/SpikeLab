@@ -586,67 +586,106 @@ class SpikeDataTest(unittest.TestCase):
     def test_get_pop_rate_square_only_matches_convolution(self):
         """Test get_pop_rate with square window only (no Gaussian) matches direct convolution.
 
-        - Constructs a spike matrix with known spike times.
+        - Constructs a SpikeData object with known spike times.
         - Compares get_pop_rate output to numpy convolution of summed spike train.
         """
+
+        trains = [
+            [10, 20, 50, 70, 80],  # neuron 0
+            [15, 20, 55, 70],  # neuron 1
+            [20, 25, 60],  # neuron 2
+        ]
+
         T, N = 100, 3
-        t_spk_mat = np.zeros((T, N))
-        t_spk_mat[[10, 20, 50, 70, 80], 0] = 1
-        t_spk_mat[[15, 20, 55, 70], 1] = 1
-        t_spk_mat[[20, 25, 60], 2] = 1
+        t_spk_mat = np.zeros(
+            (T + 1, N)
+        )  # T+1 because get_pop_rate adds a bin when len%bin_size==0
+        t_spk_mat[trains[0], 0] = 1
+        t_spk_mat[trains[1], 1] = 1
+        t_spk_mat[trains[2], 2] = 1
+
+        sd = SpikeData(trains, length=T)
 
         SQUARE_WIDTH = 5
         GAUSS_SIGMA = 0
 
-        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+        )
         truth = np.convolve(
             np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
         )
+
         self.assertTrue(np.allclose(pop, truth))
 
     def test_get_pop_rate_gaussian_only_impulse(self):
         """Test get_pop_rate with Gaussian kernel only (no square) for a single impulse.
 
-        - Places a single spike in the center of the spike matrix.
+        - Creates a SpikeData with a single spike in the center.
         - Checks that the output is a normalized Gaussian and is symmetric.
         """
-        T, N = 101, 1
-        t_spk_mat = np.zeros((T, N))
-        t_spk_mat[T // 2, 0] = 1
+        T = 101
+
+        # Create a single spike at the center (t=50.5ms)
+        trains = [[50.5]]
+        sd = SpikeData(trains, length=T)
 
         SQUARE_WIDTH = 0
         GAUSS_SIGMA = 2
 
-        pop = spikedata.get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+        )
 
         self.assertTrue(np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3))
-        self.assertTrue(np.isclose(pop[T // 2 - 1], pop[T // 2 + 1]))
+        self.assertTrue(np.isclose(pop[50 - 1], pop[50 + 1]))
 
     def test_get_bursts_detects_simple_peaks(self):
         """Test get_bursts for correct detection of simple burst peaks.
 
-        - Creates a population rate with two clear peaks.
+        - Creates a SpikeData with spike patterns forming two clear peaks.
         - Checks that get_bursts finds two bursts, with correct peak and edge locations.
         """
         T = 200
-        pop_rate = np.zeros(T)
-        pop_rate[45:56] = np.array([0, 2, 4, 6, 8, 10, 8, 6, 4, 2, 0])
-        pop_rate[145:156] = np.array([0, 3, 6, 9, 12, 15, 12, 9, 6, 3, 0])
 
-        pop_rate_acc = []
+        # Create spike trains with two bursts
+        trains = [
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+            [48, 49, 50, 51, 52],
+            [50, 50, 50],
+            [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
+            [148, 149, 150, 151, 152],
+            [150, 150, 150, 150],
+        ]
+
+        sd = SpikeData(trains, length=T)
+
         THR_BURST = 0.5
         MIN_BURST_DIFF = 10
         BURST_EDGE_MULT_THRESH = 0.2
 
-        tburst, edges, peak_amp = spikedata.get_bursts(
-            pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=THR_BURST,
+            min_burst_diff=MIN_BURST_DIFF,
+            burst_edge_mult_thresh=BURST_EDGE_MULT_THRESH,
+            square_width=0,
+            gauss_sigma=0,
+            acc_square_width=0,
+            acc_gauss_sigma=0,
+            raster_bin_size_ms=1.0,
         )
 
+        # Should detect 2 bursts
         self.assertEqual(len(tburst), 2)
         self.assertEqual(len(peak_amp), 2)
         self.assertEqual(edges.shape, (2, 2))
+
+        # First burst should be around t=50
         self.assertTrue(48 <= tburst[0] <= 52)
+        # Second burst should be around t=150
         self.assertTrue(148 <= tburst[1] <= 152)
+
+        # Check that edges bracket the peaks
         self.assertTrue(edges[0, 0] < tburst[0] < edges[0, 1])
         self.assertTrue(edges[1, 0] < tburst[1] < edges[1, 1])
 
@@ -729,3 +768,214 @@ class SpikeDataTest(unittest.TestCase):
         expected_low_backbone = np.array([0, 1, 2])
 
         self.assertTrue(np.array_equal(backbone_low, expected_low_backbone))
+
+    def test_neuron_to_channel_map(self):
+        """Test neuron_to_channel_map for correct channel mapping extraction.
+
+        - Tests basic functionality with standard 'channel' attribute
+        - Tests automatic detection of common attribute names
+        - Tests explicit channel_attr parameter
+        - Tests edge cases: no neuron_attributes, empty data
+        - Tests partial channel information (some neurons missing channel)
+        """
+        from dataclasses import dataclass
+
+        @dataclass
+        class NeuronAttrs:
+            channel: int
+            other_field: str = "test"
+
+        # Test basic functionality
+        attrs = [NeuronAttrs(channel=i % 4) for i in range(10)]
+        trains = [[] for _ in range(10)]
+        sd = SpikeData(trains, neuron_attributes=attrs, length=100.0)
+        mapping = sd.neuron_to_channel_map()
+
+        # Should have all 10 neurons mapped
+        self.assertEqual(len(mapping), 10)
+        # Check a few mappings
+        self.assertEqual(mapping[0], 0)
+        self.assertEqual(mapping[1], 1)
+        self.assertEqual(mapping[4], 0)  # 4 % 4 = 0
+        self.assertEqual(mapping[5], 1)  # 5 % 4 = 1
+
+        # Test with different attribute names
+        @dataclass
+        class NeuronAttrsChannelId:
+            channel_id: int
+
+        attrs2 = [NeuronAttrsChannelId(channel_id=i % 3) for i in range(6)]
+        sd2 = SpikeData([[]] * 6, neuron_attributes=attrs2, length=100.0)
+        mapping2 = sd2.neuron_to_channel_map()
+        self.assertEqual(len(mapping2), 6)
+        self.assertEqual(mapping2[0], 0)
+        self.assertEqual(mapping2[3], 0)  # 3 % 3 = 0
+
+        # Test explicit channel_attr parameter
+        mapping2_explicit = sd2.neuron_to_channel_map(channel_attr="channel_id")
+        self.assertEqual(mapping2, mapping2_explicit)
+
+        # Test with channel_index attribute
+        @dataclass
+        class NeuronAttrsChannelIndex:
+            channel_index: int
+
+        attrs3 = [NeuronAttrsChannelIndex(channel_index=i // 2) for i in range(6)]
+        sd3 = SpikeData([[]] * 6, neuron_attributes=attrs3, length=100.0)
+        mapping3 = sd3.neuron_to_channel_map()
+        self.assertEqual(mapping3[0], 0)
+        self.assertEqual(mapping3[1], 0)
+        self.assertEqual(mapping3[2], 1)
+        self.assertEqual(mapping3[3], 1)
+
+        # Test edge case: no neuron_attributes
+        sd_no_attrs = SpikeData([[]] * 5, length=100.0)
+        mapping_no_attrs = sd_no_attrs.neuron_to_channel_map()
+        self.assertEqual(mapping_no_attrs, {})
+
+        # Test edge case: empty data (N=0)
+        sd_empty = SpikeData([], neuron_attributes=[], length=100.0)
+        mapping_empty = sd_empty.neuron_to_channel_map()
+        self.assertEqual(mapping_empty, {})
+
+        # Test with partial channel information (some neurons missing channel)
+        @dataclass
+        class NeuronAttrsPartial:
+            channel: int = None
+
+        attrs_partial = [
+            NeuronAttrsPartial(channel=0),
+            NeuronAttrsPartial(channel=1),
+            NeuronAttrsPartial(),  # Missing channel
+            NeuronAttrsPartial(channel=2),
+        ]
+        sd_partial = SpikeData([[]] * 4, neuron_attributes=attrs_partial, length=100.0)
+        mapping_partial = sd_partial.neuron_to_channel_map()
+        # Should only include neurons 0, 1, 3 (neuron 2 has no channel)
+        self.assertEqual(len(mapping_partial), 3)
+        self.assertEqual(mapping_partial[0], 0)
+        self.assertEqual(mapping_partial[1], 1)
+        self.assertEqual(mapping_partial[3], 2)
+        self.assertNotIn(2, mapping_partial)
+
+    def test_channel_raster(self):
+        """Test channel_raster for correct channel aggregation.
+
+        - Tests basic aggregation of multiple neurons per channel
+        - Tests that spike counts are preserved
+        - Tests with different bin sizes
+        - Tests edge cases: no channel info, empty data
+        - Tests that channel raster shape matches expectations
+        """
+        from dataclasses import dataclass
+
+        @dataclass
+        class NeuronAttrs:
+            channel: int
+
+        # Create 6 neurons: 0,1 on channel 0; 2,3 on channel 1; 4,5 on channel 2
+        attrs = [NeuronAttrs(channel=i // 2) for i in range(6)]
+        # Create spike trains with known patterns:
+        # Channel 0: neuron 0 has spikes at 10, 20; neuron 1 has spike at 15
+        # Channel 1: neuron 2 has spike at 25; neuron 3 has spike at 30
+        # Channel 2: neuron 4 has spike at 35; neuron 5 has spike at 40
+        trains = [
+            [10.0, 20.0],  # neuron 0, channel 0
+            [15.0],  # neuron 1, channel 0
+            [25.0],  # neuron 2, channel 1
+            [30.0],  # neuron 3, channel 1
+            [35.0],  # neuron 4, channel 2
+            [40.0],  # neuron 5, channel 2
+        ]
+        sd = SpikeData(trains, neuron_attributes=attrs, length=50.0)
+
+        # Test with bin_size=10.0
+        ch_raster = sd.channel_raster(bin_size=10.0)
+
+        # Should have 3 channels
+        self.assertEqual(ch_raster.shape[0], 3)
+        # Should have 6 bins (0-10, 10-20, 20-30, 30-40, 40-50, plus extra bin)
+        expected_bins = int(np.ceil(50.0 / 10.0))
+        if 50.0 % 10.0 == 0:
+            expected_bins += 1
+        self.assertEqual(ch_raster.shape[1], expected_bins)
+
+        # Channel 0 should have 3 spikes total (2 from neuron 0, 1 from neuron 1)
+        self.assertEqual(ch_raster[0, :].sum(), 3)
+        # Channel 1 should have 2 spikes total
+        self.assertEqual(ch_raster[1, :].sum(), 2)
+        # Channel 2 should have 2 spikes total
+        self.assertEqual(ch_raster[2, :].sum(), 2)
+
+        # Verify specific bins for channel 0
+        # Bin 1 (10-20): should have 2 spikes (neuron 0 at 10, neuron 1 at 15)
+        # Bin 2 (20-30): should have 1 spike (neuron 0 at 20)
+        self.assertEqual(ch_raster[0, 1], 2)  # bin 1 (10-20)
+        self.assertEqual(ch_raster[0, 2], 1)  # bin 2 (20-30)
+
+        # Verify total spike count matches neuron raster
+        neuron_raster = sd.raster(bin_size=10.0)
+        self.assertEqual(ch_raster.sum(), neuron_raster.sum())
+
+        # Test with different bin_size
+        ch_raster_small = sd.channel_raster(bin_size=5.0)
+        self.assertEqual(ch_raster_small.shape[0], 3)
+        # Total spikes should still match
+        self.assertEqual(ch_raster_small.sum(), neuron_raster.sum())
+
+        # Test with explicit channel_attr
+        ch_raster_explicit = sd.channel_raster(bin_size=10.0, channel_attr="channel")
+        self.assertAll(ch_raster == ch_raster_explicit)
+
+        # Test with different attribute name
+        @dataclass
+        class NeuronAttrsChannelId:
+            channel_id: int
+
+        attrs2 = [NeuronAttrsChannelId(channel_id=i % 2) for i in range(4)]
+        trains2 = [[10.0], [20.0], [30.0], [40.0]]
+        sd2 = SpikeData(trains2, neuron_attributes=attrs2, length=50.0)
+        ch_raster2 = sd2.channel_raster(bin_size=10.0, channel_attr="channel_id")
+        self.assertEqual(ch_raster2.shape[0], 2)  # 2 channels
+        # Channel 0: neurons 0, 2 (spikes at 10, 30)
+        # Channel 1: neurons 1, 3 (spikes at 20, 40)
+        self.assertEqual(ch_raster2[0, :].sum(), 2)
+        self.assertEqual(ch_raster2[1, :].sum(), 2)
+
+        # Test edge case: no channel information
+        sd_no_channel = SpikeData([[]] * 3, length=100.0)
+        with self.assertRaises(ValueError):
+            sd_no_channel.channel_raster()
+
+        # Test that multiple neurons on same channel aggregate correctly
+        @dataclass
+        class NeuronAttrsSameChannel:
+            channel: int
+
+        # All neurons on channel 0
+        attrs_same = [NeuronAttrsSameChannel(channel=0) for _ in range(3)]
+        trains_same = [[10.0, 20.0], [15.0], [25.0]]
+        sd_same = SpikeData(trains_same, neuron_attributes=attrs_same, length=30.0)
+        ch_raster_same = sd_same.channel_raster(bin_size=10.0)
+        self.assertEqual(ch_raster_same.shape[0], 1)  # Only 1 channel
+        self.assertEqual(ch_raster_same[0, :].sum(), 4)  # Total 4 spikes
+
+        # Test with non-contiguous channel indices
+        @dataclass
+        class NeuronAttrsNonContiguous:
+            channel: int
+
+        attrs_nc = [
+            NeuronAttrsNonContiguous(channel=0),
+            NeuronAttrsNonContiguous(channel=5),
+            NeuronAttrsNonContiguous(channel=10),
+        ]
+        trains_nc = [[10.0], [20.0], [30.0]]
+        sd_nc = SpikeData(trains_nc, neuron_attributes=attrs_nc, length=40.0)
+        ch_raster_nc = sd_nc.channel_raster(bin_size=10.0)
+        # Should have 3 channels (0, 5, 10)
+        self.assertEqual(ch_raster_nc.shape[0], 3)
+        # Each channel should have 1 spike
+        self.assertEqual(ch_raster_nc[0, :].sum(), 1)
+        self.assertEqual(ch_raster_nc[1, :].sum(), 1)
+        self.assertEqual(ch_raster_nc[2, :].sum(), 1)

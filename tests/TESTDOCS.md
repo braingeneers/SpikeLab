@@ -118,6 +118,27 @@ This document explains what each test does in detail and why it matters. It is i
   - Purpose: Detects simple, well-separated bursts with amplitude-scaled edges.
   - Why: Ensures basic burst detection sanity: peak times, edges, and amplitudes.
 
+- **test_neuron_to_channel_map**
+  - Purpose: Validates extraction of neuron-to-channel mappings from `neuron_attributes`.
+  - Why: Channel information is essential for many analyses that aggregate by recording channel rather than sorted unit. Ensures flexible attribute name detection and robust handling of missing or partial channel data.
+  - Verifies:
+    - Basic mapping extraction with standard `'channel'` attribute.
+    - Automatic detection of common attribute names (`'channel_id'`, `'channel_index'`, etc.).
+    - Explicit `channel_attr` parameter override.
+    - Edge cases: empty `neuron_attributes` returns empty dict, empty data (N=0) handled gracefully.
+    - Partial channel information: neurons missing channel attribute are excluded from mapping.
+
+- **test_channel_raster**
+  - Purpose: Validates channel-aggregated raster generation from neuron rasters.
+  - Why: Many analyses require viewing spike activity aggregated by recording channel rather than individual sorted units. Ensures correct aggregation, spike count preservation, and compatibility with various channel organization schemes.
+  - Verifies:
+    - Multiple neurons per channel aggregate correctly (spikes summed).
+    - Total spike counts preserved across channel aggregation.
+    - Works with different bin sizes and attribute names.
+    - Shape correctness: number of channels matches unique channel indices, bins match neuron raster.
+    - Bin-level accuracy: specific bins contain expected aggregated spike counts.
+    - Edge cases: raises `ValueError` when no channel information available, handles all neurons on same channel, supports non-contiguous channel indices.
+
 ---
 
 ## Data loader tests (`tests/test_dataloaders.py`)
