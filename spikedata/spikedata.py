@@ -27,12 +27,30 @@ from .utils import (
     trough_between,
 )
 
-__all__ = [
-    "SpikeData",
-    "get_sttc",
-    "swap",
-    "randomize",
-]
+__all__ = ["SpikeData", "NeuronAttributes", "get_sttc", "swap", "randomize"]
+
+
+class NeuronAttributes:
+    """Preset neuron attributes with None defaults. Analyses populate these fields."""
+
+    def __init__(self):
+        # Identity (from loaders)
+        self.channel = None          # int: Recording channel index
+        self.location = None         # tuple or dict: Unit physical location
+        self.electrode = {}          # dict: Electrode metadata
+
+        # Firing metrics
+        self.firing_rate = None      # float: Mean firing rate (Hz)
+        self.spike_count = None      # int: Total spike count
+
+        # Burst metrics
+        self.is_backbone = None      # bool: Whether unit is a backbone unit
+
+        # Waveform
+        self.waveform = None         # np.ndarray: Average waveform template
+
+        # Custom/misc storage
+        self.misc = {}               # dict: Arbitrary user data
 
 
 class SpikeData:
@@ -50,7 +68,9 @@ class SpikeData:
 
     length: The length of the spike train, defaults to the time of the last spike.
 
-    neuron_attributes: A list of dictionaries containing information on each neuron.
+    neuron_attributes: A list of NeuronAttributes objects for each neuron. Auto-initialized
+      with preset fields (all None by default) if not provided. Custom attribute objects
+      can be passed in if they support the same interface.
 
     metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -268,10 +288,10 @@ class SpikeData:
         #
         # Note that if there is no metadata, it should be an empty dict, because that
         # way arbitrary fields can be added later. If neuron_attributes is None,
-        # auto-initialize with empty dictionaries for each unit.
+        # auto-initialize with preset NeuronAttributes objects for each unit.
         self.metadata = metadata.copy()
         if neuron_attributes is None:
-            self.neuron_attributes = [{} for _ in range(self.N)]
+            self.neuron_attributes = [NeuronAttributes() for _ in range(self.N)]
         else:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:

@@ -26,7 +26,7 @@ try:
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
-from spikedata import SpikeData
+from spikedata import SpikeData, NeuronAttributes
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -592,7 +592,7 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
-    neuron_attributes: List[dict] = []
+    neuron_attrs: List[NeuronAttributes] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -601,10 +601,11 @@ def load_spikedata_from_kilosort(
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
 
-        attr: dict = {"unit_id": int(clu)}
+        # Create neuron attributes and populate channel if available
+        attr = NeuronAttributes()
         if channel_map is not None and int(clu) < len(channel_map):
-            attr["channel"] = int(channel_map[int(clu)])
-        neuron_attributes.append(attr)
+            attr.channel = int(channel_map[int(clu)])
+        neuron_attrs.append(attr)
 
     meta = {
         "source_folder": os.path.abspath(folder),
@@ -612,9 +613,10 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    return _build_spikedata(
-        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
-    )
+    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    # Override auto-initialized attributes with populated ones
+    sd.neuron_attributes = neuron_attrs
+    return sd
 
 
 # ----------------------------
