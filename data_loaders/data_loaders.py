@@ -26,7 +26,7 @@ try:
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
-from spikedata import SpikeData
+from spikedata import SpikeData, NeuronAttributes
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -510,6 +510,7 @@ def load_spikedata_from_kilosort(
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
+    channel_map_file: str = "channel_map.npy",
 ) -> SpikeData:
     """
     # misses critical information about waveform data - load if it same in file and put in spikedata
@@ -526,6 +527,14 @@ def load_spikedata_from_kilosort(
     spike_clusters = np.load(sc_path)
     if spike_times.shape[0] != spike_clusters.shape[0]:
         raise ValueError("spike_times and spike_clusters length mismatch")
+
+    # Optionally load channel map for neuron attributes
+    cm_path = os.path.join(folder, channel_map_file)
+    if os.path.exists(cm_path):
+        try:
+            channel_map = np.load(cm_path).flatten()
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_map: {e}")
 
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
@@ -567,6 +576,7 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
+    neuron_attrs: List[NeuronAttributes] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -575,13 +585,22 @@ def load_spikedata_from_kilosort(
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
 
+        # Create neuron attributes and populate channel if available
+        attr = NeuronAttributes()
+        if channel_map is not None and int(clu) < len(channel_map):
+            attr.channel = int(channel_map[int(clu)])
+        neuron_attrs.append(attr)
+
     meta = {
         "source_folder": os.path.abspath(folder),
         "source_format": "KiloSort",
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    # Override auto-initialized attributes with populated ones
+    sd.neuron_attributes = neuron_attrs
+    return sd
 
 
 # ----------------------------

@@ -56,7 +56,30 @@ from .utils import (
     trough_between,
 )
 
-__all__ = ["SpikeData", "spike_time_tiling", "swap", "randomize"]
+__all__ = ["SpikeData", "NeuronAttributes", "spike_time_tiling", "swap", "randomize"]
+
+
+class NeuronAttributes:
+    """Preset neuron attributes with None defaults. Analyses populate these fields."""
+
+    def __init__(self):
+        # Identity (from loaders)
+        self.channel = None          # int: Recording channel index
+        self.location = None         # tuple or dict: Unit physical location
+        self.electrode = {}          # dict: Electrode metadata
+
+        # Firing metrics
+        self.firing_rate = None      # float: Mean firing rate (Hz)
+        self.spike_count = None      # int: Total spike count
+
+        # Burst metrics
+        self.is_backbone = None      # bool: Whether unit is a backbone unit
+
+        # Waveform
+        self.waveform = None         # np.ndarray: Average waveform template
+
+        # Custom/misc storage
+        self.misc = {}               # dict: Arbitrary user data
 
 
 class SpikeData:
@@ -81,8 +104,9 @@ class SpikeData:
 
     - length: The length of the spike train, defaults to the time of the last spike.
 
-    - neuron_attributes: A list of attribute objects for each neuron. Each item should
-      be a dataclass containing a consistent set of fields.
+    - neuron_attributes: A list of NeuronAttributes objects for each neuron. Auto-initialized
+      with preset fields (all None by default) if not provided. Custom attribute objects
+      can be passed in if they support the same interface.
 
     - metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -262,11 +286,12 @@ class SpikeData:
         # contains the right number of neurons.
         #
         # Note that if there is no metadata, it should be an empty dict, because that
-        # way arbitrary fields can be added later, but null neuron_attributes requires
-        # storing None so we don't get misaligned by concatenating an empty list later.
+        # way arbitrary fields can be added later. If neuron_attributes is None,
+        # auto-initialize with preset NeuronAttributes objects for each unit.
         self.metadata = metadata.copy()
-        self.neuron_attributes = None
-        if neuron_attributes:
+        if neuron_attributes is None:
+            self.neuron_attributes = [NeuronAttributes() for _ in range(self.N)]
+        else:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:
                 raise ValueError(
