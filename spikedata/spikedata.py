@@ -86,7 +86,7 @@ class SpikeData:
 
     length: The length of the spike train, defaults to the time of the last spike.
 
-    neuron_attributes: A list of attribute objects for each neuron. 
+    neuron_attributes: A list of attribute objects for each neuron.
 
     metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -787,10 +787,10 @@ class SpikeData:
     def concatenate_spike_data(self, sd):
         """
         Add the units from another SpikeData object to this one.
-        
+
         Parameters:
         sd (SpikeData): SpikeData object to append
-        
+
         Returns:
         sd (SpikeData): New SpikeData object with the appended data.
 
@@ -1024,7 +1024,7 @@ class SpikeData:
         raw_time_unit (Literal['ms','s','samples']): Time unit for raw data timestamps
 
         Notes:
-        - All spike times are stored internally in milliseconds and converted to the requested output unit. 
+        - All spike times are stored internally in milliseconds and converted to the requested output unit.
         - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
