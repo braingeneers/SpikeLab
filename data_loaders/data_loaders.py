@@ -543,7 +543,7 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
-    neuron_attrs: List[NeuronAttributes] = []
+    neuron_attributes: List[NeuronAttributes] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -556,7 +556,7 @@ def load_spikedata_from_kilosort(
         attr = NeuronAttributes()
         if channel_map is not None and int(clu) < len(channel_map):
             attr.channel = int(channel_map[int(clu)])
-        neuron_attrs.append(attr)
+        neuron_attributes.append(attr)
 
     meta = {
         "source_folder": os.path.abspath(folder),
@@ -564,9 +564,9 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    sd = _build_spikedata(trains, length_ms=length_ms, metadata=meta)
-    # Override auto-initialized attributes with populated ones
-    sd.neuron_attributes = neuron_attrs
+    sd = _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
     return sd
 
 
