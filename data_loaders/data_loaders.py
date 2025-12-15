@@ -544,6 +544,7 @@ def load_spikedata_from_kilosort(
     if spike_times.shape[0] != spike_clusters.shape[0]:
         raise ValueError("spike_times and spike_clusters length mismatch")
 
+    # Optionally load channel map for neuron attributes
     channel_map: Optional[np.ndarray] = None
     cm_path = os.path.join(folder, channel_map_file)
     if os.path.exists(cm_path):
