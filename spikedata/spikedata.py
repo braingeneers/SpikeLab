@@ -48,8 +48,7 @@ class SpikeData:
 
     length: The length of the spike train, defaults to the time of the last spike.
 
-    neuron_attributes: A list of attribute objects for each neuron. Each item should
-      be a dataclass containing a consistent set of fields.
+    neuron_attributes: A list of attribute objects for each neuron. 
 
     metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -59,13 +58,6 @@ class SpikeData:
     raw_time: This is either a numpy array of sample times, or a single float
       representing a sample rate in kHz.
 
-    In addition to these data attributes, the SpikeData class also provides some useful
-    methods for working with spike data, such as iterating through spike times or
-    (index, time) pairs for all units in time order.
-
-    Note that SpikeData expects spike times to be in units of milliseconds, unless a
-    list of Neuron objects is given; these have spike times in units of samples, which
-    are converted to milliseconds using the sample rate saved in the Neuron object.
     """
 
     @staticmethod
@@ -390,7 +382,7 @@ class SpikeData:
 
     def resampled_isi(self, times, sigma_ms=10.0):
         """
-        Calculate firing rate of each unit at the given times by calculating the
+        Calculate instantaneous firing rate of each unit at the given times by calculating the
         interspike intervals and interpolating their inverse.
 
         Parameters:
@@ -399,10 +391,6 @@ class SpikeData:
 
         Returns:
         rates (numpy.ndarray): Array of the resampled firing rate.
-
-        Notes:
-        - This method calculates firing rate of each unit at the given times by calculating the
-        interspike intervals and interpolating their inverse.
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
@@ -715,14 +703,21 @@ class SpikeData:
         return [np.diff(ts) for ts in self.train]
 
     def concatenate_spike_data(self, sd):
-        """Add the units from another SpikeData object to this one."""
-        # Check if the two SpikeData objects have the same number of neurons
-        if sd.N != self.N:
-            raise ValueError("Cannot concatenate SpikeData with different N")
+        """
+        Add the units from another SpikeData object to this one.
+        
+        Parameters:
+        sd (SpikeData): SpikeData object to append
+        
+        Returns:
+        sd (SpikeData): New SpikeData object with the appended data.
 
-        # Check if the two SpikeData objects have the same length
-        if sd.length != self.length:
-            raise ValueError("Cannot concatenate SpikeData with different length")
+        Notes:
+        - New units are assigned indices starting from the end of the current data.
+        - If the new units have a longer spike train, it is truncated to the length of the current data.
+        """
+
+        # Subtime the second SpikeData object to the length of the first
         if sd.length != self.length:
             sd = sd.subtime(0, self.length)
         self.train += sd.train
@@ -775,6 +770,9 @@ class SpikeData:
         Returns:
         ret (float): Spike time tiling coefficient between the two units.
 
+        [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
+            comparison of methods and application to the study of retinal waves. Journal of
+            Neuroscience 34:43, 14288–14303 (2014).
         """
         return get_sttc(self.train[i], self.train[j], delt, self.length)
 
@@ -829,29 +827,20 @@ class SpikeData:
 
     def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold):
         """
-        Inputs:
+        Computes fraction of total units active in per burst, fraction of bursts
+        in which each unit is active and assigns backbone identity based on fraction of active bursts
 
-        t_spk_mat : numpy.ndarray
-            Spike matrix of shape (N, T) where T is time bins and N is units
+        Parameters:
+        t_spk_mat (numpy.ndarray): Spike matrix of shape (N, T) where T is time bins and N is units
             This computed by turning self.train into sparse spike matrix via self.sparse_raster()
-        edges : numpy.ndarray
-            Array of shape (B, 2) containing [start, end] indices for each burst
-        MIN_SPIKES : int
-            Minimum number of spikes required for a unit to be considered active in a burst
-        BACKBONE_THRESHOLD : float between 0-1
-            Minimum fraction of bursts a unit must be active in to be considered a backbone unit
+        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst
+        MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst
+        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit
 
         Returns:
-
-        frac_per_unit : numpy.ndarray
-            - 1D array where each value represents a neuron and the fraction of burtsts that involve that neuron.
-
-        frac_per_burst : numpy.ndarray
-            - 1D array where each value represents a burst and the fraction of neurons that are active
-            in that burst.
-
-        backbone_units : numpy.ndarray
-            1D array of the neuron/unit indices that are backbone units.
+        frac_per_unit (numpy.ndarray): 1D array where each value represents a neuron and the fraction of bursts in which the neuron was active
+        frac_per_burst (numpy.ndarray): 1D array where each value represents a burst and the fraction of neurons that are active in that burst.
+        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices that are backbone units.
         """
         t_spk_mat = self.sparse_raster(bin_size=1).toarray()
 
@@ -910,7 +899,8 @@ class SpikeData:
         raw_time_dataset: Optional[str] = None,
         raw_time_unit: "Literal['ms','s','samples']" = "ms",
     ) -> None:
-        """Export this SpikeData to an HDF5 file with flexible formatting options.
+        """
+        Export this SpikeData to an HDF5 file with flexible formatting options.
 
         Supports four different storage styles to accommodate various analysis workflows:
         1. 'raster': Dense 2D array (units × time bins) for binned spike counts
@@ -919,41 +909,39 @@ class SpikeData:
         4. 'paired': Two parallel arrays of unit indices and spike times
 
         Parameters:
-            filepath: Path to the output HDF5 file
-            style: Storage format style. Defaults to 'ragged' for efficiency.
 
-            # Raster style parameters
-            raster_dataset: Dataset name for raster data (style='raster')
-            raster_bin_size_ms: Bin size in milliseconds for rasterization.
-                Required for 'raster' style.
+        filepath (str): Path to the output HDF5 file
+        style (Literal['raster','ragged','group','paired']): Storage format style. Defaults to 'ragged' for efficiency.
 
-            # Ragged style parameters
-            spike_times_dataset: Dataset name for flat spike times (style='ragged')
-            spike_times_index_dataset: Dataset name for cumulative spike counts
-                per unit (style='ragged')
-            spike_times_unit: Time unit for spike times in ragged format
+        # Raster style parameters
+        raster_dataset (str): Dataset name for raster data (style='raster')
+        raster_bin_size_ms (float): Bin size in milliseconds for rasterization. Required for 'raster' style.
 
-            # Time conversion parameters
-            fs_Hz: Sampling frequency in Hz, required when converting to 'samples' unit
+        # Ragged style parameters
+        spike_times_dataset (str): Dataset name for flat spike times (style='ragged')
+        spike_times_index_dataset (str): Dataset name for cumulative spike counts per unit (style='ragged')
+        spike_times_unit (Literal['ms','s','samples']): Time unit for spike times in ragged format
 
-            # Group style parameters
-            group_per_unit: Group name containing per-unit datasets (style='group')
-            group_time_unit: Time unit for individual unit datasets
+        # Time conversion parameters
+        fs_Hz (float): Sampling frequency in Hz, required when converting to 'samples' unit
 
-            # Paired style parameters
-            idces_dataset: Dataset name for unit indices (style='paired')
-            times_dataset: Dataset name for spike times (style='paired')
-            times_unit: Time unit for paired times
+        # Group style parameters
+        group_per_unit (str): Group name containing per-unit datasets (style='group')
+        group_time_unit (Literal['ms','s','samples']): Time unit for individual unit datasets
 
-            # Optional raw data parameters (unused in current implementation)
-            raw_dataset: Reserved for future raw data export
-            raw_time_dataset: Reserved for future raw time axis export
-            raw_time_unit: Time unit for raw data timestamps
+        # Paired style parameters
+        idces_dataset (str): Dataset name for unit indices (style='paired')
+        times_dataset (str): Dataset name for spike times (style='paired')
+        times_unit (Literal['ms','s','samples']): Time unit for paired times
 
-        Note:
-            All spike times are stored internally in milliseconds and converted
-            to the requested output unit. When using 'samples' unit, fs_Hz must
-            be provided for proper conversion.
+        # Optional raw data parameters (unused in current implementation)
+        raw_dataset (str): Reserved for future raw data export
+        raw_time_dataset (str): Reserved for future raw time axis export
+        raw_time_unit (Literal['ms','s','samples']): Time unit for raw data timestamps
+
+        Notes:
+        - All spike times are stored internally in milliseconds and converted to the requested output unit. 
+        - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
         from data_loaders.data_exporters import export_spikedata_to_hdf5
@@ -987,28 +975,19 @@ class SpikeData:
         spike_times_index_dataset: str = "spike_times_index",
         group: str = "units",
     ) -> None:
-        """Export this SpikeData to a minimal NWB-like file using h5py.
-
-        Creates an NWB-compatible file structure with spike times stored in the
-        standard '/units' group format. This produces a minimal but valid NWB
-        file that can be round-tripped with the NWB loader.
+        """
+        Export this SpikeData to a minimal NWB-compatible file using h5py, storing spike times in the standard '/units' group format for round-tripping with the NWB loader.
 
         Parameters:
-            filepath: Path to the output NWB file (.nwb extension recommended)
-            spike_times_dataset: Name of the dataset containing flattened spike
-                times in seconds. Standard NWB uses "spike_times".
-            spike_times_index_dataset: Name of the dataset containing cumulative
-                spike counts per unit for indexing into spike_times. Standard
-                NWB uses "spike_times_index".
-            group: Name of the HDF5 group to contain the spike data. Standard
-                NWB uses "units" for the units table.
+        filepath (str): Path to the output NWB file (.nwb extension recommended)
+        spike_times_dataset (str): Name of the dataset containing flattened spike times in seconds. Standard NWB uses "spike_times".
+        spike_times_index_dataset (str): Name of the dataset containing cumulative spike counts per unit for indexing into spike_times. Standard NWB uses "spike_times_index".
+        group (str): Name of the HDF5 group to contain the spike data. Standard NWB uses "units" for the units table.
 
-        Note:
-            Spike times are automatically converted from internal milliseconds
-              to seconds as required by the NWB standard
-            The output file contains only the essential spike timing data,
-              not the full NWB metadata structure
-            Compatible with both pynwb and h5py-based NWB readers
+        Notes:
+        - Spike times are automatically converted from internal milliseconds to seconds as required by the NWB standard
+        - The output file contains only the essential spike timing data, not the full NWB metadata structure
+        - Compatible with both pynwb and h5py-based NWB readers
         """
         # Import locally to avoid circular imports
         from data_loaders.data_exporters import export_spikedata_to_nwb
@@ -1032,42 +1011,24 @@ class SpikeData:
         time_unit: "Literal['samples','ms','s']" = "samples",
         cluster_ids: Optional[List[int]] = None,
     ) -> Tuple[str, str]:
-        """Export this SpikeData to a KiloSort/Phy-like folder structure.
-
-        Creates the standard KiloSort output format with two numpy arrays:
-        spike_times.npy: All spike times across units
-        spike_clusters.npy: Corresponding cluster/unit ID for each spike
-
-        This format is compatible with Phy for manual curation and other
-        spike sorting analysis tools.
+        """
+        Export this SpikeData to a KiloSort/Phy-compatible folder structure with spike_times.npy and spike_clusters.npy arrays for use with Phy.
 
         Parameters:
-            folder: Output directory path. Will be created if it doesn't exist.
-            fs_Hz: Sampling frequency in Hz. Required for time unit conversion,
-                especially when using 'samples' (the KiloSort default).
-            spike_times_file: Filename for the spike times array. Standard
-                KiloSort uses "spike_times.npy".
-            spike_clusters_file: Filename for the cluster assignments array.
-                Standard KiloSort uses "spike_clusters.npy".
-            time_unit: Output time unit for spike times:
-                - 'samples': Sample indices (requires fs_Hz for conversion)
-                - 'ms': Milliseconds (matches internal SpikeData format)
-                - 's': Seconds
-            cluster_ids: Optional list of cluster IDs to assign to each unit.
-                Must have length equal to self.N. If None, uses sequential
-                integers [0, 1, 2, ...].
+        folder (str): Output directory path. Will be created if it doesn't exist.
+        fs_Hz (float): Sampling frequency in Hz. Required for time unit conversion, especially when using 'samples' (the KiloSort default).
+        spike_times_file (str): Filename for the spike times array. Standard KiloSort uses "spike_times.npy".
+        spike_clusters_file (str): Filename for the cluster assignments array. Standard KiloSort uses "spike_clusters.npy".
+        time_unit (Literal['samples','ms','s']): Output time unit for spike times.
+        cluster_ids (Optional[List[int]]): Optional list of cluster IDs to assign to each unit. Must have length equal to self.N. If None, uses sequential integers [0, 1, 2, ...].
 
         Returns:
-            tuple[str, str]: Paths to the created (spike_times_file, spike_clusters_file)
+        tuple[str, str]: Paths to the created (spike_times_file, spike_clusters_file)
 
-        Raises:
-            ValueError: If fs_Hz <= 0 or cluster_ids length doesn't match self.N
-
-        Note:
-            Empty units (no spikes) are skipped in the output arrays
-            Cluster IDs are mapped to units in order, so cluster_ids[i]
-              corresponds to unit i in the SpikeData
-            The 'samples' time unit is most common for KiloSort workflows
+        Notes:
+        - Empty units (no spikes) are skipped in the output arrays
+        - Cluster IDs are mapped to units in order, so cluster_ids[i] corresponds to unit i in the SpikeData
+        - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
         from data_loaders.data_exporters import export_spikedata_to_kilosort
