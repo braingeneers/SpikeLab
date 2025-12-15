@@ -785,10 +785,6 @@ class SpikeData:
         """
         Extract raw voltage waveforms around spike times from raw data.
 
-        Extracts windows of raw voltage data centered on each spike time for the
-        specified unit(s). This enables waveform analysis, template matching, and
-        quality metrics computation.
-
         Parameters:
             unit: Unit index to extract waveforms for. If None, extracts for all
                 units and returns a list of arrays.
