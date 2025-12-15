@@ -374,8 +374,6 @@ class SpikeData:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
         if store_as:
-            if self.neuron_attributes is None:
-                raise ValueError("Cannot store results: neuron_attributes is None")
             for i, attr in enumerate(self.neuron_attributes):
                 setattr(attr, store_as, result[i])
 
