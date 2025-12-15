@@ -774,6 +774,123 @@ class SpikeData:
 
         return channel_raster
 
+    def get_traces(
+        self,
+        unit: Optional[int] = None,
+        ms_before: float = 1.0,
+        ms_after: float = 2.0,
+        channel: Optional[int] = None,
+        store_mean: bool = False,
+    ) -> Union[NDArray, List[NDArray]]:
+        """
+        Extract raw voltage waveforms around spike times from raw data.
+
+        Extracts windows of raw voltage data centered on each spike time for the
+        specified unit(s). This enables waveform analysis, template matching, and
+        quality metrics computation.
+
+        Parameters:
+            unit: Unit index to extract waveforms for. If None, extracts for all
+                units and returns a list of arrays.
+            ms_before: Milliseconds before each spike time to include (default: 1.0)
+            ms_after: Milliseconds after each spike time to include (default: 2.0)
+            channel: Specific channel index to extract from. If None, uses
+                neuron_to_channel_map() to find the unit's channel, or extracts
+                from all channels if no mapping exists.
+            store_mean: If True, compute the mean waveform and store it in
+                neuron_attributes[unit].waveform (default: False)
+
+        Returns:
+            If unit is specified: 3D array of shape (num_spikes, num_channels, num_samples)
+            If unit is None: list of 3D arrays, one per unit
+
+        Raises:
+            ValueError: If raw_data is empty or not available
+            ValueError: If specified unit index is out of range
+
+        Example:
+            >>> # Extract waveforms for unit 0 (1ms before, 2ms after each spike)
+            >>> waveforms = sd.get_traces(unit=0, ms_before=1.0, ms_after=2.0)
+            >>> print(waveforms.shape)  # (num_spikes, num_channels, num_samples)
+            >>>
+            >>> # Compute and store mean waveform
+            >>> waveforms = sd.get_traces(unit=0, store_mean=True)
+            >>> mean_wf = sd.neuron_attributes[0].waveform
+            >>>
+            >>> # Extract from a specific channel
+            >>> waveforms = sd.get_traces(unit=0, channel=5)
+            >>>
+            >>> # Extract waveforms for all units
+            >>> all_waveforms = sd.get_traces()  # returns list of arrays
+        """
+        if self.raw_data.size == 0:
+            raise ValueError(
+                "raw_data is empty. Cannot extract waveforms without raw data. "
+                "Provide raw_data and raw_time when creating SpikeData."
+            )
+
+        if np.ndim(self.raw_time) == 0 or self.raw_time.shape == ():
+            fs_kHz = float(self.raw_time)
+        else:
+            fs_kHz = 1.0 / np.median(np.diff(self.raw_time))
+
+        before_samples = int(ms_before * fs_kHz)
+        after_samples = int(ms_after * fs_kHz) + 1
+        n_samples = before_samples + after_samples
+        n_channels_total = self.raw_data.shape[0]
+        n_time_samples = self.raw_data.shape[1]
+        neuron_to_channel = self.neuron_to_channel_map()
+
+        def _extract_unit_waveforms(unit_idx: int) -> NDArray:
+            spike_times_ms = self.train[unit_idx]
+
+            if channel is not None:
+                channel_indices = [channel]
+            elif unit_idx in neuron_to_channel:
+                channel_indices = [neuron_to_channel[unit_idx]]
+            else:
+                channel_indices = list(range(n_channels_total))
+
+            n_channels = len(channel_indices)
+
+            if len(spike_times_ms) == 0:
+                return np.zeros((0, n_channels, n_samples), dtype=self.raw_data.dtype)
+
+            waveforms = []
+            for spike_time_ms in spike_times_ms:
+                spike_sample = int(spike_time_ms * fs_kHz)
+                start = spike_sample - before_samples
+                end = spike_sample + after_samples
+
+                if start < 0 or end > n_time_samples:
+                    continue
+
+                waveforms.append(self.raw_data[channel_indices, start:end])
+
+            if len(waveforms) == 0:
+                return np.zeros((0, n_channels, n_samples), dtype=self.raw_data.dtype)
+
+            return np.array(waveforms)
+
+        if unit is not None:
+            if unit < 0 or unit >= self.N:
+                raise ValueError(
+                    f"Unit index {unit} is out of range. Valid range: 0 to {self.N - 1}"
+                )
+
+            waveforms = _extract_unit_waveforms(unit)
+            if store_mean and waveforms.shape[0] > 0:
+                self.neuron_attributes[unit].waveform = waveforms.mean(axis=0)
+            return waveforms
+        else:
+            all_waveforms = []
+            for unit_idx in range(self.N):
+                waveforms = _extract_unit_waveforms(unit_idx)
+                all_waveforms.append(waveforms)
+                if store_mean and waveforms.shape[0] > 0:
+                    self.neuron_attributes[unit_idx].waveform = waveforms.mean(axis=0)
+            return all_waveforms
+
     def interspike_intervals(self):
         """
         Produce a list of arrays of interspike intervals per unit.
