@@ -459,7 +459,9 @@ def ensure_h5py():
         )
 
 
-def times_from_ms(times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]) -> Union[np.ndarray, float, int]:
+def times_from_ms(
+    times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
+) -> Union[np.ndarray, float, int]:
     """Convert times from milliseconds to the requested unit."""
     if unit == "ms":
         return times_ms.astype(float)
