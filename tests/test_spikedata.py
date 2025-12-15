@@ -1081,7 +1081,9 @@ class SpikeDataTest(unittest.TestCase):
         self.assertFalse(np.allclose(waveforms, waveforms_ch0))
 
         # No channel mapping -> extract all channels
-        sd_no_channel = SpikeData(trains, length=100.0, raw_data=raw_data, raw_time=fs_kHz)
+        sd_no_channel = SpikeData(
+            trains, length=100.0, raw_data=raw_data, raw_time=fs_kHz
+        )
         waveforms_all_ch = sd_no_channel.get_traces(unit=0, ms_before=1.0, ms_after=2.0)
         self.assertEqual(waveforms_all_ch.shape[1], n_channels)
 
@@ -1094,14 +1096,18 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(all_waveforms[2].shape[0], 0)
 
         # Spikes near boundaries should be skipped
-        sd_edge = SpikeData([[5.0, 95.0]], length=100.0, raw_data=raw_data, raw_time=fs_kHz)
+        sd_edge = SpikeData(
+            [[5.0, 95.0]], length=100.0, raw_data=raw_data, raw_time=fs_kHz
+        )
         waveforms_edge = sd_edge.get_traces(unit=0, ms_before=10.0, ms_after=10.0)
         self.assertEqual(waveforms_edge.shape[0], 0)
         waveforms_small = sd_edge.get_traces(unit=0, ms_before=1.0, ms_after=1.0)
         self.assertEqual(waveforms_small.shape[0], 2)
 
         # Mean waveform storage
-        waveforms_mean = sd.get_traces(unit=0, ms_before=1.0, ms_after=2.0, store_mean=True)
+        waveforms_mean = sd.get_traces(
+            unit=0, ms_before=1.0, ms_after=2.0, store_mean=True
+        )
         self.assertIsNotNone(sd.neuron_attributes[0].waveform)
         self.assertClose(sd.neuron_attributes[0].waveform, waveforms_mean.mean(axis=0))
 
@@ -1124,7 +1130,11 @@ class SpikeDataTest(unittest.TestCase):
         # raw_time as timestamp array
         timestamps = np.arange(n_samples) / fs_kHz
         sd_timestamps = SpikeData(
-            trains, neuron_attributes=attrs, length=100.0, raw_data=raw_data, raw_time=timestamps
+            trains,
+            neuron_attributes=attrs,
+            length=100.0,
+            raw_data=raw_data,
+            raw_time=timestamps,
         )
         waveforms_ts = sd_timestamps.get_traces(unit=0, ms_before=1.0, ms_after=2.0)
         self.assertEqual(waveforms_ts.shape, waveforms.shape)
