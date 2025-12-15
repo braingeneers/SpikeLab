@@ -414,12 +414,16 @@ class SpikeData:
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
             result = 1e3 * rates
+            result = 1e3 * rates
         elif unit == "kHz":
+            result = rates
             result = rates
         else:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
         if store_as:
+            if self.neuron_attributes is None:
+                raise ValueError("Cannot store results: neuron_attributes is None")
             for i, attr in enumerate(self.neuron_attributes):
                 setattr(attr, store_as, result[i])
 
