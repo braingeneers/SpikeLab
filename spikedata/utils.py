@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal, Union
 
 import numpy as np
 from scipy import ndimage, signal
@@ -13,6 +13,12 @@ __all__ = [
     "randomize",
     "trough_between",
 ]
+TimeUnit = Literal["ms", "s", "samples"]
+
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -443,3 +449,38 @@ def PCA_reduction(matrix_2d, n_components=2):
     pca_result = pca.fit_transform(matrix_2d)
 
     return pca_result
+
+
+def ensure_h5py():
+    """Ensure h5py is available for HDF5-based exporters."""
+    if h5py is None:
+        raise ImportError(
+            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
+        )
+
+
+def times_from_ms(times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]) -> Union[np.ndarray, float, int]:
+    """Convert times from milliseconds to the requested unit."""
+    if unit == "ms":
+        return times_ms.astype(float)
+    if unit == "s":
+        return times_ms.astype(float) / 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        # Use round-to-nearest to produce integer samples
+        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
+def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
+    """Convert a vector of times to milliseconds."""
+    if unit == "ms":
+        return values.astype(float)
+    if unit == "s":
+        return values.astype(float) * 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        return values.astype(float) / fs_Hz * 1e3
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")

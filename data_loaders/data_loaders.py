@@ -21,11 +21,6 @@ import warnings
 
 import numpy as np
 
-try:
-    import h5py  # type: ignore
-except Exception:  # pragma: no cover
-    h5py = None  # type: ignore
-
 from spikedata import SpikeData
 
 __all__ = [
@@ -37,24 +32,7 @@ __all__ = [
     "load_spikedata_from_spikeinterface_recording",
 ]
 
-
-def _ensure_h5py():
-    """Ensure the optional h5py dependency is available."""
-    if h5py is None:
-        raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
-
-
-def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
-    """Convert a vector of times to milliseconds."""
-    if unit == "ms":
-        return values.astype(float)
-    if unit == "s":
-        return values.astype(float) * 1e3
-    if unit == "samples":
-        if not fs_Hz or fs_Hz <= 0:
-            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
-        return values.astype(float) / fs_Hz * 1e3
-    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+from spikedata.utils import ensure_h5py, to_ms
 
 
 def _trains_from_flat_index(
@@ -69,7 +47,7 @@ def _trains_from_flat_index(
     start = 0
     for stop in end_indices:
         segment = flat_times[start:stop]
-        trains.append(_to_ms(segment, unit, fs_Hz))
+        trains.append(to_ms(segment, unit, fs_Hz))
         start = stop
     return trains
 
@@ -217,7 +195,7 @@ def load_spikedata_from_hdf5(
 
     Raises: ValueError: If not exactly one input style is specified, or if required arguments are missing.
     """
-    _ensure_h5py()
+    ensure_h5py()
 
     # Validate exactly one style is provided
     provided = [
@@ -281,7 +259,7 @@ def load_spikedata_from_hdf5(
             # Style (3): each child dataset is a unit's spike times
             grp = f[group_per_unit]
             keys = sorted(list(grp.keys()))
-            trains = [_to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
+            trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
@@ -292,7 +270,7 @@ def load_spikedata_from_hdf5(
 
         # Style (4): paired indices and times arrays
         idces = np.asarray(f[idces_dataset])  # type: ignore
-        times = _to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
+        times = to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms)
         sd.metadata.update(meta)
@@ -322,7 +300,7 @@ def load_spikedata_from_hdf5_raw_thresholded(
         direction (str): 'both' | 'up' | 'down'.
     Returns: sd (SpikeData): The detected spike train data.
     """
-    _ensure_h5py()
+    ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
     return SpikeData.from_thresholding(
@@ -376,7 +354,7 @@ def load_spikedata_from_nwb(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
             )
 
-    _ensure_h5py()
+    ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         if "units" not in f:
             raise ValueError("NWB file missing '/units' group")
@@ -440,7 +418,7 @@ def load_spikedata_from_spikeinterface(
     trains: List[np.ndarray] = []
     for uid in ids:
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
-        trains.append(_to_ms(st.astype(float), "samples", fs))
+        trains.append(to_ms(st.astype(float), "samples", fs))
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
     return _build_spikedata(trains, metadata=meta)
@@ -534,7 +512,7 @@ def load_spikedata_from_kilosort(
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
         times = spike_times[spike_clusters == clu]
-        times_ms = _to_ms(times.astype(float), time_unit, fs_Hz)
+        times_ms = to_ms(times.astype(float), time_unit, fs_Hz)
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
 
