@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover
 
 if TYPE_CHECKING:  # avoid runtime circular import
     from spikedata import SpikeData  # noqa: F401
-    from spikedata import NeuronAttributes 
+    from spikedata import NeuronAttributes  # noqa: F401
 
 TimeUnit = Literal["ms", "s", "samples"]
 

@@ -64,22 +64,22 @@ class NeuronAttributes:
 
     def __init__(self):
         # Identity (from loaders)
-        self.channel = None          # int: Recording channel index
-        self.location = None         # tuple or dict: Unit physical location
-        self.electrode = {}          # dict: Electrode metadata
+        self.channel = None  # int: Recording channel index
+        self.location = None  # tuple or dict: Unit physical location
+        self.electrode = {}  # dict: Electrode metadata
 
         # Firing metrics
-        self.firing_rate = None      # float: Mean firing rate (Hz)
-        self.spike_count = None      # int: Total spike count
+        self.firing_rate = None  # float: Mean firing rate (Hz)
+        self.spike_count = None  # int: Total spike count
 
         # Burst metrics
-        self.is_backbone = None      # bool: Whether unit is a backbone unit
+        self.is_backbone = None  # bool: Whether unit is a backbone unit
 
         # Waveform
-        self.waveform = None         # np.ndarray: Average waveform template
+        self.waveform = None  # np.ndarray: Average waveform template
 
         # Custom/misc storage
-        self.misc = {}               # dict: Arbitrary user data
+        self.misc = {}  # dict: Arbitrary user data
 
 
 class SpikeData:
@@ -360,18 +360,26 @@ class SpikeData:
         else:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
-    def rates(self, unit="kHz"):
+    def rates(self, unit="kHz", store_as: Optional[str] = "firing_rate"):
         """
         Calculate the mean firing rate of each neuron as an average number of events per
         time over the length of the data. The unit may be `Hz` or `kHz` (default).
         """
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
-            return 1e3 * rates
+            result = 1e3 * rates
         elif unit == "kHz":
-            return rates
+            result = rates
         else:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
+
+        if store_as:
+            if self.neuron_attributes is None:
+                raise ValueError("Cannot store results: neuron_attributes is None")
+            for i, attr in enumerate(self.neuron_attributes):
+                setattr(attr, store_as, result[i])
+
+        return result
 
     def resampled_isi(self, times, sigma_ms=10.0):
         """
