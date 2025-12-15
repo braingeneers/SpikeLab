@@ -27,6 +27,10 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
 
     Returns:
     sttc (float): Spike time tiling coefficient between the two spike trains
+
+    [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
+        comparison of methods and application to the study of retinal waves. Journal of
+        Neuroscience 34:43, 14288–14303 (2014).
     """
     if length is None:
         length = float(max(tA[-1], tB[-1]))
