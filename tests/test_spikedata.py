@@ -30,6 +30,8 @@ def sd_from_counts(counts):
     """
     Generates a SpikeData whose raster matches given counts.
 
+    Parameters:
+    counts (array-like): Number of spikes in each bin. Each element specifies the spike count for the corresponding bin.
     Returns:
     SpikeData: a SpikeData object whose raster matches the given counts
 
