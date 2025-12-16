@@ -35,7 +35,6 @@ Contents
 
 .. toctree::
    :maxdepth: 2
-   :caption: User Guide
 
    getting_started
    spikedata
