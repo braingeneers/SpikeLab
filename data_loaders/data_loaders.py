@@ -260,9 +260,7 @@ def load_spikedata_from_hdf5(
                 length_ms = max(total_time - np.spacing(total_time), 0.0)
             else:
                 length_ms = 0.0
-            sd = SpikeData.from_raster(
-                raster, raster_bin_size_ms, length=length_ms
-            )
+            sd = SpikeData.from_raster(raster, raster_bin_size_ms, length=length_ms)
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
