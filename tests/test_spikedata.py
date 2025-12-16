@@ -49,8 +49,13 @@ def random_spikedata(units, spikes, rate=1.0):
 
     Spikes are randomly assigned to units and times are uniformly distributed.
 
+    Parameters:
+        units (int): Number of units (neurons) in the generated SpikeData.
+        spikes (int): Total number of spikes to generate.
+        rate (float, optional): Overall mean firing rate. Default is 1.0.
+
     Returns:
-    SpikeData: a SpikeData object with the given number of units, total number of spikes, and overall mean firing rate
+        sd (SpikeData): object with the given number of units, total number of spikes, and overall mean firing rate
     """
     idces = np.random.randint(units, size=spikes)
     times = np.random.rand(spikes) * spikes / rate / units
