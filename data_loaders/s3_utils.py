@@ -174,5 +174,3 @@ def ensure_local_file(
     if not os.path.exists(file_path_or_url):
         raise FileNotFoundError(f"File not found: {file_path_or_url}")
     return file_path_or_url, False
-
-
