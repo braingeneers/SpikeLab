@@ -18,7 +18,7 @@ from data_loaders.data_loaders import (
     load_spikedata_from_spikeinterface_recording,
 )
 
-from mcp_server.s3_utils import ensure_local_file, is_s3_url
+from data_loaders.s3_utils import ensure_local_file, is_s3_url
 from mcp_server.sessions import get_session_manager
 
 

@@ -33,7 +33,7 @@ MCP_SERVER_AVAILABLE = False
 
 # Basic imports (no mcp dependency)
 try:
-    from mcp_server.s3_utils import (
+    from data_loaders.s3_utils import (
         download_from_s3,
         ensure_local_file,
         is_s3_url,
@@ -153,7 +153,7 @@ class TestS3Utils:
         assert key == "path/to/file.h5"
 
     @pytestmark_infra
-    @patch("mcp_server.s3_utils.boto3")
+    @patch("data_loaders.s3_utils.boto3")
     def test_download_from_s3(self, mock_boto3):
         """Test S3 download."""
         mock_client = MagicMock()

@@ -14,7 +14,7 @@ from data_loaders.data_exporters import (
     export_spikedata_to_nwb,
 )
 
-from mcp_server.s3_utils import is_s3_url
+from data_loaders.s3_utils import is_s3_url, parse_s3_url
 from mcp_server.sessions import get_session_manager
 
 try:
@@ -38,8 +38,6 @@ def _upload_to_s3(
         raise ImportError(
             "boto3 is required for S3 uploads. Install it with: pip install boto3"
         )
-
-    from mcp_server.s3_utils import parse_s3_url
 
     bucket, key = parse_s3_url(s3_url)
 

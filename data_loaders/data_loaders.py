@@ -302,7 +302,17 @@ def load_spikedata_from_hdf5(
             raster = np.asarray(f[raster_dataset])
             if raster.ndim != 2:
                 raise ValueError("raster_dataset must be 2D (units, time)")
-            sd = SpikeData.from_raster(raster, raster_bin_size_ms)
+            total_time = raster.shape[1] * raster_bin_size_ms
+            if total_time > 0:
+                # subtract the smallest representable spacing so the length is
+                # slightly less than the exact bin-aligned value and avoids
+                # triggering the extra empty bin in `SpikeData.raster`.
+                length_ms = max(total_time - np.spacing(total_time), 0.0)
+            else:
+                length_ms = 0.0
+            sd = SpikeData.from_raster(
+                raster, raster_bin_size_ms, length=length_ms
+            )
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
