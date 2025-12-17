@@ -461,25 +461,25 @@ class SpikeData:
 
         return mapping
 
-    def subtime(self, start, end):
+    def subtime(self, start, end, shift_time=True):
         """
-        Return a new SpikeData with only spikes in a time range, closed on top but open
-        on the bottom unless the lower bound is zero, consistent with the binning
-        methods. This is to ensure no overlap between adjacent slices.
+        Extract a subset of time points from spikedata using time values.
 
-        Start and end can be negative, in which case they are counted backwards from the
-        end. They can also be None or Ellipsis, in which case that end of the data is
-        not truncated. All metadata and neuron data are propagated, while raw data is
-        sliced to the same range of times, including all samples in the closed interval.
+        Parameters:
+        start (int/float): Starting time value (inclusive)
+        end (int/float): Ending time value (exclusive)
+        shift_time (bool): If True, this will make the new output spike data object where the times are shifted so
+                           relative to 0 (input start time becomes 0 for new spikedata)
+                           If False, preserve original time values (spikes retain their original timestamps).
+                           Example) shift_time=False
+                                        subtime(1.0, 4.0, shift_time=False)
+                                        Result: train[0] = [1.2, 2.3, 3.7]  Original timestamps preserved.
+                                    shift_time=True (default)
+                                        subtime(1.0, 4.0, shift_time=True)
+                                        Result: train[0] = [0.2, 1.3, 2.7]  Shifted by -1.0 (the start value)
 
-        """
-        """
-        Luka Version:
-       - Start is inclusive and end is exclusive.
-       - Start/end refers to actual spike time, not an index
-       - Recall spike_train is a list of lists where each row is a neuron, and its values are spike times
-
-
+        Returns:
+        SpikeData: New SpikeData object containing only the specified time range
         """
         if start is None or start is Ellipsis:
             start = 0
@@ -506,21 +506,21 @@ class SpikeData:
                 f"Cannot create subtime with invalid range."
             )
 
-        # Special case out the start=0 case by nopping the comparison.
-        # lower = start if start > 0 else -np.inf
+        time_shift = start if shift_time else 0
 
-        # Subset the spike train by time.
-        train = [t[(t >= start) & (t < end)] - start for t in self.train]
+        # Subset the spike train by time
+        train = [t[(t >= start) & (t < end)] - time_shift for t in self.train]
 
-        # Subset and propagate the raw data.
+        # Subset and propagate the raw data
         rawmask = (self.raw_time >= start) & (self.raw_time < end)
+
         return SpikeData(
             train,
             length=end - start,
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - start,
+            raw_time=self.raw_time[rawmask] - time_shift,
             raw_data=self.raw_data[..., rawmask],
         )
 
