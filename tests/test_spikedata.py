@@ -594,8 +594,8 @@ class SpikeDataTest(unittest.TestCase):
 
         # Make sure the raw data is sliced properly with time.
         sd2 = sd.subtime(20, 30)
-        self.assertAll(sd2.raw_time == np.arange(11))
-        self.assertAll(sd2.raw_data == sd.raw_data[:, 20:31])
+        self.assertAll(sd2.raw_time == np.arange(10))
+        self.assertAll(sd2.raw_data == sd.raw_data[:, 20:30])
 
     def test_isi_rate(self):
         """

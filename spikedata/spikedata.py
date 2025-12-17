@@ -10,7 +10,9 @@ from typing import Literal, Optional, Union, List, Tuple
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
+from .ratedata import RateData
 from scipy.stats import norm
+
 
 from .utils import (
     get_sttc,
@@ -489,30 +491,44 @@ class SpikeData:
 
         return mapping
 
-    def subtime(self, start, end):
+    def subtime(self, start, end, shift_time=True):
         """
-        Return a new SpikeData with only spikes in a time range, closed on top but open
-        on the bottom unless the lower bound is zero.
+        Extract a subset of time points from spikedata using time values.
 
         Parameters:
-        start (float): Start time in milliseconds
-        end (float): End time in milliseconds
+        start (int/float): Starting time value (inclusive)
+        end (int/float): Ending time value (exclusive)
+        shift_time (bool): If True, this will make the new output spike data object where the times are shifted so
+                           relative to 0 (input start time becomes 0 for new spikedata)
+                           If False, preserve original time values (spikes retain their original timestamps).
+                           Example) shift_time=False
+                                        subtime(1.0, 4.0, shift_time=False)
+                                        Result: train[0] = [1.2, 2.3, 3.7]  Original timestamps preserved.
+                                    shift_time=True (default)
+                                        subtime(1.0, 4.0, shift_time=True)
+                                        Result: train[0] = [0.2, 1.3, 2.7]  Shifted by -1.0 (the start value)
 
         Returns:
-        sd (SpikeData): New SpikeData object with only spikes in the time range.
+        SpikeData: New SpikeData object containing only the specified time range
 
         Notes:
         - Start and end can be negative, in which case they are counted backwards from the
         end.
         - They can also be None or Ellipsis, in which case that end of the data is
         not truncated.
-        - All metadata and neuron data are propagated, while raw data is
-        sliced to the same range of times, including all samples in the closed interval.
+        - All metadata and neuron data are propagated
         """
         if start is None or start is Ellipsis:
             start = 0
         elif start < 0:
             start += self.length
+            if start < 0:
+                raise ValueError(
+                    f"start ({start - self.length}) is too negative. "
+                    f"Minimum allowed is -{self.length} (recording length)"
+                )
+        elif start > self.length:
+            start = self.length
 
         if end is None or end is Ellipsis:
             end = self.length
@@ -521,21 +537,27 @@ class SpikeData:
         elif end > self.length:
             end = self.length
 
-        # Special case out the start=0 case by nopping the comparison.
-        lower = start if start > 0 else -np.inf
+        if start >= end:
+            raise ValueError(
+                f"start ({start}) must be less than end ({end}). "
+                f"Cannot create subtime with invalid range."
+            )
 
-        # Subset the spike train by time.
-        train = [t[(t > lower) & (t <= end)] - start for t in self.train]
+        time_shift = start if shift_time else 0
 
-        # Subset and propagate the raw data.
-        rawmask = (self.raw_time >= lower) & (self.raw_time <= end)
+        # Subset the spike train by time
+        train = [t[(t >= start) & (t < end)] - time_shift for t in self.train]
+
+        # Subset and propagate the raw data
+        rawmask = (self.raw_time >= start) & (self.raw_time < end)
+
         return SpikeData(
             train,
             length=end - start,
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - start,
+            raw_time=self.raw_time[rawmask] - time_shift,
             raw_data=self.raw_data[..., rawmask],
         )
 
