@@ -4,34 +4,41 @@ import numpy as np
 
 
 class SpikeSliceStack:
-    # This is an object that contains a collection of spike objects as a list
-    # There are a few options of input time formats:
-    # Option 1:
-    # times_start_to_end: List of tuples. Each tuple is (start, end) and represents the start and end times
-    # of a burst/stimulation event. Each tuple must have same duration
+    """
+    Description:
+    -----------
+    A data structure where the underlying data is a list of SpikeData objects, and each SpikeData
+    object represents one slice. User inputs a single SpikeData object and specifies the slice times
+    so they can split this one large SpikeData into a list of smaller ones.
 
-    # Option 2 (Note both of the following must be input to work):
-    # time_peaks: List of times where there is a burst peak or stimulation event. This variable must be paired
-    #      with time bounds
-    # time_bounds: Single tuple (left_bound, right_bound).
-    #       If you put (250,500), then this means 250 ms before peak and 500 ms after peak.
+    Parameters:
+    -----------
+    data_obj (SpikeData): A SpikeData object.
+    There are 2 choices for time input:
+        Choice A)
+            times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
+                                       represents the start and end times of a desired slice.
+                                       Each tuple must have same duration.
+        Choice B) (both of the following must be input for this option)
+            time_peaks (list): List of times as int or float where there is a burst peak or stimulation event.
+                               This variable must be pairedwith time bounds
+            time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
+                                 250 ms before peak and 500 ms after peak.
 
-    # slice_or_rate_obj: Either SpikeData or RateData object. Constructor handles the rest
-    # sigma_ms: Smoothing factor for computing isi if you input a SpikeData object
-    # step_size: How many time_steps per unit?
-    #   For example, (start,end) = (0,10) could be 10 timestemps if step_size =1, or 2 timesteps if step_size = 5
+    Instance Variables:
+    --------
+    self.spike_stack (list): List of SpikeData objects, and each entry represents one slice.
+    self.times (list of tuples): List of (start, end) time bounds for each slice, sorted chronologically. Length equals S (number of slices).
+                                 Example: [(100, 200), (500, 600), (1000, 1100)]
+
+
+    """
 
     def __init__(
-        self,
-        data_obj,
-        times_start_to_end=None,
-        time_peaks=None,
-        time_bounds=None,
-        sigma_ms=10,
-        step_size=1,
+        self, data_obj, times_start_to_end=None, time_peaks=None, time_bounds=None
     ):
+        # Ensure SpikeData is used
         if not isinstance(data_obj, SpikeData):
-            # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
             raise TypeError("data_obj must be a SpikeData object")
 
         # This is to check that one of the time options is selected
@@ -81,11 +88,6 @@ class SpikeSliceStack:
             if time_window[0] < 0:
                 continue
 
-            # Check if any times are beyond the end of the recording
-            # if time_peaks is not None:
-            #     if time_window[1] > time_peaks[-1]:
-            #         continue
-
             time_diff_check.append(time_window[1] - time_window[0])
             # We only want to address time windows that are above 0 (recording start) and below recording end
             valid_time_tuples.append(time_window)
@@ -95,43 +97,34 @@ class SpikeSliceStack:
 
         times_start_to_end = valid_time_tuples
 
-        # Actual constructor this is where spikeslicestack should change
         self.times = times_start_to_end
         event_stack = []
 
-        # I use subtime here to extract a burst event
+        # Use subtime here to extract a burst event
         for time in times_start_to_end:
             start = time[0]
             end = time[1]
             spike_obj_slice = data_obj.subtime(start, end)
-            event_matrix = spike_obj_slice.sparse_raster(bin_size=1)
+
             event_stack.append(spike_obj_slice)
 
-        # if isinstance(data_obj, SpikeData):
-        #     # Here, I may be mistaken but I didn't see a need to do subtime because
-        #     #I can specify times directly from resampled isi and extract burst events.
-        #     for time in times:
-        #         start = time[0]
-        #         end = time[1]
-        #         all_times = np.arange(start, end, step_size)
-        #         #Look into times
-        #         burst_matrix = data_obj.resampled_isi(all_times, sigma_ms)
-        #         burst_stack.append(burst_matrix)
-
-        # event_stack = np.stack(event_stack)
         self.spike_stack = event_stack
 
     def to_sparse_matrices(self):
         """
-        Transforms the list of spike objects from self.spike_stack into a 3D sparse spike matrices of NxTxB (neuron x time_bin x burst/event)
-
+        Transforms the list of spike objects from self.spike_stack into a 3D matrix of shape (U,T,S).
+        Each 2D matrix U x T is a sparse spike matrix, which means there is a binary value for each unit's
+        timebin to indicate whether there was a spike or not.
+            - U: Units (refers to neuron/neuron clusters)
+            - T: Time bins
+            - S: Slices (can be bursts, events, etc)
 
         Parameters:
             - No input: It uses the underlying self.spike_stack.
         Returns:
-            - sparse_stack: 3D sparse spike matrix of size NxTxB where each value is
-                            a 1 or 0 if there is a spike in that for neuron in a time_bin
-                            at a given burst.
+            - sparse_stack: 3D sparse spike matrix of size UxTxS where each value is
+                            a 1 or 0 if there is a spike for unit i in a time_bin t
+                            at a slice s.
         """
         sparse_list = []
         for i in len(self.spike_stack):
@@ -140,5 +133,5 @@ class SpikeSliceStack:
 
             sparse_list.append(event_matrix)
         sparse_stack = np.stack(sparse_list, axis=2)
-        # Make sparse stack into N x T x B
+        # Make sparse stack into U x T x S
         return sparse_stack

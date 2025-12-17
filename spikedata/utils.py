@@ -383,16 +383,20 @@ def extract_lower_triangle_features(matrix_3d):
 
     Parameters:
     -----------
-    matrix_3d (array): 3D correaltion matrix of shape (B, N, N) [b, :, :] is a symmetric N×N matrix
-                       (this is just an example, can also be N x B x B. It just must be a 3d correlation matrix)
+    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
+                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
 
     Returns:
     --------
-    features (array): 2D matrix of shape (B, F) each row contains lower triangle values for that correlation matrix
+    features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
                       F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
     """
-    num_samples = matrix_3d.shape[0]  # B
-    num_items = matrix_3d.shape[1]  # N
+    if matrix_3d.shape[1] != matrix_3d.shape[2]:
+        raise ValueError(
+            "The input 3D matrix must have the same size for the last 2 dimensions."
+        )
+    num_samples = matrix_3d.shape[0]  # S
+    num_items = matrix_3d.shape[1]  # U
 
     # Get lower triangle indices
     lower_tri_idx = np.tril_indices(num_items, k=-1)
