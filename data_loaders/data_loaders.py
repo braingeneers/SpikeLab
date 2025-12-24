@@ -26,7 +26,7 @@ try:
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
-from spikedata import SpikeData, NeuronAttributes
+from spikedata import SpikeData
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -127,7 +127,7 @@ def _build_spikedata(
     metadata: Optional[Mapping[str, object]] = None,
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
-    neuron_attributes: Optional[List[NeuronAttributes]] = None,
+    neuron_attributes: Optional[List[dict]] = None,
 ) -> SpikeData:
     """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
@@ -543,7 +543,7 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
-    neuron_attributes: List[NeuronAttributes] = []
+    neuron_attributes: List[dict] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -552,10 +552,10 @@ def load_spikedata_from_kilosort(
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
 
-        # Create neuron attributes and populate channel if available
-        attr = NeuronAttributes()
+        # Create neuron attributes dict and populate channel if available
+        attr: dict = {}
         if channel_map is not None and int(clu) < len(channel_map):
-            attr.channel = int(channel_map[int(clu)])
+            attr["channel"] = int(channel_map[int(clu)])
         neuron_attributes.append(attr)
 
     meta = {

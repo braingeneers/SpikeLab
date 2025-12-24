@@ -86,7 +86,7 @@ class SpikeData:
 
     length: The length of the spike train, defaults to the time of the last spike.
 
-    neuron_attributes: A list of attribute objects for each neuron.
+    neuron_attributes: A list of dictionaries containing information on each neuron.
 
     metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -304,10 +304,10 @@ class SpikeData:
         #
         # Note that if there is no metadata, it should be an empty dict, because that
         # way arbitrary fields can be added later. If neuron_attributes is None,
-        # auto-initialize with preset NeuronAttributes objects for each unit.
+        # auto-initialize with empty dictionaries for each unit.
         self.metadata = metadata.copy()
         if neuron_attributes is None:
-            self.neuron_attributes = [NeuronAttributes() for _ in range(self.N)]
+            self.neuron_attributes = [{} for _ in range(self.N)]
         else:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:
@@ -425,7 +425,7 @@ class SpikeData:
             if self.neuron_attributes is None:
                 raise ValueError("Cannot store results: neuron_attributes is None")
             for i, attr in enumerate(self.neuron_attributes):
-                setattr(attr, store_as, result[i])
+                attr[store_as] = result[i]
 
         return result
 
@@ -474,7 +474,7 @@ class SpikeData:
             units = {
                 i
                 for i in range(self.N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if self.neuron_attributes[i].get(by, _missing) in units
             }
 
         train = []
@@ -525,7 +525,7 @@ class SpikeData:
         if attr_name is None:
             # Try to find a channel attribute automatically
             for name in common_names:
-                if hasattr(self.neuron_attributes[0], name):
+                if name in self.neuron_attributes[0]:
                     attr_name = name
                     break
             if attr_name is None:
@@ -535,7 +535,7 @@ class SpikeData:
         mapping = {}
         _missing = object()
         for i in range(self.N):
-            channel_val = getattr(self.neuron_attributes[i], attr_name, _missing)
+            channel_val = self.neuron_attributes[i].get(attr_name, _missing)
             if channel_val is not _missing and channel_val is not None:
                 mapping[i] = int(channel_val)
 

@@ -21,10 +21,6 @@ import spikedata.spikedata as spikedata
 from spikedata import SpikeData
 
 
-@dataclass
-class MockNeuronAttributes:
-    size: float
-
 
 def sd_from_counts(counts):
     """
@@ -533,7 +529,7 @@ class SpikeDataTest(unittest.TestCase):
             N=5,
             length=1000,
             metadata=dict(name="Marvin"),
-            neuron_attributes=[MockNeuronAttributes(ξ) for ξ in np.random.rand(5)],
+            neuron_attributes=[{"size": ξ} for ξ in np.random.rand(5)],
         )
 
         # Make sure subset propagates all metadata and correctly
@@ -870,15 +866,8 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 4) Tests edge cases: no neuron_attributes, empty data
         (Test Case 5) Tests partial channel information (some neurons missing channel)
         """
-        from dataclasses import dataclass
-
-        @dataclass
-        class NeuronAttrs:
-            channel: int
-            other_field: str = "test"
-
         # Test basic functionality
-        attrs = [NeuronAttrs(channel=i % 4) for i in range(10)]
+        attrs = [{"channel": i % 4, "other_field": "test"} for i in range(10)]
         trains = [[] for _ in range(10)]
         sd = SpikeData(trains, neuron_attributes=attrs, length=100.0)
         mapping = sd.neuron_to_channel_map()
@@ -892,11 +881,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping[5], 1)  # 5 % 4 = 1
 
         # Test with different attribute names
-        @dataclass
-        class NeuronAttrsChannelId:
-            channel_id: int
-
-        attrs2 = [NeuronAttrsChannelId(channel_id=i % 3) for i in range(6)]
+        attrs2 = [{"channel_id": i % 3} for i in range(6)]
         sd2 = SpikeData([[]] * 6, neuron_attributes=attrs2, length=100.0)
         mapping2 = sd2.neuron_to_channel_map()
         self.assertEqual(len(mapping2), 6)
@@ -908,11 +893,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping2, mapping2_explicit)
 
         # Test with channel_index attribute
-        @dataclass
-        class NeuronAttrsChannelIndex:
-            channel_index: int
-
-        attrs3 = [NeuronAttrsChannelIndex(channel_index=i // 2) for i in range(6)]
+        attrs3 = [{"channel_index": i // 2} for i in range(6)]
         sd3 = SpikeData([[]] * 6, neuron_attributes=attrs3, length=100.0)
         mapping3 = sd3.neuron_to_channel_map()
         self.assertEqual(mapping3[0], 0)
@@ -931,15 +912,11 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping_empty, {})
 
         # Test with partial channel information (some neurons missing channel)
-        @dataclass
-        class NeuronAttrsPartial:
-            channel: int = None
-
         attrs_partial = [
-            NeuronAttrsPartial(channel=0),
-            NeuronAttrsPartial(channel=1),
-            NeuronAttrsPartial(),  # Missing channel
-            NeuronAttrsPartial(channel=2),
+            {"channel": 0},
+            {"channel": 1},
+            {},  # Missing channel
+            {"channel": 2},
         ]
         sd_partial = SpikeData([[]] * 4, neuron_attributes=attrs_partial, length=100.0)
         mapping_partial = sd_partial.neuron_to_channel_map()
@@ -961,14 +938,8 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 4) Tests edge cases: no channel info, empty data
         (Test Case 5) Tests that channel raster shape matches expectations
         """
-        from dataclasses import dataclass
-
-        @dataclass
-        class NeuronAttrs:
-            channel: int
-
         # Create 6 neurons: 0,1 on channel 0; 2,3 on channel 1; 4,5 on channel 2
-        attrs = [NeuronAttrs(channel=i // 2) for i in range(6)]
+        attrs = [{"channel": i // 2} for i in range(6)]
         # Create spike trains with known patterns:
         # Channel 0: neuron 0 has spikes at 10, 20; neuron 1 has spike at 15
         # Channel 1: neuron 2 has spike at 25; neuron 3 has spike at 30
@@ -1022,11 +993,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertAll(ch_raster == ch_raster_explicit)
 
         # Test with different attribute name
-        @dataclass
-        class NeuronAttrsChannelId:
-            channel_id: int
-
-        attrs2 = [NeuronAttrsChannelId(channel_id=i % 2) for i in range(4)]
+        attrs2 = [{"channel_id": i % 2} for i in range(4)]
         trains2 = [[10.0], [20.0], [30.0], [40.0]]
         sd2 = SpikeData(trains2, neuron_attributes=attrs2, length=50.0)
         ch_raster2 = sd2.channel_raster(bin_size=10.0, channel_attr="channel_id")
@@ -1042,12 +1009,8 @@ class SpikeDataTest(unittest.TestCase):
             sd_no_channel.channel_raster()
 
         # Test that multiple neurons on same channel aggregate correctly
-        @dataclass
-        class NeuronAttrsSameChannel:
-            channel: int
-
         # All neurons on channel 0
-        attrs_same = [NeuronAttrsSameChannel(channel=0) for _ in range(3)]
+        attrs_same = [{"channel": 0} for _ in range(3)]
         trains_same = [[10.0, 20.0], [15.0], [25.0]]
         sd_same = SpikeData(trains_same, neuron_attributes=attrs_same, length=30.0)
         ch_raster_same = sd_same.channel_raster(bin_size=10.0)
@@ -1055,14 +1018,10 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(ch_raster_same[0, :].sum(), 4)  # Total 4 spikes
 
         # Test with non-contiguous channel indices
-        @dataclass
-        class NeuronAttrsNonContiguous:
-            channel: int
-
         attrs_nc = [
-            NeuronAttrsNonContiguous(channel=0),
-            NeuronAttrsNonContiguous(channel=5),
-            NeuronAttrsNonContiguous(channel=10),
+            {"channel": 0},
+            {"channel": 5},
+            {"channel": 10},
         ]
         trains_nc = [[10.0], [20.0], [30.0]]
         sd_nc = SpikeData(trains_nc, neuron_attributes=attrs_nc, length=40.0)
