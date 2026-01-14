@@ -1043,7 +1043,7 @@ class SpikeData:
             cluster_ids=cluster_ids,
         )
 
-    def get_pop_rate(self, square_width, gauss_sigma, raster_bin_size_ms=1.0):
+    def get_pop_rate(self, square_width=20, gauss_sigma=100, raster_bin_size_ms=1.0):
         """
         Compute population firing rate by smoothing the summed spike counts using
         a moving-average (square) window, then a Gaussian smoothing window.
@@ -1093,8 +1093,8 @@ class SpikeData:
         thr_burst,
         min_burst_diff,
         burst_edge_mult_thresh,
-        square_width=100,
-        gauss_sigma=20,
+        square_width=20,
+        gauss_sigma=100,
         acc_square_width=5,
         acc_gauss_sigma=5,
         raster_bin_size_ms=1.0,
