@@ -1101,6 +1101,7 @@ class SpikeData:
         peak_to_trough=True,
         pop_rate=None,
         pop_rate_acc=None,
+        pop_rms_override=None,
     ):
         """
         Detect bursts from a population rate vector using thresholded peak finding and
@@ -1118,6 +1119,7 @@ class SpikeData:
         peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)
         pop_rate (np.ndarray[float64], optional): Pre-calculated smoothed population spiking data in spikes per bin
         pop_rate_acc (np.ndarray[float64], optional): Pre-calculated accurate smoothed population spiking data in spikes per bin
+        pop_rms_override (float, optional): RMS to override burst threshold baseline for normalizing accross separate datasets
 
         Returns:
         tburst (np.ndarray[float64]): Time bin indices of detected bursts
@@ -1138,7 +1140,10 @@ class SpikeData:
             pop_rate_acc = self.get_pop_rate(
                 acc_square_width, acc_gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
             )
-        pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+        if pop_rms_override is None:
+            pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+        else:
+            pop_rms = pop_rms_override
 
         # Find peaks
         peaks, _ = signal.find_peaks(
