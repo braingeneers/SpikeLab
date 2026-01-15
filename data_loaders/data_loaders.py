@@ -375,14 +375,24 @@ def load_spikedata_from_nwb(
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
                     attr = {"unit_id": row.Index}
-                    for col in ('electrodes', 'electrode_group', 'channel', 'ch'):
+                    for col in ("electrodes", "electrode_group", "channel", "ch"):
                         if col in df.columns:
                             val = getattr(row, col, None)
                             if val is not None:
-                                attr["channel"] = int(val[0]) if hasattr(val, '__len__') and not isinstance(val, str) else val
+                                attr["channel"] = (
+                                    int(val[0])
+                                    if hasattr(val, "__len__")
+                                    and not isinstance(val, str)
+                                    else val
+                                )
                                 break
                     neuron_attributes.append(attr)
-            return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes)
+            return _build_spikedata(
+                trains,
+                length_ms=length_ms,
+                metadata=meta,
+                neuron_attributes=neuron_attributes,
+            )
         except Exception as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
@@ -411,7 +421,9 @@ def load_spikedata_from_nwb(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
 
-        unit_ids = np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+        unit_ids = (
+            np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+        )
 
         electrode_indices = None
         if "electrodes" in unit_grp and "electrodes_index" in unit_grp:
@@ -429,7 +441,9 @@ def load_spikedata_from_nwb(
                 attr["channel"] = int(electrode_indices[i][0])
             neuron_attributes.append(attr)
 
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes)
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
 
 
 # ----------------------------
@@ -472,8 +486,8 @@ def load_spikedata_from_spikeinterface(
     neuron_attributes: List[dict] = []
 
     channel_prop = None
-    if hasattr(sorting, 'get_property'):
-        for prop_name in ('channel', 'ch', 'peak_channel'):
+    if hasattr(sorting, "get_property"):
+        for prop_name in ("channel", "ch", "peak_channel"):
             try:
                 channel_prop = sorting.get_property(prop_name)
                 break

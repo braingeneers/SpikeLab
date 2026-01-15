@@ -21,7 +21,6 @@ import spikedata.spikedata as spikedata
 from spikedata import SpikeData
 
 
-
 def sd_from_counts(counts):
     """
     Generates a SpikeData whose raster matches given counts.

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 from scipy import ndimage, signal
@@ -277,3 +277,214 @@ def trough_between(i0, i1, pop_rate):
         return None
     seg = pop_rate[L:R]
     return L + int(np.argmin(seg))
+
+
+def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
+    """
+    Compute normalized cross correlation with lag information.
+
+
+
+    Parameters:
+    -----------
+    - ref_rate (array): Reference firing rate signal
+    - comp_rate (array): Comparison firing rate signal
+    - max_lag (int): Maximum lag in frames to search for similarity.
+                     If None, lag is set to 0.
+
+    Returns:
+    --------
+    - max_corr (float): Maximum correlation coefficient
+    - max_lag_idx (int): Lag (in frames) at which maximum correlation occurs
+    """
+    if max_lag is None:
+        max_lag = 0
+
+    # Fast path for zero lag (no time shift)
+    if max_lag == 0:
+        max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(
+            np.sum(ref_rate**2) * np.sum(comp_rate**2)
+        )
+        return max_corr, 0
+    # r is the correlation between ref and comp. Each value is sum of elementwise products
+    # for each possible lag and it is normalized so each value is between -1 and 1
+    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(
+        # Below is the normalziation method. You take signal's correaltion of itself, and
+        # take the center value which is lag = 0, and use that for normalizing
+        signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
+        * signal.correlate(comp_rate, comp_rate, mode="same")[int(len(comp_rate) / 2)]
+    )
+
+    center = int(len(r) / 2)
+
+    # Search within max_lag window
+    search_start = max(0, center - max_lag)
+    search_end = min(len(r), center + max_lag + 1)
+    search_window = r[search_start:search_end]
+
+    max_corr = np.max(search_window)
+    max_lag_idx = np.argmax(search_window) + search_start - center
+
+    return max_corr, max_lag_idx
+
+
+def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
+    """
+    Compute cosine similarity with lag information.
+
+    Parameters:
+    -----------
+    ref_rate (array): Reference firing rate signal
+    comp_rate (array): Comparison firing rate signal
+    max_lag (int): Maximum lag in frames to search for similarity.
+                   If None, lag is set to 0.
+
+    Returns:
+    --------
+    max_sim (float): Maximum cosine similarity coefficient
+    max_lag_idx (int): Lag (in frames) at which maximum similarity occurs
+    """
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    ref_rate = np.array(ref_rate).flatten()
+    comp_rate = np.array(comp_rate).flatten()
+
+    # Handle None case (convert to 0)
+    if max_lag is None:
+        max_lag = 0
+
+    if max_lag == 0:
+        # Only check zero lag
+        sim = cosine_similarity(ref_rate.reshape(1, -1), comp_rate.reshape(1, -1))[0, 0]
+        return sim, 0
+    lag_range = range(-max_lag, max_lag + 1)
+
+    similarities = []
+    valid_lags = []
+
+    # Compute cosine similarity at each lag, and makes a case for negative, positive or no lag
+    for lag in lag_range:
+        if lag < 0:
+            # comp_rate leads ref_rate (shift comp_rate left, or ref_rate right)
+            ref_segment = ref_rate[-lag:]
+            comp_segment = comp_rate[:lag]
+        elif lag > 0:
+            # ref_rate leads comp_rate (shift ref_rate left, or comp_rate right)
+            ref_segment = ref_rate[:-lag]
+            comp_segment = comp_rate[lag:]
+        else:
+            # No lag
+            ref_segment = ref_rate
+            comp_segment = comp_rate
+
+        # Skip if segments are too short
+        if len(ref_segment) > 0 and len(comp_segment) > 0:
+            sim = cosine_similarity(
+                ref_segment.reshape(1, -1), comp_segment.reshape(1, -1)
+            )[0, 0]
+            similarities.append(sim)
+            valid_lags.append(lag)
+
+    # Find maximum similarity and corresponding lag
+    similarities = np.array(similarities)
+    valid_lags = np.array(valid_lags)
+
+    max_idx = np.argmax(similarities)
+    max_sim = similarities[max_idx]
+    max_lag_idx = valid_lags[max_idx]
+
+    return max_sim, max_lag_idx
+
+
+def extract_lower_triangle_features(matrix_3d):
+    """
+    Extract lower triangle (excluding diagonal) from each correlation matrix in a 3D array.
+
+    Parameters:
+    -----------
+    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
+                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
+
+    Returns:
+    --------
+    features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
+                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
+    """
+    if matrix_3d.shape[1] != matrix_3d.shape[2]:
+        raise ValueError(
+            "The input 3D matrix must have the same size for the last 2 dimensions."
+        )
+    num_samples = matrix_3d.shape[0]  # S
+    num_items = matrix_3d.shape[1]  # U
+
+    # Get lower triangle indices
+    lower_tri_idx = np.tril_indices(num_items, k=-1)
+
+    # Extract all lower triangles at once (vectorized)
+    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+    return features
+
+
+def PCA_reduction(matrix_2d, n_components=2):
+    """
+    Compute PCA dimensionality reduction on axis 1 of a 2d matrix
+
+    Parameters:
+    -----------
+    matrix_2d (array): 2D matrix where values must be int, float, or bool
+
+    Returns:
+    --------
+    pca_result (array): 2D matrix of shape (rows, n_components)
+    """
+
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(matrix_2d)
+
+    return pca_result
+
+
+def check_neuron_attributes(
+    neuron_attributes: List[dict], n_neurons: Optional[int] = None
+) -> List[dict]:
+    """
+    Check a list of dictionaries for use as neuron_attributes.
+
+    Parameters:
+        neuron_attributes: List of dictionaries containing neuron information.
+        n_neurons: Expected number of neurons. If provided, validates the list length.
+
+    Returns:
+        A list of dictionaries where all dictionaries have the same keys.
+
+    Notes:
+    - If some dictionaries are missing keys that others have, a warning is issued
+    and the missing keys are filled with None values.
+    """
+    if not isinstance(neuron_attributes, list):
+        raise ValueError("neuron_attributes must be a list")
+    if n_neurons is not None and len(neuron_attributes) != n_neurons:
+        raise ValueError(
+            f"neuron_attributes has {len(neuron_attributes)} items, expected {n_neurons}"
+        )
+    for i, attr in enumerate(neuron_attributes):
+        if not isinstance(attr, dict):
+            raise ValueError(f"neuron_attributes[{i}] must be a dict")
+
+    if not neuron_attributes:
+        return []
+
+    all_keys = set().union(*(attr.keys() for attr in neuron_attributes))
+    if not all_keys:
+        return [d.copy() for d in neuron_attributes]
+
+    missing = {
+        i: all_keys - attr.keys()
+        for i, attr in enumerate(neuron_attributes)
+        if attr.keys() != all_keys
+    }
+    if missing:
+        parts = [f"Neuron {i} missing: {keys}" for i, keys in sorted(missing.items())]
+        raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
+
+    return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]

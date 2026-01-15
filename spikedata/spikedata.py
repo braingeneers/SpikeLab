@@ -54,6 +54,7 @@ from .utils import (
     swap,
     randomize,
     trough_between,
+    check_neuron_attributes,
 )
 
 __all__ = [
@@ -61,8 +62,7 @@ __all__ = [
     "get_sttc",
     "swap",
     "randomize",
-    "get_pop_rate",
-    "get_bursts",
+    "check_neuron_attributes",
 ]
 
 
@@ -97,8 +97,6 @@ class SpikeData:
       representing a sample rate in kHz.
 
     """
-
-   
 
     @staticmethod
     def from_idces_times(idces, times, N=None, **kwargs):
@@ -236,55 +234,6 @@ class SpikeData:
         return SpikeData.from_raster(
             raster, 1e3 / fs_Hz, raw_data=data, raw_time=fs_Hz / 1e3
         )
-    
-    @staticmethod
-    def check_neuron_attributes(
-        neuron_attributes: List[dict], n_neurons: Optional[int] = None
-    ) -> List[dict]:
-        """
-        Check a list of dictionaries for use as neuron_attributes.
-
-        Parameters:
-            neuron_attributes: List of dictionaries containing neuron information.
-            n_neurons: Expected number of neurons. If provided, validates the list length.
-
-        Returns:
-            A list of dictionaries where all dictionaries have the same keys.
-
-        Notes:
-        - If some dictionaries are missing keys that others have, a warning is issued
-        and the missing keys are filled with None values.
-        """
-        if not isinstance(neuron_attributes, list):
-            raise ValueError("neuron_attributes must be a list")
-        if n_neurons is not None and len(neuron_attributes) != n_neurons:
-            raise ValueError(
-                f"neuron_attributes has {len(neuron_attributes)} items, expected {n_neurons}"
-            )
-        for i, attr in enumerate(neuron_attributes):
-            if not isinstance(attr, dict):
-                raise ValueError(f"neuron_attributes[{i}] must be a dict")
-
-        if not neuron_attributes:
-            return []
-
-        all_keys = set().union(*(attr.keys() for attr in neuron_attributes))
-        if not all_keys:
-            return [d.copy() for d in neuron_attributes]
-
-        missing = {
-            i: all_keys - attr.keys()
-            for i, attr in enumerate(neuron_attributes)
-            if attr.keys() != all_keys
-        }
-        if missing:
-            parts = [f"Neuron {i} missing: {keys}" for i, keys in sorted(missing.items())]
-            warnings.warn(
-                f"Inconsistent neuron_attributes keys. {'; '.join(parts)}. Filling with None.",
-                UserWarning,
-            )
-
-        return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
 
     def __init__(
         self,
