@@ -443,6 +443,29 @@ class SpikeData:
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
+    def set_neuron_attribute(self, key: str, values, neuron_indices=None):
+        """
+        Set an attribute for neurons.
+
+        Parameters:
+            key: Attribute name to set.
+            values: Single value (applied to all) or list/array matching neuron_indices length.
+            neuron_indices: Neurons to update. If None, updates all.
+        """
+        indices = range(self.N) if neuron_indices is None else neuron_indices
+        if hasattr(values, "__len__") and not isinstance(values, str):
+            if len(values) != len(list(indices)):
+                raise ValueError(f"values length {len(values)} != indices length")
+            for i, val in zip(indices, values):
+                self.neuron_attributes[i][key] = val
+        else:
+            for i in indices:
+                self.neuron_attributes[i][key] = values
+
+    def get_neuron_attribute(self, key: str, default=None):
+        """Get an attribute across all neurons."""
+        return [attr.get(key, default) for attr in self.neuron_attributes]
+
     def subset(self, units, by=None):
         """
         Return a new SpikeData with spike times for only some units, selected either by
