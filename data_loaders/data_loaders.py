@@ -522,7 +522,6 @@ def load_spikedata_from_kilosort(
     include_noise: bool = False,
     length_ms: Optional[float] = None,
     channel_map_file: str = "channel_map.npy",
-    channel_map_file: str = "channel_map.npy",
 ) -> SpikeData:
     """
     # misses critical information about waveform data - load if it same in file and put in spikedata

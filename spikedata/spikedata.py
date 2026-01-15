@@ -566,26 +566,26 @@ class SpikeData:
 
     def subtime(self, start, end):
         """
-<<<<<<< HEAD
-        Return a new SpikeData with only spikes in a time range, closed on top but open
-        on the bottom unless the lower bound is zero.
+        <<<<<<< HEAD
+                Return a new SpikeData with only spikes in a time range, closed on top but open
+                on the bottom unless the lower bound is zero.
 
-        Parameters:
-        start (float): Start time in milliseconds
-        end (float): End time in milliseconds
+                Parameters:
+                start (float): Start time in milliseconds
+                end (float): End time in milliseconds
 
-        Returns:
-        sd (SpikeData): New SpikeData object with only spikes in the time range.
+                Returns:
+                sd (SpikeData): New SpikeData object with only spikes in the time range.
 
-        Notes:
-        - Start and end can be negative, in which case they are counted backwards from the
-        end.
-        - They can also be None or Ellipsis, in which case that end of the data is
-        not truncated.
-        - All metadata and neuron data are propagated, while raw data is
-        sliced to the same range of times, including all samples in the closed interval.
+                Notes:
+                - Start and end can be negative, in which case they are counted backwards from the
+                end.
+                - They can also be None or Ellipsis, in which case that end of the data is
+                not truncated.
+                - All metadata and neuron data are propagated, while raw data is
+                sliced to the same range of times, including all samples in the closed interval.
 
-        Refactor 2025-09: unchanged behavior.
+                Refactor 2025-09: unchanged behavior.
         """
         """
         Luka Version:
