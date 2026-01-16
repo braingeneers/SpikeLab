@@ -1254,8 +1254,9 @@ class SpikeDataTest(unittest.TestCase):
 
         # Unit with no spikes returns empty array with correct shape
         result_empty = sd.get_traces(unit=2, ms_before=1.0, ms_after=2.0, store=False)
-        self.assertEqual(result_empty["waveforms"].shape[2], 0)  # 0 spikes
         self.assertEqual(result_empty["waveforms"].shape[0], 1)  # 1 channel (mapped)
+        self.assertEqual(result_empty["waveforms"].shape[1], expected_samples)  # exact samples
+        self.assertEqual(result_empty["waveforms"].shape[2], 0)  # 0 spikes
 
         # Bandpass filtering option
         result_filtered = sd.get_traces(
