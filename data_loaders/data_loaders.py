@@ -26,6 +26,8 @@ try:
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
+import pickle
+
 from spikedata import SpikeData
 
 __all__ = [
@@ -35,6 +37,7 @@ __all__ = [
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
+    "load_spikedata_from_pickle",
 ]
 
 
@@ -601,3 +604,58 @@ def load_spikedata_from_spikeinterface_recording(
         hysteresis=hysteresis,
         direction=direction,  # type: ignore[arg-type]
     )
+
+
+# ----------------------------
+# Pickle
+# ----------------------------
+
+
+def load_spikedata_from_pickle(
+    filepath: str,
+    *,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> SpikeData:
+    """
+    Load a SpikeData object from a pickle file.
+
+    Parameters:
+        filepath (str): Path to the pickle file, or an S3 URL (s3://bucket/key).
+        aws_access_key_id (Optional[str]): AWS access key ID for S3 downloads.
+        aws_secret_access_key (Optional[str]): AWS secret access key for S3 downloads.
+        aws_session_token (Optional[str]): AWS session token for temporary credentials.
+        region_name (Optional[str]): AWS region name for S3 access.
+
+    Returns:
+        SpikeData: The deserialized SpikeData object.
+
+    """
+    from .s3_utils import ensure_local_file
+
+    local_path, is_temp = ensure_local_file(
+        filepath,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        with open(local_path, "rb") as f:
+            obj = pickle.load(f)
+    finally:
+        if is_temp:
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+
+    if not isinstance(obj, SpikeData):
+        raise ValueError(
+            f"Pickle file does not contain a SpikeData object (found {type(obj).__name__})"
+        )
+
+    return obj
