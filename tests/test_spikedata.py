@@ -1040,19 +1040,12 @@ class SpikeDataTest(unittest.TestCase):
 
     def test_check_neuron_attributes(self):
         """Tests check_neuron_attributes validation and behavior."""
-        # Must be a list
         self.assertRaises(ValueError, check_neuron_attributes, {"a": 1})
         self.assertRaises(ValueError, check_neuron_attributes, None)
-
-        # Elements must be dicts
         self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, "x"])
         self.assertRaises(ValueError, check_neuron_attributes, [None])
-
-        # Length must match n_neurons
         self.assertRaises(ValueError, check_neuron_attributes, [{}], n_neurons=2)
         self.assertEqual(check_neuron_attributes([{}, {}], n_neurons=2), [{}, {}])
-
-        # Keys must be consistent
         self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, {}])
         self.assertEqual(len(check_neuron_attributes([{"a": 1}, {"a": 2}])), 2)
 
@@ -1061,3 +1054,20 @@ class SpikeDataTest(unittest.TestCase):
         result = check_neuron_attributes(original)
         result[0]["a"] = 999
         self.assertEqual(original[0]["a"], 1)
+
+    def test_set_neuron_attribute(self):
+        """Tests set_neuron_attribute for single, array, and partial updates."""
+        sd = SpikeData([[] for _ in range(4)], length=100)
+
+        sd.set_neuron_attribute("type", "excitatory")
+        self.assertTrue(all(a["type"] == "excitatory" for a in sd.neuron_attributes))
+
+        sd.set_neuron_attribute("rate", [1, 2, 3, 4])
+        self.assertEqual([a["rate"] for a in sd.neuron_attributes], [1, 2, 3, 4])
+
+        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
+        self.assertEqual(sd.neuron_attributes[0]["label"], "A")
+        self.assertEqual(sd.neuron_attributes[2]["label"], "A")
+        self.assertNotIn("label", sd.neuron_attributes[1])
+
+        self.assertRaises(ValueError, sd.set_neuron_attribute, "x", [1, 2], [0])
