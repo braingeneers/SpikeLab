@@ -460,6 +460,7 @@ def PCA_reduction(matrix_2d, n_components=2):
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def ensure_h5py():
     """Ensure h5py is available for HDF5-based exporters."""
     if h5py is None:
@@ -497,6 +498,8 @@ def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 =======
 
+=======
+>>>>>>> 5b275ed (add test for neuronattributes)
 def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:
