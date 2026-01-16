@@ -908,12 +908,12 @@ class SpikeData:
                 )
 
             # Figure out which spike times were actually extracted
-            before_samples = int(ms_before * fs_kHz)
-            after_samples = int(ms_after * fs_kHz) + 1
+            before_samples = round(ms_before * fs_kHz)
+            after_samples = round(ms_after * fs_kHz)
             n_time_samples = self.raw_data.shape[1]
             valid_spike_times = []
             for spike_time_ms in spike_times_ms:
-                spike_sample = int(spike_time_ms * fs_kHz)
+                spike_sample = round(spike_time_ms * fs_kHz)
                 start = spike_sample - before_samples
                 end = spike_sample + after_samples
                 if start >= 0 and end <= n_time_samples:
