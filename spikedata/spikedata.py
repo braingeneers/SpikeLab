@@ -824,7 +824,8 @@ class SpikeData:
                 avg_waveform = waveforms.mean(axis=2)
             else:
                 avg_waveform = np.zeros(
-                    (len(channel_indices), waveforms.shape[1]), dtype=self.raw_data.dtype
+                    (len(channel_indices), waveforms.shape[1]),
+                    dtype=self.raw_data.dtype,
                 )
 
             before_samples = round(ms_before * fs_kHz)
