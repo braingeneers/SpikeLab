@@ -23,11 +23,15 @@ import warnings
 
 import numpy as np
 
+try:
+    import h5py
+except ImportError:
+    h5py = None  # type: ignore
+
 if TYPE_CHECKING:  # avoid runtime circular import
     from spikedata import SpikeData  # noqa: F401
 
-TimeUnit = Literal["ms", "s", "samples"]
-from spikedata.utils import ensure_h5py, times_from_ms
+from spikedata.utils import TimeUnit, ensure_h5py, times_from_ms
 
 
 def export_spikedata_to_hdf5(

@@ -21,6 +21,11 @@ import warnings
 
 import numpy as np
 
+try:
+    import h5py
+except ImportError:
+    h5py = None  # type: ignore
+
 from spikedata import SpikeData
 
 __all__ = [

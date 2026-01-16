@@ -12,6 +12,10 @@ __all__ = [
     "swap",
     "randomize",
     "trough_between",
+    "TimeUnit",
+    "ensure_h5py",
+    "times_from_ms",
+    "to_ms",
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
