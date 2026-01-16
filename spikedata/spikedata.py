@@ -267,12 +267,11 @@ class SpikeData:
         # contains the right number of neurons.
         #
         # Note that if there is no metadata, it should be an empty dict, because that
-        # way arbitrary fields can be added later. If neuron_attributes is None,
-        # auto-initialize with empty dictionaries for each unit.
+        # way arbitrary fields can be added later, but null neuron_attributes requires
+        # storing None so we don't break concatenation semantics.
         self.metadata = metadata.copy()
-        if neuron_attributes is None:
-            self.neuron_attributes = [{} for _ in range(self.N)]
-        else:
+        self.neuron_attributes = None
+        if neuron_attributes:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:
                 raise ValueError(
@@ -406,6 +405,8 @@ class SpikeData:
             values: Single value (applied to all) or list/array matching neuron_indices length.
             neuron_indices: Neurons to update. If None, updates all.
         """
+        if self.neuron_attributes is None:
+            self.neuron_attributes = [{} for _ in range(self.N)]
         indices = range(self.N) if neuron_indices is None else neuron_indices
         if hasattr(values, "__len__") and not isinstance(values, str):
             indices = list(indices)
@@ -430,6 +431,8 @@ class SpikeData:
         Returns:
             List of values, one per neuron.
         """
+        if self.neuron_attributes is None:
+            return [default] * self.N
         return [attr.get(key, default) for attr in self.neuron_attributes]
 
     def subset(self, units, by=None):
