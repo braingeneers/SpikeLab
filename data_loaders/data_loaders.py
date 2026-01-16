@@ -113,6 +113,7 @@ def _build_spikedata(
     metadata: Optional[Mapping[str, object]] = None,
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
+    neuron_attributes: Optional[List[dict]] = None,
 ) -> SpikeData:
     """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
@@ -124,6 +125,7 @@ def _build_spikedata(
         metadata=dict(metadata) if metadata else {},
         raw_data=raw_data,
         raw_time=raw_time,
+        neuron_attributes=neuron_attributes,
     )
 
 
@@ -343,6 +345,7 @@ def load_spikedata_from_nwb(
     Returns: sd (SpikeData): The loaded spike train data.
     """
     trains: List[np.ndarray] = []
+    neuron_attributes: List[dict] = []
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
 
     if prefer_pynwb:
@@ -353,10 +356,25 @@ def load_spikedata_from_nwb(
                 nwb = io.read()
                 if getattr(nwb, "units", None) is None:
                     raise ValueError("NWB file has no Units table")
-                for row in nwb.units.to_dataframe().itertuples():  # type: ignore
+                df = nwb.units.to_dataframe()
+                for row in df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
-            return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+                    attr = {"unit_id": row.Index}
+                    for col in ("electrodes", "electrode_group", "channel", "ch"):
+                        if col in df.columns:
+                            val = getattr(row, col, None)
+                            if val is not None:
+                                attr["channel"] = (
+                                    int(val[0])
+                                    if hasattr(val, "__len__") and not isinstance(val, str)
+                                    else val
+                                )
+                                break
+                    neuron_attributes.append(attr)
+            return _build_spikedata(
+                trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+            )
         except Exception as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
@@ -384,7 +402,28 @@ def load_spikedata_from_nwb(
         trains.extend(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+        unit_ids = np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+
+        electrode_indices = None
+        if "electrodes" in unit_grp and "electrodes_index" in unit_grp:
+            elec_flat = np.asarray(unit_grp["electrodes"])
+            elec_idx = np.asarray(unit_grp["electrodes_index"])
+            electrode_indices = []
+            start = 0
+            for stop in elec_idx:
+                electrode_indices.append(elec_flat[start:stop])
+                start = stop
+
+        for i, uid in enumerate(unit_ids):
+            attr = {"unit_id": int(uid)}
+            if electrode_indices and len(electrode_indices[i]) > 0:
+                attr["channel"] = int(electrode_indices[i][0])
+            neuron_attributes.append(attr)
+
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
 
 
 # ----------------------------
@@ -424,12 +463,31 @@ def load_spikedata_from_spikeinterface(
 
     ids = list(unit_ids) if unit_ids is not None else list(get_unit_ids())
     trains: List[np.ndarray] = []
-    for uid in ids:
+    neuron_attributes: List[dict] = []
+
+    channel_prop = None
+    if hasattr(sorting, "get_property"):
+        for prop_name in ("channel", "ch", "peak_channel"):
+            try:
+                channel_prop = sorting.get_property(prop_name)
+                break
+            except Exception:
+                pass
+
+    for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
+<<<<<<< HEAD
         trains.append(to_ms(st.astype(float), "samples", fs))
+=======
+        trains.append(_to_ms(st.astype(float), "samples", fs))
+        attr = {"unit_id": uid}
+        if channel_prop is not None:
+            attr["channel"] = int(channel_prop[i])
+        neuron_attributes.append(attr)
+>>>>>>> 5fecbc2 (Enhance SpikeData class with neuron attributes management and update data loaders. Added methods to set and get neuron attributes, ensuring proper initialization. Updated loading functions to support neuron attributes from NWB and KiloSort formats. Adjusted tests to reflect changes in neuron attributes structure.)
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
-    return _build_spikedata(trains, metadata=meta)
+    return _build_spikedata(trains, metadata=meta, neuron_attributes=neuron_attributes)
 
 
 # ----------------------------
@@ -447,10 +505,9 @@ def load_spikedata_from_kilosort(
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
+    channel_map_file: str = "channel_map.npy",
 ) -> SpikeData:
     """
-    # misses critical information about waveform data - load if it same in file and put in spikedata
-
     Load KiloSort/Phy outputs into SpikeData.
 
     Parameters:
@@ -462,6 +519,7 @@ def load_spikedata_from_kilosort(
         time_unit (str): Unit of the spike times ('samples', 's', or 'ms').
         include_noise (bool): If True, include noise clusters.
         length_ms (float, optional): Recording duration in milliseconds.
+        channel_map_file (str): Path to channel_map.npy for channel info.
     Returns: sd (SpikeData): The loaded spike train data.
 
     Note:
@@ -475,6 +533,14 @@ def load_spikedata_from_kilosort(
     spike_clusters = np.load(sc_path)
     if spike_times.shape[0] != spike_clusters.shape[0]:
         raise ValueError("spike_times and spike_clusters length mismatch")
+
+    channel_map: Optional[np.ndarray] = None
+    cm_path = os.path.join(folder, channel_map_file)
+    if os.path.exists(cm_path):
+        try:
+            channel_map = np.load(cm_path).flatten()
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_map: {e}")
 
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
@@ -516,6 +582,7 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
+    neuron_attributes: List[dict] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -524,13 +591,20 @@ def load_spikedata_from_kilosort(
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
 
+        attr: dict = {"unit_id": int(clu)}
+        if channel_map is not None and int(clu) < len(channel_map):
+            attr["channel"] = int(channel_map[int(clu)])
+        neuron_attributes.append(attr)
+
     meta = {
         "source_folder": os.path.abspath(folder),
         "source_format": "KiloSort",
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
 
 
 # ----------------------------
