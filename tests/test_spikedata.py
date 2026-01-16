@@ -1163,9 +1163,10 @@ class SpikeDataTest(unittest.TestCase):
         # Waveform shape is (num_channels, num_samples, num_spikes)
         waveforms = result["waveforms"]
         self.assertEqual(waveforms.ndim, 3)
-        expected_samples = int(1.0 * fs_kHz) + int(2.0 * fs_kHz) + 1
+        # num_samples = int(ms_before * fs_kHz) + int(ms_after * fs_kHz)
+        expected_samples = int(1.0 * fs_kHz) + int(2.0 * fs_kHz)
         self.assertEqual(waveforms.shape[0], 1)  # 1 channel (mapped)
-        self.assertTrue(abs(waveforms.shape[1] - expected_samples) <= 2)  # samples
+        self.assertEqual(waveforms.shape[1], expected_samples)  # exact sample count
         self.assertEqual(waveforms.shape[2], 2)  # 2 spikes
 
         # avg_waveform is 2D (num_channels, num_samples)

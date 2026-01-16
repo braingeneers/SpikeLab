@@ -619,9 +619,11 @@ def extract_waveforms(
         channel_indices = list(range(n_channels_total))
     n_channels = len(channel_indices)
 
-    # Calculate sample counts
-    before_samples = int(ms_before * fs_kHz)
-    after_samples = int(ms_after * fs_kHz) + 1
+    # Calculate sample counts using round() to handle floating point precision
+    # before_samples: samples before spike (exclusive of spike sample)
+    # after_samples: samples at and after spike (inclusive of spike sample)
+    before_samples = round(ms_before * fs_kHz)
+    after_samples = round(ms_after * fs_kHz)
     n_samples = before_samples + after_samples
 
     # Apply bandpass filter if requested
@@ -641,7 +643,7 @@ def extract_waveforms(
     # Extract waveforms
     waveforms = []
     for spike_time_ms in spike_times_ms:
-        spike_sample = int(spike_time_ms * fs_kHz)
+        spike_sample = round(spike_time_ms * fs_kHz)
         start = spike_sample - before_samples
         end = spike_sample + after_samples
 
