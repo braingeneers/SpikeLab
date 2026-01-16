@@ -445,7 +445,6 @@ def PCA_reduction(matrix_2d, n_components=2):
     return pca_result
 
 
-
 def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:

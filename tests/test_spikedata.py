@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
 from spikedata import SpikeData
+from spikedata.utils import check_neuron_attributes
 
 
 @dataclass
@@ -1036,3 +1037,27 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(ch_raster_nc[0, :].sum(), 1)
         self.assertEqual(ch_raster_nc[1, :].sum(), 1)
         self.assertEqual(ch_raster_nc[2, :].sum(), 1)
+
+    def test_check_neuron_attributes(self):
+        """Tests check_neuron_attributes validation and behavior."""
+        # Must be a list
+        self.assertRaises(ValueError, check_neuron_attributes, {"a": 1})
+        self.assertRaises(ValueError, check_neuron_attributes, None)
+
+        # Elements must be dicts
+        self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, "x"])
+        self.assertRaises(ValueError, check_neuron_attributes, [None])
+
+        # Length must match n_neurons
+        self.assertRaises(ValueError, check_neuron_attributes, [{}], n_neurons=2)
+        self.assertEqual(check_neuron_attributes([{}, {}], n_neurons=2), [{}, {}])
+
+        # Keys must be consistent
+        self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, {}])
+        self.assertEqual(len(check_neuron_attributes([{"a": 1}, {"a": 2}])), 2)
+
+        # Returns copies
+        original = [{"a": 1}]
+        result = check_neuron_attributes(original)
+        result[0]["a"] = 999
+        self.assertEqual(original[0]["a"], 1)

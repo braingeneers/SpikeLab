@@ -381,13 +381,17 @@ def load_spikedata_from_nwb(
                             if val is not None:
                                 attr["channel"] = (
                                     int(val[0])
-                                    if hasattr(val, "__len__") and not isinstance(val, str)
+                                    if hasattr(val, "__len__")
+                                    and not isinstance(val, str)
                                     else val
                                 )
                                 break
                     neuron_attributes.append(attr)
             return _build_spikedata(
-                trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+                trains,
+                length_ms=length_ms,
+                metadata=meta,
+                neuron_attributes=neuron_attributes,
             )
         except Exception as e:  # pragma: no cover
             warnings.warn(
@@ -417,7 +421,9 @@ def load_spikedata_from_nwb(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
 
-        unit_ids = np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+        unit_ids = (
+            np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+        )
 
         electrode_indices = None
         if "electrodes" in unit_grp and "electrodes_index" in unit_grp:

@@ -410,7 +410,9 @@ class SpikeData:
         if hasattr(values, "__len__") and not isinstance(values, str):
             indices = list(indices)
             if len(values) != len(indices):
-                raise ValueError(f"values length {len(values)} != indices length {len(indices)}")
+                raise ValueError(
+                    f"values length {len(values)} != indices length {len(indices)}"
+                )
             for i, val in zip(indices, values):
                 self.neuron_attributes[i][key] = val
         else:
