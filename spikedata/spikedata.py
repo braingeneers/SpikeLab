@@ -311,6 +311,61 @@ class SpikeData:
             times.append(t)
         return np.array(idces), np.array(times)
 
+    @property
+    def unit_locations(self) -> Optional[np.ndarray]:
+        """
+        Get unit locations as an (N, D) array where D is the spatial dimension.
+
+        Extracts from neuron_attributes 'location', 'x'/'y'/'z', or 'position' keys.
+        Returns None if any unit lacks location data.
+        """
+        if self.neuron_attributes is None:
+            return None
+
+        locations = []
+        for attr in self.neuron_attributes:
+            if "location" in attr:
+                locations.append(np.asarray(attr["location"]))
+            elif "x" in attr:
+                loc = [attr["x"], attr.get("y", 0.0)]
+                if "z" in attr:
+                    loc.append(attr["z"])
+                locations.append(np.asarray(loc))
+            elif "position" in attr:
+                locations.append(np.asarray(attr["position"]))
+            else:
+                return None  # Missing location for at least one unit
+
+        if not locations:
+            return None
+        return np.array(locations)
+
+    @property
+    def electrodes(self) -> Optional[np.ndarray]:
+        """
+        Get electrode/channel indices for each unit as a 1D array.
+
+        Extracts from neuron_attributes 'electrode', 'channel', or 'ch' keys.
+        Returns None if any unit lacks electrode data.
+        """
+        if self.neuron_attributes is None:
+            return None
+
+        electrodes = []
+        for attr in self.neuron_attributes:
+            if "electrode" in attr:
+                electrodes.append(attr["electrode"])
+            elif "channel" in attr:
+                electrodes.append(attr["channel"])
+            elif "ch" in attr:
+                electrodes.append(attr["ch"])
+            else:
+                return None  # Missing electrode for at least one unit
+
+        if not electrodes:
+            return None
+        return np.array(electrodes)
+
     def frames(self, length, overlap=0):
         """
         Iterate over the length of the spike train of SpikeData objects in

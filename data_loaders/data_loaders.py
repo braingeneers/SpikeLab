@@ -371,10 +371,26 @@ def load_spikedata_from_nwb(
                 if getattr(nwb, "units", None) is None:
                     raise ValueError("NWB file has no Units table")
                 df = nwb.units.to_dataframe()
+
+                electrode_positions: Optional[dict] = None
+                if getattr(nwb, "electrodes", None) is not None:
+                    elec_df = nwb.electrodes.to_dataframe()
+                    electrode_positions = {}
+                    for elec_row in elec_df.itertuples():
+                        pos = []
+                        for coord in ("x", "y", "z"):
+                            if coord in elec_df.columns:
+                                val = getattr(elec_row, coord, None)
+                                if val is not None and not np.isnan(val):
+                                    pos.append(float(val))
+                        if pos:
+                            electrode_positions[elec_row.Index] = pos
+
                 for row in df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
                     attr = {"unit_id": row.Index}
+                    electrode_id = None
                     for col in ("electrodes", "electrode_group", "channel", "ch"):
                         if col in df.columns:
                             val = getattr(row, col, None)
@@ -384,10 +400,14 @@ def load_spikedata_from_nwb(
                                 else:
                                     channel_val = val
                                 try:
-                                    attr["channel"] = int(channel_val)
+                                    attr["electrode"] = int(channel_val)
+                                    electrode_id = int(channel_val)
                                 except (TypeError, ValueError):
-                                    attr["channel"] = channel_val
+                                    attr["electrode"] = channel_val
+                                    electrode_id = channel_val
                                 break
+                    if electrode_positions and electrode_id in electrode_positions:
+                        attr["location"] = electrode_positions[electrode_id]
                     neuron_attributes.append(attr)
             return _build_spikedata(
                 trains,
@@ -437,10 +457,38 @@ def load_spikedata_from_nwb(
                 electrode_indices.append(elec_flat[start:stop])
                 start = stop
 
+        electrode_positions: Optional[dict] = None
+        elec_table_path = "general/extracellular_ephys/electrodes"
+        if elec_table_path in f:
+            elec_grp = f[elec_table_path]
+            electrode_positions = {}
+            x_arr = np.asarray(elec_grp["x"]) if "x" in elec_grp else None
+            y_arr = np.asarray(elec_grp["y"]) if "y" in elec_grp else None
+            z_arr = np.asarray(elec_grp["z"]) if "z" in elec_grp else None
+            elec_ids = (
+                np.asarray(elec_grp["id"])
+                if "id" in elec_grp
+                else np.arange(len(x_arr) if x_arr is not None else 0)
+            )
+            for idx, eid in enumerate(elec_ids):
+                pos = []
+                if x_arr is not None and idx < len(x_arr):
+                    pos.append(float(x_arr[idx]))
+                if y_arr is not None and idx < len(y_arr):
+                    pos.append(float(y_arr[idx]))
+                if z_arr is not None and idx < len(z_arr):
+                    pos.append(float(z_arr[idx]))
+                if pos:
+                    electrode_positions[int(eid)] = pos
+
         for i, uid in enumerate(unit_ids):
             attr = {"unit_id": int(uid)}
+            electrode_id = None
             if electrode_indices and len(electrode_indices[i]) > 0:
-                attr["channel"] = int(electrode_indices[i][0])
+                electrode_id = int(electrode_indices[i][0])
+                attr["electrode"] = electrode_id
+            if electrode_positions and electrode_id in electrode_positions:
+                attr["location"] = electrode_positions[electrode_id]
             neuron_attributes.append(attr)
 
     return _build_spikedata(
@@ -488,20 +536,27 @@ def load_spikedata_from_spikeinterface(
     neuron_attributes: List[dict] = []
 
     channel_prop = None
+    location_prop = None
     if hasattr(sorting, "get_property"):
-        for prop_name in ("channel", "ch", "peak_channel"):
-            try:
-                channel_prop = sorting.get_property(prop_name)
+        for prop_name in ("channel", "ch", "peak_channel", "electrode"):
+            channel_prop = sorting.get_property(prop_name)
+            if channel_prop is not None:
                 break
-            except Exception:
-                raise ValueError(f"Failed to get channel property {prop_name}")
+        for prop_name in ("location", "unit_location", "position"):
+            location_prop = sorting.get_property(prop_name)
+            if location_prop is not None:
+                break
 
     for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
         trains.append(_to_ms(st.astype(float), "samples", fs))
         attr = {"unit_id": uid}
         if channel_prop is not None:
-            attr["channel"] = int(channel_prop[i])
+            attr["electrode"] = int(channel_prop[i])
+        if location_prop is not None:
+            loc = location_prop[i]
+            if loc is not None:
+                attr["location"] = list(loc) if hasattr(loc, "__iter__") else [loc]
         neuron_attributes.append(attr)
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
@@ -563,6 +618,14 @@ def load_spikedata_from_kilosort(
         except Exception as e:
             warnings.warn(f"Failed loading channel_map: {e}")
 
+    channel_positions: Optional[np.ndarray] = None
+    cp_path = os.path.join(folder, "channel_positions.npy")
+    if os.path.exists(cp_path):
+        try:
+            channel_positions = np.load(cp_path)
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_positions: {e}")
+
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
         tsv_path = os.path.join(folder, cluster_info_tsv)
@@ -613,8 +676,13 @@ def load_spikedata_from_kilosort(
         metadata_units.append(int(clu))
 
         attr: dict = {"unit_id": int(clu)}
+        channel_idx = None
         if channel_map is not None and int(clu) < len(channel_map):
-            attr["channel"] = int(channel_map[int(clu)])
+            channel_idx = int(channel_map[int(clu)])
+            attr["electrode"] = channel_idx
+        if channel_positions is not None and channel_idx is not None:
+            if channel_idx < len(channel_positions):
+                attr["location"] = list(channel_positions[channel_idx])
         neuron_attributes.append(attr)
 
     meta = {

@@ -254,6 +254,21 @@ def export_spikedata_to_nwb(
         g = f.create_group(group)
         g.create_dataset(spike_times_dataset, data=flat_s)
         g.create_dataset(spike_times_index_dataset, data=index)
+        g.create_dataset("id", data=np.arange(sd.N, dtype=int))
+
+        if sd.electrodes is not None:
+            g.create_dataset("electrodes", data=sd.electrodes)
+            g.create_dataset("electrodes_index", data=np.arange(1, sd.N + 1, dtype=int))
+
+        if sd.unit_locations is not None:
+            elec_grp = f.create_group("general/extracellular_ephys/electrodes")
+            locations = sd.unit_locations
+            elec_grp.create_dataset("id", data=np.arange(sd.N, dtype=int))
+            elec_grp.create_dataset("x", data=locations[:, 0])
+            if locations.shape[1] > 1:
+                elec_grp.create_dataset("y", data=locations[:, 1])
+            if locations.shape[1] > 2:
+                elec_grp.create_dataset("z", data=locations[:, 2])
 
 
 def export_spikedata_to_kilosort(
@@ -332,6 +347,13 @@ def export_spikedata_to_kilosort(
     spike_clusters_path = os.path.join(folder, spike_clusters_file)
     np.save(spike_times_path, times_out)
     np.save(spike_clusters_path, clusters)
+
+    if sd.electrodes is not None:
+        np.save(os.path.join(folder, "channel_map.npy"), sd.electrodes)
+
+    if sd.unit_locations is not None:
+        np.save(os.path.join(folder, "channel_positions.npy"), sd.unit_locations)
+
     return spike_times_path, spike_clusters_path
 
 
