@@ -365,12 +365,14 @@ def load_spikedata_from_nwb(
                         if col in df.columns:
                             val = getattr(row, col, None)
                             if val is not None:
-                                attr["channel"] = (
-                                    int(val[0])
-                                    if hasattr(val, "__len__")
-                                    and not isinstance(val, str)
-                                    else val
-                                )
+                                if hasattr(val, "__len__") and not isinstance(val, str):
+                                    channel_val = val[0]
+                                else:
+                                    channel_val = val
+                                try:
+                                    attr["channel"] = int(channel_val)
+                                except (TypeError, ValueError):
+                                    attr["channel"] = channel_val
                                 break
                     neuron_attributes.append(attr)
             return _build_spikedata(
@@ -478,7 +480,7 @@ def load_spikedata_from_spikeinterface(
                 channel_prop = sorting.get_property(prop_name)
                 break
             except Exception:
-                pass
+                raise ValueError(f"Failed to get channel property {prop_name}")
 
     for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
@@ -525,8 +527,11 @@ def load_spikedata_from_kilosort(
         time_unit (str): Unit of the spike times ('samples', 's', or 'ms').
         include_noise (bool): If True, include noise clusters.
         length_ms (float, optional): Recording duration in milliseconds.
-        channel_map_file (str): Path to channel_map.npy for channel info.
-    Returns: sd (SpikeData): The loaded spike train data.
+        channel_map_file (str): Filename of the channel map file relative to folder.
+            Expected format: 1D numpy array mapping cluster indices to channel numbers.
+
+    Returns:
+        sd (SpikeData): The loaded spike train data.
 
     Note:
     - This loader does not extract or include waveform data; only spike times and cluster assignments are loaded.
