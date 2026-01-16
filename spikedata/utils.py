@@ -16,10 +16,14 @@ __all__ = [
     "swap",
     "randomize",
     "trough_between",
+<<<<<<< HEAD
     "TimeUnit",
     "ensure_h5py",
     "times_from_ms",
     "to_ms",
+=======
+    "extract_waveforms",
+>>>>>>> 4e66959 (Enhanced get_traces with bandpass filtering, storage, and improved API)
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
@@ -552,4 +556,104 @@ def check_neuron_attributes(
         raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
 
     return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
+<<<<<<< HEAD
 >>>>>>> d2e0e10 (add neuron attributes checker to neuron atts)
+=======
+
+
+def extract_waveforms(
+    raw_data: np.ndarray,
+    spike_times_ms: np.ndarray,
+    fs_kHz: float,
+    ms_before: float = 1.0,
+    ms_after: float = 2.0,
+    channel_indices: Optional[List[int]] = None,
+    bandpass: Optional[tuple] = None,
+    filter_order: int = 3,
+) -> np.ndarray:
+    """
+    Extract waveform snippets from raw data at specified spike times.
+
+    This is a standalone utility function for extracting voltage traces around
+    spike times. It can be used independently or called by SpikeData.get_traces().
+
+    Parameters:
+        raw_data: Raw voltage data with shape (num_channels, num_samples).
+        spike_times_ms: Array of spike times in milliseconds.
+        fs_kHz: Sampling rate in kHz.
+        ms_before: Milliseconds before each spike time to include (default: 1.0).
+        ms_after: Milliseconds after each spike time to include (default: 2.0).
+        channel_indices: List of channel indices to extract. If None, extracts
+            all channels.
+        bandpass: Optional tuple (lowcut_Hz, highcut_Hz) for bandpass filtering.
+            If provided, applies a Butterworth bandpass filter before extraction.
+            Example: (300, 3000) for typical spike band.
+        filter_order: Order of the Butterworth filter (default: 3).
+
+    Returns:
+        3D numpy array with shape (num_channels, num_samples, num_spikes).
+        Returns empty array with shape (num_channels, num_samples, 0) if no
+        valid spikes found.
+
+    Example:
+        >>> # Extract waveforms from raw data
+        >>> waveforms = extract_waveforms(
+        ...     raw_data, spike_times, fs_kHz=30.0,
+        ...     ms_before=1.0, ms_after=2.0, channel_indices=[0, 1]
+        ... )
+        >>> print(waveforms.shape)  # (2, 90, num_spikes)
+        >>>
+        >>> # With bandpass filtering
+        >>> waveforms_filtered = extract_waveforms(
+        ...     raw_data, spike_times, fs_kHz=30.0,
+        ...     bandpass=(300, 3000)
+        ... )
+    """
+    if raw_data.size == 0:
+        raise ValueError("raw_data is empty")
+
+    n_channels_total, n_time_samples = raw_data.shape
+
+    # Determine channels to extract
+    if channel_indices is None:
+        channel_indices = list(range(n_channels_total))
+    n_channels = len(channel_indices)
+
+    # Calculate sample counts
+    before_samples = int(ms_before * fs_kHz)
+    after_samples = int(ms_after * fs_kHz) + 1
+    n_samples = before_samples + after_samples
+
+    # Apply bandpass filter if requested
+    if bandpass is not None:
+        lowcut, highcut = bandpass
+        fs_Hz = fs_kHz * 1000
+        data_to_extract = butter_filter(
+            raw_data, lowcut=lowcut, highcut=highcut, fs=fs_Hz, order=filter_order
+        )
+    else:
+        data_to_extract = raw_data
+
+    # Handle empty spike times
+    if len(spike_times_ms) == 0:
+        return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
+
+    # Extract waveforms
+    waveforms = []
+    for spike_time_ms in spike_times_ms:
+        spike_sample = int(spike_time_ms * fs_kHz)
+        start = spike_sample - before_samples
+        end = spike_sample + after_samples
+
+        # Skip spikes too close to boundaries
+        if start < 0 or end > n_time_samples:
+            continue
+
+        waveforms.append(data_to_extract[channel_indices, start:end])
+
+    if len(waveforms) == 0:
+        return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
+
+    # Stack and transpose to (num_channels, num_samples, num_spikes)
+    return np.array(waveforms).transpose(1, 2, 0)
+>>>>>>> 4e66959 (Enhanced get_traces with bandpass filtering, storage, and improved API)
