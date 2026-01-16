@@ -603,7 +603,11 @@ def extract_waveforms(
     if bandpass is not None:
         lowcut, highcut = bandpass
         data_to_extract = butter_filter(
-            raw_data, lowcut=lowcut, highcut=highcut, fs=fs_kHz * 1000, order=filter_order
+            raw_data,
+            lowcut=lowcut,
+            highcut=highcut,
+            fs=fs_kHz * 1000,
+            order=filter_order,
         )
     else:
         data_to_extract = raw_data
