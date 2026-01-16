@@ -505,80 +505,49 @@ def extract_waveforms(
     """
     Extract waveform snippets from raw data at specified spike times.
 
-    This is a standalone utility function for extracting voltage traces around
-    spike times. It can be used independently or called by SpikeData.get_traces().
-
     Parameters:
         raw_data: Raw voltage data with shape (num_channels, num_samples).
         spike_times_ms: Array of spike times in milliseconds.
         fs_kHz: Sampling rate in kHz.
-        ms_before: Milliseconds before each spike time to include (default: 1.0).
-        ms_after: Milliseconds after each spike time to include (default: 2.0).
-        channel_indices: List of channel indices to extract. If None, extracts
-            all channels.
-        bandpass: Optional tuple (lowcut_Hz, highcut_Hz) for bandpass filtering.
-            If provided, applies a Butterworth bandpass filter before extraction.
-            Example: (300, 3000) for typical spike band.
-        filter_order: Order of the Butterworth filter (default: 3).
+        ms_before: Milliseconds before each spike time (default: 1.0).
+        ms_after: Milliseconds after each spike time (default: 2.0).
+        channel_indices: Channel indices to extract. If None, extracts all.
+        bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
+        filter_order: Butterworth filter order (default: 3).
 
     Returns:
-        3D numpy array with shape (num_channels, num_samples, num_spikes).
-        Returns empty array with shape (num_channels, num_samples, 0) if no
-        valid spikes found.
-
-    Example:
-        >>> # Extract waveforms from raw data
-        >>> waveforms = extract_waveforms(
-        ...     raw_data, spike_times, fs_kHz=30.0,
-        ...     ms_before=1.0, ms_after=2.0, channel_indices=[0, 1]
-        ... )
-        >>> print(waveforms.shape)  # (2, 90, num_spikes)
-        >>>
-        >>> # With bandpass filtering
-        >>> waveforms_filtered = extract_waveforms(
-        ...     raw_data, spike_times, fs_kHz=30.0,
-        ...     bandpass=(300, 3000)
-        ... )
+        3D array (num_channels, num_samples, num_spikes). Empty if no valid spikes.
     """
     if raw_data.size == 0:
         raise ValueError("raw_data is empty")
 
     n_channels_total, n_time_samples = raw_data.shape
 
-    # Determine channels to extract
     if channel_indices is None:
         channel_indices = list(range(n_channels_total))
     n_channels = len(channel_indices)
 
-    # Calculate sample counts using round() to handle floating point precision
-    # before_samples: samples before spike (exclusive of spike sample)
-    # after_samples: samples at and after spike (inclusive of spike sample)
     before_samples = round(ms_before * fs_kHz)
     after_samples = round(ms_after * fs_kHz)
     n_samples = before_samples + after_samples
 
-    # Apply bandpass filter if requested
     if bandpass is not None:
         lowcut, highcut = bandpass
-        fs_Hz = fs_kHz * 1000
         data_to_extract = butter_filter(
-            raw_data, lowcut=lowcut, highcut=highcut, fs=fs_Hz, order=filter_order
+            raw_data, lowcut=lowcut, highcut=highcut, fs=fs_kHz * 1000, order=filter_order
         )
     else:
         data_to_extract = raw_data
 
-    # Handle empty spike times
     if len(spike_times_ms) == 0:
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
-    # Extract waveforms
     waveforms = []
     for spike_time_ms in spike_times_ms:
         spike_sample = round(spike_time_ms * fs_kHz)
         start = spike_sample - before_samples
         end = spike_sample + after_samples
 
-        # Skip spikes too close to boundaries
         if start < 0 or end > n_time_samples:
             continue
 
@@ -587,5 +556,4 @@ def extract_waveforms(
     if len(waveforms) == 0:
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
-    # Stack and transpose to (num_channels, num_samples, num_spikes)
     return np.array(waveforms).transpose(1, 2, 0)
