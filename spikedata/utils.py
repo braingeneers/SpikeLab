@@ -23,7 +23,11 @@ __all__ = [
     "to_ms",
 =======
     "extract_waveforms",
+<<<<<<< HEAD
 >>>>>>> 4e66959 (Enhanced get_traces with bandpass filtering, storage, and improved API)
+=======
+    "check_neuron_attributes",
+>>>>>>> 422b275 (Update spikedata/utils.py to add check_neuron_attributes)
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
