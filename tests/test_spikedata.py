@@ -1076,17 +1076,21 @@ class SpikeDataTest(unittest.TestCase):
         """
         sd = SpikeData([[] for _ in range(4)], length=100)
 
+        # Test Case 1: Single value assignment to all neurons
         sd.set_neuron_attribute("type", "excitatory")
         self.assertTrue(all(a["type"] == "excitatory" for a in sd.neuron_attributes))
 
+        # Test Case 2: Array value assignment
         sd.set_neuron_attribute("rate", [1, 2, 3, 4])
         self.assertEqual([a["rate"] for a in sd.neuron_attributes], [1, 2, 3, 4])
 
+        # Test Case 3: Partial update with neuron_indices
         sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
         self.assertEqual(sd.neuron_attributes[0]["label"], "A")
         self.assertEqual(sd.neuron_attributes[2]["label"], "A")
         self.assertNotIn("label", sd.neuron_attributes[1])
 
+        # Test Case 4: Length mismatch raises ValueError
         self.assertRaises(ValueError, sd.set_neuron_attribute, "x", [1, 2], [0])
 
     def test_get_neuron_attribute(self):
@@ -1100,10 +1104,12 @@ class SpikeDataTest(unittest.TestCase):
         """
         sd = SpikeData([[] for _ in range(3)], length=100)
 
-        # Before any attributes set
+        # Test Case 1: Retrieval when no attributes set (returns defaults)
         self.assertEqual(sd.get_neuron_attribute("x"), [None, None, None])
         self.assertEqual(sd.get_neuron_attribute("x", default=-1), [-1, -1, -1])
 
+        # Test Case 2: Retrieval of existing attribute values
         sd.set_neuron_attribute("val", [1, 2, 3])
         self.assertEqual(sd.get_neuron_attribute("val"), [1, 2, 3])
+        # Test Case 3: Default value for missing attributes
         self.assertEqual(sd.get_neuron_attribute("missing"), [None, None, None])

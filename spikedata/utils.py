@@ -504,14 +504,14 @@ def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:
     """
-    Check a list of dictionaries for use as neuron_attributes.
+    Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
 
     Parameters:
-        neuron_attributes: List of dictionaries containing neuron information.
+        neuron_attributes: List of dictionaries containing neuron attributes.
         n_neurons: Expected number of neurons. If provided, validates the list length.
 
     Returns:
-        A list of dictionaries where all dictionaries have the same keys.
+        A list of dictionaries where all dictionaries have valid keys and values.
 
     Notes:
     - If some dictionaries are missing keys that others have, a warning is issued
