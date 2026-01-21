@@ -13,6 +13,7 @@ __all__ = [
     "randomize",
     "trough_between",
     "extract_waveforms",
+    "check_neuron_attributes",
 ]
 
 
