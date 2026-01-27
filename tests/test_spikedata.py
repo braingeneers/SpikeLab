@@ -447,11 +447,11 @@ class SpikeDataTest(unittest.TestCase):
 
         # Exactly the same thing, but for the matrix of STTCs.
         sttc = foo.spike_time_tilings(1)
-        self.assertEqual(sttc.shape, (2, 2))
-        self.assertEqual(sttc[0, 1], sttc[1, 0])
-        self.assertEqual(sttc[0, 0], 1.0)
-        self.assertEqual(sttc[1, 1], 1.0)
-        self.assertEqual(sttc[0, 1], foo.spike_time_tiling(0, 1, 1))
+        self.assertEqual(sttc.matrix.shape, (2, 2))
+        self.assertEqual(sttc.matrix[0, 1], sttc.matrix[1, 0])
+        self.assertEqual(sttc.matrix[0, 0], 1.0)
+        self.assertEqual(sttc.matrix[1, 1], 1.0)
+        self.assertEqual(sttc.matrix[0, 1], foo.spike_time_tiling(0, 1, 1))
 
         # Default arguments, inferred value of tmax.
         tmax = max(np.ptp(foo.train[0]), np.ptp(foo.train[1]))
