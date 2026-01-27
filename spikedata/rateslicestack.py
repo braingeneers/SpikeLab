@@ -350,7 +350,10 @@ class RateSliceStack:
                     ]
                 )
         # all_burst_corr_scores is UxSxS and av_burst_corr_scores is N since its the mean correlation across all bursts.
-        return PairwiseCompMatrixStack(stack=all_slice_corr_scores), av_slice_corr_scores
+        return (
+            PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+            av_slice_corr_scores,
+        )
 
     def get_slice_to_slice_time_corr_from_stack(
         self, compare_func=compute_cosine_similarity_with_lag, max_lag=0
@@ -409,7 +412,10 @@ class RateSliceStack:
             )
         # all_slice_corr_scores is TxSxS and av_burst_corr_scores is T
 
-        return PairwiseCompMatrixStack(stack=all_slice_corr_scores), av_slice_corr_scores
+        return (
+            PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+            av_slice_corr_scores,
+        )
 
     def PCA_on_lower_diagnol_corr_matrix(self, all_burst_corr_scores, n_components=2):
         """
@@ -506,4 +512,9 @@ class RateSliceStack:
         av_max_corr_lag = np.nanmean(
             max_corr_lag_array[:, lower_tri_indices[0], lower_tri_indices[1]], axis=(1)
         )  # shape (B,)
-        return PairwiseCompMatrixStack(stack=max_corr_array, times=self.times), PairwiseCompMatrixStack(stack=max_corr_lag_array, times=self.times), av_max_corr, av_max_corr_lag
+        return (
+            PairwiseCompMatrixStack(stack=max_corr_array, times=self.times),
+            PairwiseCompMatrixStack(stack=max_corr_lag_array, times=self.times),
+            av_max_corr,
+            av_max_corr_lag,
+        )
