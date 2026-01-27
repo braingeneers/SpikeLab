@@ -2,11 +2,12 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Union, Iterator
 import numpy as np
 
+
 @dataclass
 class PairwiseCompMatrix:
     """
     A data class for n x n pairwise comparison matrices (e.g., correlation, STTC).
-    
+
     Attributes:
     -----------
     matrix : np.ndarray
@@ -16,6 +17,7 @@ class PairwiseCompMatrix:
     metadata : dict
         Additional information about the matrix.
     """
+
     matrix: np.ndarray
     labels: Optional[List[Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -23,9 +25,11 @@ class PairwiseCompMatrix:
     def __post_init__(self):
         if self.matrix.ndim != 2 or self.matrix.shape[0] != self.matrix.shape[1]:
             raise ValueError(f"Matrix must be n x n, got {self.matrix.shape}")
-        
+
         if self.labels is not None and len(self.labels) != self.matrix.shape[0]:
-            raise ValueError(f"Number of labels ({len(self.labels)}) must match matrix dimension ({self.matrix.shape[0]})")
+            raise ValueError(
+                f"Number of labels ({len(self.labels)}) must match matrix dimension ({self.matrix.shape[0]})"
+            )
 
     def __repr__(self) -> str:
         return f"PairwiseCompMatrix(shape={self.matrix.shape}, labels={self.labels}, metadata={list(self.metadata.keys())})"
@@ -33,12 +37,12 @@ class PairwiseCompMatrix:
     def to_networkx(self, threshold: Optional[float] = None):
         """
         Export the matrix to a NetworkX graph.
-        
+
         Parameters:
         -----------
         threshold: float, optional
             If provided, only edges with absolute weight > threshold will be included.
-        
+
         Returns:
         --------
         G: networkx.Graph
@@ -46,16 +50,18 @@ class PairwiseCompMatrix:
         try:
             import networkx as nx
         except ImportError:
-            raise ImportError("NetworkX is required for to_networkx. Install with 'pip install networkx'")
-        
+            raise ImportError(
+                "NetworkX is required for to_networkx. Install with 'pip install networkx'"
+            )
+
         G = nx.Graph()
         n = self.matrix.shape[0]
-        
+
         # Add nodes
         for i in range(n):
             label = self.labels[i] if self.labels is not None else i
             G.add_node(i, label=label)
-            
+
         # Add edges
         for i in range(n):
             for j in range(i + 1, n):
@@ -63,14 +69,15 @@ class PairwiseCompMatrix:
                 if threshold is None or abs(weight) > threshold:
                     if not np.isnan(weight):
                         G.add_edge(i, j, weight=float(weight))
-        
+
         return G
+
 
 @dataclass
 class PairwiseCompMatrixStack:
     """
     A data class for a stack of n x n pairwise comparison matrices (e.g., across slices or time bins).
-    
+
     Attributes:
     -----------
     stack : np.ndarray
@@ -82,6 +89,7 @@ class PairwiseCompMatrixStack:
     metadata : dict
         Additional information about the stack.
     """
+
     stack: np.ndarray
     labels: Optional[List[Any]] = None
     times: Optional[List[tuple]] = None
@@ -90,29 +98,39 @@ class PairwiseCompMatrixStack:
     def __post_init__(self):
         if self.stack.ndim != 3 or self.stack.shape[1] != self.stack.shape[2]:
             raise ValueError(f"Stack must be S x n x n, got {self.stack.shape}")
-        
+
         if self.labels is not None and len(self.labels) != self.stack.shape[1]:
-            raise ValueError(f"Number of labels ({len(self.labels)}) must match matrix dimension ({self.stack.shape[1]})")
-        
+            raise ValueError(
+                f"Number of labels ({len(self.labels)}) must match matrix dimension ({self.stack.shape[1]})"
+            )
+
         if self.times is not None and len(self.times) != self.stack.shape[0]:
-            raise ValueError(f"Number of times ({len(self.times)}) must match stack size ({self.stack.shape[0]})")
+            raise ValueError(
+                f"Number of times ({len(self.times)}) must match stack size ({self.stack.shape[0]})"
+            )
 
     def __repr__(self) -> str:
         return f"PairwiseCompMatrixStack(size={self.stack.shape[0]}, matrix_shape={self.stack.shape[1:]}, labels={self.labels}, metadata={list(self.metadata.keys())})"
 
-    def __getitem__(self, index) -> Union[PairwiseCompMatrix, 'PairwiseCompMatrixStack']:
+    def __getitem__(
+        self, index
+    ) -> Union[PairwiseCompMatrix, "PairwiseCompMatrixStack"]:
         if isinstance(index, slice):
             return PairwiseCompMatrixStack(
                 stack=self.stack[index],
                 labels=self.labels,
                 times=self.times[index] if self.times else None,
-                metadata=self.metadata.copy()
+                metadata=self.metadata.copy(),
             )
-        
+
         return PairwiseCompMatrix(
             matrix=self.stack[index],
             labels=self.labels,
-            metadata={**self.metadata, "stack_index": index, "time": self.times[index] if self.times else None}
+            metadata={
+                **self.metadata,
+                "stack_index": index,
+                "time": self.times[index] if self.times else None,
+            },
         )
 
     def __iter__(self) -> Iterator[PairwiseCompMatrix]:
@@ -125,12 +143,12 @@ class PairwiseCompMatrixStack:
     def mean(self, ignore_nan: bool = True) -> PairwiseCompMatrix:
         """
         Compute the mean matrix across the stack.
-        
+
         Parameters:
         -----------
         ignore_nan : bool, default True
             Whether to use np.nanmean to ignore NaN values in the average.
-        
+
         Returns:
         --------
         mean_matrix : PairwiseCompMatrix
@@ -139,9 +157,9 @@ class PairwiseCompMatrixStack:
             mean_matrix = np.nanmean(self.stack, axis=0)
         else:
             mean_matrix = np.mean(self.stack, axis=0)
-            
+
         return PairwiseCompMatrix(
             matrix=mean_matrix,
             labels=self.labels,
-            metadata={**self.metadata, "computed": "mean"}
+            metadata={**self.metadata, "computed": "mean"},
         )
