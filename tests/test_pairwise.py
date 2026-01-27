@@ -147,16 +147,17 @@ class TestPairwise(unittest.TestCase):
         stack_data = np.random.rand(10, 5, 5)
         # Make them symmetric
         for i in range(10):
-             stack_data[i] = (stack_data[i] + stack_data[i].T) / 2
-        
+            stack_data[i] = (stack_data[i] + stack_data[i].T) / 2
+
         stack = PairwiseCompMatrixStack(stack=stack_data)
-        
+
         # Test PCA on RateSliceStack with this stack
         # (Actually, just test the PCA method directly or via extract_lower_triangle_features)
         from spikedata.utils import extract_lower_triangle_features
+
         features = extract_lower_triangle_features(stack)
-        self.assertEqual(features.shape, (10, 10)) # 5*(5-1)/2 = 10 features
-        
+        self.assertEqual(features.shape, (10, 10))  # 5*(5-1)/2 = 10 features
+
         # Test PCA_on_lower_diagnol_corr_matrix
         event_matrix = np.random.rand(2, 50, 5)
         rss = RateSliceStack(None, event_matrix=event_matrix)
