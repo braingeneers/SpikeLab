@@ -417,14 +417,20 @@ def extract_lower_triangle_features(matrix_3d):
 
     Parameters:
     -----------
-    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
-                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
+    matrix_3d (array or PairwiseCompMatrixStack): 3D correlation matrix of shape (S, U, U) or PairwiseCompMatrixStack object.
 
     Returns:
     --------
     features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
                       F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
     """
+    # Handle structured types
+    if hasattr(matrix_3d, "stack") and isinstance(matrix_3d.stack, np.ndarray):
+        matrix_3d = matrix_3d.stack
+
+    if matrix_3d.ndim != 3:
+        raise ValueError(f"Input must be a 3D array (or stack), got {matrix_3d.ndim}D")
+
     if matrix_3d.shape[1] != matrix_3d.shape[2]:
         raise ValueError(
             "The input 3D matrix must have the same size for the last 2 dimensions."

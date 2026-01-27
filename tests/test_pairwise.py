@@ -142,6 +142,27 @@ class TestPairwise(unittest.TestCase):
         G_inf = pcm_inf.to_networkx()
         self.assertEqual(G_inf.edges[0, 1]["weight"], float("inf"))
 
+    def test_pca_compatibility(self):
+        # Create a stack of 10 matrices (5x5 units)
+        stack_data = np.random.rand(10, 5, 5)
+        # Make them symmetric
+        for i in range(10):
+             stack_data[i] = (stack_data[i] + stack_data[i].T) / 2
+        
+        stack = PairwiseCompMatrixStack(stack=stack_data)
+        
+        # Test PCA on RateSliceStack with this stack
+        # (Actually, just test the PCA method directly or via extract_lower_triangle_features)
+        from spikedata.utils import extract_lower_triangle_features
+        features = extract_lower_triangle_features(stack)
+        self.assertEqual(features.shape, (10, 10)) # 5*(5-1)/2 = 10 features
+        
+        # Test PCA_on_lower_diagnol_corr_matrix
+        event_matrix = np.random.rand(2, 50, 5)
+        rss = RateSliceStack(None, event_matrix=event_matrix)
+        pca_result = rss.PCA_on_lower_diagnol_corr_matrix(stack, n_components=2)
+        self.assertEqual(pca_result.shape, (10, 2))
+
 
 def warnings_context():
     import warnings
