@@ -413,12 +413,13 @@ def extract_lower_triangle_features(matrix_3d):
 
     Parameters:
     -----------
-    matrix_3d (array or PairwiseCompMatrixStack): 3D correlation matrix of shape (S, U, U) or PairwiseCompMatrixStack object.
+    matrix_3d (array or PairwiseCompMatrixStack): 3D correlation matrix of shape (n, n, S) or PairwiseCompMatrixStack object.
+        Where n is the matrix dimension and S is the number of slices/samples.
 
     Returns:
     --------
     features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
-                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
+                      F = n*(n-1)/2 (number of unique pairs or more simply the number of values in lower triangle)
     """
     # Handle structured types
     if hasattr(matrix_3d, "stack") and isinstance(matrix_3d.stack, np.ndarray):
@@ -427,18 +428,19 @@ def extract_lower_triangle_features(matrix_3d):
     if matrix_3d.ndim != 3:
         raise ValueError(f"Input must be a 3D array (or stack), got {matrix_3d.ndim}D")
 
-    if matrix_3d.shape[1] != matrix_3d.shape[2]:
+    if matrix_3d.shape[0] != matrix_3d.shape[1]:
         raise ValueError(
-            "The input 3D matrix must have the same size for the last 2 dimensions."
+            "The input 3D matrix must have shape (n, n, S) where the first two dimensions are equal."
         )
-    num_samples = matrix_3d.shape[0]  # S
-    num_items = matrix_3d.shape[1]  # U
+    num_items = matrix_3d.shape[0]  # n
+    num_samples = matrix_3d.shape[2]  # S
 
     # Get lower triangle indices
     lower_tri_idx = np.tril_indices(num_items, k=-1)
 
     # Extract all lower triangles at once (vectorized)
-    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+    # matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :] gives shape (F, S), transpose to (S, F)
+    features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
     return features
 
 
