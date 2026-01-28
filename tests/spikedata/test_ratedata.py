@@ -1,5 +1,13 @@
 import unittest
 import numpy as np
+import sys
+import pathlib
+
+# Ensure project root is on sys.path
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from spikedata.ratedata import RateData
 from spikedata.utils import (
     compute_cross_correlation_with_lag,
