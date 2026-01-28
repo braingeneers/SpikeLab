@@ -1,5 +1,5 @@
-import SpikeData
-import RateData
+from .spikedata import SpikeData
+from .ratedata import RateData
 import numpy as np
 
 
@@ -127,11 +127,11 @@ class SpikeSliceStack:
                             at a slice s.
         """
         sparse_list = []
-        for i in len(self.spike_stack):
+        for i in range(len(self.spike_stack)):
             spike_obj_slice = self.spike_stack[i]
             event_matrix = spike_obj_slice.sparse_raster(bin_size=1)
-
-            sparse_list.append(event_matrix)
+            # Convert sparse to dense for stacking
+            sparse_list.append(event_matrix.toarray())
+        # Stack along third axis to get (U, T, S)
         sparse_stack = np.stack(sparse_list, axis=2)
-        # Make sparse stack into U x T x S
         return sparse_stack
