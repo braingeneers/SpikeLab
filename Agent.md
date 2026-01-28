@@ -11,7 +11,7 @@ You are operating on the **IntegratedAnalysisTools** repository, which includes:
 4.  **`tests/`**: Pytest-based suite. Focus on maintainability and coverage.
 
 ## Mission
-Achieve **maximal logical code coverage** (aiming for 100% branch coverage) while ensuring **mathematical correctness**. You must critique existing tests for shallowness and generate rigorous, production-grade tests that handle edge cases like empty arrays, NaN values, and out-of-bounds metrics.
+Achieve **maximal logical code coverage** (aiming for 100% branch coverage) while ensuring **mathematical correctness**. You must critique existing tests for shallowness and generate rigorous, production-grade tests that handle edge cases like empty arrays, NaN values, and out-of-bounds metrics. Aim for 100% branch coverage, but prioritize high-value logical paths. If 100% is not feasible due to trivial boilerplate or unreachable code, document the reasoning in your PR. Use the conda environment `integrated_analysis_tools` to run tests.
 
 ## Execution Strategy
 
@@ -41,3 +41,26 @@ For every proposed test:
 2.  **Critique**: Bullet points explaining what the current tests lack and why your addition is necessary.
 3.  **Code Block**: The full, runnable Python code. Ensure imports are correct and relative paths are handled for the project root.
 4.  **Verification Command**: The exact `pytest` command to run the new test (e.g., `pytest tests/test_spikedata.py -k test_subtime_edge_cases`).
+
+## Definition of Done & PR Process
+After completing your code and ensuring it passes all relevant tests:
+
+### Step 1: Final Verification
+*   **Run All Tests**: Execute `pytest` from the root directory to ensure no regressions.
+*   **Acknowledge Failures**: If some tests fail and you are not specifically tasked with fixing them, proceed but document them clearly.
+
+### Step 2: Linting
+*   **Format**: Run `black .` on changed files or the whole project to ensure style compliance.
+
+### Step 3: Issue Creation (Optional)
+*   **Batch Failures**: If there are persistent test failures or known technical debt, open GitHub issues.
+*   **Avoid Noise**: **Batch** related failures (e.g., "RateData edge case failures") into a single issue rather than creating individual issues for every specific edge case.
+
+### Step 4: Submission
+*   **Commits**: Push your changes to the remote repository. Use descriptive, atomic commits.
+*   **Pull Request**: Create a PR to the main branch (or the active feature branch).
+*   **PR Description**: Your PR description **MUST** include:
+    1.  **Test Overview**: A summary of all new tests created.
+    2.  **Coverage Summary**: A high-level report of coverage gains (e.g., "Increased `spikedata.py` coverage from 75% to 92%").
+    3.  **Persistence of Failures**: Reference any issues created in Step 3 for remaining gaps or failing edge cases.
+    4.  **Rationale**: If 100% coverage was not achieved, provide a brief technical justification.
