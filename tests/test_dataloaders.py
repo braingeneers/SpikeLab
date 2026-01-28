@@ -28,7 +28,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from spikedata import SpikeData
-import data_loaders.data_loaders as loaders
+import data_loaders as loaders
 
 
 @unittest.skipIf(h5py is None, "h5py not installed; skipping HDF5/NWB tests")
@@ -285,6 +285,31 @@ class TestHDF5Loaders(unittest.TestCase):
         )
         self.assertTrue(np.allclose(sd_p.raw_time, np.arange(5) * 1.0))
 
+    def test_hdf5_raw_ms(self):
+        """
+        Test loading raw data with time in milliseconds.
+        """
+        path = self._tmp_h5()
+        self._last_h5_path = path
+        raster = np.zeros((1, 3))
+        raw = np.zeros((2, 5))
+        # raw time in ms: 0, 10, 20...
+        raw_time_ms = np.arange(5) * 10.0
+        with h5py.File(path, "w") as f:  # type: ignore
+            f.create_dataset("raster", data=raster)
+            f.create_dataset("raw", data=raw)
+            f.create_dataset("raw_time_ms", data=raw_time_ms)
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            raster_dataset="raster",
+            raster_bin_size_ms=1.0,
+            raw_dataset="raw",
+            raw_time_dataset="raw_time_ms",
+            raw_time_unit="ms",
+        )
+        self.assertTrue(np.allclose(sd.raw_time, raw_time_ms))
+
     def test_hdf5_invalid_style_error(self):
         """
         Test that loading from an HDF5 file with no recognizable style raises ValueError.
@@ -429,6 +454,29 @@ class TestNWBLoader(unittest.TestCase):
             sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
             self.assertTrue(np.allclose(sd.train[0], [200.0]))
             self.assertTrue(np.allclose(sd.train[1], [700.0]))
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    def test_nwb_default_fallback(self):
+        """
+        Test that load_spikedata_from_nwb falls back to h5py when prefer_pynwb is True
+        but pynwb is missing (or fails).
+        """
+        fd, path = tempfile.mkstemp(suffix=".nwb")
+        os.close(fd)
+        try:
+            with h5py.File(path, "w") as f:  # type: ignore
+                g = f.create_group("units")
+                g.create_dataset("spike_times", data=np.array([0.1, 0.2]))
+                g.create_dataset("spike_times_index", data=np.array([2]))
+
+            # Should warn about fallback if pynwb is missing (which it is)
+            with self.assertWarns(UserWarning):
+                sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=True)
+            self.assertTrue(np.allclose(sd.train[0], [100.0, 200.0]))
         finally:
             try:
                 os.remove(path)

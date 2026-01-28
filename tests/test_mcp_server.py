@@ -47,14 +47,38 @@ except ImportError as e:
     MCP_IMPORT_ERROR = str(e)
 
 # Server imports (requires mcp package)
+MCP_ANALYSIS_AVAILABLE = False
+MCP_DATALOADERS_AVAILABLE = False
+MCP_EXPORTERS_AVAILABLE = False
+
 if MCP_AVAILABLE:
     try:
         from mcp_server.server import server
-        from mcp_server.tools import analysis, data_loaders, exporters
 
         MCP_SERVER_AVAILABLE = True
     except ImportError as e:
         MCP_IMPORT_ERROR = str(e)
+
+    try:
+        from mcp_server.tools import analysis
+
+        MCP_ANALYSIS_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        from mcp_server.tools import data_loaders
+
+        MCP_DATALOADERS_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        from mcp_server.tools import exporters
+
+        MCP_EXPORTERS_AVAILABLE = True
+    except ImportError:
+        pass
 
 
 # ============================================================================
@@ -71,6 +95,19 @@ pytestmark_infra = pytest.mark.skipif(
 pytestmark_server = pytest.mark.skipif(
     not MCP_SERVER_AVAILABLE,
     reason=f"MCP package not installed. Install with: pip install mcp",
+)
+
+pytestmark_analysis = pytest.mark.skipif(
+    not MCP_ANALYSIS_AVAILABLE,
+    reason="Analysis tool not available",
+)
+pytestmark_dataloaders = pytest.mark.skipif(
+    not MCP_DATALOADERS_AVAILABLE,
+    reason="Data Loaders tool not available",
+)
+pytestmark_exporters = pytest.mark.skipif(
+    not MCP_EXPORTERS_AVAILABLE,
+    reason="Exporters tool not available",
 )
 
 # ============================================================================
@@ -232,7 +269,7 @@ class TestSessionManagement:
 class TestDataLoaders:
     """Test data loading tools."""
 
-    @pytestmark_server
+    @pytestmark_dataloaders
     @pytest.mark.asyncio
     async def test_load_from_nwb(self):
         """Test loading from NWB file."""
@@ -255,7 +292,7 @@ class TestDataLoaders:
             assert result["info"]["num_neurons"] == 3
             os.unlink(tmp.name)
 
-    @pytestmark_server
+    @pytestmark_dataloaders
     @pytest.mark.asyncio
     @patch("mcp_server.tools.data_loaders.ensure_local_file")
     async def test_load_from_hdf5_s3(self, mock_ensure):
@@ -295,7 +332,7 @@ class TestDataLoaders:
 class TestAnalysisTools:
     """Test analysis tools."""
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_compute_rates(self, session_id):
         """Test computing firing rates."""
@@ -305,7 +342,7 @@ class TestAnalysisTools:
         assert result["unit"] == "kHz"
         assert len(result["rates"]) == 3
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_compute_raster(self, session_id):
         """Test computing raster."""
@@ -314,7 +351,7 @@ class TestAnalysisTools:
         assert "bin_size_ms" in result
         assert result["bin_size_ms"] == 5.0
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_compute_spike_time_tiling(self, session_id):
         """Test computing STTC."""
@@ -324,7 +361,7 @@ class TestAnalysisTools:
         assert "sttc" in result
         assert isinstance(result["sttc"], (int, float))
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_subtime(self, session_id):
         """Test time window extraction."""
@@ -332,7 +369,7 @@ class TestAnalysisTools:
         assert "session_id" in result
         assert result["info"]["start_ms"] == 10.0
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_get_data_info(self, session_id, sample_spikedata):
         """Test getting data information."""
@@ -340,7 +377,7 @@ class TestAnalysisTools:
         assert result["num_neurons"] == sample_spikedata.N
         assert result["length_ms"] == sample_spikedata.length
 
-    @pytestmark_server
+    @pytestmark_analysis
     @pytest.mark.asyncio
     async def test_invalid_session(self):
         """Test error handling for invalid session."""
@@ -356,7 +393,7 @@ class TestAnalysisTools:
 class TestExportTools:
     """Test export tools."""
 
-    @pytestmark_server
+    @pytestmark_exporters
     @pytest.mark.asyncio
     async def test_export_to_hdf5(self, session_id):
         """Test exporting to HDF5."""
@@ -378,7 +415,7 @@ class TestExportTools:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    @pytestmark_server
+    @pytestmark_exporters
     @pytest.mark.asyncio
     async def test_export_to_nwb(self, session_id):
         """Test exporting to NWB."""
@@ -398,7 +435,7 @@ class TestExportTools:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    @pytestmark_server
+    @pytestmark_exporters
     @pytest.mark.asyncio
     async def test_export_to_kilosort(self, session_id):
         """Test exporting to KiloSort."""
