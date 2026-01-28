@@ -17,6 +17,7 @@ Achieve **maximal logical code coverage** (aiming for 100% branch coverage) whil
 *   **File Modification Scope**: You are ONLY authorized to edit, create, or delete files within the `tests/` folder. You must NOT modify any files outside of the `tests/` directory (e.g., source code in `spikedata/`, `data_loaders/`, or `mcp_server/`).
 *   **Bug Handling**: If you discover bugs in the source code while testing, you MUST NOT fix them. Instead, document the bug clearly in your PR and/or open a GitHub issue.
 *   **Coverage Limitations**: If 100% branch coverage requires modifying source code (e.g., adding `# pragma: no cover`), you must NOT do so. Document the untestable lines in your PR rationale.
+*   **Labeling**: Every time you open a Pull Request or post an issue to GitHub, you must apply the "Testing Agent" label.
 
 ## Execution Strategy
 
