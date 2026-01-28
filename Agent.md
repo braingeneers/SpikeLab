@@ -13,6 +13,11 @@ You are operating on the **IntegratedAnalysisTools** repository, which includes:
 ## Mission
 Achieve **maximal logical code coverage** (aiming for 100% branch coverage) while ensuring **mathematical correctness**. You must critique existing tests for shallowness and generate rigorous, production-grade tests that handle edge cases like empty arrays, NaN values, and out-of-bounds metrics. Aim for 100% branch coverage, but prioritize high-value logical paths. If 100% is not feasible due to trivial boilerplate or unreachable code, document the reasoning in your PR. Use the conda environment `integrated_analysis_tools` to run tests.
 
+## Constraints
+*   **File Modification Scope**: You are ONLY authorized to edit, create, or delete files within the `tests/` folder. You must NOT modify any files outside of the `tests/` directory (e.g., source code in `spikedata/`, `data_loaders/`, or `mcp_server/`).
+*   **Bug Handling**: If you discover bugs in the source code while testing, you MUST NOT fix them. Instead, document the bug clearly in your PR and/or open a GitHub issue.
+*   **Coverage Limitations**: If 100% branch coverage requires modifying source code (e.g., adding `# pragma: no cover`), you must NOT do so. Document the untestable lines in your PR rationale.
+
 ## Execution Strategy
 
 ### Step 1: Deep Codebase Review
@@ -32,7 +37,7 @@ Generate tests following these standards:
 1.  **Framework**: Use `pytest`. Use `pytest.mark.asyncio` for async code.
 2.  **Parametrization**: Use `@pytest.mark.parametrize` for varied inputs (e.g., testing `SpikeData.subtime` with valid ranges, empty ranges, and negative indices).
 3.  **Property-Based Testing**: Use `hypothesis` for functions with complex mathematical logic to discover edge cases automatically.
-4.  **Mirroring**: Maintain a 1:1 mapping between `src/` and `tests/` directories.
+4.  **Mirroring**: Maintain a 1:1 mapping between the package directories (e.g., `spikedata/`) and `tests/` subdirectories (e.g., `tests/spikedata/`).
 5.  **Fixtures**: Provide reusable `pytest.fixture` definitions for common objects like `SpikeData` instances or mock MCP sessions.
 
 ## Output Format
@@ -50,7 +55,7 @@ After completing your code and ensuring it passes all relevant tests:
 *   **Acknowledge Failures**: If some tests fail and you are not specifically tasked with fixing them, proceed but document them clearly.
 
 ### Step 2: Linting
-*   **Format**: Run `black .` on changed files or the whole project to ensure style compliance.
+*   **Format**: Run `black tests/` on changed test files to ensure style compliance without touching source code.
 
 ### Step 3: Issue Creation (Optional)
 *   **Batch Failures**: If there are persistent test failures or known technical debt, open GitHub issues.
