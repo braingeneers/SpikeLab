@@ -26,6 +26,9 @@ from .utils import (
     swap,
     randomize,
     trough_between,
+    get_channels_for_unit,
+    compute_avg_waveform,
+    get_valid_spike_times,
 )
 
 __all__ = [
@@ -788,26 +791,14 @@ class SpikeData:
             fs_kHz = 1.0 / np.median(np.diff(self.raw_time))
 
         n_channels_total = self.raw_data.shape[0]
+        n_time_samples = self.raw_data.shape[1]
         neuron_to_channel = self.neuron_to_channel_map()
-
-        def _get_channels_for_unit(unit_idx: int) -> List[int]:
-            if channels is None:
-                if unit_idx in neuron_to_channel:
-                    return [neuron_to_channel[unit_idx]]
-                return list(range(n_channels_total))
-            elif isinstance(channels, int):
-                return [channels]
-            elif isinstance(channels, list):
-                if len(channels) == 0:
-                    if unit_idx in neuron_to_channel:
-                        return [neuron_to_channel[unit_idx]]
-                    return list(range(n_channels_total))
-                return channels
-            raise ValueError(f"Invalid channels argument: {channels}")
 
         def _extract_for_unit(unit_idx: int) -> dict:
             spike_times_ms = np.asarray(self.train[unit_idx])
-            channel_indices = _get_channels_for_unit(unit_idx)
+            channel_indices = get_channels_for_unit(
+                unit_idx, channels, neuron_to_channel, n_channels_total
+            )
 
             waveforms = extract_waveforms(
                 raw_data=self.raw_data,
@@ -820,29 +811,18 @@ class SpikeData:
                 filter_order=filter_order,
             )
 
-            if waveforms.shape[2] > 0:
-                avg_waveform = waveforms.mean(axis=2)
-            else:
-                avg_waveform = np.zeros(
-                    (len(channel_indices), waveforms.shape[1]),
-                    dtype=self.raw_data.dtype,
-                )
+            avg_waveform = compute_avg_waveform(
+                waveforms, channel_indices, self.raw_data.dtype
+            )
 
-            before_samples = round(ms_before * fs_kHz)
-            after_samples = round(ms_after * fs_kHz)
-            n_time_samples = self.raw_data.shape[1]
-            valid_spike_times = []
-            for spike_time_ms in spike_times_ms:
-                spike_sample = round(spike_time_ms * fs_kHz)
-                start = spike_sample - before_samples
-                end = spike_sample + after_samples
-                if start >= 0 and end <= n_time_samples:
-                    valid_spike_times.append(spike_time_ms)
+            valid_spike_times = get_valid_spike_times(
+                spike_times_ms, fs_kHz, ms_before, ms_after, n_time_samples
+            )
 
             result = {
                 "waveforms": waveforms,
                 "avg_waveform": avg_waveform,
-                "spike_times_ms": np.array(valid_spike_times),
+                "spike_times_ms": valid_spike_times,
                 "channels": channel_indices,
                 "fs_kHz": fs_kHz,
             }

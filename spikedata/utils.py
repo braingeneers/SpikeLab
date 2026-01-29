@@ -14,6 +14,9 @@ __all__ = [
     "trough_between",
     "extract_waveforms",
     "check_neuron_attributes",
+    "get_channels_for_unit",
+    "compute_avg_waveform",
+    "get_valid_spike_times",
 ]
 
 
@@ -491,6 +494,100 @@ def check_neuron_attributes(
         raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
 
     return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
+
+
+def get_channels_for_unit(
+    unit_idx: int,
+    channels: Optional[any],
+    neuron_to_channel: dict,
+    n_channels_total: int,
+) -> List[int]:
+    """
+    Determine which channels to extract for a given unit.
+
+    Parameters:
+        unit_idx: Index of the unit.
+        channels: Channel specification. None uses neuron_to_channel_map or all channels;
+                  int for single channel; list for multiple; empty list for mapped channel.
+        neuron_to_channel: Mapping from unit indices to channel indices.
+        n_channels_total: Total number of channels in the raw data.
+
+    Returns:
+        List of channel indices to extract.
+
+    Raises:
+        ValueError: If channels argument is invalid type.
+    """
+    if channels is None:
+        if unit_idx in neuron_to_channel:
+            return [neuron_to_channel[unit_idx]]
+        return list(range(n_channels_total))
+    elif isinstance(channels, int):
+        return [channels]
+    elif isinstance(channels, list):
+        if len(channels) == 0:
+            if unit_idx in neuron_to_channel:
+                return [neuron_to_channel[unit_idx]]
+            return list(range(n_channels_total))
+        return channels
+    raise ValueError(f"Invalid channels argument: {channels}")
+
+
+def compute_avg_waveform(
+    waveforms: np.ndarray,
+    channel_indices: List[int],
+    dtype: np.dtype,
+) -> np.ndarray:
+    """
+    Compute the average waveform from extracted waveforms.
+
+    Parameters:
+        waveforms: 3D array of shape (num_channels, num_samples, num_spikes).
+        channel_indices: List of channel indices used for extraction.
+        dtype: Data type for the output array if waveforms is empty.
+
+    Returns:
+        2D array of shape (num_channels, num_samples) containing the average waveform.
+    """
+    if waveforms.shape[2] > 0:
+        return waveforms.mean(axis=2)
+    else:
+        return np.zeros(
+            (len(channel_indices), waveforms.shape[1]),
+            dtype=dtype,
+        )
+
+
+def get_valid_spike_times(
+    spike_times_ms: np.ndarray,
+    fs_kHz: float,
+    ms_before: float,
+    ms_after: float,
+    n_time_samples: int,
+) -> np.ndarray:
+    """
+    Filter spike times to only those within valid bounds of the raw data.
+
+    Parameters:
+        spike_times_ms: Array of spike times in milliseconds.
+        fs_kHz: Sampling rate in kHz.
+        ms_before: Milliseconds before each spike time.
+        ms_after: Milliseconds after each spike time.
+        n_time_samples: Total number of time samples in the raw data.
+
+    Returns:
+        Array of valid spike times in milliseconds.
+    """
+    before_samples = round(ms_before * fs_kHz)
+    after_samples = round(ms_after * fs_kHz)
+    valid_spike_times = []
+    for spike_time_ms in spike_times_ms:
+        spike_sample = round(spike_time_ms * fs_kHz)
+        start = spike_sample - before_samples
+        end = spike_sample + after_samples
+        if start >= 0 and end <= n_time_samples:
+            valid_spike_times.append(spike_time_ms)
+    return np.array(valid_spike_times)
 
 
 def extract_waveforms(
