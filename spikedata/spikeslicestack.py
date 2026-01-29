@@ -1,5 +1,5 @@
-import SpikeData
-import RateData
+from .ratedata import RateData
+from .spikedata import SpikeData
 import numpy as np
 
 

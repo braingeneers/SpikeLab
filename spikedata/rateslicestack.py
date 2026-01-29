@@ -58,19 +58,25 @@ class RateSliceStack:
                             Example: [(100, 200), (500, 600), (1000, 1100)]
     self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
                             Example: 1.0 means time bins are at [100, 101, 102, ...] ms
+    self.neuron_attributes: TBD
 
     """
 
     def __init__(
         self,
-        data_obj,  # Option 1
+        data_obj = None,  # Option 1
         times_start_to_end=None,
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
         event_matrix=None,  # Option 2
         step_size=None,
+        neuron_attributes = None
     ):
+        if (data_obj is None) and (event_matrix is None):
+            raise ValueError(
+                "Must input either data_obj(option 1) or event_matrix(option 2)"
+            ) 
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
@@ -128,6 +134,7 @@ class RateSliceStack:
             event_stack = np.stack(event_stack, axis=2)
             # This makes event stack be U x T x S
             self.event_stack = event_stack
+            self.neuron_attributes = None
             return
         # Option 2
         if event_matrix is not None:
@@ -161,9 +168,17 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
+            if neuron_attributes is not None:
+                self.neuron_attributes = neuron_attributes.copy()
+                if len(neuron_attributes) != self.event_stack.shape[0]:
+                    raise ValueError(
+                        f"neuron_attributes has {len(neuron_attributes)} items "
+                        f"but inst_Frate_data has {self.N} rows"
+                    )
+
             return
 
-        raise ValueError("Must provide either data_obj or event_matrix")
+        
 
     def _validate_time_start_to_end(self, times_start_to_end):
         if not isinstance(times_start_to_end, list):
@@ -179,8 +194,8 @@ class RateSliceStack:
                     f"Element {i} of times must be a tuple of length 2 (start, end): {time_window}"
                 )
             if not (
-                isinstance(time_window[0], (int, float))
-                and isinstance(time_window[1], (int, float))
+                isinstance(time_window[0], (int, float, np.number))
+                and isinstance(time_window[1], (int, float, np.number))
             ):
                 raise TypeError(
                     f"Start and end times in element {i} must be numbers: {time_window}"
@@ -506,3 +521,36 @@ class RateSliceStack:
             max_corr_lag_array[:, lower_tri_indices[0], lower_tri_indices[1]], axis=(1)
         )  # shape (B,)
         return max_corr_array, max_corr_lag_array, av_max_corr, av_max_corr_lag
+    
+    def subset(self, units, by = None):
+        N = self.event_stack[0]
+        if isinstance(units, int):
+            units = [units]
+        units = set(units)
+        if by is not None:
+            # VALUE-BASED: Look up by neuron_attribute
+            if self.neuron_attributes is None:
+                raise ValueError("can't use `by` without `neuron_attributes`")
+
+            _missing = object()
+            units = {
+                i
+                for i in range(N)
+                if getattr(self.neuron_attributes[i], by, _missing) in units
+            }
+        units = sorted(units)
+        neuron_attributes = None
+        if self.neuron_attributes is not None:
+            neuron_attributes = [self.neuron_attributes[i] for i in units]
+
+        new_stack = self.event_stack[units,:,:]
+        return RateSliceStack(
+            event_matrix= new_stack,
+            times_start_to_end=self.times,
+            step_size=self.step_size, 
+            neuron_attributes = neuron_attributes
+        )
+    
+
+    
+

@@ -122,6 +122,76 @@ def _resampled_isi(spikes, times, sigma_ms):
             return ndimage.gaussian_filter1d(fr, sigma)
         else:
             return fr
+        
+def _resampled_isi(spikes, times, sigma_ms):
+    """
+    Helper method for calculating the firing rate of a spike train at specific times,
+    based on the reciprocal inter-spike interval.
+
+    Parameters:
+    spikes (list): List of spike times
+    times (list): List of times
+    sigma_ms (float): Standard deviation in milliseconds
+
+    Returns:
+    fr (numpy.ndarray): Firing rate at specific times. Same size as times
+
+    Notes:
+    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
+    smoothed by a Gaussian kernel with the given width.
+    """
+
+    if len(spikes) == 0 or len(spikes) == 1:
+          raise ValueError(
+            "Can't compute inter-spike interval if there aren't at least 2 spikes"
+        )
+        #return np.zeros_like(times)
+    if len(times) < 2:
+        raise ValueError(
+            "times has less than 2 values. Input more times"
+        )
+        
+
+    spikes = np.array(spikes)
+    times = np.array(times)
+
+    # Compute inter spike intervals (piece 1 logic)
+    isi = np.diff(spikes)
+    isi = np.insert(isi, 0, 0)  # Add spacer for first spike
+
+    # Compute instantaneous firing rates (1/isi, in Hz assuming ms units)
+
+    #isi_rate = 1.0 / isi * 1000  # !!!!!!!!! ADD CHECK FOR DIVIDE BY 0 HERE
+    isi_rate = np.zeros_like(isi, dtype=float)
+    isi_rate[1:] = 1.0 / isi[1:] * 1000
+
+    # Create temporary result array matching times resolution
+    t_start, t_end = times[0], times[-1]
+    dt_ms = times[1] - times[0]
+    n_bins = int((t_end - t_start) / dt_ms) + 1
+    isi_rate_temp = np.zeros(n_bins)
+
+    # Assign rates to bins between spikes (piece 1 logic)
+    for i in range(1, len(spikes)):
+        start_bin = int((spikes[i - 1] - t_start) / dt_ms)
+        end_bin = int((spikes[i] - t_start) / dt_ms)
+        if start_bin < n_bins:
+            isi_rate_temp[start_bin:min(end_bin, n_bins)] = isi_rate[i]
+
+    # Interpolate to exact times grid (if needed)
+    fr = np.interp(times, t_start + dt_ms * np.arange(n_bins), isi_rate_temp)
+
+    # Apply Gaussian smoothing
+    if len(fr) < 2:
+        return fr
+
+    sigma = sigma_ms / dt_ms
+    if sigma > 0:
+        return ndimage.gaussian_filter1d(fr, sigma)
+    else:
+        return fr
+
+
 
 
 def _train_from_i_t_list(idces, times, N):
@@ -224,7 +294,7 @@ def swap(ar, idxs):
     return True
 
 
-def randomize(ar, swap_per_spike=5):
+def randomize(ar, swap_per_spike=5, seed = None):
     """
     Randomize a binary spike raster using degree-preserving double-edge swaps.
 
@@ -235,6 +305,9 @@ def randomize(ar, swap_per_spike=5):
     Returns:
     randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
     """
+    if seed is not None:
+        np.random.seed(seed)
+    
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
@@ -256,7 +329,7 @@ def randomize(ar, swap_per_spike=5):
             )
         )
 
-    return ar
+    return ar.astype(int)
 
 
 def trough_between(i0, i1, pop_rate):

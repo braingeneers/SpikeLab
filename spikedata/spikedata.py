@@ -100,6 +100,7 @@ class SpikeData:
             3 times in a 10 ms time bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.
         - All metadata parameters of the regular constructor are accepted.
         """
+        raster = raster.astype(int)
         N, T = raster.shape
         train = [[] for _ in range(N)]
         for i, t in zip(*raster.nonzero()):
@@ -399,11 +400,11 @@ class SpikeData:
     def subset(self, units, by=None):
         """
         Return a new SpikeData with spike times for only some units, selected either by
-        their indices or by an ID stored under a given key in the neuron_attributes.
+        their indices or by an ID stored under a given key in the neuron_attributes. Index-based if by = None.
 
         Parameters:
         units (list): List of unit indices to select
-        by (str): Key to select units by in the neuron_attributes
+        by (str): Key to select units by in the neuron_attributes. Index-based if by = None.
 
         Returns:
         sd (SpikeData): New SpikeData object with the selected units.
@@ -853,8 +854,6 @@ class SpikeData:
         in which each unit is active and assigns backbone identity based on fraction of active bursts
 
         Parameters:
-        t_spk_mat (numpy.ndarray): Spike matrix of shape (N, T) where T is time bins and N is units
-            This computed by turning self.train into sparse spike matrix via self.sparse_raster()
         edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst
         MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst
         backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit
@@ -896,6 +895,23 @@ class SpikeData:
 
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
+    
+    def spike_shuffle(self, seed = None, bin_size =1):
+        #rigght now there is a problem. Shuffling needs binary matrix sparse_raster doesn't return binary
+        spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
+        if bin_size != 1:
+            binary_mat = (spk_mat > 0)
+        else:
+            binary_mat = spk_mat
+        shuffled_mat = randomize(binary_mat, seed=seed)
+        return SpikeData.from_raster(shuffled_mat, 
+                              bin_size, 
+                              length=self.length,
+                              metadata=self.metadata,
+                              neuron_attributes=self.neuron_attributes)
+        
+
+
 
     # ----------------------------
     # Exporters
