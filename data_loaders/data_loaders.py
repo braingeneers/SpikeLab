@@ -481,7 +481,7 @@ def load_spikedata_from_spikeinterface(
 
     for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
-        trains.append(_to_ms(st.astype(float), "samples", fs))
+        trains.append(to_ms(st.astype(float), "samples", fs))
         attr = {"unit_id": uid}
         if channel_prop is not None:
             attr["channel"] = int(channel_prop[i])
