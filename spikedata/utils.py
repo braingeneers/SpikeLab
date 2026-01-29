@@ -1,4 +1,4 @@
-from typing import Optional, Literal, Union
+from typing import Optional, List, Literal, Union
 
 import numpy as np
 from scipy import ndimage, signal
@@ -490,3 +490,49 @@ def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
             raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
         return values.astype(float) / fs_Hz * 1e3
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
+def check_neuron_attributes(
+    neuron_attributes: List[dict], n_neurons: Optional[int] = None
+) -> List[dict]:
+    """
+    Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
+
+    Parameters:
+        neuron_attributes: List of dictionaries containing neuron attributes.
+        n_neurons: Expected number of neurons. If provided, validates the list length.
+
+    Returns:
+        A list of dictionaries where all dictionaries have valid keys and values.
+
+    Notes:
+    - If some dictionaries are missing keys that others have, a warning is issued
+    and the missing keys are filled with None values.
+    """
+    if not isinstance(neuron_attributes, list):
+        raise ValueError("neuron_attributes must be a list")
+    if n_neurons is not None and len(neuron_attributes) != n_neurons:
+        raise ValueError(
+            f"neuron_attributes has {len(neuron_attributes)} items, expected {n_neurons}"
+        )
+    for i, attr in enumerate(neuron_attributes):
+        if not isinstance(attr, dict):
+            raise ValueError(f"neuron_attributes[{i}] must be a dict")
+
+    if not neuron_attributes:
+        return []
+
+    all_keys = set().union(*(attr.keys() for attr in neuron_attributes))
+    if not all_keys:
+        return [d.copy() for d in neuron_attributes]
+
+    missing = {
+        i: all_keys - attr.keys()
+        for i, attr in enumerate(neuron_attributes)
+        if attr.keys() != all_keys
+    }
+    if missing:
+        parts = [f"Neuron {i} missing: {keys}" for i, keys in sorted(missing.items())]
+        raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
+
+    return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
