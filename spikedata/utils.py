@@ -142,10 +142,8 @@ def _resampled_isi(spikes, times, sigma_ms):
     """
 
     if len(spikes) == 0 or len(spikes) == 1:
-          raise ValueError(
-            "Can't compute inter-spike interval if there aren't at least 2 spikes"
-        )
-        #return np.zeros_like(times)
+        #Need at least 2 spikes to do get inter-spike interval
+        return np.zeros_like(times)
     if len(times) < 2:
         raise ValueError(
             "times has less than 2 values. Input more times"
