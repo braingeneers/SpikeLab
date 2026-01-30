@@ -1,5 +1,8 @@
 import os
+<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
+=======
+>>>>>>> ba3f8a9 (initial version)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -14,15 +17,19 @@ class SlackTools:
         self.message_callback = message_callback
         self.waiting_for_approval = False
         self.approval_result = None
+<<<<<<< HEAD
         self.last_message_ts = None
         self.last_feedback = None
         self.waiting_for_input = False
         self.input_result = None
+=======
+>>>>>>> ba3f8a9 (initial version)
 
         if self.app and self.message_callback:
 
             @self.app.message("")  # Listen to all messages
             def handle_message(event, say, logger):
+<<<<<<< HEAD
                 channel = event.get("channel")
                 text = event.get("text")
                 bot_id = event.get("bot_id")
@@ -111,11 +118,37 @@ class SlackTools:
                         self.waiting_for_approval = False
 
     def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
+=======
+                logger.info(f"Received Slack event: {event}")
+                channel = event.get("channel")
+                text = event.get("text")
+                bot_id = event.get("bot_id")
+
+                print(
+                    f"DEBUG: Message in {channel} (Target: {self.channel_id}), BotID: {bot_id}, Text: {text}"
+                )
+
+                # Ignore bot messages and non-message events (like bot_add)
+                if channel == self.channel_id and not bot_id and text:
+                    clean_text = text.strip().lower()
+                    if self.waiting_for_approval:
+                        if clean_text in ["yes", "approve", "ok", "lgtm"]:
+                            self.approval_result = True
+                            self.waiting_for_approval = False
+                        elif clean_text in ["no", "reject", "stop"]:
+                            self.approval_result = False
+                            self.waiting_for_approval = False
+                    else:
+                        self.message_callback(text)
+
+    def post_message(self, text: str, blocks: list = None):
+>>>>>>> ba3f8a9 (initial version)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: {text}")
             return None
 
         try:
+<<<<<<< HEAD
             print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
             resp = self.app.client.chat_postMessage(
                 channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
@@ -123,13 +156,22 @@ class SlackTools:
             self.last_message_ts = resp.get("ts")
             print("DEBUG: SlackTools.post_message success")
             return resp
+=======
+            return self.app.client.chat_postMessage(
+                channel=self.channel_id, text=text, blocks=blocks
+            )
+>>>>>>> ba3f8a9 (initial version)
         except SlackApiError as e:
             print(f"Error posting to Slack: {e}")
             return None
 
+<<<<<<< HEAD
     def upload_snippet(
         self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
     ):
+=======
+    def upload_snippet(self, content: str, title: str, filename: str = "doc.md"):
+>>>>>>> ba3f8a9 (initial version)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: Cannot upload {title}")
             return None
@@ -141,29 +183,41 @@ class SlackTools:
                 title=title,
                 filename=filename,
                 initial_comment=f"📄 *Full {title} uploaded for review*",
+<<<<<<< HEAD
                 thread_ts=thread_ts,
+=======
+>>>>>>> ba3f8a9 (initial version)
             )
         except SlackApiError as e:
             print(f"Error uploading file to Slack: {e}")
             return None
 
+<<<<<<< HEAD
     def request_approval(self, message: str, thread_ts: str = None):
         resp = self.post_message(
             f"🚨 *APPROVAL REQUIRED* 🚨\n{message}", thread_ts=thread_ts
         )
         # last_message_ts is updated inside post_message
 
+=======
+    def request_approval(self, message: str):
+        self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
+>>>>>>> ba3f8a9 (initial version)
         print(f"\n[SLACK WAIT] Requesting approval for: {message}")
 
         self.waiting_for_approval = True
         self.approval_result = None
+<<<<<<< HEAD
         self.last_feedback = None
+=======
+>>>>>>> ba3f8a9 (initial version)
 
         import time
 
         while self.waiting_for_approval:
             time.sleep(1)
 
+<<<<<<< HEAD
         return self.approval_result, self.last_feedback
 
     def request_input(self, question: str, thread_ts: str = None):
@@ -182,6 +236,9 @@ class SlackTools:
             time.sleep(1)
             
         return self.input_result
+=======
+        return self.approval_result
+>>>>>>> ba3f8a9 (initial version)
 
     def start_listening(self):
         if not self.app or not self.app_token:
@@ -195,6 +252,7 @@ class SlackTools:
         print("⚡️ Slack Swarm is listening for instructions...")
         handler.start()
 
+<<<<<<< HEAD
     def get_tool_map(self, thread_ts: str = None) -> Dict[str, Callable]:
         """Returns a map of tool names to functions, optionally pre-filled with thread_ts."""
         import functools
@@ -218,6 +276,8 @@ class SlackTools:
             "ask_user": ask_user_wrapped,
         }
 
+=======
+>>>>>>> ba3f8a9 (initial version)
 
 slack_tool_definitions = [
     {
@@ -251,6 +311,7 @@ slack_tool_definitions = [
             },
         },
     },
+<<<<<<< HEAD
     {
         "type": "function",
         "function": {
@@ -270,3 +331,6 @@ slack_tool_definitions = [
     },
 ]
 
+=======
+]
+>>>>>>> ba3f8a9 (initial version)

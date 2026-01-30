@@ -4,7 +4,10 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import re
+<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
+=======
+>>>>>>> ba3f8a9 (initial version)
 
 
 class ResearchTools:
@@ -12,7 +15,11 @@ class ResearchTools:
         tavily_api_key = os.getenv("TAVILY_API_KEY")
         self.tavily = TavilyClient(api_key=tavily_api_key) if tavily_api_key else None
 
+<<<<<<< HEAD
     def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+=======
+    def search_arxiv(self, query: str, max_results: int = 5):
+>>>>>>> ba3f8a9 (initial version)
         search = arxiv.Search(
             query=query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance
         )
@@ -28,12 +35,21 @@ class ResearchTools:
             )
         return results
 
+<<<<<<< HEAD
     def search_web(self, query: str) -> Dict[str, Any]:
         if not self.tavily:
             return {"error": "Tavily API key not found. Web search unavailable."}
         return self.tavily.search(query=query)
 
     def fetch_url(self, url: str) -> str:
+=======
+    def search_web(self, query: str):
+        if not self.tavily:
+            return "Tavily API key not found. Web search unavailable."
+        return self.tavily.search(query=query)
+
+    def fetch_url(self, url: str):
+>>>>>>> ba3f8a9 (initial version)
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -62,6 +78,7 @@ class ResearchTools:
         except Exception as e:
             return f"Error fetching URL: {str(e)}"
 
+<<<<<<< HEAD
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "search_arxiv": self.search_arxiv,
@@ -69,6 +86,8 @@ class ResearchTools:
             "fetch_url": self.fetch_url,
         }
 
+=======
+>>>>>>> ba3f8a9 (initial version)
 
 research_tool_definitions = [
     {
