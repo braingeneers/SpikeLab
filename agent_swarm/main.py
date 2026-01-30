@@ -1,11 +1,16 @@
 import argparse
 import os
+<<<<<<< HEAD
 import logging
 from agent_swarm.core.swarm import SwarmOrchestrator
 
 # Suppress AutoGen and OpenAI API key format warnings
 # logging.getLogger("autogen.oai.client").setLevel(logging.ERROR)
 # logging.getLogger("openai").setLevel(logging.ERROR)
+=======
+from agent_swarm.core.swarm import SwarmOrchestrator
+
+>>>>>>> ba3f8a9 (initial version)
 
 def main():
     parser = argparse.ArgumentParser(description="Agent Swarm Orchestrator")
@@ -13,7 +18,11 @@ def main():
         "objective",
         type=str,
         nargs="?",
+<<<<<<< HEAD
         help="The goal for the swarm to achieve. If omitted, the swarm listens on Slack. 4. Signal TERMINATE_SWARM when complete.\n",
+=======
+        help="The goal for the swarm to achieve. If omitted, the swarm listens on Slack.",
+>>>>>>> ba3f8a9 (initial version)
     )
     args = parser.parse_args()
 
