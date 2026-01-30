@@ -1,12 +1,15 @@
 import os
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======
 from typing import Dict, Callable, List, Any
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> ba3f8a9 (initial version)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -23,6 +26,7 @@ class SlackTools:
         self.approval_result = None
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.last_message_ts = None
         self.last_feedback = None
         self.waiting_for_input = False
@@ -36,11 +40,14 @@ class SlackTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> ba3f8a9 (initial version)
 
         if self.app and self.message_callback:
 
             @self.app.message("")  # Listen to all messages
             def handle_message(event, say, logger):
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
                 channel = event.get("channel")
@@ -228,11 +235,37 @@ class SlackTools:
 
     def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+                logger.info(f"Received Slack event: {event}")
+                channel = event.get("channel")
+                text = event.get("text")
+                bot_id = event.get("bot_id")
+
+                print(
+                    f"DEBUG: Message in {channel} (Target: {self.channel_id}), BotID: {bot_id}, Text: {text}"
+                )
+
+                # Ignore bot messages and non-message events (like bot_add)
+                if channel == self.channel_id and not bot_id and text:
+                    clean_text = text.strip().lower()
+                    if self.waiting_for_approval:
+                        if clean_text in ["yes", "approve", "ok", "lgtm"]:
+                            self.approval_result = True
+                            self.waiting_for_approval = False
+                        elif clean_text in ["no", "reject", "stop"]:
+                            self.approval_result = False
+                            self.waiting_for_approval = False
+                    else:
+                        self.message_callback(text)
+
+    def post_message(self, text: str, blocks: list = None):
+>>>>>>> ba3f8a9 (initial version)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: {text}")
             return None
 
         try:
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -259,10 +292,16 @@ class SlackTools:
             print("DEBUG: SlackTools.post_message success")
             return resp
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+            return self.app.client.chat_postMessage(
+                channel=self.channel_id, text=text, blocks=blocks
+            )
+>>>>>>> ba3f8a9 (initial version)
         except SlackApiError as e:
             print(f"Error posting to Slack: {e}")
             return None
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     def upload_snippet(
@@ -276,6 +315,9 @@ class SlackTools:
         self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
     ):
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+    def upload_snippet(self, content: str, title: str, filename: str = "doc.md"):
+>>>>>>> ba3f8a9 (initial version)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: Cannot upload {title}")
             return None
@@ -289,17 +331,21 @@ class SlackTools:
                 initial_comment=f"📄 *Full {title} uploaded for review*",
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 thread_ts=thread_ts,
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======
                 thread_ts=thread_ts,
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> ba3f8a9 (initial version)
             )
         except SlackApiError as e:
             print(f"Error uploading file to Slack: {e}")
             return None
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -317,10 +363,15 @@ class SlackTools:
 >>>>>>> ba3f8a9 (initial version)
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+    def request_approval(self, message: str):
+        self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
+>>>>>>> ba3f8a9 (initial version)
         print(f"\n[SLACK WAIT] Requesting approval for: {message}")
 
         self.waiting_for_approval = True
         self.approval_result = None
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         self.last_feedback = None
@@ -329,12 +380,15 @@ class SlackTools:
 =======
         self.last_feedback = None
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> ba3f8a9 (initial version)
 
         import time
 
         while self.waiting_for_approval:
             time.sleep(1)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         return self.approval_result, self.last_feedback
@@ -364,6 +418,9 @@ class SlackTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+        return self.approval_result
+>>>>>>> ba3f8a9 (initial version)
 
     def start_listening(self):
         if not self.app or not self.app_token:
@@ -377,6 +434,7 @@ class SlackTools:
         print("⚡️ Slack Swarm is listening for instructions...")
         handler.start()
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -409,6 +467,8 @@ class SlackTools:
 >>>>>>> ba3f8a9 (initial version)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> ba3f8a9 (initial version)
 
 slack_tool_definitions = [
     {
@@ -444,6 +504,7 @@ slack_tool_definitions = [
     },
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     {
@@ -471,3 +532,6 @@ slack_tool_definitions = [
 >>>>>>> ba3f8a9 (initial version)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+]
+>>>>>>> ba3f8a9 (initial version)
