@@ -11,6 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
 from .ratedata import RateData
+from .pairwise import PairwiseCompMatrix
 from scipy.stats import norm
 
 
@@ -817,7 +818,7 @@ class SpikeData:
                 ret[i, j] = ret[j, i] = _spike_time_tiling(
                     self.train[i], self.train[j], ts[i], ts[j], delt
                 )
-        return ret
+        return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
     def spike_time_tiling(self, i, j, delt=20.0):
         """

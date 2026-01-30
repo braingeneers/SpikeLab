@@ -2,6 +2,7 @@ import numpy as np
 from scipy import signal
 from .ratedata import RateData
 from .spikedata import SpikeData
+from .pairwise import PairwiseCompMatrixStack
 
 
 from .utils import (
@@ -281,7 +282,7 @@ class RateSliceStack:
     ):
         """
         Compute slice-to-slice (aka burst-to-burst) similarity along the 0th axis of self.event_stack (U x T x S)
-        to give output size (U x S x S)
+        to give output PairwiseCompMatrixStack of size (S x S x U)
 
         Parameters:
         -----------
@@ -293,7 +294,8 @@ class RateSliceStack:
 
         Returns:
         --------
-        all_slice_corr_scores (array): Pairwise correlation scores between all slice pairs for each unit shape (U, S, S)
+        all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise correlation scores between all slice pairs for each unit.
+            Shape is (S, S, U) in the stack attribute.
         av_slice_corr_scores (array): Average correlation per neuron across all valid slice pairs shape (U,)
 
         """
@@ -303,7 +305,7 @@ class RateSliceStack:
         num_time_bins = event_stack.shape[1]  # T
         num_slices = event_stack.shape[2]  # B
 
-        # Initialize result matrices
+        # Initialize result matrices (compute in U x S x S, then transpose)
         av_slice_corr_scores = np.full(num_units, np.nan)
         all_slice_corr_scores = np.full((num_units, num_slices, num_slices), np.nan)
 
@@ -348,15 +350,20 @@ class RateSliceStack:
                         unit, lower_tri_indices[0], lower_tri_indices[1]
                     ]
                 )
-        # all_burst_corr_scores is UxSxS and av_burst_corr_scores is N since its the mean correlation across all bursts.
-        return all_slice_corr_scores, av_slice_corr_scores
+        # Transpose from (U, S, S) to (S, S, U) for n×n×S convention
+        all_slice_corr_scores = np.moveaxis(all_slice_corr_scores, 0, 2)
+        # all_burst_corr_scores is now SxSxU and av_burst_corr_scores is U since its the mean correlation across all bursts.
+        return (
+            PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+            av_slice_corr_scores,
+        )
 
     def get_slice_to_slice_time_corr_from_stack(
         self, compare_func=compute_cosine_similarity_with_lag, max_lag=0
     ):
         """
         Compute slice-to-slice similarity along the 1st axis of RateSliceStack self.event_stack (U x T x S)
-        This is done along the time axis, making the output size be (T x S x S) which doesn't require thresholding.
+        This is done along the time axis, making the output PairwiseCompMatrixStack of size (S x S x T).
 
         Parameters:
         -----------
@@ -366,7 +373,8 @@ class RateSliceStack:
 
         Returns:
         --------
-        all_slice_corr_scores (array): Pairwise correlation scores between all slice pairs for each time_bin shape (T, S, S)
+        all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise correlation scores between all slice pairs for each time_bin.
+            Shape is (S, S, T) in the stack attribute.
         av_slice_corr_scores (array): Average correlation per time_bin across all valid slice pairs shape (T,)
 
         """
@@ -376,7 +384,7 @@ class RateSliceStack:
         num_time_bins = event_stack.shape[1]  # T
         num_slices = event_stack.shape[2]  # B
 
-        # Initialize result matrices
+        # Initialize result matrices (compute in T x S x S, then transpose)
         av_slice_corr_scores = np.full(num_time_bins, np.nan)
         all_slice_corr_scores = np.full((num_time_bins, num_slices, num_slices), np.nan)
 
@@ -406,9 +414,14 @@ class RateSliceStack:
             av_slice_corr_scores[time] = np.nanmean(
                 all_slice_corr_scores[time, lower_tri_indices[0], lower_tri_indices[1]]
             )
-        # all_slice_corr_scores is TxSxS and av_burst_corr_scores is T
+        # Transpose from (T, S, S) to (S, S, T) for n×n×S convention
+        all_slice_corr_scores = np.moveaxis(all_slice_corr_scores, 0, 2)
+        # all_slice_corr_scores is now SxSxT and av_burst_corr_scores is T
 
-        return all_slice_corr_scores, av_slice_corr_scores
+        return (
+            PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+            av_slice_corr_scores,
+        )
 
     def PCA_on_lower_diagnol_corr_matrix(self, all_burst_corr_scores, n_components=2):
         """
@@ -464,7 +477,7 @@ class RateSliceStack:
     ):
         """
         Compute unit-to-unit similarity along the last axis of RateSliceStack self.event_stack (U x T x S)
-        This is done along the slice axis, making the output size be (S x U x U) which doesn't require thresholding.
+        This is done along the slice axis, making the output PairwiseCompMatrixStack of size (U x U x S).
 
         Parameters:
         -----------
@@ -474,9 +487,11 @@ class RateSliceStack:
 
         Returns:
         --------
-        max_corr_array (array): Pairwise correlation scores between all unit pairs for each slice. Shape is (S, U, U)
-        max_corr_lag_array (array): Lag where correlation between pair is at max. Shape is (S, U, U)
-        av_max_corr (array): Average correlation per time_bin across all valid slice pairs. Shape is (S,)
+        max_corr_array (PairwiseCompMatrixStack): Pairwise correlation scores between all unit pairs for each slice.
+            Shape is (U, U, S) in the stack attribute.
+        max_corr_lag_array (PairwiseCompMatrixStack): Lag where correlation between pair is at max.
+            Shape is (U, U, S) in the stack attribute.
+        av_max_corr (array): Average correlation per slice across all valid unit pairs. Shape is (S,)
         av_max_corr_lag (array): Average lag where correlation between pair is at max. Shape is (S,)
 
         """
@@ -491,7 +506,7 @@ class RateSliceStack:
             )
             max_corr_stack.append(max_corr_matrix)
             max_corr_lag_stack.append(lag_corr_matrix)
-        # Make the list of correlation matrices into a 3d matrix
+        # Make the list of correlation matrices into a 3d matrix (S x U x U)
         max_corr_array = np.stack(max_corr_stack, axis=0)
         max_corr_lag_array = np.stack(max_corr_lag_stack, axis=0)
 
@@ -501,8 +516,18 @@ class RateSliceStack:
         # Find the averages to get a single dimension array of averages
         av_max_corr = np.nanmean(
             max_corr_array[:, lower_tri_indices[0], lower_tri_indices[1]], axis=(1)
-        )  # shape (B,)
+        )  # shape (S,)
         av_max_corr_lag = np.nanmean(
             max_corr_lag_array[:, lower_tri_indices[0], lower_tri_indices[1]], axis=(1)
-        )  # shape (B,)
-        return max_corr_array, max_corr_lag_array, av_max_corr, av_max_corr_lag
+        )  # shape (S,)
+
+        # Transpose from (S, U, U) to (U, U, S) for n×n×S convention
+        max_corr_array = np.moveaxis(max_corr_array, 0, 2)
+        max_corr_lag_array = np.moveaxis(max_corr_lag_array, 0, 2)
+
+        return (
+            PairwiseCompMatrixStack(stack=max_corr_array, times=self.times),
+            PairwiseCompMatrixStack(stack=max_corr_lag_array, times=self.times),
+            av_max_corr,
+            av_max_corr_lag,
+        )
