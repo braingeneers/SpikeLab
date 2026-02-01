@@ -52,12 +52,53 @@ class GithubTools:
 from typing import Dict, Any, List
 
 
+import shutil
+
 class GithubTools:
     def __init__(self):
-        pass
+        self.gh_cmd = self._ensure_gh_installed()
+
+    def _ensure_gh_installed(self) -> str:
+        # 1. Check if in PATH
+        path = shutil.which("gh")
+        if path:
+            return path
+            
+        # 2. Check common locations (conda base)
+        # The user's trace showed it in opt/anaconda3/bin
+        common_paths = [
+            "/usr/local/bin/gh",
+            "/opt/homebrew/bin/gh",
+            os.path.expanduser("~/opt/anaconda3/bin/gh"),
+            os.path.expanduser("~/anaconda3/bin/gh"),
+            os.path.expanduser("~/miniconda3/bin/gh"),
+        ]
+        for p in common_paths:
+            if os.path.exists(p) and os.access(p, os.X_OK):
+                return p
+
+        # 3. Attempt Install via Conda
+        print("GithubTools: 'gh' CLI not found. Attempting to install via conda...")
+        try:
+            subprocess.run(["conda", "install", "-c", "conda-forge", "gh", "-y"], check=True)
+            path = shutil.which("gh")
+            if path:
+                return path
+        except Exception as e:
+            print(f"GithubTools: Failed to install 'gh' via conda: {e}")
+
+        # Fallback to "gh" and hope
+        return "gh"
 
     def _run_command(self, cmd: List[str]) -> Dict[str, Any]:
+<<<<<<< HEAD
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+        # If the command starts with "gh", replace it with full path
+        if cmd and cmd[0] == "gh":
+            cmd[0] = self.gh_cmd
+
+>>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return {"status": "success", "stdout": result.stdout}
@@ -86,10 +127,14 @@ class GithubTools:
         try:
             # Using gh CLI
 <<<<<<< HEAD
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "pr", "create", "--title", title, "--body", body]
 =======
             cmd = ["gh", "pr", "create", "--title", title, "--body", body]
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+            cmd = [self.gh_cmd, "pr", "create", "--title", title, "--body", body]
+>>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the PR URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
@@ -104,10 +149,14 @@ class GithubTools:
         """
         try:
 <<<<<<< HEAD
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "issue", "create", "--title", title, "--body", body]
 =======
             cmd = ["gh", "issue", "create", "--title", title, "--body", body]
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+            cmd = [self.gh_cmd, "issue", "create", "--title", title, "--body", body]
+>>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the Issue URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
