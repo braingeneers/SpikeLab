@@ -3,6 +3,7 @@ import os
 import re
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 from typing import Dict, Any, List, Callable
@@ -102,6 +103,16 @@ class GithubTools:
             cmd[0] = self.gh_cmd
 
 >>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+from typing import Dict, Any, List
+
+
+class GithubTools:
+    def __init__(self):
+        pass
+
+    def _run_command(self, cmd: List[str]) -> Dict[str, Any]:
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return {"status": "success", "stdout": result.stdout}
@@ -131,6 +142,7 @@ class GithubTools:
             # Using gh CLI
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "pr", "create", "--title", title, "--body", body]
 =======
             cmd = ["gh", "pr", "create", "--title", title, "--body", body]
@@ -138,6 +150,9 @@ class GithubTools:
 =======
             cmd = [self.gh_cmd, "pr", "create", "--title", title, "--body", body]
 >>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+            cmd = ["gh", "pr", "create", "--title", title, "--body", body]
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the PR URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
@@ -153,6 +168,7 @@ class GithubTools:
         try:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "issue", "create", "--title", title, "--body", body]
 =======
             cmd = ["gh", "issue", "create", "--title", title, "--body", body]
@@ -160,6 +176,9 @@ class GithubTools:
 =======
             cmd = [self.gh_cmd, "issue", "create", "--title", title, "--body", body]
 >>>>>>> 9185378 (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+            cmd = ["gh", "issue", "create", "--title", title, "--body", body]
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the Issue URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
@@ -168,6 +187,7 @@ class GithubTools:
         except subprocess.CalledProcessError as e:
             return {"status": "error", "stderr": e.stderr}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -207,6 +227,8 @@ class GithubTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 github_tool_definitions = [
     {
@@ -248,6 +270,7 @@ github_tool_definitions = [
             },
         },
     },
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -295,4 +318,6 @@ github_tool_definitions = [
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 ]

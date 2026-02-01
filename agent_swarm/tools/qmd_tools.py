@@ -3,6 +3,7 @@ import json
 import os
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
 =======
 from typing import Dict, Any, List
@@ -10,6 +11,9 @@ from typing import Dict, Any, List
 =======
 from typing import Dict, Any, List, Callable
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+from typing import Dict, Any, List
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 
 class QmdTools:
@@ -65,6 +69,7 @@ class QmdTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
@@ -79,6 +84,8 @@ class QmdTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 qmd_tool_definitions = [
     {

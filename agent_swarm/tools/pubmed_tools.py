@@ -1,6 +1,7 @@
 from Bio import Entrez
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
 =======
 from typing import Dict, Any, List
@@ -8,6 +9,9 @@ from typing import Dict, Any, List
 =======
 from typing import Dict, Any, List, Callable
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+from typing import Dict, Any, List
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 import os
 
 
@@ -19,6 +23,7 @@ class PubMedTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
 =======
     def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
@@ -26,6 +31,9 @@ class PubMedTools:
 =======
     def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+    def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         """
         Search PubMed for papers matching the query.
         Returns a list of dictionaries with title, pmid, and summary (if available in snippet).
@@ -112,6 +120,7 @@ class PubMedTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
@@ -125,6 +134,8 @@ class PubMedTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 pubmed_tool_definitions = [
     {

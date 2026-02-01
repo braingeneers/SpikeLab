@@ -27,6 +27,7 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.last_message_ts = None
         self.last_feedback = None
         self.waiting_for_input = False
@@ -42,6 +43,10 @@ class SlackTools:
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+        self.last_message_ts = None
+        self.last_feedback = None
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
         if self.app and self.message_callback:
 
@@ -50,6 +55,7 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 channel = event.get("channel")
                 text = event.get("text")
                 bot_id = event.get("bot_id")
@@ -237,34 +243,90 @@ class SlackTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
                 logger.info(f"Received Slack event: {event}")
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
                 channel = event.get("channel")
                 text = event.get("text")
                 bot_id = event.get("bot_id")
+                thread_ts = event.get("thread_ts")
 
-                print(
-                    f"DEBUG: Message in {channel} (Target: {self.channel_id}), BotID: {bot_id}, Text: {text}"
-                )
-
-                # Ignore bot messages and non-message events (like bot_add)
+                # Ignore bot messages
                 if channel == self.channel_id and not bot_id and text:
-                    clean_text = text.strip().lower()
+                    user_id = event.get("user")
+
                     if self.waiting_for_approval:
-                        if clean_text in ["yes", "approve", "ok", "lgtm"]:
+                        approvals = [
+                            "yes",
+                            "approve",
+                            "ok",
+                            "lgtm",
+                            "✅",
+                            ":white_check_mark:",
+                            ":heavy_check_mark:",
+                            ":check_mark:",
+                        ]
+                        rejections = [
+                            "no",
+                            "reject",
+                            "stop",
+                            "❌",
+                            ":x:",
+                            ":no_entry_sign:",
+                        ]
+
+                        clean_text = text.strip().lower()
+                        found_approval = any(token in clean_text for token in approvals)
+                        found_rejection = any(
+                            token in clean_text for token in rejections
+                        )
+
+                        if found_approval:
                             self.approval_result = True
+                            self.last_feedback = text
                             self.waiting_for_approval = False
-                        elif clean_text in ["no", "reject", "stop"]:
+                        elif found_rejection:
                             self.approval_result = False
+                            self.last_feedback = text
                             self.waiting_for_approval = False
                     else:
-                        self.message_callback(text)
+                        self.message_callback(text, user_id)
 
+<<<<<<< HEAD
     def post_message(self, text: str, blocks: list = None):
 >>>>>>> ba3f8a9 (initial version)
+=======
+            @self.app.event("reaction_added")
+            def handle_reaction(event, logger):
+                if not self.waiting_for_approval:
+                    return
+
+                item = event.get("item", {})
+                if (
+                    item.get("type") == "message"
+                    and item.get("ts") == self.last_message_ts
+                ):
+                    reaction = event.get("reaction")
+                    if reaction in [
+                        "white_check_mark",
+                        "heavy_check_mark",
+                        "yes",
+                        "approve",
+                        "thumbsup",
+                    ]:
+                        self.approval_result = True
+                        self.waiting_for_approval = False
+                    elif reaction in ["x", "no_entry_sign", "reject", "thumbsdown"]:
+                        self.approval_result = False
+                        self.waiting_for_approval = False
+
+    def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: {text}")
             return None
 
         try:
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -297,10 +359,18 @@ class SlackTools:
                 channel=self.channel_id, text=text, blocks=blocks
             )
 >>>>>>> ba3f8a9 (initial version)
+=======
+            resp = self.app.client.chat_postMessage(
+                channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
+            )
+            self.last_message_ts = resp.get("ts")
+            return resp
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         except SlackApiError as e:
             print(f"Error posting to Slack: {e}")
             return None
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -318,6 +388,11 @@ class SlackTools:
 =======
     def upload_snippet(self, content: str, title: str, filename: str = "doc.md"):
 >>>>>>> ba3f8a9 (initial version)
+=======
+    def upload_snippet(
+        self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
+    ):
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: Cannot upload {title}")
             return None
@@ -332,6 +407,7 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 thread_ts=thread_ts,
 =======
 >>>>>>> ba3f8a9 (initial version)
@@ -340,6 +416,9 @@ class SlackTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+                thread_ts=thread_ts,
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             )
         except SlackApiError as e:
             print(f"Error uploading file to Slack: {e}")
@@ -348,6 +427,9 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
     def request_approval(self, message: str, thread_ts: str = None):
@@ -357,6 +439,7 @@ class SlackTools:
         # last_message_ts is updated inside post_message
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     def request_approval(self, message: str):
         self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
@@ -367,6 +450,8 @@ class SlackTools:
     def request_approval(self, message: str):
         self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
 >>>>>>> ba3f8a9 (initial version)
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         print(f"\n[SLACK WAIT] Requesting approval for: {message}")
 
         self.waiting_for_approval = True
@@ -374,6 +459,7 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.last_feedback = None
 =======
 >>>>>>> ba3f8a9 (initial version)
@@ -382,12 +468,16 @@ class SlackTools:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+        self.last_feedback = None
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
         import time
 
         while self.waiting_for_approval:
             time.sleep(1)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -421,6 +511,9 @@ class SlackTools:
 =======
         return self.approval_result
 >>>>>>> ba3f8a9 (initial version)
+=======
+        return self.approval_result, self.last_feedback
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
     def start_listening(self):
         if not self.app or not self.app_token:

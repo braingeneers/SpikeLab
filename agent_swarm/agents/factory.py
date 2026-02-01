@@ -162,24 +162,47 @@ class AgentFactory:
 from agent_swarm.agents.base import BaseAgent
 from agent_swarm.tools.research_tools import research_tool_definitions
 from agent_swarm.tools.slack_tools import slack_tool_definitions
+from agent_swarm.tools.artifact_tools import artifact_tool_definitions
+from agent_swarm.tools.qmd_tools import qmd_tool_definitions
+from agent_swarm.tools.pubmed_tools import pubmed_tool_definitions
+from agent_swarm.tools.github_tools import github_tool_definitions
+from agent_swarm.tools.terminal_tools import terminal_tool_definitions
 
 
 class AgentFactory:
     @staticmethod
     def create_researcher():
         return BaseAgent(
-            name="Researcher", prompt_file="agent_swarm/agents/prompts/researcher.md"
+            name="Researcher",
+            role="Lead Researcher",
+            prompt_path="agent_swarm/agents/prompts/researcher.md",
         )
 
     @staticmethod
     def create_engineer():
         return BaseAgent(
-            name="Engineer", prompt_file="agent_swarm/agents/prompts/engineer.md"
+            name="Engineer",
+            role="Lead Engineer",
+            prompt_path="agent_swarm/agents/prompts/engineer.md",
         )
 
     @staticmethod
     def create_validator():
         return BaseAgent(
+<<<<<<< HEAD
             name="Validator", prompt_file="agent_swarm/agents/prompts/validator.md"
 >>>>>>> ba3f8a9 (initial version)
+=======
+            name="Validator",
+            role="Verification Agent",
+            prompt_path="agent_swarm/agents/prompts/validator.md",
+        )
+
+    @staticmethod
+    def create_coordinator():
+        return BaseAgent(
+            name="Coordinator",
+            role="Swarm Coordinator",
+            prompt_path="agent_swarm/agents/prompts/coordinator.md",
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         )
