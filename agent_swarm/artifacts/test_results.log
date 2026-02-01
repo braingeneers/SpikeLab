@@ -1,0 +1,11 @@
+F
+=================================== FAILURES ===================================
+______________________ test_spikedata_basic_functionality ______________________
+agent_swarm/artifacts/test_functional_connectivity.py:15: in test_spikedata_basic_functionality
+    result = spike_data.compute_connectivity()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'SpikeData' object has no attribute 'compute_connectivity'
+=========================== short test summary info ============================
+FAILED agent_swarm/artifacts/test_functional_connectivity.py::test_spikedata_basic_functionality
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 2.14s

@@ -4,5 +4,4 @@ from .spikedata import *  # noqa: F401,F403
 from .ratedata import *
 from .rateslicestack import *
 
-
 __version__ = "0.0.0"
