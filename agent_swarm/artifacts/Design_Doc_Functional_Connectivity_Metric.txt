@@ -1,0 +1,54 @@
+### Design Document for Functional Connectivity Metric
+
+#### Background
+From the research notes, the paper focuses on synaptic connectivity and spike timing analysis, with an aim to uncover connectivity patterns through spike patterns, particularly interactions between pyramidal and interneuron neurons.
+
+#### Objectives
+1. Implement a functional connectivity metric that analyzes spike timing to infer synaptic connections.
+2. Integrate this metric into existing data structures, particularly within the `SpikeData` class framework.
+
+#### Key Insights from Research Notes
+- The paper does not explicitly define a single "functional connectivity metric," but suggests techniques for deriving connectivity through spike timing.
+- Important focus on pyramids and interneurons suggests attention to interactions and specific neuron types’ firing patterns is necessary.
+
+#### Design Specifications
+1. **Spike Timing Analysis**:  
+   - Focus on precise spike timing within millisecond resolution.
+   - Look for temporal correlations in spike trains across different neurons.
+   - Cross-correlation and windowed analysis methods could be applied for detecting synchronization.
+
+2. **Data Structures**:
+   - Leverage the `SpikeData` class for storing and manipulating spike times.
+   - Extend `SpikeData` to accommodate any additional data fields necessary for functional connectivity analysis.
+
+3. **Algorithm Design**:
+   - Implement cross-correlation across neuron spike trains within specific time windows.
+   - Model basic synaptic dynamics through temporal pattern detection (e.g., pre-and post-synaptic coincidence).
+
+4. **Integration**:
+   - The algorithm should be implemented in Python using `numpy` for handling data arrays, ensuring high performance for large datasets.
+   - Consider using `torch` if GPU acceleration is needed, depending on the dataset size.
+
+5. **Output**:
+   - Results should output a connectivity matrix or list showing the strength and type (excitatory or inhibitory) of connections inferred between neurons.
+
+6. **Testing and Validation**:
+   - Validation will involve synthetic data experiments to verify that the detection of spike correlations corresponds accurately with known synthetic connectivity.
+   - Comparisons with other known methods (preferably implemented within our library) to benchmark effectiveness.
+
+### Implementation Steps
+1. **Develop**:
+   - Develop a prototype algorithm for spike train cross-correlation analysis.
+   - Optimize for use within existing library constraints, prioritize ease of integration.
+  
+2. **Test**:
+   - Create unit tests with known outputs to ensure the accuracy of connectivity metrics.
+   
+3. **Document**:
+   - Maintain documentation within code and separate user guidance in library documentation for usability.
+
+#### Expected Challenges
+- Handling large datasets efficiently due to computational intensity of spike timing correlation calculations.
+- Ensuring compatibility with existing `SpikeData` structure while extending functionality.
+
+By adhering to this design, we aim to develop a robust and scientifically accurate functional connectivity metric that enhances the analytical capabilities of neural data within the IntegratedAnalysisTools library.
