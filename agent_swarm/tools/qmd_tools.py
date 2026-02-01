@@ -1,7 +1,11 @@
 import subprocess
 import json
 import os
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
+=======
+from typing import Dict, Any, List
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 
 class QmdTools:
@@ -55,6 +59,7 @@ class QmdTools:
         args = ["get", filepath, "-l", str(max_lines)]
         return self._run_qmd(args)
 
+<<<<<<< HEAD
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "qmd_search": self.search,
@@ -62,6 +67,8 @@ class QmdTools:
             "qmd_get": self.get,
         }
 
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 qmd_tool_definitions = [
     {

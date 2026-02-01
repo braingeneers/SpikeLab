@@ -1,6 +1,10 @@
 import os
 import json
+<<<<<<< HEAD
 from typing import Dict, Any, Callable, List
+=======
+from typing import Dict, Any
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 
 class ArtifactTools:
@@ -36,11 +40,14 @@ class ArtifactTools:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+<<<<<<< HEAD
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "save_artifact": self.save_artifact,
         }
 
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 artifact_tool_definitions = [
     {
