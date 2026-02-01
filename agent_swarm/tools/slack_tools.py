@@ -13,47 +13,101 @@ class SlackTools:
         self.message_callback = message_callback
         self.waiting_for_approval = False
         self.approval_result = None
+        self.last_message_ts = None
+        self.last_feedback = None
 
         if self.app and self.message_callback:
 
             @self.app.message("")  # Listen to all messages
             def handle_message(event, say, logger):
-                logger.info(f"Received Slack event: {event}")
                 channel = event.get("channel")
                 text = event.get("text")
                 bot_id = event.get("bot_id")
+                thread_ts = event.get("thread_ts")
 
-                print(
-                    f"DEBUG: Message in {channel} (Target: {self.channel_id}), BotID: {bot_id}, Text: {text}"
-                )
-
-                # Ignore bot messages and non-message events (like bot_add)
+                # Ignore bot messages
                 if channel == self.channel_id and not bot_id and text:
-                    clean_text = text.strip().lower()
+                    user_id = event.get("user")
+
                     if self.waiting_for_approval:
-                        if clean_text in ["yes", "approve", "ok", "lgtm"]:
+                        approvals = [
+                            "yes",
+                            "approve",
+                            "ok",
+                            "lgtm",
+                            "✅",
+                            ":white_check_mark:",
+                            ":heavy_check_mark:",
+                            ":check_mark:",
+                        ]
+                        rejections = [
+                            "no",
+                            "reject",
+                            "stop",
+                            "❌",
+                            ":x:",
+                            ":no_entry_sign:",
+                        ]
+
+                        clean_text = text.strip().lower()
+                        found_approval = any(token in clean_text for token in approvals)
+                        found_rejection = any(
+                            token in clean_text for token in rejections
+                        )
+
+                        if found_approval:
                             self.approval_result = True
+                            self.last_feedback = text
                             self.waiting_for_approval = False
-                        elif clean_text in ["no", "reject", "stop"]:
+                        elif found_rejection:
                             self.approval_result = False
+                            self.last_feedback = text
                             self.waiting_for_approval = False
                     else:
-                        self.message_callback(text)
+                        self.message_callback(text, user_id)
 
-    def post_message(self, text: str, blocks: list = None):
+            @self.app.event("reaction_added")
+            def handle_reaction(event, logger):
+                if not self.waiting_for_approval:
+                    return
+
+                item = event.get("item", {})
+                if (
+                    item.get("type") == "message"
+                    and item.get("ts") == self.last_message_ts
+                ):
+                    reaction = event.get("reaction")
+                    if reaction in [
+                        "white_check_mark",
+                        "heavy_check_mark",
+                        "yes",
+                        "approve",
+                        "thumbsup",
+                    ]:
+                        self.approval_result = True
+                        self.waiting_for_approval = False
+                    elif reaction in ["x", "no_entry_sign", "reject", "thumbsdown"]:
+                        self.approval_result = False
+                        self.waiting_for_approval = False
+
+    def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: {text}")
             return None
 
         try:
-            return self.app.client.chat_postMessage(
-                channel=self.channel_id, text=text, blocks=blocks
+            resp = self.app.client.chat_postMessage(
+                channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
             )
+            self.last_message_ts = resp.get("ts")
+            return resp
         except SlackApiError as e:
             print(f"Error posting to Slack: {e}")
             return None
 
-    def upload_snippet(self, content: str, title: str, filename: str = "doc.md"):
+    def upload_snippet(
+        self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
+    ):
         if not self.app or not self.channel_id:
             print(f"SLACK NOT CONFIGURED: Cannot upload {title}")
             return None
@@ -65,24 +119,30 @@ class SlackTools:
                 title=title,
                 filename=filename,
                 initial_comment=f"📄 *Full {title} uploaded for review*",
+                thread_ts=thread_ts,
             )
         except SlackApiError as e:
             print(f"Error uploading file to Slack: {e}")
             return None
 
-    def request_approval(self, message: str):
-        self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
+    def request_approval(self, message: str, thread_ts: str = None):
+        resp = self.post_message(
+            f"🚨 *APPROVAL REQUIRED* 🚨\n{message}", thread_ts=thread_ts
+        )
+        # last_message_ts is updated inside post_message
+
         print(f"\n[SLACK WAIT] Requesting approval for: {message}")
 
         self.waiting_for_approval = True
         self.approval_result = None
+        self.last_feedback = None
 
         import time
 
         while self.waiting_for_approval:
             time.sleep(1)
 
-        return self.approval_result
+        return self.approval_result, self.last_feedback
 
     def start_listening(self):
         if not self.app or not self.app_token:

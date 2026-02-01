@@ -18,4 +18,5 @@ dependencies:
     - sphinx-rtd-theme>=2.0
     - sphinx-autodoc-typehints>=1.25
     - h5py>=3.0.0
+    - biopython>=1.81
 

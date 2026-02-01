@@ -1,0 +1,1 @@
+Research notes on the functional connectivity metric from the specified paper.
