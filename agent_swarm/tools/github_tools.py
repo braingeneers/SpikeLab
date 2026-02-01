@@ -1,6 +1,7 @@
 import subprocess
 import os
 import re
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
 
 
@@ -47,6 +48,16 @@ class GithubTools:
         if cmd and cmd[0] == "gh":
             cmd[0] = self.gh_cmd
 
+=======
+from typing import Dict, Any, List
+
+
+class GithubTools:
+    def __init__(self):
+        pass
+
+    def _run_command(self, cmd: List[str]) -> Dict[str, Any]:
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return {"status": "success", "stdout": result.stdout}
@@ -74,7 +85,11 @@ class GithubTools:
     def create_pr(self, title: str, body: str) -> Dict[str, Any]:
         try:
             # Using gh CLI
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "pr", "create", "--title", title, "--body", body]
+=======
+            cmd = ["gh", "pr", "create", "--title", title, "--body", body]
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the PR URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
@@ -88,7 +103,11 @@ class GithubTools:
         Create a GitHub issue using the gh CLI.
         """
         try:
+<<<<<<< HEAD
             cmd = [self.gh_cmd, "issue", "create", "--title", title, "--body", body]
+=======
+            cmd = ["gh", "issue", "create", "--title", title, "--body", body]
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             # Find the Issue URL in stdout
             url_match = re.search(r"https://github.com/[^\s]+", result.stdout)
@@ -97,6 +116,7 @@ class GithubTools:
         except subprocess.CalledProcessError as e:
             return {"status": "error", "stderr": e.stderr}
 
+<<<<<<< HEAD
     def read_pr_comments(self, pr_number: str) -> Dict[str, Any]:
         """
         Read comments on a specific PR using the gh CLI.
@@ -127,6 +147,8 @@ class GithubTools:
             "reply_to_pr_comment": self.reply_to_pr_comment,
         }
 
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 github_tool_definitions = [
     {
@@ -168,6 +190,7 @@ github_tool_definitions = [
             },
         },
     },
+<<<<<<< HEAD
     {
         "type": "function",
         "function": {
@@ -206,4 +229,6 @@ github_tool_definitions = [
             },
         },
     },
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 ]

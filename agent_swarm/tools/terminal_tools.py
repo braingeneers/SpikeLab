@@ -1,6 +1,10 @@
 import subprocess
 import os
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
+=======
+from typing import Dict, Any, List
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 
 class TerminalTools:
@@ -82,11 +86,14 @@ class TerminalTools:
         except Exception as e:
             return {"error": str(e)}
 
+<<<<<<< HEAD
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "run_terminal_command": self.run_command,
         }
 
+=======
+>>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
 
 terminal_tool_definitions = [
     {
