@@ -1,50 +1,45 @@
 import pytest
 import numpy as np
-from FunctionalConnectivityMetric import SpikeData
+from FunctionalConnectivity import calculate_covariance, granger_causality
 
-# Test cases for the SpikeData class
+def test_calculate_covariance():
+    # Test normal case
+    data = np.random.rand(100, 5)
+    covariance_matrix = calculate_covariance(data)
+    assert covariance_matrix.shape == (5, 5)
+    assert np.allclose(covariance_matrix, covariance_matrix.T)  # Symmetric
 
-def test_spikedata_basic_functionality():
-    # Basic functionality with small example
-    spikes = np.array([
-        [0, 1, 0, 0, 1],
-        [1, 0, 1, 0, 0],
-        [0, 0, 0, 1, 1]
-    ])
-    spike_data = SpikeData(spikes)
-    result = spike_data.compute_connectivity()
-    expected = np.array([
-        [1, -0.5, 0.5],
-        [-0.5, 1, 0],
-        [0.5, 0, 1]
-    ])
-    assert np.allclose(result, expected), "Basic functionality test failed."
+    # Edge cases
+    data_empty = np.array([]).reshape(0, 5)
+    with pytest.raises(ValueError):
+        calculate_covariance(data_empty)
 
-def test_spikedata_empty_input():
-    # Edge case: empty input
-    spikes = np.array([[]])
-    spike_data = SpikeData(spikes)
-    result = spike_data.compute_connectivity()
-    expected = np.array([[]])
-    assert np.array_equal(result, expected), "Empty input test failed."
+    data_nan = np.random.rand(100, 5)
+    data_nan[0, 0] = np.nan
+    with pytest.raises(ValueError):
+        calculate_covariance(data_nan)
 
-def test_spikedata_nan_values():
-    # Edge case: input with NaN values
-    spikes = np.array([
-        [np.nan, 1, 0, 0, 1],
-        [1, 0, np.nan, 0, 0],
-        [0, 0, 0, 1, np.nan]
-    ])
-    spike_data = SpikeData(spikes)
-    result = spike_data.compute_connectivity()
-    expected = np.nan * np.empty((3, 3))
-    assert np.all(np.isnan(result) == np.isnan(expected)), "NaN values test failed."
+    data_large = np.random.rand(10000, 100)
+    covariance_matrix_large = calculate_covariance(data_large)
+    assert covariance_matrix_large.shape == (100, 100)
 
-def test_spikedata_large_scale():
-    # Edge case: Large scale data
-    np.random.seed(42)
-    spikes = np.random.randint(0, 2, size=(1000, 1000))
-    spike_data = SpikeData(spikes)
-    result = spike_data.compute_connectivity()
-    assert result.shape == (1000, 1000), "Large scale test failed due to incorrect shape."
-    assert np.all(np.diag(result) == 1), "Large scale test failed due to incorrect diagonal values."
+
+def test_granger_causality():
+    # Test normal case
+    data = np.random.rand(100, 5)
+    gc_matrix = granger_causality(data, max_lag=5)
+    assert gc_matrix.shape == (5, 5)
+
+    # Edge cases
+    data_empty = np.array([]).reshape(0, 5)
+    with pytest.raises(ValueError):
+        granger_causality(data_empty, max_lag=5)
+
+    data_nan = np.random.rand(100, 5)
+    data_nan[0, 0] = np.nan
+    with pytest.raises(ValueError):
+        granger_causality(data_nan, max_lag=5)
+
+    data_large = np.random.rand(10000, 100)
+    gc_matrix_large = granger_causality(data_large, max_lag=5)
+    assert gc_matrix_large.shape == (100, 100)
