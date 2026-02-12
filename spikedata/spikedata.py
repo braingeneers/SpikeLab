@@ -836,15 +836,15 @@ class SpikeData:
                 ) from e
             for u in unit_indices:
                 if u < 0 or u >= self.N:
-                    raise ValueError(
-                        f"Unit index {u} out of range (0 to {self.N - 1})"
-                    )
+                    raise ValueError(f"Unit index {u} out of range (0 to {self.N - 1})")
 
         # Extract for each selected unit, optionally store, return (waveforms, meta).
         waveforms_out: List[np.ndarray] = []
         channels_out: List[List[int]] = []
         spike_times_out: List[np.ndarray] = []
-        avg_waveforms_out: Optional[List[np.ndarray]] = [] if return_avg_waveform else None
+        avg_waveforms_out: Optional[List[np.ndarray]] = (
+            [] if return_avg_waveform else None
+        )
         channel_waveforms_out: Optional[List[dict]] = (
             [] if return_channel_waveforms else None
         )
