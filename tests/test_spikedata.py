@@ -1275,7 +1275,9 @@ class SpikeDataTest(unittest.TestCase):
             channel_indices=channel_indices,
         )
         self.assertEqual(wf_sub.shape, (2, 30, 1))
-        self.assertTrue(np.array_equal(wf_sub[:, :, 0], raw_data[channel_indices, 40:70]))
+        self.assertTrue(
+            np.array_equal(wf_sub[:, :, 0], raw_data[channel_indices, 40:70])
+        )
 
         # Out-of-bounds spikes should be skipped
         wf_skip = extract_waveforms(
@@ -1349,8 +1351,12 @@ class SpikeDataTest(unittest.TestCase):
         self.assertTrue(np.array_equal(meta["spike_times_ms"], np.array([1.0, 5.0])))
         # Waveforms should match those valid spikes
         self.assertEqual(waveforms.shape, (1, 30, 2))
-        self.assertTrue(np.array_equal(waveforms[0, :, 0], raw_data[2, 0:30]))   # 1ms -> [0:30]
-        self.assertTrue(np.array_equal(waveforms[0, :, 1], raw_data[2, 40:70]))  # 5ms -> [40:70]
+        self.assertTrue(
+            np.array_equal(waveforms[0, :, 0], raw_data[2, 0:30])
+        )  # 1ms -> [0:30]
+        self.assertTrue(
+            np.array_equal(waveforms[0, :, 1], raw_data[2, 40:70])
+        )  # 5ms -> [40:70]
 
         # avg_waveform should be mean across spikes
         avg_expected = waveforms.mean(axis=2)
@@ -1359,7 +1365,9 @@ class SpikeDataTest(unittest.TestCase):
         # Per-channel view should match waveforms slices
         self.assertIn("channel_waveforms", meta)
         self.assertIn(2, meta["channel_waveforms"])
-        self.assertTrue(np.array_equal(meta["channel_waveforms"][2], waveforms[0, :, :]))
+        self.assertTrue(
+            np.array_equal(meta["channel_waveforms"][2], waveforms[0, :, :])
+        )
 
         # return_avg_waveform=False -> None
         _, meta_no_avg = extract_unit_waveforms(
@@ -1518,7 +1526,9 @@ class SpikeDataTest(unittest.TestCase):
         )
         self.assertEqual(waveforms_all_ch.shape[0], n_channels)
 
-        all_waveforms, all_meta = sd.get_traces(ms_before=1.0, ms_after=2.0, store=False)
+        all_waveforms, all_meta = sd.get_traces(
+            ms_before=1.0, ms_after=2.0, store=False
+        )
         self.assertIsInstance(all_waveforms, list)
         self.assertEqual(len(all_waveforms), 3)
         self.assertEqual(all_waveforms[0].shape[2], 2)
@@ -1529,9 +1539,13 @@ class SpikeDataTest(unittest.TestCase):
         sd_edge = SpikeData(
             [[5.0, 95.0]], length=100.0, raw_data=raw_data, raw_time=fs_kHz
         )
-        waveforms_edge, _meta_edge = sd_edge.get_traces(unit=0, ms_before=10.0, ms_after=10.0)
+        waveforms_edge, _meta_edge = sd_edge.get_traces(
+            unit=0, ms_before=10.0, ms_after=10.0
+        )
         self.assertEqual(waveforms_edge.shape[2], 0)
-        waveforms_small, _meta_small = sd_edge.get_traces(unit=0, ms_before=1.0, ms_after=1.0)
+        waveforms_small, _meta_small = sd_edge.get_traces(
+            unit=0, ms_before=1.0, ms_after=1.0
+        )
         self.assertEqual(waveforms_small.shape[2], 2)
 
         sd_store = SpikeData(
