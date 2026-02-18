@@ -755,7 +755,7 @@ class SpikeData:
 
         return channel_raster
 
-    def get_traces(
+    def get_waveform_traces(
         self,
         unit: Optional[Union[int, slice, Sequence[int]]] = None,
         ms_before: float = 1.0,
@@ -810,8 +810,7 @@ class SpikeData:
         else:
             fs_kHz = 1.0 / np.median(np.diff(self.raw_time))
 
-        # Get mapping of neuron indices to their recording channels
-        # Used by extract_unit_waveforms to determine default channels per unit
+        # Get mapping of neuron indices to their recording channels using extract_unit_waveforms to determine default channels per unit
         neuron_to_channel = self.neuron_to_channel_map()
 
         # Normalize `unit` into an explicit list of indices to extract, while preserving
@@ -897,8 +896,15 @@ class SpikeData:
             "channels": channels_out,
             "spike_times_ms": spike_times_out,
         }
-        if return_avg_waveform:
-            meta["avg_waveforms"] = avg_waveforms_out
+        if return_avg_waveform and avg_waveforms_out is not None:
+            # Single unit: return one 2D array (num_channels, num_samples)
+            meta["avg_waveforms"] = (
+                np.asarray(avg_waveforms_out[0]).reshape(
+                    avg_waveforms_out[0].shape[0], -1
+                )
+                if return_single
+                else [np.asarray(a).reshape(a.shape[0], -1) for a in avg_waveforms_out]
+            )
         if return_channel_waveforms:
             meta["channel_waveforms"] = channel_waveforms_out
 
