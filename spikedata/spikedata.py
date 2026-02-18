@@ -897,14 +897,10 @@ class SpikeData:
             "spike_times_ms": spike_times_out,
         }
         if return_avg_waveform and avg_waveforms_out is not None:
-            # Single unit: return one 2D array (num_channels, num_samples)
-            meta["avg_waveforms"] = (
-                np.asarray(avg_waveforms_out[0]).reshape(
-                    avg_waveforms_out[0].shape[0], -1
-                )
-                if return_single
-                else [np.asarray(a).reshape(a.shape[0], -1) for a in avg_waveforms_out]
-            )
+            # Always return as a list for consistency (one element per unit)
+            meta["avg_waveforms"] = [
+                np.asarray(a).reshape(a.shape[0], -1) for a in avg_waveforms_out
+            ]
         if return_channel_waveforms:
             meta["channel_waveforms"] = channel_waveforms_out
 
