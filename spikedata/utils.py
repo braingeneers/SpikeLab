@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal, Union
 
 import numpy as np
 from scipy import ndimage, signal
@@ -12,7 +12,17 @@ __all__ = [
     "swap",
     "randomize",
     "trough_between",
+    "TimeUnit",
+    "ensure_h5py",
+    "times_from_ms",
+    "to_ms",
 ]
+TimeUnit = Literal["ms", "s", "samples"]
+
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -403,26 +413,34 @@ def extract_lower_triangle_features(matrix_3d):
 
     Parameters:
     -----------
-    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
-                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
+    matrix_3d (array or PairwiseCompMatrixStack): 3D correlation matrix of shape (n, n, S) or PairwiseCompMatrixStack object.
+        Where n is the matrix dimension and S is the number of slices/samples.
 
     Returns:
     --------
     features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
-                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
+                      F = n*(n-1)/2 (number of unique pairs or more simply the number of values in lower triangle)
     """
-    if matrix_3d.shape[1] != matrix_3d.shape[2]:
+    # Handle structured types
+    if hasattr(matrix_3d, "stack") and isinstance(matrix_3d.stack, np.ndarray):
+        matrix_3d = matrix_3d.stack
+
+    if matrix_3d.ndim != 3:
+        raise ValueError(f"Input must be a 3D array (or stack), got {matrix_3d.ndim}D")
+
+    if matrix_3d.shape[0] != matrix_3d.shape[1]:
         raise ValueError(
-            "The input 3D matrix must have the same size for the last 2 dimensions."
+            "The input 3D matrix must have shape (n, n, S) where the first two dimensions are equal."
         )
-    num_samples = matrix_3d.shape[0]  # S
-    num_items = matrix_3d.shape[1]  # U
+    num_items = matrix_3d.shape[0]  # n
+    num_samples = matrix_3d.shape[2]  # S
 
     # Get lower triangle indices
     lower_tri_idx = np.tril_indices(num_items, k=-1)
 
     # Extract all lower triangles at once (vectorized)
-    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+    # matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :] gives shape (F, S), transpose to (S, F)
+    features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
     return features
 
 
@@ -445,18 +463,55 @@ def PCA_reduction(matrix_2d, n_components=2):
     return pca_result
 
 
+def ensure_h5py():
+    """Ensure h5py is available for HDF5-based exporters."""
+    if h5py is None:
+        raise ImportError(
+            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
+        )
+
+
+def times_from_ms(
+    times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
+) -> Union[np.ndarray, float, int]:
+    """Convert times from milliseconds to the requested unit."""
+    if unit == "ms":
+        return times_ms.astype(float)
+    if unit == "s":
+        return times_ms.astype(float) / 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        # Use round-to-nearest to produce integer samples
+        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
+def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
+    """Convert a vector of times to milliseconds."""
+    if unit == "ms":
+        return values.astype(float)
+    if unit == "s":
+        return values.astype(float) * 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        return values.astype(float) / fs_Hz * 1e3
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
 def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:
     """
-    Check a list of dictionaries for use as neuron_attributes.
+    Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
 
     Parameters:
-        neuron_attributes: List of dictionaries containing neuron information.
+        neuron_attributes: List of dictionaries containing neuron attributes.
         n_neurons: Expected number of neurons. If provided, validates the list length.
 
     Returns:
-        A list of dictionaries where all dictionaries have the same keys.
+        A list of dictionaries where all dictionaries have valid keys and values.
 
     Notes:
     - If some dictionaries are missing keys that others have, a warning is issued
