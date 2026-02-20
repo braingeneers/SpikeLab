@@ -8,9 +8,12 @@ A monorepo for a suite of analysis tools supporting automated closed-loop experi
 
 IntegratedAnalysisTools provides a unified framework for working with neuronal spike train data. The main components include:
 
-- **spikedata**: Core module for spike train data representation, manipulation, and analysis
-- **data_loaders**: Utilities to load various file formats (HDF5, NWB, KiloSort/Phy, SpikeInterface)
-- **data_exporters**: Export SpikeData to common neuroscience formats
+- **SpikeData**: Core module for spike train data representation, manipulation, and analysis
+- **RateData**: Core module for instantaneous firing rate data representation, manipulation, and analysis
+- **SliceStack**: Slice Spike or Rate data and create a stack of slices for comparative analysis
+- **Pairwise**: Tools for further analysis of nxn pairwise similarity matrices   
+- **Data loaders**: Utilities to load various file formats (HDF5, NWB, KiloSort/Phy, SpikeInterface)
+- **Data exporters**: Export SpikeData to common neuroscience formats
 
 ## Installation
 
@@ -51,17 +54,7 @@ raster = sd.raster(bin_size=1.0)
 sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 ```
 
-## Documentation
 
-**📖 [Read the full documentation](https://braingeneers.github.io/IntegratedAnalysisTools/)**
-
-To build the documentation locally:
-
-```bash
-pip install -e ".[docs]"
-cd docs
-make html
-```
 
 The built documentation will be in `docs/build/html/index.html`.
 
