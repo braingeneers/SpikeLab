@@ -56,8 +56,6 @@ sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 
 
 
-The built documentation will be in `docs/build/html/index.html`.
-
 ## Contributing
 
 Contributions are welcome! Please see the [GitHub repository](https://github.com/braingeneers/IntegratedAnalysisTools) for guidelines.
