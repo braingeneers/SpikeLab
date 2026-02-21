@@ -19,6 +19,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
 from spikedata import SpikeData
+from spikedata.utils import (
+    check_neuron_attributes,
+    compute_avg_waveform,
+    extract_unit_waveforms,
+    extract_waveforms,
+    get_channels_for_unit,
+    get_valid_spike_times,
+    waveforms_by_channel,
+)
 
 
 @dataclass
@@ -447,11 +456,11 @@ class SpikeDataTest(unittest.TestCase):
 
         # Exactly the same thing, but for the matrix of STTCs.
         sttc = foo.spike_time_tilings(1)
-        self.assertEqual(sttc.shape, (2, 2))
-        self.assertEqual(sttc[0, 1], sttc[1, 0])
-        self.assertEqual(sttc[0, 0], 1.0)
-        self.assertEqual(sttc[1, 1], 1.0)
-        self.assertEqual(sttc[0, 1], foo.spike_time_tiling(0, 1, 1))
+        self.assertEqual(sttc.matrix.shape, (2, 2))
+        self.assertEqual(sttc.matrix[0, 1], sttc.matrix[1, 0])
+        self.assertEqual(sttc.matrix[0, 0], 1.0)
+        self.assertEqual(sttc.matrix[1, 1], 1.0)
+        self.assertEqual(sttc.matrix[0, 1], foo.spike_time_tiling(0, 1, 1))
 
         # Default arguments, inferred value of tmax.
         tmax = max(np.ptp(foo.train[0]), np.ptp(foo.train[1]))
@@ -870,15 +879,8 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 4) Tests edge cases: no neuron_attributes, empty data
         (Test Case 5) Tests partial channel information (some neurons missing channel)
         """
-        from dataclasses import dataclass
-
-        @dataclass
-        class NeuronAttrs:
-            channel: int
-            other_field: str = "test"
-
         # Test basic functionality
-        attrs = [NeuronAttrs(channel=i % 4) for i in range(10)]
+        attrs = [{"channel": i % 4, "other_field": "test"} for i in range(10)]
         trains = [[] for _ in range(10)]
         sd = SpikeData(trains, neuron_attributes=attrs, length=100.0)
         mapping = sd.neuron_to_channel_map()
@@ -892,11 +894,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping[5], 1)  # 5 % 4 = 1
 
         # Test with different attribute names
-        @dataclass
-        class NeuronAttrsChannelId:
-            channel_id: int
-
-        attrs2 = [NeuronAttrsChannelId(channel_id=i % 3) for i in range(6)]
+        attrs2 = [{"channel_id": i % 3} for i in range(6)]
         sd2 = SpikeData([[]] * 6, neuron_attributes=attrs2, length=100.0)
         mapping2 = sd2.neuron_to_channel_map()
         self.assertEqual(len(mapping2), 6)
@@ -908,11 +906,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping2, mapping2_explicit)
 
         # Test with channel_index attribute
-        @dataclass
-        class NeuronAttrsChannelIndex:
-            channel_index: int
-
-        attrs3 = [NeuronAttrsChannelIndex(channel_index=i // 2) for i in range(6)]
+        attrs3 = [{"channel_index": i // 2} for i in range(6)]
         sd3 = SpikeData([[]] * 6, neuron_attributes=attrs3, length=100.0)
         mapping3 = sd3.neuron_to_channel_map()
         self.assertEqual(mapping3[0], 0)
@@ -931,15 +925,11 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(mapping_empty, {})
 
         # Test with partial channel information (some neurons missing channel)
-        @dataclass
-        class NeuronAttrsPartial:
-            channel: int = None
-
         attrs_partial = [
-            NeuronAttrsPartial(channel=0),
-            NeuronAttrsPartial(channel=1),
-            NeuronAttrsPartial(),  # Missing channel
-            NeuronAttrsPartial(channel=2),
+            {"channel": 0},
+            {"channel": 1},
+            {},  # Missing channel
+            {"channel": 2},
         ]
         sd_partial = SpikeData([[]] * 4, neuron_attributes=attrs_partial, length=100.0)
         mapping_partial = sd_partial.neuron_to_channel_map()
@@ -961,14 +951,8 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 4) Tests edge cases: no channel info, empty data
         (Test Case 5) Tests that channel raster shape matches expectations
         """
-        from dataclasses import dataclass
-
-        @dataclass
-        class NeuronAttrs:
-            channel: int
-
         # Create 6 neurons: 0,1 on channel 0; 2,3 on channel 1; 4,5 on channel 2
-        attrs = [NeuronAttrs(channel=i // 2) for i in range(6)]
+        attrs = [{"channel": i // 2} for i in range(6)]
         # Create spike trains with known patterns:
         # Channel 0: neuron 0 has spikes at 10, 20; neuron 1 has spike at 15
         # Channel 1: neuron 2 has spike at 25; neuron 3 has spike at 30
@@ -1022,11 +1006,7 @@ class SpikeDataTest(unittest.TestCase):
         self.assertAll(ch_raster == ch_raster_explicit)
 
         # Test with different attribute name
-        @dataclass
-        class NeuronAttrsChannelId:
-            channel_id: int
-
-        attrs2 = [NeuronAttrsChannelId(channel_id=i % 2) for i in range(4)]
+        attrs2 = [{"channel_id": i % 2} for i in range(4)]
         trains2 = [[10.0], [20.0], [30.0], [40.0]]
         sd2 = SpikeData(trains2, neuron_attributes=attrs2, length=50.0)
         ch_raster2 = sd2.channel_raster(bin_size=10.0, channel_attr="channel_id")
@@ -1042,12 +1022,8 @@ class SpikeDataTest(unittest.TestCase):
             sd_no_channel.channel_raster()
 
         # Test that multiple neurons on same channel aggregate correctly
-        @dataclass
-        class NeuronAttrsSameChannel:
-            channel: int
-
         # All neurons on channel 0
-        attrs_same = [NeuronAttrsSameChannel(channel=0) for _ in range(3)]
+        attrs_same = [{"channel": 0} for _ in range(3)]
         trains_same = [[10.0, 20.0], [15.0], [25.0]]
         sd_same = SpikeData(trains_same, neuron_attributes=attrs_same, length=30.0)
         ch_raster_same = sd_same.channel_raster(bin_size=10.0)
@@ -1055,14 +1031,10 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(ch_raster_same[0, :].sum(), 4)  # Total 4 spikes
 
         # Test with non-contiguous channel indices
-        @dataclass
-        class NeuronAttrsNonContiguous:
-            channel: int
-
         attrs_nc = [
-            NeuronAttrsNonContiguous(channel=0),
-            NeuronAttrsNonContiguous(channel=5),
-            NeuronAttrsNonContiguous(channel=10),
+            {"channel": 0},
+            {"channel": 5},
+            {"channel": 10},
         ]
         trains_nc = [[10.0], [20.0], [30.0]]
         sd_nc = SpikeData(trains_nc, neuron_attributes=attrs_nc, length=40.0)
@@ -1073,3 +1045,610 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(ch_raster_nc[0, :].sum(), 1)
         self.assertEqual(ch_raster_nc[1, :].sum(), 1)
         self.assertEqual(ch_raster_nc[2, :].sum(), 1)
+
+    def test_check_neuron_attributes(self):
+        """
+        Tests check_neuron_attributes validation and behavior.
+
+        Tests:
+        (Test Case 1) Tests that non-list inputs raise ValueError
+        (Test Case 2) Tests that non-dict elements raise ValueError
+        (Test Case 3) Tests length validation against n_neurons
+        (Test Case 4) Tests key consistency validation
+        (Test Case 5) Tests that returned dicts are copies
+        """
+        self.assertRaises(ValueError, check_neuron_attributes, {"a": 1})
+        self.assertRaises(ValueError, check_neuron_attributes, None)
+        self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, "x"])
+        self.assertRaises(ValueError, check_neuron_attributes, [None])
+        self.assertRaises(ValueError, check_neuron_attributes, [{}], n_neurons=2)
+        self.assertEqual(check_neuron_attributes([{}, {}], n_neurons=2), [{}, {}])
+        self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, {}])
+        self.assertEqual(len(check_neuron_attributes([{"a": 1}, {"a": 2}])), 2)
+
+        # Returns copies
+        original = [{"a": 1}]
+        result = check_neuron_attributes(original)
+        result[0]["a"] = 999
+        self.assertEqual(original[0]["a"], 1)
+
+    def test_get_channels_for_unit(self):
+        """
+        Tests get_channels_for_unit channel resolution logic.
+
+        Tests:
+        (Test Case 1) channels=None uses neuron_to_channel mapping when available
+        (Test Case 2) channels=None falls back to all channels when no mapping exists
+        (Test Case 3) channels=int returns a single-element list
+        (Test Case 4) channels=list returns the list as-is (when non-empty)
+        (Test Case 5) channels=[] uses mapping when available, else all channels
+        (Test Case 6) invalid channels type raises ValueError
+        """
+        neuron_to_channel = {0: 2, 3: 1}
+        n_channels_total = 5
+
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=0,
+                channels=None,
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            ),
+            [2],
+        )
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=1,
+                channels=None,
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            ),
+            list(range(n_channels_total)),
+        )
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=0,
+                channels=4,
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            ),
+            [4],
+        )
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=0,
+                channels=[4, 0, 2],
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            ),
+            [4, 0, 2],
+        )
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=3,
+                channels=[],
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            ),
+            [1],
+        )
+        self.assertEqual(
+            get_channels_for_unit(
+                unit_idx=999,
+                channels=[],
+                neuron_to_channel={},
+                n_channels_total=n_channels_total,
+            ),
+            list(range(n_channels_total)),
+        )
+        with self.assertRaises(ValueError):
+            get_channels_for_unit(
+                unit_idx=0,
+                channels="not-a-valid-type",
+                neuron_to_channel=neuron_to_channel,
+                n_channels_total=n_channels_total,
+            )
+
+    def test_compute_avg_waveform(self):
+        """
+        Tests compute_avg_waveform for both non-empty and empty waveform stacks.
+
+        Tests:
+        (Test Case 1) Non-empty stack returns mean across spikes (axis=2)
+        (Test Case 2) Empty stack returns zeros of shape (num_channels, num_samples) with dtype
+        """
+        # Test Case 1: mean across spikes
+        waveforms = np.array(
+            [
+                # channel 0
+                [[1.0, 3.0], [2.0, 4.0]],
+                # channel 1
+                [[10.0, 14.0], [12.0, 16.0]],
+            ],
+            dtype=float,
+        )  # shape (2, 2, 2)
+        avg = compute_avg_waveform(waveforms, channel_indices=[0, 1], dtype=np.float32)
+        expected = np.array([[2.0, 3.0], [12.0, 14.0]], dtype=float)
+        self.assertTrue(np.allclose(avg, expected))
+
+        # Test Case 2: empty spikes dimension
+        empty = np.zeros((2, 30, 0), dtype=np.int16)
+        avg_empty = compute_avg_waveform(empty, channel_indices=[5, 7], dtype=np.int16)
+        self.assertEqual(avg_empty.shape, (2, 30))
+        self.assertEqual(avg_empty.dtype, np.int16)
+        self.assertTrue(np.array_equal(avg_empty, np.zeros((2, 30), dtype=np.int16)))
+
+    def test_get_valid_spike_times(self):
+        """
+        Tests get_valid_spike_times for proper boundary filtering.
+
+        Tests:
+        (Test Case 1) Filters out spikes with extraction windows outside raw data bounds
+        (Test Case 2) Empty spike list returns empty array
+        """
+        fs_kHz = 10.0
+        ms_before, ms_after = 1.0, 2.0  # 10 samples before, 20 after
+        n_time_samples = 200
+        spike_times_ms = np.array([0.5, 1.0, 5.0, 19.0], dtype=float)
+
+        valid = get_valid_spike_times(
+            spike_times_ms=spike_times_ms,
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            n_time_samples=n_time_samples,
+        )
+        self.assertTrue(np.array_equal(valid, np.array([1.0, 5.0])))
+
+        valid_empty = get_valid_spike_times(
+            spike_times_ms=np.array([], dtype=float),
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            n_time_samples=n_time_samples,
+        )
+        self.assertEqual(valid_empty.size, 0)
+
+    def test_waveforms_by_channel(self):
+        """
+        Tests waveforms_by_channel conversion and validation.
+
+        Tests:
+        (Test Case 1) Returns dict[channel -> (num_samples, num_spikes)] with correct contents
+        (Test Case 2) Raises ValueError when waveforms is not 3D
+        (Test Case 3) Raises ValueError when channel_indices length mismatches waveforms axis 0
+        """
+        waveforms = np.zeros((2, 4, 3), dtype=float)
+        waveforms[0, :, :] = 1.0
+        waveforms[1, :, :] = 2.0
+
+        ch_map = waveforms_by_channel(waveforms, channel_indices=[10, 12])
+        self.assertEqual(set(ch_map.keys()), {10, 12})
+        self.assertEqual(ch_map[10].shape, (4, 3))
+        self.assertEqual(ch_map[12].shape, (4, 3))
+        self.assertTrue(np.allclose(ch_map[10], 1.0))
+        self.assertTrue(np.allclose(ch_map[12], 2.0))
+
+        with self.assertRaises(ValueError):
+            waveforms_by_channel(np.zeros((2, 4), dtype=float), channel_indices=[0, 1])
+        with self.assertRaises(ValueError):
+            waveforms_by_channel(np.zeros((2, 4, 1), dtype=float), channel_indices=[0])
+
+    def test_extract_waveforms(self):
+        """
+        Tests extract_waveforms waveform snippet extraction.
+
+        Tests:
+        (Test Case 1) Basic extraction returns (num_channels, num_samples, num_spikes) with correct slices
+        (Test Case 2) channel_indices selects subset and preserves provided order
+        (Test Case 3) Spikes with out-of-bounds windows are skipped
+        (Test Case 4) Empty spike_times_ms returns an empty stack with correct shape/dtype
+        (Test Case 5) Empty raw_data raises ValueError
+        """
+        # Unique values per channel/time so slices are unambiguous:
+        # raw_data[ch, t] = ch*1000 + t
+        n_channels_total, n_time_samples = 4, 200
+        t = np.arange(n_time_samples, dtype=np.int64)
+        raw_data = np.stack([ch * 1000 + t for ch in range(n_channels_total)], axis=0)
+
+        fs_kHz = 10.0
+        ms_before, ms_after = 1.0, 2.0  # => 30 samples
+        spike_times_ms = np.array([5.0, 7.0], dtype=float)
+        wf = extract_waveforms(
+            raw_data,
+            spike_times_ms=spike_times_ms,
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+        )
+        self.assertEqual(wf.shape, (n_channels_total, 30, 2))
+        self.assertTrue(np.array_equal(wf[:, :, 0], raw_data[:, 40:70]))
+        self.assertTrue(np.array_equal(wf[:, :, 1], raw_data[:, 60:90]))
+
+        channel_indices = [3, 1]
+        wf_sub = extract_waveforms(
+            raw_data,
+            spike_times_ms=np.array([5.0], dtype=float),
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channel_indices=channel_indices,
+        )
+        self.assertEqual(wf_sub.shape, (2, 30, 1))
+        self.assertTrue(
+            np.array_equal(wf_sub[:, :, 0], raw_data[channel_indices, 40:70])
+        )
+
+        # Out-of-bounds spikes should be skipped
+        wf_skip = extract_waveforms(
+            raw_data,
+            spike_times_ms=np.array([0.5, 1.0, 19.0], dtype=float),
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channel_indices=[0],
+        )
+        self.assertEqual(wf_skip.shape, (1, 30, 1))
+        self.assertTrue(np.array_equal(wf_skip[0, :, 0], raw_data[0, 0:30]))
+
+        wf_empty = extract_waveforms(
+            raw_data.astype(np.int16),
+            spike_times_ms=np.array([], dtype=float),
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channel_indices=[0, 2],
+        )
+        self.assertEqual(wf_empty.shape, (2, 30, 0))
+        self.assertEqual(wf_empty.dtype, np.int16)
+
+        with self.assertRaisesRegex(ValueError, "raw_data is empty"):
+            extract_waveforms(
+                np.array([]),
+                spike_times_ms=np.array([1.0], dtype=float),
+                fs_kHz=fs_kHz,
+            )
+
+    def test_extract_unit_waveforms(self):
+        """
+        Tests extract_unit_waveforms orchestration logic and metadata outputs.
+
+        Tests:
+        (Test Case 1) channels=None uses neuron_to_channel mapping when available
+        (Test Case 2) meta["spike_times_ms"] contains only valid spikes (bounds-checked)
+        (Test Case 3) avg_waveform is computed across spikes (axis=2) when enabled
+        (Test Case 4) return_avg_waveform=False yields avg_waveform=None
+        (Test Case 5) return_channel_waveforms=True provides per-channel dict with expected shapes
+        (Test Case 6) explicit channels list overrides mapping and preserves order
+        """
+        n_channels_total, n_time_samples = 4, 200
+        fs_kHz = 10.0
+        ms_before, ms_after = 1.0, 2.0  # => 30 samples
+
+        t = np.arange(n_time_samples, dtype=np.int64)
+        raw_data = np.stack([ch * 1000 + t for ch in range(n_channels_total)], axis=0)
+        neuron_to_channel = {0: 2}
+
+        # Include out-of-bounds spikes; only 1.0 and 5.0 are valid for these parameters.
+        spike_times_ms = np.array([0.5, 1.0, 5.0, 19.0], dtype=float)
+
+        waveforms, meta = extract_unit_waveforms(
+            unit_idx=0,
+            spike_times_ms=spike_times_ms,
+            raw_data=raw_data,
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channels=None,
+            neuron_to_channel=neuron_to_channel,
+            return_channel_waveforms=True,
+            return_avg_waveform=True,
+        )
+
+        # Mapping should pick channel 2 only
+        self.assertEqual(meta["channels"], [2])
+        # Only valid spikes should remain in meta
+        self.assertTrue(np.array_equal(meta["spike_times_ms"], np.array([1.0, 5.0])))
+        # Waveforms should match those valid spikes
+        self.assertEqual(waveforms.shape, (1, 30, 2))
+        self.assertTrue(
+            np.array_equal(waveforms[0, :, 0], raw_data[2, 0:30])
+        )  # 1ms -> [0:30]
+        self.assertTrue(
+            np.array_equal(waveforms[0, :, 1], raw_data[2, 40:70])
+        )  # 5ms -> [40:70]
+
+        # avg_waveform should be mean across spikes
+        avg_expected = waveforms.mean(axis=2)
+        self.assertTrue(np.array_equal(meta["avg_waveform"], avg_expected))
+
+        # Per-channel view should match waveforms slices
+        self.assertIn("channel_waveforms", meta)
+        self.assertIn(2, meta["channel_waveforms"])
+        self.assertTrue(
+            np.array_equal(meta["channel_waveforms"][2], waveforms[0, :, :])
+        )
+
+        # return_avg_waveform=False -> None
+        _, meta_no_avg = extract_unit_waveforms(
+            unit_idx=0,
+            spike_times_ms=np.array([5.0], dtype=float),
+            raw_data=raw_data,
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channels=None,
+            neuron_to_channel=neuron_to_channel,
+            return_channel_waveforms=False,
+            return_avg_waveform=False,
+        )
+        self.assertIsNone(meta_no_avg["avg_waveform"])
+
+        # Explicit channels override mapping and preserve order
+        waveforms_exp, meta_exp = extract_unit_waveforms(
+            unit_idx=0,
+            spike_times_ms=np.array([5.0], dtype=float),
+            raw_data=raw_data,
+            fs_kHz=fs_kHz,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            channels=[3, 1],
+            neuron_to_channel=neuron_to_channel,
+            return_channel_waveforms=False,
+            return_avg_waveform=True,
+        )
+        self.assertEqual(meta_exp["channels"], [3, 1])
+        self.assertEqual(waveforms_exp.shape, (2, 30, 1))
+        self.assertTrue(np.array_equal(waveforms_exp[:, :, 0], raw_data[[3, 1], 40:70]))
+
+    def test_set_neuron_attribute(self):
+        """
+        Tests set_neuron_attribute for single, array, and partial updates.
+
+        Tests:
+        (Test Case 1) Tests single value assignment to all neurons
+        (Test Case 2) Tests array value assignment
+        (Test Case 3) Tests partial update with neuron_indices
+        (Test Case 4) Tests length mismatch raises ValueError
+        """
+        sd = SpikeData([[] for _ in range(4)], length=100)
+
+        # Test Case 1: Single value assignment to all neurons
+        sd.set_neuron_attribute("type", "excitatory")
+        self.assertTrue(all(a["type"] == "excitatory" for a in sd.neuron_attributes))
+
+        # Test Case 2: Array value assignment
+        sd.set_neuron_attribute("rate", [1, 2, 3, 4])
+        self.assertEqual([a["rate"] for a in sd.neuron_attributes], [1, 2, 3, 4])
+
+        # Test Case 3: Partial update with neuron_indices
+        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
+        self.assertEqual(sd.neuron_attributes[0]["label"], "A")
+        self.assertEqual(sd.neuron_attributes[2]["label"], "A")
+        self.assertNotIn("label", sd.neuron_attributes[1])
+
+        # Test Case 4: Length mismatch raises ValueError
+        self.assertRaises(ValueError, sd.set_neuron_attribute, "x", [1, 2], [0])
+
+    def test_get_neuron_attribute(self):
+        """
+        Tests get_neuron_attribute retrieval with and without defaults.
+
+        Tests:
+        (Test Case 1) Tests retrieval when no attributes set (returns defaults)
+        (Test Case 2) Tests retrieval of existing attribute values
+        (Test Case 3) Tests default value for missing attributes
+        """
+        sd = SpikeData([[] for _ in range(3)], length=100)
+
+        # Test Case 1: Retrieval when no attributes set (returns defaults)
+        self.assertEqual(sd.get_neuron_attribute("x"), [None, None, None])
+        self.assertEqual(sd.get_neuron_attribute("x", default=-1), [-1, -1, -1])
+
+        # Test Case 2: Retrieval of existing attribute values
+        sd.set_neuron_attribute("val", [1, 2, 3])
+        self.assertEqual(sd.get_neuron_attribute("val"), [1, 2, 3])
+        # Test Case 3: Default value for missing attributes
+        self.assertEqual(sd.get_neuron_attribute("missing"), [None, None, None])
+
+    def test_get_waveform_traces(self):
+        """
+        Test get_waveform_traces for correct waveform extraction from raw data.
+
+        Tests:
+        (Test Case 1) Basic waveform extraction returns dict with correct shape
+        (Test Case 2) Waveform shape is (num_channels, num_samples, num_spikes)
+        (Test Case 3) Explicit channel parameter overrides mapping
+        (Test Case 4) Empty list channels uses neuron_to_channel mapping
+        (Test Case 5) No channel mapping extracts all channels
+        (Test Case 6) Extract waveforms for all units
+        (Test Case 7) Spikes near boundaries should be skipped
+        (Test Case 8) Waveform storage in neuron_attributes (store=True default)
+        (Test Case 9) Error handling for empty raw_data
+        (Test Case 10) Error handling for unit out of range
+        (Test Case 11) raw_time as timestamp array
+        (Test Case 12) Unit with no spikes returns empty array with correct shape
+        (Test Case 13) Bandpass filtering option
+        (Test Case 14) Operations across spikes (axis=2)
+        """
+        n_channels = 4
+        n_samples = 1000
+        fs_kHz = 10.0
+        raw_data = np.random.randn(n_channels, n_samples)
+        raw_data[1, 195:205] = -5.0
+        raw_data[1, 495:505] = -5.0
+
+        trains = [[20.0, 50.0], [30.0], []]
+        attrs = [{"channel": 1}, {"channel": 2}, {"channel": 0}]
+        sd = SpikeData(
+            trains,
+            neuron_attributes=attrs,
+            length=100.0,
+            raw_data=raw_data,
+            raw_time=fs_kHz,
+        )
+
+        # Basic extraction returns (waveforms, meta)
+        waveforms, meta = sd.get_waveform_traces(unit=0, ms_before=1.0, ms_after=2.0)
+        self.assertIsInstance(meta, dict)
+        self.assertIn("fs_kHz", meta)
+        self.assertIn("unit_indices", meta)
+        self.assertIn("channels", meta)
+        self.assertIn("spike_times_ms", meta)
+        self.assertIn("avg_waveforms", meta)
+
+        self.assertEqual(waveforms.ndim, 3)
+        expected_samples = int(1.0 * fs_kHz) + int(2.0 * fs_kHz)
+        self.assertEqual(waveforms.shape[0], 1)
+        self.assertEqual(waveforms.shape[1], expected_samples)
+        self.assertEqual(waveforms.shape[2], 2)
+
+        avg_wf = meta["avg_waveforms"][0]
+        self.assertEqual(avg_wf.ndim, 2)
+        self.assertEqual(avg_wf.shape[0], waveforms.shape[0])
+        self.assertEqual(avg_wf.shape[1], waveforms.shape[1])
+        self.assertTrue(np.any(waveforms < -4.0))
+
+        waveforms_ch0, meta_ch0 = sd.get_waveform_traces(
+            unit=0, channels=0, store=False
+        )
+        self.assertEqual(waveforms_ch0.shape[0], 1)
+        self.assertEqual(meta_ch0["channels"][0], [0])
+
+        waveforms_empty_list, meta_empty_list = sd.get_waveform_traces(
+            unit=0, channels=[], store=False
+        )
+        self.assertEqual(meta_empty_list["channels"][0], [1])
+
+        sd_no_channel = SpikeData(
+            trains, length=100.0, raw_data=raw_data, raw_time=fs_kHz
+        )
+        waveforms_all_ch, _meta_all_ch = sd_no_channel.get_waveform_traces(
+            unit=0, ms_before=1.0, ms_after=2.0
+        )
+        self.assertEqual(waveforms_all_ch.shape[0], n_channels)
+
+        all_waveforms, all_meta = sd.get_waveform_traces(
+            ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertIsInstance(all_waveforms, list)
+        self.assertEqual(len(all_waveforms), 3)
+        self.assertEqual(all_waveforms[0].shape[2], 2)
+        self.assertEqual(all_waveforms[1].shape[2], 1)
+        self.assertEqual(all_waveforms[2].shape[2], 0)
+        self.assertEqual(all_meta["unit_indices"], [0, 1, 2])
+
+        sd_edge = SpikeData(
+            [[5.0, 95.0]], length=100.0, raw_data=raw_data, raw_time=fs_kHz
+        )
+        waveforms_edge, _meta_edge = sd_edge.get_waveform_traces(
+            unit=0, ms_before=10.0, ms_after=10.0
+        )
+        self.assertEqual(waveforms_edge.shape[2], 0)
+        waveforms_small, _meta_small = sd_edge.get_waveform_traces(
+            unit=0, ms_before=1.0, ms_after=1.0
+        )
+        self.assertEqual(waveforms_small.shape[2], 2)
+
+        sd_store = SpikeData(
+            trains,
+            neuron_attributes=[{"channel": 1}, {"channel": 2}, {"channel": 0}],
+            length=100.0,
+            raw_data=raw_data,
+            raw_time=fs_kHz,
+        )
+        _waveforms_stored, meta_stored = sd_store.get_waveform_traces(
+            unit=0, ms_before=1.0, ms_after=2.0
+        )
+        self.assertIsNotNone(sd_store.neuron_attributes[0].get("avg_waveform"))
+        self.assertIsNotNone(sd_store.neuron_attributes[0].get("waveforms"))
+        self.assertIsNotNone(sd_store.neuron_attributes[0].get("traces_meta"))
+        self.assertEqual(sd_store.neuron_attributes[0]["traces_meta"]["channels"], [1])
+        self.assertTrue(
+            np.isclose(sd_store.neuron_attributes[0]["traces_meta"]["fs_kHz"], fs_kHz)
+        )
+        self.assertClose(
+            sd_store.neuron_attributes[0]["avg_waveform"],
+            meta_stored["avg_waveforms"][0],
+        )
+
+        sd_store.get_waveform_traces()
+        self.assertIsNotNone(sd_store.neuron_attributes[0].get("avg_waveform"))
+        self.assertIsNotNone(sd_store.neuron_attributes[1].get("avg_waveform"))
+        self.assertEqual(sd_store.neuron_attributes[2]["waveforms"].shape[2], 0)
+        self.assertIsNotNone(sd_store.neuron_attributes[0].get("traces_meta"))
+        self.assertIsNotNone(sd_store.neuron_attributes[1].get("traces_meta"))
+        self.assertIsNotNone(sd_store.neuron_attributes[2].get("traces_meta"))
+
+        sd_no_raw = SpikeData(trains, length=100.0)
+        with self.assertRaises(ValueError):
+            sd_no_raw.get_waveform_traces(unit=0)
+
+        with self.assertRaises(ValueError):
+            sd.get_waveform_traces(unit=10)
+        with self.assertRaises(ValueError):
+            sd.get_waveform_traces(unit=-1)
+
+        timestamps = np.arange(n_samples) / fs_kHz
+        sd_timestamps = SpikeData(
+            trains,
+            neuron_attributes=attrs,
+            length=100.0,
+            raw_data=raw_data,
+            raw_time=timestamps,
+        )
+        waveforms_ts, _meta_ts = sd_timestamps.get_waveform_traces(
+            unit=0, ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertEqual(waveforms_ts.shape, waveforms.shape)
+
+        waveforms_empty, _meta_empty = sd.get_waveform_traces(
+            unit=2, ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertEqual(waveforms_empty.shape[0], 1)
+        self.assertEqual(waveforms_empty.shape[1], expected_samples)
+        self.assertEqual(waveforms_empty.shape[2], 0)
+
+        waveforms_filtered, _meta_filtered = sd.get_waveform_traces(
+            unit=0, bandpass=(100, 2000), filter_order=3, store=False
+        )
+        self.assertEqual(waveforms_filtered.shape, waveforms.shape)
+        self.assertFalse(np.allclose(waveforms_filtered, waveforms))
+
+        peak_amps = waveforms.min(axis=1)
+        self.assertEqual(peak_amps.shape, (1, 2))
+
+        mean_across_spikes = waveforms.mean(axis=2)
+        self.assertClose(mean_across_spikes, avg_wf)
+
+        # Subset selection: list of unit indices returns list of waveforms + shared meta
+        subset_waveforms, subset_meta = sd.get_waveform_traces(
+            unit=[0, 2], ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertIsInstance(subset_waveforms, list)
+        self.assertEqual(len(subset_waveforms), 2)
+        self.assertEqual(subset_meta["unit_indices"], [0, 2])
+        self.assertEqual(subset_meta["channels"][0], [1])
+        self.assertEqual(subset_meta["channels"][1], [0])
+        self.assertEqual(subset_waveforms[0].shape[2], 2)  # unit 0 has 2 spikes
+        self.assertEqual(subset_waveforms[1].shape[2], 0)  # unit 2 has no spikes
+
+        # Subset selection: slice returns list of waveforms
+        subset_slice_waveforms, subset_slice_meta = sd.get_waveform_traces(
+            unit=slice(0, 2), ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertIsInstance(subset_slice_waveforms, list)
+        self.assertEqual(len(subset_slice_waveforms), 2)
+        self.assertEqual(subset_slice_meta["unit_indices"], [0, 1])
+        self.assertEqual(subset_slice_waveforms[0].shape[2], 2)
+        self.assertEqual(subset_slice_waveforms[1].shape[2], 1)
+
+        # Subset selection: range returns list of waveforms
+        subset_range_waveforms, subset_range_meta = sd.get_waveform_traces(
+            unit=range(1, 3), ms_before=1.0, ms_after=2.0, store=False
+        )
+        self.assertIsInstance(subset_range_waveforms, list)
+        self.assertEqual(len(subset_range_waveforms), 2)
+        self.assertEqual(subset_range_meta["unit_indices"], [1, 2])
+        self.assertEqual(subset_range_waveforms[0].shape[2], 1)
+        self.assertEqual(subset_range_waveforms[1].shape[2], 0)

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
 from scipy import ndimage, signal
@@ -12,7 +12,24 @@ __all__ = [
     "swap",
     "randomize",
     "trough_between",
+    "TimeUnit",
+    "ensure_h5py",
+    "times_from_ms",
+    "to_ms",
+    "extract_waveforms",
+    "check_neuron_attributes",
+    "get_channels_for_unit",
+    "compute_avg_waveform",
+    "get_valid_spike_times",
+    "waveforms_by_channel",
+    "extract_unit_waveforms",
 ]
+TimeUnit = Literal["ms", "s", "samples"]
+
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -403,26 +420,34 @@ def extract_lower_triangle_features(matrix_3d):
 
     Parameters:
     -----------
-    matrix_3d (array): 3D correlation matrix of shape (S, U, U) [s, :, :] is a symmetric U×U matrix
-                       (this is just an example, can also be U x S x S. It just must be a 3d correlation matrix)
+    matrix_3d (array or PairwiseCompMatrixStack): 3D correlation matrix of shape (n, n, S) or PairwiseCompMatrixStack object.
+        Where n is the matrix dimension and S is the number of slices/samples.
 
     Returns:
     --------
     features (array): 2D matrix of shape (S, F) each row contains lower triangle values for that correlation matrix
-                      F = N*(N-1)/2 (number of unique pairs or more simply the number of values in lower traingle)
+                      F = n*(n-1)/2 (number of unique pairs or more simply the number of values in lower triangle)
     """
-    if matrix_3d.shape[1] != matrix_3d.shape[2]:
+    # Handle structured types
+    if hasattr(matrix_3d, "stack") and isinstance(matrix_3d.stack, np.ndarray):
+        matrix_3d = matrix_3d.stack
+
+    if matrix_3d.ndim != 3:
+        raise ValueError(f"Input must be a 3D array (or stack), got {matrix_3d.ndim}D")
+
+    if matrix_3d.shape[0] != matrix_3d.shape[1]:
         raise ValueError(
-            "The input 3D matrix must have the same size for the last 2 dimensions."
+            "The input 3D matrix must have shape (n, n, S) where the first two dimensions are equal."
         )
-    num_samples = matrix_3d.shape[0]  # S
-    num_items = matrix_3d.shape[1]  # U
+    num_items = matrix_3d.shape[0]  # n
+    num_samples = matrix_3d.shape[2]  # S
 
     # Get lower triangle indices
     lower_tri_idx = np.tril_indices(num_items, k=-1)
 
     # Extract all lower triangles at once (vectorized)
-    features = matrix_3d[:, lower_tri_idx[0], lower_tri_idx[1]]
+    # matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :] gives shape (F, S), transpose to (S, F)
+    features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
     return features
 
 
@@ -443,3 +468,370 @@ def PCA_reduction(matrix_2d, n_components=2):
     pca_result = pca.fit_transform(matrix_2d)
 
     return pca_result
+
+
+def ensure_h5py():
+    """Ensure h5py is available for HDF5-based exporters."""
+    if h5py is None:
+        raise ImportError(
+            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
+        )
+
+
+def times_from_ms(
+    times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
+) -> Union[np.ndarray, float, int]:
+    """Convert times from milliseconds to the requested unit."""
+    if unit == "ms":
+        return times_ms.astype(float)
+    if unit == "s":
+        return times_ms.astype(float) / 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        # Use round-to-nearest to produce integer samples
+        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
+def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
+    """Convert a vector of times to milliseconds."""
+    if unit == "ms":
+        return values.astype(float)
+    if unit == "s":
+        return values.astype(float) * 1e3
+    if unit == "samples":
+        if not fs_Hz or fs_Hz <= 0:
+            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
+        return values.astype(float) / fs_Hz * 1e3
+    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+
+
+def check_neuron_attributes(
+    neuron_attributes: List[dict], n_neurons: Optional[int] = None
+) -> List[dict]:
+    """
+    Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
+
+    Parameters:
+        neuron_attributes: List of dictionaries containing neuron attributes.
+        n_neurons: Expected number of neurons. If provided, validates the list length.
+
+    Returns:
+        A list of dictionaries where all dictionaries have valid keys and values.
+
+    Notes:
+    - If some dictionaries are missing keys that others have, a ValueError is raised
+      describing the inconsistent keys.
+    """
+    if not isinstance(neuron_attributes, list):
+        raise ValueError("neuron_attributes must be a list")
+    if n_neurons is not None and len(neuron_attributes) != n_neurons:
+        raise ValueError(
+            f"neuron_attributes has {len(neuron_attributes)} items, expected {n_neurons}"
+        )
+    for i, attr in enumerate(neuron_attributes):
+        if not isinstance(attr, dict):
+            raise ValueError(f"neuron_attributes[{i}] must be a dict")
+
+    if not neuron_attributes:
+        return []
+
+    all_keys = set().union(*(attr.keys() for attr in neuron_attributes))
+    if not all_keys:
+        return [d.copy() for d in neuron_attributes]
+
+    missing = {
+        i: all_keys - attr.keys()
+        for i, attr in enumerate(neuron_attributes)
+        if attr.keys() != all_keys
+    }
+    if missing:
+        parts = [f"Neuron {i} missing: {keys}" for i, keys in sorted(missing.items())]
+        raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
+
+    return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
+
+
+def get_channels_for_unit(
+    unit_idx: int,
+    channels: Optional[Union[int, List[int]]],
+    neuron_to_channel: dict,
+    n_channels_total: int,
+) -> List[int]:
+    """
+    Determine which channels to extract for a given unit.
+
+    Parameters:
+        unit_idx: Index of the unit.
+        channels: Channel specification. None uses neuron_to_channel_map or all channels;
+                  int for single channel; list for multiple; empty list for mapped channel.
+        neuron_to_channel: Mapping from unit indices to channel indices.
+        n_channels_total: Total number of channels in the raw data.
+
+    Returns:
+        List of channel indices to extract.
+
+    Raises:
+        ValueError: If channels argument is invalid type.
+    """
+    if channels is None:
+        if unit_idx in neuron_to_channel:
+            return [neuron_to_channel[unit_idx]]
+        return list(range(n_channels_total))
+    elif isinstance(channels, int):
+        return [channels]
+    elif isinstance(channels, list):
+        if len(channels) == 0:
+            if unit_idx in neuron_to_channel:
+                return [neuron_to_channel[unit_idx]]
+            return list(range(n_channels_total))
+        return channels
+    raise ValueError(f"Invalid channels argument: {channels}")
+
+
+def compute_avg_waveform(
+    waveforms: np.ndarray,
+    channel_indices: List[int],
+    dtype: np.dtype,
+) -> np.ndarray:
+    """
+    Compute the average waveform from extracted waveforms.
+
+    Parameters:
+        waveforms: 3D array of shape (num_channels, num_samples, num_spikes).
+        channel_indices: List of channel indices used for extraction.
+        dtype: Data type for the output array if waveforms is empty.
+
+    Returns:
+        2D array of shape (num_channels, num_samples) containing the average waveform.
+    """
+    if waveforms.shape[2] > 0:
+        return waveforms.mean(axis=2)
+    else:
+        return np.zeros(
+            (len(channel_indices), waveforms.shape[1]),
+            dtype=dtype,
+        )
+
+
+def get_valid_spike_times(
+    spike_times_ms: np.ndarray,
+    fs_kHz: float,
+    ms_before: float,
+    ms_after: float,
+    n_time_samples: int,
+) -> np.ndarray:
+    """
+    Filter spike times to only those within valid bounds of the raw data.
+
+    Parameters:
+        spike_times_ms: Array of spike times in milliseconds.
+        fs_kHz: Sampling rate in kHz.
+        ms_before: Milliseconds before each spike time.
+        ms_after: Milliseconds after each spike time.
+        n_time_samples: Total number of time samples in the raw data.
+
+    Returns:
+        Array of valid spike times in milliseconds.
+    """
+    before_samples = round(ms_before * fs_kHz)
+    after_samples = round(ms_after * fs_kHz)
+    valid_spike_times = []
+    for spike_time_ms in spike_times_ms:
+        spike_sample = round(spike_time_ms * fs_kHz)
+        start = spike_sample - before_samples
+        end = spike_sample + after_samples
+        if start >= 0 and end <= n_time_samples:
+            valid_spike_times.append(spike_time_ms)
+    return np.array(valid_spike_times)
+
+
+def waveforms_by_channel(
+    waveforms: np.ndarray, channel_indices: List[int]
+) -> Dict[int, np.ndarray]:
+    """
+    Convert a waveform stack into a per-channel dict.
+
+    Parameters:
+        waveforms: 3D array shaped (num_channels, num_samples, num_spikes).
+        channel_indices: List of channel indices corresponding to waveforms axis 0.
+
+    Returns:
+        Dict mapping channel index -> 2D array shaped (num_samples, num_spikes).
+    """
+    if waveforms.ndim != 3:
+        raise ValueError(f"waveforms must be 3D, got shape {waveforms.shape}")
+    if len(channel_indices) != waveforms.shape[0]:
+        raise ValueError(
+            "channel_indices length must match waveforms.shape[0] "
+            f"({len(channel_indices)} != {waveforms.shape[0]})"
+        )
+    # Note: waveforms[ch_i] is (num_samples, num_spikes) for that channel.
+    return {ch: waveforms[i, :, :] for i, ch in enumerate(channel_indices)}
+
+
+def extract_unit_waveforms(
+    unit_idx: int,
+    spike_times_ms: np.ndarray,
+    raw_data: np.ndarray,
+    fs_kHz: float,
+    ms_before: float,
+    ms_after: float,
+    channels: Optional[Union[int, List[int]]],
+    neuron_to_channel: dict,
+    bandpass: Optional[tuple] = None,
+    filter_order: int = 3,
+    return_channel_waveforms: bool = False,
+    return_avg_waveform: bool = True,
+) -> tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Extract waveforms and compute statistics for a single unit.
+
+    This function orchestrates the full waveform extraction pipeline:
+    1. Resolves which channels to extract based on user input and neuron mapping
+    2. Extracts raw voltage snippets around each spike time
+    3. Computes the mean waveform across all spikes
+    4. Filters spike times to only those with valid extraction windows
+
+    Parameters:
+        unit_idx: Index of the unit being extracted.
+        spike_times_ms: Array of spike times in milliseconds for this unit.
+        raw_data: Raw voltage data with shape (num_channels, num_samples).
+        fs_kHz: Sampling rate in kHz.
+        ms_before: Milliseconds before each spike time.
+        ms_after: Milliseconds after each spike time.
+        channels: Channel specification. None uses neuron_to_channel mapping or all
+                  channels; int for single channel; list for multiple; empty list
+                  for mapped channel.
+        neuron_to_channel: Mapping from unit indices to channel indices.
+        bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
+        filter_order: Butterworth filter order (default: 3).
+
+    Returns:
+        (waveforms, meta) where:
+            - waveforms: 3D array (num_channels, num_samples, num_spikes)
+            - meta: dict containing per-unit metadata (no raw waveforms):
+                - channels: List[int] of channel indices used
+                - spike_times_ms: np.ndarray of valid spike times
+                - avg_waveform: 2D array (num_channels, num_samples), or None if disabled
+                - channel_waveforms: Optional dict[channel -> (num_samples, num_spikes)]
+    """
+    n_channels_total = raw_data.shape[0]
+    n_time_samples = raw_data.shape[1]
+
+    # Resolve which channels to extract based on user input and neuron mapping
+    # Priority: explicit channels arg > neuron_to_channel mapping > all channels
+    channel_indices = get_channels_for_unit(
+        unit_idx, channels, neuron_to_channel, n_channels_total
+    )
+
+    # Extract raw voltage snippets around each spike time (num_channels, num_samples, num_spikes)
+    waveforms = extract_waveforms(
+        raw_data=raw_data,
+        spike_times_ms=spike_times_ms,
+        fs_kHz=fs_kHz,
+        ms_before=ms_before,
+        ms_after=ms_after,
+        channel_indices=channel_indices,
+        bandpass=bandpass,
+        filter_order=filter_order,
+    )
+
+    # Compute mean waveform across spikes if requested.
+    # Note: this mean is across spikes (axis=2), not across channels.
+    avg_waveform = (
+        compute_avg_waveform(waveforms, channel_indices, raw_data.dtype)
+        if return_avg_waveform
+        else None
+    )
+
+    # Filter spike times to only those with valid extraction windows
+    # (i.e., spikes not too close to recording start/end)
+    valid_spike_times = get_valid_spike_times(
+        spike_times_ms, fs_kHz, ms_before, ms_after, n_time_samples
+    )
+
+    meta: Dict[str, Any] = {
+        "channels": channel_indices,
+        "spike_times_ms": valid_spike_times,
+        "avg_waveform": avg_waveform,
+    }
+
+    # Optionally provide a per-channel view for convenience:
+    # channel -> (num_samples, num_spikes)
+    if return_channel_waveforms:
+        meta["channel_waveforms"] = waveforms_by_channel(waveforms, channel_indices)
+
+    return waveforms, meta
+
+
+def extract_waveforms(
+    raw_data: np.ndarray,
+    spike_times_ms: np.ndarray,
+    fs_kHz: float,
+    ms_before: float = 1.0,
+    ms_after: float = 2.0,
+    channel_indices: Optional[List[int]] = None,
+    bandpass: Optional[tuple] = None,
+    filter_order: int = 3,
+) -> np.ndarray:
+    """
+    Extract waveform snippets from raw data at specified spike times.
+
+    Parameters:
+        raw_data: Raw voltage data with shape (num_channels, num_samples).
+        spike_times_ms: Array of spike times in milliseconds.
+        fs_kHz: Sampling rate in kHz.
+        ms_before: Milliseconds before each spike time (default: 1.0).
+        ms_after: Milliseconds after each spike time (default: 2.0).
+        channel_indices: Channel indices to extract. If None, extracts all.
+        bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
+        filter_order: Butterworth filter order (default: 3).
+
+    Returns:
+        3D array (num_channels, num_samples, num_spikes). Empty if no valid spikes.
+    """
+    if raw_data.size == 0:
+        raise ValueError("raw_data is empty")
+
+    n_channels_total, n_time_samples = raw_data.shape
+
+    if channel_indices is None:
+        channel_indices = list(range(n_channels_total))
+    n_channels = len(channel_indices)
+
+    before_samples = round(ms_before * fs_kHz)
+    after_samples = round(ms_after * fs_kHz)
+    n_samples = before_samples + after_samples
+
+    if bandpass is not None:
+        lowcut, highcut = bandpass
+        data_to_extract = butter_filter(
+            raw_data,
+            lowcut=lowcut,
+            highcut=highcut,
+            fs=fs_kHz * 1000,
+            order=filter_order,
+        )
+    else:
+        data_to_extract = raw_data
+
+    if len(spike_times_ms) == 0:
+        return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
+
+    waveforms = []
+    for spike_time_ms in spike_times_ms:
+        spike_sample = round(spike_time_ms * fs_kHz)
+        start = spike_sample - before_samples
+        end = spike_sample + after_samples
+
+        if start < 0 or end > n_time_samples:
+            continue
+
+        waveforms.append(data_to_extract[channel_indices, start:end])
+
+    if len(waveforms) == 0:
+        return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
+
+    return np.array(waveforms).transpose(1, 2, 0)

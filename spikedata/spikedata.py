@@ -5,18 +5,21 @@ SpikeData core module.
 import heapq
 import itertools
 import warnings
-from typing import Literal, Optional, Union, List, Tuple
+from typing import Literal, Optional, Union, List, Tuple, Sequence
+from typing import Any, Dict
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
 from .ratedata import RateData
+from .pairwise import PairwiseCompMatrix
 from scipy.stats import norm
 
 
 from .utils import (
     get_sttc,
     butter_filter,
+    extract_waveforms,
     _sttc_ta,
     _sttc_na,
     _spike_time_tiling,
@@ -25,6 +28,7 @@ from .utils import (
     swap,
     randomize,
     trough_between,
+    extract_unit_waveforms,
 )
 
 __all__ = [
@@ -50,7 +54,7 @@ class SpikeData:
 
     length: The length of the spike train, defaults to the time of the last spike.
 
-    neuron_attributes: A list of attribute objects for each neuron.
+    neuron_attributes: A list of dictionaries containing information on each neuron.
 
     metadata: A dictionary containing any additional information or metadata about the
       spike data.
@@ -268,7 +272,7 @@ class SpikeData:
         #
         # Note that if there is no metadata, it should be an empty dict, because that
         # way arbitrary fields can be added later, but null neuron_attributes requires
-        # storing None so we don't get misaligned by concatenating an empty list later.
+        # storing None so we don't break concatenation semantics.
         self.metadata = metadata.copy()
         self.neuron_attributes = None
         if neuron_attributes:
@@ -396,6 +400,45 @@ class SpikeData:
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
+    def set_neuron_attribute(self, key: str, values, neuron_indices=None):
+        """
+        Set an attribute: a list of dictionaries, each with a key/value pair with length equal to the number of neurons.
+
+        Parameters:
+        key (str):  Name of a particular attribute.
+        values (single value or list): Single value (applied to all) or list/array matching neuron_indices length for each neuron.
+        neuron_indices (list): Neurons to update. If None, updates all.
+        """
+        if self.neuron_attributes is None:
+            self.neuron_attributes = [{} for _ in range(self.N)]
+        indices = range(self.N) if neuron_indices is None else neuron_indices
+        if hasattr(values, "__len__") and not isinstance(values, str):
+            indices = list(indices)
+            if len(values) != len(indices):
+                raise ValueError(
+                    f"values length {len(values)} != indices length {len(indices)}"
+                )
+            for i, val in zip(indices, values):
+                self.neuron_attributes[i][key] = val
+        else:
+            for i in indices:
+                self.neuron_attributes[i][key] = values
+
+    def get_neuron_attribute(self, key: str, default=None):
+        """
+        Get an attribute across all neurons.
+
+        Parameters:
+            key: Attribute name.
+            default: Value if neuron lacks the attribute.
+
+        Returns:
+            List of values, one per neuron.
+        """
+        if self.neuron_attributes is None:
+            return [default] * self.N
+        return [attr.get(key, default) for attr in self.neuron_attributes]
+
     def subset(self, units, by=None):
         """
         Return a new SpikeData with spike times for only some units, selected either by
@@ -424,7 +467,7 @@ class SpikeData:
             units = {
                 i
                 for i in range(self.N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if self.neuron_attributes[i].get(by, _missing) in units
             }
 
         train = []
@@ -475,7 +518,7 @@ class SpikeData:
         if attr_name is None:
             # Try to find a channel attribute automatically
             for name in common_names:
-                if hasattr(self.neuron_attributes[0], name):
+                if name in self.neuron_attributes[0]:
                     attr_name = name
                     break
             if attr_name is None:
@@ -485,7 +528,7 @@ class SpikeData:
         mapping = {}
         _missing = object()
         for i in range(self.N):
-            channel_val = getattr(self.neuron_attributes[i], attr_name, _missing)
+            channel_val = self.neuron_attributes[i].get(attr_name, _missing)
             if channel_val is not _missing and channel_val is not None:
                 mapping[i] = int(channel_val)
 
@@ -712,6 +755,160 @@ class SpikeData:
 
         return channel_raster
 
+    def get_waveform_traces(
+        self,
+        unit: Optional[Union[int, slice, Sequence[int]]] = None,
+        ms_before: float = 1.0,
+        ms_after: float = 2.0,
+        channels: Optional[Union[int, List[int]]] = None,
+        bandpass: Optional[tuple] = None,
+        filter_order: int = 3,
+        store: bool = True,
+        return_channel_waveforms: bool = False,
+        return_avg_waveform: bool = True,
+    ) -> Tuple[Union[np.ndarray, List[np.ndarray]], Dict[str, Any]]:
+        """
+        Extract raw voltage waveforms around spike times from raw data.
+
+        Parameters:
+            unit: Unit index selection.
+                - int: extract a single unit (returns a single waveform array)
+                - slice / list-like / array-like / range: extract a subset (returns a list of waveform arrays)
+                - None: extract all units (returns a list of waveform arrays)
+            ms_before: Milliseconds before each spike time (default: 1.0).
+            ms_after: Milliseconds after each spike time (default: 2.0).
+            channels: Channel(s) to extract. None uses neuron_to_channel_map or all
+                channels; int for single channel; list for multiple; [] for mapped channel.
+            bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
+            filter_order: Butterworth filter order (default: 3).
+            store: If True (default), stores waveforms and avg_waveform in neuron_attributes.
+            return_channel_waveforms: If True, include a per-channel dict
+                `channel_waveforms[channel] -> (num_samples, num_spikes)` in the return.
+            return_avg_waveform: If False, skip computing/returning `avg_waveform` (it will be None).
+
+        Returns:
+            (waveforms, meta)
+
+            - waveforms:
+                - If unit is an int: a single 3D array shaped (num_channels, num_samples, num_spikes)
+                - Otherwise: a list of 3D arrays, one per selected unit
+            - meta (dict):
+                - fs_kHz: sampling rate in kHz
+                - unit_indices: list of unit indices corresponding to the returned waveforms
+                - channels: list of List[int], channels used per unit
+                - spike_times_ms: list of np.ndarray, valid spike times per unit
+                - avg_waveforms: optional list of 2D arrays (num_channels, num_samples) per unit
+                - channel_waveforms: optional list of dicts (channel -> (num_samples, num_spikes)) per unit
+        """
+        # Validate that raw voltage data exists
+        if self.raw_data.size == 0:
+            raise ValueError("raw_data is empty")
+
+        # If raw_time is a scalar, it's the sampling rate (kHz) directly, otherwise compute rate from median time delta
+        if np.ndim(self.raw_time) == 0 or self.raw_time.shape == ():
+            fs_kHz = float(self.raw_time)
+        else:
+            fs_kHz = 1.0 / np.median(np.diff(self.raw_time))
+
+        # Get mapping of neuron indices to their recording channels using extract_unit_waveforms to determine default channels per unit
+        neuron_to_channel = self.neuron_to_channel_map()
+
+        # Normalize `unit` into an explicit list of indices to extract, while preserving
+        # the historical behavior that passing a single int returns a single dict.
+        return_single = False
+        if unit is None:
+            unit_indices = list(range(self.N))
+        elif isinstance(unit, (int, np.integer)):
+            u = int(unit)
+            if u < 0 or u >= self.N:
+                raise ValueError(f"Unit index {u} out of range (0 to {self.N - 1})")
+            unit_indices = [u]
+            return_single = True
+        elif isinstance(unit, slice):
+            unit_indices = list(range(self.N)[unit])
+        else:
+            try:
+                unit_indices = [int(u) for u in unit]  # type: ignore[iteration-over-optional]
+            except TypeError as e:
+                raise ValueError(
+                    "unit must be an int, slice, or sequence of ints (or None)"
+                ) from e
+            for u in unit_indices:
+                if u < 0 or u >= self.N:
+                    raise ValueError(f"Unit index {u} out of range (0 to {self.N - 1})")
+
+        # Extract for each selected unit, optionally store, return (waveforms, meta).
+        waveforms_out: List[np.ndarray] = []
+        channels_out: List[List[int]] = []
+        spike_times_out: List[np.ndarray] = []
+        avg_waveforms_out: Optional[List[np.ndarray]] = (
+            [] if return_avg_waveform else None
+        )
+        channel_waveforms_out: Optional[List[dict]] = (
+            [] if return_channel_waveforms else None
+        )
+
+        for unit_idx in unit_indices:
+            spike_times_ms = np.asarray(self.train[unit_idx])
+            waveforms, unit_meta = extract_unit_waveforms(
+                unit_idx=unit_idx,
+                spike_times_ms=spike_times_ms,
+                raw_data=self.raw_data,
+                fs_kHz=fs_kHz,
+                ms_before=ms_before,
+                ms_after=ms_after,
+                channels=channels,
+                neuron_to_channel=neuron_to_channel,
+                bandpass=bandpass,
+                filter_order=filter_order,
+                return_channel_waveforms=return_channel_waveforms,
+                return_avg_waveform=return_avg_waveform,
+            )
+            if store and self.neuron_attributes is not None:
+                self.neuron_attributes[unit_idx]["waveforms"] = waveforms
+                if return_avg_waveform:
+                    self.neuron_attributes[unit_idx]["avg_waveform"] = unit_meta[
+                        "avg_waveform"
+                    ]
+                # Store per-unit trace metadata (kept out of the return payload).
+                # This is useful for downstream analysis without duplicating it per-result dict.
+                self.neuron_attributes[unit_idx]["traces_meta"] = {
+                    "fs_kHz": fs_kHz,
+                    "ms_before": ms_before,
+                    "ms_after": ms_after,
+                    "bandpass": bandpass,
+                    "filter_order": filter_order,
+                    "channels": unit_meta["channels"],
+                    "spike_times_ms": unit_meta["spike_times_ms"],
+                }
+
+            waveforms_out.append(waveforms)
+            channels_out.append(unit_meta["channels"])
+            spike_times_out.append(unit_meta["spike_times_ms"])
+            if return_avg_waveform and avg_waveforms_out is not None:
+                avg_waveforms_out.append(unit_meta["avg_waveform"])
+            if return_channel_waveforms and channel_waveforms_out is not None:
+                channel_waveforms_out.append(unit_meta["channel_waveforms"])
+
+        meta: Dict[str, Any] = {
+            "fs_kHz": fs_kHz,
+            "unit_indices": unit_indices,
+            "channels": channels_out,
+            "spike_times_ms": spike_times_out,
+        }
+        if return_avg_waveform and avg_waveforms_out is not None:
+            # Always return as a list for consistency (one element per unit)
+            meta["avg_waveforms"] = [
+                np.asarray(a).reshape(a.shape[0], -1) for a in avg_waveforms_out
+            ]
+        if return_channel_waveforms:
+            meta["channel_waveforms"] = channel_waveforms_out
+
+        return (
+            (waveforms_out[0] if return_single else waveforms_out),
+            meta,
+        )
+
     def interspike_intervals(self):
         """
         Produce a list of arrays of interspike intervals per unit.
@@ -778,7 +975,7 @@ class SpikeData:
                 ret[i, j] = ret[j, i] = _spike_time_tiling(
                     self.train[i], self.train[j], ts[i], ts[j], delt
                 )
-        return ret
+        return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
     def spike_time_tiling(self, i, j, delt=20.0):
         """
@@ -1066,7 +1263,7 @@ class SpikeData:
             cluster_ids=cluster_ids,
         )
 
-    def get_pop_rate(self, square_width, gauss_sigma, raster_bin_size_ms=1.0):
+    def get_pop_rate(self, square_width=20, gauss_sigma=100, raster_bin_size_ms=1.0):
         """
         Compute population firing rate by smoothing the summed spike counts using
         a moving-average (square) window, then a Gaussian smoothing window.
@@ -1111,19 +1308,125 @@ class SpikeData:
 
         return pop_rate
 
+    def compute_spike_trig_pop_rate(
+        self, window_ms=80, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=10
+    ):
+        """
+        Compute spike-triggered population rate (stPR).
+
+        Implementation of the stPR measure from "Invariant activity sequences
+        across the mouse brain" (Bhatt et al.).
+
+        Computes c_{i,τ} = 100 × Σ_{t: f_i(t+τ)>0} [P(t) - μ_i] / ||f_i||
+
+        For each neuron *i* and lag *τ*, the coupling curve measures how
+        much the population rate deviates from its mean whenever neuron *i*
+        fires, normalised by the neuron's total spike count.
+
+        Parameters
+        ----------
+        window_ms (int): Half-width of the lag window in ms (window from -window_ms to +window_ms )
+        cutoff_hz (float): Low-pass Butterworth filter cutoff in Hz applied to the coupling curves.
+        fs (float): Sampling rate in Hz used for filter design.
+        bin_size (float): Bin size in ms for the spike raster.
+        cut_outer (int): Number of outer lag bins to ignore.
+
+        Returns
+        -------
+        stPR_filtered (np.ndarray, shape (N, 2*window_ms + 1)): Low-pass filtered coupling curves for every neuron.
+        coupling_strengths_zero_lag (np.ndarray, shape (N,)): Coupling strength at lag 0 (c_{i,0})
+        coupling_strengths_max (np.ndarray, shape (N,)): Peak coupling strength within the trimmed lag window.
+        delays (np.ndarray, shape (N,)): Lag (in bins) at which peak coupling occurs, relative to lag 0, within the trimmed window.
+        lags (np.ndarray): Array of lag values from -window_ms to +window_ms.
+        """
+        # Bin spike data to a spike matrix
+        spike_matrix = self.sparse_raster(bin_size=bin_size).toarray()
+
+        # Get dimensions
+        num_neurons, num_bins = spike_matrix.shape
+
+        # Prepare lags: τ values from −window_ms to +window_ms
+        lags = np.arange(-window_ms, window_ms + 1)
+
+        # P(t) = (1/N) Σ_j f_j(t) — population mean rate per time bin
+        P = np.mean(spike_matrix, axis=0)
+
+        # μ_i = average firing rate of neuron i
+        mu = np.mean(spike_matrix, axis=1)
+
+        # ||f_i|| = total number of spikes fired by neuron i
+        total_spikes = np.sum(spike_matrix, axis=1)
+
+        # c_{i,τ} for all neurons, lags
+        stPR = np.zeros((num_neurons, len(lags)))
+
+        for i in range(num_neurons):
+            # Skip silent neurons
+            if total_spikes[i] == 0:
+                continue
+
+            # All spike times for neuron i: {s | f_i(s) > 0}
+            spike_times = np.where(spike_matrix[i] > 0)[0]
+
+            # Accumulator for Σ[P(t) - μ_i]
+            sum_deviations = np.zeros(len(lags))
+
+            for tau_idx, tau in enumerate(lags):
+                # For lag τ, find {t | f_i(t + τ) > 0}
+                # Let s = t + τ → t = s − τ where f_i(s) > 0
+
+                # Map spike time to population time
+                valid_t = spike_times - tau
+
+                # Only use valid population times t ∈ [0, num_bins)
+                mask = (valid_t >= 0) & (valid_t < num_bins)
+                if np.any(mask):
+                    # Compute [P(t) - μ_i] for valid trigger times
+                    deviations = P[valid_t[mask]] - mu[i]
+                    # Sum over trigger times
+                    sum_deviations[tau_idx] = np.sum(deviations)
+
+            # c_{i,τ} = 100 × Σ[P(t) − μ_i] / ||f_i||
+            stPR[i] = 100 * sum_deviations / total_spikes[i]
+
+        # Low-pass filter coupling curves with 20 Hz cutoff
+        nyquist = fs / 2
+        b, a = signal.butter(2, cutoff_hz / nyquist, btype="low")
+        stPR_filtered = np.array(
+            [signal.filtfilt(b, a, stPR[i]) for i in range(num_neurons)]
+        )
+
+        # Coupling strength = c_{i,0} (lag 0) for chorister/soloist classification
+        coupling_strengths_zero_lag = stPR_filtered[:, window_ms]
+
+        # Get peak coupling strength and delay (ignoring for lags in first and last cut_outer)
+        trimmed = stPR_filtered[:, cut_outer:-cut_outer]
+        coupling_strengths_max = np.max(trimmed, axis=1)
+        peak_indices = np.argmax(trimmed, axis=1)
+        delays = peak_indices - ((stPR_filtered.shape[1] - 1) / 2 - cut_outer)
+
+        return (
+            stPR_filtered,
+            coupling_strengths_zero_lag,
+            coupling_strengths_max,
+            delays,
+            lags,
+        )
+
     def get_bursts(
         self,
         thr_burst,
         min_burst_diff,
         burst_edge_mult_thresh,
-        square_width=100,
-        gauss_sigma=20,
+        square_width=20,
+        gauss_sigma=100,
         acc_square_width=5,
         acc_gauss_sigma=5,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,
         pop_rate_acc=None,
+        pop_rms_override=None,
     ):
         """
         Detect bursts from a population rate vector using thresholded peak finding and
@@ -1141,6 +1444,7 @@ class SpikeData:
         peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)
         pop_rate (np.ndarray[float64], optional): Pre-calculated smoothed population spiking data in spikes per bin
         pop_rate_acc (np.ndarray[float64], optional): Pre-calculated accurate smoothed population spiking data in spikes per bin
+        pop_rms_override (float, optional): RMS to override burst threshold baseline for normalizing accross separate datasets
 
         Returns:
         tburst (np.ndarray[float64]): Time bin indices of detected bursts
@@ -1161,7 +1465,10 @@ class SpikeData:
             pop_rate_acc = self.get_pop_rate(
                 acc_square_width, acc_gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
             )
-        pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+        if pop_rms_override is None:
+            pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
+        else:
+            pop_rms = pop_rms_override
 
         # Find peaks
         peaks, _ = signal.find_peaks(
