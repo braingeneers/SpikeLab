@@ -1069,7 +1069,9 @@ class SpikeDataTest(unittest.TestCase):
         self.assertIn("Neuron 1 missing", str(ctx.exception))
         self.assertIn("'a'", str(ctx.exception))
 
-        self.assertEqual(check_neuron_attributes([{"a": 1}, {"a": 2}]), [{"a": 1}, {"a": 2}])
+        self.assertEqual(
+            check_neuron_attributes([{"a": 1}, {"a": 2}]), [{"a": 1}, {"a": 2}]
+        )
 
         # Test Case 5: Returns copies (modifying result does not affect original)
         original = [{"a": 1}]

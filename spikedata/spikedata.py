@@ -321,7 +321,7 @@ class SpikeData:
         Returns:
         locations (numpy.ndarray): Array of unit locations, shape (N, D)
         - None if any unit lacks location data
-    
+
         Notes:
         - Extracts from neuron_attributes 'location', 'x'/'y'/'z' (x and y required), or 'position' keys.
         """
