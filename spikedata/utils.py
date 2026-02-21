@@ -514,8 +514,8 @@ def check_neuron_attributes(
         A list of dictionaries where all dictionaries have valid keys and values.
 
     Notes:
-    - If some dictionaries are missing keys that others have, a warning is issued
-    and the missing keys are filled with None values.
+    - If some dictionaries are missing keys that others have, a ValueError is raised
+      indicating which neuron entries have inconsistent keys.
     """
     if not isinstance(neuron_attributes, list):
         raise ValueError("neuron_attributes must be a list")

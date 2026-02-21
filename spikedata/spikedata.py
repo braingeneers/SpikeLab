@@ -317,8 +317,13 @@ class SpikeData:
         """
         Get unit locations as an (N, D) array where D is the spatial dimension.
 
-        Extracts from neuron_attributes 'location', 'x'/'y'/'z', or 'position' keys.
-        Returns None if any unit lacks location data.
+
+        Returns:
+        locations (numpy.ndarray): Array of unit locations, shape (N, D)
+        - None if any unit lacks location data
+    
+        Notes:
+        - Extracts from neuron_attributes 'location', 'x'/'y'/'z' (x and y required), or 'position' keys.
         """
         if self.neuron_attributes is None:
             return None
@@ -327,8 +332,8 @@ class SpikeData:
         for attr in self.neuron_attributes:
             if "location" in attr:
                 locations.append(np.asarray(attr["location"]))
-            elif "x" in attr:
-                loc = [attr["x"], attr.get("y", 0.0)]
+            elif "x" in attr and "y" in attr:
+                loc = [attr["x"], attr["y"]]
                 if "z" in attr:
                     loc.append(attr["z"])
                 locations.append(np.asarray(loc))

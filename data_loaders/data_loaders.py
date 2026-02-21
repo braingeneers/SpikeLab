@@ -378,7 +378,7 @@ def load_spikedata_from_nwb(
                         if col in df.columns:
                             val = getattr(row, col, None)
                             if val is not None:
-                                if hasattr(val, "__len__") and not isinstance(val, str):
+                                if hasattr(val, "__len__") and not isinstance(val, str) and len(val) > 0:
                                     channel_val = val[0]
                                 else:
                                     channel_val = val
@@ -467,7 +467,7 @@ def load_spikedata_from_nwb(
         for i, uid in enumerate(unit_ids):
             attr = {"unit_id": int(uid)}
             electrode_id = None
-            if electrode_indices and len(electrode_indices[i]) > 0:
+            if electrode_indices and i < len(electrode_indices) and len(electrode_indices[i]) > 0:
                 electrode_id = int(electrode_indices[i][0])
                 attr["electrode"] = electrode_id
             if electrode_positions and electrode_id in electrode_positions:
@@ -534,9 +534,9 @@ def load_spikedata_from_spikeinterface(
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
         trains.append(to_ms(st.astype(float), "samples", fs))
         attr = {"unit_id": uid}
-        if channel_prop is not None:
+        if channel_prop is not None and i < len(channel_prop):
             attr["electrode"] = int(channel_prop[i])
-        if location_prop is not None:
+        if location_prop is not None and i < len(location_prop):
             loc = location_prop[i]
             if loc is not None:
                 attr["location"] = list(loc) if hasattr(loc, "__iter__") else [loc]
@@ -660,10 +660,11 @@ def load_spikedata_from_kilosort(
 
         attr: dict = {"unit_id": int(clu)}
         channel_idx = None
-        if channel_map is not None and int(clu) < len(channel_map):
-            channel_idx = int(channel_map[int(clu)])
+        int_clu = int(clu)
+        if channel_map is not None and int_clu < len(channel_map):
+            channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
-        if channel_positions is not None and channel_idx is not None:
+        if channel_positions is not None and channel_idx is not None and int_clu < len(channel_positions):
             if channel_idx < len(channel_positions):
                 attr["location"] = list(channel_positions[channel_idx])
         neuron_attributes.append(attr)
