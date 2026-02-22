@@ -1,7 +1,7 @@
 import subprocess
 import json
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
 
 
 class QmdTools:
@@ -54,6 +54,13 @@ class QmdTools:
         """Retrieve document content."""
         args = ["get", filepath, "-l", str(max_lines)]
         return self._run_qmd(args)
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "qmd_search": self.search,
+            "qmd_query": self.query,
+            "qmd_get": self.get,
+        }
 
 
 qmd_tool_definitions = [

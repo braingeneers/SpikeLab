@@ -1,6 +1,6 @@
 import subprocess
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
 
 
 class TerminalTools:
@@ -81,6 +81,11 @@ class TerminalTools:
             return {"error": "Command timed out after 60s"}
         except Exception as e:
             return {"error": str(e)}
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "run_terminal_command": self.run_command,
+        }
 
 
 terminal_tool_definitions = [

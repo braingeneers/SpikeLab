@@ -1,7 +1,0 @@
-**Research Notes on Functional Connectivity Metric from "Pyramidal Cell-Interneuron Circuit Architecture and Dynamics in Hippocampal Networks"**
-
-**Summary:**
-This paper examines the excitatory control of inhibitory neurons through spike timing analysis and synaptic connectivity in CA1 hippocampal neurons. While it does not explicitly define a "functional connectivity metric," the work implies that connectivity can be inferred through patterns of spike timing and probabilistic connectivity analysis, focusing on pyramidal cells and interneurons' architecture and dynamics.
-
-**Design Insights:**
-An inferred approach to functional connectivity can involve utilizing spike timing data to derive connectivity probabilities and patterns within neural data, particularly focusing on the influence of pyramidal cells on interneurons and vice versa. This aligns with the `SpikeData` class in our library, and the implementation should focus on methods to calculate and represent these inferred connectivity patterns.
