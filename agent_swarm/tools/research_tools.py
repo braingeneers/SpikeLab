@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import re
+from typing import Dict, Callable, List, Any
 
 
 class ResearchTools:
@@ -11,7 +12,7 @@ class ResearchTools:
         tavily_api_key = os.getenv("TAVILY_API_KEY")
         self.tavily = TavilyClient(api_key=tavily_api_key) if tavily_api_key else None
 
-    def search_arxiv(self, query: str, max_results: int = 5):
+    def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         search = arxiv.Search(
             query=query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance
         )
@@ -27,12 +28,12 @@ class ResearchTools:
             )
         return results
 
-    def search_web(self, query: str):
+    def search_web(self, query: str) -> Dict[str, Any]:
         if not self.tavily:
-            return "Tavily API key not found. Web search unavailable."
+            return {"error": "Tavily API key not found. Web search unavailable."}
         return self.tavily.search(query=query)
 
-    def fetch_url(self, url: str):
+    def fetch_url(self, url: str) -> str:
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -60,6 +61,13 @@ class ResearchTools:
             return text[:5000]
         except Exception as e:
             return f"Error fetching URL: {str(e)}"
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "search_arxiv": self.search_arxiv,
+            "search_web": self.search_web,
+            "fetch_url": self.fetch_url,
+        }
 
 
 research_tool_definitions = [

@@ -1,5 +1,5 @@
 from Bio import Entrez
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
 import os
 
 
@@ -9,7 +9,7 @@ class PubMedTools:
         Entrez.email = os.getenv("ENTREZ_EMAIL", "agent_swarm@example.com")
         Entrez.tool = "AgentSwarmResearcher"
 
-    def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """
         Search PubMed for papers matching the query.
         Returns a list of dictionaries with title, pmid, and summary (if available in snippet).
@@ -93,6 +93,12 @@ class PubMedTools:
         """
         results = self.fetch_details([pmid])
         return results[0] if results else {"error": "Paper not found"}
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "search_pubmed": self.search_pubmed,
+            "get_paper_details": self.get_paper_by_pmid,
+        }
 
 
 pubmed_tool_definitions = [
