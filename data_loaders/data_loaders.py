@@ -530,11 +530,17 @@ def load_spikedata_from_spikeinterface(
     location_prop = None
     if hasattr(sorting, "get_property"):
         for prop_name in ("channel", "ch", "peak_channel", "electrode"):
-            channel_prop = sorting.get_property(prop_name)
+            try:
+                channel_prop = sorting.get_property(prop_name)
+            except Exception:
+                continue
             if channel_prop is not None:
                 break
         for prop_name in ("location", "unit_location", "position"):
-            location_prop = sorting.get_property(prop_name)
+            try:
+                location_prop = sorting.get_property(prop_name)
+            except Exception:
+                continue
             if location_prop is not None:
                 break
 
