@@ -1,9 +1,13 @@
 from Bio import Entrez
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
 =======
 from typing import Dict, Any, List
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+from typing import Dict, Any, List, Callable
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 import os
 
 
@@ -14,10 +18,14 @@ class PubMedTools:
         Entrez.tool = "AgentSwarmResearcher"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
 =======
     def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+    def search_pubmed(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
         """
         Search PubMed for papers matching the query.
         Returns a list of dictionaries with title, pmid, and summary (if available in snippet).
@@ -103,14 +111,20 @@ class PubMedTools:
         return results[0] if results else {"error": "Paper not found"}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "search_pubmed": self.search_pubmed,
             "get_paper_details": self.get_paper_by_pmid,
         }
 
+<<<<<<< HEAD
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 pubmed_tool_definitions = [
     {

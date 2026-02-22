@@ -5,9 +5,13 @@ from bs4 import BeautifulSoup
 import os
 import re
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+from typing import Dict, Callable, List, Any
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 
 class ResearchTools:
@@ -16,10 +20,14 @@ class ResearchTools:
         self.tavily = TavilyClient(api_key=tavily_api_key) if tavily_api_key else None
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
 =======
     def search_arxiv(self, query: str, max_results: int = 5):
 >>>>>>> ba3f8a9 (initial version)
+=======
+    def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
         search = arxiv.Search(
             query=query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance
         )
@@ -36,6 +44,7 @@ class ResearchTools:
         return results
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def search_web(self, query: str) -> Dict[str, Any]:
         if not self.tavily:
             return {"error": "Tavily API key not found. Web search unavailable."}
@@ -44,12 +53,19 @@ class ResearchTools:
     def fetch_url(self, url: str) -> str:
 =======
     def search_web(self, query: str):
+=======
+    def search_web(self, query: str) -> Dict[str, Any]:
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
         if not self.tavily:
-            return "Tavily API key not found. Web search unavailable."
+            return {"error": "Tavily API key not found. Web search unavailable."}
         return self.tavily.search(query=query)
 
+<<<<<<< HEAD
     def fetch_url(self, url: str):
 >>>>>>> ba3f8a9 (initial version)
+=======
+    def fetch_url(self, url: str) -> str:
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -79,6 +95,9 @@ class ResearchTools:
             return f"Error fetching URL: {str(e)}"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "search_arxiv": self.search_arxiv,
@@ -86,8 +105,11 @@ class ResearchTools:
             "fetch_url": self.fetch_url,
         }
 
+<<<<<<< HEAD
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 research_tool_definitions = [
     {

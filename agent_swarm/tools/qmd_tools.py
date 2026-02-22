@@ -2,10 +2,14 @@ import subprocess
 import json
 import os
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
 =======
 from typing import Dict, Any, List
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+from typing import Dict, Any, List, Callable
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 
 class QmdTools:
@@ -60,6 +64,9 @@ class QmdTools:
         return self._run_qmd(args)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "qmd_search": self.search,
@@ -67,8 +74,11 @@ class QmdTools:
             "qmd_get": self.get,
         }
 
+<<<<<<< HEAD
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 qmd_tool_definitions = [
     {

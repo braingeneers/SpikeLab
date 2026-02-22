@@ -2,6 +2,9 @@ import subprocess
 import os
 import re
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 from typing import Dict, Any, List, Callable
 
 
@@ -166,6 +169,9 @@ class GithubTools:
             return {"status": "error", "stderr": e.stderr}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def read_pr_comments(self, pr_number: str) -> Dict[str, Any]:
         """
         Read comments on a specific PR using the gh CLI.
@@ -196,8 +202,11 @@ class GithubTools:
             "reply_to_pr_comment": self.reply_to_pr_comment,
         }
 
+<<<<<<< HEAD
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 github_tool_definitions = [
     {
@@ -240,6 +249,9 @@ github_tool_definitions = [
         },
     },
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     {
         "type": "function",
         "function": {
@@ -278,6 +290,9 @@ github_tool_definitions = [
             },
         },
     },
+<<<<<<< HEAD
 =======
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 ]
