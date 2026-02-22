@@ -27,6 +27,9 @@ dependencies = [
   "requests>=2.31.0",
   "pydantic>=2.0.0",
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 81f2a43 (update env and gitignore)
+=======
 >>>>>>> 81f2a43 (update env and gitignore)
 =======
 >>>>>>> 81f2a43 (update env and gitignore)
