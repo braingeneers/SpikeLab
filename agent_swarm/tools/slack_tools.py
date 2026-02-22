@@ -2,6 +2,7 @@ import os
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
 =======
 >>>>>>> ba3f8a9 (initial version)
@@ -10,6 +11,9 @@ from typing import Dict, Callable, List, Any
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+from typing import Dict, Callable, List, Any
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -33,6 +37,7 @@ class SlackTools:
         self.waiting_for_input = False
         self.input_result = None
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======
@@ -47,6 +52,8 @@ class SlackTools:
         self.last_message_ts = None
         self.last_feedback = None
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
         if self.app and self.message_callback:
 
@@ -249,9 +256,10 @@ class SlackTools:
                 text = event.get("text")
                 bot_id = event.get("bot_id")
                 thread_ts = event.get("thread_ts")
+                subtype = event.get("subtype")
 
-                # Ignore bot messages
-                if channel == self.channel_id and not bot_id and text:
+                # Ignore bot messages and message_changed events (unfurls, edits)
+                if channel == self.channel_id and not bot_id and text and not subtype:
                     user_id = event.get("user")
 
                     if self.waiting_for_approval:
@@ -288,7 +296,23 @@ class SlackTools:
                             self.approval_result = False
                             self.last_feedback = text
                             self.waiting_for_approval = False
+                    
+                    elif self.waiting_for_input:
+                        self.input_result = text
+                        self.waiting_for_input = False
+
                     else:
+                        # React with eyes to acknowledge receipt
+                        try:
+                            self.app.client.reactions_add(
+                                name="eyes",
+                                channel=channel,
+                                timestamp=event["ts"]
+                            )
+                        except SlackApiError as e:
+                            # Ignore if already reacted or other minor error
+                            print(f"DEBUG: Could not react with eyes: {e}")
+
                         self.message_callback(text, user_id)
 
 <<<<<<< HEAD
@@ -331,6 +355,7 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
             resp = self.app.client.chat_postMessage(
                 channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
@@ -360,10 +385,14 @@ class SlackTools:
             )
 >>>>>>> ba3f8a9 (initial version)
 =======
+=======
+            print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
             resp = self.app.client.chat_postMessage(
                 channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
             )
             self.last_message_ts = resp.get("ts")
+            print("DEBUG: SlackTools.post_message success")
             return resp
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
         except SlackApiError as e:
@@ -500,6 +529,7 @@ class SlackTools:
             
         return self.input_result
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         return self.approval_result
 >>>>>>> ba3f8a9 (initial version)
@@ -514,6 +544,8 @@ class SlackTools:
 =======
         return self.approval_result, self.last_feedback
 >>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
     def start_listening(self):
         if not self.app or not self.app_token:
@@ -530,6 +562,9 @@ class SlackTools:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self, thread_ts: str = None) -> Dict[str, Callable]:
@@ -556,12 +591,15 @@ class SlackTools:
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> ba3f8a9 (initial version)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 slack_tool_definitions = [
     {
@@ -598,6 +636,9 @@ slack_tool_definitions = [
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     {
@@ -620,6 +661,7 @@ slack_tool_definitions = [
 ]
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 ]
 >>>>>>> ba3f8a9 (initial version)
@@ -628,3 +670,5 @@ slack_tool_definitions = [
 =======
 ]
 >>>>>>> ba3f8a9 (initial version)
+=======
+>>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
