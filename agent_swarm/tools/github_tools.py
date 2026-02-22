@@ -1,7 +1,7 @@
 import subprocess
 import os
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
 
 
 import shutil
@@ -97,6 +97,36 @@ class GithubTools:
         except subprocess.CalledProcessError as e:
             return {"status": "error", "stderr": e.stderr}
 
+    def read_pr_comments(self, pr_number: str) -> Dict[str, Any]:
+        """
+        Read comments on a specific PR using the gh CLI.
+        """
+        try:
+            cmd = [self.gh_cmd, "pr", "view", str(pr_number), "--comments"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return {"status": "success", "comments": result.stdout}
+        except subprocess.CalledProcessError as e:
+            return {"status": "error", "stderr": e.stderr}
+
+    def reply_to_pr_comment(self, pr_number: str, body: str) -> Dict[str, Any]:
+        """
+        Reply to a PR or add a general comment to the PR using the gh CLI.
+        """
+        try:
+            cmd = [self.gh_cmd, "pr", "comment", str(pr_number), "--body", body]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return {"status": "success", "output": result.stdout}
+        except subprocess.CalledProcessError as e:
+            return {"status": "error", "stderr": e.stderr}
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "create_github_pr": self.create_pr,
+            "create_github_issue": self.create_issue,
+            "read_pr_comments": self.read_pr_comments,
+            "reply_to_pr_comment": self.reply_to_pr_comment,
+        }
+
 
 github_tool_definitions = [
     {
@@ -135,6 +165,44 @@ github_tool_definitions = [
                     },
                 },
                 "required": ["title", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_pr_comments",
+            "description": "Reads comments on a specific Pull Request.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pr_number": {
+                        "type": "string",
+                        "description": "The PR number to read comments from.",
+                    }
+                },
+                "required": ["pr_number"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reply_to_pr_comment",
+            "description": "Adds a comment to a specific Pull Request.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pr_number": {
+                        "type": "string",
+                        "description": "The PR number to comment on.",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "The comment text to post.",
+                    }
+                },
+                "required": ["pr_number", "body"],
             },
         },
     },

@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List
 
 
 class ArtifactTools:
@@ -35,6 +35,11 @@ class ArtifactTools:
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def get_tool_map(self) -> Dict[str, Callable]:
+        return {
+            "save_artifact": self.save_artifact,
+        }
 
 
 artifact_tool_definitions = [

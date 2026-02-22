@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Callable, List, Any
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -15,6 +16,8 @@ class SlackTools:
         self.approval_result = None
         self.last_message_ts = None
         self.last_feedback = None
+        self.waiting_for_input = False
+        self.input_result = None
 
         if self.app and self.message_callback:
 
@@ -24,9 +27,10 @@ class SlackTools:
                 text = event.get("text")
                 bot_id = event.get("bot_id")
                 thread_ts = event.get("thread_ts")
+                subtype = event.get("subtype")
 
-                # Ignore bot messages
-                if channel == self.channel_id and not bot_id and text:
+                # Ignore bot messages and message_changed events (unfurls, edits)
+                if channel == self.channel_id and not bot_id and text and not subtype:
                     user_id = event.get("user")
 
                     if self.waiting_for_approval:
@@ -63,7 +67,23 @@ class SlackTools:
                             self.approval_result = False
                             self.last_feedback = text
                             self.waiting_for_approval = False
+                    
+                    elif self.waiting_for_input:
+                        self.input_result = text
+                        self.waiting_for_input = False
+
                     else:
+                        # React with eyes to acknowledge receipt
+                        try:
+                            self.app.client.reactions_add(
+                                name="eyes",
+                                channel=channel,
+                                timestamp=event["ts"]
+                            )
+                        except SlackApiError as e:
+                            # Ignore if already reacted or other minor error
+                            print(f"DEBUG: Could not react with eyes: {e}")
+
                         self.message_callback(text, user_id)
 
             @self.app.event("reaction_added")
@@ -96,10 +116,12 @@ class SlackTools:
             return None
 
         try:
+            print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
             resp = self.app.client.chat_postMessage(
                 channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
             )
             self.last_message_ts = resp.get("ts")
+            print("DEBUG: SlackTools.post_message success")
             return resp
         except SlackApiError as e:
             print(f"Error posting to Slack: {e}")
@@ -144,6 +166,23 @@ class SlackTools:
 
         return self.approval_result, self.last_feedback
 
+    def request_input(self, question: str, thread_ts: str = None):
+        resp = self.post_message(
+            f"❓ *QUESTION* ❓\n{question}", thread_ts=thread_ts
+        )
+        
+        print(f"\n[SLACK WAIT] Asking user: {question}")
+        
+        self.waiting_for_input = True
+        self.input_result = None
+        
+        import time 
+        
+        while self.waiting_for_input:
+            time.sleep(1)
+            
+        return self.input_result
+
     def start_listening(self):
         if not self.app or not self.app_token:
             print(
@@ -155,6 +194,29 @@ class SlackTools:
         handler = SocketModeHandler(self.app, self.app_token)
         print("⚡️ Slack Swarm is listening for instructions...")
         handler.start()
+
+    def get_tool_map(self, thread_ts: str = None) -> Dict[str, Callable]:
+        """Returns a map of tool names to functions, optionally pre-filled with thread_ts."""
+        import functools
+
+        def post_to_slack_wrapped(text: str) -> Dict[str, Any]:
+            # We don't use 'self' here because we want to use the method on the instance
+            res = self.post_message(text, thread_ts=thread_ts)
+            return {"status": "success", "ts": res.get("ts")} if res else {"status": "error"}
+
+        def request_approval_wrapped(message: str) -> Dict[str, Any]:
+            approved, feedback = self.request_approval(message, thread_ts=thread_ts)
+            return {"approved": approved, "feedback": feedback}
+
+        def ask_user_wrapped(question: str) -> Dict[str, Any]:
+            response = self.request_input(question, thread_ts=thread_ts)
+            return {"response": response}
+
+        return {
+            "post_to_slack": post_to_slack_wrapped,
+            "request_human_approval": request_approval_wrapped,
+            "ask_user": ask_user_wrapped,
+        }
 
 
 slack_tool_definitions = [
@@ -189,4 +251,22 @@ slack_tool_definitions = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "ask_user",
+            "description": "Ask the user a clear question and wait for their text response.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The question to ask the user.",
+                    }
+                },
+                "required": ["question"],
+            },
+        },
+    },
 ]
+
