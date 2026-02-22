@@ -14,3 +14,5 @@ __pycache__/
 .env.production.local
 .pytest_cache/
 integrated_analysis_tools.egg-info/
+agent_swarm/artifacts/
+.cache
