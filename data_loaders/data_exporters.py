@@ -262,6 +262,8 @@ def export_spikedata_to_nwb(
                 elec_grp.create_dataset("y", data=elec_locations[:, 1])
             if elec_locations.shape[1] > 2:
                 elec_grp.create_dataset("z", data=elec_locations[:, 2])
+
+
 def export_spikedata_to_kilosort(
     sd: "SpikeData",
     folder: str,
