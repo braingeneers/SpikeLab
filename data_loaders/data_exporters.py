@@ -327,9 +327,6 @@ def export_spikedata_to_kilosort(
     if sd.electrodes is not None:
         np.save(os.path.join(folder, "channel_map.npy"), sd.electrodes)
 
-    if sd.unit_locations is not None:
-        np.save(os.path.join(folder, "channel_positions.npy"), sd.unit_locations)
-
     return spike_times_path, spike_clusters_path
 
 
