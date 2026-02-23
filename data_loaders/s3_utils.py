@@ -144,7 +144,7 @@ def download_from_s3(
             raise ValueError(f"S3 bucket not found: {bucket}") from e
         if error_code == "NoSuchKey":
             raise ValueError(f"S3 key not found: {key} in bucket {bucket}") from e
-        if error_code == "403":
+        if error_code in ("AccessDenied", "Forbidden"):
             raise PermissionError(f"Access denied to s3://{bucket}/{key}") from e
         raise RuntimeError(f"Error downloading from S3: {e}") from e
     except NoCredentialsError as e:
@@ -195,7 +195,7 @@ def upload_to_s3(
         error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
         if error_code == "NoSuchBucket":
             raise ValueError(f"S3 bucket not found: {bucket}") from e
-        if error_code == "403":
+        if error_code in ("AccessDenied", "Forbidden"):
             raise PermissionError(f"Access denied to s3://{bucket}/{key}") from e
         raise RuntimeError(f"Error uploading to S3: {e}") from e
     except NoCredentialsError as e:
