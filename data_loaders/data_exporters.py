@@ -239,14 +239,29 @@ def export_spikedata_to_nwb(
         if sd.unit_locations is not None:
             elec_grp = f.create_group("general/extracellular_ephys/electrodes")
             locations = sd.unit_locations
-            elec_grp.create_dataset("id", data=np.arange(sd.N, dtype=int))
-            elec_grp.create_dataset("x", data=locations[:, 0])
-            if locations.shape[1] > 1:
-                elec_grp.create_dataset("y", data=locations[:, 1])
-            if locations.shape[1] > 2:
-                elec_grp.create_dataset("z", data=locations[:, 2])
 
+            # Build electrodes table IDs to be consistent with units/electrodes.
+            if sd.electrodes is not None:
+                elec_ids = np.asarray(sd.electrodes, dtype=int)
+                # Unique electrode IDs and representative indices into unit_locations
+                unique_ids, first_indices = np.unique(elec_ids, return_index=True)
+                # Sort by electrode ID for a stable, ordered table
+                sort_idx = np.argsort(unique_ids)
+                unique_ids = unique_ids[sort_idx]
+                first_indices = first_indices[sort_idx]
 
+                elec_grp.create_dataset("id", data=unique_ids)
+                elec_locations = locations[first_indices]
+            else:
+                # Fallback: no explicit electrode IDs; use 0..N-1 as before
+                elec_grp.create_dataset("id", data=np.arange(sd.N, dtype=int))
+                elec_locations = locations
+
+            elec_grp.create_dataset("x", data=elec_locations[:, 0])
+            if elec_locations.shape[1] > 1:
+                elec_grp.create_dataset("y", data=elec_locations[:, 1])
+            if elec_locations.shape[1] > 2:
+                elec_grp.create_dataset("z", data=elec_locations[:, 2])
 def export_spikedata_to_kilosort(
     sd: "SpikeData",
     folder: str,
