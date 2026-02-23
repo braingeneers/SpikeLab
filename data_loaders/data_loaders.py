@@ -681,10 +681,9 @@ def load_spikedata_from_kilosort(
         if (
             channel_positions is not None
             and channel_idx is not None
-            and int_clu < len(channel_positions)
+            and channel_idx < len(channel_positions)
         ):
-            if channel_idx < len(channel_positions):
-                attr["location"] = list(channel_positions[channel_idx])
+            attr["location"] = list(channel_positions[channel_idx])
         neuron_attributes.append(attr)
 
     meta = {
