@@ -141,6 +141,79 @@ def _resampled_isi(spikes, times, sigma_ms):
             return fr
 
 
+def _sliding_window_rate(
+    spike_times,
+    window_size,
+    step_size=None,
+    sampling_rate=None,
+    t_start=None,
+    t_end=None,
+):
+    """
+    Compute continuous firing rate from spike times using a sliding-window average.
+
+    For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
+    and returns rate R(t) = N / W, where N is the spike count and W is window_size.
+
+    Parameters
+    ----------
+    spike_times : array_like
+        1D array of spike timestamps (time units consistent with other args).
+    window_size : float
+        Width of the sliding window W. Centered window [t - W/2, t + W/2].
+    step_size : float, optional
+        Advance step for time bins. Mutually exclusive with sampling_rate.
+    sampling_rate : float, optional
+        Samples per time unit; step_size = 1 / sampling_rate. Mutually exclusive
+        with step_size.
+    t_start : float, optional
+        Start of output time range. Default: min(spike_times) - window_size/2.
+    t_end : float, optional
+        End of output time range. Default: max(spike_times) + window_size/2.
+
+    Returns
+    -------
+    rate_array : np.ndarray
+        Smoothed rate R(t) = N/W at each time bin (spikes per time unit, e.g. kHz).
+    time_vector : np.ndarray
+        Time bin centers.
+
+    Notes
+    -----
+    Uses zero-padding at boundaries (mode='same' convolution). Rate near edges
+    may be lower when the effective window extends beyond the data.
+    """
+    spike_times = np.asarray(spike_times)
+    if len(spike_times) == 0:
+        return np.array([]), np.array([])
+
+    if step_size is None and sampling_rate is None:
+        raise ValueError("Must provide either step_size or sampling_rate")
+    if step_size is not None and sampling_rate is not None:
+        raise ValueError("Cannot provide both step_size and sampling_rate")
+    if step_size is None:
+        step_size = 1.0 / sampling_rate
+
+    half_window = window_size / 2
+    if t_start is None:
+        t_start = float(np.min(spike_times)) - half_window
+    if t_end is None:
+        t_end = float(np.max(spike_times)) + half_window
+
+    n_bins = max(1, int(np.ceil((t_end - t_start) / step_size)))
+    bin_edges = t_start + np.arange(n_bins + 1) * step_size
+    bin_edges[-1] = max(bin_edges[-1], t_end + step_size * 0.01)
+
+    hist, _ = np.histogram(spike_times, bins=bin_edges)
+    window_bins = max(1, int(round(window_size / step_size)))
+    kernel = np.ones(window_bins)
+    counts = np.convolve(hist, kernel, mode="same")
+    rate_array = counts / window_size
+
+    time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2
+    return rate_array, time_vector
+
+
 def _train_from_i_t_list(idces, times, N):
     """
     Helper method for SpikeData constructors: Given lists of spike times and unit indices,

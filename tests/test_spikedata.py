@@ -18,7 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
-from spikedata import SpikeData
+from spikedata import SpikeData, sliding_window_rate
 from spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
@@ -625,6 +625,129 @@ class SpikeDataTest(unittest.TestCase):
         sd = SpikeData([[0, 1 / k, 10 + 1 / k] for k in np.arange(1, 100)])
         self.assertAll(sd.resampled_isi(0).round(2) == np.arange(1, 100))
         self.assertAll(sd.resampled_isi(10).round(2) == 0.1)
+
+    def test_sliding_window_rate_constant_spike_train(self):
+        """
+        Tests sliding_window_rate for a constant-rate spike train.
+
+        Setup: 10 spikes at t=0,1,...,9 ms (1 spike/ms = 1 kHz).
+        Window W=4 ms, step=1 ms, time range [2, 8] ms.
+
+        Test Case 1: Interior bins (where the window fully overlaps the spike
+        train) should yield rate = 1 kHz (N/W = 4 spikes / 4 ms).
+        """
+        # Setup: 10 spikes at t=0,1,...,9 ms → 1 spike/ms = 1 kHz
+        spikes = np.arange(10)
+        rate_arr, time_vec = sliding_window_rate(
+            spikes, window_size=4, step_size=1, t_start=2, t_end=8
+        )
+        # Interior bins (away from edges) capture full window → rate = 1 kHz
+        interior_mask = (time_vec >= 4) & (time_vec <= 5)
+        self.assertTrue(
+            np.allclose(rate_arr[interior_mask], 1.0),
+            f"Interior bins should be 1 kHz, got {rate_arr[interior_mask]}",
+        )
+
+    def test_sliding_window_rate_step_size_vs_sampling_rate(self):
+        """
+        Tests that step_size and sampling_rate are equivalent parameterizations.
+
+        Setup: 5 spikes; window W=2 ms; step_size=0.5 vs sampling_rate=2.0
+        (2 samples/ms implies step_size = 1/2 = 0.5 ms).
+
+        Test Case 1: Both calls produce identical time_vector length, time values,
+        and rate_array values.
+        """
+        spikes = np.array([1.0, 2.0, 3.0, 5.0, 7.0])
+        # Call with step_size=0.5 (advance 0.5 ms per bin)
+        rate1, t1 = sliding_window_rate(
+            spikes, window_size=2, step_size=0.5, t_start=0, t_end=10
+        )
+        # Call with sampling_rate=2.0 (2 samples/ms → step_size=0.5 ms)
+        rate2, t2 = sliding_window_rate(
+            spikes, window_size=2, sampling_rate=2.0, t_start=0, t_end=10
+        )
+        self.assertEqual(len(t1), len(t2))
+        self.assertTrue(np.allclose(t1, t2))
+        self.assertTrue(np.allclose(rate1, rate2))
+
+    def test_sliding_window_rate_empty_spikes(self):
+        """
+        Tests sliding_window_rate with an empty spike train.
+
+        Setup: Empty spike_times array with t_start=0, t_end=100.
+
+        Test Case 1: Returns empty rate_array and time_vector (no bins computed).
+        """
+        # No spikes → should return empty rate and time arrays
+        rate_arr, time_vec = sliding_window_rate(
+            [], window_size=10, step_size=1, t_start=0, t_end=100
+        )
+        self.assertEqual(len(rate_arr), 0)
+        self.assertEqual(len(time_vec), 0)
+
+    def test_sliding_window_rate_single_spike(self):
+        """
+        Tests sliding_window_rate with a single spike.
+
+        Setup: One spike at t=50 ms; window W=20 ms. Max rate = 1/W = 0.05 kHz.
+
+        Test Case 1: Output has non-zero length; max rate equals 1/W; all rates
+        non-negative.
+        """
+        # Single spike at t=50; window W=20 → max rate = 1/20 ms = 0.05 kHz
+        spikes = np.array([50.0])
+        rate_arr, time_vec = sliding_window_rate(
+            spikes, window_size=20, step_size=5, t_start=0, t_end=100
+        )
+        self.assertGreater(len(rate_arr), 0)
+        self.assertGreater(np.max(rate_arr), 0)
+        self.assertAlmostEqual(1.0 / 20, np.max(rate_arr))
+        self.assertTrue(np.all(rate_arr >= 0))
+
+    def test_sliding_window_rate_edge_behavior(self):
+        """
+        Tests sliding_window_rate boundary handling at data edges.
+
+        Setup: Spikes from t=10 to 90 ms; output range [0, 100] ms. At t=0, the
+        window [-10, 10] sees fewer spikes than at center.
+
+        Test Case 1: No NaNs; rate and time arrays same length; non-negative.
+        Boundary bins show lower rate than interior bins.
+        """
+        # Spikes from t=10 to 90; window extends to t=0–100; boundaries at start/end
+        spikes = np.arange(10, 90)
+        rate_arr, time_vec = sliding_window_rate(
+            spikes, window_size=20, step_size=2, t_start=0, t_end=100
+        )
+        # No NaNs; rate and time arrays same length; non-negative
+        self.assertFalse(np.any(np.isnan(rate_arr)))
+        self.assertEqual(len(rate_arr), len(time_vec))
+        self.assertTrue(np.all(rate_arr >= 0))
+        # At boundary, window sees fewer spikes than at center → lower rate
+        self.assertLess(rate_arr[0], rate_arr[len(rate_arr) // 2])
+
+    def test_spikedata_sliding_window_rate(self):
+        """
+        Tests SpikeData.sliding_window_rate per-unit rate computation.
+
+        Setup: 3 units with different spike trains; window W=2 ms, step=1 ms.
+
+        Test Case 1: Returns rate_array shape (N=3, T); time_vector length T.
+        Same time_vector can be passed to resampled_isi for overlay plots.
+        """
+        # 3 units with different spike trains
+        trains = [[0, 1, 2, 3, 4, 5], [1, 3, 5, 7], [2, 4]]
+        sd = SpikeData(trains, length=10)
+        rate_array, time_vector = sd.sliding_window_rate(
+            window_size=2, step_size=1, t_start=0, t_end=10
+        )
+        # Shape (N=3 units, T time bins)
+        self.assertEqual(rate_array.shape[0], 3)
+        self.assertEqual(rate_array.shape[1], len(time_vector))
+        # Same time_vector usable with resampled_isi for overlay plots
+        isi_rates = sd.resampled_isi(time_vector, sigma_ms=0)
+        self.assertEqual(rate_array.shape, isi_rates.shape)
 
     def test_latencies(self):
         """
