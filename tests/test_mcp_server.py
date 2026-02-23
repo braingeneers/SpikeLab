@@ -263,7 +263,14 @@ class TestS3Utils:
         (Method 2) Mocks boto3.client().upload_file to raise ClientError with NoSuchBucket
         (Test Case 1) ValueError is raised with "bucket not found" message
         """
-        from botocore.exceptions import ClientError
+        try:
+            from botocore.exceptions import ClientError
+        except ImportError:
+            # CI may run without botocore; use fake exception with same structure
+            class ClientError(Exception):
+                def __init__(self, response, operation_name):
+                    super().__init__()
+                    self.response = response
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(b"data")
@@ -295,7 +302,12 @@ class TestS3Utils:
         (Method 2) Mocks upload_file to raise NoCredentialsError (lazy cred check on request)
         (Test Case 1) RuntimeError is raised with credentials message
         """
-        from botocore.exceptions import NoCredentialsError
+        try:
+            from botocore.exceptions import NoCredentialsError
+        except ImportError:
+            NoCredentialsError = (
+                Exception  # s3_utils falls back to Exception when botocore missing
+            )
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(b"data")
