@@ -14,50 +14,8 @@ from data_loaders.data_exporters import (
     export_spikedata_to_nwb,
 )
 
-from data_loaders.s3_utils import is_s3_url, parse_s3_url
+from mcp_server.s3_adapter import is_s3_url, upload as upload_to_s3
 from mcp_server.sessions import get_session_manager
-
-try:
-    import boto3
-    from botocore.exceptions import ClientError
-except ImportError:
-    boto3 = None
-    ClientError = Exception
-
-
-def _upload_to_s3(
-    local_path: str,
-    s3_url: str,
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> str:
-    """Upload a local file to S3."""
-    if boto3 is None:
-        raise ImportError(
-            "boto3 is required for S3 uploads. Install it with: pip install boto3"
-        )
-
-    bucket, key = parse_s3_url(s3_url)
-
-    s3_kwargs = {}
-    if aws_access_key_id:
-        s3_kwargs["aws_access_key_id"] = aws_access_key_id
-    if aws_secret_access_key:
-        s3_kwargs["aws_secret_access_key"] = aws_secret_access_key
-    if aws_session_token:
-        s3_kwargs["aws_session_token"] = aws_session_token
-    if region_name:
-        s3_kwargs["region_name"] = region_name
-
-    s3_client = boto3.client("s3", **s3_kwargs)
-
-    try:
-        s3_client.upload_file(local_path, bucket, key)
-        return s3_url
-    except ClientError as e:
-        raise RuntimeError(f"Error uploading to S3: {e}") from e
 
 
 async def export_to_hdf5(
@@ -168,7 +126,7 @@ async def export_to_hdf5(
 
         # Upload to S3 if needed
         if is_s3:
-            _upload_to_s3(
+            upload_to_s3(
                 local_path,
                 file_path,
                 aws_access_key_id=aws_access_key_id,
@@ -257,7 +215,7 @@ async def export_to_nwb(
         )
 
         if is_s3:
-            _upload_to_s3(
+            upload_to_s3(
                 local_path,
                 file_path,
                 aws_access_key_id=aws_access_key_id,
