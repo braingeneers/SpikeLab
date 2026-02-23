@@ -163,16 +163,16 @@ def upload_to_s3(
     region_name: Optional[str] = None,
 ) -> str:
     """Upload a local file to S3 and return the S3 URL."""
-    if boto3 is None:
-        raise ImportError(
-            "boto3 is required for S3 uploads. Install it with: pip install boto3"
-        )
-
     if not is_s3_url(s3_url):
         raise ValueError(f"Not an S3 URL: {s3_url}")
 
     if not os.path.exists(local_path):
         raise FileNotFoundError(f"Local file not found: {local_path}")
+
+    if boto3 is None:
+        raise ImportError(
+            "boto3 is required for S3 uploads. Install it with: pip install boto3"
+        )
 
     bucket, key = parse_s3_url(s3_url)
 
