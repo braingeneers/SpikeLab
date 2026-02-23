@@ -20,6 +20,7 @@ import tempfile
 import unittest
 import pathlib
 import sys
+from unittest.mock import patch
 
 import numpy as np
 
@@ -391,6 +392,132 @@ class TestKiloSortExporters(BaseExportTest):
             # Check that clusters contain 10 and 5, and counts match events per unit (3 and 2)
             self.assertEqual((clusters == 10).sum(), 3)
             self.assertEqual((clusters == 5).sum(), 2)
+
+
+class TestPickleExporters(BaseExportTest):
+    """
+    Tests for pickle export functionality.
+
+    Pickle is a Python-native serialization format. These tests validate:
+    - Round-trip integrity through export and load
+    - Protocol parameter handling for Python version compatibility
+    - S3 upload flow when upload_to_s3=True
+    - Temporary file cleanup after S3 upload
+    """
+
+    def _tmp_pkl(self) -> str:
+        """Creates a temporary pickle file path for testing."""
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        return path
+
+    def tearDown(self) -> None:
+        """Clean up temporary files created during tests."""
+        for attr in ("_last",):
+            p = getattr(self, attr, None)
+            if p and os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
+    def test_export_pickle_roundtrip(self):
+        """
+        Tests basic pickle export and import round-trip.
+
+        Tests:
+        (Method 1) Export SpikeData to pickle using export_spikedata_to_pickle
+        (Method 2) Re-import using load_spikedata_from_pickle
+        (Test Case 1) Verify all spike trains match original
+        (Test Case 2) Verify metadata is preserved
+        """
+        sd = self.make_sd()
+        path = self._tmp_pkl()
+        self._last = path
+
+        # Export SpikeData to pickle file
+        exporters.export_spikedata_to_pickle(sd, path)
+        # Re-import and verify spike trains match
+        sd2 = loaders.load_spikedata_from_pickle(path)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.allclose(a, b))
+        # Verify metadata is preserved
+        self.assertEqual(sd.metadata, sd2.metadata)
+
+    def test_export_pickle_protocol(self):
+        """
+        Tests protocol parameter is passed through correctly.
+
+        Tests:
+        (Method 1) Export with protocol=2 (Python 2.3+ compatible)
+        (Method 2) Re-import and verify round-trip works
+        (Test Case 1) Lower protocols produce loadable files
+        """
+        sd = self.make_sd()
+        path = self._tmp_pkl()
+        self._last = path
+
+        # Export with protocol=2 for backward compatibility
+        exporters.export_spikedata_to_pickle(sd, path, protocol=2)
+        # Verify lower protocol files are loadable and round-trip correctly
+        sd2 = loaders.load_spikedata_from_pickle(path)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.allclose(a, b))
+
+    @patch("data_loaders.s3_utils.upload_to_s3")
+    def test_export_pickle_s3_upload(self, mock_upload):
+        """
+        Tests S3 upload flow when upload_to_s3=True.
+
+        Tests:
+        (Method 1) Export with upload_to_s3=True and S3 URL
+        (Method 2) Verify _upload_to_s3 is called with temp path and S3 URL
+        (Test Case 1) Returns S3 URL on success
+        """
+        sd = self.make_sd()
+        s3_url = "s3://mybucket/path/output.pkl"
+
+        # Export with S3 upload; upload_to_s3 is mocked so no real AWS call
+        result = exporters.export_spikedata_to_pickle(sd, s3_url, upload_to_s3=True)
+
+        # Verify return value is the S3 URL
+        self.assertEqual(result, s3_url)
+        # Verify upload was called exactly once
+        mock_upload.assert_called_once()
+        call_args = mock_upload.call_args
+        # Verify second arg (s3_url) matches
+        self.assertEqual(call_args[0][1], s3_url)
+        # Verify first arg (temp path) ends with .pkl
+        self.assertTrue(call_args[0][0].endswith(".pkl"))
+
+    @patch("data_loaders.s3_utils.upload_to_s3")
+    def test_export_pickle_temp_cleanup(self, mock_upload):
+        """
+        Tests temporary file is removed after S3 upload.
+
+        Tests:
+        (Method 1) Export with upload_to_s3=True
+        (Method 2) Capture temp path passed to _upload_to_s3
+        (Test Case 1) Temp file does not exist after export completes
+        """
+        sd = self.make_sd()
+        temp_paths = []
+
+        # Side effect captures the temp path passed to upload_to_s3
+        def capture_temp(local_path, s3_url, **kwargs):
+            temp_paths.append(local_path)
+
+        mock_upload.side_effect = capture_temp
+
+        # Export triggers temp file creation, upload, then cleanup in finally block
+        exporters.export_spikedata_to_pickle(
+            sd, "s3://bucket/key.pkl", upload_to_s3=True
+        )
+
+        # Verify exactly one temp file was created
+        self.assertEqual(len(temp_paths), 1)
+        # Verify temp file was removed (cleanup in finally block)
+        self.assertFalse(os.path.exists(temp_paths[0]))
 
 
 if __name__ == "__main__":

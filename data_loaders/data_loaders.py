@@ -686,6 +686,10 @@ def load_spikedata_from_pickle(
     """
     Load a SpikeData object from a pickle file.
 
+    Warning:
+        Only load pickle files from trusted sources. Pickle deserialization can
+        execute arbitrary code and should never be used with untrusted data.
+
     Parameters:
         filepath (str): Path to the pickle file, or an S3 URL (s3://bucket/key).
         aws_access_key_id (Optional[str]): AWS access key ID for S3 downloads.

@@ -370,9 +370,12 @@ def export_spikedata_to_pickle(
             try:
                 os.remove(temp_path)
             except OSError:
-                pass
+                pass  # Best-effort cleanup: ignore failures when removing temporary file.
+
     else:
-        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+        dirpath = os.path.dirname(filepath)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         with open(filepath, "wb") as f:
             pickle.dump(sd, f, protocol=protocol)
         return filepath
