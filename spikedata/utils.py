@@ -208,6 +208,10 @@ def _sliding_window_rate(
     if t_end is None:
         t_end = float(np.max(spike_times)) + half_window
 
+    if t_end <= t_start:
+        raise ValueError(
+            f"t_end must be greater than t_start (got t_start={t_start}, t_end={t_end})"
+        )
     n_bins = max(1, int(np.ceil((t_end - t_start) / step_size)))
     bin_edges = t_start + np.arange(n_bins + 1) * step_size
     bin_edges[-1] = max(bin_edges[-1], t_end + step_size * 0.01)
