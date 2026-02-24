@@ -18,25 +18,8 @@ from data_loaders.data_loaders import (
     load_spikedata_from_spikeinterface_recording,
 )
 
-from data_loaders.s3_utils import ensure_local_file, is_s3_url
+from mcp_server.s3_adapter import ensure_local, is_s3_url
 from mcp_server.sessions import get_session_manager
-
-
-def _handle_file_path(
-    file_path_or_url: str,
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> tuple[str, bool]:
-    """Handle file path or S3 URL, return local path and cleanup flag."""
-    return ensure_local_file(
-        file_path_or_url,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
-    )
 
 
 async def load_from_hdf5(
@@ -97,7 +80,7 @@ async def load_from_hdf5(
     Returns:
         Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
     """
-    local_path, is_temp = _handle_file_path(
+    local_path, is_temp = ensure_local(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -194,7 +177,7 @@ async def load_from_nwb(
     Returns:
         Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
     """
-    local_path, is_temp = _handle_file_path(
+    local_path, is_temp = ensure_local(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -330,7 +313,7 @@ async def load_from_hdf5_thresholded(
     Returns:
         Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
     """
-    local_path, is_temp = _handle_file_path(
+    local_path, is_temp = ensure_local(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,

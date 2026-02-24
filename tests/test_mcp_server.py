@@ -38,6 +38,7 @@ try:
         ensure_local_file,
         is_s3_url,
         parse_s3_url,
+        upload_to_s3,
     )
     from mcp_server.sessions import SessionManager, get_session_manager
     from spikedata import SpikeData
@@ -180,6 +181,147 @@ class TestS3Utils:
             local_path, is_temp = ensure_local_file(tmp_path)
             assert local_path == tmp_path
             assert is_temp is False
+        finally:
+            os.unlink(tmp_path)
+
+    @pytestmark_infra
+    @patch("data_loaders.s3_utils.boto3")
+    def test_upload_to_s3_success(self, mock_boto3):
+        """
+        Test successful upload to S3.
+
+        Tests:
+        (Method 1) Creates temp file with content
+        (Method 2) Mocks boto3.client().upload_file to succeed
+        (Test Case 1) upload_to_s3 returns S3 URL
+        (Test Case 2) upload_file was called with correct bucket, key, local_path
+        """
+        # Create temp file to upload
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
+            tmp.write(b"test content")
+            tmp_path = tmp.name
+        try:
+            # Mock S3 client so upload_file succeeds without real AWS call
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+
+            # Upload; should return S3 URL
+            result = upload_to_s3(tmp_path, "s3://mybucket/path/output.txt")
+
+            # Verify return value
+            assert result == "s3://mybucket/path/output.txt"
+            # Verify upload_file was called with (local_path, bucket, key)
+            mock_client.upload_file.assert_called_once_with(
+                tmp_path, "mybucket", "path/output.txt"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+    @pytestmark_infra
+    def test_upload_to_s3_file_not_found(self):
+        """
+        Test that upload_to_s3 raises FileNotFoundError when local file does not exist.
+
+        Tests:
+        (Method 1) Calls upload_to_s3 with non-existent path
+        (Test Case 1) FileNotFoundError is raised with message containing path
+        """
+        # Call with non-existent local path; should raise before any S3 call
+        with pytest.raises(FileNotFoundError) as exc_info:
+            upload_to_s3("/nonexistent/path/file.txt", "s3://bucket/key.txt")
+        assert "Local file not found" in str(exc_info.value)
+        assert "/nonexistent" in str(exc_info.value)
+
+    @pytestmark_infra
+    def test_upload_to_s3_invalid_url(self):
+        """
+        Test that upload_to_s3 raises ValueError when S3 URL is invalid.
+
+        Tests:
+        (Method 1) Creates temp file
+        (Method 2) Calls upload_to_s3 with non-S3 URL (local path)
+        (Test Case 1) ValueError is raised with "Not an S3 URL" message
+        """
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            # Pass local path as s3_url; should raise before any S3 call
+            with pytest.raises(ValueError) as exc_info:
+                upload_to_s3(tmp_path, "/local/path/not-s3.txt")
+            assert "Not an S3 URL" in str(exc_info.value)
+        finally:
+            os.unlink(tmp_path)
+
+    @pytestmark_infra
+    @patch("data_loaders.s3_utils.boto3")
+    def test_upload_to_s3_bucket_not_found(self, mock_boto3):
+        """
+        Test that upload_to_s3 raises ValueError when S3 bucket does not exist.
+
+        Tests:
+        (Method 1) Creates temp file
+        (Method 2) Mocks boto3.client().upload_file to raise ClientError with NoSuchBucket
+        (Test Case 1) ValueError is raised with "bucket not found" message
+        """
+        try:
+            from botocore.exceptions import ClientError
+        except ImportError:
+            # CI may run without botocore; use fake exception with same structure
+            class ClientError(Exception):
+                def __init__(self, response, operation_name):
+                    super().__init__()
+                    self.response = response
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b"data")
+            tmp_path = tmp.name
+        try:
+            # Mock upload_file to raise NoSuchBucket (bucket does not exist)
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+            mock_client.upload_file.side_effect = ClientError(
+                {"Error": {"Code": "NoSuchBucket", "Message": "Bucket not found"}},
+                "PutObject",
+            )
+
+            # Should raise ValueError, not raw ClientError
+            with pytest.raises(ValueError) as exc_info:
+                upload_to_s3(tmp_path, "s3://nonexistent-bucket/key.txt")
+            assert "bucket not found" in str(exc_info.value).lower()
+        finally:
+            os.unlink(tmp_path)
+
+    @pytestmark_infra
+    @patch("data_loaders.s3_utils.boto3")
+    def test_upload_to_s3_credential_error(self, mock_boto3):
+        """
+        Test that upload_to_s3 raises RuntimeError when AWS credentials are missing.
+
+        Tests:
+        (Method 1) Creates temp file
+        (Method 2) Mocks upload_file to raise NoCredentialsError (lazy cred check on request)
+        (Test Case 1) RuntimeError is raised with credentials message
+        """
+        try:
+            from botocore.exceptions import NoCredentialsError
+        except ImportError:
+            NoCredentialsError = (
+                Exception  # s3_utils falls back to Exception when botocore missing
+            )
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b"data")
+            tmp_path = tmp.name
+        try:
+            # Mock upload_file to raise NoCredentialsError (credentials not configured)
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+            mock_client.upload_file.side_effect = NoCredentialsError()
+
+            # Should raise RuntimeError with credentials message
+            with pytest.raises(RuntimeError) as exc_info:
+                upload_to_s3(tmp_path, "s3://bucket/key.txt")
+            assert "credentials" in str(exc_info.value).lower()
         finally:
             os.unlink(tmp_path)
 
