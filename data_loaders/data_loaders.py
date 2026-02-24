@@ -484,19 +484,11 @@ def load_spikedata_from_spikeinterface(
 
     for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
-<<<<<<< HEAD
-<<<<<<< HEAD
         trains.append(to_ms(st.astype(float), "samples", fs))
-=======
-        trains.append(_to_ms(st.astype(float), "samples", fs))
-=======
-        trains.append(to_ms(st.astype(float), "samples", fs))
->>>>>>> b936814 (fix _to_ms to to_ms - naming convention)
         attr = {"unit_id": uid}
         if channel_prop is not None:
             attr["channel"] = int(channel_prop[i])
         neuron_attributes.append(attr)
->>>>>>> 5fecbc2 (Enhance SpikeData class with neuron attributes management and update data loaders. Added methods to set and get neuron attributes, ensuring proper initialization. Updated loading functions to support neuron attributes from NWB and KiloSort formats. Adjusted tests to reflect changes in neuron attributes structure.)
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
     return _build_spikedata(trains, metadata=meta, neuron_attributes=neuron_attributes)

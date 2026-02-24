@@ -6,14 +6,7 @@ import os
 import re
 <<<<<<< HEAD
 <<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
-from typing import Dict, Callable, List, Any
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======
@@ -28,15 +21,7 @@ class ResearchTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
-=======
-    def search_arxiv(self, query: str, max_results: int = 5):
->>>>>>> ba3f8a9 (initial version)
-=======
-    def search_arxiv(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
     def search_arxiv(self, query: str, max_results: int = 5):
 >>>>>>> ba3f8a9 (initial version)
@@ -60,29 +45,12 @@ class ResearchTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     def search_web(self, query: str) -> Dict[str, Any]:
         if not self.tavily:
             return {"error": "Tavily API key not found. Web search unavailable."}
         return self.tavily.search(query=query)
 
     def fetch_url(self, url: str) -> str:
-=======
-    def search_web(self, query: str):
-=======
-    def search_web(self, query: str) -> Dict[str, Any]:
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
-        if not self.tavily:
-            return {"error": "Tavily API key not found. Web search unavailable."}
-        return self.tavily.search(query=query)
-
-<<<<<<< HEAD
-    def fetch_url(self, url: str):
->>>>>>> ba3f8a9 (initial version)
-=======
-    def fetch_url(self, url: str) -> str:
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
     def search_web(self, query: str):
 =======
@@ -128,10 +96,6 @@ class ResearchTools:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
@@ -142,11 +106,6 @@ class ResearchTools:
         }
 
 <<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 =======
 >>>>>>> ba3f8a9 (initial version)
 =======

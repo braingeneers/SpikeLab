@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-from typing import Optional, Literal, Union
-=======
-from typing import Optional, List
->>>>>>> d2e0e10 (add neuron attributes checker to neuron atts)
-=======
-from typing import Optional, List, Union, Dict, Any
->>>>>>> 792a706 (Refactor waveform extraction: get_traces (waveforms, meta), extract_unit_waveforms, waveforms_by_channel)
+from typing import Optional, Literal, Union, Dict, Any, List
 
 import numpy as np
 from scipy import ndimage, signal
@@ -19,29 +11,17 @@ __all__ = [
     "swap",
     "randomize",
     "trough_between",
-<<<<<<< HEAD
     "TimeUnit",
     "ensure_h5py",
     "times_from_ms",
     "to_ms",
-=======
     "extract_waveforms",
-<<<<<<< HEAD
->>>>>>> 4e66959 (Enhanced get_traces with bandpass filtering, storage, and improved API)
-=======
     "check_neuron_attributes",
-<<<<<<< HEAD
->>>>>>> 422b275 (Update spikedata/utils.py to add check_neuron_attributes)
-=======
     "get_channels_for_unit",
     "compute_avg_waveform",
     "get_valid_spike_times",
-<<<<<<< HEAD
->>>>>>> 7e9051b (push for all novel methods to be in utils)
-=======
     "waveforms_by_channel",
     "extract_unit_waveforms",
->>>>>>> 792a706 (Refactor waveform extraction: get_traces (waveforms, meta), extract_unit_waveforms, waveforms_by_channel)
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
@@ -49,6 +29,7 @@ try:
     import h5py
 except ImportError:
     h5py = None
+
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -526,10 +507,8 @@ def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
             raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
         return values.astype(float) / fs_Hz * 1e3
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
-=======
 
-=======
->>>>>>> 5b275ed (add test for neuronattributes)
+
 def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:
@@ -574,9 +553,6 @@ def check_neuron_attributes(
         raise ValueError(f"Inconsistent neuron_attributes keys. {'; '.join(parts)}.")
 
     return [{key: attr.get(key) for key in all_keys} for attr in neuron_attributes]
-<<<<<<< HEAD
->>>>>>> d2e0e10 (add neuron attributes checker to neuron atts)
-=======
 
 
 def get_channels_for_unit(
@@ -861,4 +837,3 @@ def extract_waveforms(
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
     return np.array(waveforms).transpose(1, 2, 0)
->>>>>>> 4e66959 (Enhanced get_traces with bandpass filtering, storage, and improved API)
