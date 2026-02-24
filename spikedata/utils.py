@@ -187,12 +187,20 @@ def _sliding_window_rate(
     if len(spike_times) == 0:
         return np.array([]), np.array([])
 
+    if window_size <= 0:
+        raise ValueError(f"window_size must be positive, got {window_size}")
+
     if step_size is None and sampling_rate is None:
         raise ValueError("Must provide either step_size or sampling_rate")
     if step_size is not None and sampling_rate is not None:
         raise ValueError("Cannot provide both step_size and sampling_rate")
     if step_size is None:
+        if sampling_rate is None or sampling_rate <= 0:
+            raise ValueError(f"sampling_rate must be positive when step_size is not provided, got {sampling_rate}")
         step_size = 1.0 / sampling_rate
+    else:
+        if step_size <= 0:
+            raise ValueError(f"step_size must be positive, got {step_size}")
 
     half_window = window_size / 2
     if t_start is None:
