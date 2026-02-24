@@ -206,9 +206,10 @@ def _sliding_window_rate(
 
     hist, _ = np.histogram(spike_times, bins=bin_edges)
     window_bins = max(1, int(round(window_size / step_size)))
+    effective_window = window_bins * step_size
     kernel = np.ones(window_bins)
     counts = np.convolve(hist, kernel, mode="same")
-    rate_array = counts / window_size
+    rate_array = counts / effective_window
 
     time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2
     return rate_array, time_vector
