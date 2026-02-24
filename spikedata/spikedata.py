@@ -24,7 +24,7 @@ from .utils import (
     _sttc_na,
     _spike_time_tiling,
     _resampled_isi,
-    _sliding_window_rate,
+    _sliding_rate,
     _train_from_i_t_list,
     swap,
     randomize,
@@ -37,7 +37,7 @@ __all__ = [
     "get_sttc",
     "swap",
     "randomize",
-    "sliding_window_rate",
+    "sliding_rate",
 ]
 
 
@@ -402,7 +402,7 @@ class SpikeData:
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
-    def sliding_window_rate(
+    def sliding_rate(
         self,
         window_size,
         step_size=None,
@@ -414,29 +414,19 @@ class SpikeData:
         Compute continuous firing rate of each unit using a sliding-window average.
 
         For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
-        and returns rate R(t) = N / W. This produces a smoother, continuous rate
+        and returns rate R(t) = N / W (spikes per time unit, e.g. kHz). This produces a smoother, continuous rate
         trace compared to the step-like ISI-based rate from resampled_isi.
 
-        Parameters
-        ----------
-        window_size : float
-            Width of the sliding window in ms. Centered window [t - W/2, t + W/2].
-        step_size : float, optional
-            Advance step for time bins in ms. Mutually exclusive with sampling_rate.
-        sampling_rate : float, optional
-            Samples per ms; step_size = 1 / sampling_rate. Mutually exclusive with
-            step_size.
-        t_start : float, optional
-            Start of output time range in ms. Default: 0 - window_size/2.
-        t_end : float, optional
-            End of output time range in ms. Default: self.length + window_size/2.
+        Parameters:
+        window_size (float): Width of the sliding window in ms. Centered window [t - W/2, t + W/2].
+        step_size (float, optional): Advance step for time bins in ms. Mutually exclusive with sampling_rate.
+        sampling_rate (float, optional): Samples per ms; step_size = 1 / sampling_rate. Mutually exclusive with step_size.
+        t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.
+        t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
 
-        Returns
-        -------
-        rate_array : np.ndarray
-            Smoothed rate per unit, shape (N, T). Units: spikes/ms (kHz).
-        time_vector : np.ndarray
-            Time bin centers in ms.
+        Returns:
+        rate_array (np.ndarray): Smoothed rate per unit, shape (N, T). Units: spikes/ms (kHz).
+        time_vector (np.ndarray): Time bin centers in ms.
         """
         if t_start is None:
             t_start = 0.0 - window_size / 2
@@ -446,7 +436,7 @@ class SpikeData:
         rate_rows = []
         time_vector = None
         for ts in self.train:
-            rate_arr, tvec = _sliding_window_rate(
+            rate_arr, tvec = _sliding_rate(
                 ts,
                 window_size,
                 step_size=step_size,
@@ -1647,5 +1637,5 @@ class SpikeData:
         return tburst, edges, peak_amp
 
 
-# Module-level alias for single-train usage: sliding_window_rate(spike_times, ...)
-sliding_window_rate = _sliding_window_rate
+# Module-level alias for single-train usage: sliding_rate(spike_times, ...)
+sliding_rate = _sliding_rate

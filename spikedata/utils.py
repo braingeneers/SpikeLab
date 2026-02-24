@@ -141,7 +141,7 @@ def _resampled_isi(spikes, times, sigma_ms):
             return fr
 
 
-def _sliding_window_rate(
+def _sliding_rate(
     spike_times,
     window_size,
     step_size=None,
@@ -155,33 +155,23 @@ def _sliding_window_rate(
     For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
     and returns rate R(t) = N / W, where N is the spike count and W is window_size.
 
-    Parameters
-    ----------
-    spike_times : array_like
+    Parameters:
+    spike_times (array_like): array_like
         1D array of spike timestamps (time units consistent with other args).
-    window_size : float
-        Width of the sliding window W. Centered window [t - W/2, t + W/2].
-    step_size : float, optional
-        Advance step for time bins. Mutually exclusive with sampling_rate.
-    sampling_rate : float, optional
-        Samples per time unit; step_size = 1 / sampling_rate. Mutually exclusive
-        with step_size.
-    t_start : float, optional
-        Start of output time range. Default: min(spike_times) - window_size/2.
-    t_end : float, optional
-        End of output time range. Default: max(spike_times) + window_size/2.
+    window_size (float): Width of the sliding window W. Centered window [t - W/2, t + W/2].
+    step_size (float, optional): Advance step for time bins. Mutually exclusive with sampling_rate.
+    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate. Mutually exclusive with step_size.
+    t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.
+    t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
 
-    Returns
-    -------
-    rate_array : np.ndarray
-        Smoothed rate R(t) = N/W at each time bin (spikes per time unit, e.g. kHz).
-    time_vector : np.ndarray
-        Time bin centers.
+    Returns:
+    rate_array (np.ndarray): Smoothed rate R(t) = N/W at each time bin (spikes per time unit, e.g. kHz).
+    time_vector (np.ndarray): Time bin centers.
 
-    Notes
-    -----
+    Notes:
     Uses zero-padding at boundaries (mode='same' convolution). Rate near edges
     may be lower when the effective window extends beyond the data.
+    - Assumes spike_times are sorted.
     """
     spike_times = np.asarray(spike_times)
     if len(spike_times) == 0:
@@ -190,6 +180,7 @@ def _sliding_window_rate(
     if window_size <= 0:
         raise ValueError(f"window_size must be positive, got {window_size}")
 
+    # Step size and sampling_rate are mutually exclusive; step = 1/sampling_rate
     if step_size is None and sampling_rate is None:
         raise ValueError("Must provide either step_size or sampling_rate")
     if step_size is not None and sampling_rate is not None:
@@ -202,6 +193,7 @@ def _sliding_window_rate(
         if step_size <= 0:
             raise ValueError(f"step_size must be positive, got {step_size}")
 
+    # Default time range extends half-window beyond first/last spike so edges are covered
     half_window = window_size / 2
     if t_start is None:
         t_start = float(np.min(spike_times)) - half_window
@@ -212,18 +204,25 @@ def _sliding_window_rate(
         raise ValueError(
             f"t_end must be greater than t_start (got t_start={t_start}, t_end={t_end})"
         )
+
+    # Build uniformly spaced bin edges spanning [t_start, t_end]
     n_bins = max(1, int(np.ceil((t_end - t_start) / step_size)))
     bin_edges = t_start + np.arange(n_bins + 1) * step_size
-    bin_edges[-1] = max(bin_edges[-1], t_end + step_size * 0.01)
+    bin_edges[-1] = max(bin_edges[-1], np.nextafter(t_end, np.inf))  # Ensure last bin includes t_end
 
+    # Bin spikes into discrete time bins
     hist, _ = np.histogram(spike_times, bins=bin_edges)
+
+    # Sliding window = convolution with uniform kernel: sums spike counts over
+    # window_size worth of adjacent bins. mode='same' keeps output aligned with input.
     window_bins = max(1, int(round(window_size / step_size)))
     effective_window = window_bins * step_size
     kernel = np.ones(window_bins)
     counts = np.convolve(hist, kernel, mode="same")
+    # Rate = spike count in window / effective window duration (spikes per time unit)
     rate_array = counts / effective_window
 
-    time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2
+    time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
     return rate_array, time_vector
 
 
