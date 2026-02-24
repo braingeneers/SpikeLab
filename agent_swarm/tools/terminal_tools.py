@@ -1,14 +1,6 @@
 import subprocess
 import os
-<<<<<<< HEAD
-<<<<<<< HEAD
 from typing import Dict, Any, List, Callable
-=======
-from typing import Dict, Any, List
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-=======
-from typing import Dict, Any, List, Callable
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 
 class TerminalTools:
@@ -25,7 +17,7 @@ class TerminalTools:
     }
 
     # Relaxed forbidden chars - allow pipes, redirects, etc.
-    FORBIDDEN_CHARS = {";", "&", "`", "$(", "${"} 
+    FORBIDDEN_CHARS = {";", "&", "`", "$(", "${"}
 
     def _is_safe(self, command: str) -> bool:
         """
@@ -54,7 +46,7 @@ class TerminalTools:
         cmd_parts = command.split()
         if not cmd_parts:
             return False
-            
+
         primary_cmd = cmd_parts[0].lower()
         if primary_cmd in self.COMMAND_BLACKLIST:
             return False
@@ -90,20 +82,11 @@ class TerminalTools:
         except Exception as e:
             return {"error": str(e)}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self) -> Dict[str, Callable]:
         return {
             "run_terminal_command": self.run_command,
         }
 
-<<<<<<< HEAD
-=======
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 terminal_tool_definitions = [
     {

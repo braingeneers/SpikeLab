@@ -9,6 +9,7 @@ assesses significance with jittered surrogates.
 
 All functions use numpy and are fully type hinted.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -215,11 +216,17 @@ def compute_spike_transmission(
         rng = np.random.default_rng(random_seed)
         surrogate_peaks = np.empty(n_jitter, dtype=float)
         for i in range(n_jitter):
-            jittered_pres = pres + rng.uniform(-jitter_window, jitter_window, size=n_pres)
+            jittered_pres = pres + rng.uniform(
+                -jitter_window, jitter_window, size=n_pres
+            )
             jittered_pres.sort()
             # compute surrogate peak by reusing histogram function
-            scounts, s_centers = _hist_relative_times(jittered_pres, posts, window, bin_size)
-            surrogate_peaks[i] = float(np.sum(scounts[(s_centers >= mono_start) & (s_centers <= mono_end)]))
+            scounts, s_centers = _hist_relative_times(
+                jittered_pres, posts, window, bin_size
+            )
+            surrogate_peaks[i] = float(
+                np.sum(scounts[(s_centers >= mono_start) & (s_centers <= mono_end)])
+            )
 
         surrogate_mean = float(np.mean(surrogate_peaks))
         surrogate_std = float(np.std(surrogate_peaks, ddof=1)) if n_jitter > 1 else 0.0
@@ -260,10 +267,16 @@ def plot_ccg(result: TransmissionResult, show: bool = True) -> None:
     centers = result.ccg_bin_centers_ms
     counts = result.ccg_counts
 
-    plt.bar(centers, counts, width=(centers[1] - centers[0]) if centers.size > 1 else 1.0)
-    plt.axvspan(result.latency_ms - 0.5, result.latency_ms + 0.5, color="red", alpha=0.2)
+    plt.bar(
+        centers, counts, width=(centers[1] - centers[0]) if centers.size > 1 else 1.0
+    )
+    plt.axvspan(
+        result.latency_ms - 0.5, result.latency_ms + 0.5, color="red", alpha=0.2
+    )
     plt.xlabel("Time lag (ms)")
     plt.ylabel("Counts")
-    plt.title(f"Spike Transmission (p={result.p_value})\nTP={result.transmission_prob:.4f}, z={result.z_score:.2f}")
+    plt.title(
+        f"Spike Transmission (p={result.p_value})\nTP={result.transmission_prob:.4f}, z={result.z_score:.2f}"
+    )
     if show:
         plt.show()

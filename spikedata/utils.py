@@ -1,4 +1,4 @@
-from typing import Optional, Literal, Union, Dict, Any, List
+from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
 from scipy import ndimage, signal
@@ -29,7 +29,6 @@ try:
     import h5py
 except ImportError:
     h5py = None
-
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -470,8 +469,6 @@ def PCA_reduction(matrix_2d, n_components=2):
     return pca_result
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 def ensure_h5py():
     """Ensure h5py is available for HDF5-based exporters."""
     if h5py is None:

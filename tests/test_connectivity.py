@@ -15,7 +15,9 @@ def test_simple_synapse():
     # create pres spikes at 0.1, 0.2, ..., posts spikes shortly after each pres spike
     pres = np.arange(0.1, 1.1, 0.1)
     posts = pres + 0.0015  # 1.5 ms latency
-    res = compute_spike_transmission(pres, posts, bin_size=0.0005, window=0.01, n_jitter=0, min_pres_spikes=1)
+    res = compute_spike_transmission(
+        pres, posts, bin_size=0.0005, window=0.01, n_jitter=0, min_pres_spikes=1
+    )
     # expecting about 1 posts spike per pres spike -> transmission_prob ~1
     assert res.n_pres_spikes == pres.size
     assert res.observed_peak_count >= pres.size - 1
@@ -48,7 +50,9 @@ def test_small_number_pres():
 def test_ccg_centers_length():
     pres = np.array([0.1, 0.2, 0.3])
     posts = np.array([0.15, 0.25, 0.35])
-    res = compute_spike_transmission(pres, posts, bin_size=0.001, window=0.01, min_pres_spikes=1)
+    res = compute_spike_transmission(
+        pres, posts, bin_size=0.001, window=0.01, min_pres_spikes=1
+    )
     centers = res.ccg_bin_centers_ms
     # window 10ms each side, bin 1ms -> 21 bins
     assert centers.size == 21

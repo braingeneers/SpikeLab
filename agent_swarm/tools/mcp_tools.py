@@ -6,6 +6,7 @@ from typing import Dict, Any, Callable, List
 try:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
+
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
@@ -16,9 +17,7 @@ class MCPTools:
         # Configure the command to run the local MCP server
         if MCP_AVAILABLE:
             self.server_params = StdioServerParameters(
-                command=sys.executable,
-                args=["-m", server_path],
-                env=None
+                command=sys.executable, args=["-m", server_path], env=None
             )
         else:
             self.server_params = None
@@ -32,50 +31,70 @@ class MCPTools:
             asyncio.set_event_loop(loop)
         return loop.run_until_complete(coro)
 
-    async def _call_mcp_tool_async(self, tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _call_mcp_tool_async(
+        self, tool_name: str, tool_args: Dict[str, Any]
+    ) -> Dict[str, Any]:
         if not MCP_AVAILABLE:
-            return {"status": "error", "message": "MCP SDK is not installed or requires Python 3.10+. Tool execution skipped."}
-            
+            return {
+                "status": "error",
+                "message": "MCP SDK is not installed or requires Python 3.10+. Tool execution skipped.",
+            }
+
         try:
             async with stdio_client(self.server_params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
-                    
+
                     # Call the specified tool
                     result = await session.call_tool(tool_name, arguments=tool_args)
-                    
+
                     # Note: MCP tool results typically return a list of content blocks
                     # We extract the text content and join it.
                     if result.content:
-                        text_results = [block.text for block in result.content if hasattr(block, 'text')]
+                        text_results = [
+                            block.text
+                            for block in result.content
+                            if hasattr(block, "text")
+                        ]
                         return {"status": "success", "result": "\n".join(text_results)}
                     elif result.isError:
-                         return {"status": "error", "message": "The server returned an error but no text."}
+                        return {
+                            "status": "error",
+                            "message": "The server returned an error but no text.",
+                        }
                     else:
-                        return {"status": "success", "result": "Tool executed successfully (no output)."}
+                        return {
+                            "status": "success",
+                            "result": "Tool executed successfully (no output).",
+                        }
 
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
     async def _list_mcp_tools_async(self) -> Dict[str, Any]:
         if not MCP_AVAILABLE:
-            return {"status": "error", "message": "MCP SDK is not installed or requires Python 3.10+. Tool listing skipped."}
-            
+            return {
+                "status": "error",
+                "message": "MCP SDK is not installed or requires Python 3.10+. Tool listing skipped.",
+            }
+
         try:
             async with stdio_client(self.server_params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
-                    
+
                     # List tools
                     result = await session.list_tools()
-                    
+
                     tools = []
                     for tool in result.tools:
-                        tools.append({
-                            "name": tool.name,
-                            "description": tool.description,
-                        })
-                    
+                        tools.append(
+                            {
+                                "name": tool.name,
+                                "description": tool.description,
+                            }
+                        )
+
                     return {"status": "success", "tools": tools}
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -92,11 +111,17 @@ class MCPTools:
             elif isinstance(tool_args, dict):
                 args_dict = tool_args
             else:
-                 return {"status": "error", "message": "tool_args must be a JSON string or dict."}
-                 
+                return {
+                    "status": "error",
+                    "message": "tool_args must be a JSON string or dict.",
+                }
+
             return self._run_sync(self._call_mcp_tool_async(tool_name, args_dict))
         except json.JSONDecodeError as e:
-            return {"status": "error", "message": f"Failed to parse tool_args JSON: {str(e)}"}
+            return {
+                "status": "error",
+                "message": f"Failed to parse tool_args JSON: {str(e)}",
+            }
 
     def list_mcp_tools(self) -> Dict[str, Any]:
         """Synchronous wrapper for listing MCP tools."""
@@ -107,6 +132,7 @@ class MCPTools:
             "call_mcp_tool": self.call_mcp_tool,
             "list_mcp_tools": self.list_mcp_tools,
         }
+
 
 mcp_tool_definitions = [
     {
@@ -119,26 +145,23 @@ mcp_tool_definitions = [
                 "properties": {
                     "tool_name": {
                         "type": "string",
-                        "description": "The exact name of the MCP tool to call (e.g., 'run_python_script')."
+                        "description": "The exact name of the MCP tool to call (e.g., 'run_python_script').",
                     },
                     "tool_args": {
                         "type": "string",
-                        "description": "A valid JSON string containing the arguments required by the MCP tool. Example: '{\"script_path\": \"foo.py\"}'"
-                    }
+                        "description": 'A valid JSON string containing the arguments required by the MCP tool. Example: \'{"script_path": "foo.py"}\'',
+                    },
                 },
-                "required": ["tool_name", "tool_args"]
-            }
-        }
+                "required": ["tool_name", "tool_args"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_mcp_tools",
             "description": "Lists all available tools and their descriptions from the local MCP server.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    }
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]

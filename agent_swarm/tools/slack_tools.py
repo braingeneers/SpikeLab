@@ -1,12 +1,5 @@
 import os
-<<<<<<< HEAD
-<<<<<<< HEAD
 from typing import Dict, Callable, List, Any
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
-from typing import Dict, Callable, List, Any
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -21,35 +14,18 @@ class SlackTools:
         self.message_callback = message_callback
         self.waiting_for_approval = False
         self.approval_result = None
-<<<<<<< HEAD
-<<<<<<< HEAD
         self.last_message_ts = None
         self.last_feedback = None
-        self.waiting_for_input = False
-        self.input_result = None
-<<<<<<< HEAD
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
-        self.last_message_ts = None
-        self.last_feedback = None
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
         if self.app and self.message_callback:
 
-            @self.app.message("")  # Listen to all messages
+            @self.app.message("")
             def handle_message(event, say, logger):
-<<<<<<< HEAD
-<<<<<<< HEAD
                 channel = event.get("channel")
                 text = event.get("text")
                 bot_id = event.get("bot_id")
-                thread_ts = event.get("thread_ts")
                 subtype = event.get("subtype")
 
-                # Ignore bot messages and message_changed events (unfurls, edits)
                 if channel == self.channel_id and not bot_id and text and not subtype:
                     user_id = event.get("user")
 
@@ -87,335 +63,113 @@ class SlackTools:
                             self.approval_result = False
                             self.last_feedback = text
                             self.waiting_for_approval = False
-                    
-                    elif self.waiting_for_input:
-                        self.input_result = text
-                        self.waiting_for_input = False
-
                     else:
-                        # React with eyes to acknowledge receipt
                         try:
                             self.app.client.reactions_add(
-                                name="eyes",
-                                channel=channel,
-                                timestamp=event["ts"]
+                                name="eyes", channel=channel, timestamp=event.get("ts")
                             )
-                        except SlackApiError as e:
-                            # Ignore if already reacted or other minor error
-                            print(f"DEBUG: Could not react with eyes: {e}")
+                        except SlackApiError:
+                            pass
 
-                        self.message_callback(text, user_id)
+                        self.last_message_ts = event.get("ts")
+                        if self.message_callback:
+                            self.message_callback(text, user_id)
 
-            @self.app.event("reaction_added")
-            def handle_reaction(event, logger):
-                if not self.waiting_for_approval:
-                    return
-
-                item = event.get("item", {})
-                if (
-                    item.get("type") == "message"
-                    and item.get("ts") == self.last_message_ts
-                ):
-                    reaction = event.get("reaction")
-                    if reaction in [
-                        "white_check_mark",
-                        "heavy_check_mark",
-                        "yes",
-                        "approve",
-                        "thumbsup",
-                    ]:
-                        self.approval_result = True
-                        self.waiting_for_approval = False
-                    elif reaction in ["x", "no_entry_sign", "reject", "thumbsdown"]:
-                        self.approval_result = False
-                        self.waiting_for_approval = False
-
-    def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
-=======
-                logger.info(f"Received Slack event: {event}")
-=======
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-                channel = event.get("channel")
-                text = event.get("text")
-                bot_id = event.get("bot_id")
-                thread_ts = event.get("thread_ts")
-                subtype = event.get("subtype")
-
-                # Ignore bot messages and message_changed events (unfurls, edits)
-                if channel == self.channel_id and not bot_id and text and not subtype:
-                    user_id = event.get("user")
-
-                    if self.waiting_for_approval:
-                        approvals = [
-                            "yes",
-                            "approve",
-                            "ok",
-                            "lgtm",
-                            "✅",
-                            ":white_check_mark:",
-                            ":heavy_check_mark:",
-                            ":check_mark:",
-                        ]
-                        rejections = [
-                            "no",
-                            "reject",
-                            "stop",
-                            "❌",
-                            ":x:",
-                            ":no_entry_sign:",
-                        ]
-
-                        clean_text = text.strip().lower()
-                        found_approval = any(token in clean_text for token in approvals)
-                        found_rejection = any(
-                            token in clean_text for token in rejections
-                        )
-
-                        if found_approval:
-                            self.approval_result = True
-                            self.last_feedback = text
-                            self.waiting_for_approval = False
-                        elif found_rejection:
-                            self.approval_result = False
-                            self.last_feedback = text
-                            self.waiting_for_approval = False
-                    
-                    elif self.waiting_for_input:
-                        self.input_result = text
-                        self.waiting_for_input = False
-
-                    else:
-                        # React with eyes to acknowledge receipt
-                        try:
-                            self.app.client.reactions_add(
-                                name="eyes",
-                                channel=channel,
-                                timestamp=event["ts"]
-                            )
-                        except SlackApiError as e:
-                            # Ignore if already reacted or other minor error
-                            print(f"DEBUG: Could not react with eyes: {e}")
-
-                        self.message_callback(text, user_id)
-
-<<<<<<< HEAD
-    def post_message(self, text: str, blocks: list = None):
->>>>>>> ba3f8a9 (initial version)
-=======
-            @self.app.event("reaction_added")
-            def handle_reaction(event, logger):
-                if not self.waiting_for_approval:
-                    return
-
-                item = event.get("item", {})
-                if (
-                    item.get("type") == "message"
-                    and item.get("ts") == self.last_message_ts
-                ):
-                    reaction = event.get("reaction")
-                    if reaction in [
-                        "white_check_mark",
-                        "heavy_check_mark",
-                        "yes",
-                        "approve",
-                        "thumbsup",
-                    ]:
-                        self.approval_result = True
-                        self.waiting_for_approval = False
-                    elif reaction in ["x", "no_entry_sign", "reject", "thumbsdown"]:
-                        self.approval_result = False
-                        self.waiting_for_approval = False
-
-    def post_message(self, text: str, blocks: list = None, thread_ts: str = None):
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-        if not self.app or not self.channel_id:
-            print(f"SLACK NOT CONFIGURED: {text}")
-            return None
+    def post_message(self, text: str, thread_ts: str = None) -> Dict[str, Any]:
+        if not self.app:
+            return {"error": "Slack bot not configured"}
 
         try:
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-            print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
-            resp = self.app.client.chat_postMessage(
-                channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
+            result = self.app.client.chat_postMessage(
+                channel=self.channel_id, text=text, thread_ts=thread_ts
             )
-            self.last_message_ts = resp.get("ts")
-            print("DEBUG: SlackTools.post_message success")
-            return resp
-=======
-            return self.app.client.chat_postMessage(
-                channel=self.channel_id, text=text, blocks=blocks
-            )
->>>>>>> ba3f8a9 (initial version)
-=======
-=======
-            print(f"DEBUG: SlackTools.post_message called with text: {text[:50]}...")
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
-            resp = self.app.client.chat_postMessage(
-                channel=self.channel_id, text=text, blocks=blocks, thread_ts=thread_ts
-            )
-            self.last_message_ts = resp.get("ts")
-            print("DEBUG: SlackTools.post_message success")
-            return resp
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+            return result
         except SlackApiError as e:
-            print(f"Error posting to Slack: {e}")
-            return None
+            return {"error": str(e)}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     def upload_snippet(
-        self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
-    ):
-=======
-    def upload_snippet(self, content: str, title: str, filename: str = "doc.md"):
->>>>>>> ba3f8a9 (initial version)
-=======
-    def upload_snippet(
-        self, content: str, title: str, filename: str = "doc.md", thread_ts: str = None
-    ):
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-        if not self.app or not self.channel_id:
-            print(f"SLACK NOT CONFIGURED: Cannot upload {title}")
-            return None
+        self, content: str, title: str, filename: str, thread_ts: str = None
+    ) -> Dict[str, Any]:
+        if not self.app:
+            return {"error": "Slack bot not configured"}
 
         try:
-            return self.app.client.files_upload_v2(
-                channel=self.channel_id,
+            result = self.app.client.files_upload(
+                channels=self.channel_id,
                 content=content,
                 title=title,
                 filename=filename,
-                initial_comment=f"📄 *Full {title} uploaded for review*",
-<<<<<<< HEAD
-<<<<<<< HEAD
                 thread_ts=thread_ts,
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
-                thread_ts=thread_ts,
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
             )
+            return result
         except SlackApiError as e:
-            print(f"Error uploading file to Slack: {e}")
-            return None
+            return {"error": str(e)}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-    def request_approval(self, message: str, thread_ts: str = None):
-        resp = self.post_message(
-            f"🚨 *APPROVAL REQUIRED* 🚨\n{message}", thread_ts=thread_ts
-        )
-        # last_message_ts is updated inside post_message
-
-<<<<<<< HEAD
-=======
-    def request_approval(self, message: str):
-        self.post_message(f"🚨 *APPROVAL REQUIRED* 🚨\n{message}")
->>>>>>> ba3f8a9 (initial version)
-=======
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-        print(f"\n[SLACK WAIT] Requesting approval for: {message}")
+    def request_approval(self, text: str, thread_ts: str = None) -> tuple[bool, str]:
+        if not self.app:
+            return False, "Slack not configured"
 
         self.waiting_for_approval = True
         self.approval_result = None
-<<<<<<< HEAD
-<<<<<<< HEAD
         self.last_feedback = None
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
-        self.last_feedback = None
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
+
+        try:
+            self.app.client.chat_postMessage(
+                channel=self.channel_id,
+                text=text,
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": text},
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "React with ✅ to approve or ❌ to reject.",
+                        },
+                    },
+                ],
+                thread_ts=thread_ts,
+            )
+        except SlackApiError as e:
+            return False, f"Error posting approval request: {str(e)}"
 
         import time
 
-        while self.waiting_for_approval:
+        timeout = 300
+        start = time.time()
+        while time.time() - start < timeout:
+            if not self.waiting_for_approval:
+                return self.approval_result, self.last_feedback or ""
             time.sleep(1)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-        return self.approval_result, self.last_feedback
-
-    def request_input(self, question: str, thread_ts: str = None):
-        resp = self.post_message(
-            f"❓ *QUESTION* ❓\n{question}", thread_ts=thread_ts
-        )
-        
-        print(f"\n[SLACK WAIT] Asking user: {question}")
-        
-        self.waiting_for_input = True
-        self.input_result = None
-        
-        import time 
-        
-        while self.waiting_for_input:
-            time.sleep(1)
-            
-        return self.input_result
-<<<<<<< HEAD
-=======
-        return self.approval_result
->>>>>>> ba3f8a9 (initial version)
-=======
-        return self.approval_result, self.last_feedback
->>>>>>> c98998a (Implement: take a look at this and implement the functional connectivity metric from this paper: <https://pubmed.ncbi.nlm.nih.gov/29024669/>)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
+        self.waiting_for_approval = False
+        return False, "Approval request timed out"
 
     def start_listening(self):
         if not self.app or not self.app_token:
-            print(
-                "Missing SLACK_BOT_TOKEN or SLACK_APP_TOKEN. Listening mode disabled."
-            )
+            print("Slack app or app token not configured")
             return
 
-        self.post_message("📡 *Agent Swarm Online* and listening for instructions...")
         handler = SocketModeHandler(self.app, self.app_token)
-        print("⚡️ Slack Swarm is listening for instructions...")
         handler.start()
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
     def get_tool_map(self, thread_ts: str = None) -> Dict[str, Callable]:
-        """Returns a map of tool names to functions, optionally pre-filled with thread_ts."""
-        import functools
-
-        def post_to_slack_wrapped(text: str) -> Dict[str, Any]:
-            # We don't use 'self' here because we want to use the method on the instance
-            res = self.post_message(text, thread_ts=thread_ts)
-            return {"status": "success", "ts": res.get("ts")} if res else {"status": "error"}
-
-        def request_approval_wrapped(message: str) -> Dict[str, Any]:
-            approved, feedback = self.request_approval(message, thread_ts=thread_ts)
-            return {"approved": approved, "feedback": feedback}
-
-        def ask_user_wrapped(question: str) -> Dict[str, Any]:
-            response = self.request_input(question, thread_ts=thread_ts)
-            return {"response": response}
-
         return {
-            "post_to_slack": post_to_slack_wrapped,
-            "request_human_approval": request_approval_wrapped,
-            "ask_user": ask_user_wrapped,
+            "post_slack_message": lambda text: self.post_message(text, thread_ts),
+            "upload_snippet": lambda content, title, filename: self.upload_snippet(
+                content, title, filename, thread_ts
+            ),
         }
 
-<<<<<<< HEAD
-=======
->>>>>>> ba3f8a9 (initial version)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
 
 slack_tool_definitions = [
     {
         "type": "function",
         "function": {
-            "name": "post_to_slack",
-            "description": "Post a status update or message to the Slack channel.",
+            "name": "post_slack_message",
+            "description": "Post a message to Slack.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -428,46 +182,17 @@ slack_tool_definitions = [
     {
         "type": "function",
         "function": {
-            "name": "request_human_approval",
-            "description": "Request human approval for a design doc or code change.",
+            "name": "upload_snippet",
+            "description": "Upload a snippet/file to Slack.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "Description of what needs approval.",
-                    }
+                    "content": {"type": "string", "description": "File content."},
+                    "title": {"type": "string", "description": "Title of the snippet."},
+                    "filename": {"type": "string", "description": "Filename."},
                 },
-                "required": ["message"],
-            },
-        },
-    },
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
-    {
-        "type": "function",
-        "function": {
-            "name": "ask_user",
-            "description": "Ask the user a clear question and wait for their text response.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "The question to ask the user.",
-                    }
-                },
-                "required": ["question"],
+                "required": ["content", "title", "filename"],
             },
         },
     },
 ]
-
-<<<<<<< HEAD
-=======
-]
->>>>>>> ba3f8a9 (initial version)
-=======
->>>>>>> e11f739 (feat(agent_swarm): Implement swarm enhancements for github, mcp, and slack)
