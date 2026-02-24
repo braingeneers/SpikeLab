@@ -187,7 +187,9 @@ def _sliding_rate(
         raise ValueError("Cannot provide both step_size and sampling_rate")
     if step_size is None:
         if sampling_rate is None or sampling_rate <= 0:
-            raise ValueError(f"sampling_rate must be positive when step_size is not provided, got {sampling_rate}")
+            raise ValueError(
+                f"sampling_rate must be positive when step_size is not provided, got {sampling_rate}"
+            )
         step_size = 1.0 / sampling_rate
     else:
         if step_size <= 0:
@@ -208,7 +210,9 @@ def _sliding_rate(
     # Build uniformly spaced bin edges spanning [t_start, t_end]
     n_bins = max(1, int(np.ceil((t_end - t_start) / step_size)))
     bin_edges = t_start + np.arange(n_bins + 1) * step_size
-    bin_edges[-1] = max(bin_edges[-1], np.nextafter(t_end, np.inf))  # Ensure last bin includes t_end
+    bin_edges[-1] = max(
+        bin_edges[-1], np.nextafter(t_end, np.inf)
+    )  # Ensure last bin includes t_end
 
     # Bin spikes into discrete time bins
     hist, _ = np.histogram(spike_times, bins=bin_edges)

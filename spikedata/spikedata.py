@@ -460,7 +460,11 @@ class SpikeData:
         t_len = time_vector.size
         for row in rate_rows:
             # Treat both None and empty arrays/lists as empty outputs.
-            if row is None or (hasattr(row, "size") and row.size == 0) or (hasattr(row, "__len__") and len(row) == 0):
+            if (
+                row is None
+                or (hasattr(row, "size") and row.size == 0)
+                or (hasattr(row, "__len__") and len(row) == 0)
+            ):
                 filled_rows.append(np.zeros(t_len, dtype=float))
             else:
                 filled_rows.append(np.asarray(row, dtype=float))
