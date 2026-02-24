@@ -26,7 +26,10 @@ dependencies = [
   "beautifulsoup4>=4.12.0",
   "requests>=2.31.0",
   "pydantic>=2.0.0",
+<<<<<<< HEAD
 >>>>>>> 81f2a43 (update env and gitignore)
+=======
+>>>>>>> 53a6ee58641118a04bc70835b9a7a6f1a1c05ad4
 ]
 
 [tool.setuptools.packages.find]
