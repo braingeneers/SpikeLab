@@ -463,7 +463,23 @@ class SpikeData:
             n_bins = max(1, int(np.ceil((t_end - t_start) / step)))
             time_vector = t_start + (np.arange(n_bins) + 0.5) * step
 
-        rate_array = np.array(rate_rows)
+        # Ensure each unit's rate trace has length len(time_vector). For units with
+        # no spikes, _sliding_window_rate may return an empty array; fill these with
+        # zeros so that the final rate_array has shape (N, T) as documented.
+        filled_rows = []
+        t_len = time_vector.size
+        for row in rate_rows:
+            # Treat both None and empty arrays/lists as empty outputs.
+            if row is None or (hasattr(row, "size") and row.size == 0) or (hasattr(row, "__len__") and len(row) == 0):
+                filled_rows.append(np.zeros(t_len, dtype=float))
+            else:
+                filled_rows.append(np.asarray(row, dtype=float))
+
+        if filled_rows:
+            rate_array = np.vstack(filled_rows)
+        else:
+            # No units case: return an empty (0, T) array
+            rate_array = np.empty((0, t_len), dtype=float)
         return rate_array, time_vector
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
