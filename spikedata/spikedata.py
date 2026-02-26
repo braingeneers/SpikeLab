@@ -401,6 +401,13 @@ class SpikeData:
         times = np.asarray(times)
         if times.size == 0:
             raise ValueError("Times array is empty - Unable to resample firing rate")
+        if times.size > 1:
+            diffs = np.diff(times)
+            if not np.all(diffs > 0):
+                raise ValueError(
+                    "Times array must be strictly increasing with positive spacing "
+                    "(no duplicates or non-positive intervals)."
+                )
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
