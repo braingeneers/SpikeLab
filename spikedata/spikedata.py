@@ -398,6 +398,9 @@ class SpikeData:
         Returns:
         rates (numpy.ndarray): Array of the resampled firing rate.
         """
+        times = np.asarray(times)
+        if times.size == 0:
+            raise ValueError("Times array is empty - Unable to resample firing rate")
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
