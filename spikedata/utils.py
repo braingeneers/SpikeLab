@@ -121,9 +121,16 @@ def _resampled_isi(spikes, times, sigma_ms):
     Notes:
     - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
     smoothed by a Gaussian kernel with the given width.
+
+    Raises:
+    ValueError: If times array is empty.
     """
+    if np.asarray(times).size == 0:
+        raise ValueError("Times list is empty")
+
     if len(spikes) == 0:
         return np.zeros_like(times)
+
     elif len(spikes) == 1:
         return np.ones_like(times) / spikes[0]
     else:
