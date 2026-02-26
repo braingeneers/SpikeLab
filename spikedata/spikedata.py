@@ -417,6 +417,9 @@ class SpikeData:
         """
         if isinstance(units, int):
             units = [units]
+        # For case where user inputs a single string for units when using by option
+        if isinstance(units, str):
+                units = [units]
         units = set(units)
         if by is not None:
             if self.neuron_attributes is None:

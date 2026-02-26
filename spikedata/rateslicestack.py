@@ -26,9 +26,9 @@ class RateSliceStack:
 
     Parameters:
     -----------
-    You can either inpute data_obj or event_matrix as your underlying data.
+    You can either input data_obj or event_matrix as your underlying data.
     Option #1: data_obj
-        data_obj (SpikeData or RateData or 3D matrix): A data object in either one of these forms.
+        data_obj (SpikeData or RateData): A data object in either one of these forms.
         There are 2 choices for time input:
             Choice A)
                 times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
@@ -58,7 +58,7 @@ class RateSliceStack:
                             Example: [(100, 200), (500, 600), (1000, 1100)]
     self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
                             Example: 1.0 means time bins are at [100, 101, 102, ...] ms
-    self.neuron_attributes: TBD
+    self.neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     """
 
@@ -76,6 +76,10 @@ class RateSliceStack:
         if (data_obj is None) and (event_matrix is None):
             raise ValueError(
                 "Must input either data_obj(option 1) or event_matrix(option 2)"
+            )
+        if (data_obj is not None) and (event_matrix is not None):
+            raise ValueError(
+                "Must input only one of data_obj (option 1) or event_matrix (option 2), not both"
             )
         # Option 1: Using data_obj
         if data_obj is not None:
@@ -127,16 +131,15 @@ class RateSliceStack:
                     start = time[0]
                     end = time[1]
                     rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
-                    event_matrix = rate_obj_slice.inst_Frate_data
-                    event_stack.append(event_matrix)
+                    slice_matrix = rate_obj_slice.inst_Frate_data
+                    event_stack.append(slice_matrix)
 
             # Converts to a 3d array
             event_stack = np.stack(event_stack, axis=2)
             # This makes event stack be U x T x S
             self.event_stack = event_stack
-            self.neuron_attributes = None
-            return
-        # Option 2
+            
+        # Option 2: Using event matrx
         if event_matrix is not None:
             if not isinstance(event_matrix, np.ndarray):
                 raise TypeError("event_matrix must be a numpy array")
@@ -168,17 +171,31 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
-            if neuron_attributes is not None:
-                self.neuron_attributes = neuron_attributes.copy()
-                if len(neuron_attributes) != self.event_stack.shape[0]:
-                    raise ValueError(
-                        f"neuron_attributes has {len(neuron_attributes)} items "
-                        f"but inst_Frate_data has {self.N} rows"
-                    )
+        self.neuron_attributes = None
+        if neuron_attributes is not None:
+            self.neuron_attributes = neuron_attributes.copy()
+            if len(neuron_attributes) != self.event_stack.shape[0]:
+                raise ValueError(
+                    f"neuron_attributes has {len(neuron_attributes)} items "
+                    f"but event_stack has {self.event_stack.shape[0]} units"
+                )
 
-            return
+        
 
     def _validate_time_start_to_end(self, times_start_to_end):
+        """
+        Validates that the list of (start,end) tuples has the same duration of time_steps and are in proper format for object constructor.
+
+        Parameters:
+        -----------
+        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and
+                                   end times of a desired slice. Each tuple must have same duration. Length must equal S.
+
+        Returns:
+        --------
+        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with negative-start 
+                                  windows removed.
+        """
         if not isinstance(times_start_to_end, list):
             raise TypeError("times must be a list of tuples")
         time_diff_check = []
@@ -521,8 +538,22 @@ class RateSliceStack:
         return max_corr_array, max_corr_lag_array, av_max_corr, av_max_corr_lag
 
     def subset(self, units, by=None):
-        N = self.event_stack[0]
+        """
+        Extract a subset of units/neurons from the rateslicestack. Index-based if by = None.
+
+        Parameters:
+        units (list or array): Unit indices to extract. If by = None, then this should be always be a list of ints. 
+                               If by != None, then the list can be a list of ints or strings.
+        by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
+                     If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
+
+        Returns:
+        RateSliceStack: New RateSliceStack object containing only the specified units
+        """
+        N = self.event_stack.shape[0]
         if isinstance(units, int):
+            units = [units]
+        if isinstance(units, str):
             units = [units]
         units = set(units)
         if by is not None:
