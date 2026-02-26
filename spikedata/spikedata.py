@@ -895,23 +895,36 @@ class SpikeData:
 
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
-    
-    def spike_shuffle(self, seed = None, bin_size =1):
-        #rigght now there is a problem. Shuffling needs binary matrix sparse_raster doesn't return binary
+
+    def spike_shuffle(self, seed=None, bin_size=1):
+        """
+        Shuffles the underlying train matrix of a SpikeData. This is done in a manner where a neuron's firing rate is preserved,
+        but the specific time_bin in which there is a spike is shuffled. This is done so you can compare the neuron correlations
+        of the orginal matrix to the neuron correlations of the shuffled matrix. If there is a significant drop in correlations values,
+        then you know these neurons genuinely fire in a coordinated fashion; it isn't random chance.
+
+        Parameters:
+        seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
+        bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
+                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
+
+        Returns:
+        shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
+        """
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if bin_size != 1:
-            binary_mat = (spk_mat > 0)
+            binary_mat = spk_mat > 0
         else:
             binary_mat = spk_mat
         shuffled_mat = randomize(binary_mat, seed=seed)
-        return SpikeData.from_raster(shuffled_mat, 
-                              bin_size, 
-                              length=self.length,
-                              metadata=self.metadata,
-                              neuron_attributes=self.neuron_attributes)
-        
-
-
+        shuffled_spike_data = SpikeData.from_raster(
+            shuffled_mat,
+            bin_size,
+            length=self.length,
+            metadata=self.metadata,
+            neuron_attributes=self.neuron_attributes,
+        )
+        return shuffled_spike_data
 
     # ----------------------------
     # Exporters

@@ -64,19 +64,19 @@ class RateSliceStack:
 
     def __init__(
         self,
-        data_obj = None,  # Option 1
+        data_obj=None,  # Option 1
         times_start_to_end=None,
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
         event_matrix=None,  # Option 2
         step_size=None,
-        neuron_attributes = None
+        neuron_attributes=None,
     ):
         if (data_obj is None) and (event_matrix is None):
             raise ValueError(
                 "Must input either data_obj(option 1) or event_matrix(option 2)"
-            ) 
+            )
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
@@ -177,8 +177,6 @@ class RateSliceStack:
                     )
 
             return
-
-        
 
     def _validate_time_start_to_end(self, times_start_to_end):
         if not isinstance(times_start_to_end, list):
@@ -521,8 +519,8 @@ class RateSliceStack:
             max_corr_lag_array[:, lower_tri_indices[0], lower_tri_indices[1]], axis=(1)
         )  # shape (B,)
         return max_corr_array, max_corr_lag_array, av_max_corr, av_max_corr_lag
-    
-    def subset(self, units, by = None):
+
+    def subset(self, units, by=None):
         N = self.event_stack[0]
         if isinstance(units, int):
             units = [units]
@@ -543,14 +541,10 @@ class RateSliceStack:
         if self.neuron_attributes is not None:
             neuron_attributes = [self.neuron_attributes[i] for i in units]
 
-        new_stack = self.event_stack[units,:,:]
+        new_stack = self.event_stack[units, :, :]
         return RateSliceStack(
-            event_matrix= new_stack,
+            event_matrix=new_stack,
             times_start_to_end=self.times,
-            step_size=self.step_size, 
-            neuron_attributes = neuron_attributes
+            step_size=self.step_size,
+            neuron_attributes=neuron_attributes,
         )
-    
-
-    
-

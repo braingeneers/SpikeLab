@@ -122,7 +122,8 @@ def _resampled_isi(spikes, times, sigma_ms):
             return ndimage.gaussian_filter1d(fr, sigma)
         else:
             return fr
-        
+
+
 def _resampled_isi(spikes, times, sigma_ms):
     """
     Helper method for calculating the firing rate of a spike train at specific times,
@@ -142,13 +143,10 @@ def _resampled_isi(spikes, times, sigma_ms):
     """
 
     if len(spikes) == 0 or len(spikes) == 1:
-        #Need at least 2 spikes to do get inter-spike interval
+        # Need at least 2 spikes to do get inter-spike interval
         return np.zeros_like(times)
     if len(times) < 2:
-        raise ValueError(
-            "times has less than 2 values. Input more times"
-        )
-        
+        raise ValueError("times has less than 2 values. Input more times")
 
     spikes = np.array(spikes)
     times = np.array(times)
@@ -158,8 +156,6 @@ def _resampled_isi(spikes, times, sigma_ms):
     isi = np.insert(isi, 0, 0)  # Add spacer for first spike
 
     # Compute instantaneous firing rates (1/isi, in Hz assuming ms units)
-
-    #isi_rate = 1.0 / isi * 1000  # !!!!!!!!! ADD CHECK FOR DIVIDE BY 0 HERE
     isi_rate = np.zeros_like(isi, dtype=float)
     isi_rate[1:] = 1.0 / isi[1:] * 1000
 
@@ -174,7 +170,7 @@ def _resampled_isi(spikes, times, sigma_ms):
         start_bin = int((spikes[i - 1] - t_start) / dt_ms)
         end_bin = int((spikes[i] - t_start) / dt_ms)
         if start_bin < n_bins:
-            isi_rate_temp[start_bin:min(end_bin, n_bins)] = isi_rate[i]
+            isi_rate_temp[start_bin : min(end_bin, n_bins)] = isi_rate[i]
 
     # Interpolate to exact times grid (if needed)
     fr = np.interp(times, t_start + dt_ms * np.arange(n_bins), isi_rate_temp)
@@ -188,8 +184,6 @@ def _resampled_isi(spikes, times, sigma_ms):
         return ndimage.gaussian_filter1d(fr, sigma)
     else:
         return fr
-
-
 
 
 def _train_from_i_t_list(idces, times, N):
@@ -292,20 +286,21 @@ def swap(ar, idxs):
     return True
 
 
-def randomize(ar, swap_per_spike=5, seed = None):
+def randomize(ar, swap_per_spike=5, seed=None):
     """
     Randomize a binary spike raster using degree-preserving double-edge swaps.
 
     Parameters:
     ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
     swap_per_spike (int): Target number of successful swaps per spike.
+    seed (int): seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
 
     Returns:
     randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
     """
     if seed is not None:
         np.random.seed(seed)
-    
+
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
