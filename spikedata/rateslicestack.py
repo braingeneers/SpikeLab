@@ -2,6 +2,7 @@ import numpy as np
 from scipy import signal
 from .ratedata import RateData
 from .spikedata import SpikeData
+import warnings
 
 
 from .utils import (
@@ -78,9 +79,12 @@ class RateSliceStack:
                 "Must input either data_obj(option 1) or event_matrix(option 2)"
             )
         if (data_obj is not None) and (event_matrix is not None):
-            raise ValueError(
-                "Must input only one of data_obj (option 1) or event_matrix (option 2), not both"
+            warnings.warn(
+                "User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.",
+                UserWarning
             )
+            data_obj = None
+        
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
@@ -542,8 +546,8 @@ class RateSliceStack:
         Extract a subset of units/neurons from the rateslicestack. Index-based if by = None.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should be always be a list of ints. 
-                               If by != None, then the list can be a list of ints or strings.
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints. 
+                               If by != None, then the list can contain ints or strings.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
 

@@ -299,7 +299,7 @@ def randomize(ar, swap_per_spike=5, seed=None):
     randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
     """
     if seed is not None:
-        np.random.seed(seed)
+        np.random.default_rng(seed)
 
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)

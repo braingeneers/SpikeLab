@@ -66,8 +66,8 @@ class RateData:
         Extract a subset of units/neurons from the rate data. Index-based if by = None.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should be always be a list of ints. 
-                               If by != None, then the list can be a list of ints or strings.
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints. 
+                               If by != None, then the list can contain ints or strings.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
 

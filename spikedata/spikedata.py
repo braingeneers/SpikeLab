@@ -899,27 +899,37 @@ class SpikeData:
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
 
-    def spike_shuffle(self, seed=None, bin_size=1):
+    def spike_shuffle(self, swap_per_spike=5, seed=None, bin_size=1):
         """
-        Shuffles the underlying train matrix of a SpikeData. This is done in a manner where a neuron's firing rate is preserved,
+        Shuffles the underlying train matrix of a SpikeData using the Okun method. This is done in a manner where a neuron's firing rate is preserved,
         but the specific time_bin in which there is a spike is shuffled. This is done so you can compare the neuron correlations
         of the orginal matrix to the neuron correlations of the shuffled matrix. If there is a significant drop in correlations values,
         then you know these neurons genuinely fire in a coordinated fashion; it isn't random chance.
 
         Parameters:
+        -----------
+        swap_per_spike (int): This determines the number of swaps you perform (num_spikes * swap_per_spike).
         seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
         bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
                        spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
 
         Returns:
+        --------
         shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
+
+        Notes:
+        -----
+        - This is done in a manner where a neuron's firing rate is preserved, but the specific time_bin in which there is a spike is shuffled. 
+        - You take 2 random spikes as a pair in the form of (neuron, time_bins), and swap if they are eligble for swapping.
+        - This is done so you can compare the neuron correlations of the orginal matrix to the neuron correlations of the shuffled matrix. 
+        - If there is a significant drop in correlations values, then you know these neurons genuinely fire in a coordinated fashion; it isn't random chance.
         """
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if bin_size != 1:
             binary_mat = spk_mat > 0
         else:
             binary_mat = spk_mat
-        shuffled_mat = randomize(binary_mat, seed=seed)
+        shuffled_mat = randomize(binary_mat, swap_per_spike = swap_per_spike, seed=seed)
         shuffled_spike_data = SpikeData.from_raster(
             shuffled_mat,
             bin_size,
