@@ -8,9 +8,11 @@ if optional dependencies are not available (e.g., h5py).
 from __future__ import annotations
 
 import os
+import pickle
 import tempfile
 import unittest
 from typing import Optional
+from unittest.mock import patch
 
 import numpy as np
 
@@ -641,6 +643,149 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             )
             # Should keep both clusters 0 and 1
             self.assertEqual(len(sd.train), 2)
+
+
+class TestPickleLoaders(unittest.TestCase):
+    """
+    Tests for load_spikedata_from_pickle.
+
+    Tests:
+    - Basic pickle loading from local file
+    - S3 URL handling via ensure_local_file
+    - Validation that non-SpikeData objects raise ValueError
+    - Temporary file cleanup when loading from S3
+    """
+
+    def _tmp_pkl(self) -> str:
+        """Create a temporary pickle file path for testing."""
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        return path
+
+    def tearDown(self) -> None:
+        """Remove any temporary pickle files created during the tests."""
+        for attr in ("_last_pkl_path",):
+            path: Optional[str] = getattr(self, attr, None)
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+    def test_pickle_basic_load(self):
+        """
+        Test basic loading of SpikeData from a local pickle file.
+
+        Tests:
+        (Method 1) Creates SpikeData, pickles it to a temp file
+        (Method 2) Loads using load_spikedata_from_pickle
+        (Test Case 1) Loaded object is SpikeData instance
+        (Test Case 2) Spike trains match original
+        (Test Case 3) Metadata is preserved
+        """
+        sd = SpikeData(
+            [np.array([5.0, 10.0]), np.array([2.5])],
+            length=25.0,
+            metadata={"label": "test"},
+        )
+        path = self._tmp_pkl()
+        self._last_pkl_path = path
+        # Write SpikeData to pickle file
+        with open(path, "wb") as f:
+            pickle.dump(sd, f)
+
+        # Load and verify spike trains match
+        sd2 = loaders.load_spikedata_from_pickle(path)
+        self.assertIsInstance(sd2, SpikeData)
+        for a, b in zip(sd.train, sd2.train):
+            self.assertTrue(np.allclose(a, b))
+        # Verify metadata is preserved
+        self.assertEqual(sd.metadata, sd2.metadata)
+
+    @patch("data_loaders.s3_utils.ensure_local_file")
+    def test_pickle_s3_url_handling(self, mock_ensure):
+        """
+        Test that S3 URLs are resolved via ensure_local_file before loading.
+
+        Tests:
+        (Method 1) Creates SpikeData pickle in temp file
+        (Method 2) Mocks ensure_local_file to return (temp_path, False) for S3 URL
+        (Method 3) Calls load_spikedata_from_pickle with s3:// URL
+        (Test Case 1) ensure_local_file is called with S3 URL
+        (Test Case 2) Loaded SpikeData matches original
+        """
+        sd = SpikeData(
+            [np.array([1.0, 2.0])],
+            length=10.0,
+            metadata={},
+        )
+        path = self._tmp_pkl()
+        self._last_pkl_path = path
+        with open(path, "wb") as f:
+            pickle.dump(sd, f)
+
+        # Mock ensure_local_file to return our temp path (as if S3 was already downloaded)
+        mock_ensure.return_value = (path, False)
+
+        # Load via S3 URL; ensure_local_file is mocked so no real S3 call
+        sd2 = loaders.load_spikedata_from_pickle("s3://bucket/key.pkl")
+
+        # Verify ensure_local_file was called with S3 URL (and optional cred kwargs)
+        mock_ensure.assert_called_once()
+        self.assertEqual(mock_ensure.call_args[0][0], "s3://bucket/key.pkl")
+        # Verify loaded data matches
+        self.assertTrue(np.allclose(sd2.train[0], sd.train[0]))
+
+    def test_pickle_non_spikedata_raises_valueerror(self):
+        """
+        Test that loading a pickle containing a non-SpikeData object raises ValueError.
+
+        Tests:
+        (Method 1) Writes a dict to pickle file (not SpikeData)
+        (Method 2) Calls load_spikedata_from_pickle
+        (Test Case 1) ValueError is raised with message about wrong type
+        """
+        path = self._tmp_pkl()
+        self._last_pkl_path = path
+        # Write non-SpikeData object (dict) to pickle
+        with open(path, "wb") as f:
+            pickle.dump({"foo": "bar"}, f)
+
+        # Expect ValueError because pickle does not contain SpikeData
+        with self.assertRaises(ValueError) as ctx:
+            loaders.load_spikedata_from_pickle(path)
+        self.assertIn("SpikeData", str(ctx.exception))
+        self.assertIn("dict", str(ctx.exception))
+
+    @patch("data_loaders.s3_utils.ensure_local_file")
+    def test_pickle_temp_file_cleanup(self, mock_ensure):
+        """
+        Test that temporary file from S3 download is removed after loading.
+
+        Tests:
+        (Method 1) Creates SpikeData pickle in temp file
+        (Method 2) Mocks ensure_local_file to return (temp_path, True) so loader treats it as temp
+        (Method 3) Loads via S3 URL
+        (Test Case 1) Temp file is removed after load completes
+        """
+        sd = SpikeData(
+            [np.array([1.0])],
+            length=5.0,
+            metadata={},
+        )
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        os.close(fd)
+        with open(path, "wb") as f:
+            pickle.dump(sd, f)
+
+        # Mock ensure_local_file to return our path with is_temp=True
+        mock_ensure.return_value = (path, True)
+
+        # Load; loader should remove temp file in finally block
+        loaders.load_spikedata_from_pickle("s3://bucket/key.pkl")
+
+        # Verify temp file was removed
+        self.assertFalse(os.path.exists(path))
 
 
 if __name__ == "__main__":

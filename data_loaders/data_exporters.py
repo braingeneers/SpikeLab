@@ -28,6 +28,8 @@ try:
 except ImportError:
     h5py = None  # type: ignore
 
+import pickle
+
 if TYPE_CHECKING:  # avoid runtime circular import
     from spikedata import SpikeData  # noqa: F401
 
@@ -347,8 +349,77 @@ def export_spikedata_to_kilosort(
     return spike_times_path, spike_clusters_path
 
 
+def export_spikedata_to_pickle(
+    sd: "SpikeData",
+    filepath: str,
+    *,
+    protocol: Optional[int] = None,
+    upload_to_s3: bool = False,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> str:
+    """
+    Export a SpikeData object to a pickle file.
+
+    Parameters:
+        sd (SpikeData): The SpikeData object to export.
+        filepath (str): Path where the pickle file will be created (overwrites existing).
+                       If upload_to_s3=True, this should be an S3 URL (s3://bucket/key).
+        protocol (Optional[int]): Pickle protocol version. If None, uses the highest
+                                 protocol available. Lower protocols (e.g., 2, 3) may
+                                 be needed for compatibility with older Python versions.
+        upload_to_s3 (bool): If True, upload to S3 URL specified in filepath.
+        aws_access_key_id (Optional[str]): AWS access key ID for S3 uploads.
+        aws_secret_access_key (Optional[str]): AWS secret access key for S3 uploads.
+        aws_session_token (Optional[str]): AWS session token for temporary credentials.
+        region_name (Optional[str]): AWS region name for S3 access.
+
+    Returns:
+        str: Path to the created pickle file (local path or S3 URL).
+    """
+    import tempfile
+
+    from .s3_utils import is_s3_url, upload_to_s3 as _upload_to_s3
+
+    if upload_to_s3:
+        if not is_s3_url(filepath):
+            raise ValueError(
+                f"filepath must be an S3 URL when upload_to_s3=True (got '{filepath}')"
+            )
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as tmp:
+            temp_path = tmp.name
+        try:
+            with open(temp_path, "wb") as f:
+                pickle.dump(sd, f, protocol=protocol)
+            _upload_to_s3(
+                temp_path,
+                filepath,
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                region_name=region_name,
+            )
+            return filepath
+        finally:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass  # Best-effort cleanup: ignore failures when removing temporary file.
+
+    else:
+        dirpath = os.path.dirname(filepath)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
+        with open(filepath, "wb") as f:
+            pickle.dump(sd, f, protocol=protocol)
+        return filepath
+
+
 __all__ = [
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
+    "export_spikedata_to_pickle",
 ]
