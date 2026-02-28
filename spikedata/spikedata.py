@@ -315,7 +315,7 @@ class SpikeData:
     @property
     def unit_locations(self) -> Optional[np.ndarray]:
         """
-        Get unit locations as an (N, D) array where D is the spatial dimension.
+        Get unit locations as an (U, D) array where D is the spatial dimension.
 
 
         Returns:
