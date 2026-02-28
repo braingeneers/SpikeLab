@@ -5,7 +5,8 @@ SpikeData core module.
 import heapq
 import itertools
 import warnings
-from typing import Literal, Optional, Union, List, Tuple
+from typing import Literal, Optional, Union, List, Tuple, Sequence
+from typing import Any, Dict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -18,6 +19,7 @@ from scipy.stats import norm
 from .utils import (
     get_sttc,
     butter_filter,
+    extract_waveforms,
     _sttc_ta,
     _sttc_na,
     _spike_time_tiling,
@@ -26,6 +28,7 @@ from .utils import (
     swap,
     randomize,
     trough_between,
+    extract_unit_waveforms,
 )
 
 __all__ = [
@@ -459,12 +462,12 @@ class SpikeData:
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
         """
-        Set an attribute for neurons.
+        Set an attribute: a list of dictionaries, each with a key/value pair with length equal to the number of neurons.
 
         Parameters:
-            key: Attribute name to set.
-            values: Single value (applied to all) or list/array matching neuron_indices length.
-            neuron_indices: Neurons to update. If None, updates all.
+        key (str):  Name of a particular attribute.
+        values (single value or list): Single value (applied to all) or list/array matching neuron_indices length for each neuron.
+        neuron_indices (list): Neurons to update. If None, updates all.
         """
         if self.neuron_attributes is None:
             self.neuron_attributes = [{} for _ in range(self.N)]
@@ -811,6 +814,160 @@ class SpikeData:
                 channel_raster[channel_pos, :] += neuron_raster[neuron_idx, :]
 
         return channel_raster
+
+    def get_waveform_traces(
+        self,
+        unit: Optional[Union[int, slice, Sequence[int]]] = None,
+        ms_before: float = 1.0,
+        ms_after: float = 2.0,
+        channels: Optional[Union[int, List[int]]] = None,
+        bandpass: Optional[tuple] = None,
+        filter_order: int = 3,
+        store: bool = True,
+        return_channel_waveforms: bool = False,
+        return_avg_waveform: bool = True,
+    ) -> Tuple[Union[np.ndarray, List[np.ndarray]], Dict[str, Any]]:
+        """
+        Extract raw voltage waveforms around spike times from raw data.
+
+        Parameters:
+            unit: Unit index selection.
+                - int: extract a single unit (returns a single waveform array)
+                - slice / list-like / array-like / range: extract a subset (returns a list of waveform arrays)
+                - None: extract all units (returns a list of waveform arrays)
+            ms_before: Milliseconds before each spike time (default: 1.0).
+            ms_after: Milliseconds after each spike time (default: 2.0).
+            channels: Channel(s) to extract. None uses neuron_to_channel_map or all
+                channels; int for single channel; list for multiple; [] for mapped channel.
+            bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
+            filter_order: Butterworth filter order (default: 3).
+            store: If True (default), stores waveforms and avg_waveform in neuron_attributes.
+            return_channel_waveforms: If True, include a per-channel dict
+                `channel_waveforms[channel] -> (num_samples, num_spikes)` in the return.
+            return_avg_waveform: If False, skip computing/returning `avg_waveform` (it will be None).
+
+        Returns:
+            (waveforms, meta)
+
+            - waveforms:
+                - If unit is an int: a single 3D array shaped (num_channels, num_samples, num_spikes)
+                - Otherwise: a list of 3D arrays, one per selected unit
+            - meta (dict):
+                - fs_kHz: sampling rate in kHz
+                - unit_indices: list of unit indices corresponding to the returned waveforms
+                - channels: list of List[int], channels used per unit
+                - spike_times_ms: list of np.ndarray, valid spike times per unit
+                - avg_waveforms: optional list of 2D arrays (num_channels, num_samples) per unit
+                - channel_waveforms: optional list of dicts (channel -> (num_samples, num_spikes)) per unit
+        """
+        # Validate that raw voltage data exists
+        if self.raw_data.size == 0:
+            raise ValueError("raw_data is empty")
+
+        # If raw_time is a scalar, it's the sampling rate (kHz) directly, otherwise compute rate from median time delta
+        if np.ndim(self.raw_time) == 0 or self.raw_time.shape == ():
+            fs_kHz = float(self.raw_time)
+        else:
+            fs_kHz = 1.0 / np.median(np.diff(self.raw_time))
+
+        # Get mapping of neuron indices to their recording channels using extract_unit_waveforms to determine default channels per unit
+        neuron_to_channel = self.neuron_to_channel_map()
+
+        # Normalize `unit` into an explicit list of indices to extract, while preserving
+        # the historical behavior that passing a single int returns a single dict.
+        return_single = False
+        if unit is None:
+            unit_indices = list(range(self.N))
+        elif isinstance(unit, (int, np.integer)):
+            u = int(unit)
+            if u < 0 or u >= self.N:
+                raise ValueError(f"Unit index {u} out of range (0 to {self.N - 1})")
+            unit_indices = [u]
+            return_single = True
+        elif isinstance(unit, slice):
+            unit_indices = list(range(self.N)[unit])
+        else:
+            try:
+                unit_indices = [int(u) for u in unit]  # type: ignore[iteration-over-optional]
+            except TypeError as e:
+                raise ValueError(
+                    "unit must be an int, slice, or sequence of ints (or None)"
+                ) from e
+            for u in unit_indices:
+                if u < 0 or u >= self.N:
+                    raise ValueError(f"Unit index {u} out of range (0 to {self.N - 1})")
+
+        # Extract for each selected unit, optionally store, return (waveforms, meta).
+        waveforms_out: List[np.ndarray] = []
+        channels_out: List[List[int]] = []
+        spike_times_out: List[np.ndarray] = []
+        avg_waveforms_out: Optional[List[np.ndarray]] = (
+            [] if return_avg_waveform else None
+        )
+        channel_waveforms_out: Optional[List[dict]] = (
+            [] if return_channel_waveforms else None
+        )
+
+        for unit_idx in unit_indices:
+            spike_times_ms = np.asarray(self.train[unit_idx])
+            waveforms, unit_meta = extract_unit_waveforms(
+                unit_idx=unit_idx,
+                spike_times_ms=spike_times_ms,
+                raw_data=self.raw_data,
+                fs_kHz=fs_kHz,
+                ms_before=ms_before,
+                ms_after=ms_after,
+                channels=channels,
+                neuron_to_channel=neuron_to_channel,
+                bandpass=bandpass,
+                filter_order=filter_order,
+                return_channel_waveforms=return_channel_waveforms,
+                return_avg_waveform=return_avg_waveform,
+            )
+            if store and self.neuron_attributes is not None:
+                self.neuron_attributes[unit_idx]["waveforms"] = waveforms
+                if return_avg_waveform:
+                    self.neuron_attributes[unit_idx]["avg_waveform"] = unit_meta[
+                        "avg_waveform"
+                    ]
+                # Store per-unit trace metadata (kept out of the return payload).
+                # This is useful for downstream analysis without duplicating it per-result dict.
+                self.neuron_attributes[unit_idx]["traces_meta"] = {
+                    "fs_kHz": fs_kHz,
+                    "ms_before": ms_before,
+                    "ms_after": ms_after,
+                    "bandpass": bandpass,
+                    "filter_order": filter_order,
+                    "channels": unit_meta["channels"],
+                    "spike_times_ms": unit_meta["spike_times_ms"],
+                }
+
+            waveforms_out.append(waveforms)
+            channels_out.append(unit_meta["channels"])
+            spike_times_out.append(unit_meta["spike_times_ms"])
+            if return_avg_waveform and avg_waveforms_out is not None:
+                avg_waveforms_out.append(unit_meta["avg_waveform"])
+            if return_channel_waveforms and channel_waveforms_out is not None:
+                channel_waveforms_out.append(unit_meta["channel_waveforms"])
+
+        meta: Dict[str, Any] = {
+            "fs_kHz": fs_kHz,
+            "unit_indices": unit_indices,
+            "channels": channels_out,
+            "spike_times_ms": spike_times_out,
+        }
+        if return_avg_waveform and avg_waveforms_out is not None:
+            # Always return as a list for consistency (one element per unit)
+            meta["avg_waveforms"] = [
+                np.asarray(a).reshape(a.shape[0], -1) for a in avg_waveforms_out
+            ]
+        if return_channel_waveforms:
+            meta["channel_waveforms"] = channel_waveforms_out
+
+        return (
+            (waveforms_out[0] if return_single else waveforms_out),
+            meta,
+        )
 
     def interspike_intervals(self):
         """
