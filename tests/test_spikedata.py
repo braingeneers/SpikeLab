@@ -613,6 +613,7 @@ class SpikeDataTest(unittest.TestCase):
         spikes = np.arange(10)
         when = np.arange(1, 9, 0.01)  # sorted, evenly spaced, within spike range
         self.assertAll(spikedata._resampled_isi(spikes, when, sigma_ms=0.0) == 1000)
+        
 
         # Also check that the rate is correctly calculated for some varying
         # examples.
