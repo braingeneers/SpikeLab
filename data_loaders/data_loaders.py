@@ -579,6 +579,7 @@ def load_spikedata_from_kilosort(
     include_noise: bool = False,
     length_ms: Optional[float] = None,
     channel_map_file: str = "channel_map.npy",
+    channel_positions_file: str = "channel_positions.npy",
 ) -> SpikeData:
     """
     Load KiloSort/Phy outputs into SpikeData.
@@ -594,7 +595,8 @@ def load_spikedata_from_kilosort(
         length_ms (float, optional): Recording duration in milliseconds.
         channel_map_file (str): Filename of the channel map file relative to folder.
             Expected format: 1D numpy array mapping cluster indices to channel numbers.
-
+        channel_positions_file (str): Filename of the channel positions file relative to folder.
+            Expected format: 2D numpy array of shape (channels, 3) containing channel positions.
     Returns:
         sd (SpikeData): The loaded spike train data.
 
@@ -681,12 +683,13 @@ def load_spikedata_from_kilosort(
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
-        if (
-            channel_positions is not None
-            and channel_idx is not None
-            and channel_idx < len(channel_positions)
-        ):
-            attr["location"] = list(channel_positions[channel_idx])
+
+        if channel_positions is not None:
+            if channel_idx is not None and channel_idx < len(channel_positions):
+                attr["location"] = list(channel_positions[channel_idx])
+            elif int_clu < len(channel_positions):
+                # Fallback: use unit index when channel map lookup fails
+                attr["location"] = list(channel_positions[int_clu])
         neuron_attributes.append(attr)
 
     meta = {
