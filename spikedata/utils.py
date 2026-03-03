@@ -99,42 +99,6 @@ def _resampled_isi(spikes, times, sigma_ms):
     sigma_ms (float): Standard deviation in milliseconds
 
     Returns:
-    fr (numpy.ndarray): Firing rate at specific times
-
-    Notes:
-    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
-    smoothed by a Gaussian kernel with the given width.
-    """
-    if len(spikes) == 0:
-        return np.zeros_like(times)
-    elif len(spikes) == 1:
-        return np.ones_like(times) / spikes[0]
-    else:
-        x = 0.5 * (spikes[:-1] + spikes[1:])
-        y = 1 / np.diff(spikes)
-        fr = np.interp(times, x, y)
-        if len(np.atleast_1d(fr)) < 2:
-            return fr
-
-        dt_ms = times[1] - times[0]
-        sigma = sigma_ms / dt_ms
-        if sigma > 0:
-            return ndimage.gaussian_filter1d(fr, sigma)
-        else:
-            return fr
-
-
-def _resampled_isi(spikes, times, sigma_ms):
-    """
-    Helper method for calculating the firing rate of a spike train at specific times,
-    based on the reciprocal inter-spike interval.
-
-    Parameters:
-    spikes (list): List of spike times
-    times (list): List of times
-    sigma_ms (float): Standard deviation in milliseconds
-
-    Returns:
     fr (numpy.ndarray): Firing rate at specific times. Same size as times
 
     Notes:
@@ -262,14 +226,17 @@ def swap(ar, idxs, rng):
     Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
 
     Parameters:
-    ar (numpy.ndarray): Binary spike raster
-    idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
-    rng (numpy.random.Generator): Random number generator for reproducibility.
+    -----------
+    - ar (numpy.ndarray): Binary spike raster
+    - idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
+    - rng (numpy.random.Generator): Random number generator for reproducibility.
 
     Returns:
-    success (bool): True if a swap was performed
+    --------
+    - success (bool): True if a swap was performed
 
     Notes:
+    ------
     - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
     if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct,
     swaps them so that spikes move to those positions.
@@ -294,12 +261,24 @@ def randomize(ar, swap_per_spike=5, seed=None):
     Randomize a binary spike raster using degree-preserving double-edge swaps.
 
     Parameters:
-    ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
-    swap_per_spike (int): Target number of successful swaps per spike.
-    seed (int): seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
+    -----------
+    - ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
+    - swap_per_spike (int): Target number of successful swaps per spike.
+    - seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
 
     Returns:
-    randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
+    --------
+    -randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
+
+    Notes:
+    ------
+    - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
+    - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
+    - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
+
+    Ref:
+    ----
+    - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
     """
     rng = np.random.default_rng(seed)
 

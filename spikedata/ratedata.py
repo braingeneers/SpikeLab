@@ -199,23 +199,6 @@ class RateData:
             neuron_attributes=self.neuron_attributes,
         )
 
-        # if start_idx < 0 or start_idx >= len(self.times):
-        #     raise ValueError(f"start_idx {start_idx} out of range")
-        # if end_idx <= start_idx or end_idx > len(self.times):
-        #     raise ValueError(f"end_idx {end_idx} invalid")
-
-        # output = self.inst_Frate_data[:, start_idx:end_idx]
-        # new_times = self.times[start_idx:end_idx]
-
-        # if shift_time:
-        #     new_times = new_times - new_times[0]
-
-        # return RateData(
-        #     inst_Frate_data=output,
-        #     times=new_times,
-        #     neuron_attributes=self.neuron_attributes,
-        # )
-
     def get_pairwise_fr_corr(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10
     ):

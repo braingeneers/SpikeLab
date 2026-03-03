@@ -600,36 +600,43 @@ class RateSliceStack:
                           specified time bins. Shape changes from (U, T, S) to (U, T_trimmed, S).
 
         Notes:
-        - Original timestamps are preserved (not shifted to zero).
+        - Original timestamps are preserved (not shifted to zero). If user wants shifted to zero timestamps, they should
+          simply make a new RateSliceStack.
         - All slices, neuron_attributes, and step_size are carried over from the original.
         """
-        rate_data_ls = self.convert_to_list_of_RateData()
-        event_stack = []
-        times_stack = []
-        for rate_data in rate_data_ls:
-            subT_rate_data = rate_data.subtime_by_index(
-                start_idx, end_idx, shift_time=False
-            )
-            event_stack.append(subT_rate_data.inst_Frate_data)
-            times_stack.append((subT_rate_data.times[0], subT_rate_data.times[-1]))
+        T = self.event_stack.shape[1]
+        if start_idx < 0:
+            start_idx += T
+        if end_idx < 0:
+            end_idx += T
+        if start_idx < 0 or start_idx >= T:
+            raise ValueError(f"start_idx {start_idx} out of range for T={T}")
+        if end_idx <= start_idx or end_idx > T:
+            raise ValueError(f"end_idx {end_idx} invalid")
 
-        new_stack = np.stack(event_stack, axis=2)
+        new_stack = self.event_stack[:, start_idx:end_idx, :]
+
+        new_times = []
+        for t in self.times:
+            new_start = t[0] + start_idx * self.step_size
+            new_end = t[0] + end_idx * self.step_size
+            new_times.append((new_start, new_end))
+
         return RateSliceStack(
             event_matrix=new_stack,
-            times_start_to_end=times_stack,
+            times_start_to_end=new_times,
             step_size=self.step_size,
             neuron_attributes=self.neuron_attributes,
         )
 
-    def subslice(self, start_idx, end_idx):
+    def subslice(self, slices):
         """
         Extract a subset of slices from the event stack using index values.
         Trims along the slice axis (S dimension) while preserving all time bins (T dimension).
 
         Parameters:
         -----------
-        - start_idx (int): Starting slice index (inclusive). Supports negative indexing.
-        - end_idx (int): Ending slice index (exclusive). Supports negative indexing.
+        - units (list or array): Slice indices to extract.
 
         Returns:
         --------
@@ -640,20 +647,21 @@ class RateSliceStack:
         - All units, neuron_attributes, and step_size are carried over from the original.
         """
         length = self.event_stack.shape[2]
-
-        if start_idx < 0:
-            start_idx += length
-        if end_idx < 0:
-            end_idx += length
-
-        if start_idx < 0 or start_idx >= length:
-            raise ValueError(f"start_idx {start_idx} out of range")
-        if end_idx < start_idx or end_idx > length:
-            raise ValueError(f"end_idx {end_idx} invalid")
-
+        if isinstance(slices, int):
+            slices = [slices]
+        for s in slices:
+            if s >= length or s < -length:
+                raise ValueError(
+                    f"One or more slice indices out of range for S={length}"
+                )
+        slices = sorted(slices)
+        new_times = []
+        for s in slices:
+            new_times.append(self.times[s])
+        new_stack = self.event_stack[:, :, slices]
         return RateSliceStack(
-            event_matrix=self.event_stack[:, :, start_idx:end_idx],
-            times_start_to_end=self.times[start_idx:end_idx],
+            event_matrix=new_stack,
+            times_start_to_end=new_times,
             step_size=self.step_size,
             neuron_attributes=self.neuron_attributes,
         )

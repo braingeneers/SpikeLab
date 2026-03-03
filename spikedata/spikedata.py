@@ -901,10 +901,7 @@ class SpikeData:
 
     def spike_shuffle(self, swap_per_spike=5, seed=None, bin_size=1):
         """
-        Shuffles the underlying train matrix of a SpikeData using the Okun method. This is done in a manner where a neuron's firing rate is preserved,
-        but the specific time_bin in which there is a spike is shuffled. This is done so you can compare the neuron correlations
-        of the orginal matrix to the neuron correlations of the shuffled matrix. If there is a significant drop in correlations values,
-        then you know these neurons genuinely fire in a coordinated fashion; it isn't random chance.
+        Shuffles the underlying spike matrix of a SpikeData object using degree-preserving double-edge swaps.
 
         Parameters:
         -----------
