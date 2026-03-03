@@ -257,13 +257,14 @@ def butter_filter(
     return filtered_traces
 
 
-def swap(ar, idxs):
+def swap(ar, idxs, rng):
     """
     Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
 
     Parameters:
     ar (numpy.ndarray): Binary spike raster
     idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
+    rng (numpy.random.Generator): Random number generator for reproducibility.
 
     Returns:
     success (bool): True if a swap was performed
@@ -273,8 +274,10 @@ def swap(ar, idxs):
     if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct,
     swaps them so that spikes move to those positions.
     """
-    idx0 = np.random.randint(len(idxs[0]))
-    idx1 = np.random.randint(len(idxs[0]))
+    # idx0 = np.random.randint(len(idxs[0]))
+    # idx1 = np.random.randint(len(idxs[0]))
+    idx0 = rng.integers(len(idxs[0]))
+    idx1 = rng.integers(len(idxs[0]))
     i0, j0 = idxs[0][idx0], idxs[1][idx0]
     i1, j1 = idxs[0][idx1], idxs[1][idx1]
     if i0 == i1 or j0 == j1 or ar[i0, j1] == 1.0 or ar[i1, j0] == 1.0:
@@ -298,8 +301,7 @@ def randomize(ar, swap_per_spike=5, seed=None):
     Returns:
     randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
     """
-    if seed is not None:
-        np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)
 
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
@@ -307,12 +309,12 @@ def randomize(ar, swap_per_spike=5, seed=None):
     attempts = int((swap_per_spike + 1) * n_spikes)
     cnt_swap = 0
     for _ in range(attempts):
-        if swap(ar, idxs):
+        if swap(ar, idxs, rng):
             cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:
         for _ in range(attempts):
-            if swap(ar, idxs):
+            if swap(ar, idxs, rng):
                 cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:

@@ -41,6 +41,7 @@ class RateSliceStack:
                 time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
                                     250 ms before peak and 500 ms after peak.
         sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object. Otherwise, not used
+        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     Option #2: event_matrix
         event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
@@ -48,6 +49,7 @@ class RateSliceStack:
                                    end times of a desired slice. Each tuple must have same duration. Length must equal S.
                                    If none, will be automatically computed with step_size 1.0
         step_size (float): Time resolution in milliseconds between consecutive time bins. If None, becomes 1.0.
+        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     Instance Variables:
     --------
@@ -81,10 +83,10 @@ class RateSliceStack:
         if (data_obj is not None) and (event_matrix is not None):
             warnings.warn(
                 "User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.",
-                UserWarning
+                UserWarning,
             )
             data_obj = None
-        
+
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
@@ -142,7 +144,7 @@ class RateSliceStack:
             event_stack = np.stack(event_stack, axis=2)
             # This makes event stack be U x T x S
             self.event_stack = event_stack
-            
+
         # Option 2: Using event matrx
         if event_matrix is not None:
             if not isinstance(event_matrix, np.ndarray):
@@ -184,8 +186,6 @@ class RateSliceStack:
                     f"but event_stack has {self.event_stack.shape[0]} units"
                 )
 
-        
-
     def _validate_time_start_to_end(self, times_start_to_end):
         """
         Validates that the list of (start,end) tuples has the same duration of time_steps and are in proper format for object constructor.
@@ -197,7 +197,7 @@ class RateSliceStack:
 
         Returns:
         --------
-        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with negative-start 
+        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with negative-start
                                   windows removed.
         """
         if not isinstance(times_start_to_end, list):
@@ -546,7 +546,7 @@ class RateSliceStack:
         Extract a subset of units/neurons from the rateslicestack. Index-based if by = None.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints. 
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
                                If by != None, then the list can contain ints or strings.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
@@ -582,4 +582,78 @@ class RateSliceStack:
             times_start_to_end=self.times,
             step_size=self.step_size,
             neuron_attributes=neuron_attributes,
+        )
+
+    def subtime_by_index(self, start_idx, end_idx):
+        """
+        Extract a subset of time bins from every slice in the event stack using index values.
+        Trims along the time axis (T dimension) while preserving all slices (S dimension).
+
+        Parameters:
+        -----------
+        - start_idx (int): Starting time bin index (inclusive). Supports negative indexing.
+        - end_idx (int): Ending time bin index (exclusive). Supports negative indexing.
+
+        Returns:
+        --------
+        - RateSliceStack: New RateSliceStack object where each slice contains only the
+                          specified time bins. Shape changes from (U, T, S) to (U, T_trimmed, S).
+
+        Notes:
+        - Original timestamps are preserved (not shifted to zero).
+        - All slices, neuron_attributes, and step_size are carried over from the original.
+        """
+        rate_data_ls = self.convert_to_list_of_RateData()
+        event_stack = []
+        times_stack = []
+        for rate_data in rate_data_ls:
+            subT_rate_data = rate_data.subtime_by_index(
+                start_idx, end_idx, shift_time=False
+            )
+            event_stack.append(subT_rate_data.inst_Frate_data)
+            times_stack.append((subT_rate_data.times[0], subT_rate_data.times[-1]))
+
+        new_stack = np.stack(event_stack, axis=2)
+        return RateSliceStack(
+            event_matrix=new_stack,
+            times_start_to_end=times_stack,
+            step_size=self.step_size,
+            neuron_attributes=self.neuron_attributes,
+        )
+
+    def subslice(self, start_idx, end_idx):
+        """
+        Extract a subset of slices from the event stack using index values.
+        Trims along the slice axis (S dimension) while preserving all time bins (T dimension).
+
+        Parameters:
+        -----------
+        - start_idx (int): Starting slice index (inclusive). Supports negative indexing.
+        - end_idx (int): Ending slice index (exclusive). Supports negative indexing.
+
+        Returns:
+        --------
+        - RateSliceStack: New RateSliceStack object containing only the specified slices.
+                          Shape changes from (U, T, S) to (U, T, S_trimmed).
+
+        Notes:
+        - All units, neuron_attributes, and step_size are carried over from the original.
+        """
+        length = self.event_stack.shape[2]
+
+        if start_idx < 0:
+            start_idx += length
+        if end_idx < 0:
+            end_idx += length
+
+        if start_idx < 0 or start_idx >= length:
+            raise ValueError(f"start_idx {start_idx} out of range")
+        if end_idx < start_idx or end_idx > length:
+            raise ValueError(f"end_idx {end_idx} invalid")
+
+        return RateSliceStack(
+            event_matrix=self.event_stack[:, :, start_idx:end_idx],
+            times_start_to_end=self.times[start_idx:end_idx],
+            step_size=self.step_size,
+            neuron_attributes=self.neuron_attributes,
         )

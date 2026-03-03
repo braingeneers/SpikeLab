@@ -419,7 +419,7 @@ class SpikeData:
             units = [units]
         # For case where user inputs a single string for units when using by option
         if isinstance(units, str):
-                units = [units]
+            units = [units]
         units = set(units)
         if by is not None:
             if self.neuron_attributes is None:
@@ -908,28 +908,30 @@ class SpikeData:
 
         Parameters:
         -----------
-        swap_per_spike (int): This determines the number of swaps you perform (num_spikes * swap_per_spike).
-        seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
-        bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
-                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
-
+        - swap_per_spike (int): Determines total number of swaps: num_spikes * swap_per_spike (optional, default=5).
+        - seed (int): Set the random seed number for repeatability of results, None means no seed is set (optional, default=None).
+        - bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
+                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved (optional, default=1).
         Returns:
         --------
-        shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
+        - shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
 
         Notes:
         -----
-        - This is done in a manner where a neuron's firing rate is preserved, but the specific time_bin in which there is a spike is shuffled. 
-        - You take 2 random spikes as a pair in the form of (neuron, time_bins), and swap if they are eligble for swapping.
-        - This is done so you can compare the neuron correlations of the orginal matrix to the neuron correlations of the shuffled matrix. 
-        - If there is a significant drop in correlations values, then you know these neurons genuinely fire in a coordinated fashion; it isn't random chance.
+        - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
+        - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
+        - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
+
+        Ref:
+        ----
+        - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if bin_size != 1:
             binary_mat = spk_mat > 0
         else:
             binary_mat = spk_mat
-        shuffled_mat = randomize(binary_mat, swap_per_spike = swap_per_spike, seed=seed)
+        shuffled_mat = randomize(binary_mat, swap_per_spike=swap_per_spike, seed=seed)
         shuffled_spike_data = SpikeData.from_raster(
             shuffled_mat,
             bin_size,

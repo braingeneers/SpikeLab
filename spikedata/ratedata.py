@@ -66,7 +66,7 @@ class RateData:
         Extract a subset of units/neurons from the rate data. Index-based if by = None.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints. 
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
                                If by != None, then the list can contain ints or strings.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
@@ -79,7 +79,7 @@ class RateData:
             units = [units]
         # For case where user inputs a single string for units when using by option
         if isinstance(units, str):
-                units = [units]
+            units = [units]
         units = set(units)
         if by is not None:
             # VALUE-BASED: Look up by neuron_attribute
@@ -119,7 +119,7 @@ class RateData:
         """
 
         length = self.times[-1] if len(self.times) > 0 else 0
-
+        # Handle start
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
         elif start < 0:
@@ -177,10 +177,14 @@ class RateData:
         Returns:
         RateData: New RateData object containing only the specified time range
         """
+        if start_idx < 0:
+            start_idx += len(self.times)
+        if end_idx < 0:
+            end_idx += len(self.times)
 
         if start_idx < 0 or start_idx >= len(self.times):
             raise ValueError(f"start_idx {start_idx} out of range")
-        if end_idx <= start_idx or end_idx > len(self.times):
+        if end_idx < start_idx or end_idx > len(self.times):
             raise ValueError(f"end_idx {end_idx} invalid")
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
@@ -194,6 +198,23 @@ class RateData:
             times=new_times,
             neuron_attributes=self.neuron_attributes,
         )
+
+        # if start_idx < 0 or start_idx >= len(self.times):
+        #     raise ValueError(f"start_idx {start_idx} out of range")
+        # if end_idx <= start_idx or end_idx > len(self.times):
+        #     raise ValueError(f"end_idx {end_idx} invalid")
+
+        # output = self.inst_Frate_data[:, start_idx:end_idx]
+        # new_times = self.times[start_idx:end_idx]
+
+        # if shift_time:
+        #     new_times = new_times - new_times[0]
+
+        # return RateData(
+        #     inst_Frate_data=output,
+        #     times=new_times,
+        #     neuron_attributes=self.neuron_attributes,
+        # )
 
     def get_pairwise_fr_corr(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10
