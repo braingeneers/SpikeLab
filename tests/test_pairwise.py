@@ -270,6 +270,7 @@ class TestPairwise(unittest.TestCase):
         pca_result = rss.PCA_on_lower_diagnol_corr_matrix(stack, n_components=2)
         self.assertEqual(pca_result.shape, (10, 2))
 
+
 def warnings_context():
     import warnings
 
