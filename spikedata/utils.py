@@ -623,7 +623,9 @@ def UMAP_graph_communities(
     clustering = community_louvain.best_partition(G, resolution=resolution)
 
     # Convert dict {node_idx: community_id} -> label array
-    n_samples = matrix_2d.shape[0]
+    # Use the fitted mapper's embedding to determine n_samples so that
+    # callers can pass in any array-like that UMAP accepts (not just ndarrays).
+    n_samples = mapper.embedding_.shape[0]
     labels = np.zeros(n_samples, dtype=int)
     for node, c_id in clustering.items():
         labels[node] = c_id
