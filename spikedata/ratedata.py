@@ -5,6 +5,7 @@ from .utils import (
     compute_cross_correlation_with_lag,
     PCA_reduction,
     UMAP_reduction,
+    UMAP_graph_communities,
 )
 
 
@@ -262,15 +263,29 @@ class RateData:
         n_components : int, default=2
             Number of components (dimensions) in the output manifold.
         **kwargs :
-            Additional keyword arguments passed through to the UMAP reduction
-            helper when ``method='UMAP'`` (for example, ``n_neighbors``,
-            ``min_dist``, or ``metric``).
+            Additional keyword arguments passed through when ``method='UMAP'``.
+
+            Special options when using UMAP:
+
+            - ``use_graph_communities`` : bool, default=False
+                If True, use :func:`UMAP_graph_communities` to compute the
+                manifold and community labels from the UMAP connectivity graph.
+            - ``return_labels`` : bool, default=False
+                If True and ``use_graph_communities`` is True, return a tuple
+                ``(embedding, labels)`` instead of just the embedding.
+            - Any other keyword arguments are passed through to the underlying
+              UMAP helper (for example, ``n_neighbors``, ``min_dist``,
+              ``metric``, or ``resolution``).
 
         Returns
         -------
         embedding : ndarray, shape (T, n_components)
             Low-dimensional embedding of the firing-rate trajectory over time.
             Each row corresponds to a time bin in ``self.times``.
+        (embedding, labels) : tuple
+            If ``method='UMAP'``, ``use_graph_communities=True`` and
+            ``return_labels=True``, returns both the embedding and the integer
+            community labels.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -284,6 +299,21 @@ class RateData:
                 )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
+            # Optional graph-based UMAP + Louvain communities.
+            use_graph_communities = kwargs.pop("use_graph_communities", False)
+            return_labels = kwargs.pop("return_labels", False)
+
+            if use_graph_communities:
+                embedding, labels = UMAP_graph_communities(
+                    data_T,
+                    n_components=n_components,
+                    **kwargs,
+                )
+                if return_labels:
+                    return embedding, labels
+                return embedding
+
+            # Default: plain UMAP embedding only.
             return UMAP_reduction(
                 data_T,
                 n_components=n_components,
