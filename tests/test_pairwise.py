@@ -264,11 +264,11 @@ class TestPairwise(unittest.TestCase):
         features = extract_lower_triangle_features(stack)
         self.assertEqual(features.shape, (10, 10))  # 5*(5-1)/2 = 10 features
 
-        # Test PCA_on_lower_diagnol_corr_matrix
+        # Test dim_red_on_lower_diagnol_corr_matrix (default PCA)
         event_matrix = np.random.rand(2, 50, 5)
         rss = RateSliceStack(None, event_matrix=event_matrix)
-        pca_result = rss.PCA_on_lower_diagnol_corr_matrix(stack, n_components=2)
-        self.assertEqual(pca_result.shape, (10, 2))
+        embedding = rss.dim_red_on_lower_diagnol_corr_matrix(stack, n_components=2)
+        self.assertEqual(embedding.shape, (10, 2))
 
 
 def warnings_context():
