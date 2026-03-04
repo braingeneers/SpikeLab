@@ -613,7 +613,11 @@ def UMAP_graph_communities(
     ).fit(matrix_2d)
 
     # UMAP's internal connectivity graph -> NetworkX graph
-    G = nx.from_scipy_sparse_array(mapper.graph_)
+    # Use a compatibility shim so both old and new NetworkX versions work.
+    if hasattr(nx, "from_scipy_sparse_array"):
+        G = nx.from_scipy_sparse_array(mapper.graph_)
+    else:
+        G = nx.from_scipy_sparse_matrix(mapper.graph_)
 
     # Louvain community detection on the graph
     clustering = community_louvain.best_partition(G, resolution=resolution)
