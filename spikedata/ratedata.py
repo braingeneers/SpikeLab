@@ -1,7 +1,11 @@
 import numpy as np
 from scipy import signal
 
-from .utils import compute_cross_correlation_with_lag
+from .utils import (
+    compute_cross_correlation_with_lag,
+    PCA_reduction,
+    UMAP_reduction,
+)
 
 
 class RateData:
@@ -240,5 +244,52 @@ class RateData:
                 lag_matrix_this_event[n2, n1] = -max_lag_idx
 
         # Output is UxU
-
         return corr_matrix_this_event, lag_matrix_this_event
+
+    def get_manifold(
+        self,
+        method: str = "PCA",
+        n_components: int = 2,
+        **kwargs,
+    ):
+        """
+        Project firing-rate data into a low-dimensional manifold using PCA or UMAP.
+
+        Parameters
+        ----------
+        method : {"PCA", "UMAP"}, default="PCA"
+            Dimensionality reduction method to use.
+        n_components : int, default=2
+            Number of components (dimensions) in the output manifold.
+        **kwargs :
+            Additional keyword arguments passed through to the UMAP reduction
+            helper when ``method='UMAP'`` (for example, ``n_neighbors``,
+            ``min_dist``, or ``metric``).
+
+        Returns
+        -------
+        embedding : ndarray, shape (T, n_components)
+            Low-dimensional embedding of the firing-rate trajectory over time.
+            Each row corresponds to a time bin in ``self.times``.
+        """
+        # Shape is (U, T); treat each time bin as a sample.
+        data_T = self.inst_Frate_data.T  # (T, U)
+
+        method_upper = method.upper()
+        if method_upper == "PCA":
+            if kwargs:
+                raise TypeError(
+                    "Additional keyword arguments are only supported for UMAP; "
+                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                )
+            return PCA_reduction(data_T, n_components=n_components)
+        if method_upper == "UMAP":
+            return UMAP_reduction(
+                data_T,
+                n_components=n_components,
+                **kwargs,
+            )
+
+        raise ValueError(
+            f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."
+        )
