@@ -254,38 +254,21 @@ class RateData:
         **kwargs,
     ):
         """
-        Project firing-rate data into a low-dimensional manifold using PCA or UMAP.
+        Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.
 
-        Parameters
-        ----------
-        method : {"PCA", "UMAP"}, default="PCA"
-            Dimensionality reduction method to use.
-        n_components : int, default=2
-            Number of components (dimensions) in the output manifold.
-        **kwargs :
-            Additional keyword arguments passed through when ``method='UMAP'``.
+        Parameters:
+        method (str): Which dimensionality reduction method to use. Either "PCA" (default) or "UMAP".
+        n_components (int): Number of output dimensions to return (default=2).
+        **kwargs: Additional options for UMAP. If method="UMAP", you can specify:
+            - use_graph_communities (bool): If True, use UMAP's connectivity graph with Louvain community detection (default: False).
+            - return_labels (bool): If True and use_graph_communities is True, return (embedding, labels) tuple (default: False).
+            - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
 
-            Special options when using UMAP:
-
-            - ``use_graph_communities`` : bool, default=False
-                If True, use :func:`UMAP_graph_communities` to compute the
-                manifold and community labels from the UMAP connectivity graph.
-            - ``return_labels`` : bool, default=False
-                If True and ``use_graph_communities`` is True, return a tuple
-                ``(embedding, labels)`` instead of just the embedding.
-            - Any other keyword arguments are passed through to the underlying
-              UMAP helper (for example, ``n_neighbors``, ``min_dist``,
-              ``metric``, or ``resolution``).
-
-        Returns
-        -------
-        embedding : ndarray, shape (T, n_components)
-            Low-dimensional embedding of the firing-rate trajectory over time.
-            Each row corresponds to a time bin in ``self.times``.
-        (embedding, labels) : tuple
-            If ``method='UMAP'``, ``use_graph_communities=True`` and
-            ``return_labels=True``, returns both the embedding and the integer
-            community labels.
+        Returns:
+        embedding (ndarray): Low-dimensional embedding, shape (T, n_components), where T is the number of time bins.
+            Each row corresponds to a time bin in self.times.
+        (embedding, labels) (tuple): If method="UMAP", use_graph_communities=True, and return_labels=True,
+            returns both the embedding and an array of integer community labels for each time bin.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -293,9 +276,8 @@ class RateData:
         method_upper = method.upper()
         if method_upper == "PCA":
             if kwargs:
-                raise TypeError(
-                    "Additional keyword arguments are only supported for UMAP; "
-                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                print(
+                    f"Warning: Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
                 )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
