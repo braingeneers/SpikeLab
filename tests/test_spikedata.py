@@ -19,6 +19,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
 from spikedata import SpikeData
+from spikedata.utils import (
+    _resampled_isi
+)
 
 
 @dataclass
