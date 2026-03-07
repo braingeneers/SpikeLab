@@ -5,6 +5,7 @@ Registers all tools and handles stdio transport.
 """
 
 import asyncio
+import json
 import sys
 from typing import Any
 
@@ -635,7 +636,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_pairwise_fr_corr",
-                description="Compute the pairwise unit-to-unit firing rate correlation matrix from instantaneous firing rates.",
+                description="Compute the pairwise unit-to-unit firing rate correlation and lag matrices from instantaneous firing rates. Both (U, U) matrices are stored in the ResultStore and returned as result_id_corr and result_id_lag, which can be passed to pca_on_result or umap_reduction.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -661,7 +662,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_rate_manifold",
-                description="Project instantaneous firing rates into a low-dimensional manifold using PCA or UMAP.",
+                description="Project instantaneous firing rates into a low-dimensional manifold using PCA or UMAP. The (T, n_components) embedding is stored in the ResultStore and returned as result_id, which can be passed to umap_graph_communities or other downstream tools.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -709,7 +710,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_rate_slice_unit_corr",
-                description="Compute slice-to-slice unit correlation across event-aligned firing rate slices.",
+                description="Compute slice-to-slice unit correlation across event-aligned firing rate slices. The (S, S, U) correlation matrix stack is stored in the ResultStore and returned as result_id; av_corr (per-unit average) is returned inline. result_id can be passed to extract_lower_triangle_features or pca_on_lower_triangle.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -756,7 +757,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_rate_slice_time_corr",
-                description="Compute slice-to-slice time-bin correlation across event-aligned firing rate slices.",
+                description="Compute slice-to-slice time-bin correlation across event-aligned firing rate slices. The (S, S, T) correlation matrix stack is stored in the ResultStore and returned as result_id; av_corr (per-time-bin average) is returned inline. result_id can be passed to extract_lower_triangle_features or pca_on_lower_triangle.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -793,7 +794,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_unit_to_unit_slice_corr",
-                description="Compute unit-to-unit correlation averaged across event-aligned firing rate slices.",
+                description="Compute unit-to-unit correlation and lag across event-aligned firing rate slices. The (U, U, S) correlation and lag matrix stacks are stored in the ResultStore and returned as result_id_corr and result_id_lag; av_max_corr and av_max_corr_lag (per-unit averages) are returned inline. result_id_corr can be passed to extract_lower_triangle_features or pca_on_lower_triangle.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -865,6 +866,141 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="create_rate_slice_stack",
+                description="Build event-aligned firing rate slices from a SpikeData session and cache the (U, T, S) event_stack in the ResultStore. Returns a result_id that can be passed to compute_rate_slice_unit_corr_from_stack, compute_rate_slice_time_corr_from_stack, compute_unit_to_unit_slice_corr_from_stack, or compute_rate_slice_unit_order_from_stack — avoiding re-computation when running multiple analyses on the same slice windows.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms for ISI resampling",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_unit_corr_from_stack",
+                description="Compute slice-to-slice unit correlation from a cached RateSliceStack result (created by create_rate_slice_stack). Returns result_id of the (S, S, U) matrix; av_corr is returned inline.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a cached RateSliceStack event_stack",
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum mean firing rate threshold (kHz) to include a unit",
+                        },
+                        "min_frac": {
+                            "type": "number",
+                            "default": 0.3,
+                            "description": "Minimum fraction of slices where a unit must exceed the rate threshold",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Maximum lag in time bins for cross-correlation",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cross_correlation",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_time_corr_from_stack",
+                description="Compute slice-to-slice time-bin correlation from a cached RateSliceStack result (created by create_rate_slice_stack). Returns result_id of the (S, S, T) matrix; av_corr is returned inline.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a cached RateSliceStack event_stack",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "Maximum lag in time bins for comparison",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cosine_similarity",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="compute_unit_to_unit_slice_corr_from_stack",
+                description="Compute unit-to-unit correlation and lag from a cached RateSliceStack result (created by create_rate_slice_stack). Returns result_id_corr and result_id_lag for the (U, U, S) stacks; per-unit averages are returned inline.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a cached RateSliceStack event_stack",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Maximum lag in time bins for cross-correlation",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cross_correlation",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_unit_order_from_stack",
+                description="Order units by their peak firing time from a cached RateSliceStack result (created by create_rate_slice_stack).",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a cached RateSliceStack event_stack",
+                        },
+                        "agg_func": {
+                            "type": "string",
+                            "default": "median",
+                            "description": "Aggregation function across slices ('median' or 'mean')",
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum mean firing rate threshold (kHz) to include a unit",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
                 name="compute_spike_slice_sparse_matrices",
                 description="Build event-aligned spike slices and store the (U, T, S) binary sparse raster stack in the result store. Returns a result_id; use fetch_result to retrieve the data.",
                 inputSchema={
@@ -888,6 +1024,61 @@ async def _list_tools() -> list[types.Tool]:
                         },
                     },
                     "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="frames_spike_data",
+                description="Split a SpikeData recording into fixed-length frames and store the (U, T, S) binary sparse raster stack in the ResultStore. Partial windows at the end are excluded. Returns a result_id compatible with fetch_result.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "length": {
+                            "type": "number",
+                            "description": "Frame length in ms",
+                        },
+                        "overlap": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": "Overlap between consecutive frames in ms",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in ms for the sparse raster",
+                        },
+                    },
+                    "required": ["session_id", "length"],
+                },
+            ),
+            types.Tool(
+                name="frames_rate_data",
+                description="Split a firing rate trace into fixed-length frames and cache the resulting (U, T, S) RateSliceStack event_stack in the ResultStore. Partial windows at the end are excluded. Returns a result_id compatible with all _from_stack analysis tools.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "isi_times": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Time points in ms at which to evaluate the instantaneous firing rate",
+                        },
+                        "length": {
+                            "type": "number",
+                            "description": "Frame length in ms",
+                        },
+                        "overlap": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": "Overlap between consecutive frames in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms for ISI resampling",
+                        },
+                    },
+                    "required": ["session_id", "isi_times", "length"],
                 },
             ),
         ]
@@ -919,6 +1110,350 @@ async def _list_tools() -> list[types.Tool]:
                         "result_id": {
                             "type": "string",
                             "description": "Result ID to delete",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="list_results",
+                description="List all active results in the result store that were derived from a given spike data session.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {
+                            "type": "string",
+                            "description": "Spike data session ID whose results to list",
+                        },
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+        ]
+    )
+
+    # Session management tools
+    tools.extend(
+        [
+            types.Tool(
+                name="list_sessions",
+                description="List all active spike data session IDs.",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="delete_session",
+                description="Delete a spike data session from the session manager.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+        ]
+    )
+
+    # Attribute and utility tools
+    tools.extend(
+        [
+            types.Tool(
+                name="get_neuron_attribute",
+                description="Get the value of a neuron attribute across all units.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "key": {
+                            "type": "string",
+                            "description": "Attribute name to retrieve",
+                        },
+                        "default": {
+                            "description": "Value to return for units missing the attribute (default: null)",
+                        },
+                    },
+                    "required": ["session_id", "key"],
+                },
+            ),
+            types.Tool(
+                name="set_neuron_attribute",
+                description="Set a neuron attribute for all or specified units in a session.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "key": {
+                            "type": "string",
+                            "description": "Attribute name to set",
+                        },
+                        "values": {
+                            "description": "Single value (applied to all) or list matching neuron_indices length",
+                        },
+                        "neuron_indices": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "Neuron indices to update. If null, updates all.",
+                        },
+                    },
+                    "required": ["session_id", "key", "values"],
+                },
+            ),
+            types.Tool(
+                name="get_neuron_to_channel_map",
+                description="Get the mapping from neuron indices to channel indices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "channel_attr": {
+                            "type": "string",
+                            "description": "Attribute name containing the channel index. If null, auto-detects.",
+                        },
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+            types.Tool(
+                name="get_idces_times",
+                description="Get all spike events as parallel unit-index and time arrays, stored in the result store.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+        ]
+    )
+
+    # Multi-session operation tools
+    tools.extend(
+        [
+            types.Tool(
+                name="append_session",
+                description="Append a second spike data session in time after the first, returning a new (or updated) session.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {
+                            "type": "string",
+                            "description": "Session ID of the first recording",
+                        },
+                        "other_session_id": {
+                            "type": "string",
+                            "description": "Session ID of the recording to append",
+                        },
+                        "offset": {
+                            "type": "number",
+                            "description": "Gap in ms between the end of the first and start of the second recording (default: 0.0)",
+                            "default": 0.0,
+                        },
+                        "create_new_session": {
+                            "type": "boolean",
+                            "description": "If true, create a new session; if false, update session_id in place (default: true)",
+                            "default": True,
+                        },
+                    },
+                    "required": ["session_id", "other_session_id"],
+                },
+            ),
+            types.Tool(
+                name="concatenate_units",
+                description="Add all units from a second session into the first session (both must have the same length).",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {
+                            "type": "string",
+                            "description": "Session ID to add units into (modified in place)",
+                        },
+                        "other_session_id": {
+                            "type": "string",
+                            "description": "Session ID whose units are added",
+                        },
+                    },
+                    "required": ["session_id", "other_session_id"],
+                },
+            ),
+        ]
+    )
+
+    # Waveform tool
+    tools.extend(
+        [
+            types.Tool(
+                name="get_waveform_traces",
+                description="Extract raw voltage waveforms around spike times for a single unit; returns a result_id for the (channels, samples, spikes) array.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "unit": {
+                            "type": "integer",
+                            "description": "Unit index to extract waveforms for",
+                        },
+                        "ms_before": {
+                            "type": "number",
+                            "description": "Milliseconds before each spike (default: 1.0)",
+                            "default": 1.0,
+                        },
+                        "ms_after": {
+                            "type": "number",
+                            "description": "Milliseconds after each spike (default: 2.0)",
+                            "default": 2.0,
+                        },
+                        "bandpass_low_hz": {
+                            "type": "number",
+                            "description": "Bandpass filter low cutoff in Hz (optional)",
+                        },
+                        "bandpass_high_hz": {
+                            "type": "number",
+                            "description": "Bandpass filter high cutoff in Hz (optional)",
+                        },
+                        "filter_order": {
+                            "type": "integer",
+                            "description": "Butterworth filter order (default: 3)",
+                            "default": 3,
+                        },
+                    },
+                    "required": ["session_id", "unit"],
+                },
+            ),
+        ]
+    )
+
+    # ResultStore-backed analysis tools
+    tools.extend(
+        [
+            types.Tool(
+                name="extract_lower_triangle_features",
+                description="Extract the lower-triangle features from a stored (N, N, S) correlation matrix, returning a (S, F) feature matrix.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a stored (N, N, S) array",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="pca_on_lower_triangle",
+                description="Extract lower-triangle features from a stored (N, N, S) correlation matrix and reduce via PCA, returning a (S, n_components) embedding.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a stored (N, N, S) array",
+                        },
+                        "n_components": {
+                            "type": "integer",
+                            "description": "Number of PCA components (default: 2)",
+                            "default": 2,
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="pca_on_result",
+                description="Apply PCA dimensionality reduction to a stored 2D array, returning a (rows, n_components) embedding.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a stored 2D array",
+                        },
+                        "n_components": {
+                            "type": "integer",
+                            "description": "Number of PCA components (default: 2)",
+                            "default": 2,
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="umap_reduction",
+                description="Apply UMAP dimensionality reduction to a stored 2D array, returning a (samples, n_components) embedding. Requires umap-learn.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a stored 2D array",
+                        },
+                        "n_components": {
+                            "type": "integer",
+                            "description": "Embedding dimensions (default: 2)",
+                            "default": 2,
+                        },
+                        "n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP n_neighbors (default: 15)",
+                            "default": 15,
+                        },
+                        "min_dist": {
+                            "type": "number",
+                            "description": "UMAP min_dist (default: 0.1)",
+                            "default": 0.1,
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Distance metric (default: euclidean)",
+                            "default": "euclidean",
+                        },
+                        "random_state": {
+                            "type": "integer",
+                            "description": "Random seed for reproducibility (optional)",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="umap_graph_communities",
+                description="Apply UMAP and Louvain community detection to a stored 2D array; returns a result_id for the embedding and community labels inline. Requires umap-learn, networkx, python-louvain.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID of a stored 2D array",
+                        },
+                        "n_components": {
+                            "type": "integer",
+                            "description": "Embedding dimensions (default: 2)",
+                            "default": 2,
+                        },
+                        "resolution": {
+                            "type": "number",
+                            "description": "Louvain resolution — higher = more communities (default: 1.0)",
+                            "default": 1.0,
+                        },
+                        "n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP n_neighbors (default: 15)",
+                            "default": 15,
+                        },
+                        "min_dist": {
+                            "type": "number",
+                            "description": "UMAP min_dist (default: 0.1)",
+                            "default": 0.1,
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "Distance metric (default: euclidean)",
+                            "default": "euclidean",
+                        },
+                        "random_state": {
+                            "type": "integer",
+                            "description": "Random seed for reproducibility (optional)",
                         },
                     },
                     "required": ["result_id"],
@@ -1146,14 +1681,74 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_unit_to_unit_slice_corr(**arguments)
         elif name == "compute_rate_slice_unit_order":
             result = await analysis.compute_rate_slice_unit_order(**arguments)
+        elif name == "create_rate_slice_stack":
+            result = await analysis.create_rate_slice_stack(**arguments)
+        elif name == "compute_rate_slice_unit_corr_from_stack":
+            result = await analysis.compute_rate_slice_unit_corr_from_stack(**arguments)
+        elif name == "compute_rate_slice_time_corr_from_stack":
+            result = await analysis.compute_rate_slice_time_corr_from_stack(**arguments)
+        elif name == "compute_unit_to_unit_slice_corr_from_stack":
+            result = await analysis.compute_unit_to_unit_slice_corr_from_stack(
+                **arguments
+            )
+        elif name == "compute_rate_slice_unit_order_from_stack":
+            result = await analysis.compute_rate_slice_unit_order_from_stack(
+                **arguments
+            )
         elif name == "compute_spike_slice_sparse_matrices":
             result = await analysis.compute_spike_slice_sparse_matrices(**arguments)
+        elif name == "frames_spike_data":
+            result = await analysis.frames_spike_data(**arguments)
+        elif name == "frames_rate_data":
+            result = await analysis.frames_rate_data(**arguments)
 
         # Result store tools
         elif name == "fetch_result":
             result = await analysis.fetch_result(**arguments)
         elif name == "delete_result":
             result = await analysis.delete_result(**arguments)
+        elif name == "list_results":
+            result = await analysis.list_results(**arguments)
+
+        # Session management tools
+        elif name == "list_sessions":
+            result = await analysis.list_sessions(**arguments)
+        elif name == "delete_session":
+            result = await analysis.delete_session(**arguments)
+
+        # Attribute and utility tools
+        elif name == "get_neuron_attribute":
+            result = await analysis.get_neuron_attribute(**arguments)
+        elif name == "set_neuron_attribute":
+            result = await analysis.set_neuron_attribute(**arguments)
+        elif name == "get_neuron_to_channel_map":
+            result = await analysis.get_neuron_to_channel_map(**arguments)
+        elif name == "get_idces_times":
+            result = await analysis.get_idces_times(**arguments)
+
+        # Multi-session operation tools
+        elif name == "append_session":
+            result = await analysis.append_session(**arguments)
+        elif name == "concatenate_units":
+            result = await analysis.concatenate_units(**arguments)
+
+        # Waveform tool
+        elif name == "get_waveform_traces":
+            result = await analysis.get_waveform_traces(**arguments)
+
+        # ResultStore-backed analysis tools
+        elif name == "extract_lower_triangle_features":
+            result = await analysis.extract_lower_triangle_features_from_result(
+                **arguments
+            )
+        elif name == "pca_on_lower_triangle":
+            result = await analysis.pca_on_lower_triangle(**arguments)
+        elif name == "pca_on_result":
+            result = await analysis.pca_on_result(**arguments)
+        elif name == "umap_reduction":
+            result = await analysis.umap_reduction_on_result(**arguments)
+        elif name == "umap_graph_communities":
+            result = await analysis.umap_graph_communities_on_result(**arguments)
 
         # Export tools
         elif name == "export_to_hdf5":
@@ -1168,13 +1763,9 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
         else:
             raise ValueError(f"Unknown tool: {name}")
 
-        import json
-
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     except Exception as e:
-        import json
-
         error_result = {"error": str(e), "type": type(e).__name__}
         return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
 

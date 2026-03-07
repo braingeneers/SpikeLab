@@ -29,7 +29,7 @@ import os
 import tempfile
 import time
 import uuid
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -56,26 +56,40 @@ class ResultStore:
         self._results: Dict[str, Dict[str, Any]] = {}
         self.default_ttl = default_ttl_seconds
 
-    def store(self, array: np.ndarray, ttl_seconds: Optional[int] = None) -> str:
+    def store(
+        self,
+        array: np.ndarray,
+        ttl_seconds: Optional[int] = None,
+        session_ids: Optional[List[str]] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Store a numpy array and return a result ID.
 
         Parameters:
             array (np.ndarray): The array to store.
             ttl_seconds (int, optional): Time-to-live in seconds. Uses default if None.
+            session_ids (list[str], optional): Spike data session IDs to associate with
+                this result. Supports multi-source results derived from more than one session.
+            extra_meta (dict, optional): Additional JSON-serializable metadata to attach
+                (e.g. times and step_size for RateSliceStack reconstruction).
 
         Returns:
             result_id (str): UUID string identifying this result.
         """
         result_id = str(uuid.uuid4())
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
-        self._results[result_id] = {
+        entry: Dict[str, Any] = {
             "array": array,
             "shape": list(array.shape),
             "dtype": str(array.dtype),
             "created_at": time.time(),
             "expires_at": time.time() + ttl,
+            "session_ids": session_ids,
         }
+        if extra_meta is not None:
+            entry["extra_meta"] = extra_meta
+        self._results[result_id] = entry
         return result_id
 
     def get(
@@ -103,6 +117,8 @@ class ResultStore:
             "dtype": entry["dtype"],
             "created_at": entry["created_at"],
             "expires_at": entry["expires_at"],
+            "session_ids": entry.get("session_ids"),
+            "extra_meta": entry.get("extra_meta"),
         }
         return entry["array"], meta
 
@@ -114,7 +130,7 @@ class ResultStore:
             result_id (str): The result ID.
 
         Returns:
-            info (dict): shape, dtype, created_at, expires_at, or None if not found.
+            info (dict): shape, dtype, created_at, expires_at, session_ids, or None if not found.
         """
         if result_id not in self._results:
             return None
@@ -130,7 +146,25 @@ class ResultStore:
             "dtype": entry["dtype"],
             "created_at": entry["created_at"],
             "expires_at": entry["expires_at"],
+            "session_ids": entry.get("session_ids"),
         }
+
+    def list_by_session(self, session_id: str) -> list:
+        """
+        List all active results associated with a spike data session.
+
+        Parameters:
+            session_id (str): The spike data session ID.
+
+        Returns:
+            results (list[dict]): List of get_info() dicts for matching results.
+        """
+        self.cleanup_expired()
+        return [
+            self.get_info(rid)
+            for rid, entry in list(self._results.items())
+            if session_id in (entry.get("session_ids") or [])
+        ]
 
     def delete(self, result_id: str) -> bool:
         """
@@ -205,13 +239,22 @@ class DiskResultStore:
     def _meta_path(self, result_id: str) -> str:
         return os.path.join(self.store_dir, f"{result_id}.json")
 
-    def store(self, array: np.ndarray, ttl_seconds: Optional[int] = None) -> str:
+    def store(
+        self,
+        array: np.ndarray,
+        ttl_seconds: Optional[int] = None,
+        session_ids: Optional[List[str]] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Save a numpy array to disk and return a result ID.
 
         Parameters:
             array (np.ndarray): The array to store.
             ttl_seconds (int, optional): Time-to-live in seconds. Uses default if None.
+            session_ids (list[str], optional): Spike data session IDs to associate with
+                this result. Supports multi-source results derived from more than one session.
+            extra_meta (dict, optional): Additional JSON-serializable metadata to attach.
 
         Returns:
             result_id (str): UUID string identifying this result.
@@ -219,12 +262,15 @@ class DiskResultStore:
         result_id = str(uuid.uuid4())
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
         np.save(self._npy_path(result_id), array)
-        meta = {
+        meta: Dict[str, Any] = {
             "shape": list(array.shape),
             "dtype": str(array.dtype),
             "created_at": time.time(),
             "expires_at": time.time() + ttl,
+            "session_ids": session_ids,
         }
+        if extra_meta is not None:
+            meta["extra_meta"] = extra_meta
         with open(self._meta_path(result_id), "w") as f:
             json.dump(meta, f)
         return result_id
@@ -261,7 +307,7 @@ class DiskResultStore:
             result_id (str): The result ID.
 
         Returns:
-            info (dict): shape, dtype, created_at, expires_at, or None if not found.
+            info (dict): shape, dtype, created_at, expires_at, session_ids, or None if not found.
         """
         meta_path = self._meta_path(result_id)
         if not os.path.exists(meta_path):
@@ -272,6 +318,34 @@ class DiskResultStore:
             self.delete(result_id)
             return None
         return {"result_id": result_id, **meta}
+
+    def list_by_session(self, session_id: str) -> list:
+        """
+        List all active results on disk associated with a spike data session.
+
+        Parameters:
+            session_id (str): The spike data session ID.
+
+        Returns:
+            results (list[dict]): List of get_info() dicts for matching results.
+        """
+        results = []
+        now = time.time()
+        for filename in os.listdir(self.store_dir):
+            if not filename.endswith(".json"):
+                continue
+            result_id = filename[:-5]
+            meta_path = self._meta_path(result_id)
+            try:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                if now > meta["expires_at"]:
+                    continue
+                if session_id in (meta.get("session_ids") or []):
+                    results.append({"result_id": result_id, **meta})
+            except (json.JSONDecodeError, KeyError, OSError):
+                pass
+        return results
 
     def delete(self, result_id: str) -> bool:
         """
@@ -391,20 +465,36 @@ class S3ResultStore:
         return f"{self.prefix}{result_id}.npy"
 
     def _parse_meta(self, raw: Dict[str, str]) -> Dict[str, Any]:
+        raw_session_ids = raw.get("session_ids")
+        session_ids = json.loads(raw_session_ids) if raw_session_ids else None
+        raw_extra_meta = raw.get("extra_meta")
+        extra_meta = json.loads(raw_extra_meta) if raw_extra_meta else None
         return {
             "shape": json.loads(raw.get("shape", "[]")),
             "dtype": raw.get("dtype", ""),
             "created_at": float(raw.get("created_at", 0)),
             "expires_at": float(raw.get("expires_at", 0)),
+            "session_ids": session_ids,
+            "extra_meta": extra_meta,
         }
 
-    def store(self, array: np.ndarray, ttl_seconds: Optional[int] = None) -> str:
+    def store(
+        self,
+        array: np.ndarray,
+        ttl_seconds: Optional[int] = None,
+        session_ids: Optional[List[str]] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Upload a numpy array to S3 and return a result ID.
 
         Parameters:
             array (np.ndarray): The array to store.
             ttl_seconds (int, optional): Time-to-live in seconds. Uses default if None.
+            session_ids (list[str], optional): Spike data session IDs to associate with
+                this result. Supports multi-source results derived from more than one session.
+            extra_meta (dict, optional): Additional JSON-serializable metadata to attach.
+                Stored as a single JSON-encoded S3 metadata field.
 
         Returns:
             result_id (str): UUID string identifying this result.
@@ -413,16 +503,21 @@ class S3ResultStore:
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
         buf = io.BytesIO()
         np.save(buf, array)
+        s3_meta: Dict[str, str] = {
+            "shape": json.dumps(list(array.shape)),
+            "dtype": str(array.dtype),
+            "created_at": str(time.time()),
+            "expires_at": str(time.time() + ttl),
+        }
+        if session_ids is not None:
+            s3_meta["session_ids"] = json.dumps(session_ids)
+        if extra_meta is not None:
+            s3_meta["extra_meta"] = json.dumps(extra_meta)
         self._s3.put_object(
             Bucket=self.bucket,
             Key=self._key(result_id),
             Body=buf.getvalue(),
-            Metadata={
-                "shape": json.dumps(list(array.shape)),
-                "dtype": str(array.dtype),
-                "created_at": str(time.time()),
-                "expires_at": str(time.time() + ttl),
-            },
+            Metadata=s3_meta,
         )
         return result_id
 
@@ -459,7 +554,7 @@ class S3ResultStore:
             result_id (str): The result ID.
 
         Returns:
-            info (dict): shape, dtype, created_at, expires_at, or None if not found.
+            info (dict): shape, dtype, created_at, expires_at, session_ids, or None if not found.
         """
         try:
             response = self._s3.head_object(
@@ -472,6 +567,38 @@ class S3ResultStore:
             self.delete(result_id)
             return None
         return {"result_id": result_id, **meta}
+
+    def list_by_session(self, session_id: str) -> list:
+        """
+        List all active results in S3 associated with a spike data session.
+
+        Parameters:
+            session_id (str): The spike data session ID.
+
+        Returns:
+            results (list[dict]): List of get_info() dicts for matching results.
+
+        Notes:
+            - Issues one HEAD request per object to read metadata.
+              For large buckets, prefer a dedicated index (e.g. DynamoDB) for efficient filtering.
+        """
+        results = []
+        now = time.time()
+        paginator = self._s3.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=self.prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                result_id = key[len(self.prefix) : -4]  # strip prefix + ".npy"
+                try:
+                    response = self._s3.head_object(Bucket=self.bucket, Key=key)
+                    meta = self._parse_meta(response.get("Metadata", {}))
+                    if now > meta["expires_at"]:
+                        continue
+                    if session_id in (meta.get("session_ids") or []):
+                        results.append({"result_id": result_id, **meta})
+                except self._botocore_exceptions.ClientError:
+                    pass
+        return results
 
     def delete(self, result_id: str) -> bool:
         """

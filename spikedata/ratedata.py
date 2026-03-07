@@ -40,7 +40,7 @@ class RateData:
     def __init__(self, inst_Frate_data, times, neuron_attributes=None, N=None):
         if inst_Frate_data.ndim != 2:
             raise ValueError(
-                f"rates must be a 2D array, got shape {self.inst_Frate_data.shape}"
+                f"rates must be a 2D array, got shape {inst_Frate_data.shape}"
             )
 
         if len(times) != inst_Frate_data.shape[1]:
@@ -196,6 +196,43 @@ class RateData:
             times=new_times,
             neuron_attributes=self.neuron_attributes,
         )
+
+    def frames(self, length, overlap=0):
+        """
+        Split the rate data into a RateSliceStack of fixed-length windows.
+
+        Parameters:
+            length (float): Length of each window in milliseconds.
+            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+
+        Returns:
+            stack (RateSliceStack): Stack of rate data windows, one per frame.
+
+        Notes:
+            - Windows that would extend past the end of the recording are excluded.
+            - overlap must be strictly less than length.
+        """
+        from .rateslicestack import RateSliceStack
+
+        step = length - overlap
+        if step <= 0:
+            raise ValueError("overlap must be less than length")
+
+        t0 = float(self.times[0])
+        t_end = float(self.times[-1])
+        step_size = float(self.times[1] - self.times[0]) if len(self.times) > 1 else 1.0
+
+        upper = t_end - length + step_size + 1e-9
+        times = [
+            (float(start), float(start) + length)
+            for start in np.arange(t0, upper, step)
+        ]
+        if not times:
+            raise ValueError(
+                f"Recording length ({t_end - t0 + step_size:.1f} ms) is shorter "
+                f"than frame length ({length} ms)"
+            )
+        return RateSliceStack(self, times_start_to_end=times)
 
     def get_pairwise_fr_corr(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10

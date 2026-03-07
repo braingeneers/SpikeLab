@@ -1,6 +1,6 @@
-import SpikeData
-import RateData
 import numpy as np
+
+from .spikedata import SpikeData
 
 
 class SpikeSliceStack:

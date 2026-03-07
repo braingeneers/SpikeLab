@@ -6,7 +6,6 @@ Handles both local files and S3 URLs.
 """
 
 import os
-import tempfile
 from typing import Any, Dict, Optional
 
 from data_loaders.data_loaders import (
@@ -15,8 +14,6 @@ from data_loaders.data_loaders import (
     load_spikedata_from_kilosort,
     load_spikedata_from_nwb,
     load_spikedata_from_pickle,
-    load_spikedata_from_spikeinterface,
-    load_spikedata_from_spikeinterface_recording,
 )
 
 from mcp_server.s3_adapter import ensure_local, is_s3_url

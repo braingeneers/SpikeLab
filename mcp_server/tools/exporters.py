@@ -6,6 +6,7 @@ Handles both local files and S3 uploads.
 """
 
 import os
+import tempfile
 from typing import Any, Dict, List, Literal, Optional
 
 from data_loaders.data_exporters import (
@@ -86,8 +87,6 @@ async def export_to_hdf5(
     is_s3 = is_s3_url(file_path)
     if is_s3:
         # Create temporary local file, then upload
-        import tempfile
-
         suffix = ".h5"
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         local_path = temp_file.name
@@ -193,8 +192,6 @@ async def export_to_nwb(
 
     is_s3 = is_s3_url(file_path)
     if is_s3:
-        import tempfile
-
         suffix = ".nwb"
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         local_path = temp_file.name

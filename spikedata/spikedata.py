@@ -377,18 +377,33 @@ class SpikeData:
 
     def frames(self, length, overlap=0):
         """
-        Iterate over the length of the spike train of SpikeData objects in
-        steps of length over a fixed overlap, and yields a new SpikeData object for each subwindow.
+        Split the recording into a SpikeSliceStack of fixed-length windows.
 
         Parameters:
-        length (float): Length of the subwindow in milliseconds
-        overlap (float): Overlap between subwindows in milliseconds
+            length (float): Length of each window in milliseconds.
+            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
 
         Returns:
-        frames (generator): Generator of SpikeData objects corresponding to subwindows.
+            stack (SpikeSliceStack): Stack of SpikeData windows, one per frame.
+
+        Notes:
+            - Windows that would extend past the end of the recording are excluded.
+            - overlap must be strictly less than length.
         """
-        for start in np.arange(0, self.length, length - overlap):
-            yield self.subtime(start, start + length)
+        from .spikeslicestack import SpikeSliceStack
+
+        step = length - overlap
+        if step <= 0:
+            raise ValueError("overlap must be less than length")
+        times = [
+            (float(start), float(start) + length)
+            for start in np.arange(0, self.length - length + 1e-9, step)
+        ]
+        if not times:
+            raise ValueError(
+                f"Recording length ({self.length} ms) is shorter than frame length ({length} ms)"
+            )
+        return SpikeSliceStack(self, times_start_to_end=times)
 
     def binned(self, bin_size=40.0):
         """
