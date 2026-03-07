@@ -33,7 +33,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # In-memory backend
 # ---------------------------------------------------------------------------
@@ -92,9 +91,7 @@ class ResultStore:
         self._results[result_id] = entry
         return result_id
 
-    def get(
-        self, result_id: str
-    ) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
+    def get(self, result_id: str) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
         """
         Retrieve a stored array and its metadata.
 
@@ -190,9 +187,7 @@ class ResultStore:
         """
         now = time.time()
         expired = [
-            rid
-            for rid, entry in self._results.items()
-            if now > entry["expires_at"]
+            rid for rid, entry in self._results.items() if now > entry["expires_at"]
         ]
         for rid in expired:
             del self._results[rid]
@@ -275,9 +270,7 @@ class DiskResultStore:
             json.dump(meta, f)
         return result_id
 
-    def get(
-        self, result_id: str
-    ) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
+    def get(self, result_id: str) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
         """
         Load a stored array from disk and return it with its metadata.
 
@@ -521,9 +514,7 @@ class S3ResultStore:
         )
         return result_id
 
-    def get(
-        self, result_id: str
-    ) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
+    def get(self, result_id: str) -> Optional[Tuple[np.ndarray, Dict[str, Any]]]:
         """
         Download a stored array from S3 and return it with its metadata.
 
@@ -534,9 +525,7 @@ class S3ResultStore:
             (array, metadata) tuple if found and not expired, None otherwise.
         """
         try:
-            response = self._s3.get_object(
-                Bucket=self.bucket, Key=self._key(result_id)
-            )
+            response = self._s3.get_object(Bucket=self.bucket, Key=self._key(result_id))
         except self._botocore_exceptions.ClientError:
             return None
         meta = self._parse_meta(response.get("Metadata", {}))
@@ -686,8 +675,7 @@ def _make_result_store() -> AnyResultStore:
         )
 
     raise ValueError(
-        f"Unknown RESULT_BACKEND: '{backend}'. "
-        "Expected 'memory', 'disk', or 's3'."
+        f"Unknown RESULT_BACKEND: '{backend}'. " "Expected 'memory', 'disk', or 's3'."
     )
 
 
