@@ -866,7 +866,7 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="compute_spike_slice_sparse_matrices",
-                description="Build event-aligned spike slices and return a (U, T, S) binary sparse raster stack.",
+                description="Build event-aligned spike slices and store the (U, T, S) binary sparse raster stack in the result store. Returns a result_id; use fetch_result to retrieve the data.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -888,6 +888,40 @@ async def _list_tools() -> list[types.Tool]:
                         },
                     },
                     "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+        ]
+    )
+
+    # Result store tools
+    tools.extend(
+        [
+            types.Tool(
+                name="fetch_result",
+                description="Retrieve a large array result previously stored by an analysis tool, returning the full data as a nested list.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID returned by the analysis tool",
+                        },
+                    },
+                    "required": ["result_id"],
+                },
+            ),
+            types.Tool(
+                name="delete_result",
+                description="Explicitly delete a stored result from the result store to free memory.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "result_id": {
+                            "type": "string",
+                            "description": "Result ID to delete",
+                        },
+                    },
+                    "required": ["result_id"],
                 },
             ),
         ]
@@ -1114,6 +1148,12 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_rate_slice_unit_order(**arguments)
         elif name == "compute_spike_slice_sparse_matrices":
             result = await analysis.compute_spike_slice_sparse_matrices(**arguments)
+
+        # Result store tools
+        elif name == "fetch_result":
+            result = await analysis.fetch_result(**arguments)
+        elif name == "delete_result":
+            result = await analysis.delete_result(**arguments)
 
         # Export tools
         elif name == "export_to_hdf5":

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from mcp_server.results import get_result_store
 from mcp_server.sessions import get_session_manager
 from spikedata.ratedata import RateData
 from spikedata.rateslicestack import RateSliceStack
@@ -598,8 +599,30 @@ async def compute_spike_slice_sparse_matrices(
         for spike_obj_slice in sss.spike_stack
     ]
     sparse_stack = np.stack(sparse_list, axis=2)
+    result_store = get_result_store()
+    result_id = result_store.store(sparse_stack)
     return {
-        "sparse_matrix": _to_list(sparse_stack),
+        "result_id": result_id,
         "shape": list(sparse_stack.shape),
+        "dtype": str(sparse_stack.dtype),
         "bin_size_ms": bin_size,
+        "ttl_seconds": result_store.default_ttl,
     }
+
+
+async def fetch_result(result_id: str) -> Dict[str, Any]:
+    entry = get_result_store().get(result_id)
+    if entry is None:
+        raise ValueError(f"Result not found or expired: {result_id}")
+    array, meta = entry
+    return {
+        "result_id": result_id,
+        "data": array.tolist(),
+        "shape": meta["shape"],
+        "dtype": meta["dtype"],
+    }
+
+
+async def delete_result(result_id: str) -> Dict[str, Any]:
+    deleted = get_result_store().delete(result_id)
+    return {"deleted": deleted, "result_id": result_id}
