@@ -192,6 +192,24 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="load_from_pickle",
+                description="Load spike data from a pickle file. Accepts local file paths or S3 URLs. WARNING: only load from trusted sources.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local file path or S3 URL",
+                        },
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["file_path"],
+                },
+            ),
+            types.Tool(
                 name="load_from_hdf5_thresholded",
                 description="Load and threshold raw data from an HDF5 file.",
                 inputSchema={
@@ -471,6 +489,407 @@ async def _list_tools() -> list[types.Tool]:
                     "required": ["session_id"],
                 },
             ),
+            types.Tool(
+                name="get_pop_rate",
+                description="Compute the smoothed population firing rate using square then Gaussian convolution.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "square_width": {
+                            "type": "integer",
+                            "default": 20,
+                            "description": "Width of square smoothing window in bins",
+                        },
+                        "gauss_sigma": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Sigma of Gaussian smoothing window in bins",
+                        },
+                        "raster_bin_size_ms": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Raster bin size in ms",
+                        },
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+            types.Tool(
+                name="compute_spike_trig_pop_rate",
+                description="Compute spike-triggered population rate (stPR) for each neuron.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "window_ms": {
+                            "type": "integer",
+                            "default": 80,
+                            "description": "Half-width of lag window in ms",
+                        },
+                        "cutoff_hz": {
+                            "type": "number",
+                            "default": 20,
+                            "description": "Low-pass filter cutoff in Hz",
+                        },
+                        "fs": {
+                            "type": "number",
+                            "default": 1000,
+                            "description": "Sampling rate in Hz for filter design",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1,
+                            "description": "Spike raster bin size in ms",
+                        },
+                        "cut_outer": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Number of outer lag bins to ignore when computing peak coupling",
+                        },
+                    },
+                    "required": ["session_id"],
+                },
+            ),
+            types.Tool(
+                name="get_bursts",
+                description="Detect bursts from the population firing rate using thresholded peak finding.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "thr_burst": {
+                            "type": "number",
+                            "description": "RMS multiplier for burst peak threshold",
+                        },
+                        "min_burst_diff": {
+                            "type": "integer",
+                            "description": "Minimum number of bins between burst peaks",
+                        },
+                        "burst_edge_mult_thresh": {
+                            "type": "number",
+                            "description": "Multiplier for burst edge detection threshold",
+                        },
+                        "square_width": {
+                            "type": "integer",
+                            "default": 20,
+                            "description": "Square smoothing window width in bins",
+                        },
+                        "gauss_sigma": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Gaussian smoothing sigma in bins",
+                        },
+                        "acc_square_width": {
+                            "type": "integer",
+                            "default": 5,
+                            "description": "Square window width for accurate pop rate in bins",
+                        },
+                        "acc_gauss_sigma": {
+                            "type": "integer",
+                            "default": 5,
+                            "description": "Gaussian sigma for accurate pop rate in bins",
+                        },
+                        "raster_bin_size_ms": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Raster bin size in ms",
+                        },
+                        "peak_to_trough": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "Use trough-to-trough baseline (True) or zero baseline (False)",
+                        },
+                        "pop_rms_override": {
+                            "type": "number",
+                            "description": "Override baseline RMS for cross-dataset normalization",
+                        },
+                    },
+                    "required": [
+                        "session_id",
+                        "thr_burst",
+                        "min_burst_diff",
+                        "burst_edge_mult_thresh",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="threshold_spike_time_tilings",
+                description="Compute the full STTC matrix and apply a binary threshold, returning a binary connectivity matrix.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "threshold": {
+                            "type": "number",
+                            "description": "Values with absolute value > threshold become 1, else 0",
+                        },
+                        "delt": {
+                            "type": "number",
+                            "default": 20.0,
+                            "description": "Time window in ms for STTC computation",
+                        },
+                    },
+                    "required": ["session_id", "threshold"],
+                },
+            ),
+            types.Tool(
+                name="compute_pairwise_fr_corr",
+                description="Compute the pairwise unit-to-unit firing rate correlation matrix from instantaneous firing rates.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "List of time points in ms at which to evaluate instantaneous firing rates",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms for ISI resampling",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Maximum lag in time bins to consider for cross-correlation",
+                        },
+                    },
+                    "required": ["session_id", "times"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_manifold",
+                description="Project instantaneous firing rates into a low-dimensional manifold using PCA or UMAP.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "List of time points in ms at which to evaluate instantaneous firing rates",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms for ISI resampling",
+                        },
+                        "method": {
+                            "type": "string",
+                            "enum": ["PCA", "UMAP"],
+                            "default": "PCA",
+                            "description": "Dimensionality reduction method",
+                        },
+                        "n_components": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": "Number of output dimensions",
+                        },
+                        "n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP: number of neighbors (optional)",
+                        },
+                        "min_dist": {
+                            "type": "number",
+                            "description": "UMAP: minimum distance (optional)",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "description": "UMAP: distance metric (optional)",
+                        },
+                        "random_state": {
+                            "type": "integer",
+                            "description": "UMAP: random seed (optional)",
+                        },
+                    },
+                    "required": ["session_id", "times"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_unit_corr",
+                description="Compute slice-to-slice unit correlation across event-aligned firing rate slices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms",
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum mean firing rate threshold (kHz) to include a unit",
+                        },
+                        "min_frac": {
+                            "type": "number",
+                            "default": 0.3,
+                            "description": "Minimum fraction of slices where a unit must exceed the rate threshold",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Maximum lag in time bins for cross-correlation",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cross_correlation",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_time_corr",
+                description="Compute slice-to-slice time-bin correlation across event-aligned firing rate slices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "Maximum lag in time bins for comparison",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cosine_similarity",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="compute_unit_to_unit_slice_corr",
+                description="Compute unit-to-unit correlation averaged across event-aligned firing rate slices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "Maximum lag in time bins for cross-correlation",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cross_correlation",
+                            "description": "Similarity function to use",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="compute_rate_slice_unit_order",
+                description="Order units by their peak firing time across event-aligned firing rate slices.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms",
+                        },
+                        "agg_func": {
+                            "type": "string",
+                            "default": "median",
+                            "description": "Aggregation function across slices ('median' or 'mean')",
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum mean firing rate threshold (kHz) to include a unit",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
+            types.Tool(
+                name="compute_spike_slice_sparse_matrices",
+                description="Build event-aligned spike slices and return a (U, T, S) binary sparse raster stack.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "times_start_to_end": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
+                            "description": "List of [start, end] time windows in ms",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in ms for the sparse raster",
+                        },
+                    },
+                    "required": ["session_id", "times_start_to_end"],
+                },
+            ),
         ]
     )
 
@@ -563,6 +982,29 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="export_to_pickle",
+                description="Export spike data to a pickle file. Accepts local file paths or S3 URLs.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local file path or S3 URL",
+                        },
+                        "protocol": {
+                            "type": "integer",
+                            "description": "Pickle protocol version (None uses highest available)",
+                        },
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["session_id", "file_path"],
+                },
+            ),
+            types.Tool(
                 name="export_to_kilosort",
                 description="Export spike data to a KiloSort/Phy folder.",
                 inputSchema={
@@ -612,6 +1054,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await data_loaders.load_from_kilosort(**arguments)
         elif name == "load_from_hdf5_thresholded":
             result = await data_loaders.load_from_hdf5_thresholded(**arguments)
+        elif name == "load_from_pickle":
+            result = await data_loaders.load_from_pickle(**arguments)
 
         # Analysis tools
         elif name == "compute_rates":
@@ -648,6 +1092,28 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.get_data_info(**arguments)
         elif name == "list_neurons":
             result = await analysis.list_neurons(**arguments)
+        elif name == "get_pop_rate":
+            result = await analysis.get_pop_rate(**arguments)
+        elif name == "compute_spike_trig_pop_rate":
+            result = await analysis.compute_spike_trig_pop_rate(**arguments)
+        elif name == "get_bursts":
+            result = await analysis.get_bursts(**arguments)
+        elif name == "threshold_spike_time_tilings":
+            result = await analysis.threshold_spike_time_tilings(**arguments)
+        elif name == "compute_pairwise_fr_corr":
+            result = await analysis.compute_pairwise_fr_corr(**arguments)
+        elif name == "compute_rate_manifold":
+            result = await analysis.compute_rate_manifold(**arguments)
+        elif name == "compute_rate_slice_unit_corr":
+            result = await analysis.compute_rate_slice_unit_corr(**arguments)
+        elif name == "compute_rate_slice_time_corr":
+            result = await analysis.compute_rate_slice_time_corr(**arguments)
+        elif name == "compute_unit_to_unit_slice_corr":
+            result = await analysis.compute_unit_to_unit_slice_corr(**arguments)
+        elif name == "compute_rate_slice_unit_order":
+            result = await analysis.compute_rate_slice_unit_order(**arguments)
+        elif name == "compute_spike_slice_sparse_matrices":
+            result = await analysis.compute_spike_slice_sparse_matrices(**arguments)
 
         # Export tools
         elif name == "export_to_hdf5":
@@ -656,6 +1122,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await exporters.export_to_nwb(**arguments)
         elif name == "export_to_kilosort":
             result = await exporters.export_to_kilosort(**arguments)
+        elif name == "export_to_pickle":
+            result = await exporters.export_to_pickle(**arguments)
 
         else:
             raise ValueError(f"Unknown tool: {name}")

@@ -14,6 +14,7 @@ from data_loaders.data_loaders import (
     load_spikedata_from_hdf5_raw_thresholded,
     load_spikedata_from_kilosort,
     load_spikedata_from_nwb,
+    load_spikedata_from_pickle,
     load_spikedata_from_spikeinterface,
     load_spikedata_from_spikeinterface_recording,
 )
@@ -266,6 +267,50 @@ async def load_from_kilosort(
         time_unit=time_unit,
         include_noise=include_noise,
         length_ms=length_ms,
+    )
+
+    session_manager = get_session_manager()
+    session_id = session_manager.create_session(spikedata)
+
+    return {
+        "session_id": session_id,
+        "info": {
+            "num_neurons": spikedata.N,
+            "length_ms": spikedata.length,
+            "metadata": spikedata.metadata,
+        },
+    }
+
+
+async def load_from_pickle(
+    file_path: str,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Load spike data from a pickle file.
+
+    WARNING: Only load pickle files from trusted sources. Pickle deserialization
+    can execute arbitrary code.
+
+    Args:
+        file_path: Local file path or S3 URL to pickle file
+        aws_access_key_id: Optional AWS access key for S3
+        aws_secret_access_key: Optional AWS secret key for S3
+        aws_session_token: Optional AWS session token for S3
+        region_name: Optional AWS region name
+
+    Returns:
+        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+    """
+    spikedata = load_spikedata_from_pickle(
+        file_path,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
     )
 
     session_manager = get_session_manager()

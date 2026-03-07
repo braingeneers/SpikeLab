@@ -12,6 +12,7 @@ from data_loaders.data_exporters import (
     export_spikedata_to_hdf5,
     export_spikedata_to_kilosort,
     export_spikedata_to_nwb,
+    export_spikedata_to_pickle,
 )
 
 from mcp_server.s3_adapter import is_s3_url, upload as upload_to_s3
@@ -305,3 +306,46 @@ async def export_to_kilosort(
         "folder_path": local_folder,
         "files": [spike_times_path, spike_clusters_path],
     }
+
+
+async def export_to_pickle(
+    session_id: str,
+    file_path: str,
+    protocol: Optional[int] = None,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Export spike data to a pickle file.
+
+    Args:
+        session_id: Session ID containing the SpikeData
+        file_path: Local file path or S3 URL for output
+        protocol: Pickle protocol version (None uses highest available)
+        aws_access_key_id: Optional AWS access key for S3
+        aws_secret_access_key: Optional AWS secret key for S3
+        aws_session_token: Optional AWS session token for S3
+        region_name: Optional AWS region name
+
+    Returns:
+        Dictionary with 'file_path' (output path)
+    """
+    session_manager = get_session_manager()
+    spikedata = session_manager.get_session(session_id)
+    if spikedata is None:
+        raise ValueError(f"Session not found: {session_id}")
+
+    result_path = export_spikedata_to_pickle(
+        spikedata,
+        file_path,
+        protocol=protocol,
+        upload_to_s3=is_s3_url(file_path),
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    return {"file_path": result_path}
