@@ -126,6 +126,77 @@ def load_workspace_item(path: str, namespace: str, key: str) -> Any:
     return obj
 
 
+def dump_item_to_file(
+    h5_path: str,
+    namespace: str,
+    key: str,
+    obj: Any,
+    created_at: float,
+    note: Optional[str] = None,
+) -> None:
+    """
+    Write a single item to an HDF5 file, creating or overwriting the item group.
+
+    Parameters:
+        h5_path (str): Full path to the HDF5 file (including .h5 extension).
+        namespace (str): Namespace group to write into.
+        key (str): Key group to write into.
+        obj: Object to serialise.
+        created_at (float): POSIX timestamp for the item.
+        note (str | None): Optional annotation.
+    """
+    _require_h5py()
+    with h5py.File(h5_path, "a") as f:
+        ns_grp = f.require_group(namespace)
+        if key in ns_grp:
+            del ns_grp[key]
+        key_grp = ns_grp.create_group(key)
+        _dump_item(key_grp, obj, created_at, note)
+
+
+def load_item_from_file(h5_path: str, namespace: str, key: str) -> Any:
+    """
+    Load a single item from an HDF5 file by its full path.
+
+    Parameters:
+        h5_path (str): Full path to the HDF5 file (including .h5 extension).
+        namespace (str): Namespace the item was stored under.
+        key (str): Key the item was stored under.
+
+    Returns:
+        obj: Reconstructed IAT data object or numpy array.
+    """
+    _require_h5py()
+    with h5py.File(h5_path, "r") as f:
+        if namespace not in f:
+            raise KeyError(f"Namespace '{namespace}' not found in workspace file.")
+        if key not in f[namespace]:
+            raise KeyError(f"Key '{key}' not found in namespace '{namespace}'.")
+        obj, _ = _load_item(f[namespace][key])
+    return obj
+
+
+def delete_item_from_file(
+    h5_path: str, namespace: str, key: Optional[str] = None
+) -> None:
+    """
+    Delete a single item or entire namespace from an HDF5 file.
+
+    Parameters:
+        h5_path (str): Full path to the HDF5 file (including .h5 extension).
+        namespace (str): Namespace to delete from.
+        key (str | None): Key to delete. If None, deletes the entire namespace.
+    """
+    _require_h5py()
+    with h5py.File(h5_path, "a") as f:
+        if namespace not in f:
+            return
+        if key is None:
+            del f[namespace]
+        elif key in f[namespace]:
+            del f[namespace][key]
+
+
 # ===========================================================================
 # Item-level dump / load
 # ===========================================================================

@@ -1646,13 +1646,28 @@ async def _list_tools() -> list[types.Tool]:
         [
             types.Tool(
                 name="create_workspace",
-                description="Create a new named workspace for storing analysis results.",
+                description=(
+                    "Create a new named workspace for storing analysis results. "
+                    "Supports in-memory (default, fast) and disk-backed (lazy, low RAM) modes."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string",
                             "description": "Optional human-readable label for the workspace",
+                        },
+                        "lazy": {
+                            "type": "boolean",
+                            "description": (
+                                "If true, use a disk-backed workspace: each item is "
+                                "serialised to a temporary HDF5 file on store() and "
+                                "deserialised on get(), so only index metadata is kept "
+                                "in RAM. Useful when working with large recordings on "
+                                "memory-constrained machines. Requires h5py. "
+                                "Default: false (fully in-memory)."
+                            ),
+                            "default": False,
                         },
                     },
                 },

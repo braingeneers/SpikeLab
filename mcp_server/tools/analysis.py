@@ -1259,11 +1259,13 @@ async def delete_session(session_id: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-async def create_workspace(name: Optional[str] = None) -> Dict[str, Any]:
+async def create_workspace(
+    name: Optional[str] = None, lazy: bool = False
+) -> Dict[str, Any]:
     wm = get_workspace_manager()
-    workspace_id = wm.create_workspace(name=name)
+    workspace_id = wm.create_workspace(name=name, lazy=lazy)
     ws = wm.get_workspace(workspace_id)
-    return {"workspace_id": workspace_id, "name": ws.name}
+    return {"workspace_id": workspace_id, "name": ws.name, "lazy": lazy}
 
 
 async def delete_workspace(workspace_id: str) -> Dict[str, Any]:

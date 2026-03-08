@@ -8,6 +8,9 @@ the full workspace.
 """
 
 import json
+import os
+import shutil
+import tempfile
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -377,6 +380,248 @@ class AnalysisWorkspace:
         )
 
 
+class LazyAnalysisWorkspace(AnalysisWorkspace):
+    """
+    Disk-backed variant of AnalysisWorkspace for low-RAM environments.
+
+    Each stored object is immediately serialised to a temporary HDF5 file and
+    removed from process memory. Only the lightweight index metadata is kept in
+    RAM. Objects are deserialised from the temp file on each ``get()`` call.
+
+    Use this when working with large recordings and limited available RAM.
+    The temp file is deleted automatically when the workspace is garbage-collected.
+
+    Notes:
+        - Requires h5py. If h5py is not installed, construction will raise
+          ImportError.
+        - Every ``get()`` call performs a disk read; repeated access to the same
+          item is slower than with the default in-memory workspace.
+        - ``save()`` copies the temp file to the destination path, so it is as
+          fast as a file copy rather than a full re-serialisation.
+    """
+
+    def __init__(self, name: Optional[str] = None) -> None:
+        """
+        Create a new empty lazy workspace backed by a temp HDF5 file.
+
+        Parameters:
+            name (str | None): Optional human-readable label.
+        """
+        from workspace.hdf5_io import _require_h5py
+
+        _require_h5py()
+
+        # Initialise base fields without calling AnalysisWorkspace.__init__
+        # so that _items is never populated (data lives on disk).
+        self.workspace_id: str = str(uuid.uuid4())
+        self.name: Optional[str] = name
+        self.created_at: float = time.time()
+        self._items: Dict[str, Dict[str, Any]] = {}  # always empty
+        self._index: Dict[str, Dict[str, dict]] = {}
+
+        # Create the backing temp file.
+        fd, self._h5_path = tempfile.mkstemp(suffix=".h5", prefix="iat_lazy_ws_")
+        os.close(fd)
+
+        try:
+            import h5py
+
+            with h5py.File(self._h5_path, "w") as f:
+                f.attrs["__workspace_id__"] = self.workspace_id
+                f.attrs["__workspace_name__"] = self.name or ""
+                f.attrs["__created_at__"] = self.created_at
+        except Exception:
+            os.unlink(self._h5_path)
+            raise
+
+    # ------------------------------------------------------------------
+    # Storage
+    # ------------------------------------------------------------------
+
+    def store(
+        self,
+        namespace: str,
+        key: str,
+        obj: Any,
+        note: Optional[str] = None,
+    ) -> None:
+        """
+        Serialise an object to the temp HDF5 file and record it in the index.
+
+        Parameters:
+            namespace (str): Namespace grouping related results.
+            key (str): Key identifying this result within the namespace.
+            obj: Object to store.
+            note (str | None): Optional free-text annotation.
+        """
+        from workspace.hdf5_io import dump_item_to_file
+
+        if namespace not in self._index:
+            self._index[namespace] = {}
+
+        entry = _make_summary(obj)
+        created_at = time.time()
+        entry["created_at"] = created_at
+        if note is not None:
+            entry["note"] = note
+        self._index[namespace][key] = entry
+
+        dump_item_to_file(self._h5_path, namespace, key, obj, created_at, note)
+
+    def get(self, namespace: str, key: str) -> Optional[Any]:
+        """
+        Deserialise and return a stored object from the temp HDF5 file.
+
+        Parameters:
+            namespace (str): Namespace the object was stored under.
+            key (str): Key the object was stored under.
+
+        Returns:
+            obj: Reconstructed object, or None if not found.
+        """
+        from workspace.hdf5_io import load_item_from_file
+
+        if namespace not in self._index or key not in self._index[namespace]:
+            return None
+        try:
+            return load_item_from_file(self._h5_path, namespace, key)
+        except KeyError:
+            return None
+
+    # ------------------------------------------------------------------
+    # Inspection
+    # ------------------------------------------------------------------
+
+    def list_keys(self, namespace: Optional[str] = None) -> "dict | list":
+        """
+        List stored keys from the index (no disk read required).
+
+        Parameters:
+            namespace (str | None): If provided, returns the list of keys for
+                that namespace. If None, returns a dict mapping each namespace
+                to its list of keys.
+
+        Returns:
+            keys (dict | list): Key listing derived from the in-memory index.
+        """
+        if namespace is not None:
+            return list(self._index.get(namespace, {}).keys())
+        return {ns: list(keys.keys()) for ns, keys in self._index.items()}
+
+    # ------------------------------------------------------------------
+    # Mutation
+    # ------------------------------------------------------------------
+
+    def rename(self, namespace: str, old_key: str, new_key: str) -> bool:
+        """
+        Rename a key within a namespace.
+
+        Parameters:
+            namespace (str): Namespace containing the key.
+            old_key (str): Existing key name.
+            new_key (str): New key name.
+
+        Returns:
+            success (bool): True if renamed, False if namespace or old_key not found.
+        """
+        from workspace.hdf5_io import delete_item_from_file, dump_item_to_file
+
+        if namespace not in self._index or old_key not in self._index[namespace]:
+            return False
+
+        obj = self.get(namespace, old_key)
+        if obj is None:
+            return False
+
+        old_entry = self._index[namespace][old_key]
+        dump_item_to_file(
+            self._h5_path,
+            namespace,
+            new_key,
+            obj,
+            old_entry["created_at"],
+            old_entry.get("note"),
+        )
+        delete_item_from_file(self._h5_path, namespace, old_key)
+
+        self._index[namespace][new_key] = self._index[namespace].pop(old_key)
+        return True
+
+    def delete(self, namespace: str, key: Optional[str] = None) -> bool:
+        """
+        Delete a single item or an entire namespace from the temp file and index.
+
+        Parameters:
+            namespace (str): Namespace to delete from.
+            key (str | None): Key to delete. If None, deletes the entire namespace.
+
+        Returns:
+            success (bool): True if deleted, False if not found.
+        """
+        from workspace.hdf5_io import delete_item_from_file
+
+        if namespace not in self._index:
+            return False
+        if key is None:
+            del self._index[namespace]
+            delete_item_from_file(self._h5_path, namespace)
+            return True
+        if key not in self._index[namespace]:
+            return False
+        del self._index[namespace][key]
+        if not self._index[namespace]:
+            del self._index[namespace]
+        delete_item_from_file(self._h5_path, namespace, key)
+        return True
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save(self, path: str) -> None:
+        """
+        Save the workspace to disk by copying the temp HDF5 file.
+
+        Parameters:
+            path (str): Base path without file extension.
+        """
+        shutil.copy2(self._h5_path, f"{path}.h5")
+        json_path = f"{path}.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "workspace_id": self.workspace_id,
+                    "name": self.name,
+                    "created_at": self.created_at,
+                    "index": self._index,
+                },
+                f,
+                indent=2,
+            )
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    def __del__(self) -> None:
+        try:
+            if hasattr(self, "_h5_path") and os.path.exists(self._h5_path):
+                os.unlink(self._h5_path)
+        except Exception:
+            pass
+
+    def __repr__(self) -> str:
+        ns_count = len(self._index)
+        item_count = sum(len(v) for v in self._index.values())
+        name_part = f" {self.name!r}" if self.name else ""
+        return (
+            f"LazyAnalysisWorkspace{name_part}("
+            f"id={self.workspace_id[:8]}…, "
+            f"{ns_count} namespace(s), {item_count} item(s), "
+            f"backed by temp HDF5)"
+        )
+
+
 class WorkspaceManager:
     """
     Registry for multiple AnalysisWorkspace instances within a single process.
@@ -389,17 +634,25 @@ class WorkspaceManager:
         """Initialize an empty WorkspaceManager."""
         self._workspaces: Dict[str, AnalysisWorkspace] = {}
 
-    def create_workspace(self, name: Optional[str] = None) -> str:
+    def create_workspace(self, name: Optional[str] = None, lazy: bool = False) -> str:
         """
         Create and register a new empty workspace.
 
         Parameters:
             name (str | None): Optional human-readable label.
+            lazy (bool): If True, creates a disk-backed LazyAnalysisWorkspace
+                that serialises each item to a temp HDF5 file on store() and
+                deserialises on get(). Only index metadata is kept in RAM.
+                Use this when working with large recordings and limited RAM.
+                Requires h5py. Defaults to False (fully in-memory).
 
         Returns:
             workspace_id (str): UUID of the new workspace.
         """
-        ws = AnalysisWorkspace(name=name)
+        if lazy:
+            ws = LazyAnalysisWorkspace(name=name)
+        else:
+            ws = AnalysisWorkspace(name=name)
         self._workspaces[ws.workspace_id] = ws
         return ws.workspace_id
 
