@@ -1030,7 +1030,9 @@ class TestHDF5IO(unittest.TestCase):
         rng = np.random.default_rng(1)
         raw = rng.standard_normal((4, 100))
         raw_t = np.linspace(0.0, 99.0, 100)
-        sd = SpikeData([[5.0, 10.0], [20.0]], length=100.0, raw_data=raw, raw_time=raw_t)
+        sd = SpikeData(
+            [[5.0, 10.0], [20.0]], length=100.0, raw_data=raw, raw_time=raw_t
+        )
         out = self._roundtrip(sd)
         np.testing.assert_array_almost_equal(out.raw_data, raw)
         np.testing.assert_array_almost_equal(out.raw_time, raw_t)
@@ -1290,6 +1292,7 @@ class TestHDF5IO(unittest.TestCase):
         Tests:
             (Test Case 1) A plain Python object that is not an IAT type raises TypeError.
         """
+
         class Custom:
             pass
 
