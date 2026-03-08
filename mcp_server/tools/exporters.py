@@ -17,11 +17,32 @@ from data_loaders.data_exporters import (
 )
 
 from mcp_server.s3_adapter import is_s3_url, upload as upload_to_s3
-from mcp_server.sessions import get_session_manager
+from workspace.workspace import get_workspace_manager
+
+_SPIKEDATA_KEY = "spikedata"
+
+
+def _get_spikedata(workspace_id: str, namespace: str):
+    """Load SpikeData from (namespace, 'spikedata') in the workspace."""
+    from spikedata.spikedata import SpikeData
+
+    ws = get_workspace_manager().get_workspace(workspace_id)
+    if ws is None:
+        raise ValueError(f"Workspace not found: {workspace_id}")
+    sd = ws.get(namespace, _SPIKEDATA_KEY)
+    if sd is None or not isinstance(sd, SpikeData):
+        raise ValueError(
+            f"No SpikeData found at ({namespace!r}, {_SPIKEDATA_KEY!r}). "
+            "Load a recording first using one of: "
+            "load_from_hdf5, load_from_nwb, load_from_kilosort, "
+            "load_from_pickle, load_from_hdf5_thresholded."
+        )
+    return sd
 
 
 async def export_to_hdf5(
-    session_id: str,
+    workspace_id: str,
+    namespace: str,
     file_path: str,
     style: Literal["raster", "ragged", "group", "paired"] = "ragged",
     raster_dataset: str = "raster",
@@ -53,7 +74,8 @@ async def export_to_hdf5(
     - 'paired': Paired indices and times arrays
 
     Args:
-        session_id: Session ID containing the SpikeData
+        workspace_id: Workspace ID containing the SpikeData
+        namespace: Namespace within the workspace
         file_path: Local file path or S3 URL for output
         style: Export style ('raster', 'ragged', 'group', 'paired')
         raster_dataset: Dataset name for raster (style='raster')
@@ -78,10 +100,7 @@ async def export_to_hdf5(
     Returns:
         Dictionary with 'file_path' (output path) and 'style'
     """
-    session_manager = get_session_manager()
-    spikedata = session_manager.get_session(session_id)
-    if spikedata is None:
-        raise ValueError(f"Session not found: {session_id}")
+    spikedata = _get_spikedata(workspace_id, namespace)
 
     # Determine if output is S3 or local
     is_s3 = is_s3_url(file_path)
@@ -158,7 +177,8 @@ async def export_to_hdf5(
 
 
 async def export_to_nwb(
-    session_id: str,
+    workspace_id: str,
+    namespace: str,
     file_path: str,
     spike_times_dataset: str = "spike_times",
     spike_times_index_dataset: str = "spike_times_index",
@@ -172,7 +192,8 @@ async def export_to_nwb(
     Export spike data to an NWB file.
 
     Args:
-        session_id: Session ID containing the SpikeData
+        workspace_id: Workspace ID containing the SpikeData
+        namespace: Namespace within the workspace
         file_path: Local file path or S3 URL for output
         spike_times_dataset: Dataset name for spike times
         spike_times_index_dataset: Dataset name for spike times index
@@ -185,10 +206,7 @@ async def export_to_nwb(
     Returns:
         Dictionary with 'file_path' (output path)
     """
-    session_manager = get_session_manager()
-    spikedata = session_manager.get_session(session_id)
-    if spikedata is None:
-        raise ValueError(f"Session not found: {session_id}")
+    spikedata = _get_spikedata(workspace_id, namespace)
 
     is_s3 = is_s3_url(file_path)
     if is_s3:
@@ -242,46 +260,35 @@ async def export_to_nwb(
 
 
 async def export_to_kilosort(
-    session_id: str,
+    workspace_id: str,
+    namespace: str,
     folder_path: str,
     fs_Hz: float,
     spike_times_file: str = "spike_times.npy",
     spike_clusters_file: str = "spike_clusters.npy",
     time_unit: Literal["samples", "ms", "s"] = "samples",
     cluster_ids: Optional[List[int]] = None,
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Export spike data to a KiloSort/Phy folder.
 
     Args:
-        session_id: Session ID containing the SpikeData
-        folder_path: Local folder path or S3 URL prefix for output
+        workspace_id: Workspace ID containing the SpikeData
+        namespace: Namespace within the workspace
+        folder_path: Local folder path for output
         fs_Hz: Sampling frequency in Hz
         spike_times_file: Filename for spike_times.npy
         spike_clusters_file: Filename for spike_clusters.npy
         time_unit: Time unit for output ('samples', 'ms', 's')
         cluster_ids: Optional list of cluster IDs (must match num neurons)
-        aws_access_key_id: Optional AWS access key for S3
-        aws_secret_access_key: Optional AWS secret key for S3
-        aws_session_token: Optional AWS session token for S3
-        region_name: Optional AWS region name
 
     Returns:
         Dictionary with 'folder_path' and 'files' (list of created files)
     """
-    session_manager = get_session_manager()
-    spikedata = session_manager.get_session(session_id)
-    if spikedata is None:
-        raise ValueError(f"Session not found: {session_id}")
+    spikedata = _get_spikedata(workspace_id, namespace)
 
     is_s3 = is_s3_url(folder_path)
     if is_s3:
-        # For S3, we'd need to handle folder uploads
-        # This is simplified - in practice you might want more sophisticated handling
         raise NotImplementedError(
             "S3 folder paths for KiloSort export not yet fully supported"
         )
@@ -306,7 +313,8 @@ async def export_to_kilosort(
 
 
 async def export_to_pickle(
-    session_id: str,
+    workspace_id: str,
+    namespace: str,
     file_path: str,
     protocol: Optional[int] = None,
     aws_access_key_id: Optional[str] = None,
@@ -318,7 +326,8 @@ async def export_to_pickle(
     Export spike data to a pickle file.
 
     Args:
-        session_id: Session ID containing the SpikeData
+        workspace_id: Workspace ID containing the SpikeData
+        namespace: Namespace within the workspace
         file_path: Local file path or S3 URL for output
         protocol: Pickle protocol version (None uses highest available)
         aws_access_key_id: Optional AWS access key for S3
@@ -329,10 +338,7 @@ async def export_to_pickle(
     Returns:
         Dictionary with 'file_path' (output path)
     """
-    session_manager = get_session_manager()
-    spikedata = session_manager.get_session(session_id)
-    if spikedata is None:
-        raise ValueError(f"Session not found: {session_id}")
+    spikedata = _get_spikedata(workspace_id, namespace)
 
     result_path = export_spikedata_to_pickle(
         spikedata,

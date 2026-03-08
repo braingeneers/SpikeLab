@@ -6,6 +6,8 @@ Tests cover:
 - Session management
 - Data loaders
 - Analysis tools
+- Workspace management
+- Workspace analysis tools
 - Export tools
 - Server integration
 """
@@ -52,6 +54,7 @@ if MCP_AVAILABLE:
     try:
         from mcp_server.server import server
         from mcp_server.tools import analysis, data_loaders, exporters
+        from workspace.workspace import get_workspace_manager
 
         MCP_SERVER_AVAILABLE = True
     except ImportError as e:
@@ -61,6 +64,12 @@ if MCP_AVAILABLE:
 # ============================================================================
 # Test Markers
 # ============================================================================
+
+# Skip all tests if MCP dependencies are not available
+pytestmark = pytest.mark.skipif(
+    not MCP_AVAILABLE,
+    reason=f"MCP dependencies not available: {MCP_IMPORT_ERROR or 'mcp package not installed'}",
+)
 
 # Skip infrastructure tests if basic imports fail
 pytestmark_infra = pytest.mark.skipif(
@@ -73,6 +82,7 @@ pytestmark_server = pytest.mark.skipif(
     not MCP_SERVER_AVAILABLE,
     reason=f"MCP package not installed. Install with: pip install mcp",
 )
+
 
 # ============================================================================
 # Fixtures
@@ -107,28 +117,29 @@ def reset_session_manager():
     session_manager._sessions.clear()
 
 
+@pytest.fixture(autouse=True)
+def reset_workspace_manager():
+    """Reset workspace manager before each test."""
+    if not MCP_SERVER_AVAILABLE:
+        yield
+        return
+    wm = get_workspace_manager()
+    wm._workspaces.clear()
+    yield
+    wm._workspaces.clear()
+
+
+@pytest.fixture
+def workspace_id():
+    """Create a workspace and return its ID."""
+    wm = get_workspace_manager()
+    ws_id = wm.create_workspace(name="test_workspace")
+    return ws_id
+
+
 # ============================================================================
 # S3 Utilities Tests
 # ============================================================================
-
-# Skip all tests if MCP dependencies are not available
-pytestmark = pytest.mark.skipif(
-    not MCP_AVAILABLE,
-    reason=f"MCP dependencies not available: {MCP_IMPORT_ERROR or 'mcp package not installed'}",
-)
-
-
-# Skip infrastructure tests if basic imports fail
-pytestmark_infra = pytest.mark.skipif(
-    not MCP_AVAILABLE,
-    reason=f"MCP server not available: {MCP_IMPORT_ERROR or 'dependencies not installed'}",
-)
-
-# Skip server/tool tests if mcp package is missing
-pytestmark_server = pytest.mark.skipif(
-    not MCP_SERVER_AVAILABLE,
-    reason=f"MCP package not installed. Install with: pip install mcp",
-)
 
 
 class TestS3Utils:
@@ -453,8 +464,8 @@ class TestAnalysisTools:
         """Test computing raster."""
         result = await analysis.compute_raster(session_id, bin_size=5.0)
         assert "raster" in result
-        assert "bin_size_ms" in result
-        assert result["bin_size_ms"] == 5.0
+        assert "bin_size" in result
+        assert result["bin_size"] == 5.0
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -472,7 +483,8 @@ class TestAnalysisTools:
         """Test time window extraction."""
         result = await analysis.subtime(session_id, start=10.0, end=30.0)
         assert "session_id" in result
-        assert result["info"]["start_ms"] == 10.0
+        assert "info" in result
+        assert result["info"]["length_ms"] == pytest.approx(20.0, abs=1.0)
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -488,6 +500,370 @@ class TestAnalysisTools:
         """Test error handling for invalid session."""
         with pytest.raises(ValueError, match="Session not found"):
             await analysis.compute_rates("invalid-session-id")
+
+
+# ============================================================================
+# Workspace Management Tests
+# ============================================================================
+
+
+class TestWorkspaceManagement:
+    """Test workspace management functions."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_create_and_list_workspace(self):
+        """
+        Test creating a workspace and listing it.
+
+        Tests:
+            (Test Case 1) create_workspace returns workspace_id and name.
+            (Test Case 2) list_workspaces includes the new workspace.
+        """
+        result = await analysis.create_workspace(name="my_ws")
+        assert "workspace_id" in result
+        assert result["name"] == "my_ws"
+
+        list_result = await analysis.list_workspaces()
+        assert list_result["count"] >= 1
+        ids = [w["workspace_id"] for w in list_result["workspaces"]]
+        assert result["workspace_id"] in ids
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_delete_workspace(self):
+        """
+        Test deleting a workspace.
+
+        Tests:
+            (Test Case 1) delete_workspace returns deleted=True for existing workspace.
+            (Test Case 2) Workspace is absent from list_workspaces after deletion.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+
+        result = await analysis.delete_workspace(ws_id)
+        assert result["deleted"] is True
+
+        list_result = await analysis.list_workspaces()
+        ids = [w["workspace_id"] for w in list_result["workspaces"]]
+        assert ws_id not in ids
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_describe_workspace(self):
+        """
+        Test that describe_workspace returns the full index.
+
+        Tests:
+            (Test Case 1) Index contains the stored namespace and key.
+            (Test Case 2) Summary dict has correct type for a stored ndarray.
+        """
+        create_result = await analysis.create_workspace(name="desc_ws")
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("rec1", "my_array", np.zeros((3, 3)))
+
+        desc = await analysis.describe_workspace(ws_id)
+        assert "rec1" in desc["index"]
+        assert "my_array" in desc["index"]["rec1"]
+        assert desc["index"]["rec1"]["my_array"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_workspace_get_info(self):
+        """
+        Test workspace_get_info returns correct metadata for a stored item.
+
+        Tests:
+            (Test Case 1) Returns info dict with correct type and shape.
+            (Test Case 2) Raises ValueError for a non-existent item.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "key", np.ones((4, 4)))
+
+        info_result = await analysis.workspace_get_info(ws_id, "ns", "key")
+        assert info_result["info"]["type"] == "ndarray"
+        assert info_result["info"]["shape"] == [4, 4]
+
+        with pytest.raises(ValueError, match="Item not found"):
+            await analysis.workspace_get_info(ws_id, "ns", "nonexistent")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rename_workspace_item(self):
+        """
+        Test renaming a workspace item.
+
+        Tests:
+            (Test Case 1) rename_workspace_item returns success=True.
+            (Test Case 2) Item is accessible under new key.
+            (Test Case 3) Old key no longer exists.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "old_key", np.zeros(5))
+
+        result = await analysis.rename_workspace_item(ws_id, "ns", "old_key", "new_key")
+        assert result["success"] is True
+        assert ws.get("ns", "new_key") is not None
+        assert ws.get("ns", "old_key") is None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_add_workspace_note(self):
+        """
+        Test adding a note to a workspace item.
+
+        Tests:
+            (Test Case 1) add_workspace_note returns success=True.
+            (Test Case 2) Note is stored in the item's index entry.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "key", np.zeros(3))
+
+        result = await analysis.add_workspace_note(ws_id, "ns", "key", "test note")
+        assert result["success"] is True
+        assert ws.get_info("ns", "key")["note"] == "test note"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_delete_workspace_item(self):
+        """
+        Test deleting a single item and an entire namespace.
+
+        Tests:
+            (Test Case 1) delete_workspace_item with key returns deleted=True.
+            (Test Case 2) Item is absent from workspace after deletion.
+            (Test Case 3) delete_workspace_item without key deletes entire namespace.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "key1", np.zeros(3))
+        ws.store("ns", "key2", np.zeros(3))
+
+        result = await analysis.delete_workspace_item(ws_id, "ns", "key1")
+        assert result["deleted"] is True
+        assert ws.get("ns", "key1") is None
+        assert ws.get("ns", "key2") is not None
+
+        result_ns = await analysis.delete_workspace_item(ws_id, "ns")
+        assert result_ns["deleted"] is True
+        assert ws.list_keys("ns") == []
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_save_and_load_workspace(self, tmp_path):
+        """
+        Test saving and loading a workspace round-trip.
+
+        Tests:
+            (Test Case 1) save_workspace returns saved=True.
+            (Test Case 2) load_workspace restores the workspace with correct ID, name, item count.
+        """
+        create_result = await analysis.create_workspace(name="saved_ws")
+        ws_id = create_result["workspace_id"]
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "arr", np.array([1.0, 2.0, 3.0]))
+
+        path = str(tmp_path / "ws_test")
+        save_result = await analysis.save_workspace(ws_id, path)
+        assert save_result["saved"] is True
+
+        # Delete from manager and reload
+        get_workspace_manager().delete_workspace(ws_id)
+        load_result = await analysis.load_workspace(path)
+        assert load_result["workspace_id"] == ws_id
+        assert load_result["name"] == "saved_ws"
+        assert load_result["item_count"] == 1
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_fetch_workspace_item(self):
+        """
+        Test fetching a workspace item as a nested list.
+
+        Tests:
+            (Test Case 1) Returns correct data for an ndarray.
+            (Test Case 2) Info dict is included in response.
+        """
+        create_result = await analysis.create_workspace()
+        ws_id = create_result["workspace_id"]
+        arr = np.array([1.0, 2.0, 3.0])
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store("ns", "arr", arr)
+
+        result = await analysis.fetch_workspace_item(ws_id, "ns", "arr")
+        assert result["data"] == arr.tolist()
+        assert result["info"]["type"] == "ndarray"
+
+
+# ============================================================================
+# Workspace Analysis Tools Tests
+# ============================================================================
+
+
+class TestWorkspaceAnalysisTools:
+    """Test analysis tools that store results in a workspace."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_pairwise_fr_corr(self, session_id, workspace_id):
+        """
+        Test compute_pairwise_fr_corr stores correlation and lag matrices in workspace.
+
+        Tests:
+            (Test Case 1) Returns workspace_id, namespace, key_corr, key_lag.
+            (Test Case 2) Both stored items have correct type and shape (U, U).
+        """
+        times = list(np.arange(0.0, 50.0, 1.0))
+        result = await analysis.compute_pairwise_fr_corr(
+            session_id,
+            times=times,
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key_corr="corr",
+            key_lag="lag",
+        )
+        assert result["workspace_id"] == workspace_id
+        assert result["namespace"] == "rec1"
+        assert result["key_corr"] == "corr"
+        assert result["key_lag"] == "lag"
+        assert result["info_corr"]["type"] == "ndarray"
+        assert result["info_corr"]["shape"] == [3, 3]
+        assert result["info_lag"]["shape"] == [3, 3]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_create_rate_slice_stack(self, session_id, workspace_id):
+        """
+        Test create_rate_slice_stack stores a RateSliceStack in the workspace.
+
+        Tests:
+            (Test Case 1) Returns workspace_id, namespace, key.
+            (Test Case 2) Stored item summary reports type RateSliceStack.
+        """
+        times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
+        result = await analysis.create_rate_slice_stack(
+            session_id,
+            times_start_to_end=times_start_to_end,
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key="rss",
+        )
+        assert result["workspace_id"] == workspace_id
+        assert result["key"] == "rss"
+        assert result["info"]["type"] == "RateSliceStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rate_slice_unit_corr_from_workspace(
+        self, session_id, workspace_id
+    ):
+        """
+        Test compute_rate_slice_unit_corr_from_workspace loads a stored RateSliceStack
+        and stores the resulting PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) Returns workspace_id, namespace, and out_key.
+            (Test Case 2) Stored output item type is PairwiseCompMatrixStack.
+            (Test Case 3) av_corr is returned inline.
+        """
+        times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
+        await analysis.create_rate_slice_stack(
+            session_id,
+            times_start_to_end=times_start_to_end,
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key="rss",
+        )
+        result = await analysis.compute_rate_slice_unit_corr_from_workspace(
+            workspace_id=workspace_id,
+            namespace="rec1",
+            stack_key="rss",
+            out_key="corr_stack",
+        )
+        assert result["workspace_id"] == workspace_id
+        assert result["key"] == "corr_stack"
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+        assert "av_corr" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_frames_rate_data(self, session_id, workspace_id):
+        """
+        Test frames_rate_data stores a RateSliceStack in the workspace.
+
+        Tests:
+            (Test Case 1) Returns workspace_id, namespace, key, and n_frames.
+            (Test Case 2) Stored item type is RateSliceStack.
+            (Test Case 3) n_frames is correct for non-overlapping equal-length frames.
+        """
+        isi_times = list(np.arange(0.0, 50.0, 1.0))
+        result = await analysis.frames_rate_data(
+            session_id,
+            isi_times=isi_times,
+            length=25.0,
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key="frames",
+        )
+        assert result["workspace_id"] == workspace_id
+        assert result["key"] == "frames"
+        assert result["n_frames"] == 2
+        assert result["info"]["type"] == "RateSliceStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_extract_lower_triangle_features(self, session_id, workspace_id):
+        """
+        Test extract_lower_triangle_features loads a PairwiseCompMatrixStack from
+        the workspace and stores a (S, F) feature matrix.
+
+        Tests:
+            (Test Case 1) Returns workspace reference with out_key.
+            (Test Case 2) Stored output is an ndarray with correct rank.
+        """
+        times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
+        await analysis.compute_rate_slice_unit_corr(
+            session_id,
+            times_start_to_end=times_start_to_end,
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key="corr_stack",
+        )
+        result = await analysis.extract_lower_triangle_features(
+            workspace_id=workspace_id,
+            namespace="rec1",
+            key="corr_stack",
+            out_key="features",
+        )
+        assert result["key"] == "features"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_workspace_raises(self, session_id):
+        """
+        Test that workspace-storing tools raise ValueError for an unknown workspace_id.
+
+        Tests:
+            (Test Case 1) create_rate_slice_stack raises ValueError: Workspace not found.
+        """
+        with pytest.raises(ValueError, match="Workspace not found"):
+            await analysis.create_rate_slice_stack(
+                session_id,
+                times_start_to_end=[[0.0, 25.0]],
+                workspace_id="nonexistent-workspace-id",
+                namespace="ns",
+                key="k",
+            )
 
 
 # ============================================================================
@@ -564,7 +940,6 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_list_tools(self):
         """Test that tools are registered."""
-        # Access the registered handler through the server's request handlers
         from mcp_server.server import _list_tools
 
         tools = await _list_tools()
@@ -575,6 +950,68 @@ class TestServerIntegration:
         assert "load_from_nwb" in tool_names
         assert "compute_rates" in tool_names
         assert "export_to_hdf5" in tool_names
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_workspace_tools_registered(self):
+        """
+        Test that all workspace management tools are registered.
+
+        Tests:
+            (Test Case 1) create_workspace is registered.
+            (Test Case 2) list_workspaces is registered.
+            (Test Case 3) fetch_workspace_item is registered.
+            (Test Case 4) _from_workspace analysis tools are registered.
+        """
+        from mcp_server.server import _list_tools
+
+        tools = await _list_tools()
+        tool_names = [tool.name for tool in tools]
+
+        # Workspace management
+        assert "create_workspace" in tool_names
+        assert "delete_workspace" in tool_names
+        assert "list_workspaces" in tool_names
+        assert "describe_workspace" in tool_names
+        assert "workspace_get_info" in tool_names
+        assert "rename_workspace_item" in tool_names
+        assert "add_workspace_note" in tool_names
+        assert "delete_workspace_item" in tool_names
+        assert "save_workspace" in tool_names
+        assert "load_workspace" in tool_names
+        assert "fetch_workspace_item" in tool_names
+
+        # _from_workspace tools
+        assert "compute_rate_slice_unit_corr_from_workspace" in tool_names
+        assert "compute_rate_slice_time_corr_from_workspace" in tool_names
+        assert "compute_unit_to_unit_slice_corr_from_workspace" in tool_names
+        assert "compute_rate_slice_unit_order_from_workspace" in tool_names
+
+        # Workspace-backed analysis tools
+        assert "pca_on_workspace_item" in tool_names
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_result_store_tools_removed(self):
+        """
+        Test that old ResultStore tools are no longer registered.
+
+        Tests:
+            (Test Case 1) fetch_result is not registered.
+            (Test Case 2) delete_result is not registered.
+            (Test Case 3) list_results is not registered.
+            (Test Case 4) _from_stack tools are not registered.
+        """
+        from mcp_server.server import _list_tools
+
+        tools = await _list_tools()
+        tool_names = [tool.name for tool in tools]
+
+        assert "fetch_result" not in tool_names
+        assert "delete_result" not in tool_names
+        assert "list_results" not in tool_names
+        assert "compute_rate_slice_unit_corr_from_stack" not in tool_names
+        assert "pca_on_result" not in tool_names
 
     @pytestmark_server
     @pytest.mark.asyncio

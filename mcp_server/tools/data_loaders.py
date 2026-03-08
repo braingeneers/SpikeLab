@@ -18,6 +18,56 @@ from data_loaders.data_loaders import (
 
 from mcp_server.s3_adapter import ensure_local, is_s3_url
 from mcp_server.sessions import get_session_manager
+from workspace.workspace import get_workspace_manager
+
+# ---------------------------------------------------------------------------
+# Workspace helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_workspace(workspace_id: str, name: Optional[str] = None):
+    """
+    Get or create a workspace.
+
+    Returns (workspace, workspace_id). Creates a new workspace when
+    workspace_id is empty; retrieves an existing one otherwise.
+    """
+    wm = get_workspace_manager()
+    if workspace_id:
+        ws = wm.get_workspace(workspace_id)
+        if ws is None:
+            raise ValueError(f"Workspace not found: {workspace_id}")
+        return ws, workspace_id
+    new_id = wm.create_workspace(name=name)
+    return wm.get_workspace(new_id), new_id
+
+
+def _namespace_from_path(path: str, namespace: str) -> str:
+    """Return namespace, or derive from file/folder basename if empty."""
+    if namespace:
+        return namespace
+    stem = os.path.splitext(os.path.basename(path.rstrip("/\\")))[0]
+    return stem or "recording"
+
+
+def _unique_namespace(ws, namespace: str) -> str:
+    """
+    Return namespace, appending _1, _2, ... until unique within ws.
+
+    If the namespace does not yet exist in ws, it is returned unchanged.
+    """
+    existing = set(ws.list_keys().keys())
+    if namespace not in existing:
+        return namespace
+    i = 1
+    while f"{namespace}_{i}" in existing:
+        i += 1
+    return f"{namespace}_{i}"
+
+
+# ---------------------------------------------------------------------------
+# Loader tool wrappers
+# ---------------------------------------------------------------------------
 
 
 async def load_from_hdf5(
@@ -38,6 +88,8 @@ async def load_from_hdf5(
     raw_time_dataset: Optional[str] = None,
     raw_time_unit: str = "s",
     length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -70,13 +122,15 @@ async def load_from_hdf5(
         raw_time_dataset: Optional raw time dataset path
         raw_time_unit: Time unit for raw data
         length_ms: Optional recording length in ms
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
+        namespace: Recording namespace within the workspace; derived from file name if empty
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
         aws_session_token: Optional AWS session token for S3
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
     local_path, is_temp = ensure_local(
         file_path,
@@ -135,6 +189,11 @@ async def load_from_hdf5(
         session_manager = get_session_manager()
         session_id = session_manager.create_session(spikedata)
 
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
         return {
             "session_id": session_id,
             "info": {
@@ -142,6 +201,9 @@ async def load_from_hdf5(
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:
@@ -155,6 +217,8 @@ async def load_from_nwb(
     file_path: str,
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -167,13 +231,15 @@ async def load_from_nwb(
         file_path: Local file path or S3 URL to NWB file
         prefer_pynwb: Prefer pynwb library over h5py for reading
         length_ms: Optional recording length in ms
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
+        namespace: Recording namespace within the workspace; derived from file name if empty
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
         aws_session_token: Optional AWS session token for S3
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
     local_path, is_temp = ensure_local(
         file_path,
@@ -191,6 +257,11 @@ async def load_from_nwb(
         session_manager = get_session_manager()
         session_id = session_manager.create_session(spikedata)
 
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
         return {
             "session_id": session_id,
             "info": {
@@ -198,6 +269,9 @@ async def load_from_nwb(
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:
@@ -216,6 +290,8 @@ async def load_from_kilosort(
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -233,13 +309,15 @@ async def load_from_kilosort(
         time_unit: Time unit in input files ('samples', 'ms', 's')
         include_noise: Include noise clusters if cluster_info.tsv is provided
         length_ms: Optional recording length in ms
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
+        namespace: Recording namespace within the workspace; derived from folder name if empty
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
         aws_session_token: Optional AWS session token for S3
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
     # For S3, we need to handle folder paths differently
     # For now, assume local folder or handle S3 folder as a prefix
@@ -269,6 +347,11 @@ async def load_from_kilosort(
     session_manager = get_session_manager()
     session_id = session_manager.create_session(spikedata)
 
+    ns_derived = _namespace_from_path(folder_path, namespace)
+    ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+    ns_final = _unique_namespace(ws, ns_derived)
+    ws.store(ns_final, "spikedata", spikedata)
+
     return {
         "session_id": session_id,
         "info": {
@@ -276,11 +359,16 @@ async def load_from_kilosort(
             "length_ms": spikedata.length,
             "metadata": spikedata.metadata,
         },
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
     }
 
 
 async def load_from_pickle(
     file_path: str,
+    workspace_id: str = "",
+    namespace: str = "",
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -294,13 +382,15 @@ async def load_from_pickle(
 
     Args:
         file_path: Local file path or S3 URL to pickle file
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
+        namespace: Recording namespace within the workspace; derived from file name if empty
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
         aws_session_token: Optional AWS session token for S3
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
     spikedata = load_spikedata_from_pickle(
         file_path,
@@ -313,6 +403,11 @@ async def load_from_pickle(
     session_manager = get_session_manager()
     session_id = session_manager.create_session(spikedata)
 
+    ns_derived = _namespace_from_path(file_path, namespace)
+    ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+    ns_final = _unique_namespace(ws, ns_derived)
+    ws.store(ns_final, "spikedata", spikedata)
+
     return {
         "session_id": session_id,
         "info": {
@@ -320,6 +415,9 @@ async def load_from_pickle(
             "length_ms": spikedata.length,
             "metadata": spikedata.metadata,
         },
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
     }
 
 
@@ -331,6 +429,8 @@ async def load_from_hdf5_thresholded(
     filter: bool = True,
     hysteresis: bool = True,
     direction: str = "both",
+    workspace_id: str = "",
+    namespace: str = "",
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -347,13 +447,15 @@ async def load_from_hdf5_thresholded(
         filter: Apply Butterworth bandpass filter (300Hz-6kHz default)
         hysteresis: Use rising-edge detection
         direction: Threshold direction ('both', 'up', 'down')
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
+        namespace: Recording namespace within the workspace; derived from file name if empty
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
         aws_session_token: Optional AWS session token for S3
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id' and 'info' (num_neurons, length_ms, metadata)
+        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
     local_path, is_temp = ensure_local(
         file_path,
@@ -377,6 +479,11 @@ async def load_from_hdf5_thresholded(
         session_manager = get_session_manager()
         session_id = session_manager.create_session(spikedata)
 
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
         return {
             "session_id": session_id,
             "info": {
@@ -384,6 +491,9 @@ async def load_from_hdf5_thresholded(
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:
