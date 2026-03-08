@@ -1618,28 +1618,6 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
-    # Session management tools (kept for backwards compatibility)
-    # -----------------------------------------------------------------------
-    tools.extend(
-        [
-            types.Tool(
-                name="list_sessions",
-                description="List all active spike data session IDs.",
-                inputSchema={"type": "object", "properties": {}},
-            ),
-            types.Tool(
-                name="delete_session",
-                description="Delete a spike data session from the session manager.",
-                inputSchema={
-                    "type": "object",
-                    "properties": {"session_id": {"type": "string"}},
-                    "required": ["session_id"],
-                },
-            ),
-        ]
-    )
-
-    # -----------------------------------------------------------------------
     # Workspace management tools
     # -----------------------------------------------------------------------
     tools.extend(
@@ -2100,12 +2078,6 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.umap_reduction(**arguments)
         elif name == "umap_graph_communities":
             result = await analysis.umap_graph_communities(**arguments)
-
-        # Session management tools
-        elif name == "list_sessions":
-            result = await analysis.list_sessions(**arguments)
-        elif name == "delete_session":
-            result = await analysis.delete_session(**arguments)
 
         # Workspace management tools
         elif name == "create_workspace":

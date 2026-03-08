@@ -42,7 +42,6 @@ try:
         parse_s3_url,
         upload_to_s3,
     )
-    from mcp_server.sessions import SessionManager, get_session_manager
     from spikedata import SpikeData
 
     MCP_AVAILABLE = True
@@ -101,20 +100,17 @@ def sample_spikedata():
 
 
 @pytest.fixture
-def session_id(sample_spikedata):
-    """Create a session with sample data."""
-    session_manager = get_session_manager()
-    session_manager._sessions.clear()  # Reset for test isolation
-    return session_manager.create_session(sample_spikedata)
+def loaded_ws(sample_spikedata):
+    """Create a workspace with sample SpikeData stored at ('rec1', 'spikedata').
 
-
-@pytest.fixture(autouse=True)
-def reset_session_manager():
-    """Reset session manager before each test."""
-    session_manager = get_session_manager()
-    session_manager._sessions.clear()
-    yield
-    session_manager._sessions.clear()
+    Returns (workspace_id, namespace).
+    """
+    if not MCP_SERVER_AVAILABLE:
+        pytest.skip("MCP server not available")
+    wm = get_workspace_manager()
+    ws_id = wm.create_workspace(name="test_ws")
+    wm.get_workspace(ws_id).store("rec1", "spikedata", sample_spikedata)
+    return ws_id, "rec1"
 
 
 @pytest.fixture(autouse=True)
@@ -338,46 +334,6 @@ class TestS3Utils:
 
 
 # ============================================================================
-# Session Management Tests
-# ============================================================================
-
-
-class TestSessionManagement:
-    """Test session management functionality."""
-
-    @pytestmark_infra
-    def test_create_and_get_session(self, sample_spikedata):
-        """Test creating and retrieving sessions."""
-        session_manager = SessionManager()
-        session_id = session_manager.create_session(sample_spikedata)
-
-        retrieved = session_manager.get_session(session_id)
-        assert retrieved is not None
-        assert retrieved.N == sample_spikedata.N
-
-    @pytestmark_infra
-    def test_session_expiration(self, sample_spikedata):
-        """Test session expiration."""
-        session_manager = SessionManager()
-        session_id = session_manager.create_session(sample_spikedata, ttl_seconds=0.1)
-
-        assert session_manager.get_session(session_id) is not None
-        time.sleep(0.2)
-        assert session_manager.get_session(session_id) is None
-
-    @pytestmark_infra
-    def test_update_and_delete_session(self, sample_spikedata):
-        """Test updating and deleting sessions."""
-        session_manager = SessionManager()
-        session_id = session_manager.create_session(sample_spikedata)
-
-        new_sd = SpikeData([[1.0, 2.0]], length=10.0)
-        assert session_manager.update_session(session_id, new_sd) is True
-        assert session_manager.delete_session(session_id) is True
-        assert session_manager.get_session(session_id) is None
-
-
-# ============================================================================
 # Data Loader Tests
 # ============================================================================
 
@@ -388,7 +344,13 @@ class TestDataLoaders:
     @pytestmark_server
     @pytest.mark.asyncio
     async def test_load_from_nwb(self):
-        """Test loading from NWB file."""
+        """
+        Test loading spike data from an NWB file.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, and workspace_key.
+            (Test Case 2) info.num_neurons matches the number of units in the file.
+        """
         try:
             import h5py
         except ImportError:
@@ -403,16 +365,27 @@ class TestDataLoaders:
             units.create_dataset("spike_times_index", data=spike_times_index)
             f.close()
 
+        try:
             result = await data_loaders.load_from_nwb(tmp.name)
-            assert "session_id" in result
+            assert "workspace_id" in result
+            assert "namespace" in result
+            assert result["workspace_key"] == "spikedata"
             assert result["info"]["num_neurons"] == 3
-            os.unlink(tmp.name)
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders.ensure_local_file")
+    @patch("mcp_server.tools.data_loaders.ensure_local")
     async def test_load_from_hdf5_s3(self, mock_ensure):
-        """Test loading HDF5 from S3."""
+        """
+        Test loading HDF5 spike data from an S3 URL.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id and namespace.
+            (Test Case 2) Workspace key is 'spikedata'.
+        """
         try:
             import h5py
         except ImportError:
@@ -425,8 +398,10 @@ class TestDataLoaders:
             f.create_dataset("spike_times", data=spike_times)
             f.create_dataset("spike_times_index", data=spike_times_index)
             f.close()
+            local_path = tmp.name
 
-            mock_ensure.return_value = (tmp.name, True)
+        try:
+            mock_ensure.return_value = (local_path, False)
             result = await data_loaders.load_from_hdf5(
                 "s3://bucket/data.h5",
                 style="ragged",
@@ -434,10 +409,12 @@ class TestDataLoaders:
                 spike_times_index_dataset="spike_times_index",
                 spike_times_unit="s",
             )
-            assert "session_id" in result
-            # File may have been cleaned up by ensure_local_file if is_temp=True
-            if os.path.exists(tmp.name):
-                os.unlink(tmp.name)
+            assert "workspace_id" in result
+            assert "namespace" in result
+            assert result["workspace_key"] == "spikedata"
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
 
 
 # ============================================================================
@@ -450,56 +427,101 @@ class TestAnalysisTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_rates(self, session_id):
-        """Test computing firing rates."""
-        result = await analysis.compute_rates(session_id, unit="kHz")
-        assert "rates" in result
-        assert "unit" in result
+    async def test_compute_rates(self, loaded_ws):
+        """
+        Test compute_rates stores firing rates in the workspace.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key, and unit.
+            (Test Case 2) Stored item info shows ndarray type.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_rates(ws_id, ns, "rates", unit="kHz")
+        assert result["workspace_id"] == ws_id
+        assert result["namespace"] == ns
+        assert result["key"] == "rates"
         assert result["unit"] == "kHz"
-        assert len(result["rates"]) == 3
+        assert result["info"]["type"] == "ndarray"
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_raster(self, session_id):
-        """Test computing raster."""
-        result = await analysis.compute_raster(session_id, bin_size=5.0)
-        assert "raster" in result
-        assert "bin_size" in result
+    async def test_compute_raster(self, loaded_ws):
+        """
+        Test compute_raster stores a binary raster matrix in the workspace.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key, and bin_size.
+            (Test Case 2) Stored item info shows ndarray type.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_raster(ws_id, ns, "raster", bin_size=5.0)
+        assert result["workspace_id"] == ws_id
+        assert result["key"] == "raster"
         assert result["bin_size"] == 5.0
+        assert result["info"]["type"] == "ndarray"
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_spike_time_tiling(self, session_id):
-        """Test computing STTC."""
+    async def test_compute_spike_time_tiling(self, loaded_ws):
+        """
+        Test compute_spike_time_tiling stores the STTC scalar in the workspace.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key, neuron_i, neuron_j.
+            (Test Case 2) Stored item info shows ndarray type (scalar wrapped in array).
+        """
+        ws_id, ns = loaded_ws
         result = await analysis.compute_spike_time_tiling(
-            session_id, neuron_i=0, neuron_j=1, delt=10.0
+            ws_id, ns, "sttc", neuron_i=0, neuron_j=1, delt=10.0
         )
-        assert "sttc" in result
-        assert isinstance(result["sttc"], (int, float))
+        assert result["workspace_id"] == ws_id
+        assert result["key"] == "sttc"
+        assert result["neuron_i"] == 0
+        assert result["neuron_j"] == 1
+        assert result["info"]["type"] == "ndarray"
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_subtime(self, session_id):
-        """Test time window extraction."""
-        result = await analysis.subtime(session_id, start=10.0, end=30.0)
-        assert "session_id" in result
-        assert "info" in result
+    async def test_subtime(self, loaded_ws):
+        """
+        Test subtime stores a trimmed SpikeData back in the workspace.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, and workspace_key.
+            (Test Case 2) Stored SpikeData length matches the requested window.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subtime(ws_id, ns, start=10.0, end=30.0)
+        assert result["workspace_id"] == ws_id
+        assert result["workspace_key"] == "spikedata"
         assert result["info"]["length_ms"] == pytest.approx(20.0, abs=1.0)
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_get_data_info(self, session_id, sample_spikedata):
-        """Test getting data information."""
-        result = await analysis.get_data_info(session_id)
+    async def test_get_data_info(self, loaded_ws, sample_spikedata):
+        """
+        Test get_data_info returns inline metadata for SpikeData.
+
+        Tests:
+            (Test Case 1) num_neurons matches the loaded SpikeData.
+            (Test Case 2) length_ms matches the loaded SpikeData.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.get_data_info(ws_id, ns)
         assert result["num_neurons"] == sample_spikedata.N
         assert result["length_ms"] == sample_spikedata.length
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_invalid_session(self):
-        """Test error handling for invalid session."""
-        with pytest.raises(ValueError, match="Session not found"):
-            await analysis.compute_rates("invalid-session-id")
+    async def test_invalid_workspace(self):
+        """
+        Test that analysis tools raise ValueError for an unknown workspace_id.
+
+        Tests:
+            (Test Case 1) compute_rates raises ValueError with 'Workspace not found'.
+        """
+        with pytest.raises(ValueError, match="Workspace not found"):
+            await analysis.compute_rates("nonexistent-workspace-id", "ns", "rates")
 
 
 # ============================================================================
@@ -714,25 +736,29 @@ class TestWorkspaceAnalysisTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_pairwise_fr_corr(self, session_id, workspace_id):
+    async def test_compute_pairwise_fr_corr(self, loaded_ws):
         """
         Test compute_pairwise_fr_corr stores correlation and lag matrices in workspace.
 
         Tests:
             (Test Case 1) Returns workspace_id, namespace, key_corr, key_lag.
             (Test Case 2) Both stored items have correct type and shape (U, U).
+
+        Notes:
+            - compute_pairwise_fr_corr reads RateData; ISI rates must be computed first.
         """
+        ws_id, ns = loaded_ws
         times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rates", times=times)
         result = await analysis.compute_pairwise_fr_corr(
-            session_id,
-            times=times,
-            workspace_id=workspace_id,
-            namespace="rec1",
+            ws_id,
+            ns,
+            rate_key="rates",
             key_corr="corr",
             key_lag="lag",
         )
-        assert result["workspace_id"] == workspace_id
-        assert result["namespace"] == "rec1"
+        assert result["workspace_id"] == ws_id
+        assert result["namespace"] == ns
         assert result["key_corr"] == "corr"
         assert result["key_lag"] == "lag"
         assert result["info_corr"]["type"] == "ndarray"
@@ -741,7 +767,7 @@ class TestWorkspaceAnalysisTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_create_rate_slice_stack(self, session_id, workspace_id):
+    async def test_create_rate_slice_stack(self, loaded_ws):
         """
         Test create_rate_slice_stack stores a RateSliceStack in the workspace.
 
@@ -749,54 +775,49 @@ class TestWorkspaceAnalysisTools:
             (Test Case 1) Returns workspace_id, namespace, key.
             (Test Case 2) Stored item summary reports type RateSliceStack.
         """
+        ws_id, ns = loaded_ws
         times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
         result = await analysis.create_rate_slice_stack(
-            session_id,
+            ws_id,
+            ns,
+            "rss",
             times_start_to_end=times_start_to_end,
-            workspace_id=workspace_id,
-            namespace="rec1",
-            key="rss",
         )
-        assert result["workspace_id"] == workspace_id
+        assert result["workspace_id"] == ws_id
         assert result["key"] == "rss"
         assert result["info"]["type"] == "RateSliceStack"
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_rate_slice_unit_corr_from_workspace(
-        self, session_id, workspace_id
-    ):
+    async def test_compute_rate_slice_unit_corr(self, loaded_ws):
         """
-        Test compute_rate_slice_unit_corr_from_workspace loads a stored RateSliceStack
-        and stores the resulting PairwiseCompMatrixStack.
+        Test compute_rate_slice_unit_corr loads a stored RateSliceStack and stores
+        the resulting PairwiseCompMatrixStack.
 
         Tests:
             (Test Case 1) Returns workspace_id, namespace, and out_key.
             (Test Case 2) Stored output item type is PairwiseCompMatrixStack.
             (Test Case 3) av_corr is returned inline.
         """
+        ws_id, ns = loaded_ws
         times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
         await analysis.create_rate_slice_stack(
-            session_id,
-            times_start_to_end=times_start_to_end,
-            workspace_id=workspace_id,
-            namespace="rec1",
-            key="rss",
+            ws_id, ns, "rss", times_start_to_end=times_start_to_end
         )
-        result = await analysis.compute_rate_slice_unit_corr_from_workspace(
-            workspace_id=workspace_id,
-            namespace="rec1",
+        result = await analysis.compute_rate_slice_unit_corr(
+            workspace_id=ws_id,
+            namespace=ns,
             stack_key="rss",
             out_key="corr_stack",
         )
-        assert result["workspace_id"] == workspace_id
+        assert result["workspace_id"] == ws_id
         assert result["key"] == "corr_stack"
         assert result["info"]["type"] == "PairwiseCompMatrixStack"
         assert "av_corr" in result
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_frames_rate_data(self, session_id, workspace_id):
+    async def test_frames_rate_data(self, loaded_ws):
         """
         Test frames_rate_data stores a RateSliceStack in the workspace.
 
@@ -804,24 +825,28 @@ class TestWorkspaceAnalysisTools:
             (Test Case 1) Returns workspace_id, namespace, key, and n_frames.
             (Test Case 2) Stored item type is RateSliceStack.
             (Test Case 3) n_frames is correct for non-overlapping equal-length frames.
+
+        Notes:
+            - frames_rate_data reads RateData; ISI rates must be computed first.
         """
-        isi_times = list(np.arange(0.0, 50.0, 1.0))
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rates", times=times)
         result = await analysis.frames_rate_data(
-            session_id,
-            isi_times=isi_times,
-            length=25.0,
-            workspace_id=workspace_id,
-            namespace="rec1",
+            ws_id,
+            ns,
+            rate_key="rates",
             key="frames",
+            length=25.0,
         )
-        assert result["workspace_id"] == workspace_id
+        assert result["workspace_id"] == ws_id
         assert result["key"] == "frames"
         assert result["n_frames"] == 2
         assert result["info"]["type"] == "RateSliceStack"
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_extract_lower_triangle_features(self, session_id, workspace_id):
+    async def test_extract_lower_triangle_features(self, loaded_ws):
         """
         Test extract_lower_triangle_features loads a PairwiseCompMatrixStack from
         the workspace and stores a (S, F) feature matrix.
@@ -830,17 +855,20 @@ class TestWorkspaceAnalysisTools:
             (Test Case 1) Returns workspace reference with out_key.
             (Test Case 2) Stored output is an ndarray with correct rank.
         """
+        ws_id, ns = loaded_ws
         times_start_to_end = [[0.0, 25.0], [25.0, 50.0]]
+        await analysis.create_rate_slice_stack(
+            ws_id, ns, "rss", times_start_to_end=times_start_to_end
+        )
         await analysis.compute_rate_slice_unit_corr(
-            session_id,
-            times_start_to_end=times_start_to_end,
-            workspace_id=workspace_id,
-            namespace="rec1",
-            key="corr_stack",
+            workspace_id=ws_id,
+            namespace=ns,
+            stack_key="rss",
+            out_key="corr_stack",
         )
         result = await analysis.extract_lower_triangle_features(
-            workspace_id=workspace_id,
-            namespace="rec1",
+            workspace_id=ws_id,
+            namespace=ns,
             key="corr_stack",
             out_key="features",
         )
@@ -849,7 +877,7 @@ class TestWorkspaceAnalysisTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_invalid_workspace_raises(self, session_id):
+    async def test_invalid_workspace_raises(self):
         """
         Test that workspace-storing tools raise ValueError for an unknown workspace_id.
 
@@ -858,11 +886,10 @@ class TestWorkspaceAnalysisTools:
         """
         with pytest.raises(ValueError, match="Workspace not found"):
             await analysis.create_rate_slice_stack(
-                session_id,
+                "nonexistent-workspace-id",
+                "ns",
+                "k",
                 times_start_to_end=[[0.0, 25.0]],
-                workspace_id="nonexistent-workspace-id",
-                namespace="ns",
-                key="k",
             )
 
 
@@ -876,19 +903,26 @@ class TestExportTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_export_to_hdf5(self, session_id):
-        """Test exporting to HDF5."""
+    async def test_export_to_hdf5(self, loaded_ws):
+        """
+        Test exporting SpikeData from a workspace to an HDF5 file.
+
+        Tests:
+            (Test Case 1) Result contains file_path.
+            (Test Case 2) File exists on disk after export.
+        """
         try:
             import h5py
         except ImportError:
             pytest.skip("h5py not available")
 
+        ws_id, ns = loaded_ws
         with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
             tmp_path = tmp.name
 
         try:
             result = await exporters.export_to_hdf5(
-                session_id, tmp_path, style="ragged", spike_times_unit="s"
+                ws_id, ns, tmp_path, style="ragged", spike_times_unit="s"
             )
             assert "file_path" in result
             assert os.path.exists(tmp_path)
@@ -898,18 +932,25 @@ class TestExportTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_export_to_nwb(self, session_id):
-        """Test exporting to NWB."""
+    async def test_export_to_nwb(self, loaded_ws):
+        """
+        Test exporting SpikeData from a workspace to an NWB file.
+
+        Tests:
+            (Test Case 1) Result contains file_path.
+            (Test Case 2) File exists on disk after export.
+        """
         try:
             import h5py
         except ImportError:
             pytest.skip("h5py not available")
 
+        ws_id, ns = loaded_ws
         with tempfile.NamedTemporaryFile(delete=False, suffix=".nwb") as tmp:
             tmp_path = tmp.name
 
         try:
-            result = await exporters.export_to_nwb(session_id, tmp_path)
+            result = await exporters.export_to_nwb(ws_id, ns, tmp_path)
             assert "file_path" in result
             assert os.path.exists(tmp_path)
         finally:
@@ -918,12 +959,17 @@ class TestExportTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_export_to_kilosort(self, session_id):
-        """Test exporting to KiloSort."""
+    async def test_export_to_kilosort(self, loaded_ws):
+        """
+        Test exporting SpikeData from a workspace to a KiloSort folder.
+
+        Tests:
+            (Test Case 1) Result contains folder_path.
+            (Test Case 2) Exactly two files are created (spike_times.npy, spike_clusters.npy).
+        """
+        ws_id, ns = loaded_ws
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = await exporters.export_to_kilosort(
-                session_id, tmpdir, fs_Hz=1000.0
-            )
+            result = await exporters.export_to_kilosort(ws_id, ns, tmpdir, fs_Hz=1000.0)
             assert "folder_path" in result
             assert len(result["files"]) == 2
 
@@ -981,11 +1027,11 @@ class TestServerIntegration:
         assert "load_workspace" in tool_names
         assert "fetch_workspace_item" in tool_names
 
-        # _from_workspace tools
-        assert "compute_rate_slice_unit_corr_from_workspace" in tool_names
-        assert "compute_rate_slice_time_corr_from_workspace" in tool_names
-        assert "compute_unit_to_unit_slice_corr_from_workspace" in tool_names
-        assert "compute_rate_slice_unit_order_from_workspace" in tool_names
+        # Workspace-backed stack analysis tools
+        assert "compute_rate_slice_unit_corr" in tool_names
+        assert "compute_rate_slice_time_corr" in tool_names
+        assert "compute_unit_to_unit_slice_corr" in tool_names
+        assert "compute_rate_slice_unit_order" in tool_names
 
         # Workspace-backed analysis tools
         assert "pca_on_workspace_item" in tool_names
@@ -1040,7 +1086,13 @@ class TestServerIntegration:
         }
 
         result = await _call_tool(
-            "compute_rates", {"session_id": "test-session", "unit": "kHz"}
+            "compute_rates",
+            {
+                "workspace_id": "test-ws",
+                "namespace": "rec1",
+                "key": "rates",
+                "unit": "kHz",
+            },
         )
 
         assert len(result) == 1

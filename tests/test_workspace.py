@@ -551,6 +551,7 @@ class TestAnalysisWorkspace(unittest.TestCase):
             with self.assertRaises(KeyError):
                 AnalysisWorkspace.load_item(base, "ns", "missing_key")
 
+    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
     def test_json_index_is_valid(self):
         """
         Tests that the .json sidecar file is valid JSON and contains the index.

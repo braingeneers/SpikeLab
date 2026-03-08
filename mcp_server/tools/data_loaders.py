@@ -17,7 +17,6 @@ from data_loaders.data_loaders import (
 )
 
 from mcp_server.s3_adapter import ensure_local, is_s3_url
-from mcp_server.sessions import get_session_manager
 from workspace.workspace import get_workspace_manager
 
 # ---------------------------------------------------------------------------
@@ -186,24 +185,20 @@ async def load_from_hdf5(
 
         spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
 
-        session_manager = get_session_manager()
-        session_id = session_manager.create_session(spikedata)
-
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
         ws.store(ns_final, "spikedata", spikedata)
 
         return {
-            "session_id": session_id,
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:
@@ -254,24 +249,20 @@ async def load_from_nwb(
             local_path, prefer_pynwb=prefer_pynwb, length_ms=length_ms
         )
 
-        session_manager = get_session_manager()
-        session_id = session_manager.create_session(spikedata)
-
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
         ws.store(ns_final, "spikedata", spikedata)
 
         return {
-            "session_id": session_id,
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:
@@ -344,24 +335,20 @@ async def load_from_kilosort(
         length_ms=length_ms,
     )
 
-    session_manager = get_session_manager()
-    session_id = session_manager.create_session(spikedata)
-
     ns_derived = _namespace_from_path(folder_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
     ws.store(ns_final, "spikedata", spikedata)
 
     return {
-        "session_id": session_id,
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
             "metadata": spikedata.metadata,
         },
-        "workspace_id": resolved_wid,
-        "namespace": ns_final,
-        "workspace_key": "spikedata",
     }
 
 
@@ -400,24 +387,20 @@ async def load_from_pickle(
         region_name=region_name,
     )
 
-    session_manager = get_session_manager()
-    session_id = session_manager.create_session(spikedata)
-
     ns_derived = _namespace_from_path(file_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
     ns_final = _unique_namespace(ws, ns_derived)
     ws.store(ns_final, "spikedata", spikedata)
 
     return {
-        "session_id": session_id,
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
             "metadata": spikedata.metadata,
         },
-        "workspace_id": resolved_wid,
-        "namespace": ns_final,
-        "workspace_key": "spikedata",
     }
 
 
@@ -476,24 +459,20 @@ async def load_from_hdf5_thresholded(
             direction=direction,
         )
 
-        session_manager = get_session_manager()
-        session_id = session_manager.create_session(spikedata)
-
         ns_derived = _namespace_from_path(file_path, namespace)
         ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
         ns_final = _unique_namespace(ws, ns_derived)
         ws.store(ns_final, "spikedata", spikedata)
 
         return {
-            "session_id": session_id,
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
                 "metadata": spikedata.metadata,
             },
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
         }
     finally:
         if is_temp:

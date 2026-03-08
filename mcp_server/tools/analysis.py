@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from mcp_server.sessions import get_session_manager
 from spikedata.pairwise import PairwiseCompMatrixStack
 from spikedata.ratedata import RateData
 from spikedata.rateslicestack import RateSliceStack
@@ -1237,21 +1236,6 @@ async def umap_graph_communities(
         "labels": labels.tolist(),
         "info": ws.get_info(namespace, out_key),
     }
-
-
-# ---------------------------------------------------------------------------
-# Session management (kept for backwards compatibility)
-# ---------------------------------------------------------------------------
-
-
-async def list_sessions() -> Dict[str, Any]:
-    session_ids = get_session_manager().list_sessions()
-    return {"sessions": session_ids, "count": len(session_ids)}
-
-
-async def delete_session(session_id: str) -> Dict[str, Any]:
-    deleted = get_session_manager().delete_session(session_id)
-    return {"deleted": deleted, "session_id": session_id}
 
 
 # ---------------------------------------------------------------------------
