@@ -22,13 +22,18 @@ from workspace.workspace import get_workspace_manager
 _SPIKEDATA_KEY = "spikedata"
 
 
-def _get_spikedata(workspace_id: str, namespace: str):
-    """Load SpikeData from (namespace, 'spikedata') in the workspace."""
-    from spikedata.spikedata import SpikeData
-
+def _get_workspace(workspace_id: str):
+    """Get AnalysisWorkspace by ID, raising ValueError if not found."""
     ws = get_workspace_manager().get_workspace(workspace_id)
     if ws is None:
         raise ValueError(f"Workspace not found: {workspace_id}")
+    return ws
+
+
+def _get_spikedata(ws, namespace: str):
+    """Load SpikeData from (namespace, 'spikedata') in the workspace."""
+    from spikedata.spikedata import SpikeData
+
     sd = ws.get(namespace, _SPIKEDATA_KEY)
     if sd is None or not isinstance(sd, SpikeData):
         raise ValueError(
@@ -100,7 +105,7 @@ async def export_to_hdf5(
     Returns:
         Dictionary with 'file_path' (output path) and 'style'
     """
-    spikedata = _get_spikedata(workspace_id, namespace)
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
 
     # Determine if output is S3 or local
     is_s3 = is_s3_url(file_path)
@@ -206,7 +211,7 @@ async def export_to_nwb(
     Returns:
         Dictionary with 'file_path' (output path)
     """
-    spikedata = _get_spikedata(workspace_id, namespace)
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
 
     is_s3 = is_s3_url(file_path)
     if is_s3:
@@ -285,7 +290,7 @@ async def export_to_kilosort(
     Returns:
         Dictionary with 'folder_path' and 'files' (list of created files)
     """
-    spikedata = _get_spikedata(workspace_id, namespace)
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
 
     is_s3 = is_s3_url(folder_path)
     if is_s3:
@@ -338,7 +343,7 @@ async def export_to_pickle(
     Returns:
         Dictionary with 'file_path' (output path)
     """
-    spikedata = _get_spikedata(workspace_id, namespace)
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
 
     result_path = export_spikedata_to_pickle(
         spikedata,
