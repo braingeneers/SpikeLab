@@ -18,10 +18,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
-from spikedata import SpikeData
-from spikedata.utils import (
-    _resampled_isi
-)
+from IntegratedAnalysisTools.spikedata import SpikeData
+from IntegratedAnalysisTools.spikedata.utils import *
 
 
 @dataclass
