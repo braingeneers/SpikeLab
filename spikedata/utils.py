@@ -6,7 +6,6 @@ from scipy.stats import norm
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
-
 __all__ = [
     "get_sttc",
     "swap",
@@ -26,10 +25,26 @@ __all__ = [
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
-try:
-    import h5py
-except ImportError:
-    h5py = None
+try:  # optional, only needed for HDF5/NWB exporters
+    import h5py  # type: ignore
+except Exception:  # pragma: no cover
+    h5py = None  # type: ignore
+
+# Optional dependencies for manifold learning and graph-based clustering.
+try:  # optional, only needed for UMAP-based reductions
+    import umap  # type: ignore
+except Exception:  # pragma: no cover
+    umap = None  # type: ignore
+
+try:  # optional, only needed for graph/community detection
+    import networkx as nx  # type: ignore
+except Exception:  # pragma: no cover
+    nx = None  # type: ignore
+
+try:  # optional, only needed for Louvain community detection
+    import community as community_louvain  # type: ignore
+except Exception:  # pragma: no cover
+    community_louvain = None  # type: ignore
 
 
 def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
@@ -567,6 +582,153 @@ def PCA_reduction(matrix_2d, n_components=2):
     return pca_result
 
 
+def UMAP_reduction(
+    matrix_2d,
+    n_components: int = 2,
+    n_neighbors: int = 15,
+    min_dist: float = 0.1,
+    metric: str = "euclidean",
+    random_state: Optional[int] = None,
+    **umap_kwargs: Any,
+):
+    """
+    Compute UMAP dimensionality reduction on a 2D matrix.
+
+    Parameters
+    ----------
+    matrix_2d : array-like, shape (n_samples, n_features)
+        Input data. Each row is a sample, each column is a feature.
+
+    n_components : int, default=2
+        Dimension of the embedded space.
+
+    n_neighbors : int, default=15
+        Size of local neighborhood (in terms of number of neighboring sample points)
+        used for manifold approximation.
+
+    min_dist : float, default=0.1
+        Controls how tightly UMAP packs points together in the low-dimensional space.
+
+    metric : str, default="euclidean"
+        Distance metric used in the input space.
+
+    random_state : int or None, default=None
+        Random seed for reproducibility.
+
+    **umap_kwargs :
+        Additional keyword arguments passed to ``umap.UMAP``.
+
+    Returns
+    -------
+    embedding : ndarray, shape (n_samples, n_components)
+        Low-dimensional embedding of the data.
+    """
+    if umap is None:
+        raise ImportError(
+            "UMAP_reduction requires the optional dependency 'umap-learn'. "
+            "Install it with `pip install umap-learn`."
+        )
+
+    reducer = umap.UMAP(
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        metric=metric,
+        random_state=random_state,
+        **umap_kwargs,
+    )
+    embedding = reducer.fit_transform(matrix_2d)
+    return embedding
+
+
+def UMAP_graph_communities(
+    matrix_2d,
+    n_components: int = 2,
+    resolution: float = 1.0,
+    n_neighbors: int = 15,
+    min_dist: float = 0.1,
+    metric: str = "euclidean",
+    random_state: Optional[int] = None,
+    **umap_kwargs: Any,
+):
+    """
+    Run UMAP and Louvain community detection on the UMAP connectivity graph.
+
+    This helper keeps UMAP_reduction simple while providing an optional
+    graph-based clustering approach that builds on UMAP's internal graph.
+
+    Parameters
+    ----------
+    matrix_2d : array-like, shape (n_samples, n_features)
+        Input data. Each row is a sample, each column is a feature.
+
+    n_components : int, default=2
+        Dimension of the embedded space.
+
+    resolution : float, default=1.0
+        Resolution parameter for the Louvain community detection algorithm.
+        Higher values -> more, smaller communities. Lower values -> fewer,
+        larger communities.
+
+    n_neighbors, min_dist, metric, random_state, **umap_kwargs :
+        Passed through to the underlying UMAP_reduction / umap.UMAP.
+
+    Returns
+    -------
+    embedding : ndarray, shape (n_samples, n_components)
+        Low-dimensional UMAP embedding.
+
+    labels : ndarray, shape (n_samples,)
+        Integer community label for each sample.
+    """
+    # First compute the UMAP embedding and fitted mapper using the same
+    # configuration as UMAP_reduction.
+    if umap is None:
+        raise ImportError(
+            "UMAP_graph_communities requires the optional dependency 'umap-learn'. "
+            "Install it with `pip install umap-learn`."
+        )
+    if nx is None:
+        raise ImportError(
+            "UMAP_graph_communities requires the optional dependency 'networkx'. "
+            "Install it with `pip install networkx`."
+        )
+    if community_louvain is None:
+        raise ImportError(
+            "UMAP_graph_communities requires the optional dependency "
+            "'python-louvain'. Install it with `pip install python-louvain`."
+        )
+
+    mapper = umap.UMAP(
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        metric=metric,
+        random_state=random_state,
+        **umap_kwargs,
+    ).fit(matrix_2d)
+
+    # UMAP's internal connectivity graph -> NetworkX graph
+    # Use a compatibility shim so both old and new NetworkX versions work.
+    if hasattr(nx, "from_scipy_sparse_array"):
+        G = nx.from_scipy_sparse_array(mapper.graph_)
+    else:
+        G = nx.from_scipy_sparse_matrix(mapper.graph_)
+
+    # Louvain community detection on the graph
+    clustering = community_louvain.best_partition(G, resolution=resolution)
+
+    # Convert dict {node_idx: community_id} -> label array
+    # Use the fitted mapper's embedding to determine n_samples so that
+    # callers can pass in any array-like that UMAP accepts (not just ndarrays).
+    n_samples = mapper.embedding_.shape[0]
+    labels = np.zeros(n_samples, dtype=int)
+    for node, c_id in clustering.items():
+        labels[node] = c_id
+
+    return mapper.embedding_, labels
+
+
 def ensure_h5py():
     """Ensure h5py is available for HDF5-based exporters."""
     if h5py is None:
@@ -619,7 +781,7 @@ def check_neuron_attributes(
 
     Notes:
     - If some dictionaries are missing keys that others have, a ValueError is raised
-      describing the inconsistent keys.
+      indicating which neuron entries have inconsistent keys.
     """
     if not isinstance(neuron_attributes, list):
         raise ValueError("neuron_attributes must be a list")

@@ -14,13 +14,14 @@ except ImportError:
     quantities = None
 
 # Ensure project root is on sys.path, then import package normally so relative imports work.
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-import spikedata.spikedata as spikedata
-from spikedata import SpikeData
-from spikedata.utils import _sliding_rate_single_train
-from spikedata.utils import (
+import IntegratedAnalysisTools.spikedata.spikedata as spikedata
+from IntegratedAnalysisTools.spikedata import SpikeData
+from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
+from IntegratedAnalysisTools.spikedata.utils import _sliding_rate_single_train
+from IntegratedAnalysisTools.spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
     extract_unit_waveforms,
@@ -210,8 +211,9 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 12) Tests subtime() with ... first argument.
         (Test Case 13) Tests subtime() with ... second argument.
         (Test Case 14) Tests subtime() with second argument greater than length.
-        (Test Case 15) Tests consistency between subtime() and frames().
-        (Test Case 16) Tests overlap parameter in frames().
+        (Test Case 15) Tests that frames() returns a SpikeSliceStack consistent with subtime().
+        (Test Case 16) Tests overlap parameter in frames() and that partial last windows are excluded.
+        (Test Case 17) Tests frames() raises ValueError for invalid overlap and short recordings.
         """
         times = np.random.rand(100) * 100
         idces = np.random.randint(5, size=100)
@@ -289,13 +291,26 @@ class SpikeDataTest(unittest.TestCase):
         sdtime = sd.subtime(20, 150)
         self.assertSpikeDataSubtime(sd, sdtime, 20, 100)
 
-        # Test consistency between subtime() and frames().
-        for i, frame in enumerate(sd.frames(20)):
+        # Test that frames() returns a SpikeSliceStack consistent with subtime().
+        stack = sd.frames(20)
+        self.assertIsInstance(stack, SpikeSliceStack)
+        self.assertEqual(len(stack.spike_stack), 5)  # 100ms / 20ms = 5 frames
+        for i, frame in enumerate(stack.spike_stack):
             self.assertSpikeDataEqual(frame, sd.subtime(i * 20, (i + 1) * 20))
 
-        # Regression test for overlap parameter of frames().
-        for i, frame in enumerate(sd.frames(20, overlap=10)):
+        # Test overlap parameter and that the partial last window is excluded.
+        # step=10ms, so starts at [0,10,...,80]; start=90 → window (90,110) excluded.
+        stack_overlap = sd.frames(20, overlap=10)
+        self.assertIsInstance(stack_overlap, SpikeSliceStack)
+        self.assertEqual(len(stack_overlap.spike_stack), 9)
+        for i, frame in enumerate(stack_overlap.spike_stack):
             self.assertSpikeDataEqual(frame, sd.subtime(i * 10, i * 10 + 20))
+
+        # Test ValueError for overlap >= length and recording shorter than frame.
+        with self.assertRaises(ValueError):
+            sd.frames(20, overlap=20)
+        with self.assertRaises(ValueError):
+            sd.frames(200)
 
     def test_raster(self):
         """
@@ -1187,23 +1202,45 @@ class SpikeDataTest(unittest.TestCase):
         (Test Case 1) Tests that non-list inputs raise ValueError
         (Test Case 2) Tests that non-dict elements raise ValueError
         (Test Case 3) Tests length validation against n_neurons
-        (Test Case 4) Tests key consistency validation
+        (Test Case 4) Tests key consistency validation (ValueError when keys differ)
         (Test Case 5) Tests that returned dicts are copies
+        (Test Case 6) Tests empty list returns empty list
+        (Test Case 7) Tests valid input returns normalized dicts with all keys
         """
+        # Test Case 1: Non-list inputs raise ValueError
         self.assertRaises(ValueError, check_neuron_attributes, {"a": 1})
         self.assertRaises(ValueError, check_neuron_attributes, None)
+
+        # Test Case 2: Non-dict elements raise ValueError
         self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, "x"])
         self.assertRaises(ValueError, check_neuron_attributes, [None])
+
+        # Test Case 3: Length validation against n_neurons
         self.assertRaises(ValueError, check_neuron_attributes, [{}], n_neurons=2)
         self.assertEqual(check_neuron_attributes([{}, {}], n_neurons=2), [{}, {}])
-        self.assertRaises(ValueError, check_neuron_attributes, [{"a": 1}, {}])
-        self.assertEqual(len(check_neuron_attributes([{"a": 1}, {"a": 2}])), 2)
 
-        # Returns copies
+        # Test Case 4: Key consistency validation - inconsistent keys raise ValueError
+        with self.assertRaises(ValueError) as ctx:
+            check_neuron_attributes([{"a": 1}, {}])
+        self.assertIn("Neuron 1 missing", str(ctx.exception))
+        self.assertIn("'a'", str(ctx.exception))
+
+        self.assertEqual(
+            check_neuron_attributes([{"a": 1}, {"a": 2}]), [{"a": 1}, {"a": 2}]
+        )
+
+        # Test Case 5: Returns copies (modifying result does not affect original)
         original = [{"a": 1}]
         result = check_neuron_attributes(original)
         result[0]["a"] = 999
         self.assertEqual(original[0]["a"], 1)
+
+        # Test Case 6: Empty list returns empty list
+        self.assertEqual(check_neuron_attributes([]), [])
+
+        # Test Case 7: Valid input with multiple keys returns normalized structure
+        result = check_neuron_attributes([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
+        self.assertEqual(result, [{"a": 1, "b": 2}, {"a": 3, "b": 4}])
 
     def test_get_channels_for_unit(self):
         """
@@ -1568,21 +1605,29 @@ class SpikeDataTest(unittest.TestCase):
         Tests get_neuron_attribute retrieval with and without defaults.
 
         Tests:
-        (Test Case 1) Tests retrieval when no attributes set (returns defaults)
+        (Test Case 1) Tests retrieval when neuron_attributes is None (returns defaults)
         (Test Case 2) Tests retrieval of existing attribute values
         (Test Case 3) Tests default value for missing attributes
+        (Test Case 4) Tests mixed case: some neurons have attribute, some use default
         """
         sd = SpikeData([[] for _ in range(3)], length=100)
 
-        # Test Case 1: Retrieval when no attributes set (returns defaults)
+        # Test Case 1: When neuron_attributes is None, returns default for all neurons
         self.assertEqual(sd.get_neuron_attribute("x"), [None, None, None])
         self.assertEqual(sd.get_neuron_attribute("x", default=-1), [-1, -1, -1])
 
         # Test Case 2: Retrieval of existing attribute values
         sd.set_neuron_attribute("val", [1, 2, 3])
         self.assertEqual(sd.get_neuron_attribute("val"), [1, 2, 3])
+
         # Test Case 3: Default value for missing attributes
         self.assertEqual(sd.get_neuron_attribute("missing"), [None, None, None])
+        self.assertEqual(sd.get_neuron_attribute("missing", default=0), [0, 0, 0])
+
+        # Test Case 4: Mixed case - partial attribute set via neuron_indices
+        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
+        self.assertEqual(sd.get_neuron_attribute("label"), ["A", None, "A"])
+        self.assertEqual(sd.get_neuron_attribute("label", default="?"), ["A", "?", "A"])
 
     def test_get_waveform_traces(self):
         """

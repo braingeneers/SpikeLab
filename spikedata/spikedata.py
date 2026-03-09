@@ -316,20 +316,95 @@ class SpikeData:
             times.append(t)
         return np.array(idces), np.array(times)
 
-    def frames(self, length, overlap=0):
+    @property
+    def unit_locations(self) -> Optional[np.ndarray]:
         """
-        Iterate over the length of the spike train of SpikeData objects in
-        steps of length over a fixed overlap, and yields a new SpikeData object for each subwindow.
+        Get unit locations as an (U, D) array where D is the spatial dimension.
 
-        Parameters:
-        length (float): Length of the subwindow in milliseconds
-        overlap (float): Overlap between subwindows in milliseconds
 
         Returns:
-        frames (generator): Generator of SpikeData objects corresponding to subwindows.
+        locations (numpy.ndarray): Array of unit locations, shape (N, D)
+        - None if any unit lacks location data
+
+        Notes:
+        - Extracts from neuron_attributes 'location', 'x'/'y'/'z' (x and y required), or 'position' keys.
         """
-        for start in np.arange(0, self.length, length - overlap):
-            yield self.subtime(start, start + length)
+        if self.neuron_attributes is None:
+            return None
+
+        locations = []
+        for attr in self.neuron_attributes:
+            if "location" in attr:
+                locations.append(np.asarray(attr["location"]))
+            elif "x" in attr and "y" in attr:
+                loc = [attr["x"], attr["y"]]
+                if "z" in attr:
+                    loc.append(attr["z"])
+                locations.append(np.asarray(loc))
+            elif "position" in attr:
+                locations.append(np.asarray(attr["position"]))
+            else:
+                return None  # Missing location for at least one unit
+
+        if not locations:
+            return None
+        return np.array(locations)
+
+    @property
+    def electrodes(self) -> Optional[np.ndarray]:
+        """
+        Get electrode/channel indices for each unit as a 1D array.
+
+        Extracts from neuron_attributes 'electrode', 'channel', or 'ch' keys.
+        Returns None if any unit lacks electrode data.
+        """
+        if self.neuron_attributes is None:
+            return None
+
+        electrodes = []
+        for attr in self.neuron_attributes:
+            if "electrode" in attr:
+                electrodes.append(attr["electrode"])
+            elif "channel" in attr:
+                electrodes.append(attr["channel"])
+            elif "ch" in attr:
+                electrodes.append(attr["ch"])
+            else:
+                return None  # Missing electrode for at least one unit
+
+        if not electrodes:
+            return None
+        return np.array(electrodes)
+
+    def frames(self, length, overlap=0):
+        """
+        Split the recording into a SpikeSliceStack of fixed-length windows.
+
+        Parameters:
+            length (float): Length of each window in milliseconds.
+            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+
+        Returns:
+            stack (SpikeSliceStack): Stack of SpikeData windows, one per frame.
+
+        Notes:
+            - Windows that would extend past the end of the recording are excluded.
+            - overlap must be strictly less than length.
+        """
+        from .spikeslicestack import SpikeSliceStack
+
+        step = length - overlap
+        if step <= 0:
+            raise ValueError("overlap must be less than length")
+        times = [
+            (float(start), float(start) + length)
+            for start in np.arange(0, self.length - length + 1e-9, step)
+        ]
+        if not times:
+            raise ValueError(
+                f"Recording length ({self.length} ms) is shorter than frame length ({length} ms)"
+            )
+        return SpikeSliceStack(self, times_start_to_end=times)
 
     def binned(self, bin_size=40.0):
         """
@@ -1242,7 +1317,7 @@ class SpikeData:
         - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
-        from data_loaders.data_exporters import export_spikedata_to_hdf5
+        from ..data_loaders.data_exporters import export_spikedata_to_hdf5
 
         # Delegate to the standalone exporter function with all parameters
         export_spikedata_to_hdf5(
@@ -1288,7 +1363,7 @@ class SpikeData:
         - Compatible with both pynwb and h5py-based NWB readers
         """
         # Import locally to avoid circular imports
-        from data_loaders.data_exporters import export_spikedata_to_nwb
+        from ..data_loaders.data_exporters import export_spikedata_to_nwb
 
         # Delegate to the standalone NWB exporter
         export_spikedata_to_nwb(
@@ -1329,7 +1404,7 @@ class SpikeData:
         - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
-        from data_loaders.data_exporters import export_spikedata_to_kilosort
+        from ..data_loaders.data_exporters import export_spikedata_to_kilosort
 
         # Delegate to the standalone KiloSort exporter and return file paths
         return export_spikedata_to_kilosort(

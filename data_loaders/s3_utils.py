@@ -31,6 +31,7 @@ __all__ = [
     "is_s3_url",
     "parse_s3_url",
     "download_from_s3",
+    "upload_to_s3",
     "ensure_local_file",
 ]
 
@@ -143,9 +144,60 @@ def download_from_s3(
             raise ValueError(f"S3 bucket not found: {bucket}") from e
         if error_code == "NoSuchKey":
             raise ValueError(f"S3 key not found: {key} in bucket {bucket}") from e
-        if error_code == "403":
+        if error_code in ("AccessDenied", "Forbidden"):
             raise PermissionError(f"Access denied to s3://{bucket}/{key}") from e
         raise RuntimeError(f"Error downloading from S3: {e}") from e
+    except NoCredentialsError as e:
+        raise RuntimeError(
+            "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "
+            "AWS_SECRET_ACCESS_KEY environment variables or configure AWS credentials."
+        ) from e
+
+
+def upload_to_s3(
+    local_path: str,
+    s3_url: str,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> str:
+    """Upload a local file to S3 and return the S3 URL."""
+    if not is_s3_url(s3_url):
+        raise ValueError(f"Not an S3 URL: {s3_url}")
+
+    if not os.path.exists(local_path):
+        raise FileNotFoundError(f"Local file not found: {local_path}")
+
+    if boto3 is None:
+        raise ImportError(
+            "boto3 is required for S3 uploads. Install it with: pip install boto3"
+        )
+
+    bucket, key = parse_s3_url(s3_url)
+
+    s3_kwargs = {}
+    if aws_access_key_id:
+        s3_kwargs["aws_access_key_id"] = aws_access_key_id
+    if aws_secret_access_key:
+        s3_kwargs["aws_secret_access_key"] = aws_secret_access_key
+    if aws_session_token:
+        s3_kwargs["aws_session_token"] = aws_session_token
+    if region_name:
+        s3_kwargs["region_name"] = region_name
+
+    s3_client = boto3.client("s3", **s3_kwargs)
+
+    try:
+        s3_client.upload_file(local_path, bucket, key)
+        return s3_url
+    except ClientError as e:
+        error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+        if error_code == "NoSuchBucket":
+            raise ValueError(f"S3 bucket not found: {bucket}") from e
+        if error_code in ("AccessDenied", "Forbidden"):
+            raise PermissionError(f"Access denied to s3://{bucket}/{key}") from e
+        raise RuntimeError(f"Error uploading to S3: {e}") from e
     except NoCredentialsError as e:
         raise RuntimeError(
             "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "

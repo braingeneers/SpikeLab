@@ -26,7 +26,9 @@ try:
 except ImportError:
     h5py = None  # type: ignore
 
-from spikedata import SpikeData
+import pickle
+
+from ..spikedata import SpikeData
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -35,9 +37,10 @@ __all__ = [
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
+    "load_spikedata_from_pickle",
 ]
 
-from spikedata.utils import ensure_h5py, to_ms
+from ..spikedata.utils import ensure_h5py, to_ms
 
 
 def _trains_from_flat_index(
@@ -354,23 +357,47 @@ def load_spikedata_from_nwb(
                 if getattr(nwb, "units", None) is None:
                     raise ValueError("NWB file has no Units table")
                 df = nwb.units.to_dataframe()
+
+                electrode_positions: Optional[dict] = None
+                if getattr(nwb, "electrodes", None) is not None:
+                    elec_df = nwb.electrodes.to_dataframe()
+                    electrode_positions = {}
+                    for elec_row in elec_df.itertuples():
+                        pos = []
+                        for coord in ("x", "y", "z"):
+                            if coord in elec_df.columns:
+                                val = getattr(elec_row, coord, None)
+                                if val is not None and not np.isnan(val):
+                                    pos.append(float(val))
+                        if pos:
+                            electrode_positions[elec_row.Index] = pos
+
                 for row in df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
                     attr = {"unit_id": row.Index}
+                    electrode_id = None
                     for col in ("electrodes", "electrode_group", "channel", "ch"):
                         if col in df.columns:
                             val = getattr(row, col, None)
                             if val is not None:
-                                if hasattr(val, "__len__") and not isinstance(val, str):
+                                if (
+                                    hasattr(val, "__len__")
+                                    and not isinstance(val, str)
+                                    and len(val) > 0
+                                ):
                                     channel_val = val[0]
                                 else:
                                     channel_val = val
                                 try:
-                                    attr["channel"] = int(channel_val)
+                                    attr["electrode"] = int(channel_val)
+                                    electrode_id = int(channel_val)
                                 except (TypeError, ValueError):
-                                    attr["channel"] = channel_val
+                                    attr["electrode"] = channel_val
+                                    electrode_id = channel_val
                                 break
+                    if electrode_positions and electrode_id in electrode_positions:
+                        attr["location"] = electrode_positions[electrode_id]
                     neuron_attributes.append(attr)
             return _build_spikedata(
                 trains,
@@ -420,10 +447,42 @@ def load_spikedata_from_nwb(
                 electrode_indices.append(elec_flat[start:stop])
                 start = stop
 
+        electrode_positions: Optional[dict] = None
+        elec_table_path = "general/extracellular_ephys/electrodes"
+        if elec_table_path in f:
+            elec_grp = f[elec_table_path]
+            electrode_positions = {}
+            x_arr = np.asarray(elec_grp["x"]) if "x" in elec_grp else None
+            y_arr = np.asarray(elec_grp["y"]) if "y" in elec_grp else None
+            z_arr = np.asarray(elec_grp["z"]) if "z" in elec_grp else None
+            elec_ids = (
+                np.asarray(elec_grp["id"])
+                if "id" in elec_grp
+                else np.arange(len(x_arr) if x_arr is not None else 0)
+            )
+            for idx, eid in enumerate(elec_ids):
+                pos = []
+                if x_arr is not None and idx < len(x_arr):
+                    pos.append(float(x_arr[idx]))
+                if y_arr is not None and idx < len(y_arr):
+                    pos.append(float(y_arr[idx]))
+                if z_arr is not None and idx < len(z_arr):
+                    pos.append(float(z_arr[idx]))
+                if pos:
+                    electrode_positions[int(eid)] = pos
+
         for i, uid in enumerate(unit_ids):
             attr = {"unit_id": int(uid)}
-            if electrode_indices and len(electrode_indices[i]) > 0:
-                attr["channel"] = int(electrode_indices[i][0])
+            electrode_id = None
+            if (
+                electrode_indices
+                and i < len(electrode_indices)
+                and len(electrode_indices[i]) > 0
+            ):
+                electrode_id = int(electrode_indices[i][0])
+                attr["electrode"] = electrode_id
+            if electrode_positions and electrode_id in electrode_positions:
+                attr["location"] = electrode_positions[electrode_id]
             neuron_attributes.append(attr)
 
     return _build_spikedata(
@@ -471,20 +530,33 @@ def load_spikedata_from_spikeinterface(
     neuron_attributes: List[dict] = []
 
     channel_prop = None
+    location_prop = None
     if hasattr(sorting, "get_property"):
-        for prop_name in ("channel", "ch", "peak_channel"):
+        for prop_name in ("channel", "ch", "peak_channel", "electrode"):
             try:
                 channel_prop = sorting.get_property(prop_name)
-                break
             except Exception:
-                raise ValueError(f"Failed to get channel property {prop_name}")
+                continue
+            if channel_prop is not None:
+                break
+        for prop_name in ("location", "unit_location", "position"):
+            try:
+                location_prop = sorting.get_property(prop_name)
+            except Exception:
+                continue
+            if location_prop is not None:
+                break
 
     for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
         trains.append(to_ms(st.astype(float), "samples", fs))
         attr = {"unit_id": uid}
-        if channel_prop is not None:
-            attr["channel"] = int(channel_prop[i])
+        if channel_prop is not None and i < len(channel_prop):
+            attr["electrode"] = int(channel_prop[i])
+        if location_prop is not None and i < len(location_prop):
+            loc = location_prop[i]
+            if loc is not None:
+                attr["location"] = list(loc) if hasattr(loc, "__iter__") else [loc]
         neuron_attributes.append(attr)
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
@@ -546,6 +618,14 @@ def load_spikedata_from_kilosort(
         except Exception as e:
             warnings.warn(f"Failed loading channel_map: {e}")
 
+    channel_positions: Optional[np.ndarray] = None
+    cp_path = os.path.join(folder, "channel_positions.npy")
+    if os.path.exists(cp_path):
+        try:
+            channel_positions = np.load(cp_path)
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_positions: {e}")
+
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
         tsv_path = os.path.join(folder, cluster_info_tsv)
@@ -596,8 +676,17 @@ def load_spikedata_from_kilosort(
         metadata_units.append(int(clu))
 
         attr: dict = {"unit_id": int(clu)}
-        if channel_map is not None and int(clu) < len(channel_map):
-            attr["channel"] = int(channel_map[int(clu)])
+        channel_idx = None
+        int_clu = int(clu)
+        if channel_map is not None and int_clu < len(channel_map):
+            channel_idx = int(channel_map[int_clu])
+            attr["electrode"] = channel_idx
+        if (
+            channel_positions is not None
+            and channel_idx is not None
+            and channel_idx < len(channel_positions)
+        ):
+            attr["location"] = list(channel_positions[channel_idx])
         neuron_attributes.append(attr)
 
     meta = {
@@ -665,3 +754,62 @@ def load_spikedata_from_spikeinterface_recording(
         hysteresis=hysteresis,
         direction=direction,  # type: ignore[arg-type]
     )
+
+
+# ----------------------------
+# Pickle
+# ----------------------------
+
+
+def load_spikedata_from_pickle(
+    filepath: str,
+    *,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> SpikeData:
+    """
+    Load a SpikeData object from a pickle file.
+
+    Warning:
+        Only load pickle files from trusted sources. Pickle deserialization can
+        execute arbitrary code and should never be used with untrusted data.
+
+    Parameters:
+        filepath (str): Path to the pickle file, or an S3 URL (s3://bucket/key).
+        aws_access_key_id (Optional[str]): AWS access key ID for S3 downloads.
+        aws_secret_access_key (Optional[str]): AWS secret access key for S3 downloads.
+        aws_session_token (Optional[str]): AWS session token for temporary credentials.
+        region_name (Optional[str]): AWS region name for S3 access.
+
+    Returns:
+        SpikeData: The deserialized SpikeData object.
+
+    """
+    from .s3_utils import ensure_local_file
+
+    local_path, is_temp = ensure_local_file(
+        filepath,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        with open(local_path, "rb") as f:
+            obj = pickle.load(f)
+    finally:
+        if is_temp:
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+
+    if not isinstance(obj, SpikeData):
+        raise ValueError(
+            f"Pickle file does not contain a SpikeData object (found {type(obj).__name__})"
+        )
+
+    return obj
