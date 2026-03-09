@@ -280,7 +280,7 @@ class RateData:
             if kwargs:
                 print(
                     f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
-                )   
+                )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
             # Optional graph-based UMAP + Louvain communities.
