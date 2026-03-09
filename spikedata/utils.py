@@ -156,6 +156,103 @@ def _resampled_isi(spikes, times, sigma_ms):
             return fr
 
 
+def _sliding_rate_single_train(
+    spike_times,
+    window_size,
+    step_size=None,
+    sampling_rate=None,
+    t_start=None,
+    t_end=None,
+):
+    """
+    Compute continuous firing rate from spike times using a sliding-window average.
+
+    For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
+    and returns rate R(t) = N / W, where N is the spike count and W is window_size.
+
+    Parameters:
+    spike_times (array_like): array_like
+        1D array of spike timestamps (time units consistent with other args).
+    window_size (float): Width of the sliding window W. Centered window [t - W/2, t + W/2].
+    step_size (float, optional): Advance step for time bins. If both step_size and sampling_rate
+        are provided, step_size takes precedence and sampling_rate is ignored.
+    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate if
+        step_size is not provided.
+    t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.
+    t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
+
+    Returns:
+    RateData: Single-unit rate object with inst_Frate_data (1, T) and times; units: spikes per time (e.g. kHz).
+
+    Notes:
+    Uses zero-padding at boundaries (mode='same' convolution). Rate near edges
+    may be lower when the effective window extends beyond the data.
+    - Assumes spike_times are sorted.
+    """
+    spike_times = np.asarray(spike_times)
+    if len(spike_times) == 0:
+        from .ratedata import RateData
+
+        return RateData(inst_Frate_data=np.zeros((1, 0)), times=np.array([]))
+
+    if window_size <= 0:
+        raise ValueError(f"window_size must be positive, got {window_size}")
+
+    if step_size is None and sampling_rate is None:
+        raise ValueError("Must provide either step_size or sampling_rate")
+    if step_size is None:
+        if sampling_rate is None or sampling_rate <= 0:
+            raise ValueError(
+                f"sampling_rate must be positive when step_size is not provided, got {sampling_rate}"
+            )
+        step_size = 1.0 / sampling_rate
+    else:
+        if step_size <= 0:
+            raise ValueError(f"step_size must be positive, got {step_size}")
+
+    # Default time range extends half-window beyond first/last spike so edges are covered
+    half_window = window_size / 2
+    if t_start is None:
+        t_start = float(np.min(spike_times)) - half_window
+    if t_end is None:
+        t_end = float(np.max(spike_times)) + half_window
+
+    if t_end <= t_start:
+        raise ValueError(
+            f"t_end must be greater than t_start (got t_start={t_start}, t_end={t_end})"
+        )
+
+    # Use sparse_raster for binning (same rule as SpikeData)
+    span = t_end - t_start
+    n_bins = int(np.ceil(span / step_size))
+    if (span % step_size) == 0:
+        n_bins += 1
+    t_last = t_start + n_bins * step_size
+    mask = (spike_times >= t_start) & (spike_times < t_last)
+    spike_times_filtered = spike_times[mask] - t_start
+
+    from spikedata.spikedata import SpikeData
+
+    sd = SpikeData([spike_times_filtered], length=span)
+    raster = sd.sparse_raster(step_size)
+    hist = np.asarray(raster.toarray()).ravel()
+    bin_edges = t_start + np.arange(n_bins + 1) * step_size
+
+    # Sliding window = convolution with uniform kernel: sums spike counts over
+    # window_size worth of adjacent bins. mode='same' keeps output aligned with input.
+    window_bins = max(1, int(round(window_size / step_size)))
+    effective_window = window_bins * step_size
+    kernel = np.ones(window_bins)
+    counts = np.convolve(hist, kernel, mode="same")
+    # Rate = spike count in window / effective window duration (spikes per time unit)
+    rate_array = counts / effective_window
+
+    time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+    from .ratedata import RateData
+
+    return RateData(inst_Frate_data=rate_array.reshape(1, -1), times=time_vector)
+
+
 def _train_from_i_t_list(idces, times, N):
     """
     Helper method for SpikeData constructors: Given lists of spike times and unit indices,
