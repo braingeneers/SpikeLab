@@ -24,7 +24,7 @@ from .utils import (
     _sttc_na,
     _spike_time_tiling,
     _resampled_isi,
-    _sliding_rate,
+    _sliding_rate_single_train,
     _train_from_i_t_list,
     swap,
     randomize,
@@ -37,7 +37,6 @@ __all__ = [
     "get_sttc",
     "swap",
     "randomize",
-    "sliding_rate",
 ]
 
 
@@ -398,9 +397,13 @@ class SpikeData:
         sigma_ms (float): Standard deviation of the Gaussian kernel in milliseconds
 
         Returns:
-        rates (numpy.ndarray): Array of the resampled firing rate.
+        RateData: Object with inst_Frate_data (N, T) and times; units: spikes/ms (kHz).
         """
-        return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
+        times = np.atleast_1d(times)
+        rate_array = np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
+        if rate_array.ndim == 1:
+            rate_array = rate_array[:, np.newaxis]
+        return RateData(inst_Frate_data=rate_array, times=times)
 
     def sliding_rate(
         self,
@@ -414,8 +417,7 @@ class SpikeData:
         Compute continuous firing rate of each unit using a sliding-window average.
 
         For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
-        and returns rate R(t) = N / W (spikes per time unit, e.g. kHz). This produces a smoother, continuous rate
-        trace compared to the step-like ISI-based rate from resampled_isi.
+        and returns rate R(t) = N / W (spikes per time unit, e.g. kHz).
 
         Parameters:
         window_size (float): Width of the sliding window in ms. Centered window [t - W/2, t + W/2].
@@ -425,8 +427,7 @@ class SpikeData:
         t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
 
         Returns:
-        rate_array (np.ndarray): Smoothed rate per unit, shape (N, T). Units: spikes/ms (kHz).
-        time_vector (np.ndarray): Time bin centers in ms.
+        RateData: Object with inst_Frate_data (N, T) and times; units: spikes/ms (kHz).
         """
         if t_start is None:
             t_start = 0.0 - window_size / 2
@@ -436,7 +437,7 @@ class SpikeData:
         rate_rows = []
         time_vector = None
         for ts in self.train:
-            rate_arr, tvec = _sliding_rate(
+            rd = _sliding_rate_single_train(
                 ts,
                 window_size,
                 step_size=step_size,
@@ -444,6 +445,8 @@ class SpikeData:
                 t_start=t_start,
                 t_end=t_end,
             )
+            rate_arr = rd.inst_Frate_data[0]
+            tvec = rd.times
             if time_vector is None and len(tvec) > 0:
                 time_vector = tvec
             rate_rows.append(rate_arr)
@@ -474,7 +477,7 @@ class SpikeData:
         else:
             # No units case: return an empty (0, T) array
             rate_array = np.empty((0, t_len), dtype=float)
-        return rate_array, time_vector
+        return RateData(inst_Frate_data=rate_array, times=time_vector)
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
         """
@@ -1639,7 +1642,3 @@ class SpikeData:
             )
 
         return tburst, edges, peak_amp
-
-
-# Module-level alias for single-train usage: sliding_rate(spike_times, ...)
-sliding_rate = _sliding_rate

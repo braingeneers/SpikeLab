@@ -141,7 +141,7 @@ def _resampled_isi(spikes, times, sigma_ms):
             return fr
 
 
-def _sliding_rate(
+def _sliding_rate_single_train(
     spike_times,
     window_size,
     step_size=None,
@@ -159,14 +159,15 @@ def _sliding_rate(
     spike_times (array_like): array_like
         1D array of spike timestamps (time units consistent with other args).
     window_size (float): Width of the sliding window W. Centered window [t - W/2, t + W/2].
-    step_size (float, optional): Advance step for time bins. Mutually exclusive with sampling_rate.
-    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate. Mutually exclusive with step_size.
+    step_size (float, optional): Advance step for time bins. If both step_size and sampling_rate
+        are provided, step_size takes precedence and sampling_rate is ignored.
+    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate if
+        step_size is not provided.
     t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.
     t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
 
     Returns:
-    rate_array (np.ndarray): Smoothed rate R(t) = N/W at each time bin (spikes per time unit, e.g. kHz).
-    time_vector (np.ndarray): Time bin centers.
+    RateData: Single-unit rate object with inst_Frate_data (1, T) and times; units: spikes per time (e.g. kHz).
 
     Notes:
     Uses zero-padding at boundaries (mode='same' convolution). Rate near edges
@@ -175,16 +176,15 @@ def _sliding_rate(
     """
     spike_times = np.asarray(spike_times)
     if len(spike_times) == 0:
-        return np.array([]), np.array([])
+        from .ratedata import RateData
+
+        return RateData(inst_Frate_data=np.zeros((1, 0)), times=np.array([]))
 
     if window_size <= 0:
         raise ValueError(f"window_size must be positive, got {window_size}")
 
-    # Step size and sampling_rate are mutually exclusive; step = 1/sampling_rate
     if step_size is None and sampling_rate is None:
         raise ValueError("Must provide either step_size or sampling_rate")
-    if step_size is not None and sampling_rate is not None:
-        raise ValueError("Cannot provide both step_size and sampling_rate")
     if step_size is None:
         if sampling_rate is None or sampling_rate <= 0:
             raise ValueError(
@@ -207,15 +207,21 @@ def _sliding_rate(
             f"t_end must be greater than t_start (got t_start={t_start}, t_end={t_end})"
         )
 
-    # Build uniformly spaced bin edges spanning [t_start, t_end]
-    n_bins = max(1, int(np.ceil((t_end - t_start) / step_size)))
-    bin_edges = t_start + np.arange(n_bins + 1) * step_size
-    bin_edges[-1] = max(
-        bin_edges[-1], np.nextafter(t_end, np.inf)
-    )  # Ensure last bin includes t_end
+    # Use sparse_raster for binning (same rule as SpikeData)
+    span = t_end - t_start
+    n_bins = int(np.ceil(span / step_size))
+    if (span % step_size) == 0:
+        n_bins += 1
+    t_last = t_start + n_bins * step_size
+    mask = (spike_times >= t_start) & (spike_times < t_last)
+    spike_times_filtered = spike_times[mask] - t_start
 
-    # Bin spikes into discrete time bins
-    hist, _ = np.histogram(spike_times, bins=bin_edges)
+    from spikedata.spikedata import SpikeData
+
+    sd = SpikeData([spike_times_filtered], length=span)
+    raster = sd.sparse_raster(step_size)
+    hist = np.asarray(raster.toarray()).ravel()
+    bin_edges = t_start + np.arange(n_bins + 1) * step_size
 
     # Sliding window = convolution with uniform kernel: sums spike counts over
     # window_size worth of adjacent bins. mode='same' keeps output aligned with input.
@@ -227,7 +233,9 @@ def _sliding_rate(
     rate_array = counts / effective_window
 
     time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
-    return rate_array, time_vector
+    from .ratedata import RateData
+
+    return RateData(inst_Frate_data=rate_array.reshape(1, -1), times=time_vector)
 
 
 def _train_from_i_t_list(idces, times, N):

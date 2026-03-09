@@ -18,7 +18,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 import spikedata.spikedata as spikedata
-from spikedata import SpikeData, sliding_rate
+from spikedata import SpikeData
+from spikedata.utils import _sliding_rate_single_train
 from spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
@@ -623,8 +624,10 @@ class SpikeDataTest(unittest.TestCase):
         # Also check that the rate is correctly calculated for some varying
         # examples.
         sd = SpikeData([[0, 1 / k, 10 + 1 / k] for k in np.arange(1, 100)])
-        self.assertAll(sd.resampled_isi(0).round(2) == np.arange(1, 100))
-        self.assertAll(sd.resampled_isi(10).round(2) == 0.1)
+        self.assertAll(
+            sd.resampled_isi(0).inst_Frate_data.squeeze().round(2) == np.arange(1, 100)
+        )
+        self.assertAll(sd.resampled_isi(10).inst_Frate_data.squeeze().round(2) == 0.1)
 
     def test_sliding_rate_constant_spike_train(self):
         """
@@ -638,9 +641,11 @@ class SpikeDataTest(unittest.TestCase):
         """
         # Setup: 10 spikes at t=0,1,...,9 ms → 1 spike/ms = 1 kHz
         spikes = np.arange(10)
-        rate_arr, time_vec = sliding_rate(
+        rd = _sliding_rate_single_train(
             spikes, window_size=4, step_size=1, t_start=2, t_end=8
         )
+        rate_arr = rd.inst_Frate_data[0]
+        time_vec = rd.times
         # Interior bins (away from edges) capture full window → rate = 1 kHz
         interior_mask = (time_vec >= 4) & (time_vec <= 5)
         self.assertTrue(
@@ -660,13 +665,15 @@ class SpikeDataTest(unittest.TestCase):
         """
         spikes = np.array([1.0, 2.0, 3.0, 5.0, 7.0])
         # Call with step_size=0.5 (advance 0.5 ms per bin)
-        rate1, t1 = sliding_rate(
+        rd1 = _sliding_rate_single_train(
             spikes, window_size=2, step_size=0.5, t_start=0, t_end=10
         )
         # Call with sampling_rate=2.0 (2 samples/ms → step_size=0.5 ms)
-        rate2, t2 = sliding_rate(
+        rd2 = _sliding_rate_single_train(
             spikes, window_size=2, sampling_rate=2.0, t_start=0, t_end=10
         )
+        t1, t2 = rd1.times, rd2.times
+        rate1, rate2 = rd1.inst_Frate_data[0], rd2.inst_Frate_data[0]
         self.assertEqual(len(t1), len(t2))
         self.assertTrue(np.allclose(t1, t2))
         self.assertTrue(np.allclose(rate1, rate2))
@@ -677,14 +684,14 @@ class SpikeDataTest(unittest.TestCase):
 
         Setup: Empty spike_times array with t_start=0, t_end=100.
 
-        Test Case 1: Returns empty rate_array and time_vector (no bins computed).
+        Test Case 1: Returns empty RateData (1 row, 0 columns).
         """
-        # No spikes → should return empty rate and time arrays
-        rate_arr, time_vec = sliding_rate(
+        # No spikes → should return empty RateData
+        rd = _sliding_rate_single_train(
             [], window_size=10, step_size=1, t_start=0, t_end=100
         )
-        self.assertEqual(len(rate_arr), 0)
-        self.assertEqual(len(time_vec), 0)
+        self.assertEqual(rd.inst_Frate_data.shape, (1, 0))
+        self.assertEqual(len(rd.times), 0)
 
     def test_sliding_rate_single_spike(self):
         """
@@ -697,9 +704,10 @@ class SpikeDataTest(unittest.TestCase):
         """
         # Single spike at t=50; window W=20 → max rate = 1/20 ms = 0.05 kHz
         spikes = np.array([50.0])
-        rate_arr, time_vec = sliding_rate(
+        rd = _sliding_rate_single_train(
             spikes, window_size=20, step_size=5, t_start=0, t_end=100
         )
+        rate_arr = rd.inst_Frate_data[0]
         self.assertGreater(len(rate_arr), 0)
         self.assertGreater(np.max(rate_arr), 0)
         self.assertAlmostEqual(1.0 / 20, np.max(rate_arr))
@@ -717,9 +725,11 @@ class SpikeDataTest(unittest.TestCase):
         """
         # Spikes from t=10 to 90; window extends to t=0–100; boundaries at start/end
         spikes = np.arange(10, 90)
-        rate_arr, time_vec = sliding_rate(
+        rd = _sliding_rate_single_train(
             spikes, window_size=20, step_size=2, t_start=0, t_end=100
         )
+        rate_arr = rd.inst_Frate_data[0]
+        time_vec = rd.times
         # No NaNs; rate and time arrays same length; non-negative
         self.assertFalse(np.any(np.isnan(rate_arr)))
         self.assertEqual(len(rate_arr), len(time_vec))
@@ -739,15 +749,15 @@ class SpikeDataTest(unittest.TestCase):
         # 3 units with different spike trains
         trains = [[0, 1, 2, 3, 4, 5], [1, 3, 5, 7], [2, 4]]
         sd = SpikeData(trains, length=10)
-        rate_array, time_vector = sd.sliding_rate(
-            window_size=2, step_size=1, t_start=0, t_end=10
-        )
+        rate_data = sd.sliding_rate(window_size=2, step_size=1, t_start=0, t_end=10)
+        rate_array = rate_data.inst_Frate_data
+        time_vector = rate_data.times
         # Shape (N=3 units, T time bins)
         self.assertEqual(rate_array.shape[0], 3)
         self.assertEqual(rate_array.shape[1], len(time_vector))
         # Same time_vector usable with resampled_isi for overlay plots
         isi_rates = sd.resampled_isi(time_vector, sigma_ms=0)
-        self.assertEqual(rate_array.shape, isi_rates.shape)
+        self.assertEqual(rate_array.shape, isi_rates.inst_Frate_data.shape)
 
     def test_latencies(self):
         """
