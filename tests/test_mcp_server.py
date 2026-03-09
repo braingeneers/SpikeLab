@@ -989,7 +989,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_list_tools(self):
         """Test that tools are registered."""
-        from mcp_server.server import _list_tools
+        from IntegratedAnalysisTools.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         assert isinstance(tools, list)
@@ -1012,7 +1012,7 @@ class TestServerIntegration:
             (Test Case 3) fetch_workspace_item is registered.
             (Test Case 4) _from_workspace analysis tools are registered.
         """
-        from mcp_server.server import _list_tools
+        from IntegratedAnalysisTools.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         tool_names = [tool.name for tool in tools]
@@ -1051,7 +1051,7 @@ class TestServerIntegration:
             (Test Case 3) list_results is not registered.
             (Test Case 4) _from_stack tools are not registered.
         """
-        from mcp_server.server import _list_tools
+        from IntegratedAnalysisTools.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         tool_names = [tool.name for tool in tools]
@@ -1066,7 +1066,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_tool_schemas(self):
         """Test tool schemas are valid."""
-        from mcp_server.server import _list_tools
+        from IntegratedAnalysisTools.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         for tool in tools:
@@ -1080,7 +1080,7 @@ class TestServerIntegration:
     @patch("mcp_server.server.analysis.compute_rates")
     async def test_call_tool(self, mock_compute):
         """Test calling a tool through the server."""
-        from mcp_server.server import _call_tool
+        from IntegratedAnalysisTools.mcp_server.server import _call_tool
 
         mock_compute.return_value = {
             "rates": [0.1, 0.2, 0.3],
@@ -1107,7 +1107,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_call_tool_unknown(self):
         """Test error handling for unknown tool."""
-        from mcp_server.server import _call_tool
+        from IntegratedAnalysisTools.mcp_server.server import _call_tool
 
         result = await _call_tool("unknown_tool", {})
         data = json.loads(result[0].text)

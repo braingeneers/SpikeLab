@@ -32,7 +32,7 @@ def _get_workspace(workspace_id: str):
 
 def _get_spikedata(ws, namespace: str):
     """Load SpikeData from (namespace, 'spikedata') in the workspace."""
-    from spikedata.spikedata import SpikeData
+    from ...spikedata.spikedata import SpikeData
 
     sd = ws.get(namespace, _SPIKEDATA_KEY)
     if sd is None or not isinstance(sd, SpikeData):

@@ -269,7 +269,9 @@ class TestPairwise(unittest.TestCase):
         stack = PairwiseCompMatrixStack(stack=stack_data)
 
         # Test PCA on RateSliceStack with this stack
-        from spikedata.utils import extract_lower_triangle_features
+        from IntegratedAnalysisTools.spikedata.utils import (
+            extract_lower_triangle_features,
+        )
 
         features = extract_lower_triangle_features(stack)
         self.assertEqual(features.shape, (10, 10))  # 5*(5-1)/2 = 10 features
