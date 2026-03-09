@@ -644,6 +644,106 @@ class TestKiloSortAndSpikeInterface(unittest.TestCase):
             # Should keep both clusters 0 and 1
             self.assertEqual(len(sd.train), 2)
 
+    def test_kilosort_channel_positions_location(self):
+        """
+        Test channel_positions → neuron_attributes["location"] behavior.
+
+        Tests:
+        (Method 1)  Writes spike_times.npy, spike_clusters.npy with clusters 0 and 1
+        (Method 2)  Writes channel_positions.npy with positions for 4 channels
+        (Test Case 1)  With matching channel_map.npy: location comes from channel_map lookup
+        (Test Case 2)  Without channel_map.npy: fallback uses unit index
+        (Test Case 3)  With mismatching channel_map.npy (out-of-bounds): fallback uses unit index
+        (Test Case 4)  Non-sequential cluster IDs: fallback uses unit index, not cluster ID
+        """
+        with tempfile.TemporaryDirectory() as d:
+            # Create basic spike data with clusters 0 and 1
+            spike_times = np.array([10, 20, 15, 25])
+            spike_clusters = np.array([0, 0, 1, 1])
+            np.save(os.path.join(d, "spike_times.npy"), spike_times)
+            np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+
+            # Channel positions: 4 channels with distinct XYZ coordinates
+            channel_positions = np.array(
+                [
+                    [0.0, 0.0, 0.0],  # channel 0
+                    [10.0, 20.0, 0.0],  # channel 1
+                    [20.0, 40.0, 0.0],  # channel 2
+                    [30.0, 60.0, 0.0],  # channel 3
+                ]
+            )
+            np.save(os.path.join(d, "channel_positions.npy"), channel_positions)
+
+            # Test Case 1: With channel_map that maps cluster 0 → channel 2, cluster 1 → channel 3
+            channel_map = np.array([2, 3])  # cluster index → channel number
+            np.save(os.path.join(d, "channel_map.npy"), channel_map)
+
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+            # Cluster 0 maps to channel 2 → position [20.0, 40.0, 0.0]
+            # Cluster 1 maps to channel 3 → position [30.0, 60.0, 0.0]
+            self.assertEqual(sd.neuron_attributes[0]["location"], [20.0, 40.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[1]["location"], [30.0, 60.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[0]["electrode"], 2)
+            self.assertEqual(sd.neuron_attributes[1]["electrode"], 3)
+
+        # Test Case 2: Without channel_map.npy - fallback to unit index
+        with tempfile.TemporaryDirectory() as d:
+            spike_times = np.array([10, 20, 15, 25])
+            spike_clusters = np.array([0, 0, 1, 1])
+            np.save(os.path.join(d, "spike_times.npy"), spike_times)
+            np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+            np.save(os.path.join(d, "channel_positions.npy"), channel_positions)
+            # No channel_map.npy file
+
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+            # Fallback: unit 0 → position[0], unit 1 → position[1]
+            self.assertEqual(sd.neuron_attributes[0]["location"], [0.0, 0.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[1]["location"], [10.0, 20.0, 0.0])
+            # No electrode attribute when channel_map is missing
+            self.assertNotIn("electrode", sd.neuron_attributes[0])
+            self.assertNotIn("electrode", sd.neuron_attributes[1])
+
+        # Test Case 3: channel_map exists but maps to out-of-bounds channel index
+        with tempfile.TemporaryDirectory() as d:
+            spike_times = np.array([10, 20, 15, 25])
+            spike_clusters = np.array([0, 0, 1, 1])
+            np.save(os.path.join(d, "spike_times.npy"), spike_times)
+            np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+            np.save(os.path.join(d, "channel_positions.npy"), channel_positions)
+            # channel_map maps to channels that exceed channel_positions length
+            channel_map_oob = np.array([10, 20])  # both out of bounds (>= 4)
+            np.save(os.path.join(d, "channel_map.npy"), channel_map_oob)
+
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+            # Fallback: unit index used since channel_map values are out of bounds
+            self.assertEqual(sd.neuron_attributes[0]["location"], [0.0, 0.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[1]["location"], [10.0, 20.0, 0.0])
+            # electrode attribute still set from channel_map (even if out of bounds for positions)
+            self.assertEqual(sd.neuron_attributes[0]["electrode"], 10)
+            self.assertEqual(sd.neuron_attributes[1]["electrode"], 20)
+
+        # Test Case 4: Non-sequential cluster IDs - fallback uses unit index, not cluster ID
+        with tempfile.TemporaryDirectory() as d:
+            # Clusters 50 and 100 - IDs that would be out of bounds if used directly
+            spike_times = np.array([10, 20, 15, 25])
+            spike_clusters = np.array([50, 50, 100, 100])
+            np.save(os.path.join(d, "spike_times.npy"), spike_times)
+            np.save(os.path.join(d, "spike_clusters.npy"), spike_clusters)
+            np.save(os.path.join(d, "channel_positions.npy"), channel_positions)
+            # No channel_map.npy file
+
+            sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+            # Fallback uses unit index (0, 1), not cluster ID (50, 100)
+            # Unit 0 (cluster 50) → position[0], Unit 1 (cluster 100) → position[1]
+            self.assertEqual(sd.neuron_attributes[0]["location"], [0.0, 0.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[1]["location"], [10.0, 20.0, 0.0])
+            self.assertEqual(sd.neuron_attributes[0]["unit_id"], 50)
+            self.assertEqual(sd.neuron_attributes[1]["unit_id"], 100)
+
 
 class TestPickleLoaders(unittest.TestCase):
     """

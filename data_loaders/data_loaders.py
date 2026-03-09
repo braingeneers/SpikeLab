@@ -621,7 +621,7 @@ def load_spikedata_from_kilosort(
             warnings.warn(f"Failed loading channel_map: {e}")
 
     channel_positions: Optional[np.ndarray] = None
-    cp_path = os.path.join(folder, "channel_positions.npy")
+    cp_path = os.path.join(folder, channel_positions_file)
     if os.path.exists(cp_path):
         try:
             channel_positions = np.load(cp_path)
@@ -669,6 +669,7 @@ def load_spikedata_from_kilosort(
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
     neuron_attributes: List[dict] = []
+    unit_idx = 0
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -687,10 +688,11 @@ def load_spikedata_from_kilosort(
         if channel_positions is not None:
             if channel_idx is not None and channel_idx < len(channel_positions):
                 attr["location"] = list(channel_positions[channel_idx])
-            elif int_clu < len(channel_positions):
+            elif unit_idx < len(channel_positions):
                 # Fallback: use unit index when channel map lookup fails
-                attr["location"] = list(channel_positions[int_clu])
+                attr["location"] = list(channel_positions[unit_idx])
         neuron_attributes.append(attr)
+        unit_idx += 1
 
     meta = {
         "source_folder": os.path.abspath(folder),
