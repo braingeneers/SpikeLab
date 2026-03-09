@@ -10,12 +10,12 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from spikedata.pairwise import PairwiseCompMatrixStack
-from spikedata.ratedata import RateData
-from spikedata.rateslicestack import RateSliceStack
-from spikedata.spikeslicestack import SpikeSliceStack
-from spikedata.spikedata import SpikeData
-from spikedata.utils import (
+from ...spikedata.pairwise import PairwiseCompMatrixStack
+from ...spikedata.ratedata import RateData
+from ...spikedata.rateslicestack import RateSliceStack
+from ...spikedata.spikeslicestack import SpikeSliceStack
+from ...spikedata.spikedata import SpikeData
+from ...spikedata.utils import (
     PCA_reduction,
     UMAP_graph_communities,
     UMAP_reduction,
@@ -23,7 +23,7 @@ from spikedata.utils import (
     compute_cross_correlation_with_lag,
     extract_lower_triangle_features as _extract_lower_triangle,
 )
-from workspace.workspace import get_workspace_manager
+from ...workspace.workspace import get_workspace_manager
 
 _COMPARE_FUNCS = {
     "cross_correlation": compute_cross_correlation_with_lag,

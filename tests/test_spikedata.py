@@ -14,13 +14,13 @@ except ImportError:
     quantities = None
 
 # Ensure project root is on sys.path, then import package normally so relative imports work.
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-import spikedata.spikedata as spikedata
-from spikedata import SpikeData
-from spikedata.spikeslicestack import SpikeSliceStack
-from spikedata.utils import (
+import IntegratedAnalysisTools.spikedata.spikedata as spikedata
+from IntegratedAnalysisTools.spikedata import SpikeData
+from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
+from IntegratedAnalysisTools.spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
     extract_unit_waveforms,

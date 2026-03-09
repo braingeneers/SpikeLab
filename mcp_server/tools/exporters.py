@@ -9,15 +9,15 @@ import os
 import tempfile
 from typing import Any, Dict, List, Literal, Optional
 
-from data_loaders.data_exporters import (
+from ...data_loaders.data_exporters import (
     export_spikedata_to_hdf5,
     export_spikedata_to_kilosort,
     export_spikedata_to_nwb,
     export_spikedata_to_pickle,
 )
 
-from mcp_server.s3_adapter import is_s3_url, upload as upload_to_s3
-from workspace.workspace import get_workspace_manager
+from ..s3_adapter import is_s3_url, upload as upload_to_s3
+from ...workspace.workspace import get_workspace_manager
 
 _SPIKEDATA_KEY = "spikedata"
 
@@ -32,7 +32,7 @@ def _get_workspace(workspace_id: str):
 
 def _get_spikedata(ws, namespace: str):
     """Load SpikeData from (namespace, 'spikedata') in the workspace."""
-    from spikedata.spikedata import SpikeData
+    from ...spikedata.spikedata import SpikeData
 
     sd = ws.get(namespace, _SPIKEDATA_KEY)
     if sd is None or not isinstance(sd, SpikeData):

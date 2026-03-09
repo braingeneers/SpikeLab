@@ -25,12 +25,12 @@ import pathlib
 import sys
 
 # Ensure project root is on sys.path, mirroring other tests
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from spikedata import SpikeData
-import data_loaders.data_loaders as loaders
+from IntegratedAnalysisTools.spikedata import SpikeData
+import IntegratedAnalysisTools.data_loaders.data_loaders as loaders
 
 
 @unittest.skipIf(h5py is None, "h5py not installed; skipping HDF5/NWB tests")
@@ -702,7 +702,7 @@ class TestPickleLoaders(unittest.TestCase):
         # Verify metadata is preserved
         self.assertEqual(sd.metadata, sd2.metadata)
 
-    @patch("data_loaders.s3_utils.ensure_local_file")
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.ensure_local_file")
     def test_pickle_s3_url_handling(self, mock_ensure):
         """
         Test that S3 URLs are resolved via ensure_local_file before loading.
@@ -757,7 +757,7 @@ class TestPickleLoaders(unittest.TestCase):
         self.assertIn("SpikeData", str(ctx.exception))
         self.assertIn("dict", str(ctx.exception))
 
-    @patch("data_loaders.s3_utils.ensure_local_file")
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.ensure_local_file")
     def test_pickle_temp_file_cleanup(self, mock_ensure):
         """
         Test that temporary file from S3 download is removed after loading.
