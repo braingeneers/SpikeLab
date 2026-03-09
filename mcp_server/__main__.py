@@ -7,7 +7,7 @@ Run with: python -m mcp_server
 import asyncio
 import sys
 
-from mcp_server.server import main
+from .server import main
 
 if __name__ == "__main__":
     try:

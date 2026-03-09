@@ -50,6 +50,7 @@ exclude = '(\.git|\.venv|build|dist)'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = [".."]
 filterwarnings = [
     "ignore::DeprecationWarning:quantities",
     "ignore:numpy.core is deprecated:DeprecationWarning",

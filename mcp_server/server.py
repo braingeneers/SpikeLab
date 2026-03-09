@@ -13,7 +13,7 @@ from mcp.server import Server
 from mcp import types
 from mcp.server.stdio import stdio_server
 
-from mcp_server.tools import analysis, data_loaders, exporters
+from .tools import analysis, data_loaders, exporters
 
 # Create the MCP server instance
 server = Server("integrated-analysis-tools")

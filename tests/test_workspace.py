@@ -22,16 +22,19 @@ try:
 except ImportError:
     H5PY_AVAILABLE = False
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from spikedata.spikedata import SpikeData
-from spikedata.ratedata import RateData
-from spikedata.rateslicestack import RateSliceStack
-from spikedata.spikeslicestack import SpikeSliceStack
-from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
-from workspace.workspace import (
+from IntegratedAnalysisTools.spikedata.spikedata import SpikeData
+from IntegratedAnalysisTools.spikedata.ratedata import RateData
+from IntegratedAnalysisTools.spikedata.rateslicestack import RateSliceStack
+from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
+from IntegratedAnalysisTools.spikedata.pairwise import (
+    PairwiseCompMatrix,
+    PairwiseCompMatrixStack,
+)
+from IntegratedAnalysisTools.workspace.workspace import (
     AnalysisWorkspace,
     WorkspaceManager,
     get_workspace_manager,

@@ -31,9 +31,9 @@ except ImportError:
 import pickle
 
 if TYPE_CHECKING:  # avoid runtime circular import
-    from spikedata import SpikeData  # noqa: F401
+    from ..spikedata import SpikeData  # noqa: F401
 
-from spikedata.utils import TimeUnit, ensure_h5py, times_from_ms
+from ..spikedata.utils import TimeUnit, ensure_h5py, times_from_ms
 
 
 def export_spikedata_to_hdf5(

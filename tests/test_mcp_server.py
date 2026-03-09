@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 
 # Ensure project root is on sys.path
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -35,14 +35,14 @@ MCP_SERVER_AVAILABLE = False
 
 # Basic imports (no mcp dependency)
 try:
-    from data_loaders.s3_utils import (
+    from IntegratedAnalysisTools.data_loaders.s3_utils import (
         download_from_s3,
         ensure_local_file,
         is_s3_url,
         parse_s3_url,
         upload_to_s3,
     )
-    from spikedata import SpikeData
+    from IntegratedAnalysisTools.spikedata import SpikeData
 
     MCP_AVAILABLE = True
 except ImportError as e:
@@ -51,9 +51,13 @@ except ImportError as e:
 # Server imports (requires mcp package)
 if MCP_AVAILABLE:
     try:
-        from mcp_server.server import server
-        from mcp_server.tools import analysis, data_loaders, exporters
-        from workspace.workspace import get_workspace_manager
+        from IntegratedAnalysisTools.mcp_server.server import server
+        from IntegratedAnalysisTools.mcp_server.tools import (
+            analysis,
+            data_loaders,
+            exporters,
+        )
+        from IntegratedAnalysisTools.workspace.workspace import get_workspace_manager
 
         MCP_SERVER_AVAILABLE = True
     except ImportError as e:
@@ -161,7 +165,7 @@ class TestS3Utils:
         assert key == "path/to/file.h5"
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.boto3")
     def test_download_from_s3(self, mock_boto3):
         """Test S3 download."""
         mock_client = MagicMock()
@@ -192,7 +196,7 @@ class TestS3Utils:
             os.unlink(tmp_path)
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_success(self, mock_boto3):
         """
         Test successful upload to S3.
@@ -260,7 +264,7 @@ class TestS3Utils:
             os.unlink(tmp_path)
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_bucket_not_found(self, mock_boto3):
         """
         Test that upload_to_s3 raises ValueError when S3 bucket does not exist.
@@ -299,7 +303,11 @@ class TestS3Utils:
             os.unlink(tmp_path)
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @pytest.mark.skipif(
+        not __import__("importlib").util.find_spec("botocore"),
+        reason="botocore not installed",
+    )
+    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_credential_error(self, mock_boto3):
         """
         Test that upload_to_s3 raises RuntimeError when AWS credentials are missing.
@@ -309,12 +317,7 @@ class TestS3Utils:
         (Method 2) Mocks upload_file to raise NoCredentialsError (lazy cred check on request)
         (Test Case 1) RuntimeError is raised with credentials message
         """
-        try:
-            from botocore.exceptions import NoCredentialsError
-        except ImportError:
-            NoCredentialsError = (
-                Exception  # s3_utils falls back to Exception when botocore missing
-            )
+        from botocore.exceptions import NoCredentialsError
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(b"data")

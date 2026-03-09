@@ -30,27 +30,27 @@ def _make_summary(obj: Any) -> dict:
     """
     # Lazy imports to avoid circular dependencies and keep optional deps optional.
     try:
-        from spikedata.spikedata import SpikeData
+        from ..spikedata.spikedata import SpikeData
     except ImportError:
         SpikeData = None
 
     try:
-        from spikedata.ratedata import RateData
+        from ..spikedata.ratedata import RateData
     except ImportError:
         RateData = None
 
     try:
-        from spikedata.rateslicestack import RateSliceStack
+        from ..spikedata.rateslicestack import RateSliceStack
     except ImportError:
         RateSliceStack = None
 
     try:
-        from spikedata.spikeslicestack import SpikeSliceStack
+        from ..spikedata.spikeslicestack import SpikeSliceStack
     except ImportError:
         SpikeSliceStack = None
 
     try:
-        from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+        from ..spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
     except ImportError:
         PairwiseCompMatrix = None
         PairwiseCompMatrixStack = None
@@ -295,7 +295,7 @@ class AnalysisWorkspace:
         Parameters:
             path (str): Base path without file extension.
         """
-        from workspace.hdf5_io import dump_workspace
+        from .hdf5_io import dump_workspace
 
         dump_workspace(self, path)
 
@@ -325,7 +325,7 @@ class AnalysisWorkspace:
         Returns:
             workspace (AnalysisWorkspace): Reconstructed workspace instance.
         """
-        from workspace.hdf5_io import load_workspace_full
+        from .hdf5_io import load_workspace_full
 
         return load_workspace_full(path)
 
@@ -343,7 +343,7 @@ class AnalysisWorkspace:
         Returns:
             obj: Reconstructed IAT data object or numpy array.
         """
-        from workspace.hdf5_io import load_workspace_item
+        from .hdf5_io import load_workspace_item
 
         return load_workspace_item(path, namespace, key)
 
@@ -407,7 +407,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         Parameters:
             name (str | None): Optional human-readable label.
         """
-        from workspace.hdf5_io import _require_h5py
+        from .hdf5_io import _require_h5py
 
         _require_h5py()
 
@@ -454,7 +454,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
             obj: Object to store.
             note (str | None): Optional free-text annotation.
         """
-        from workspace.hdf5_io import dump_item_to_file
+        from .hdf5_io import dump_item_to_file
 
         if namespace not in self._index:
             self._index[namespace] = {}
@@ -479,7 +479,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         Returns:
             obj: Reconstructed object, or None if not found.
         """
-        from workspace.hdf5_io import load_item_from_file
+        from .hdf5_io import load_item_from_file
 
         if namespace not in self._index or key not in self._index[namespace]:
             return None
@@ -524,7 +524,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         Returns:
             success (bool): True if renamed, False if namespace or old_key not found.
         """
-        from workspace.hdf5_io import delete_item_from_file, dump_item_to_file
+        from .hdf5_io import delete_item_from_file, dump_item_to_file
 
         if namespace not in self._index or old_key not in self._index[namespace]:
             return False
@@ -558,7 +558,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         Returns:
             success (bool): True if deleted, False if not found.
         """
-        from workspace.hdf5_io import delete_item_from_file
+        from .hdf5_io import delete_item_from_file
 
         if namespace not in self._index:
             return False
