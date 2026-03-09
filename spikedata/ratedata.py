@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from scipy import signal
 
@@ -277,13 +279,21 @@ class RateData:
         if method_upper == "PCA":
             if kwargs:
                 print(
-                    f"Warning: Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
-                )
+                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
+                )   
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
             # Optional graph-based UMAP + Louvain communities.
             use_graph_communities = kwargs.pop("use_graph_communities", False)
             return_labels = kwargs.pop("return_labels", False)
+
+            if return_labels and not use_graph_communities:
+                warnings.warn(
+                    "return_labels=True has no effect without use_graph_communities=True; "
+                    "labels will not be returned.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
             if use_graph_communities:
                 embedding, labels = UMAP_graph_communities(
