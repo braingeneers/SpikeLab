@@ -6,7 +6,6 @@ from scipy.stats import norm
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
-
 __all__ = [
     "get_sttc",
     "swap",
