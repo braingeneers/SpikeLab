@@ -2,14 +2,13 @@ import numpy as np
 from scipy import signal
 from .ratedata import RateData
 from .spikedata import SpikeData
+import warnings
 from .pairwise import PairwiseCompMatrixStack
 
 
 from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
-    extract_lower_triangle_features,
-    PCA_reduction,
 )
 
 
@@ -27,9 +26,9 @@ class RateSliceStack:
 
     Parameters:
     -----------
-    You can either inpute data_obj or event_matrix as your underlying data.
+    You can either input data_obj or event_matrix as your underlying data.
     Option #1: data_obj
-        data_obj (SpikeData or RateData or 3D matrix): A data object in either one of these forms.
+        data_obj (SpikeData or RateData): A data object in either one of these forms.
         There are 2 choices for time input:
             Choice A)
                 times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
@@ -41,6 +40,7 @@ class RateSliceStack:
                 time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
                                     250 ms before peak and 500 ms after peak.
         sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object. Otherwise, not used
+        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     Option #2: event_matrix
         event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
@@ -48,6 +48,7 @@ class RateSliceStack:
                                    end times of a desired slice. Each tuple must have same duration. Length must equal S.
                                    If none, will be automatically computed with step_size 1.0
         step_size (float): Time resolution in milliseconds between consecutive time bins. If None, becomes 1.0.
+        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     Instance Variables:
     --------
@@ -59,19 +60,32 @@ class RateSliceStack:
                             Example: [(100, 200), (500, 600), (1000, 1100)]
     self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
                             Example: 1.0 means time bins are at [100, 101, 102, ...] ms
+    self.neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
 
     """
 
     def __init__(
         self,
-        data_obj,  # Option 1
+        data_obj=None,  # Option 1
         times_start_to_end=None,
         time_peaks=None,
         time_bounds=None,
         sigma_ms=10,
         event_matrix=None,  # Option 2
         step_size=None,
+        neuron_attributes=None,
     ):
+        if (data_obj is None) and (event_matrix is None):
+            raise ValueError(
+                "Must input either data_obj(option 1) or event_matrix(option 2)"
+            )
+        if (data_obj is not None) and (event_matrix is not None):
+            warnings.warn(
+                "User input both data_obj and event_matrix. Ignoring data_obj and using event_matrix instead.",
+                UserWarning,
+            )
+            data_obj = None
+
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
@@ -121,15 +135,15 @@ class RateSliceStack:
                     start = time[0]
                     end = time[1]
                     rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
-                    event_matrix = rate_obj_slice.inst_Frate_data
-                    event_stack.append(event_matrix)
+                    slice_matrix = rate_obj_slice.inst_Frate_data
+                    event_stack.append(slice_matrix)
 
             # Converts to a 3d array
             event_stack = np.stack(event_stack, axis=2)
             # This makes event stack be U x T x S
             self.event_stack = event_stack
-            return
-        # Option 2
+
+        # Option 2: Using event matrx
         if event_matrix is not None:
             if not isinstance(event_matrix, np.ndarray):
                 raise TypeError("event_matrix must be a numpy array")
@@ -161,11 +175,29 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
-            return
-
-        raise ValueError("Must provide either data_obj or event_matrix")
+        self.neuron_attributes = None
+        if neuron_attributes is not None:
+            self.neuron_attributes = neuron_attributes.copy()
+            if len(neuron_attributes) != self.event_stack.shape[0]:
+                raise ValueError(
+                    f"neuron_attributes has {len(neuron_attributes)} items "
+                    f"but event_stack has {self.event_stack.shape[0]} units"
+                )
 
     def _validate_time_start_to_end(self, times_start_to_end):
+        """
+        Validates that the list of (start,end) tuples has the same duration of time_steps and are in proper format for object constructor.
+
+        Parameters:
+        -----------
+        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and
+                                   end times of a desired slice. Each tuple must have same duration. Length must equal S.
+
+        Returns:
+        --------
+        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with negative-start
+                                  windows removed.
+        """
         if not isinstance(times_start_to_end, list):
             raise TypeError("times must be a list of tuples")
         time_diff_check = []
@@ -179,8 +211,8 @@ class RateSliceStack:
                     f"Element {i} of times must be a tuple of length 2 (start, end): {time_window}"
                 )
             if not (
-                isinstance(time_window[0], (int, float))
-                and isinstance(time_window[1], (int, float))
+                isinstance(time_window[0], (int, float, np.number))
+                and isinstance(time_window[1], (int, float, np.number))
             ):
                 raise TypeError(
                     f"Start and end times in element {i} must be numbers: {time_window}"
@@ -422,29 +454,6 @@ class RateSliceStack:
             av_slice_corr_scores,
         )
 
-    def PCA_on_lower_diagnol_corr_matrix(self, all_burst_corr_scores, n_components=2):
-        """
-        Apply PCA to reduce feature dimensions.
-
-        Parameters:
-        -----------
-        feature_matrix : array, shape (B, F)
-            Each row is a burst, each column is a feature
-
-        n_components : int
-            Number of components (default: 2)
-
-        Returns:
-        --------
-        pca_result : array, shape (B, n_components)
-            Reduced representation
-        """
-        # lower triangle is S x F (or U x F if you input U x S x S) (or T x F if you input T x S x S)
-        lower_triangle = extract_lower_triangle_features(all_burst_corr_scores)
-        pca_result = PCA_reduction(lower_triangle, n_components)
-
-        return pca_result
-
     def convert_to_list_of_RateData(self):
         """
         Creates a stack of RateData objects from the 3D self.event_matrix
@@ -529,4 +538,129 @@ class RateSliceStack:
             PairwiseCompMatrixStack(stack=max_corr_lag_array, times=self.times),
             av_max_corr,
             av_max_corr_lag,
+        )
+
+    def subset(self, units, by=None):
+        """
+        Extract a subset of units/neurons from the rateslicestack. Index-based if by = None.
+
+        Parameters:
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
+                               If by != None, then the list can contain ints or strings.
+        by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
+                     If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
+
+        Returns:
+        RateSliceStack: New RateSliceStack object containing only the specified units
+        """
+        N = self.event_stack.shape[0]
+        if isinstance(units, int):
+            units = [units]
+        if isinstance(units, str):
+            units = [units]
+        units = set(units)
+        if by is not None:
+            # VALUE-BASED: Look up by neuron_attribute
+            if self.neuron_attributes is None:
+                raise ValueError("can't use `by` without `neuron_attributes`")
+
+            _missing = object()
+            units = {
+                i
+                for i in range(N)
+                if getattr(self.neuron_attributes[i], by, _missing) in units
+            }
+        units = sorted(units)
+        neuron_attributes = None
+        if self.neuron_attributes is not None:
+            neuron_attributes = [self.neuron_attributes[i] for i in units]
+
+        new_stack = self.event_stack[units, :, :]
+        return RateSliceStack(
+            event_matrix=new_stack,
+            times_start_to_end=self.times,
+            step_size=self.step_size,
+            neuron_attributes=neuron_attributes,
+        )
+
+    def subtime_by_index(self, start_idx, end_idx):
+        """
+        Extract a subset of time bins from every slice in the event stack using index values.
+        Trims along the time axis (T dimension) while preserving all slices (S dimension).
+
+        Parameters:
+        -----------
+        - start_idx (int): Starting time bin index (inclusive). Supports negative indexing.
+        - end_idx (int): Ending time bin index (exclusive). Supports negative indexing.
+
+        Returns:
+        --------
+        - RateSliceStack: New RateSliceStack object where each slice contains only the
+                          specified time bins. Shape changes from (U, T, S) to (U, T_trimmed, S).
+
+        Notes:
+        - Original timestamps are preserved (not shifted to zero). If user wants shifted to zero timestamps, they should
+          simply make a new RateSliceStack.
+        - All slices, neuron_attributes, and step_size are carried over from the original.
+        """
+        T = self.event_stack.shape[1]
+        if start_idx < 0:
+            start_idx += T
+        if end_idx < 0:
+            end_idx += T
+        if start_idx < 0 or start_idx >= T:
+            raise ValueError(f"start_idx {start_idx} out of range for T={T}")
+        if end_idx <= start_idx or end_idx > T:
+            raise ValueError(f"end_idx {end_idx} invalid")
+
+        new_stack = self.event_stack[:, start_idx:end_idx, :]
+
+        new_times = []
+        for t in self.times:
+            new_start = t[0] + start_idx * self.step_size
+            new_end = t[0] + end_idx * self.step_size
+            new_times.append((new_start, new_end))
+
+        return RateSliceStack(
+            event_matrix=new_stack,
+            times_start_to_end=new_times,
+            step_size=self.step_size,
+            neuron_attributes=self.neuron_attributes,
+        )
+
+    def subslice(self, slices):
+        """
+        Extract a subset of slices from the event stack using index values.
+        Trims along the slice axis (S dimension) while preserving all time bins (T dimension).
+
+        Parameters:
+        -----------
+        - units (list or array): Slice indices to extract.
+
+        Returns:
+        --------
+        - RateSliceStack: New RateSliceStack object containing only the specified slices.
+                          Shape changes from (U, T, S) to (U, T, S_trimmed).
+
+        Notes:
+        - All units, neuron_attributes, and step_size are carried over from the original.
+        """
+        length = self.event_stack.shape[2]
+        if isinstance(slices, int):
+            slices = [slices]
+        for s in slices:
+            if s >= length or s < -length:
+                raise ValueError(
+                    f"One or more slice indices out of range for S={length}"
+                )
+        slices = sorted(slices)
+        new_times = []
+        for s in slices:
+            new_times.append(self.times[s])
+        new_stack = self.event_stack[:, :, slices]
+        return RateSliceStack(
+            event_matrix=new_stack,
+            times_start_to_end=new_times,
+            step_size=self.step_size,
+            neuron_attributes=self.neuron_attributes,
         )

@@ -17,11 +17,10 @@ except ImportError:
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-import IntegratedAnalysisTools.spikedata.spikedata as spikedata
-from IntegratedAnalysisTools.spikedata import SpikeData
-from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
-from IntegratedAnalysisTools.spikedata.utils import _sliding_rate_single_train
-from IntegratedAnalysisTools.spikedata.utils import (
+import SpikeLab.spikedata.spikedata as spikedata
+from SpikeLab.spikedata import SpikeData
+from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from SpikeLab.spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
     extract_unit_waveforms,
@@ -632,9 +631,14 @@ class SpikeDataTest(unittest.TestCase):
         """
         # For a neuron that fires at a constant rate, any sample time should
         # give you exactly the correct rate, here 1 kHz.
+        # spikes = np.arange(10)
+        # when = np.random.rand(1000) * 12 - 1
+        # self.assertAll(spikedata._resampled_isi(spikes, when, sigma_ms=0.0) == 1)
         spikes = np.arange(10)
-        when = np.random.rand(1000) * 12 - 1
-        self.assertAll(spikedata._resampled_isi(spikes, when, sigma_ms=0.0) == 1)
+        when = np.arange(1, 9, 0.01)  # sorted, evenly spaced, within spike range
+        self.assertAll(
+            np.isclose(spikedata._resampled_isi(spikes, when, sigma_ms=0.0), 1000)
+        )
 
         # Also check that the rate is correctly calculated for some varying
         # examples.

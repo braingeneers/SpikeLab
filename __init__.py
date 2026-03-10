@@ -1,1 +1,1 @@
-"""IntegratedAnalysisTools — spike train analysis library."""
+"""SpikeLab — spike train analysis library."""
