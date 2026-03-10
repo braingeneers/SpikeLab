@@ -8,12 +8,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from IntegratedAnalysisTools.spikedata.pairwise import (
+from SpikeLab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
 )
-from IntegratedAnalysisTools.spikedata import SpikeData
-from IntegratedAnalysisTools.spikedata.rateslicestack import RateSliceStack
+from SpikeLab.spikedata import SpikeData
+from SpikeLab.spikedata.rateslicestack import RateSliceStack
 
 
 class TestPairwise(unittest.TestCase):
@@ -269,7 +269,7 @@ class TestPairwise(unittest.TestCase):
         stack = PairwiseCompMatrixStack(stack=stack_data)
 
         # Test PCA on RateSliceStack with this stack
-        from IntegratedAnalysisTools.spikedata.utils import (
+        from SpikeLab.spikedata.utils import (
             extract_lower_triangle_features,
         )
 

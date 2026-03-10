@@ -26,15 +26,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from IntegratedAnalysisTools.spikedata.spikedata import SpikeData
-from IntegratedAnalysisTools.spikedata.ratedata import RateData
-from IntegratedAnalysisTools.spikedata.rateslicestack import RateSliceStack
-from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
-from IntegratedAnalysisTools.spikedata.pairwise import (
+from SpikeLab.spikedata.spikedata import SpikeData
+from SpikeLab.spikedata.ratedata import RateData
+from SpikeLab.spikedata.rateslicestack import RateSliceStack
+from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from SpikeLab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
 )
-from IntegratedAnalysisTools.workspace.workspace import (
+from SpikeLab.workspace.workspace import (
     AnalysisWorkspace,
     LazyAnalysisWorkspace,
     WorkspaceManager,

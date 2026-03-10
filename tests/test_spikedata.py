@@ -17,10 +17,10 @@ except ImportError:
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-import IntegratedAnalysisTools.spikedata.spikedata as spikedata
-from IntegratedAnalysisTools.spikedata import SpikeData
-from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
-from IntegratedAnalysisTools.spikedata.utils import (
+import SpikeLab.spikedata.spikedata as spikedata
+from SpikeLab.spikedata import SpikeData
+from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from SpikeLab.spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
     extract_unit_waveforms,
