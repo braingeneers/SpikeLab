@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from scipy import signal
 
@@ -5,6 +7,7 @@ from .utils import (
     compute_cross_correlation_with_lag,
     PCA_reduction,
     UMAP_reduction,
+    UMAP_graph_communities,
 )
 
 
@@ -296,24 +299,21 @@ class RateData:
         **kwargs,
     ):
         """
-        Project firing-rate data into a low-dimensional manifold using PCA or UMAP.
+        Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.
 
-        Parameters
-        ----------
-        method : {"PCA", "UMAP"}, default="PCA"
-            Dimensionality reduction method to use.
-        n_components : int, default=2
-            Number of components (dimensions) in the output manifold.
-        **kwargs :
-            Additional keyword arguments passed through to the UMAP reduction
-            helper when ``method='UMAP'`` (for example, ``n_neighbors``,
-            ``min_dist``, or ``metric``).
+        Parameters:
+        method (str): Which dimensionality reduction method to use. Either "PCA" (default) or "UMAP".
+        n_components (int): Number of output dimensions to return (default=2).
+        **kwargs: Additional options for UMAP. If method="UMAP", you can specify:
+            - use_graph_communities (bool): If True, use UMAP's connectivity graph with Louvain community detection (default: False).
+            - return_labels (bool): If True and use_graph_communities is True, return (embedding, labels) tuple (default: False).
+            - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
 
-        Returns
-        -------
-        embedding : ndarray, shape (T, n_components)
-            Low-dimensional embedding of the firing-rate trajectory over time.
-            Each row corresponds to a time bin in ``self.times``.
+        Returns:
+        embedding (ndarray): Low-dimensional embedding, shape (T, n_components), where T is the number of time bins.
+            Each row corresponds to a time bin in self.times.
+        (embedding, labels) (tuple): If method="UMAP", use_graph_communities=True, and return_labels=True,
+            returns both the embedding and an array of integer community labels for each time bin.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -321,12 +321,34 @@ class RateData:
         method_upper = method.upper()
         if method_upper == "PCA":
             if kwargs:
-                raise TypeError(
-                    "Additional keyword arguments are only supported for UMAP; "
-                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                print(
+                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
                 )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
+            # Optional graph-based UMAP + Louvain communities.
+            use_graph_communities = kwargs.pop("use_graph_communities", False)
+            return_labels = kwargs.pop("return_labels", False)
+
+            if return_labels and not use_graph_communities:
+                warnings.warn(
+                    "return_labels=True has no effect without use_graph_communities=True; "
+                    "labels will not be returned.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+            if use_graph_communities:
+                embedding, labels = UMAP_graph_communities(
+                    data_T,
+                    n_components=n_components,
+                    **kwargs,
+                )
+                if return_labels:
+                    return embedding, labels
+                return embedding
+
+            # Default: plain UMAP embedding only.
             return UMAP_reduction(
                 data_T,
                 n_components=n_components,
