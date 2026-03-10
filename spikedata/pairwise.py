@@ -150,7 +150,7 @@ class PairwiseCompMatrix:
         """
         n = self.matrix.shape[0]
         lower_tri_idx = np.tril_indices(n, k=-1)
-        return self.matrix[lower_tri_idx[0], lower_tri_idx[1]].copy()
+        return self.matrix[lower_tri_idx[0], lower_tri_idx[1]]
 
 
 @dataclass
@@ -385,10 +385,10 @@ class PairwiseCompMatrixStack:
         num_items = matrix_3d.shape[0]
         lower_tri_idx = np.tril_indices(num_items, k=-1)
         # matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :] gives (F, S), transpose to (S, F)
-        features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T.copy()
+        features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
         return features
 
-    def dim_red_on_lower_diagnol_corr_matrix(
+    def dim_red_on_lower_diagonal_corr_matrix(
         self,
         method: str = "PCA",
         n_components: int = 2,
