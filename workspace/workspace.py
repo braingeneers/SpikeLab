@@ -214,6 +214,15 @@ class AnalysisWorkspace:
             return list(self._items.get(namespace, {}).keys())
         return {ns: list(keys.keys()) for ns, keys in self._items.items()}
 
+    def list_namespaces(self) -> list:
+        """
+        Return the names of all top-level namespaces in the workspace.
+
+        Returns:
+            namespaces (list[str]): Sorted list of namespace names.
+        """
+        return list(self._items.keys())
+
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
@@ -507,6 +516,15 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         if namespace is not None:
             return list(self._index.get(namespace, {}).keys())
         return {ns: list(keys.keys()) for ns, keys in self._index.items()}
+
+    def list_namespaces(self) -> list:
+        """
+        Return the names of all top-level namespaces in the workspace.
+
+        Returns:
+            namespaces (list[str]): List of namespace names derived from the in-memory index.
+        """
+        return list(self._index.keys())
 
     # ------------------------------------------------------------------
     # Mutation
