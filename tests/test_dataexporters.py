@@ -34,9 +34,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from IntegratedAnalysisTools.spikedata import SpikeData
-import IntegratedAnalysisTools.data_loaders.data_loaders as loaders
-import IntegratedAnalysisTools.data_loaders.data_exporters as exporters
+from SpikeLab.spikedata import SpikeData
+import SpikeLab.data_loaders.data_loaders as loaders
+import SpikeLab.data_loaders.data_exporters as exporters
 
 
 class BaseExportTest(unittest.TestCase):
@@ -464,7 +464,7 @@ class TestPickleExporters(BaseExportTest):
         for a, b in zip(sd.train, sd2.train):
             self.assertTrue(np.allclose(a, b))
 
-    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.upload_to_s3")
+    @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_s3_upload(self, mock_upload):
         """
         Tests S3 upload flow when upload_to_s3=True.
@@ -490,7 +490,7 @@ class TestPickleExporters(BaseExportTest):
         # Verify first arg (temp path) ends with .pkl
         self.assertTrue(call_args[0][0].endswith(".pkl"))
 
-    @patch("IntegratedAnalysisTools.data_loaders.s3_utils.upload_to_s3")
+    @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_temp_cleanup(self, mock_upload):
         """
         Tests temporary file is removed after S3 upload.

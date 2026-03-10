@@ -1,5 +1,5 @@
 """
-MCP Server for IntegratedAnalysisTools.
+MCP Server for SpikeLab.
 
 This package provides a Model Context Protocol (MCP) server that exposes
 spike data analysis capabilities through a chat interface.

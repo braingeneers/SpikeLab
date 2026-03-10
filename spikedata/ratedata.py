@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from scipy import signal
 
@@ -5,6 +7,7 @@ from .utils import (
     compute_cross_correlation_with_lag,
     PCA_reduction,
     UMAP_reduction,
+    UMAP_graph_communities,
 )
 
 
@@ -70,8 +73,8 @@ class RateData:
         Extract a subset of units/neurons from the rate data. Index-based if by = None.
 
         Parameters:
-        units (list or array): Unit indices to extract.
-                               If by is not None, then units are the neuron_id you want to extract.
+        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
+                               If by != None, then the list can contain ints or strings.
         by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
                      If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
 
@@ -81,12 +84,14 @@ class RateData:
 
         if isinstance(units, int):
             units = [units]
+        # For case where user inputs a single string for units when using by option
+        if isinstance(units, str):
+            units = [units]
         units = set(units)
         if by is not None:
             # VALUE-BASED: Look up by neuron_attribute
             if self.neuron_attributes is None:
                 raise ValueError("can't use `by` without `neuron_attributes`")
-
             _missing = object()
             units = {
                 i
@@ -121,7 +126,7 @@ class RateData:
         """
 
         length = self.times[-1] if len(self.times) > 0 else 0
-
+        # Handle start
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
         elif start < 0:
@@ -179,10 +184,14 @@ class RateData:
         Returns:
         RateData: New RateData object containing only the specified time range
         """
+        if start_idx < 0:
+            start_idx += len(self.times)
+        if end_idx < 0:
+            end_idx += len(self.times)
 
         if start_idx < 0 or start_idx >= len(self.times):
             raise ValueError(f"start_idx {start_idx} out of range")
-        if end_idx <= start_idx or end_idx > len(self.times):
+        if end_idx < start_idx or end_idx > len(self.times):
             raise ValueError(f"end_idx {end_idx} invalid")
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
@@ -290,24 +299,21 @@ class RateData:
         **kwargs,
     ):
         """
-        Project firing-rate data into a low-dimensional manifold using PCA or UMAP.
+        Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.
 
-        Parameters
-        ----------
-        method : {"PCA", "UMAP"}, default="PCA"
-            Dimensionality reduction method to use.
-        n_components : int, default=2
-            Number of components (dimensions) in the output manifold.
-        **kwargs :
-            Additional keyword arguments passed through to the UMAP reduction
-            helper when ``method='UMAP'`` (for example, ``n_neighbors``,
-            ``min_dist``, or ``metric``).
+        Parameters:
+        method (str): Which dimensionality reduction method to use. Either "PCA" (default) or "UMAP".
+        n_components (int): Number of output dimensions to return (default=2).
+        **kwargs: Additional options for UMAP. If method="UMAP", you can specify:
+            - use_graph_communities (bool): If True, use UMAP's connectivity graph with Louvain community detection (default: False).
+            - return_labels (bool): If True and use_graph_communities is True, return (embedding, labels) tuple (default: False).
+            - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
 
-        Returns
-        -------
-        embedding : ndarray, shape (T, n_components)
-            Low-dimensional embedding of the firing-rate trajectory over time.
-            Each row corresponds to a time bin in ``self.times``.
+        Returns:
+        embedding (ndarray): Low-dimensional embedding, shape (T, n_components), where T is the number of time bins.
+            Each row corresponds to a time bin in self.times.
+        (embedding, labels) (tuple): If method="UMAP", use_graph_communities=True, and return_labels=True,
+            returns both the embedding and an array of integer community labels for each time bin.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -315,12 +321,34 @@ class RateData:
         method_upper = method.upper()
         if method_upper == "PCA":
             if kwargs:
-                raise TypeError(
-                    "Additional keyword arguments are only supported for UMAP; "
-                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                print(
+                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
                 )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":
+            # Optional graph-based UMAP + Louvain communities.
+            use_graph_communities = kwargs.pop("use_graph_communities", False)
+            return_labels = kwargs.pop("return_labels", False)
+
+            if return_labels and not use_graph_communities:
+                warnings.warn(
+                    "return_labels=True has no effect without use_graph_communities=True; "
+                    "labels will not be returned.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+            if use_graph_communities:
+                embedding, labels = UMAP_graph_communities(
+                    data_T,
+                    n_components=n_components,
+                    **kwargs,
+                )
+                if return_labels:
+                    return embedding, labels
+                return embedding
+
+            # Default: plain UMAP embedding only.
             return UMAP_reduction(
                 data_T,
                 n_components=n_components,

@@ -26,16 +26,17 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from IntegratedAnalysisTools.spikedata.spikedata import SpikeData
-from IntegratedAnalysisTools.spikedata.ratedata import RateData
-from IntegratedAnalysisTools.spikedata.rateslicestack import RateSliceStack
-from IntegratedAnalysisTools.spikedata.spikeslicestack import SpikeSliceStack
-from IntegratedAnalysisTools.spikedata.pairwise import (
+from SpikeLab.spikedata.spikedata import SpikeData
+from SpikeLab.spikedata.ratedata import RateData
+from SpikeLab.spikedata.rateslicestack import RateSliceStack
+from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from SpikeLab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
 )
-from IntegratedAnalysisTools.workspace.workspace import (
+from SpikeLab.workspace.workspace import (
     AnalysisWorkspace,
+    LazyAnalysisWorkspace,
     WorkspaceManager,
     get_workspace_manager,
     _make_summary,
@@ -325,6 +326,27 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.assertCountEqual(rec1_keys, ["a", "b"])
 
         self.assertEqual(self.ws.list_keys("missing_ns"), [])
+
+    def test_list_namespaces(self):
+        """
+        Tests list_namespaces() returns all top-level namespace names.
+
+        Tests:
+            (Test Case 1) Empty workspace returns an empty list.
+            (Test Case 2) After storing items, all namespace names are returned.
+            (Test Case 3) Each name appears exactly once even when multiple keys exist in the same namespace.
+            (Test Case 4) Namespaces not yet stored are absent from the result.
+        """
+        self.assertEqual(self.ws.list_namespaces(), [])
+
+        self.ws.store("alpha", "k1", np.zeros(2))
+        self.ws.store("alpha", "k2", np.zeros(2))
+        self.ws.store("beta", "k1", np.zeros(2))
+
+        namespaces = self.ws.list_namespaces()
+        self.assertIsInstance(namespaces, list)
+        self.assertCountEqual(namespaces, ["alpha", "beta"])
+        self.assertNotIn("gamma", namespaces)
 
     # ------------------------------------------------------------------
     # rename
@@ -1023,6 +1045,59 @@ class TestHDF5IO(unittest.TestCase):
         self.assertEqual(groups[0], "A")
         self.assertEqual(groups[1], "B")
 
+    def test_roundtrip_spikedata_neuron_attributes_array(self):
+        """
+        Tests HDF5 round-trip for SpikeData with array-valued neuron_attributes.
+
+        Tests:
+            (Test Case 1) Array-valued attribute is restored with the correct shape.
+            (Test Case 2) Array values are preserved (allclose).
+            (Test Case 3) Scalar attributes stored alongside array attributes are also preserved.
+        """
+        rng = np.random.default_rng(7)
+        waveforms = [rng.standard_normal((10, 5)) for _ in range(3)]
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sd.neuron_attributes = [
+            {"waveform": waveforms[0], "channel": 0},
+            {"waveform": waveforms[1], "channel": 1},
+            {"waveform": waveforms[2], "channel": 2},
+        ]
+        out = self._roundtrip(sd)
+        self.assertIsNotNone(out.neuron_attributes)
+        for i in range(3):
+            self.assertIn("waveform", out.neuron_attributes[i])
+            self.assertEqual(out.neuron_attributes[i]["waveform"].shape, (10, 5))
+            np.testing.assert_array_almost_equal(
+                out.neuron_attributes[i]["waveform"], waveforms[i]
+            )
+            self.assertAlmostEqual(float(out.neuron_attributes[i]["channel"]), float(i))
+
+    def test_roundtrip_spikedata_neuron_attributes_array_partial(self):
+        """
+        Tests HDF5 round-trip for array-valued neuron_attributes when some units lack the attribute.
+
+        Tests:
+            (Test Case 1) Units with the array attribute have it restored correctly.
+            (Test Case 2) Units missing the array attribute do not have the key in their dict after load.
+        """
+        rng = np.random.default_rng(8)
+        waveform = rng.standard_normal((10, 5))
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sd.neuron_attributes = [
+            {"waveform": waveform},
+            {},
+            {"waveform": waveform * 2.0},
+        ]
+        out = self._roundtrip(sd)
+        self.assertIsNotNone(out.neuron_attributes)
+        np.testing.assert_array_almost_equal(
+            out.neuron_attributes[0]["waveform"], waveform
+        )
+        self.assertNotIn("waveform", out.neuron_attributes[1])
+        np.testing.assert_array_almost_equal(
+            out.neuron_attributes[2]["waveform"], waveform * 2.0
+        )
+
     def test_roundtrip_spikedata_with_raw_data(self):
         """
         Tests HDF5 round-trip for SpikeData that includes raw_data and raw_time.
@@ -1342,14 +1417,21 @@ class TestHDF5IO(unittest.TestCase):
 
     def test_metadata_non_json_serializable_raises(self):
         """
-        Tests that saving a PairwiseCompMatrix with non-JSON-serializable metadata raises ValueError.
+        Tests that saving metadata with a genuinely non-JSON-serializable value raises ValueError.
 
         Tests:
-            (Test Case 1) metadata containing a numpy array raises ValueError at save time.
+            (Test Case 1) metadata containing a custom Python object raises ValueError at save time.
+
+        Notes:
+            - numpy arrays and scalars are handled by _NumpyEncoder and do not raise.
         """
+
+        class CustomObj:
+            pass
+
         pcm = PairwiseCompMatrix(
             matrix=np.eye(2),
-            metadata={"bad_value": np.array([1, 2, 3])},
+            metadata={"bad_value": CustomObj()},
         )
         ws = AnalysisWorkspace()
         ws.store("ns", "pcm", pcm)
@@ -1358,6 +1440,43 @@ class TestHDF5IO(unittest.TestCase):
             base = str(pathlib.Path(tmp) / "ws")
             with self.assertRaises(ValueError):
                 ws.save(base)
+
+    def test_roundtrip_metadata_numpy_array(self):
+        """
+        Tests that a numpy array stored in SpikeData metadata survives an HDF5 round-trip.
+
+        Tests:
+            (Test Case 1) Save does not raise despite the numpy array value.
+            (Test Case 2) The metadata value is recovered as a Python list with equal elements.
+        """
+        arr = np.array([1.0, 2.0, 3.0])
+        sd = SpikeData([[1.0, 2.0], [3.0]], length=20.0, metadata={"positions": arr})
+        out = self._roundtrip(sd)
+        self.assertIn("positions", out.metadata)
+        self.assertEqual(out.metadata["positions"], [1.0, 2.0, 3.0])
+
+    def test_roundtrip_metadata_numpy_scalars(self):
+        """
+        Tests that numpy scalar types in metadata are serialized to Python primitives.
+
+        Tests:
+            (Test Case 1) numpy integer value is preserved numerically.
+            (Test Case 2) numpy float value is preserved numerically.
+            (Test Case 3) numpy bool value is preserved as truthy.
+        """
+        sd = SpikeData(
+            [[1.0, 2.0]],
+            length=10.0,
+            metadata={
+                "count": np.int64(42),
+                "rate": np.float32(3.14),
+                "active": np.bool_(True),
+            },
+        )
+        out = self._roundtrip(sd)
+        self.assertEqual(out.metadata["count"], 42)
+        self.assertAlmostEqual(out.metadata["rate"], 3.14, places=5)
+        self.assertTrue(out.metadata["active"])
 
     # ------------------------------------------------------------------
     # Index metadata after full load
@@ -1386,6 +1505,37 @@ class TestHDF5IO(unittest.TestCase):
         self.assertEqual(info["type"], "ndarray")
         self.assertEqual(info["note"], "my note")
         self.assertGreater(info["created_at"], 0.0)
+
+    # ------------------------------------------------------------------
+    # list_namespaces on LazyAnalysisWorkspace
+    # ------------------------------------------------------------------
+
+    def test_lazy_list_namespaces(self):
+        """
+        Tests that list_namespaces() returns correct namespace names on a LazyAnalysisWorkspace.
+
+        Tests:
+            (Test Case 1) Empty lazy workspace returns an empty list.
+            (Test Case 2) After storing items, all namespace names are present in the result.
+            (Test Case 3) Each namespace name appears exactly once even when multiple keys exist in it.
+            (Test Case 4) Namespaces not stored are absent from the result.
+
+        Notes:
+            - LazyAnalysisWorkspace keeps _items empty and uses _index as the source of truth,
+              so list_namespaces() reads from _index rather than _items.
+        """
+        ws = LazyAnalysisWorkspace(name="lazy_test")
+
+        self.assertEqual(ws.list_namespaces(), [])
+
+        ws.store("alpha", "k1", np.zeros(2))
+        ws.store("alpha", "k2", np.zeros(2))
+        ws.store("beta", "k1", np.zeros(2))
+
+        namespaces = ws.list_namespaces()
+        self.assertIsInstance(namespaces, list)
+        self.assertCountEqual(namespaces, ["alpha", "beta"])
+        self.assertNotIn("gamma", namespaces)
 
 
 if __name__ == "__main__":

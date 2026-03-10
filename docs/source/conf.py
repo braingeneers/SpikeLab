@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "IntegratedAnalysisTools"
-copyright = "2025, IntegratedAnalysisTools Maintainers"
-author = "IntegratedAnalysisTools Maintainers"
+project = "SpikeLab"
+copyright = "2025, SpikeLab Maintainers"
+author = "SpikeLab Maintainers"
 release = "0.0.0"
 version = "0.0.0"
 
