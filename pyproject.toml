@@ -9,7 +9,7 @@ description = "Analysis tools for automated closed-loop experimentation and anal
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "IntegratedAnalysisTools Maintainers" }
+  { name = "SpikeLab Maintainers" }
 ]
 dependencies = [
   "numpy>=1.20",

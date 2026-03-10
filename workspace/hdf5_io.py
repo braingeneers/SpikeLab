@@ -38,6 +38,21 @@ def _require_h5py() -> None:
         )
 
 
+class _NumpyEncoder(json.JSONEncoder):
+    """JSON encoder that converts numpy arrays and scalar types to Python primitives."""
+
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        return super().default(obj)
+
+
 # ===========================================================================
 # Public API
 # ===========================================================================
@@ -351,8 +366,18 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
             na_grp.create_dataset(attr_key, data=np.full(N, np.nan))
             continue
 
+        use_array = any(isinstance(v, np.ndarray) for v in non_none)
         use_string = any(isinstance(v, str) for v in non_none)
-        if use_string:
+
+        if use_array:
+            sample = next(v for v in non_none if isinstance(v, np.ndarray))
+            arr_shape = sample.shape
+            stacked = np.full((N, *arr_shape), np.nan, dtype=np.float64)
+            for i, v in enumerate(values):
+                if v is not None:
+                    stacked[i] = np.asarray(v, dtype=np.float64)
+            na_grp.create_dataset(attr_key, data=stacked)
+        elif use_string:
             str_values = [str(v) if v is not None else "" for v in values]
             dt = h5py.string_dtype()
             na_grp.create_dataset(
@@ -389,17 +414,23 @@ def _load_neuron_attributes(grp) -> Optional[list]:
     for attr_key in na_grp.keys():
         raw = na_grp[attr_key][:]
         if raw.dtype.kind in ("S", "O"):
-            values = [
-                v.decode("utf-8") if isinstance(v, bytes) else str(v) for v in raw
-            ]
+            for i, v in enumerate(raw):
+                decoded = v.decode("utf-8") if isinstance(v, bytes) else str(v)
+                result[i][attr_key] = decoded
+        elif raw.ndim > 1:
+            # Array-valued attribute: each row is one unit's array.
+            # All-NaN rows are sentinels for missing entries.
+            for i in range(len(raw)):
+                row = raw[i]
+                if np.all(np.isnan(row)):
+                    continue
+                result[i][attr_key] = row
         else:
-            values = raw.tolist()
-
-        for i, v in enumerate(values):
-            # Skip NaN sentinels used for missing float values
-            if isinstance(v, float) and np.isnan(v):
-                continue
-            result[i][attr_key] = v
+            for i, v in enumerate(raw.tolist()):
+                # Skip NaN sentinels used for missing float values
+                if isinstance(v, float) and np.isnan(v):
+                    continue
+                result[i][attr_key] = v
 
     if all(len(d) == 0 for d in result):
         return None
@@ -486,7 +517,7 @@ def _dump_metadata_json(grp, metadata: dict) -> None:
         ValueError: If metadata contains non-JSON-serialisable values.
     """
     try:
-        grp.attrs["__metadata__"] = json.dumps(metadata)
+        grp.attrs["__metadata__"] = json.dumps(metadata, cls=_NumpyEncoder)
     except (TypeError, ValueError) as e:
         raise ValueError(
             f"metadata contains non-JSON-serialisable values and cannot be saved "
