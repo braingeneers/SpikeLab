@@ -6,7 +6,6 @@ from scipy.stats import norm
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import PCA
 
-
 __all__ = [
     "get_sttc",
     "swap",
@@ -132,29 +131,55 @@ def _resampled_isi(spikes, times, sigma_ms):
     sigma_ms (float): Standard deviation in milliseconds
 
     Returns:
-    fr (numpy.ndarray): Firing rate at specific times
+    fr (numpy.ndarray): Firing rate at specific times. Same size as times
 
     Notes:
     - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
     smoothed by a Gaussian kernel with the given width.
     """
-    if len(spikes) == 0:
-        return np.zeros_like(times)
-    elif len(spikes) == 1:
-        return np.ones_like(times) / spikes[0]
-    else:
-        x = 0.5 * (spikes[:-1] + spikes[1:])
-        y = 1 / np.diff(spikes)
-        fr = np.interp(times, x, y)
-        if len(np.atleast_1d(fr)) < 2:
-            return fr
 
-        dt_ms = times[1] - times[0]
-        sigma = sigma_ms / dt_ms
-        if sigma > 0:
-            return ndimage.gaussian_filter1d(fr, sigma)
-        else:
-            return fr
+    if len(spikes) == 0 or len(spikes) == 1:
+        # Need at least 2 spikes to do get inter-spike interval
+        return np.zeros_like(times)
+    if len(times) < 2:
+        raise ValueError("times has less than 2 values. Input more times")
+
+    spikes = np.array(spikes)
+    times = np.array(times)
+
+    # Compute inter spike intervals (piece 1 logic)
+    isi = np.diff(spikes)
+    isi = np.insert(isi, 0, 0)  # Add spacer for first spike
+
+    # Compute instantaneous firing rates (1/isi, in Hz assuming ms units)
+    isi_rate = np.zeros_like(isi, dtype=float)
+    isi_rate[1:] = 1.0 / isi[1:] * 1000
+
+    # Create temporary result array matching times resolution
+    t_start, t_end = times[0], times[-1]
+    dt_ms = times[1] - times[0]
+    n_bins = int(round((t_end - t_start) / dt_ms)) + 1
+    isi_rate_temp = np.zeros(n_bins)
+
+    # Assign rates to bins between spikes (piece 1 logic)
+    for i in range(1, len(spikes)):
+        start_bin = int(round((spikes[i - 1] - t_start) / dt_ms))
+        end_bin = int(round((spikes[i] - t_start) / dt_ms))
+        if start_bin < n_bins:
+            isi_rate_temp[start_bin : min(end_bin, n_bins)] = isi_rate[i]
+
+    # Interpolate to exact times grid (if needed)
+    fr = np.interp(times, t_start + dt_ms * np.arange(n_bins), isi_rate_temp)
+
+    # Apply Gaussian smoothing
+    if len(fr) < 2:
+        return fr
+
+    sigma = sigma_ms / dt_ms
+    if sigma > 0:
+        return ndimage.gaussian_filter1d(fr, sigma)
+    else:
+        return fr
 
 
 def _train_from_i_t_list(idces, times, N):
@@ -228,24 +253,30 @@ def butter_filter(
     return filtered_traces
 
 
-def swap(ar, idxs):
+def swap(ar, idxs, rng):
     """
     Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
 
     Parameters:
-    ar (numpy.ndarray): Binary spike raster
-    idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
+    -----------
+    - ar (numpy.ndarray): Binary spike raster
+    - idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
+    - rng (numpy.random.Generator): Random number generator for reproducibility.
 
     Returns:
-    success (bool): True if a swap was performed
+    --------
+    - success (bool): True if a swap was performed
 
     Notes:
+    ------
     - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
     if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct,
     swaps them so that spikes move to those positions.
     """
-    idx0 = np.random.randint(len(idxs[0]))
-    idx1 = np.random.randint(len(idxs[0]))
+    # idx0 = np.random.randint(len(idxs[0]))
+    # idx1 = np.random.randint(len(idxs[0]))
+    idx0 = rng.integers(len(idxs[0]))
+    idx1 = rng.integers(len(idxs[0]))
     i0, j0 = idxs[0][idx0], idxs[1][idx0]
     i1, j1 = idxs[0][idx1], idxs[1][idx1]
     if i0 == i1 or j0 == j1 or ar[i0, j1] == 1.0 or ar[i1, j0] == 1.0:
@@ -257,29 +288,44 @@ def swap(ar, idxs):
     return True
 
 
-def randomize(ar, swap_per_spike=5):
+def randomize(ar, swap_per_spike=5, seed=None):
     """
     Randomize a binary spike raster using degree-preserving double-edge swaps.
 
     Parameters:
-    ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
-    swap_per_spike (int): Target number of successful swaps per spike.
+    -----------
+    - ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
+    - swap_per_spike (int): Target number of successful swaps per spike.
+    - seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
 
     Returns:
-    randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
+    --------
+    -randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
+
+    Notes:
+    ------
+    - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
+    - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
+    - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
+
+    Ref:
+    ----
+    - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
     """
+    rng = np.random.default_rng(seed)
+
     ar = np.array(ar, dtype=float, copy=True)
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
     attempts = int((swap_per_spike + 1) * n_spikes)
     cnt_swap = 0
     for _ in range(attempts):
-        if swap(ar, idxs):
+        if swap(ar, idxs, rng):
             cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:
         for _ in range(attempts):
-            if swap(ar, idxs):
+            if swap(ar, idxs, rng):
                 cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:
@@ -289,7 +335,7 @@ def randomize(ar, swap_per_spike=5):
             )
         )
 
-    return ar
+    return ar.astype(int)
 
 
 def trough_between(i0, i1, pop_rate):

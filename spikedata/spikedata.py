@@ -104,6 +104,7 @@ class SpikeData:
             3 times in a 10 ms time bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.
         - All metadata parameters of the regular constructor are accepted.
         """
+        raster = raster.astype(int)
         N, T = raster.shape
         train = [[] for _ in range(N)]
         for i, t in zip(*raster.nonzero()):
@@ -377,18 +378,33 @@ class SpikeData:
 
     def frames(self, length, overlap=0):
         """
-        Iterate over the length of the spike train of SpikeData objects in
-        steps of length over a fixed overlap, and yields a new SpikeData object for each subwindow.
+        Split the recording into a SpikeSliceStack of fixed-length windows.
 
         Parameters:
-        length (float): Length of the subwindow in milliseconds
-        overlap (float): Overlap between subwindows in milliseconds
+            length (float): Length of each window in milliseconds.
+            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
 
         Returns:
-        frames (generator): Generator of SpikeData objects corresponding to subwindows.
+            stack (SpikeSliceStack): Stack of SpikeData windows, one per frame.
+
+        Notes:
+            - Windows that would extend past the end of the recording are excluded.
+            - overlap must be strictly less than length.
         """
-        for start in np.arange(0, self.length, length - overlap):
-            yield self.subtime(start, start + length)
+        from .spikeslicestack import SpikeSliceStack
+
+        step = length - overlap
+        if step <= 0:
+            raise ValueError("overlap must be less than length")
+        times = [
+            (float(start), float(start) + length)
+            for start in np.arange(0, self.length - length + 1e-9, step)
+        ]
+        if not times:
+            raise ValueError(
+                f"Recording length ({self.length} ms) is shorter than frame length ({length} ms)"
+            )
+        return SpikeSliceStack(self, times_start_to_end=times)
 
     def binned(self, bin_size=40.0):
         """
@@ -502,11 +518,11 @@ class SpikeData:
     def subset(self, units, by=None):
         """
         Return a new SpikeData with spike times for only some units, selected either by
-        their indices or by an ID stored under a given key in the neuron_attributes.
+        their indices or by an ID stored under a given key in the neuron_attributes. Index-based if by = None.
 
         Parameters:
         units (list): List of unit indices to select
-        by (str): Key to select units by in the neuron_attributes
+        by (str): Key to select units by in the neuron_attributes. Index-based if by = None.
 
         Returns:
         sd (SpikeData): New SpikeData object with the selected units.
@@ -518,6 +534,9 @@ class SpikeData:
         - Neurons whose neuron_attributes entry does not have the key are always excluded.
         """
         if isinstance(units, int):
+            units = [units]
+        # For case where user inputs a single string for units when using by option
+        if isinstance(units, str):
             units = [units]
         units = set(units)
         if by is not None:
@@ -1110,8 +1129,6 @@ class SpikeData:
         in which each unit is active and assigns backbone identity based on fraction of active bursts
 
         Parameters:
-        t_spk_mat (numpy.ndarray): Spike matrix of shape (N, T) where T is time bins and N is units
-            This computed by turning self.train into sparse spike matrix via self.sparse_raster()
         edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst
         MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst
         backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit
@@ -1153,6 +1170,45 @@ class SpikeData:
 
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
+
+    def spike_shuffle(self, swap_per_spike=5, seed=None, bin_size=1):
+        """
+        Shuffles the underlying spike matrix of a SpikeData object using degree-preserving double-edge swaps.
+
+        Parameters:
+        -----------
+        - swap_per_spike (int): Determines total number of swaps: num_spikes * swap_per_spike (optional, default=5).
+        - seed (int): Set the random seed number for repeatability of results, None means no seed is set (optional, default=None).
+        - bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
+                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved (optional, default=1).
+        Returns:
+        --------
+        - shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
+
+        Notes:
+        -----
+        - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
+        - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
+        - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
+
+        Ref:
+        ----
+        - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
+        """
+        spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
+        if bin_size != 1:
+            binary_mat = spk_mat > 0
+        else:
+            binary_mat = spk_mat
+        shuffled_mat = randomize(binary_mat, swap_per_spike=swap_per_spike, seed=seed)
+        shuffled_spike_data = SpikeData.from_raster(
+            shuffled_mat,
+            bin_size,
+            length=self.length,
+            metadata=self.metadata,
+            neuron_attributes=self.neuron_attributes,
+        )
+        return shuffled_spike_data
 
     # ----------------------------
     # Exporters
@@ -1223,7 +1279,7 @@ class SpikeData:
         - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
-        from data_loaders.data_exporters import export_spikedata_to_hdf5
+        from ..data_loaders.data_exporters import export_spikedata_to_hdf5
 
         # Delegate to the standalone exporter function with all parameters
         export_spikedata_to_hdf5(
@@ -1269,7 +1325,7 @@ class SpikeData:
         - Compatible with both pynwb and h5py-based NWB readers
         """
         # Import locally to avoid circular imports
-        from data_loaders.data_exporters import export_spikedata_to_nwb
+        from ..data_loaders.data_exporters import export_spikedata_to_nwb
 
         # Delegate to the standalone NWB exporter
         export_spikedata_to_nwb(
@@ -1310,7 +1366,7 @@ class SpikeData:
         - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
-        from data_loaders.data_exporters import export_spikedata_to_kilosort
+        from ..data_loaders.data_exporters import export_spikedata_to_kilosort
 
         # Delegate to the standalone KiloSort exporter and return file paths
         return export_spikedata_to_kilosort(

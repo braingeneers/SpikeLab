@@ -28,7 +28,7 @@ except ImportError:
 
 import pickle
 
-from spikedata import SpikeData
+from ..spikedata import SpikeData
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -40,7 +40,7 @@ __all__ = [
     "load_spikedata_from_pickle",
 ]
 
-from spikedata.utils import ensure_h5py, to_ms
+from ..spikedata.utils import ensure_h5py, to_ms
 
 
 def _trains_from_flat_index(
@@ -579,6 +579,7 @@ def load_spikedata_from_kilosort(
     include_noise: bool = False,
     length_ms: Optional[float] = None,
     channel_map_file: str = "channel_map.npy",
+    channel_positions_file: str = "channel_positions.npy",
 ) -> SpikeData:
     """
     Load KiloSort/Phy outputs into SpikeData.
@@ -594,7 +595,8 @@ def load_spikedata_from_kilosort(
         length_ms (float, optional): Recording duration in milliseconds.
         channel_map_file (str): Filename of the channel map file relative to folder.
             Expected format: 1D numpy array mapping cluster indices to channel numbers.
-
+        channel_positions_file (str): Filename of the channel positions file relative to folder.
+            Expected format: 2D numpy array of shape (channels, 3) containing channel positions.
     Returns:
         sd (SpikeData): The loaded spike train data.
 
@@ -619,7 +621,7 @@ def load_spikedata_from_kilosort(
             warnings.warn(f"Failed loading channel_map: {e}")
 
     channel_positions: Optional[np.ndarray] = None
-    cp_path = os.path.join(folder, "channel_positions.npy")
+    cp_path = os.path.join(folder, channel_positions_file)
     if os.path.exists(cp_path):
         try:
             channel_positions = np.load(cp_path)
@@ -667,6 +669,7 @@ def load_spikedata_from_kilosort(
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
     neuron_attributes: List[dict] = []
+    unit_idx = 0
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
@@ -681,13 +684,15 @@ def load_spikedata_from_kilosort(
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
-        if (
-            channel_positions is not None
-            and channel_idx is not None
-            and channel_idx < len(channel_positions)
-        ):
-            attr["location"] = list(channel_positions[channel_idx])
+
+        if channel_positions is not None:
+            if channel_idx is not None and channel_idx < len(channel_positions):
+                attr["location"] = list(channel_positions[channel_idx])
+            elif unit_idx < len(channel_positions):
+                # Fallback: use unit index when channel map lookup fails
+                attr["location"] = list(channel_positions[unit_idx])
         neuron_attributes.append(attr)
+        unit_idx += 1
 
     meta = {
         "source_folder": os.path.abspath(folder),

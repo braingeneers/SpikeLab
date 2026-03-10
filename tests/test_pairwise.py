@@ -1,9 +1,19 @@
+import pathlib
+import sys
 import unittest
 import numpy as np
 import networkx as nx
-from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
-from spikedata import SpikeData
-from spikedata.rateslicestack import RateSliceStack
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from SpikeLab.spikedata.pairwise import (
+    PairwiseCompMatrix,
+    PairwiseCompMatrixStack,
+)
+from SpikeLab.spikedata import SpikeData
+from SpikeLab.spikedata.rateslicestack import RateSliceStack
 
 
 class TestPairwise(unittest.TestCase):

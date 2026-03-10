@@ -1,6 +1,6 @@
-import SpikeData
-import RateData
 import numpy as np
+
+from .spikedata import SpikeData
 
 
 class SpikeSliceStack:
@@ -127,7 +127,7 @@ class SpikeSliceStack:
                             at a slice s.
         """
         sparse_list = []
-        for i in len(self.spike_stack):
+        for i in range(len(self.spike_stack)):
             spike_obj_slice = self.spike_stack[i]
             event_matrix = spike_obj_slice.sparse_raster(bin_size=1)
 
