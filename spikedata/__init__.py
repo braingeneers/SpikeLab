@@ -5,5 +5,4 @@ from .ratedata import *
 from .rateslicestack import *
 from .spikeslicestack import *
 
-
 __version__ = "0.0.0"

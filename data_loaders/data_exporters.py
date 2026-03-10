@@ -23,39 +23,17 @@ import warnings
 
 import numpy as np
 
-try:  # optional dependency for file formats based on HDF5
-    import h5py  # type: ignore
-except Exception:  # pragma: no cover
+try:
+    import h5py
+except ImportError:
     h5py = None  # type: ignore
 
+import pickle
+
 if TYPE_CHECKING:  # avoid runtime circular import
-    from spikedata import SpikeData  # noqa: F401
+    from ..spikedata import SpikeData  # noqa: F401
 
-TimeUnit = Literal["ms", "s", "samples"]
-
-
-def _ensure_h5py():
-    """Ensure h5py is available for HDF5-based exporters."""
-    if h5py is None:
-        raise ImportError(
-            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
-        )
-
-
-def _times_from_ms(
-    times_ms: np.ndarray, unit: TimeUnit, fs_Hz: Optional[float]
-) -> np.ndarray:
-    """Convert times from milliseconds to the requested unit."""
-    if unit == "ms":
-        return times_ms.astype(float)
-    if unit == "s":
-        return times_ms.astype(float) / 1e3
-    if unit == "samples":
-        if not fs_Hz or fs_Hz <= 0:
-            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
-        # Use round-to-nearest to produce integer samples
-        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
-    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+from ..spikedata.utils import TimeUnit, ensure_h5py, times_from_ms
 
 
 def export_spikedata_to_hdf5(
@@ -133,7 +111,7 @@ def export_spikedata_to_hdf5(
         - For raster style, the bin size is stored as an attribute for provenance.
         - Parameters mirror the corresponding loader function to ease round-tripping.
     """
-    _ensure_h5py()
+    ensure_h5py()
 
     style = style.lower()  # normalize
     valid_styles = {"raster", "ragged", "group", "paired"}
@@ -185,7 +163,7 @@ def export_spikedata_to_hdf5(
             # Flatten all trains and write cumulative end indices
             counts = [len(t) for t in sd.train]
             flat_ms = np.concatenate(sd.train) if sum(counts) else np.array([], float)
-            flat = _times_from_ms(flat_ms, spike_times_unit, fs_Hz)
+            flat = times_from_ms(flat_ms, spike_times_unit, fs_Hz)
             index = np.cumsum(counts, dtype=int)
             f.create_dataset(spike_times_dataset, data=flat)
             f.create_dataset(spike_times_index_dataset, data=index)
@@ -195,7 +173,7 @@ def export_spikedata_to_hdf5(
             grp = f.create_group(group_per_unit)
             for i, tms in enumerate(sd.train):
                 grp.create_dataset(
-                    str(i), data=_times_from_ms(np.asarray(tms), group_time_unit, fs_Hz)
+                    str(i), data=times_from_ms(np.asarray(tms), group_time_unit, fs_Hz)
                 )
             return
 
@@ -208,7 +186,7 @@ def export_spikedata_to_hdf5(
             idces.extend([unit_index] * len(tms))
             times_ms.extend(tms.tolist())
         idces_arr = np.array(idces, dtype=int)
-        times_arr = _times_from_ms(np.array(times_ms, dtype=float), times_unit, fs_Hz)
+        times_arr = times_from_ms(np.array(times_ms, dtype=float), times_unit, fs_Hz)
         f.create_dataset(idces_dataset, data=idces_arr)
         f.create_dataset(times_dataset, data=times_arr)
 
@@ -245,15 +223,47 @@ def export_spikedata_to_nwb(
         - This is compatible with the load_spikedata_from_nwb function when
           prefer_pynwb=False.
     """
-    _ensure_h5py()
+    ensure_h5py()
     counts = [len(t) for t in sd.train]
     flat_ms = np.concatenate(sd.train) if sum(counts) else np.array([], float)
-    flat_s = _times_from_ms(flat_ms, "s", fs_Hz=None)
+    flat_s = times_from_ms(flat_ms, "s", fs_Hz=None)
     index = np.cumsum(counts, dtype=int)
     with h5py.File(filepath, "w") as f:  # type: ignore
         g = f.create_group(group)
         g.create_dataset(spike_times_dataset, data=flat_s)
         g.create_dataset(spike_times_index_dataset, data=index)
+        g.create_dataset("id", data=np.arange(sd.N, dtype=int))
+
+        if sd.electrodes is not None:
+            g.create_dataset("electrodes", data=sd.electrodes)
+            g.create_dataset("electrodes_index", data=np.arange(1, sd.N + 1, dtype=int))
+
+        if sd.unit_locations is not None:
+            elec_grp = f.create_group("general/extracellular_ephys/electrodes")
+            locations = sd.unit_locations
+
+            # Build electrodes table IDs to be consistent with units/electrodes.
+            if sd.electrodes is not None:
+                elec_ids = np.asarray(sd.electrodes, dtype=int)
+                # Unique electrode IDs and representative indices into unit_locations
+                unique_ids, first_indices = np.unique(elec_ids, return_index=True)
+                # Sort by electrode ID for a stable, ordered table
+                sort_idx = np.argsort(unique_ids)
+                unique_ids = unique_ids[sort_idx]
+                first_indices = first_indices[sort_idx]
+
+                elec_grp.create_dataset("id", data=unique_ids)
+                elec_locations = locations[first_indices]
+            else:
+                # Fallback: no explicit electrode IDs; use 0..N-1 as before
+                elec_grp.create_dataset("id", data=np.arange(sd.N, dtype=int))
+                elec_locations = locations
+
+            elec_grp.create_dataset("x", data=elec_locations[:, 0])
+            if elec_locations.shape[1] > 1:
+                elec_grp.create_dataset("y", data=elec_locations[:, 1])
+            if elec_locations.shape[1] > 2:
+                elec_grp.create_dataset("z", data=elec_locations[:, 2])
 
 
 def export_spikedata_to_kilosort(
@@ -319,7 +329,7 @@ def export_spikedata_to_kilosort(
 
     # Convert times
     if time_unit == "samples":
-        times_out = _times_from_ms(np.array(times_ms, dtype=float), "samples", fs_Hz)
+        times_out = times_from_ms(np.array(times_ms, dtype=float), "samples", fs_Hz)
     elif time_unit == "ms":
         times_out = np.array(times_ms, dtype=float)
     elif time_unit == "s":
@@ -332,11 +342,84 @@ def export_spikedata_to_kilosort(
     spike_clusters_path = os.path.join(folder, spike_clusters_file)
     np.save(spike_times_path, times_out)
     np.save(spike_clusters_path, clusters)
+
+    if sd.electrodes is not None:
+        np.save(os.path.join(folder, "channel_map.npy"), sd.electrodes)
+
     return spike_times_path, spike_clusters_path
+
+
+def export_spikedata_to_pickle(
+    sd: "SpikeData",
+    filepath: str,
+    *,
+    protocol: Optional[int] = None,
+    upload_to_s3: bool = False,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> str:
+    """
+    Export a SpikeData object to a pickle file.
+
+    Parameters:
+        sd (SpikeData): The SpikeData object to export.
+        filepath (str): Path where the pickle file will be created (overwrites existing).
+                       If upload_to_s3=True, this should be an S3 URL (s3://bucket/key).
+        protocol (Optional[int]): Pickle protocol version. If None, uses the highest
+                                 protocol available. Lower protocols (e.g., 2, 3) may
+                                 be needed for compatibility with older Python versions.
+        upload_to_s3 (bool): If True, upload to S3 URL specified in filepath.
+        aws_access_key_id (Optional[str]): AWS access key ID for S3 uploads.
+        aws_secret_access_key (Optional[str]): AWS secret access key for S3 uploads.
+        aws_session_token (Optional[str]): AWS session token for temporary credentials.
+        region_name (Optional[str]): AWS region name for S3 access.
+
+    Returns:
+        str: Path to the created pickle file (local path or S3 URL).
+    """
+    import tempfile
+
+    from .s3_utils import is_s3_url, upload_to_s3 as _upload_to_s3
+
+    if upload_to_s3:
+        if not is_s3_url(filepath):
+            raise ValueError(
+                f"filepath must be an S3 URL when upload_to_s3=True (got '{filepath}')"
+            )
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as tmp:
+            temp_path = tmp.name
+        try:
+            with open(temp_path, "wb") as f:
+                pickle.dump(sd, f, protocol=protocol)
+            _upload_to_s3(
+                temp_path,
+                filepath,
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                region_name=region_name,
+            )
+            return filepath
+        finally:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass  # Best-effort cleanup: ignore failures when removing temporary file.
+
+    else:
+        dirpath = os.path.dirname(filepath)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
+        with open(filepath, "wb") as f:
+            pickle.dump(sd, f, protocol=protocol)
+        return filepath
 
 
 __all__ = [
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
+    "export_spikedata_to_pickle",
 ]

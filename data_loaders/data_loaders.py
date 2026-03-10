@@ -22,11 +22,13 @@ import warnings
 import numpy as np
 
 try:
-    import h5py  # type: ignore
-except Exception:  # pragma: no cover
+    import h5py
+except ImportError:
     h5py = None  # type: ignore
 
-from spikedata import SpikeData
+import pickle
+
+from ..spikedata import SpikeData
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -35,26 +37,10 @@ __all__ = [
     "load_spikedata_from_kilosort",
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
+    "load_spikedata_from_pickle",
 ]
 
-
-def _ensure_h5py():
-    """Ensure the optional h5py dependency is available."""
-    if h5py is None:
-        raise ImportError("h5py is required for HDF5/NWB loaders. `pip install h5py`.")
-
-
-def _to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
-    """Convert a vector of times to milliseconds."""
-    if unit == "ms":
-        return values.astype(float)
-    if unit == "s":
-        return values.astype(float) * 1e3
-    if unit == "samples":
-        if not fs_Hz or fs_Hz <= 0:
-            raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
-        return values.astype(float) / fs_Hz * 1e3
-    raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
+from ..spikedata.utils import ensure_h5py, to_ms
 
 
 def _trains_from_flat_index(
@@ -69,7 +55,7 @@ def _trains_from_flat_index(
     start = 0
     for stop in end_indices:
         segment = flat_times[start:stop]
-        trains.append(_to_ms(segment, unit, fs_Hz))
+        trains.append(to_ms(segment, unit, fs_Hz))
         start = stop
     return trains
 
@@ -127,6 +113,7 @@ def _build_spikedata(
     metadata: Optional[Mapping[str, object]] = None,
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
+    neuron_attributes: Optional[List[dict]] = None,
 ) -> SpikeData:
     """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
@@ -138,6 +125,7 @@ def _build_spikedata(
         metadata=dict(metadata) if metadata else {},
         raw_data=raw_data,
         raw_time=raw_time,
+        neuron_attributes=neuron_attributes,
     )
 
 
@@ -217,7 +205,7 @@ def load_spikedata_from_hdf5(
 
     Raises: ValueError: If not exactly one input style is specified, or if required arguments are missing.
     """
-    _ensure_h5py()
+    ensure_h5py()
 
     # Validate exactly one style is provided
     provided = [
@@ -250,7 +238,15 @@ def load_spikedata_from_hdf5(
             raster = np.asarray(f[raster_dataset])
             if raster.ndim != 2:
                 raise ValueError("raster_dataset must be 2D (units, time)")
-            sd = SpikeData.from_raster(raster, raster_bin_size_ms)
+            total_time = raster.shape[1] * raster_bin_size_ms
+            if total_time > 0:
+                # subtract the smallest representable spacing so the length is
+                # slightly less than the exact bin-aligned value and avoids
+                # triggering the extra empty bin in `SpikeData.raster`.
+                length_ms = max(total_time - np.spacing(total_time), 0.0)
+            else:
+                length_ms = 0.0
+            sd = SpikeData.from_raster(raster, raster_bin_size_ms, length=length_ms)
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -273,7 +269,7 @@ def load_spikedata_from_hdf5(
             # Style (3): each child dataset is a unit's spike times
             grp = f[group_per_unit]
             keys = sorted(list(grp.keys()))
-            trains = [_to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
+            trains = [to_ms(np.asarray(grp[k]), group_time_unit, fs_Hz) for k in keys]
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
@@ -284,7 +280,7 @@ def load_spikedata_from_hdf5(
 
         # Style (4): paired indices and times arrays
         idces = np.asarray(f[idces_dataset])  # type: ignore
-        times = _to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
+        times = to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
         sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms)
         sd.metadata.update(meta)
@@ -314,7 +310,7 @@ def load_spikedata_from_hdf5_raw_thresholded(
         direction (str): 'both' | 'up' | 'down'.
     Returns: sd (SpikeData): The detected spike train data.
     """
-    _ensure_h5py()
+    ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         data = np.asarray(f[dataset])
     return SpikeData.from_thresholding(
@@ -349,6 +345,7 @@ def load_spikedata_from_nwb(
     Returns: sd (SpikeData): The loaded spike train data.
     """
     trains: List[np.ndarray] = []
+    neuron_attributes: List[dict] = []
     meta = {"source_file": os.path.abspath(filepath), "format": "NWB"}
 
     if prefer_pynwb:
@@ -359,16 +356,61 @@ def load_spikedata_from_nwb(
                 nwb = io.read()
                 if getattr(nwb, "units", None) is None:
                     raise ValueError("NWB file has no Units table")
-                for row in nwb.units.to_dataframe().itertuples():  # type: ignore
+                df = nwb.units.to_dataframe()
+
+                electrode_positions: Optional[dict] = None
+                if getattr(nwb, "electrodes", None) is not None:
+                    elec_df = nwb.electrodes.to_dataframe()
+                    electrode_positions = {}
+                    for elec_row in elec_df.itertuples():
+                        pos = []
+                        for coord in ("x", "y", "z"):
+                            if coord in elec_df.columns:
+                                val = getattr(elec_row, coord, None)
+                                if val is not None and not np.isnan(val):
+                                    pos.append(float(val))
+                        if pos:
+                            electrode_positions[elec_row.Index] = pos
+
+                for row in df.itertuples():
                     stimes = np.asarray(row.spike_times, dtype=float)
                     trains.append(stimes * 1e3)
-            return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+                    attr = {"unit_id": row.Index}
+                    electrode_id = None
+                    for col in ("electrodes", "electrode_group", "channel", "ch"):
+                        if col in df.columns:
+                            val = getattr(row, col, None)
+                            if val is not None:
+                                if (
+                                    hasattr(val, "__len__")
+                                    and not isinstance(val, str)
+                                    and len(val) > 0
+                                ):
+                                    channel_val = val[0]
+                                else:
+                                    channel_val = val
+                                try:
+                                    attr["electrode"] = int(channel_val)
+                                    electrode_id = int(channel_val)
+                                except (TypeError, ValueError):
+                                    attr["electrode"] = channel_val
+                                    electrode_id = channel_val
+                                break
+                    if electrode_positions and electrode_id in electrode_positions:
+                        attr["location"] = electrode_positions[electrode_id]
+                    neuron_attributes.append(attr)
+            return _build_spikedata(
+                trains,
+                length_ms=length_ms,
+                metadata=meta,
+                neuron_attributes=neuron_attributes,
+            )
         except Exception as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
             )
 
-    _ensure_h5py()
+    ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
         if "units" not in f:
             raise ValueError("NWB file missing '/units' group")
@@ -390,7 +432,62 @@ def load_spikedata_from_nwb(
         trains.extend(
             _trains_from_flat_index(flat.astype(float), index, unit="s", fs_Hz=None)
         )
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+
+        unit_ids = (
+            np.asarray(unit_grp["id"]) if "id" in unit_grp else range(len(trains))
+        )
+
+        electrode_indices = None
+        if "electrodes" in unit_grp and "electrodes_index" in unit_grp:
+            elec_flat = np.asarray(unit_grp["electrodes"])
+            elec_idx = np.asarray(unit_grp["electrodes_index"])
+            electrode_indices = []
+            start = 0
+            for stop in elec_idx:
+                electrode_indices.append(elec_flat[start:stop])
+                start = stop
+
+        electrode_positions: Optional[dict] = None
+        elec_table_path = "general/extracellular_ephys/electrodes"
+        if elec_table_path in f:
+            elec_grp = f[elec_table_path]
+            electrode_positions = {}
+            x_arr = np.asarray(elec_grp["x"]) if "x" in elec_grp else None
+            y_arr = np.asarray(elec_grp["y"]) if "y" in elec_grp else None
+            z_arr = np.asarray(elec_grp["z"]) if "z" in elec_grp else None
+            elec_ids = (
+                np.asarray(elec_grp["id"])
+                if "id" in elec_grp
+                else np.arange(len(x_arr) if x_arr is not None else 0)
+            )
+            for idx, eid in enumerate(elec_ids):
+                pos = []
+                if x_arr is not None and idx < len(x_arr):
+                    pos.append(float(x_arr[idx]))
+                if y_arr is not None and idx < len(y_arr):
+                    pos.append(float(y_arr[idx]))
+                if z_arr is not None and idx < len(z_arr):
+                    pos.append(float(z_arr[idx]))
+                if pos:
+                    electrode_positions[int(eid)] = pos
+
+        for i, uid in enumerate(unit_ids):
+            attr = {"unit_id": int(uid)}
+            electrode_id = None
+            if (
+                electrode_indices
+                and i < len(electrode_indices)
+                and len(electrode_indices[i]) > 0
+            ):
+                electrode_id = int(electrode_indices[i][0])
+                attr["electrode"] = electrode_id
+            if electrode_positions and electrode_id in electrode_positions:
+                attr["location"] = electrode_positions[electrode_id]
+            neuron_attributes.append(attr)
+
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
 
 
 # ----------------------------
@@ -430,12 +527,40 @@ def load_spikedata_from_spikeinterface(
 
     ids = list(unit_ids) if unit_ids is not None else list(get_unit_ids())
     trains: List[np.ndarray] = []
-    for uid in ids:
+    neuron_attributes: List[dict] = []
+
+    channel_prop = None
+    location_prop = None
+    if hasattr(sorting, "get_property"):
+        for prop_name in ("channel", "ch", "peak_channel", "electrode"):
+            try:
+                channel_prop = sorting.get_property(prop_name)
+            except Exception:
+                continue
+            if channel_prop is not None:
+                break
+        for prop_name in ("location", "unit_location", "position"):
+            try:
+                location_prop = sorting.get_property(prop_name)
+            except Exception:
+                continue
+            if location_prop is not None:
+                break
+
+    for i, uid in enumerate(ids):
         st = np.asarray(get_train(unit_id=uid, segment_index=segment_index))
-        trains.append(_to_ms(st.astype(float), "samples", fs))
+        trains.append(to_ms(st.astype(float), "samples", fs))
+        attr = {"unit_id": uid}
+        if channel_prop is not None and i < len(channel_prop):
+            attr["electrode"] = int(channel_prop[i])
+        if location_prop is not None and i < len(location_prop):
+            loc = location_prop[i]
+            if loc is not None:
+                attr["location"] = list(loc) if hasattr(loc, "__iter__") else [loc]
+        neuron_attributes.append(attr)
 
     meta = {"source_format": "SpikeInterface", "unit_ids": ids, "fs_Hz": fs}
-    return _build_spikedata(trains, metadata=meta)
+    return _build_spikedata(trains, metadata=meta, neuron_attributes=neuron_attributes)
 
 
 # ----------------------------
@@ -453,10 +578,9 @@ def load_spikedata_from_kilosort(
     time_unit: str = "samples",
     include_noise: bool = False,
     length_ms: Optional[float] = None,
+    channel_map_file: str = "channel_map.npy",
 ) -> SpikeData:
     """
-    # misses critical information about waveform data - load if it same in file and put in spikedata
-
     Load KiloSort/Phy outputs into SpikeData.
 
     Parameters:
@@ -468,7 +592,11 @@ def load_spikedata_from_kilosort(
         time_unit (str): Unit of the spike times ('samples', 's', or 'ms').
         include_noise (bool): If True, include noise clusters.
         length_ms (float, optional): Recording duration in milliseconds.
-    Returns: sd (SpikeData): The loaded spike train data.
+        channel_map_file (str): Filename of the channel map file relative to folder.
+            Expected format: 1D numpy array mapping cluster indices to channel numbers.
+
+    Returns:
+        sd (SpikeData): The loaded spike train data.
 
     Note:
     - This loader does not extract or include waveform data; only spike times and cluster assignments are loaded.
@@ -481,6 +609,22 @@ def load_spikedata_from_kilosort(
     spike_clusters = np.load(sc_path)
     if spike_times.shape[0] != spike_clusters.shape[0]:
         raise ValueError("spike_times and spike_clusters length mismatch")
+
+    channel_map: Optional[np.ndarray] = None
+    cm_path = os.path.join(folder, channel_map_file)
+    if os.path.exists(cm_path):
+        try:
+            channel_map = np.load(cm_path).flatten()
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_map: {e}")
+
+    channel_positions: Optional[np.ndarray] = None
+    cp_path = os.path.join(folder, "channel_positions.npy")
+    if os.path.exists(cp_path):
+        try:
+            channel_positions = np.load(cp_path)
+        except Exception as e:
+            warnings.warn(f"Failed loading channel_positions: {e}")
 
     keep_clusters: Optional[set] = None
     if cluster_info_tsv is not None:
@@ -522,13 +666,28 @@ def load_spikedata_from_kilosort(
 
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
+    neuron_attributes: List[dict] = []
     for clu in np.unique(spike_clusters):
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
         times = spike_times[spike_clusters == clu]
-        times_ms = _to_ms(times.astype(float), time_unit, fs_Hz)
+        times_ms = to_ms(times.astype(float), time_unit, fs_Hz)
         trains.append(np.sort(times_ms))
         metadata_units.append(int(clu))
+
+        attr: dict = {"unit_id": int(clu)}
+        channel_idx = None
+        int_clu = int(clu)
+        if channel_map is not None and int_clu < len(channel_map):
+            channel_idx = int(channel_map[int_clu])
+            attr["electrode"] = channel_idx
+        if (
+            channel_positions is not None
+            and channel_idx is not None
+            and channel_idx < len(channel_positions)
+        ):
+            attr["location"] = list(channel_positions[channel_idx])
+        neuron_attributes.append(attr)
 
     meta = {
         "source_folder": os.path.abspath(folder),
@@ -536,7 +695,9 @@ def load_spikedata_from_kilosort(
         "cluster_ids": metadata_units,
         "fs_Hz": fs_Hz,
     }
-    return _build_spikedata(trains, length_ms=length_ms, metadata=meta)
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
 
 
 # ----------------------------
@@ -593,3 +754,62 @@ def load_spikedata_from_spikeinterface_recording(
         hysteresis=hysteresis,
         direction=direction,  # type: ignore[arg-type]
     )
+
+
+# ----------------------------
+# Pickle
+# ----------------------------
+
+
+def load_spikedata_from_pickle(
+    filepath: str,
+    *,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> SpikeData:
+    """
+    Load a SpikeData object from a pickle file.
+
+    Warning:
+        Only load pickle files from trusted sources. Pickle deserialization can
+        execute arbitrary code and should never be used with untrusted data.
+
+    Parameters:
+        filepath (str): Path to the pickle file, or an S3 URL (s3://bucket/key).
+        aws_access_key_id (Optional[str]): AWS access key ID for S3 downloads.
+        aws_secret_access_key (Optional[str]): AWS secret access key for S3 downloads.
+        aws_session_token (Optional[str]): AWS session token for temporary credentials.
+        region_name (Optional[str]): AWS region name for S3 access.
+
+    Returns:
+        SpikeData: The deserialized SpikeData object.
+
+    """
+    from .s3_utils import ensure_local_file
+
+    local_path, is_temp = ensure_local_file(
+        filepath,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        with open(local_path, "rb") as f:
+            obj = pickle.load(f)
+    finally:
+        if is_temp:
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+
+    if not isinstance(obj, SpikeData):
+        raise ValueError(
+            f"Pickle file does not contain a SpikeData object (found {type(obj).__name__})"
+        )
+
+    return obj

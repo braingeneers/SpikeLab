@@ -7,6 +7,8 @@ dependencies:
   - numpy>=1.20
   - scipy>=1.5
   - scikit-learn
+  - networkx
+  - matplotlib>=3.5
   - pip
   - pip:
     - mcp>=0.9.0
@@ -18,4 +20,8 @@ dependencies:
     - sphinx-rtd-theme>=2.0
     - sphinx-autodoc-typehints>=1.25
     - h5py>=3.0.0
+    # Optional extras — guarded in source with try/except ImportError
+    - umap-learn>=0.5.0
+    - neo>=0.12.0
+    - quantities>=0.14.0
 

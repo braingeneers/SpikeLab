@@ -1,7 +1,11 @@
 import numpy as np
 from scipy import signal
 
-from .utils import compute_cross_correlation_with_lag
+from .utils import (
+    compute_cross_correlation_with_lag,
+    PCA_reduction,
+    UMAP_reduction,
+)
 
 
 class RateData:
@@ -36,7 +40,7 @@ class RateData:
     def __init__(self, inst_Frate_data, times, neuron_attributes=None, N=None):
         if inst_Frate_data.ndim != 2:
             raise ValueError(
-                f"rates must be a 2D array, got shape {self.inst_Frate_data.shape}"
+                f"rates must be a 2D array, got shape {inst_Frate_data.shape}"
             )
 
         if len(times) != inst_Frate_data.shape[1]:
@@ -199,6 +203,43 @@ class RateData:
             neuron_attributes=self.neuron_attributes,
         )
 
+    def frames(self, length, overlap=0):
+        """
+        Split the rate data into a RateSliceStack of fixed-length windows.
+
+        Parameters:
+            length (float): Length of each window in milliseconds.
+            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+
+        Returns:
+            stack (RateSliceStack): Stack of rate data windows, one per frame.
+
+        Notes:
+            - Windows that would extend past the end of the recording are excluded.
+            - overlap must be strictly less than length.
+        """
+        from .rateslicestack import RateSliceStack
+
+        step = length - overlap
+        if step <= 0:
+            raise ValueError("overlap must be less than length")
+
+        t0 = float(self.times[0])
+        t_end = float(self.times[-1])
+        step_size = float(self.times[1] - self.times[0]) if len(self.times) > 1 else 1.0
+
+        upper = t_end - length + step_size + 1e-9
+        times = [
+            (float(start), float(start) + length)
+            for start in np.arange(t0, upper, step)
+        ]
+        if not times:
+            raise ValueError(
+                f"Recording length ({t_end - t0 + step_size:.1f} ms) is shorter "
+                f"than frame length ({length} ms)"
+            )
+        return RateSliceStack(self, times_start_to_end=times)
+
     def get_pairwise_fr_corr(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10
     ):
@@ -246,5 +287,52 @@ class RateData:
                 lag_matrix_this_event[n2, n1] = -max_lag_idx
 
         # Output is UxU
-
         return corr_matrix_this_event, lag_matrix_this_event
+
+    def get_manifold(
+        self,
+        method: str = "PCA",
+        n_components: int = 2,
+        **kwargs,
+    ):
+        """
+        Project firing-rate data into a low-dimensional manifold using PCA or UMAP.
+
+        Parameters
+        ----------
+        method : {"PCA", "UMAP"}, default="PCA"
+            Dimensionality reduction method to use.
+        n_components : int, default=2
+            Number of components (dimensions) in the output manifold.
+        **kwargs :
+            Additional keyword arguments passed through to the UMAP reduction
+            helper when ``method='UMAP'`` (for example, ``n_neighbors``,
+            ``min_dist``, or ``metric``).
+
+        Returns
+        -------
+        embedding : ndarray, shape (T, n_components)
+            Low-dimensional embedding of the firing-rate trajectory over time.
+            Each row corresponds to a time bin in ``self.times``.
+        """
+        # Shape is (U, T); treat each time bin as a sample.
+        data_T = self.inst_Frate_data.T  # (T, U)
+
+        method_upper = method.upper()
+        if method_upper == "PCA":
+            if kwargs:
+                raise TypeError(
+                    "Additional keyword arguments are only supported for UMAP; "
+                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                )
+            return PCA_reduction(data_T, n_components=n_components)
+        if method_upper == "UMAP":
+            return UMAP_reduction(
+                data_T,
+                n_components=n_components,
+                **kwargs,
+            )
+
+        raise ValueError(
+            f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."
+        )
