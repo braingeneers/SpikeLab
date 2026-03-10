@@ -1,12 +1,12 @@
-# IntegratedAnalysisTools
+# SpikeLab
 
-[![SpikeData Tests](https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/tests.yml?query=branch%3Amain) [![Black Formatting](https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/black.yml/badge.svg)](https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/black.yml)
+[![SpikeData Tests](https://github.com/braingeneers/SpikeLab/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/braingeneers/SpikeLab/actions/workflows/tests.yml?query=branch%3Amain) [![Black Formatting](https://github.com/braingeneers/SpikeLab/actions/workflows/black.yml/badge.svg)](https://github.com/braingeneers/SpikeLab/actions/workflows/black.yml)
 
 A monorepo for a suite of analysis tools supporting automated closed-loop experimentation and data analysis in neuroscience and related fields.
 
 ## Overview
 
-IntegratedAnalysisTools provides a unified framework for working with neuronal spike train data. The main components include:
+SpikeLab provides a unified framework for working with neuronal spike train data. The main components include:
 
 - **SpikeData**: Core module for spike train data representation, manipulation, and analysis
 - **RateData**: Core module for instantaneous firing rate data representation, manipulation, and analysis
@@ -20,16 +20,16 @@ IntegratedAnalysisTools provides a unified framework for working with neuronal s
 For development:
 
 ```bash
-git clone https://github.com/braingeneers/IntegratedAnalysisTools.git
-cd IntegratedAnalysisTools
+git clone https://github.com/braingeneers/SpikeLab.git
+cd spikelab
 pip install -e ".[dev]"
 ```
 
 Or with conda:
 
 ```bash
-git clone https://github.com/braingeneers/IntegratedAnalysisTools.git
-cd IntegratedAnalysisTools
+git clone https://github.com/braingeneers/SpikeLab.git
+cd SpikeLab
 conda env create -f environment.yml
 conda activate integrated-analysis-tools
 pip install -e ".[dev]"
@@ -58,4 +58,4 @@ sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 
 ## Contributing
 
-Contributions are welcome! Please see the [GitHub repository](https://github.com/braingeneers/IntegratedAnalysisTools) for guidelines.
+Contributions are welcome! Please see the [GitHub repository](https://github.com/braingeneers/SpikeLab) for guidelines.
