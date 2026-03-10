@@ -268,19 +268,57 @@ class TestPairwise(unittest.TestCase):
 
         stack = PairwiseCompMatrixStack(stack=stack_data)
 
-        # Test PCA on RateSliceStack with this stack
-        from SpikeLab.spikedata.utils import (
-            extract_lower_triangle_features,
-        )
-
-        features = extract_lower_triangle_features(stack)
+        # Test extract_lower_triangle_features on stack
+        features = stack.extract_lower_triangle_features()
         self.assertEqual(features.shape, (10, 10))  # 5*(5-1)/2 = 10 features
 
-        # Test PCA_on_lower_diagnol_corr_matrix (default PCA)
-        event_matrix = np.random.rand(2, 50, 5)
-        rss = RateSliceStack(None, event_matrix=event_matrix)
-        pca_result = rss.PCA_on_lower_diagnol_corr_matrix(stack, n_components=2)
+        # Test dim_red_on_lower_diagonal_corr_matrix (default PCA)
+        pca_result = stack.dim_red_on_lower_diagonal_corr_matrix(
+            method="PCA", n_components=2
+        )
         self.assertEqual(pca_result.shape, (10, 2))
+
+    def test_dim_red_pca_with_kwargs_raises(self):
+        """Test that PCA method raises TypeError when given extra kwargs."""
+        stack_data = np.random.rand(5, 5, 10)
+        for i in range(10):
+            stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
+        stack = PairwiseCompMatrixStack(stack=stack_data)
+
+        with self.assertRaises(TypeError) as ctx:
+            stack.dim_red_on_lower_diagonal_corr_matrix(
+                method="PCA", n_components=2, n_neighbors=15
+            )
+        self.assertIn("only supported for UMAP", str(ctx.exception))
+
+    def test_dim_red_unknown_method_raises(self):
+        """Test that unknown method raises ValueError."""
+        stack_data = np.random.rand(5, 5, 10)
+        for i in range(10):
+            stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
+        stack = PairwiseCompMatrixStack(stack=stack_data)
+
+        with self.assertRaises(ValueError) as ctx:
+            stack.dim_red_on_lower_diagonal_corr_matrix(method="TSNE", n_components=2)
+        self.assertIn("Unknown manifold method", str(ctx.exception))
+        self.assertIn("TSNE", str(ctx.exception))
+
+    def test_dim_red_umap(self):
+        """Test UMAP dimensionality reduction, skipped if umap-learn not installed."""
+        try:
+            import umap  # noqa: F401
+        except ImportError:
+            self.skipTest("umap-learn not installed")
+
+        stack_data = np.random.rand(5, 5, 20)
+        for i in range(20):
+            stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
+        stack = PairwiseCompMatrixStack(stack=stack_data)
+
+        umap_result = stack.dim_red_on_lower_diagonal_corr_matrix(
+            method="UMAP", n_components=2, n_neighbors=5, min_dist=0.1
+        )
+        self.assertEqual(umap_result.shape, (20, 2))
 
 
 def warnings_context():

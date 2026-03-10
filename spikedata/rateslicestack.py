@@ -9,8 +9,6 @@ from .pairwise import PairwiseCompMatrixStack
 from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
-    extract_lower_triangle_features,
-    PCA_reduction,
 )
 
 
@@ -456,29 +454,6 @@ class RateSliceStack:
             PairwiseCompMatrixStack(stack=all_slice_corr_scores),
             av_slice_corr_scores,
         )
-
-    def PCA_on_lower_diagnol_corr_matrix(self, all_burst_corr_scores, n_components=2):
-        """
-        Apply PCA to reduce feature dimensions.
-
-        Parameters:
-        -----------
-        feature_matrix : array, shape (B, F)
-            Each row is a burst, each column is a feature
-
-        n_components : int
-            Number of components (default: 2)
-
-        Returns:
-        --------
-        pca_result : array, shape (B, n_components)
-            Reduced representation
-        """
-        # lower triangle is S x F (or U x F if you input U x S x S) (or T x F if you input T x S x S)
-        lower_triangle = extract_lower_triangle_features(all_burst_corr_scores)
-        pca_result = PCA_reduction(lower_triangle, n_components)
-
-        return pca_result
 
     def convert_to_list_of_RateData(self):
         """

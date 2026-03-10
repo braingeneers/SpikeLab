@@ -139,6 +139,19 @@ class PairwiseCompMatrix:
             metadata={**self.metadata, "threshold": threshold, "binary": True},
         )
 
+    def extract_lower_triangle(self) -> np.ndarray:
+        """
+        Extract lower triangle (excluding diagonal) from this correlation matrix.
+
+        Returns
+        -------
+        ndarray, shape (F,)
+            Lower triangle values as a 1D array. F = n*(n-1)/2.
+        """
+        n = self.matrix.shape[0]
+        lower_tri_idx = np.tril_indices(n, k=-1)
+        return self.matrix[lower_tri_idx[0], lower_tri_idx[1]]
+
 
 @dataclass
 class PairwiseCompMatrixStack:
@@ -343,4 +356,83 @@ class PairwiseCompMatrixStack:
             matrix=mean_matrix,
             labels=self.labels,
             metadata={**self.metadata, "computed": "mean"},
+        )
+
+    def extract_lower_triangle_features(self) -> np.ndarray:
+        """
+        Extract lower triangle (excluding diagonal) from each correlation matrix
+        in the stack.
+
+        Parameters
+        ----------
+        (uses self.stack)
+
+        Returns
+        -------
+        features : ndarray, shape (S, F)
+            2D matrix where each row contains lower triangle values for that
+            correlation matrix. F = n*(n-1)/2 (number of unique pairs).
+        """
+        matrix_3d = self.stack
+        if matrix_3d.ndim != 3:
+            raise ValueError(
+                f"Stack must be a 3D array (n, n, S), got {matrix_3d.ndim}D"
+            )
+        if matrix_3d.shape[0] != matrix_3d.shape[1]:
+            raise ValueError(
+                "Stack must have shape (n, n, S) where the first two dimensions are equal."
+            )
+        num_items = matrix_3d.shape[0]
+        lower_tri_idx = np.tril_indices(num_items, k=-1)
+        # matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :] gives (F, S), transpose to (S, F)
+        features = matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
+        return features
+
+    def dim_red_on_lower_diagonal_corr_matrix(
+        self,
+        method: str = "PCA",
+        n_components: int = 2,
+        **kwargs,
+    ) -> np.ndarray:
+        """
+        Apply dimensionality reduction (PCA or UMAP) to the lower triangle
+        of each correlation matrix in the stack.
+
+        Parameters
+        ----------
+        method : {"PCA", "UMAP"}, default="PCA"
+            Dimensionality reduction method to use.
+        n_components : int, default=2
+            Number of components (dimensions) in the output manifold.
+        **kwargs
+            Additional keyword arguments passed through to UMAP when
+            ``method='UMAP'`` (e.g., ``n_neighbors``, ``min_dist``, ``metric``).
+
+        Returns
+        -------
+        embedding : ndarray, shape (S, n_components)
+            Low-dimensional embedding of the lower-triangle features for each
+            matrix in the stack.
+        """
+        from .utils import PCA_reduction, UMAP_reduction
+
+        lower_triangle = self.extract_lower_triangle_features()
+
+        method_upper = method.upper()
+        if method_upper == "PCA":
+            if kwargs:
+                raise TypeError(
+                    "Additional keyword arguments are only supported for UMAP; "
+                    f"got kwargs {list(kwargs.keys())} for method='{method}'."
+                )
+            return PCA_reduction(lower_triangle, n_components=n_components)
+        if method_upper == "UMAP":
+            return UMAP_reduction(
+                lower_triangle,
+                n_components=n_components,
+                **kwargs,
+            )
+
+        raise ValueError(
+            f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."
         )
