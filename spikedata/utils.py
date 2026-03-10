@@ -158,13 +158,13 @@ def _resampled_isi(spikes, times, sigma_ms):
     # Create temporary result array matching times resolution
     t_start, t_end = times[0], times[-1]
     dt_ms = times[1] - times[0]
-    n_bins = int((t_end - t_start) / dt_ms) + 1
+    n_bins = int(round((t_end - t_start) / dt_ms)) + 1
     isi_rate_temp = np.zeros(n_bins)
 
     # Assign rates to bins between spikes (piece 1 logic)
     for i in range(1, len(spikes)):
-        start_bin = int((spikes[i - 1] - t_start) / dt_ms)
-        end_bin = int((spikes[i] - t_start) / dt_ms)
+        start_bin = int(round((spikes[i - 1] - t_start) / dt_ms))
+        end_bin = int(round((spikes[i] - t_start) / dt_ms))
         if start_bin < n_bins:
             isi_rate_temp[start_bin : min(end_bin, n_bins)] = isi_rate[i]
 
