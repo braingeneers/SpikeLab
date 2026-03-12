@@ -3,10 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Exporters &mdash; SpikeLab 0.0.0 documentation</title>
+  <title>Python Module Index &mdash; SpikeLab 0.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -19,8 +18,13 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="HDF5 (Generic)" href="data_exporters/hdf5.html" />
-    <link rel="prev" title="SpikeInterface" href="data_loaders/spikeinterface.html" /> 
+ 
+
+    <script>
+      DOCUMENTATION_OPTIONS.COLLAPSE_INDEX = true;
+    </script>
+
+
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -42,7 +46,7 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul class="current">
+              <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#installation">Installation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="getting_started.html#basic-installation">Basic Installation</a></li>
@@ -124,8 +128,8 @@
 <li class="toctree-l2"><a class="reference internal" href="data_loaders.html#notes">Notes</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Exporters</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data_exporters.html#overview">Overview</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
 </ul>
@@ -140,7 +144,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_exporters.html#notes">Notes</a></li>
 </ul>
 </li>
 </ul>
@@ -197,9 +201,8 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Data Exporters</li>
+      <li class="breadcrumb-item active">Python Module Index</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="_sources/data_exporters.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -207,56 +210,28 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="data-exporters">
-<h1>Data Exporters<a class="headerlink" href="#data-exporters" title="Link to this heading"></a></h1>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>Data exporters write <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> to common neuroscience formats. Times are converted from internal milliseconds to requested units. You can call the standalone functions or use the convenience instance methods on <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code>.</p>
-<p>Import convenience:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">export_spikedata_to_hdf5</span><span class="p">,</span>
-    <span class="n">export_spikedata_to_nwb</span><span class="p">,</span>
-    <span class="n">export_spikedata_to_kilosort</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<hr class="docutils" />
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Exporter Functions</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="data_exporters/nwb.html">NWB (Units)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="data_exporters/kilosort.html">KiloSort / Phy</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</section>
-<hr class="docutils" />
-<section id="notes">
-<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Requires <code class="docutils literal notranslate"><span class="pre">h5py</span></code> for HDF5/NWB exports. Install with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">h5py</span></code>.</p></li>
-<li><p>See <code class="docutils literal notranslate"><span class="pre">tests/test_dataexporters.py</span></code> for runnable examples and edge cases.</p></li>
-<li><p>All exporters handle time unit conversions automatically from internal milliseconds.</p></li>
-</ul>
-</section>
-</section>
+
+   <h1>Python Module Index</h1>
+
+   <div class="modindex-jumpbox">
+   <a href="#cap-s"><strong>s</strong></a>
+   </div>
+
+   <table class="indextable modindextable">
+     <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
+     <tr class="cap" id="cap-s"><td></td><td>
+       <strong>s</strong></td><td></td></tr>
+     <tr>
+       <td></td>
+       <td>
+       <a href="api/spikedata.html#module-spikedata"><code class="xref">spikedata</code></a></td><td>
+       <em></em></td></tr>
+   </table>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="data_loaders/spikeinterface.html" class="btn btn-neutral float-left" title="SpikeInterface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="data_exporters/hdf5.html" class="btn btn-neutral float-right" title="HDF5 (Generic)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 
