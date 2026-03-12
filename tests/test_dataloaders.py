@@ -888,5 +888,758 @@ class TestPickleLoaders(unittest.TestCase):
         self.assertFalse(os.path.exists(path))
 
 
+class TestIBLLoader(unittest.TestCase):
+    """
+    Tests for load_spikedata_from_ibl.
+
+    All external dependencies (one-api, brainwidemap) are patched via
+    sys.modules so the tests run regardless of whether those packages are
+    installed.
+    """
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_unit_df(pid, n_good=3):
+        """Return a mock bwm_units DataFrame with good and bad units."""
+        import pandas as pd
+
+        rows = [
+            {
+                "pid": pid,
+                "eid": "test-eid",
+                "label": 1,
+                "cluster_id": i,
+                "Beryl": "VISl",
+            }
+            for i in range(n_good)
+        ]
+        # one bad unit for the same probe (label=0)
+        rows.append(
+            {
+                "pid": pid,
+                "eid": "test-eid",
+                "label": 0,
+                "cluster_id": n_good,
+                "Beryl": "noise",
+            }
+        )
+        # one good unit on a different probe
+        rows.append(
+            {
+                "pid": "other-pid",
+                "eid": "other-eid",
+                "label": 1,
+                "cluster_id": 99,
+                "Beryl": "AUDp",
+            }
+        )
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _make_trials_df(n_trials=5):
+        """Return a mock trials DataFrame with all required columns (times in seconds)."""
+        import pandas as pd
+
+        t = np.linspace(1.0, 1.0 + (n_trials - 1) * 2.0, n_trials)
+        return pd.DataFrame(
+            {
+                "intervals_0": t,
+                "intervals_1": t + 1.0,
+                "stimOn_times": t + 0.10,
+                "stimOff_times": t + 0.80,
+                "goCue_times": t + 0.05,
+                "response_times": t + 0.50,
+                "feedback_times": t + 0.55,
+                "firstMovement_times": t + 0.45,
+                "choice": np.tile([-1.0, 1.0], n_trials)[:n_trials],
+                "feedbackType": np.ones(n_trials),
+                "contrastLeft": np.full(n_trials, 0.5),
+                "contrastRight": np.full(n_trials, 0.5),
+                "probabilityLeft": np.full(n_trials, 0.5),
+            }
+        )
+
+    @staticmethod
+    def _make_spikes(cluster_ids, n_spikes=5, duration_s=100.0):
+        """Return a mock spikes dict with clusters and times arrays."""
+        all_clusters, all_times = [], []
+        for cid in cluster_ids:
+            times = np.linspace(1.0, duration_s - 1.0, n_spikes)
+            all_clusters.extend([cid] * n_spikes)
+            all_times.extend(times)
+        return {
+            "clusters": np.array(all_clusters, dtype=int),
+            "times": np.array(all_times, dtype=float),
+        }
+
+    def _build_mocks(self, pid, eid, n_good=3, n_spikes=5, fail_collections=None):
+        """
+        Build mock one_api and brainwidemap modules for a given probe.
+
+        Parameters:
+            fail_collections: if not None, a set of collection strings for which
+                load_object('spikes', ...) should raise an exception.
+        """
+        from unittest.mock import MagicMock
+
+        unit_df = self._make_unit_df(pid, n_good=n_good)
+        good_ids = unit_df[(unit_df["pid"] == pid) & (unit_df["label"] == 1)][
+            "cluster_id"
+        ].tolist()
+        spikes = self._make_spikes(good_ids, n_spikes=n_spikes)
+        trials_df = self._make_trials_df()
+
+        def load_object_side_effect(eid_arg, obj_name, **kwargs):
+            if obj_name == "trials":
+                mock_trials = MagicMock()
+                mock_trials.to_df.return_value = trials_df
+                return mock_trials
+            if obj_name == "spikes":
+                collection = kwargs.get("collection", "")
+                if fail_collections and collection in fail_collections:
+                    raise Exception(f"collection not found: {collection}")
+                return spikes
+            raise Exception(f"Unexpected load_object call: {obj_name}")
+
+        mock_one_instance = MagicMock()
+        mock_one_instance.load_object.side_effect = load_object_side_effect
+
+        mock_one_class = MagicMock()
+        mock_one_class.return_value = mock_one_instance
+
+        mock_one_api = MagicMock()
+        mock_one_api.ONE = mock_one_class
+
+        mock_brainwidemap = MagicMock()
+        mock_brainwidemap.bwm_units.return_value = unit_df
+
+        return mock_one_api, mock_brainwidemap, trials_df, good_ids, spikes
+
+    def _load(self, eid, pid, mock_one_api, mock_brainwidemap, **kwargs):
+        """Call load_spikedata_from_ibl with mocked external modules."""
+        import sys
+        from unittest.mock import MagicMock
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            return loaders.load_spikedata_from_ibl(eid, pid, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Tests
+    # ------------------------------------------------------------------
+
+    def test_basic_load(self):
+        """
+        Test that load_spikedata_from_ibl returns a valid SpikeData object.
+
+        Tests:
+            (Test Case 1) Returns a SpikeData instance.
+            (Test Case 2) Number of units equals the number of good units (label==1) for the probe.
+            (Test Case 3) All expected metadata keys are present.
+            (Test Case 4) neuron_attributes list has one entry per unit.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, trials_df, good_ids, _ = self._build_mocks(
+            pid, eid, n_good=3
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        self.assertIsInstance(sd, SpikeData)
+        self.assertEqual(sd.N, 3)  # 3 good units
+        self.assertIsNotNone(sd.neuron_attributes)
+        self.assertEqual(len(sd.neuron_attributes), 3)
+
+        expected_keys = {
+            "eid",
+            "pid",
+            "n_trials",
+            "trial_start_times",
+            "trial_end_times",
+            "stim_on_times",
+            "stim_off_times",
+            "go_cue_times",
+            "response_times",
+            "feedback_times",
+            "first_movement_times",
+            "choice",
+            "feedback_type",
+            "contrast_left",
+            "contrast_right",
+            "probability_left",
+        }
+        self.assertTrue(expected_keys.issubset(set(sd.metadata.keys())))
+
+    def test_only_good_units_included(self):
+        """
+        Test that only units with label==1 for the requested probe are loaded.
+
+        Tests:
+            (Test Case 1) Units with label==0 are excluded.
+            (Test Case 2) Units from other probes are excluded.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, _, good_ids, _ = self._build_mocks(
+            pid, eid, n_good=2
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        # Only 2 good units for this pid; the bad unit and other-pid unit must be excluded
+        self.assertEqual(sd.N, 2)
+
+    def test_neuron_attributes_region(self):
+        """
+        Test that neuron_attributes carries the Beryl atlas region for each unit.
+
+        Tests:
+            (Test Case 1) Each unit's neuron_attributes dict contains a 'region' key.
+            (Test Case 2) Region value matches the Beryl column of the bwm_units DataFrame.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(pid, eid, n_good=3)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        for attr in sd.neuron_attributes:
+            self.assertIn("region", attr)
+            self.assertEqual(attr["region"], "VISl")
+
+    def test_spike_times_converted_to_ms(self):
+        """
+        Test that spike times from the IBL server (seconds) are converted to milliseconds.
+
+        Tests:
+            (Test Case 1) Each spike time in the loaded SpikeData is 1000× the source time.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, _, good_ids, spikes = self._build_mocks(
+            pid, eid, n_good=1, n_spikes=4
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        # Source times are in seconds; loaded times must be × 1000
+        source_times_s = spikes["times"][spikes["clusters"] == good_ids[0]]
+        expected_ms = source_times_s * 1000.0
+        self.assertTrue(np.allclose(np.sort(sd.train[0]), np.sort(expected_ms)))
+
+    def test_trial_timing_arrays_in_ms(self):
+        """
+        Test that all trial timing metadata arrays are stored in milliseconds.
+
+        Tests:
+            (Test Case 1) stim_on_times values are 1000× the source seconds values.
+            (Test Case 2) trial_start_times values are 1000× the source seconds values.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, trials_df, _, _ = self._build_mocks(pid, eid)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        expected_stim_on_ms = trials_df["stimOn_times"].to_numpy() * 1000.0
+        self.assertTrue(np.allclose(sd.metadata["stim_on_times"], expected_stim_on_ms))
+
+        expected_start_ms = trials_df["intervals_0"].to_numpy() * 1000.0
+        self.assertTrue(
+            np.allclose(sd.metadata["trial_start_times"], expected_start_ms)
+        )
+
+    def test_behavioral_arrays_not_converted(self):
+        """
+        Test that non-timing behavioral arrays (choice, feedback_type, contrasts) are stored as-is.
+
+        Tests:
+            (Test Case 1) choice array values match the source DataFrame column exactly.
+            (Test Case 2) feedback_type array values match the source DataFrame column exactly.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, trials_df, _, _ = self._build_mocks(pid, eid)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        self.assertTrue(
+            np.allclose(sd.metadata["choice"], trials_df["choice"].to_numpy())
+        )
+        self.assertTrue(
+            np.allclose(
+                sd.metadata["feedback_type"], trials_df["feedbackType"].to_numpy()
+            )
+        )
+
+    def test_length_inferred_from_max_spike_time(self):
+        """
+        Test that session length is inferred from the maximum spike time when not provided.
+
+        Tests:
+            (Test Case 1) sd.length equals the maximum spike time across all units in ms.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, _, _, spikes = self._build_mocks(
+            pid, eid, n_good=2, n_spikes=5
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        expected_length_ms = float(spikes["times"].max()) * 1000.0
+        self.assertAlmostEqual(sd.length, expected_length_ms, places=3)
+
+    def test_explicit_length_ms_overrides_inference(self):
+        """
+        Test that an explicitly supplied length_ms takes precedence over inference.
+
+        Tests:
+            (Test Case 1) sd.length equals the explicit value, not the max spike time.
+        """
+        eid, pid = "test-eid", "test-pid"
+        mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(pid, eid)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap, length_ms=999.0)
+
+        self.assertAlmostEqual(sd.length, 999.0)
+
+    def test_collection_fallback(self):
+        """
+        Test that the loader falls back to the next collection when the first fails.
+
+        Tests:
+            (Test Case 1) When the first two probe-specific collections raise exceptions,
+                spike data is still loaded from the fallback 'alf' collection.
+            (Test Case 2) The returned SpikeData has the expected number of units.
+        """
+        eid, pid = "test-eid", "test-pid"
+        # Make the first two collections fail; 'alf' succeeds
+        fail_collections = {"alf/probe00/pykilosort", "alf/probe01/pykilosort"}
+        mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(
+            pid, eid, fail_collections=fail_collections
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        self.assertIsInstance(sd, SpikeData)
+        self.assertEqual(sd.N, 3)
+
+    def test_no_spikes_produces_empty_trains(self):
+        """
+        Test that units get empty spike trains when all spike collections are unavailable.
+
+        Tests:
+            (Test Case 1) Each unit's spike train is an empty array.
+            (Test Case 2) session length falls back to 10000 ms.
+        """
+        eid, pid = "test-eid", "test-pid"
+        all_collections = {
+            "alf/probe00/pykilosort",
+            "alf/probe01/pykilosort",
+            "alf",
+        }
+        mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(
+            pid, eid, fail_collections=all_collections
+        )
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap)
+
+        for train in sd.train:
+            self.assertEqual(len(train), 0)
+        self.assertAlmostEqual(sd.length, 10_000.0)
+
+    def test_missing_one_api_raises_import_error(self):
+        """
+        Test that a clear ImportError is raised when one-api is not installed.
+
+        Tests:
+            (Test Case 1) ImportError is raised with a message mentioning 'one-api'.
+        """
+        import sys
+        from unittest.mock import MagicMock
+
+        # Simulate one-api being absent by making the import raise ImportError
+        broken_one_api = MagicMock()
+        broken_one_api.__spec__ = None
+
+        original = sys.modules.pop("one.api", None)
+        original_one = sys.modules.pop("one", None)
+        try:
+            with patch.dict(sys.modules, {"one": None, "one.api": None}):
+                with self.assertRaises((ImportError, TypeError)):
+                    loaders.load_spikedata_from_ibl("eid", "pid")
+        finally:
+            if original is not None:
+                sys.modules["one.api"] = original
+            if original_one is not None:
+                sys.modules["one"] = original_one
+
+
+class TestIBLQuery(unittest.TestCase):
+    """
+    Tests for query_ibl_probes.
+
+    All external dependencies (one-api, brainwidemap) are patched via
+    sys.modules so the tests run regardless of whether those packages are
+    installed.
+    """
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_units_df():
+        """
+        Return a mock bwm_units DataFrame with three probes across two labs.
+
+        Probe layout:
+          pid-A (eid-A): 5 good units, lab=wittenlab, subject=sub-1,
+                         regions [VISl, VISl, MOs, MOs, MOs]  → 3/5 in MOs
+          pid-B (eid-B): 3 good units, lab=wittenlab, subject=sub-2,
+                         regions [AUDp, AUDp, AUDp]           → 0/3 in MOs
+          pid-C (eid-C): 8 good units, lab=churchland, subject=sub-3,
+                         regions [MOs×4, VISl×4]              → 4/8 in MOs
+        One bad unit (label=0) is also included in eid-A.
+        """
+        import pandas as pd
+
+        rows = []
+        # pid-A — 5 good units
+        for i, region in enumerate(["VISl", "VISl", "MOs", "MOs", "MOs"]):
+            rows.append(
+                {
+                    "eid": "eid-A",
+                    "pid": "pid-A",
+                    "label": 1,
+                    "cluster_id": i,
+                    "Beryl": region,
+                    "subject": "sub-1",
+                    "lab": "wittenlab",
+                }
+            )
+        # bad unit in pid-A
+        rows.append(
+            {
+                "eid": "eid-A",
+                "pid": "pid-A",
+                "label": 0,
+                "cluster_id": 99,
+                "Beryl": "noise",
+                "subject": "sub-1",
+                "lab": "wittenlab",
+            }
+        )
+        # pid-B — 3 good units
+        for i, region in enumerate(["AUDp", "AUDp", "AUDp"]):
+            rows.append(
+                {
+                    "eid": "eid-B",
+                    "pid": "pid-B",
+                    "label": 1,
+                    "cluster_id": i,
+                    "Beryl": region,
+                    "subject": "sub-2",
+                    "lab": "wittenlab",
+                }
+            )
+        # pid-C — 8 good units
+        for i, region in enumerate(
+            ["MOs", "MOs", "MOs", "MOs", "VISl", "VISl", "VISl", "VISl"]
+        ):
+            rows.append(
+                {
+                    "eid": "eid-C",
+                    "pid": "pid-C",
+                    "label": 1,
+                    "cluster_id": i,
+                    "Beryl": region,
+                    "subject": "sub-3",
+                    "lab": "churchland",
+                }
+            )
+        return pd.DataFrame(rows)
+
+    def _query(self, mock_brainwidemap, **kwargs):
+        """Call query_ibl_probes with mocked external modules."""
+        import sys
+        from unittest.mock import MagicMock
+
+        mock_one_api = MagicMock()
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            return loaders.query_ibl_probes(**kwargs)
+
+    def _make_mock_brainwidemap(self):
+        """Return a mock brainwidemap module backed by the standard units DataFrame."""
+        from unittest.mock import MagicMock
+
+        mock_bwm = MagicMock()
+        mock_bwm.bwm_units.return_value = self._make_units_df()
+        return mock_bwm
+
+    # ------------------------------------------------------------------
+    # Tests
+    # ------------------------------------------------------------------
+
+    def test_return_types(self):
+        """
+        Test that query_ibl_probes returns a (list, DataFrame) tuple.
+
+        Tests:
+            (Test Case 1) First return value is a list.
+            (Test Case 2) Second return value is a pandas DataFrame.
+            (Test Case 3) Each element of the list is a 2-tuple.
+        """
+        import pandas as pd
+
+        mock_bwm = self._make_mock_brainwidemap()
+        probes, stats = self._query(mock_bwm)
+
+        self.assertIsInstance(probes, list)
+        self.assertIsInstance(stats, pd.DataFrame)
+        for item in probes:
+            self.assertIsInstance(item, tuple)
+            self.assertEqual(len(item), 2)
+
+    def test_no_filters_returns_all_probes(self):
+        """
+        Test that with no filters all probes are returned.
+
+        Tests:
+            (Test Case 1) All three probes appear in the result.
+            (Test Case 2) stats DataFrame has one row per probe.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        probes, stats = self._query(mock_bwm)
+
+        self.assertEqual(len(probes), 3)
+        self.assertEqual(len(stats), 3)
+
+    def test_sorted_by_descending_unit_count(self):
+        """
+        Test that results are sorted by descending good unit count.
+
+        Tests:
+            (Test Case 1) First result has the highest n_good_units.
+            (Test Case 2) n_good_units column is monotonically non-increasing.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        probes, stats = self._query(mock_bwm)
+
+        counts = stats["n_good_units"].tolist()
+        self.assertEqual(counts, sorted(counts, reverse=True))
+        # pid-C has 8 units → should be first
+        self.assertEqual(probes[0][1], "pid-C")
+
+    def test_stats_columns_without_target_regions(self):
+        """
+        Test that stats DataFrame contains the expected columns when no target_regions given.
+
+        Tests:
+            (Test Case 1) eid, pid, subject, lab, n_good_units are present.
+            (Test Case 2) n_in_target and fraction_in_target are absent.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        _, stats = self._query(mock_bwm)
+
+        for col in ("eid", "pid", "subject", "lab", "n_good_units"):
+            self.assertIn(col, stats.columns)
+        self.assertNotIn("n_in_target", stats.columns)
+        self.assertNotIn("fraction_in_target", stats.columns)
+
+    def test_stats_columns_with_target_regions(self):
+        """
+        Test that stats DataFrame includes region columns when target_regions is given.
+
+        Tests:
+            (Test Case 1) n_in_target column is present.
+            (Test Case 2) fraction_in_target column is present.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        _, stats = self._query(mock_bwm, target_regions=["MOs"])
+
+        self.assertIn("n_in_target", stats.columns)
+        self.assertIn("fraction_in_target", stats.columns)
+
+    def test_n_in_target_and_fraction_correct(self):
+        """
+        Test that n_in_target and fraction_in_target are computed correctly per probe.
+
+        Tests:
+            (Test Case 1) pid-A has 3 units in MOs out of 5 → fraction 0.6.
+            (Test Case 2) pid-B has 0 units in MOs out of 3 → fraction 0.0.
+            (Test Case 3) pid-C has 4 units in MOs out of 8 → fraction 0.5.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        _, stats = self._query(mock_bwm, target_regions=["MOs"])
+
+        row_a = stats[stats["pid"] == "pid-A"].iloc[0]
+        self.assertEqual(row_a["n_in_target"], 3)
+        self.assertAlmostEqual(row_a["fraction_in_target"], 0.6)
+
+        row_b = stats[stats["pid"] == "pid-B"].iloc[0]
+        self.assertEqual(row_b["n_in_target"], 0)
+        self.assertAlmostEqual(row_b["fraction_in_target"], 0.0)
+
+        row_c = stats[stats["pid"] == "pid-C"].iloc[0]
+        self.assertEqual(row_c["n_in_target"], 4)
+        self.assertAlmostEqual(row_c["fraction_in_target"], 0.5)
+
+    def test_min_units_filter(self):
+        """
+        Test that probes with fewer good units than min_units are excluded.
+
+        Tests:
+            (Test Case 1) min_units=4 excludes pid-B (3 units) but keeps pid-A (5) and pid-C (8).
+            (Test Case 2) min_units=6 keeps only pid-C (8 units).
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, stats = self._query(mock_bwm, min_units=4)
+        returned_pids = {p[1] for p in probes}
+        self.assertIn("pid-A", returned_pids)
+        self.assertIn("pid-C", returned_pids)
+        self.assertNotIn("pid-B", returned_pids)
+
+        probes2, _ = self._query(mock_bwm, min_units=6)
+        self.assertEqual(len(probes2), 1)
+        self.assertEqual(probes2[0][1], "pid-C")
+
+    def test_min_fraction_in_target_filter(self):
+        """
+        Test that probes below the minimum fraction in target are excluded.
+
+        Tests:
+            (Test Case 1) min_fraction=0.55 keeps pid-A (0.6) and pid-C (0.5 is excluded),
+                leaving only pid-A.
+            (Test Case 2) min_fraction=0.0 (default) keeps all probes.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, _ = self._query(
+            mock_bwm, target_regions=["MOs"], min_fraction_in_target=0.55
+        )
+        returned_pids = {p[1] for p in probes}
+        self.assertIn("pid-A", returned_pids)
+        self.assertNotIn("pid-B", returned_pids)
+        self.assertNotIn("pid-C", returned_pids)
+
+        probes_all, _ = self._query(
+            mock_bwm, target_regions=["MOs"], min_fraction_in_target=0.0
+        )
+        self.assertEqual(len(probes_all), 3)
+
+    def test_min_fraction_ignored_without_target_regions(self):
+        """
+        Test that min_fraction_in_target has no effect when target_regions is None.
+
+        Tests:
+            (Test Case 1) Setting min_fraction_in_target without target_regions returns all probes.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        probes, _ = self._query(mock_bwm, min_fraction_in_target=0.9)
+
+        self.assertEqual(len(probes), 3)
+
+    def test_labs_filter(self):
+        """
+        Test that only probes from the specified labs are returned.
+
+        Tests:
+            (Test Case 1) labs=['wittenlab'] returns pid-A and pid-B only.
+            (Test Case 2) labs=['churchland'] returns pid-C only.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, _ = self._query(mock_bwm, labs=["wittenlab"])
+        returned_pids = {p[1] for p in probes}
+        self.assertEqual(returned_pids, {"pid-A", "pid-B"})
+
+        probes2, _ = self._query(mock_bwm, labs=["churchland"])
+        self.assertEqual(len(probes2), 1)
+        self.assertEqual(probes2[0][1], "pid-C")
+
+    def test_subjects_filter(self):
+        """
+        Test that only probes from the specified subjects are returned.
+
+        Tests:
+            (Test Case 1) subjects=['sub-1'] returns only pid-A.
+            (Test Case 2) subjects=['sub-1', 'sub-3'] returns pid-A and pid-C.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, _ = self._query(mock_bwm, subjects=["sub-1"])
+        self.assertEqual(len(probes), 1)
+        self.assertEqual(probes[0][1], "pid-A")
+
+        probes2, _ = self._query(mock_bwm, subjects=["sub-1", "sub-3"])
+        returned_pids = {p[1] for p in probes2}
+        self.assertEqual(returned_pids, {"pid-A", "pid-C"})
+
+    def test_combined_filters(self):
+        """
+        Test that multiple filters are applied conjunctively.
+
+        Tests:
+            (Test Case 1) labs=['wittenlab'] + min_units=4 returns only pid-A (pid-B has 3 units).
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, stats = self._query(mock_bwm, labs=["wittenlab"], min_units=4)
+        self.assertEqual(len(probes), 1)
+        self.assertEqual(probes[0][1], "pid-A")
+
+    def test_empty_result(self):
+        """
+        Test that impossible filter criteria return an empty list and empty DataFrame.
+
+        Tests:
+            (Test Case 1) min_units=100 returns an empty probes list.
+            (Test Case 2) The stats DataFrame has zero rows.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+
+        probes, stats = self._query(mock_bwm, min_units=100)
+        self.assertEqual(probes, [])
+        self.assertEqual(len(stats), 0)
+
+    def test_bad_units_excluded_before_aggregation(self):
+        """
+        Test that units with label != 1 do not contribute to n_good_units.
+
+        Tests:
+            (Test Case 1) pid-A has one bad unit (label=0); n_good_units must be 5, not 6.
+        """
+        mock_bwm = self._make_mock_brainwidemap()
+        _, stats = self._query(mock_bwm)
+
+        row_a = stats[stats["pid"] == "pid-A"].iloc[0]
+        self.assertEqual(row_a["n_good_units"], 5)
+
+    def test_missing_one_api_raises_import_error(self):
+        """
+        Test that a clear ImportError is raised when one-api is not installed.
+
+        Tests:
+            (Test Case 1) ImportError or TypeError is raised when one.api is None in sys.modules.
+        """
+        import sys
+
+        original = sys.modules.pop("one.api", None)
+        original_one = sys.modules.pop("one", None)
+        try:
+            with patch.dict(sys.modules, {"one": None, "one.api": None}):
+                with self.assertRaises((ImportError, TypeError)):
+                    loaders.query_ibl_probes()
+        finally:
+            if original is not None:
+                sys.modules["one.api"] = original
+            if original_one is not None:
+                sys.modules["one"] = original_one
+
+
 if __name__ == "__main__":
     unittest.main()

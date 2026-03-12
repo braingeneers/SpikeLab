@@ -316,6 +316,83 @@ async def _list_tools() -> list[types.Tool]:
                     "required": ["file_path", "dataset", "fs_Hz"],
                 },
             ),
+            types.Tool(
+                name="load_from_ibl",
+                description=(
+                    "Load spike data for a single IBL probe from the public IBL server. "
+                    "Authenticates automatically. Only good units (label==1) are included. "
+                    "Trial event times are stored in metadata as numpy arrays (ms). "
+                    "Stores SpikeData at (namespace, 'spikedata') in the workspace."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "eid": {
+                            "type": "string",
+                            "description": "IBL experiment ID (UUID string)",
+                        },
+                        "pid": {
+                            "type": "string",
+                            "description": "IBL probe ID (UUID string)",
+                        },
+                        "length_ms": {
+                            "type": "number",
+                            "description": "Recording duration in ms. Inferred from max spike time if not provided.",
+                        },
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace ID to store the SpikeData in. If empty, a new workspace is created.",
+                            "default": "",
+                        },
+                        "namespace": {
+                            "type": "string",
+                            "description": "Recording namespace within the workspace. If empty, derived from the eid.",
+                            "default": "",
+                        },
+                    },
+                    "required": ["eid", "pid"],
+                },
+            ),
+            types.Tool(
+                name="query_ibl_probes",
+                description=(
+                    "Search the IBL Brain-Wide Map database for probes matching given "
+                    "criteria. Returns (eid, pid) pairs and per-probe statistics inline. "
+                    "Does not store anything in the workspace. Requires one-api and "
+                    "brainwidemap packages."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "target_regions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Beryl atlas region names to filter by (e.g. ['MOs', 'MOp']). If omitted, no region filter is applied.",
+                        },
+                        "min_units": {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "Minimum number of good units required per probe.",
+                        },
+                        "min_fraction_in_target": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": "Minimum fraction (0-1) of good units in target_regions. Ignored when target_regions is not provided.",
+                        },
+                        "labs": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Restrict to probes from these lab names. If omitted, no lab filter is applied.",
+                        },
+                        "subjects": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Restrict to probes from these subject names. If omitted, no subject filter is applied.",
+                        },
+                    },
+                    "required": [],
+                },
+            ),
         ]
     )
 
@@ -1287,6 +1364,61 @@ async def _list_tools() -> list[types.Tool]:
                     "required": ["workspace_id", "namespace", "stack_key", "key"],
                 },
             ),
+            types.Tool(
+                name="align_to_events",
+                description=(
+                    "Create an event-aligned slice stack from SpikeData and store it "
+                    "in the workspace. Events can be a list of times in ms or a string "
+                    "key into SpikeData.metadata. kind='spike' stores a SpikeSliceStack; "
+                    "kind='rate' stores a RateSliceStack. Out-of-bounds events are "
+                    "dropped with a warning. Prerequisite: any load_from_* tool."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Output workspace key for the slice stack",
+                        },
+                        "events": {
+                            "description": "List of event times in ms, or a string metadata key (e.g. 'stim_on_times')",
+                        },
+                        "pre_ms": {
+                            "type": "number",
+                            "description": "Window duration before each event in ms",
+                        },
+                        "post_ms": {
+                            "type": "number",
+                            "description": "Window duration after each event in ms",
+                        },
+                        "kind": {
+                            "type": "string",
+                            "enum": ["spike", "rate"],
+                            "default": "spike",
+                            "description": "'spike' → SpikeSliceStack; 'rate' → RateSliceStack",
+                        },
+                        "bin_size_ms": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in ms for RateSliceStack (ignored for kind='spike')",
+                        },
+                        "sigma_ms": {
+                            "type": "number",
+                            "default": 10.0,
+                            "description": "Gaussian smoothing sigma in ms for RateSliceStack (ignored for kind='spike')",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key",
+                        "events",
+                        "pre_ms",
+                        "post_ms",
+                    ],
+                },
+            ),
         ]
     )
 
@@ -1974,6 +2106,10 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await data_loaders.load_from_hdf5_thresholded(**arguments)
         elif name == "load_from_pickle":
             result = await data_loaders.load_from_pickle(**arguments)
+        elif name == "load_from_ibl":
+            result = await data_loaders.load_from_ibl(**arguments)
+        elif name == "query_ibl_probes":
+            result = await data_loaders.query_ibl_probes(**arguments)
 
         # Basic analysis tools
         elif name == "compute_rates":
@@ -2050,6 +2186,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.create_spike_slice_stack(**arguments)
         elif name == "spike_slice_to_sparse":
             result = await analysis.spike_slice_to_sparse(**arguments)
+        elif name == "align_to_events":
+            result = await analysis.align_to_events(**arguments)
 
         # RateSliceStack analysis tools
         elif name == "compute_rate_slice_unit_corr":

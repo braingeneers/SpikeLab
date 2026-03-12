@@ -1702,3 +1702,84 @@ class SpikeDataTest(unittest.TestCase):
         self.assertEqual(subset_range_meta["unit_indices"], [1, 2])
         self.assertEqual(subset_range_waveforms[0].shape[2], 1)
         self.assertEqual(subset_range_waveforms[1].shape[2], 0)
+
+    def test_align_to_events(self):
+        """
+        Test align_to_events for event-aligned slice stack creation.
+
+        Tests:
+            (Test Case 1) kind='spike' returns a SpikeSliceStack with one slice per event.
+            (Test Case 2) kind='rate' returns a RateSliceStack with one slice per event.
+            (Test Case 3) events given as a metadata key string are resolved correctly.
+            (Test Case 4) An invalid metadata key raises KeyError with the key name.
+            (Test Case 5) Events whose window exceeds recording bounds are dropped with UserWarning.
+            (Test Case 6) All events dropped after filtering raises ValueError.
+            (Test Case 7) An invalid kind value raises ValueError.
+            (Test Case 8) Each slice spans exactly pre_ms + post_ms milliseconds.
+        """
+        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+        from SpikeLab.spikedata.rateslicestack import RateSliceStack
+        import warnings
+
+        # Build a simple 3-unit recording: 200 ms, 10 spikes per unit
+        trains = [np.linspace(5, 195, 10) for _ in range(3)]
+        sd = SpikeData(trains, length=200.0)
+
+        events_ms = np.array([50.0, 100.0, 150.0])
+        pre_ms, post_ms = 20.0, 30.0
+
+        # Test Case 1: kind='spike' → SpikeSliceStack
+        spike_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
+        self.assertIsInstance(spike_stack, SpikeSliceStack)
+        self.assertEqual(len(spike_stack.spike_stack), 3)
+
+        # Test Case 2: kind='rate' → RateSliceStack
+        rate_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="rate")
+        self.assertIsInstance(rate_stack, RateSliceStack)
+        self.assertEqual(rate_stack.event_stack.shape[2], 3)  # 3 slices
+
+        # Test Case 3: metadata key string resolves to correct array
+        sd_with_meta = SpikeData(
+            trains,
+            length=200.0,
+            metadata={"stim_on_times": events_ms.copy()},
+        )
+        spike_stack_meta = sd_with_meta.align_to_events(
+            "stim_on_times", pre_ms, post_ms, kind="spike"
+        )
+        self.assertIsInstance(spike_stack_meta, SpikeSliceStack)
+        self.assertEqual(len(spike_stack_meta.spike_stack), 3)
+
+        # Test Case 4: invalid metadata key raises KeyError
+        with self.assertRaises(KeyError) as ctx:
+            sd_with_meta.align_to_events("missing_key", pre_ms, post_ms)
+        self.assertIn("missing_key", str(ctx.exception))
+
+        # Test Case 5: out-of-bounds events dropped with UserWarning
+        # event at 10 ms: window [10-20, 10+30] = [-10, 40] → out of bounds
+        # event at 180 ms: window [180-20, 180+30] = [160, 210] → out of bounds (> 200)
+        events_with_oob = np.array([10.0, 100.0, 180.0])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            spike_stack_filtered = sd.align_to_events(
+                events_with_oob, pre_ms, post_ms, kind="spike"
+            )
+        self.assertEqual(len(spike_stack_filtered.spike_stack), 1)
+        self.assertTrue(any(issubclass(w.category, UserWarning) for w in caught))
+        warning_text = str(caught[0].message)
+        self.assertIn("2", warning_text)  # 2 events dropped
+
+        # Test Case 6: all events out of bounds → ValueError
+        events_all_oob = np.array([5.0, 195.0])  # both outside with pre=20, post=30
+        with self.assertRaises(ValueError):
+            sd.align_to_events(events_all_oob, pre_ms, post_ms)
+
+        # Test Case 7: invalid kind raises ValueError
+        with self.assertRaises(ValueError) as ctx:
+            sd.align_to_events(events_ms, pre_ms, post_ms, kind="burst")
+        self.assertIn("burst", str(ctx.exception))
+
+        # Test Case 8: slice duration equals pre_ms + post_ms
+        spike_stack_times = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
+        for start, end in spike_stack_times.times:
+            self.assertAlmostEqual(end - start, pre_ms + post_ms)

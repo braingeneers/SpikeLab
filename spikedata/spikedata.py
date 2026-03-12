@@ -406,6 +406,94 @@ class SpikeData:
             )
         return SpikeSliceStack(self, times_start_to_end=times)
 
+    def align_to_events(
+        self,
+        events,
+        pre_ms,
+        post_ms,
+        *,
+        kind="spike",
+        bin_size_ms=1.0,
+        sigma_ms=10,
+    ):
+        """
+        Align spike trains to a set of events and return an event-aligned slice stack.
+
+        Parameters:
+            events (array-like or str): Event times in milliseconds, or a string key
+                into ``self.metadata`` whose value is an array of event times in ms.
+            pre_ms (float): Window duration before each event in milliseconds.
+            post_ms (float): Window duration after each event in milliseconds.
+            kind (str): ``"spike"`` to return a ``SpikeSliceStack``, or ``"rate"`` to
+                return a ``RateSliceStack``. Default ``"spike"``.
+            bin_size_ms (float): Time bin width in milliseconds. Only used when
+                ``kind="rate"``. Default 1.0.
+            sigma_ms (float): Gaussian smoothing sigma in milliseconds for ISI-based
+                firing rate estimation. Only used when ``kind="rate"``. Default 10.
+
+        Returns:
+            stack (SpikeSliceStack or RateSliceStack): Event-aligned slice stack with
+                one slice per event. Events whose window extends outside
+                ``[0, self.length]`` are dropped with a warning.
+
+        Notes:
+            - When ``events`` is a metadata key, the corresponding array must already
+              be in milliseconds (as stored by ``load_spikedata_from_ibl``).
+        """
+        import warnings
+
+        from .spikeslicestack import SpikeSliceStack
+        from .rateslicestack import RateSliceStack
+
+        if kind not in ("spike", "rate"):
+            raise ValueError(f"kind must be 'spike' or 'rate', got {kind!r}")
+
+        # Resolve metadata key to array.
+        if isinstance(events, str):
+            if self.metadata is None or events not in self.metadata:
+                raise KeyError(
+                    f"Metadata key {events!r} not found. "
+                    f"Available keys: {list(self.metadata or {})}"
+                )
+            event_times = np.asarray(self.metadata[events], dtype=float)
+        else:
+            event_times = np.asarray(events, dtype=float)
+
+        # Drop events whose window would extend outside [0, self.length].
+        valid_mask = (event_times - pre_ms >= 0) & (
+            event_times + post_ms <= self.length
+        )
+        n_dropped = int(np.sum(~valid_mask))
+        if n_dropped > 0:
+            warnings.warn(
+                f"{n_dropped} event(s) dropped because their "
+                f"[{-pre_ms}, +{post_ms}] ms window extends outside the recording "
+                f"bounds [0, {self.length:.1f}] ms.",
+                UserWarning,
+                stacklevel=2,
+            )
+        event_times = event_times[valid_mask]
+
+        if len(event_times) == 0:
+            raise ValueError(
+                "No valid events remain after filtering for recording bounds."
+            )
+
+        time_bounds = (pre_ms, post_ms)
+
+        if kind == "spike":
+            return SpikeSliceStack(
+                self, time_peaks=event_times.tolist(), time_bounds=time_bounds
+            )
+        else:
+            return RateSliceStack(
+                self,
+                time_peaks=event_times.tolist(),
+                time_bounds=time_bounds,
+                sigma_ms=sigma_ms,
+                step_size=bin_size_ms,
+            )
+
     def binned(self, bin_size=40.0):
         """
         Quantize time into intervals of bin_size and counts the number of events in
