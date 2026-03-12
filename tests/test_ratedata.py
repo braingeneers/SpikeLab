@@ -7,9 +7,9 @@ frames, get_pairwise_fr_corr, and get_manifold.
 
 import pathlib
 import sys
-import unittest
 
 import numpy as np
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -46,7 +46,7 @@ def make_ratedata(n_units=3, n_times=100, step=1.0, t0=0.0, seed=0):
     return RateData(data, times)
 
 
-class TestRateData(unittest.TestCase):
+class TestRateData:
     def test_constructor(self):
         """
         Tests RateData constructor for valid inputs and validation errors.
@@ -61,20 +61,20 @@ class TestRateData(unittest.TestCase):
         data = np.ones((2, 4))
 
         rd = RateData(data, times)
-        self.assertEqual(rd.N, 2)
-        self.assertEqual(rd.inst_Frate_data.shape, (2, 4))
-        self.assertTrue(np.array_equal(rd.times, times))
+        assert rd.N == 2
+        assert rd.inst_Frate_data.shape == (2, 4)
+        assert np.array_equal(rd.times, times)
 
         # Non-2D array raises ValueError.
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             RateData(np.ones((2, 4, 1)), times)
 
         # Times length mismatch raises ValueError.
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             RateData(data, np.array([0.0, 1.0]))
 
         # Negative time raises ValueError.
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             RateData(data, np.array([-1.0, 0.0, 1.0, 2.0]))
 
     def test_subset(self):
@@ -89,8 +89,8 @@ class TestRateData(unittest.TestCase):
         rd = make_ratedata(n_units=5, n_times=50)
 
         sub = rd.subset([0, 2, 4])
-        self.assertEqual(sub.N, 3)
-        self.assertEqual(sub.inst_Frate_data.shape, (3, 50))
+        assert sub.N == 3
+        assert sub.inst_Frate_data.shape == (3, 50)
         np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[0])
         np.testing.assert_array_equal(sub.inst_Frate_data[1], rd.inst_Frate_data[2])
         np.testing.assert_array_equal(sub.inst_Frate_data[2], rd.inst_Frate_data[4])
@@ -98,8 +98,8 @@ class TestRateData(unittest.TestCase):
 
         # Single int.
         sub_single = rd.subset(1)
-        self.assertEqual(sub_single.N, 1)
-        self.assertEqual(sub_single.inst_Frate_data.shape, (1, 50))
+        assert sub_single.N == 1
+        assert sub_single.inst_Frate_data.shape == (1, 50)
 
     def test_subtime(self):
         """
@@ -114,21 +114,21 @@ class TestRateData(unittest.TestCase):
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times: 0..99
 
         sub = rd.subtime(20.0, 40.0)
-        # times in [20, 40) → 20 bins
-        self.assertEqual(sub.inst_Frate_data.shape[1], 20)
+        # times in [20, 40) -> 20 bins
+        assert sub.inst_Frate_data.shape[1] == 20
         # shift_time=True (default): times start at 0
-        self.assertAlmostEqual(float(sub.times[0]), 0.0)
+        assert float(sub.times[0]) == pytest.approx(0.0)
 
         # shift_time=False: times retain original values
         sub_abs = rd.subtime(20.0, 40.0, shift_time=False)
-        self.assertAlmostEqual(float(sub_abs.times[0]), 20.0)
-        self.assertAlmostEqual(float(sub_abs.times[-1]), 39.0)
+        assert float(sub_abs.times[0]) == pytest.approx(20.0)
+        assert float(sub_abs.times[-1]) == pytest.approx(39.0)
 
         # Data matches the original slice.
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 20:40])
 
         # Out-of-range raises ValueError.
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.subtime(200.0, 300.0)
 
     def test_subtime_by_index(self):
@@ -143,18 +143,18 @@ class TestRateData(unittest.TestCase):
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)  # times: 0,2,4,...,118
 
         sub = rd.subtime_by_index(10, 30)
-        self.assertEqual(sub.inst_Frate_data.shape, (2, 20))
+        assert sub.inst_Frate_data.shape == (2, 20)
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 10:30])
-        self.assertAlmostEqual(float(sub.times[0]), 0.0)  # shift_time=True default
+        assert float(sub.times[0]) == pytest.approx(0.0)  # shift_time=True default
 
         # shift_time=False preserves values.
         sub_abs = rd.subtime_by_index(10, 30, shift_time=False)
-        self.assertAlmostEqual(float(sub_abs.times[0]), float(rd.times[10]))
+        assert float(sub_abs.times[0]) == pytest.approx(float(rd.times[10]))
 
         # Out-of-bounds indices raise ValueError.
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.subtime_by_index(-1, 10)
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.subtime_by_index(10, 100)
 
     def test_frames(self):
@@ -167,14 +167,14 @@ class TestRateData(unittest.TestCase):
             (Test Case 3) Each frame's data matches the corresponding subtime slice.
 
         Notes:
-            - times are [0..99] ms at 1 ms step; length=100 bins, frame=20 ms → 5 frames.
+            - times are [0..99] ms at 1 ms step; length=100 bins, frame=20 ms -> 5 frames.
         """
         rd = make_ratedata(n_units=3, n_times=100, step=1.0)  # times: 0..99
 
         stack = rd.frames(20)
-        self.assertIsInstance(stack, RateSliceStack)
-        self.assertEqual(len(stack.times), 5)
-        self.assertEqual(stack.event_stack.shape, (3, 20, 5))
+        assert isinstance(stack, RateSliceStack)
+        assert len(stack.times) == 5
+        assert stack.event_stack.shape == (3, 20, 5)
 
         # Each frame's data must match the raw subtime slice.
         for i, (start, end) in enumerate(stack.times):
@@ -191,20 +191,20 @@ class TestRateData(unittest.TestCase):
             (Test Case 3) Data of overlapping frames is internally consistent.
 
         Notes:
-            - times [0..99], frame=20, overlap=10 → step=10 → starts [0,10,...,80] = 9 frames.
+            - times [0..99], frame=20, overlap=10 -> step=10 -> starts [0,10,...,80] = 9 frames.
               Start 90 gives window (90,110); 110 > 99+1 so it is excluded.
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)
 
         stack = rd.frames(20, overlap=10)
-        self.assertIsInstance(stack, RateSliceStack)
-        self.assertEqual(len(stack.times), 9)
-        self.assertEqual(stack.event_stack.shape, (2, 20, 9))
+        assert isinstance(stack, RateSliceStack)
+        assert len(stack.times) == 9
+        assert stack.event_stack.shape == (2, 20, 9)
 
         # Verify the last frame starts at 80 and ends at 100.
         last_start, last_end = stack.times[-1]
-        self.assertAlmostEqual(last_start, 80.0)
-        self.assertAlmostEqual(last_end, 100.0)
+        assert last_start == pytest.approx(80.0)
+        assert last_end == pytest.approx(100.0)
 
     def test_frames_errors(self):
         """
@@ -217,13 +217,13 @@ class TestRateData(unittest.TestCase):
         """
         rd = make_ratedata(n_units=2, n_times=50, step=1.0)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.frames(20, overlap=20)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.frames(20, overlap=25)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.frames(200)
 
     def test_get_pairwise_fr_corr(self):
@@ -248,17 +248,17 @@ class TestRateData(unittest.TestCase):
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        self.assertEqual(corr.shape, (n_units, n_units))
-        self.assertEqual(lag.shape, (n_units, n_units))
+        assert corr.shape == (n_units, n_units)
+        assert lag.shape == (n_units, n_units)
 
         # Diagonal must be 1.
         np.testing.assert_array_almost_equal(np.diag(corr), np.ones(n_units))
         # Diagonal lag must be 0.
         np.testing.assert_array_equal(np.diag(lag), np.zeros(n_units))
 
-        # Identical rows → perfect correlation and zero lag.
-        self.assertAlmostEqual(corr[0, 1], 1.0, places=5)
-        self.assertAlmostEqual(lag[0, 1], 0.0, places=5)
+        # Identical rows -> perfect correlation and zero lag.
+        assert corr[0, 1] == pytest.approx(1.0, abs=1e-5)
+        assert lag[0, 1] == pytest.approx(0.0, abs=1e-5)
 
         # Both matrices are symmetric.
         np.testing.assert_array_almost_equal(corr, corr.T)
@@ -275,15 +275,15 @@ class TestRateData(unittest.TestCase):
         rd = make_ratedata(n_units=5, n_times=60)
 
         embedding = rd.get_manifold(method="PCA", n_components=2)
-        self.assertEqual(embedding.shape, (60, 2))
+        assert embedding.shape == (60, 2)
 
         embedding3 = rd.get_manifold(method="PCA", n_components=3)
-        self.assertEqual(embedding3.shape, (60, 3))
+        assert embedding3.shape == (60, 3)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             rd.get_manifold(method="TSNE")
 
-    @unittest.skipUnless(UMAP_AVAILABLE, "umap-learn not installed")
+    @pytest.mark.skipif(not UMAP_AVAILABLE, reason="umap-learn not installed")
     def test_get_manifold_umap(self):
         """
         Tests get_manifold() with UMAP produces correct output shape.
@@ -294,8 +294,4 @@ class TestRateData(unittest.TestCase):
         rd = make_ratedata(n_units=5, n_times=60)
 
         embedding = rd.get_manifold(method="UMAP", n_components=2)
-        self.assertEqual(embedding.shape, (60, 2))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert embedding.shape == (60, 2)
