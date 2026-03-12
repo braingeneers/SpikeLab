@@ -21,6 +21,13 @@ try:  # optional, only needed for HDF5/NWB tests
 except Exception:  # pragma: no cover
     h5py = None  # type: ignore
 
+try:  # optional, only needed for IBL tests
+    import pandas as pd  # type: ignore  # noqa: F401
+
+    pandas_available = True
+except Exception:  # pragma: no cover
+    pandas_available = False
+
 import pathlib
 import sys
 
@@ -888,6 +895,7 @@ class TestPickleLoaders(unittest.TestCase):
         self.assertFalse(os.path.exists(path))
 
 
+@unittest.skipIf(not pandas_available, "pandas not installed; skipping IBL tests")
 class TestIBLLoader(unittest.TestCase):
     """
     Tests for load_spikedata_from_ibl.
@@ -1269,6 +1277,7 @@ class TestIBLLoader(unittest.TestCase):
                 sys.modules["one"] = original_one
 
 
+@unittest.skipIf(not pandas_available, "pandas not installed; skipping IBL tests")
 class TestIBLQuery(unittest.TestCase):
     """
     Tests for query_ibl_probes.
