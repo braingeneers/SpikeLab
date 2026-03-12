@@ -3,8 +3,6 @@ from typing import Optional, List, Literal, Union, Dict, Any
 import numpy as np
 from scipy import ndimage, signal
 from scipy.stats import norm
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.decomposition import PCA
 
 __all__ = [
     "get_sttc",
@@ -408,6 +406,15 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     return max_corr, max_lag_idx
 
 
+def _cosine_sim(a, b):
+    """Cosine similarity between two 1-D vectors. Returns 0.0 if either has zero norm."""
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return float(np.dot(a, b) / (norm_a * norm_b))
+
+
 def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     """
     Compute cosine similarity with lag information.
@@ -424,8 +431,6 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     max_sim (float): Maximum cosine similarity coefficient
     max_lag_idx (int): Lag (in frames) at which maximum similarity occurs
     """
-    from sklearn.metrics.pairwise import cosine_similarity
-
     ref_rate = np.array(ref_rate).flatten()
     comp_rate = np.array(comp_rate).flatten()
 
@@ -435,8 +440,7 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
 
     if max_lag == 0:
         # Only check zero lag
-        sim = cosine_similarity(ref_rate.reshape(1, -1), comp_rate.reshape(1, -1))[0, 0]
-        return sim, 0
+        return _cosine_sim(ref_rate, comp_rate), 0
     lag_range = range(-max_lag, max_lag + 1)
 
     similarities = []
@@ -459,10 +463,7 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
 
         # Skip if segments are too short
         if len(ref_segment) > 0 and len(comp_segment) > 0:
-            sim = cosine_similarity(
-                ref_segment.reshape(1, -1), comp_segment.reshape(1, -1)
-            )[0, 0]
-            similarities.append(sim)
+            similarities.append(_cosine_sim(ref_segment, comp_segment))
             valid_lags.append(lag)
 
     # Find maximum similarity and corresponding lag
@@ -488,6 +489,14 @@ def PCA_reduction(matrix_2d, n_components=2):
     --------
     pca_result (array): 2D matrix of shape (rows, n_components)
     """
+
+    try:
+        from sklearn.decomposition import PCA
+    except ImportError:
+        raise ImportError(
+            "PCA_reduction requires the optional dependency 'scikit-learn'. "
+            "Install it with `pip install scikit-learn`."
+        )
 
     pca = PCA(n_components=n_components)
     pca_result = pca.fit_transform(matrix_2d)

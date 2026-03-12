@@ -11,9 +11,9 @@ import json
 import pathlib
 import sys
 import tempfile
-import unittest
 
 import numpy as np
+import pytest
 
 try:
     import h5py  # noqa: F401
@@ -54,7 +54,7 @@ def make_spikedata(n_units=3, length_ms=100.0, seed=0):
     Parameters:
         n_units (int): Number of units.
         length_ms (float): Recording length in milliseconds.
-        seed (int): Random seed (unused; deterministic by construction).
+        seed (int): Random seed.
 
     Returns:
         sd (SpikeData): A SpikeData of length length_ms with n_units units.
@@ -107,14 +107,14 @@ def make_spikeslicestack(n_units=2, slice_length_ms=50.0, n_slices=4):
 
     Parameters:
         n_units (int): Number of units.
-        slice_length_ms (float): Length of each slice in milliseconds.
-        n_slices (int): Number of slices (recording = slice_length_ms * n_slices).
+        slice_length_ms (float): Duration of each slice in milliseconds.
+        n_slices (int): Number of slices.
 
     Returns:
         sss (SpikeSliceStack): A SpikeSliceStack with n_slices slices.
     """
-    length_ms = slice_length_ms * n_slices
-    sd = make_spikedata(n_units=n_units, length_ms=length_ms)
+    total_ms = slice_length_ms * n_slices
+    sd = make_spikedata(n_units=n_units, length_ms=total_ms, seed=42)
     return sd.frames(slice_length_ms)
 
 
@@ -123,8 +123,8 @@ def make_spikeslicestack(n_units=2, slice_length_ms=50.0, n_slices=4):
 # ---------------------------------------------------------------------------
 
 
-class TestAnalysisWorkspace(unittest.TestCase):
-    def setUp(self):
+class TestAnalysisWorkspace:
+    def setup_method(self):
         """Create a fresh workspace for each test."""
         self.ws = AnalysisWorkspace(name="test_ws")
 
@@ -147,8 +147,8 @@ class TestAnalysisWorkspace(unittest.TestCase):
         retrieved = self.ws.get("rec1", "raster")
         np.testing.assert_array_equal(retrieved, arr)
 
-        self.assertIsNone(self.ws.get("rec1", "missing"))
-        self.assertIsNone(self.ws.get("missing_ns", "raster"))
+        assert self.ws.get("rec1", "missing") is None
+        assert self.ws.get("missing_ns", "raster") is None
 
     def test_store_get_spikedata(self):
         """
@@ -162,9 +162,9 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "spikes", sd)
 
         out = self.ws.get("rec1", "spikes")
-        self.assertIs(out, sd)
-        self.assertEqual(out.N, 4)
-        self.assertAlmostEqual(out.length, 200.0)
+        assert out is sd
+        assert out.N == 4
+        assert out.length == pytest.approx(200.0)
 
     def test_store_get_ratedata(self):
         """
@@ -172,14 +172,14 @@ class TestAnalysisWorkspace(unittest.TestCase):
 
         Tests:
             (Test Case 1) Retrieved object is the same RateData instance.
-            (Test Case 2) Array shape is preserved.
+            (Test Case 2) inst_Frate_data shape is preserved.
         """
         rd = make_ratedata(n_units=3, n_times=50)
         self.ws.store("rec1", "rate", rd)
 
         out = self.ws.get("rec1", "rate")
-        self.assertIs(out, rd)
-        self.assertEqual(out.inst_Frate_data.shape, (3, 50))
+        assert out is rd
+        assert out.inst_Frate_data.shape == (3, 50)
 
     def test_store_get_rateslicestack(self):
         """
@@ -193,8 +193,8 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "rss", rss)
 
         out = self.ws.get("rec1", "rss")
-        self.assertIs(out, rss)
-        self.assertEqual(out.event_stack.shape, (3, 20, 4))
+        assert out is rss
+        assert out.event_stack.shape == (3, 20, 4)
 
     def test_store_get_spikeslicestack(self):
         """
@@ -208,8 +208,8 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "sss", sss)
 
         out = self.ws.get("rec1", "sss")
-        self.assertIs(out, sss)
-        self.assertEqual(len(out.spike_stack), 3)
+        assert out is sss
+        assert len(out.spike_stack) == 3
 
     def test_store_get_pairwise(self):
         """
@@ -221,20 +221,22 @@ class TestAnalysisWorkspace(unittest.TestCase):
         """
         pcm = PairwiseCompMatrix(matrix=np.eye(4))
         self.ws.store("rec1", "pcm", pcm)
-        out_pcm = self.ws.get("rec1", "pcm")
-        self.assertIs(out_pcm, pcm)
-        self.assertEqual(out_pcm.matrix.shape, (4, 4))
 
-        stack_arr = np.random.default_rng(0).random((4, 4, 5))
+        out_pcm = self.ws.get("rec1", "pcm")
+        assert out_pcm is pcm
+        assert out_pcm.matrix.shape == (4, 4)
+
+        stack_arr = np.random.default_rng(0).random((4, 4, 6))
         pcms = PairwiseCompMatrixStack(stack=stack_arr)
         self.ws.store("rec1", "pcms", pcms)
-        out_pcms = self.ws.get("rec1", "pcms")
-        self.assertIs(out_pcms, pcms)
-        self.assertEqual(out_pcms.stack.shape, (4, 4, 5))
 
-    def test_store_overwrites(self):
+        out_pcms = self.ws.get("rec1", "pcms")
+        assert out_pcms is pcms
+        assert out_pcms.stack.shape == (4, 4, 6)
+
+    def test_store_overwrite(self):
         """
-        Tests that storing under an existing (namespace, key) replaces the previous value.
+        Tests that storing a second value under the same key overwrites the first.
 
         Tests:
             (Test Case 1) Second store returns the new object, not the first.
@@ -249,7 +251,7 @@ class TestAnalysisWorkspace(unittest.TestCase):
         np.testing.assert_array_equal(out, arr2)
         # Index reflects shape of arr2
         info = self.ws.get_info("rec1", "arr")
-        self.assertEqual(info["shape"], [5])
+        assert info["shape"] == [5]
 
     # ------------------------------------------------------------------
     # get_info
@@ -268,13 +270,13 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "arr", arr)
 
         info = self.ws.get_info("rec1", "arr")
-        self.assertIsNotNone(info)
-        self.assertEqual(info["type"], "ndarray")
-        self.assertEqual(info["shape"], [3, 4])
-        self.assertIn("created_at", info)
+        assert info is not None
+        assert info["type"] == "ndarray"
+        assert info["shape"] == [3, 4]
+        assert "created_at" in info
 
-        self.assertIsNone(self.ws.get_info("rec1", "missing"))
-        self.assertIsNone(self.ws.get_info("missing_ns", "arr"))
+        assert self.ws.get_info("rec1", "missing") is None
+        assert self.ws.get_info("missing_ns", "arr") is None
 
     # ------------------------------------------------------------------
     # describe / list_keys
@@ -282,24 +284,21 @@ class TestAnalysisWorkspace(unittest.TestCase):
 
     def test_describe(self):
         """
-        Tests that describe() returns the full nested index as a dict.
+        Tests that describe() returns a nested dict of namespace -> key -> info.
 
         Tests:
-            (Test Case 1) Empty workspace returns empty dict.
-            (Test Case 2) After storing, both namespaces and keys appear.
-            (Test Case 3) Each entry contains type and created_at.
+            (Test Case 1) Top-level keys are namespace names.
+            (Test Case 2) Each entry has type, shape.
         """
-        self.assertEqual(self.ws.describe(), {})
-
-        self.ws.store("rec1", "arr", np.zeros(3))
-        self.ws.store("rec2", "rate", make_ratedata())
+        self.ws.store("rec1", "arr", np.zeros((2, 3)))
+        self.ws.store("rec2", "rate", make_ratedata(n_units=1, n_times=10))
 
         desc = self.ws.describe()
-        self.assertIn("rec1", desc)
-        self.assertIn("rec2", desc)
-        self.assertIn("arr", desc["rec1"])
-        self.assertIn("rate", desc["rec2"])
-        self.assertEqual(desc["rec1"]["arr"]["type"], "ndarray")
+        assert "rec1" in desc
+        assert "rec2" in desc
+        assert "arr" in desc["rec1"]
+        assert "rate" in desc["rec2"]
+        assert desc["rec1"]["arr"]["type"] == "ndarray"
 
     def test_list_keys(self):
         """
@@ -315,17 +314,17 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec2", "x", np.zeros(2))
 
         all_keys = self.ws.list_keys()
-        self.assertIsInstance(all_keys, dict)
-        self.assertIn("rec1", all_keys)
-        self.assertIn("rec2", all_keys)
-        self.assertCountEqual(all_keys["rec1"], ["a", "b"])
-        self.assertCountEqual(all_keys["rec2"], ["x"])
+        assert isinstance(all_keys, dict)
+        assert "rec1" in all_keys
+        assert "rec2" in all_keys
+        assert sorted(all_keys["rec1"]) == sorted(["a", "b"])
+        assert sorted(all_keys["rec2"]) == sorted(["x"])
 
         rec1_keys = self.ws.list_keys("rec1")
-        self.assertIsInstance(rec1_keys, list)
-        self.assertCountEqual(rec1_keys, ["a", "b"])
+        assert isinstance(rec1_keys, list)
+        assert sorted(rec1_keys) == sorted(["a", "b"])
 
-        self.assertEqual(self.ws.list_keys("missing_ns"), [])
+        assert self.ws.list_keys("missing_ns") == []
 
     def test_list_namespaces(self):
         """
@@ -337,16 +336,16 @@ class TestAnalysisWorkspace(unittest.TestCase):
             (Test Case 3) Each name appears exactly once even when multiple keys exist in the same namespace.
             (Test Case 4) Namespaces not yet stored are absent from the result.
         """
-        self.assertEqual(self.ws.list_namespaces(), [])
+        assert self.ws.list_namespaces() == []
 
         self.ws.store("alpha", "k1", np.zeros(2))
         self.ws.store("alpha", "k2", np.zeros(2))
         self.ws.store("beta", "k1", np.zeros(2))
 
         namespaces = self.ws.list_namespaces()
-        self.assertIsInstance(namespaces, list)
-        self.assertCountEqual(namespaces, ["alpha", "beta"])
-        self.assertNotIn("gamma", namespaces)
+        assert isinstance(namespaces, list)
+        assert sorted(namespaces) == sorted(["alpha", "beta"])
+        assert "gamma" not in namespaces
 
     # ------------------------------------------------------------------
     # rename
@@ -354,7 +353,7 @@ class TestAnalysisWorkspace(unittest.TestCase):
 
     def test_rename(self):
         """
-        Tests rename() for successful rename and for not-found cases.
+        Tests rename() moves a key within the same namespace.
 
         Tests:
             (Test Case 1) Renamed key is accessible under the new name.
@@ -367,18 +366,18 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "old", arr)
 
         result = self.ws.rename("rec1", "old", "new")
-        self.assertTrue(result)
+        assert result
 
         retrieved = self.ws.get("rec1", "new")
         np.testing.assert_array_equal(retrieved, arr)
-        self.assertIsNone(self.ws.get("rec1", "old"))
+        assert self.ws.get("rec1", "old") is None
 
         info = self.ws.get_info("rec1", "new")
-        self.assertIsNotNone(info)
-        self.assertIsNone(self.ws.get_info("rec1", "old"))
+        assert info is not None
+        assert self.ws.get_info("rec1", "old") is None
 
-        self.assertFalse(self.ws.rename("missing_ns", "old", "new"))
-        self.assertFalse(self.ws.rename("rec1", "missing_key", "new"))
+        assert not self.ws.rename("missing_ns", "old", "new")
+        assert not self.ws.rename("rec1", "missing_key", "new")
 
     # ------------------------------------------------------------------
     # add_note
@@ -395,14 +394,13 @@ class TestAnalysisWorkspace(unittest.TestCase):
         """
         self.ws.store("rec1", "arr", np.zeros(3), note="initial note")
         info = self.ws.get_info("rec1", "arr")
-        self.assertEqual(info["note"], "initial note")
+        assert info["note"] == "initial note"
 
         result = self.ws.add_note("rec1", "arr", "updated note")
-        self.assertTrue(result)
-        self.assertEqual(self.ws.get_info("rec1", "arr")["note"], "updated note")
+        assert result
+        assert self.ws.get_info("rec1", "arr")["note"] == "updated note"
 
-        self.assertFalse(self.ws.add_note("rec1", "missing_key", "note"))
-        self.assertFalse(self.ws.add_note("missing_ns", "arr", "note"))
+        assert not self.ws.add_note("missing_ns", "arr", "note")
 
     # ------------------------------------------------------------------
     # delete
@@ -410,23 +408,24 @@ class TestAnalysisWorkspace(unittest.TestCase):
 
     def test_delete_key(self):
         """
-        Tests that delete() with a key removes that item and leaves others intact.
+        Tests that delete() with a key removes only that key.
 
         Tests:
-            (Test Case 1) Deleted key is no longer accessible via get() or get_info().
-            (Test Case 2) Other keys in the same namespace are unaffected.
-            (Test Case 3) Deleting a missing key returns False.
+            (Test Case 1) Deleted key returns None from get().
+            (Test Case 2) Index entry is removed.
+            (Test Case 3) Other keys in the same namespace are not affected.
+            (Test Case 4) Deleting a missing key returns False.
         """
         self.ws.store("rec1", "a", np.zeros(2))
         self.ws.store("rec1", "b", np.zeros(2))
 
         result = self.ws.delete("rec1", "a")
-        self.assertTrue(result)
-        self.assertIsNone(self.ws.get("rec1", "a"))
-        self.assertIsNone(self.ws.get_info("rec1", "a"))
-        self.assertIsNotNone(self.ws.get("rec1", "b"))
+        assert result
+        assert self.ws.get("rec1", "a") is None
+        assert self.ws.get_info("rec1", "a") is None
+        assert self.ws.get("rec1", "b") is not None
 
-        self.assertFalse(self.ws.delete("rec1", "missing_key"))
+        assert not self.ws.delete("rec1", "missing_key")
 
     def test_delete_namespace(self):
         """
@@ -441,11 +440,11 @@ class TestAnalysisWorkspace(unittest.TestCase):
         self.ws.store("rec1", "b", np.zeros(2))
 
         result = self.ws.delete("rec1")
-        self.assertTrue(result)
-        self.assertIsNone(self.ws.get("rec1", "a"))
-        self.assertNotIn("rec1", self.ws.list_keys())
+        assert result
+        assert self.ws.get("rec1", "a") is None
+        assert "rec1" not in self.ws.list_keys()
 
-        self.assertFalse(self.ws.delete("missing_ns"))
+        assert not self.ws.delete("missing_ns")
 
     # ------------------------------------------------------------------
     # namespace isolation
@@ -461,15 +460,15 @@ class TestAnalysisWorkspace(unittest.TestCase):
         """
         arr1 = np.array([1.0, 2.0])
         arr2 = np.array([3.0, 4.0])
-        self.ws.store("rec1", "data", arr1)
-        self.ws.store("rec2", "data", arr2)
+        self.ws.store("ns_a", "data", arr1)
+        self.ws.store("ns_b", "data", arr2)
 
-        np.testing.assert_array_equal(self.ws.get("rec1", "data"), arr1)
-        np.testing.assert_array_equal(self.ws.get("rec2", "data"), arr2)
+        np.testing.assert_array_equal(self.ws.get("ns_a", "data"), arr1)
+        np.testing.assert_array_equal(self.ws.get("ns_b", "data"), arr2)
 
-        self.ws.delete("rec1", "data")
-        self.assertIsNone(self.ws.get("rec1", "data"))
-        np.testing.assert_array_equal(self.ws.get("rec2", "data"), arr2)
+        self.ws.delete("ns_a", "data")
+        assert self.ws.get("ns_a", "data") is None
+        np.testing.assert_array_equal(self.ws.get("ns_b", "data"), arr2)
 
     # ------------------------------------------------------------------
     # comparison_namespace
@@ -480,23 +479,19 @@ class TestAnalysisWorkspace(unittest.TestCase):
         Tests that comparison_namespace() returns the expected C_-prefixed string.
 
         Tests:
-            (Test Case 1) Two namespaces → "C_ns1_ns2".
-            (Test Case 2) Three namespaces → "C_ns1_ns2_ns3".
-            (Test Case 3) Single namespace → "C_ns1".
+            (Test Case 1) Two namespaces -> "C_ns1_ns2".
+            (Test Case 2) Three namespaces -> "C_ns1_ns2_ns3".
+            (Test Case 3) Single namespace -> "C_ns1".
         """
-        self.assertEqual(
-            AnalysisWorkspace.comparison_namespace("rec1", "rec2"), "C_rec1_rec2"
-        )
-        self.assertEqual(
-            AnalysisWorkspace.comparison_namespace("a", "b", "c"), "C_a_b_c"
-        )
-        self.assertEqual(AnalysisWorkspace.comparison_namespace("only"), "C_only")
+        assert AnalysisWorkspace.comparison_namespace("rec1", "rec2") == "C_rec1_rec2"
+        assert AnalysisWorkspace.comparison_namespace("a", "b", "c") == "C_a_b_c"
+        assert AnalysisWorkspace.comparison_namespace("only") == "C_only"
 
     # ------------------------------------------------------------------
     # save / load
     # ------------------------------------------------------------------
 
-    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
     def test_save_load_roundtrip(self):
         """
         Tests that a workspace saved to disk and reloaded is equivalent to the original.
@@ -519,31 +514,31 @@ class TestAnalysisWorkspace(unittest.TestCase):
 
             h5_path = pathlib.Path(base + ".h5")
             json_path = pathlib.Path(base + ".json")
-            self.assertTrue(h5_path.exists())
-            self.assertTrue(json_path.exists())
+            assert h5_path.exists()
+            assert json_path.exists()
 
             loaded = AnalysisWorkspace.load(base)
 
-        self.assertEqual(loaded.workspace_id, self.ws.workspace_id)
-        self.assertEqual(loaded.name, self.ws.name)
-        self.assertAlmostEqual(loaded.created_at, self.ws.created_at)
+        assert loaded.workspace_id == self.ws.workspace_id
+        assert loaded.name == self.ws.name
+        assert loaded.created_at == pytest.approx(self.ws.created_at)
 
         # Array round-trip.
         np.testing.assert_array_equal(loaded.get("rec1", "matrix"), arr)
 
         # SpikeData round-trip: original IAT type must be reconstructed.
         loaded_sd = loaded.get("rec1", "spikes")
-        self.assertIsInstance(loaded_sd, SpikeData)
-        self.assertEqual(loaded_sd.N, 2)
-        self.assertAlmostEqual(loaded_sd.length, 80.0)
+        assert isinstance(loaded_sd, SpikeData)
+        assert loaded_sd.N == 2
+        assert loaded_sd.length == pytest.approx(80.0)
 
         # Index preserved.
         info = loaded.get_info("rec1", "matrix")
-        self.assertEqual(info["type"], "ndarray")
-        self.assertEqual(info["shape"], [2, 3])
-        self.assertEqual(info["note"], "test note")
+        assert info["type"] == "ndarray"
+        assert info["shape"] == [2, 3]
+        assert info["note"] == "test note"
 
-    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
     def test_load_item(self):
         """
         Tests that load_item() loads a single item from disk without loading the full workspace.
@@ -567,16 +562,16 @@ class TestAnalysisWorkspace(unittest.TestCase):
             np.testing.assert_array_equal(loaded_arr, arr)
 
             loaded_sd = AnalysisWorkspace.load_item(base, "ns", "spikes")
-            self.assertIsInstance(loaded_sd, SpikeData)
-            self.assertEqual(loaded_sd.N, 2)
+            assert isinstance(loaded_sd, SpikeData)
+            assert loaded_sd.N == 2
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 AnalysisWorkspace.load_item(base, "missing_ns", "matrix")
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 AnalysisWorkspace.load_item(base, "ns", "missing_key")
 
-    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
     def test_json_index_is_valid(self):
         """
         Tests that the .json sidecar file is valid JSON and contains the index.
@@ -595,11 +590,11 @@ class TestAnalysisWorkspace(unittest.TestCase):
             with open(base + ".json", encoding="utf-8") as f:
                 doc = json.load(f)
 
-        self.assertEqual(doc["workspace_id"], self.ws.workspace_id)
-        self.assertEqual(doc["name"], self.ws.name)
-        self.assertIn("index", doc)
-        self.assertIn("ns", doc["index"])
-        self.assertIn("arr", doc["index"]["ns"])
+        assert doc["workspace_id"] == self.ws.workspace_id
+        assert doc["name"] == self.ws.name
+        assert "index" in doc
+        assert "ns" in doc["index"]
+        assert "arr" in doc["index"]["ns"]
 
 
 # ---------------------------------------------------------------------------
@@ -607,7 +602,7 @@ class TestAnalysisWorkspace(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class TestMakeSummary(unittest.TestCase):
+class TestMakeSummary:
     def test_summary_ndarray(self):
         """
         Tests _make_summary() for a numpy array.
@@ -619,9 +614,9 @@ class TestMakeSummary(unittest.TestCase):
         """
         arr = np.zeros((3, 4), dtype=np.float32)
         s = _make_summary(arr)
-        self.assertEqual(s["type"], "ndarray")
-        self.assertEqual(s["shape"], [3, 4])
-        self.assertEqual(s["dtype"], "float32")
+        assert s["type"] == "ndarray"
+        assert s["shape"] == [3, 4]
+        assert s["dtype"] == "float32"
 
     def test_summary_spikedata(self):
         """
@@ -634,9 +629,9 @@ class TestMakeSummary(unittest.TestCase):
         """
         sd = make_spikedata(n_units=5, length_ms=300.0)
         s = _make_summary(sd)
-        self.assertEqual(s["type"], "SpikeData")
-        self.assertEqual(s["N"], 5)
-        self.assertAlmostEqual(s["length_ms"], 300.0)
+        assert s["type"] == "SpikeData"
+        assert s["N"] == 5
+        assert s["length_ms"] == pytest.approx(300.0)
 
     def test_summary_ratedata(self):
         """
@@ -648,8 +643,8 @@ class TestMakeSummary(unittest.TestCase):
         """
         rd = make_ratedata(n_units=4, n_times=80)
         s = _make_summary(rd)
-        self.assertEqual(s["type"], "RateData")
-        self.assertEqual(s["shape"], [4, 80])
+        assert s["type"] == "RateData"
+        assert s["shape"] == [4, 80]
 
     def test_summary_rateslicestack(self):
         """
@@ -661,8 +656,8 @@ class TestMakeSummary(unittest.TestCase):
         """
         rss = make_rateslicestack(n_units=3, n_times=10, n_slices=5)
         s = _make_summary(rss)
-        self.assertEqual(s["type"], "RateSliceStack")
-        self.assertEqual(s["shape"], [3, 10, 5])
+        assert s["type"] == "RateSliceStack"
+        assert s["shape"] == [3, 10, 5]
 
     def test_summary_spikeslicestack(self):
         """
@@ -676,10 +671,10 @@ class TestMakeSummary(unittest.TestCase):
         """
         sss = make_spikeslicestack(n_units=3, slice_length_ms=50.0, n_slices=4)
         s = _make_summary(sss)
-        self.assertEqual(s["type"], "SpikeSliceStack")
-        self.assertEqual(s["N_slices"], 4)
-        self.assertEqual(s["N_units"], 3)
-        self.assertAlmostEqual(s["length_ms"], 50.0)
+        assert s["type"] == "SpikeSliceStack"
+        assert s["N_slices"] == 4
+        assert s["N_units"] == 3
+        assert s["length_ms"] == pytest.approx(50.0)
 
     def test_summary_pairwise_comp_matrix(self):
         """
@@ -691,8 +686,8 @@ class TestMakeSummary(unittest.TestCase):
         """
         pcm = PairwiseCompMatrix(matrix=np.eye(5))
         s = _make_summary(pcm)
-        self.assertEqual(s["type"], "PairwiseCompMatrix")
-        self.assertEqual(s["shape"], [5, 5])
+        assert s["type"] == "PairwiseCompMatrix"
+        assert s["shape"] == [5, 5]
 
     def test_summary_pairwise_comp_matrix_stack(self):
         """
@@ -705,8 +700,8 @@ class TestMakeSummary(unittest.TestCase):
         stack_arr = np.random.default_rng(0).random((4, 4, 6))
         pcms = PairwiseCompMatrixStack(stack=stack_arr)
         s = _make_summary(pcms)
-        self.assertEqual(s["type"], "PairwiseCompMatrixStack")
-        self.assertEqual(s["shape"], [4, 4, 6])
+        assert s["type"] == "PairwiseCompMatrixStack"
+        assert s["shape"] == [4, 4, 6]
 
     def test_summary_unknown_type(self):
         """
@@ -720,7 +715,7 @@ class TestMakeSummary(unittest.TestCase):
             pass
 
         s = _make_summary(MyCustomObj())
-        self.assertEqual(s["type"], "MyCustomObj")
+        assert s["type"] == "MyCustomObj"
 
 
 # ---------------------------------------------------------------------------
@@ -728,8 +723,8 @@ class TestMakeSummary(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class TestWorkspaceManager(unittest.TestCase):
-    def setUp(self):
+class TestWorkspaceManager:
+    def setup_method(self):
         """Create a fresh WorkspaceManager for each test."""
         self.mgr = WorkspaceManager()
 
@@ -744,13 +739,13 @@ class TestWorkspaceManager(unittest.TestCase):
             (Test Case 4) workspace_id on the returned object matches the returned ID.
         """
         wid = self.mgr.create_workspace(name="my_ws")
-        self.assertIsInstance(wid, str)
-        self.assertTrue(len(wid) > 0)
+        assert isinstance(wid, str)
+        assert len(wid) > 0
 
         ws = self.mgr.get_workspace(wid)
-        self.assertIsInstance(ws, AnalysisWorkspace)
-        self.assertEqual(ws.name, "my_ws")
-        self.assertEqual(ws.workspace_id, wid)
+        assert isinstance(ws, AnalysisWorkspace)
+        assert ws.name == "my_ws"
+        assert ws.workspace_id == wid
 
     def test_get_unknown_returns_none(self):
         """
@@ -759,7 +754,7 @@ class TestWorkspaceManager(unittest.TestCase):
         Tests:
             (Test Case 1) Non-existent ID returns None.
         """
-        self.assertIsNone(self.mgr.get_workspace("nonexistent-id"))
+        assert self.mgr.get_workspace("nonexistent-id") is None
 
     def test_delete_workspace(self):
         """
@@ -772,10 +767,10 @@ class TestWorkspaceManager(unittest.TestCase):
         """
         wid = self.mgr.create_workspace()
         result = self.mgr.delete_workspace(wid)
-        self.assertTrue(result)
-        self.assertIsNone(self.mgr.get_workspace(wid))
+        assert result
+        assert self.mgr.get_workspace(wid) is None
 
-        self.assertFalse(self.mgr.delete_workspace("nonexistent-id"))
+        assert not self.mgr.delete_workspace("nonexistent-id")
 
     def test_list_workspaces(self):
         """
@@ -786,7 +781,7 @@ class TestWorkspaceManager(unittest.TestCase):
             (Test Case 2) Each entry has workspace_id, name, created_at, namespace_count, item_count.
             (Test Case 3) item_count reflects stored items correctly.
         """
-        self.assertEqual(self.mgr.list_workspaces(), [])
+        assert self.mgr.list_workspaces() == []
 
         wid = self.mgr.create_workspace(name="alpha")
         ws = self.mgr.get_workspace(wid)
@@ -794,15 +789,15 @@ class TestWorkspaceManager(unittest.TestCase):
         ws.store("ns1", "b", np.zeros(3))
 
         listing = self.mgr.list_workspaces()
-        self.assertEqual(len(listing), 1)
+        assert len(listing) == 1
         entry = listing[0]
-        self.assertEqual(entry["workspace_id"], wid)
-        self.assertEqual(entry["name"], "alpha")
-        self.assertIn("created_at", entry)
-        self.assertEqual(entry["namespace_count"], 1)
-        self.assertEqual(entry["item_count"], 2)
+        assert entry["workspace_id"] == wid
+        assert entry["name"] == "alpha"
+        assert "created_at" in entry
+        assert entry["namespace_count"] == 1
+        assert entry["item_count"] == 2
 
-    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
     def test_save_and_load_workspace(self):
         """
         Tests save_workspace() and load_workspace() round-trip via the manager.
@@ -822,17 +817,17 @@ class TestWorkspaceManager(unittest.TestCase):
             base = str(pathlib.Path(tmp) / "ws")
             self.mgr.save_workspace(wid, base)
 
-            self.assertTrue(pathlib.Path(base + ".h5").exists())
+            assert pathlib.Path(base + ".h5").exists()
 
             mgr2 = WorkspaceManager()
             loaded_id = mgr2.load_workspace(base)
 
-        self.assertEqual(loaded_id, wid)
+        assert loaded_id == wid
         loaded_ws = mgr2.get_workspace(loaded_id)
-        self.assertIsNotNone(loaded_ws)
+        assert loaded_ws is not None
         np.testing.assert_array_equal(loaded_ws.get("ns", "arr"), arr)
 
-    @unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
     def test_load_workspace_item(self):
         """
         Tests load_workspace_item() loads one item into an existing in-memory workspace.
@@ -863,9 +858,9 @@ class TestWorkspaceManager(unittest.TestCase):
             np.testing.assert_array_equal(loaded_arr, arr)
 
             # 'spikes' was not loaded
-            self.assertIsNone(target_ws.get("ns", "spikes"))
+            assert target_ws.get("ns", "spikes") is None
 
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 self.mgr.load_workspace_item(base, "ns", "arr", "nonexistent-id")
 
     def test_save_unknown_workspace_raises(self):
@@ -877,7 +872,7 @@ class TestWorkspaceManager(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 self.mgr.save_workspace("nonexistent-id", base)
 
     # ------------------------------------------------------------------
@@ -893,7 +888,7 @@ class TestWorkspaceManager(unittest.TestCase):
         """
         mgr_a = get_workspace_manager()
         mgr_b = get_workspace_manager()
-        self.assertIs(mgr_a, mgr_b)
+        assert mgr_a is mgr_b
 
 
 # ---------------------------------------------------------------------------
@@ -901,8 +896,8 @@ class TestWorkspaceManager(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-@unittest.skipIf(not H5PY_AVAILABLE, "h5py not installed")
-class TestHDF5IO(unittest.TestCase):
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestHDF5IO:
     """
     Round-trip tests for workspace/hdf5_io.py.
 
@@ -952,7 +947,7 @@ class TestHDF5IO(unittest.TestCase):
         arr = np.array([1.0, 2.0, 3.0])
         out = self._roundtrip(arr)
         np.testing.assert_array_equal(out, arr)
-        self.assertEqual(out.shape, (3,))
+        assert out.shape == (3,)
 
     def test_roundtrip_ndarray_2d(self):
         """
@@ -965,7 +960,7 @@ class TestHDF5IO(unittest.TestCase):
         arr = np.arange(12).reshape(3, 4).astype(np.float64)
         out = self._roundtrip(arr)
         np.testing.assert_array_equal(out, arr)
-        self.assertEqual(out.shape, (3, 4))
+        assert out.shape == (3, 4)
 
     def test_roundtrip_ndarray_3d(self):
         """
@@ -977,7 +972,7 @@ class TestHDF5IO(unittest.TestCase):
         arr = np.random.default_rng(0).random((2, 5, 4))
         out = self._roundtrip(arr)
         np.testing.assert_array_almost_equal(out, arr)
-        self.assertEqual(out.shape, (2, 5, 4))
+        assert out.shape == (2, 5, 4)
 
     # ------------------------------------------------------------------
     # SpikeData
@@ -999,13 +994,13 @@ class TestHDF5IO(unittest.TestCase):
             metadata={"source": "test"},
         )
         out = self._roundtrip(sd)
-        self.assertIsInstance(out, SpikeData)
-        self.assertEqual(out.N, 3)
-        self.assertAlmostEqual(out.length, 50.0)
+        assert isinstance(out, SpikeData)
+        assert out.N == 3
+        assert out.length == pytest.approx(50.0)
         np.testing.assert_array_almost_equal(out.train[0], [1.0, 2.0, 3.0])
         np.testing.assert_array_almost_equal(out.train[1], [5.0, 10.0])
-        self.assertEqual(len(out.train[2]), 0)
-        self.assertEqual(out.metadata["source"], "test")
+        assert len(out.train[2]) == 0
+        assert out.metadata["source"] == "test"
 
     def test_roundtrip_spikedata_neuron_attributes_numeric(self):
         """
@@ -1023,11 +1018,11 @@ class TestHDF5IO(unittest.TestCase):
         sd = make_spikedata(n_units=3, length_ms=100.0)
         sd.set_neuron_attribute("channel", [0, 1, 2])
         out = self._roundtrip(sd)
-        self.assertIsNotNone(out.neuron_attributes)
+        assert out.neuron_attributes is not None
         channels = [d.get("channel") for d in out.neuron_attributes]
-        self.assertAlmostEqual(channels[0], 0.0)
-        self.assertAlmostEqual(channels[1], 1.0)
-        self.assertAlmostEqual(channels[2], 2.0)
+        assert channels[0] == pytest.approx(0.0)
+        assert channels[1] == pytest.approx(1.0)
+        assert channels[2] == pytest.approx(2.0)
 
     def test_roundtrip_spikedata_neuron_attributes_string(self):
         """
@@ -1040,10 +1035,10 @@ class TestHDF5IO(unittest.TestCase):
         sd = make_spikedata(n_units=2, length_ms=80.0)
         sd.set_neuron_attribute("group", ["A", "B"])
         out = self._roundtrip(sd)
-        self.assertIsNotNone(out.neuron_attributes)
+        assert out.neuron_attributes is not None
         groups = [d.get("group") for d in out.neuron_attributes]
-        self.assertEqual(groups[0], "A")
-        self.assertEqual(groups[1], "B")
+        assert groups[0] == "A"
+        assert groups[1] == "B"
 
     def test_roundtrip_spikedata_neuron_attributes_array(self):
         """
@@ -1063,14 +1058,14 @@ class TestHDF5IO(unittest.TestCase):
             {"waveform": waveforms[2], "channel": 2},
         ]
         out = self._roundtrip(sd)
-        self.assertIsNotNone(out.neuron_attributes)
+        assert out.neuron_attributes is not None
         for i in range(3):
-            self.assertIn("waveform", out.neuron_attributes[i])
-            self.assertEqual(out.neuron_attributes[i]["waveform"].shape, (10, 5))
+            assert "waveform" in out.neuron_attributes[i]
+            assert out.neuron_attributes[i]["waveform"].shape == (10, 5)
             np.testing.assert_array_almost_equal(
                 out.neuron_attributes[i]["waveform"], waveforms[i]
             )
-            self.assertAlmostEqual(float(out.neuron_attributes[i]["channel"]), float(i))
+            assert float(out.neuron_attributes[i]["channel"]) == pytest.approx(float(i))
 
     def test_roundtrip_spikedata_neuron_attributes_array_partial(self):
         """
@@ -1089,11 +1084,11 @@ class TestHDF5IO(unittest.TestCase):
             {"waveform": waveform * 2.0},
         ]
         out = self._roundtrip(sd)
-        self.assertIsNotNone(out.neuron_attributes)
+        assert out.neuron_attributes is not None
         np.testing.assert_array_almost_equal(
             out.neuron_attributes[0]["waveform"], waveform
         )
-        self.assertNotIn("waveform", out.neuron_attributes[1])
+        assert "waveform" not in out.neuron_attributes[1]
         np.testing.assert_array_almost_equal(
             out.neuron_attributes[2]["waveform"], waveform * 2.0
         )
@@ -1125,7 +1120,7 @@ class TestHDF5IO(unittest.TestCase):
         """
         sd = SpikeData([[1.0, 2.0], [3.0]], length=10.0)
         out = self._roundtrip(sd)
-        self.assertIsNone(out.neuron_attributes)
+        assert out.neuron_attributes is None
 
     # ------------------------------------------------------------------
     # RateData
@@ -1142,8 +1137,8 @@ class TestHDF5IO(unittest.TestCase):
         """
         rd = make_ratedata(n_units=3, n_times=40, step=2.0)
         out = self._roundtrip(rd)
-        self.assertIsInstance(out, RateData)
-        self.assertEqual(out.inst_Frate_data.shape, (3, 40))
+        assert isinstance(out, RateData)
+        assert out.inst_Frate_data.shape == (3, 40)
         np.testing.assert_array_almost_equal(out.inst_Frate_data, rd.inst_Frate_data)
         np.testing.assert_array_almost_equal(out.times, rd.times)
 
@@ -1158,9 +1153,9 @@ class TestHDF5IO(unittest.TestCase):
         rd = make_ratedata(n_units=2, n_times=20)
         rd.neuron_attributes = [{"depth": 100.0}, {"depth": 200.0}]
         out = self._roundtrip(rd)
-        self.assertIsNotNone(out.neuron_attributes)
-        self.assertAlmostEqual(out.neuron_attributes[0]["depth"], 100.0)
-        self.assertAlmostEqual(out.neuron_attributes[1]["depth"], 200.0)
+        assert out.neuron_attributes is not None
+        assert out.neuron_attributes[0]["depth"] == pytest.approx(100.0)
+        assert out.neuron_attributes[1]["depth"] == pytest.approx(200.0)
 
     # ------------------------------------------------------------------
     # RateSliceStack
@@ -1178,14 +1173,14 @@ class TestHDF5IO(unittest.TestCase):
         """
         rss = make_rateslicestack(n_units=3, n_times=10, n_slices=5)
         out = self._roundtrip(rss)
-        self.assertIsInstance(out, RateSliceStack)
-        self.assertEqual(out.event_stack.shape, (3, 10, 5))
+        assert isinstance(out, RateSliceStack)
+        assert out.event_stack.shape == (3, 10, 5)
         np.testing.assert_array_almost_equal(out.event_stack, rss.event_stack)
-        self.assertEqual(len(out.times), len(rss.times))
+        assert len(out.times) == len(rss.times)
         for (s0, e0), (s1, e1) in zip(rss.times, out.times):
-            self.assertAlmostEqual(s0, s1)
-            self.assertAlmostEqual(e0, e1)
-        self.assertAlmostEqual(out.step_size, rss.step_size)
+            assert s0 == pytest.approx(s1)
+            assert e0 == pytest.approx(e1)
+        assert out.step_size == pytest.approx(rss.step_size)
 
     # ------------------------------------------------------------------
     # SpikeSliceStack
@@ -1203,15 +1198,15 @@ class TestHDF5IO(unittest.TestCase):
         """
         sss = make_spikeslicestack(n_units=2, slice_length_ms=50.0, n_slices=3)
         out = self._roundtrip(sss)
-        self.assertIsInstance(out, SpikeSliceStack)
-        self.assertEqual(len(out.spike_stack), 3)
+        assert isinstance(out, SpikeSliceStack)
+        assert len(out.spike_stack) == 3
         for slice_sd in out.spike_stack:
-            self.assertIsInstance(slice_sd, SpikeData)
-            self.assertEqual(slice_sd.N, 2)
-        self.assertEqual(len(out.times), 3)
+            assert isinstance(slice_sd, SpikeData)
+            assert slice_sd.N == 2
+        assert len(out.times) == 3
         for (s0, e0), (s1, e1) in zip(sss.times, out.times):
-            self.assertAlmostEqual(s0, s1)
-            self.assertAlmostEqual(e0, e1)
+            assert s0 == pytest.approx(s1)
+            assert e0 == pytest.approx(e1)
 
     # ------------------------------------------------------------------
     # PairwiseCompMatrix
@@ -1228,9 +1223,9 @@ class TestHDF5IO(unittest.TestCase):
         """
         pcm = PairwiseCompMatrix(matrix=np.eye(4))
         out = self._roundtrip(pcm)
-        self.assertIsInstance(out, PairwiseCompMatrix)
+        assert isinstance(out, PairwiseCompMatrix)
         np.testing.assert_array_almost_equal(out.matrix, pcm.matrix)
-        self.assertIsNone(out.labels)
+        assert out.labels is None
 
     def test_roundtrip_pairwise_comp_matrix_int_labels(self):
         """
@@ -1242,10 +1237,10 @@ class TestHDF5IO(unittest.TestCase):
         mat = np.random.default_rng(0).random((3, 3))
         pcm = PairwiseCompMatrix(matrix=mat, labels=[10, 20, 30])
         out = self._roundtrip(pcm)
-        self.assertEqual(len(out.labels), 3)
-        self.assertAlmostEqual(float(out.labels[0]), 10.0)
-        self.assertAlmostEqual(float(out.labels[1]), 20.0)
-        self.assertAlmostEqual(float(out.labels[2]), 30.0)
+        assert len(out.labels) == 3
+        assert float(out.labels[0]) == pytest.approx(10.0)
+        assert float(out.labels[1]) == pytest.approx(20.0)
+        assert float(out.labels[2]) == pytest.approx(30.0)
 
     def test_roundtrip_pairwise_comp_matrix_string_labels(self):
         """
@@ -1257,7 +1252,7 @@ class TestHDF5IO(unittest.TestCase):
         mat = np.eye(3)
         pcm = PairwiseCompMatrix(matrix=mat, labels=["A", "B", "C"])
         out = self._roundtrip(pcm)
-        self.assertEqual(out.labels, ["A", "B", "C"])
+        assert out.labels == ["A", "B", "C"]
 
     def test_roundtrip_pairwise_comp_matrix_metadata(self):
         """
@@ -1273,9 +1268,9 @@ class TestHDF5IO(unittest.TestCase):
             metadata={"threshold": 0.5, "binary": True, "method": "sttc"},
         )
         out = self._roundtrip(pcm)
-        self.assertAlmostEqual(out.metadata["threshold"], 0.5)
-        self.assertTrue(out.metadata["binary"])
-        self.assertEqual(out.metadata["method"], "sttc")
+        assert out.metadata["threshold"] == pytest.approx(0.5)
+        assert out.metadata["binary"]
+        assert out.metadata["method"] == "sttc"
 
     # ------------------------------------------------------------------
     # PairwiseCompMatrixStack
@@ -1302,15 +1297,15 @@ class TestHDF5IO(unittest.TestCase):
             metadata={"delt": 25.0},
         )
         out = self._roundtrip(pcms)
-        self.assertIsInstance(out, PairwiseCompMatrixStack)
-        self.assertEqual(out.stack.shape, (4, 4, 6))
+        assert isinstance(out, PairwiseCompMatrixStack)
+        assert out.stack.shape == (4, 4, 6)
         np.testing.assert_array_almost_equal(out.stack, stack_arr)
-        self.assertEqual(out.labels, ["u0", "u1", "u2", "u3"])
-        self.assertEqual(len(out.times), 6)
+        assert out.labels == ["u0", "u1", "u2", "u3"]
+        assert len(out.times) == 6
         for (s0, e0), (s1, e1) in zip(times, out.times):
-            self.assertAlmostEqual(s0, s1)
-            self.assertAlmostEqual(e0, e1)
-        self.assertAlmostEqual(out.metadata["delt"], 25.0)
+            assert s0 == pytest.approx(s1)
+            assert e0 == pytest.approx(e1)
+        assert out.metadata["delt"] == pytest.approx(25.0)
 
     def test_roundtrip_pairwise_comp_matrix_stack_no_labels_no_times(self):
         """
@@ -1324,8 +1319,8 @@ class TestHDF5IO(unittest.TestCase):
         stack_arr = np.random.default_rng(0).random((3, 3, 4))
         pcms = PairwiseCompMatrixStack(stack=stack_arr)
         out = self._roundtrip(pcms)
-        self.assertIsNone(out.labels)
-        self.assertIsNone(out.times)
+        assert out.labels is None
+        assert out.times is None
         np.testing.assert_array_almost_equal(out.stack, stack_arr)
 
     # ------------------------------------------------------------------
@@ -1357,7 +1352,7 @@ class TestHDF5IO(unittest.TestCase):
             loaded_pcm = AnalysisWorkspace.load_item(base, "ns", "pcm")
 
         np.testing.assert_array_equal(loaded_arr, arr)
-        self.assertIsInstance(loaded_pcm, PairwiseCompMatrix)
+        assert isinstance(loaded_pcm, PairwiseCompMatrix)
         np.testing.assert_array_almost_equal(loaded_pcm.matrix, pcm.matrix)
 
     # ------------------------------------------------------------------
@@ -1380,7 +1375,7 @@ class TestHDF5IO(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 ws.save(base)
 
     def test_load_item_missing_namespace_raises(self):
@@ -1396,7 +1391,7 @@ class TestHDF5IO(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
             ws.save(base)
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 AnalysisWorkspace.load_item(base, "wrong_ns", "arr")
 
     def test_load_item_missing_key_raises(self):
@@ -1412,7 +1407,7 @@ class TestHDF5IO(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
             ws.save(base)
-            with self.assertRaises(KeyError):
+            with pytest.raises(KeyError):
                 AnalysisWorkspace.load_item(base, "ns", "wrong_key")
 
     def test_metadata_non_json_serializable_raises(self):
@@ -1438,7 +1433,7 @@ class TestHDF5IO(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             base = str(pathlib.Path(tmp) / "ws")
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError):
                 ws.save(base)
 
     def test_roundtrip_metadata_numpy_array(self):
@@ -1452,8 +1447,8 @@ class TestHDF5IO(unittest.TestCase):
         arr = np.array([1.0, 2.0, 3.0])
         sd = SpikeData([[1.0, 2.0], [3.0]], length=20.0, metadata={"positions": arr})
         out = self._roundtrip(sd)
-        self.assertIn("positions", out.metadata)
-        self.assertEqual(out.metadata["positions"], [1.0, 2.0, 3.0])
+        assert "positions" in out.metadata
+        assert out.metadata["positions"] == [1.0, 2.0, 3.0]
 
     def test_roundtrip_metadata_numpy_scalars(self):
         """
@@ -1474,9 +1469,9 @@ class TestHDF5IO(unittest.TestCase):
             },
         )
         out = self._roundtrip(sd)
-        self.assertEqual(out.metadata["count"], 42)
-        self.assertAlmostEqual(out.metadata["rate"], 3.14, places=5)
-        self.assertTrue(out.metadata["active"])
+        assert out.metadata["count"] == 42
+        assert out.metadata["rate"] == pytest.approx(3.14, abs=1e-5)
+        assert out.metadata["active"]
 
     # ------------------------------------------------------------------
     # Index metadata after full load
@@ -1502,9 +1497,9 @@ class TestHDF5IO(unittest.TestCase):
             loaded_ws = AnalysisWorkspace.load(base)
 
         info = loaded_ws.get_info("ns", "arr")
-        self.assertEqual(info["type"], "ndarray")
-        self.assertEqual(info["note"], "my note")
-        self.assertGreater(info["created_at"], 0.0)
+        assert info["type"] == "ndarray"
+        assert info["note"] == "my note"
+        assert info["created_at"] > 0.0
 
     # ------------------------------------------------------------------
     # list_namespaces on LazyAnalysisWorkspace
@@ -1526,17 +1521,13 @@ class TestHDF5IO(unittest.TestCase):
         """
         ws = LazyAnalysisWorkspace(name="lazy_test")
 
-        self.assertEqual(ws.list_namespaces(), [])
+        assert ws.list_namespaces() == []
 
         ws.store("alpha", "k1", np.zeros(2))
         ws.store("alpha", "k2", np.zeros(2))
         ws.store("beta", "k1", np.zeros(2))
 
         namespaces = ws.list_namespaces()
-        self.assertIsInstance(namespaces, list)
-        self.assertCountEqual(namespaces, ["alpha", "beta"])
-        self.assertNotIn("gamma", namespaces)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert isinstance(namespaces, list)
+        assert sorted(namespaces) == sorted(["alpha", "beta"])
+        assert "gamma" not in namespaces

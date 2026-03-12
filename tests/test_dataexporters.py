@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import os
 import tempfile
-import unittest
 import pathlib
 import sys
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 try:
     import h5py  # type: ignore
@@ -39,29 +39,27 @@ import SpikeLab.data_loaders.data_loaders as loaders
 import SpikeLab.data_loaders.data_exporters as exporters
 
 
-class BaseExportTest(unittest.TestCase):
-    """Base class providing common test data for export tests.
-
-    Creates a simple, deterministic SpikeData object with:
-    - 3 units: one with 3 spikes, one with 2 spikes, one empty
-    - 25ms total length
-    Predictable spike times for easy validation
-
-    This standardized test data ensures consistent behavior across all export formats.
+def make_sd() -> SpikeData:
     """
+    Create a simple, deterministic SpikeData for export tests.
 
-    def make_sd(self) -> SpikeData:
-        # Simple deterministic SpikeData
-        trains = [
-            np.array([5.0, 10.0, 15.0]),  # Unit 0: 3 spikes
-            np.array([2.5, 20.0]),  # Unit 1: 2 spikes
-            np.array([], float),  # Unit 2: empty (edge case)
-        ]
-        return SpikeData(trains, length=25.0, metadata={"label": "test"})
+    Returns a SpikeData with 3 units (3 spikes, 2 spikes, 0 spikes) and 25 ms length.
+    """
+    trains = [
+        np.array([5.0, 10.0, 15.0]),  # Unit 0: 3 spikes
+        np.array([2.5, 20.0]),  # Unit 1: 2 spikes
+        np.array([], float),  # Unit 2: empty (edge case)
+    ]
+    return SpikeData(trains, length=25.0, metadata={"label": "test"})
 
 
-@unittest.skipIf(h5py is None, "h5py not installed; skipping HDF5/NWB exporter tests")
-class TestHDF5Exporters(BaseExportTest):
+skip_no_h5py = pytest.mark.skipif(
+    h5py is None, reason="h5py not installed; skipping HDF5/NWB exporter tests"
+)
+
+
+@skip_no_h5py
+class TestHDF5Exporters:
     """
     Tests for HDF5 export functionality across all four supported styles.
 
@@ -76,23 +74,7 @@ class TestHDF5Exporters(BaseExportTest):
     4. 'raster': Dense 2D binned spike counts (for rate-based analyses)
     """
 
-    def _tmp_h5(self) -> str:
-        """Creates a temporary HDF5 file path for testing."""
-        fd, path = tempfile.mkstemp(suffix=(".h5"))
-        os.close(fd)
-        return path
-
-    def tearDown(self) -> None:
-        """Clean up temporary files created during tests."""
-        for attr in ("_last",):
-            p = getattr(self, attr, None)
-            if p and os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
-
-    def test_export_hdf5_ragged_roundtrip(self):
+    def test_export_hdf5_ragged_roundtrip(self, tmp_path):
         """
         Tests the most common HDF5 export format (ragged arrays)
         with time unit conversion from milliseconds to seconds.
@@ -104,17 +86,11 @@ class TestHDF5Exporters(BaseExportTest):
 
         Notes:
         - Ragged arrays are the most storage-efficient format for sparse spike data and are used by many analysis tools including NWB.
-
         """
-        sd = self.make_sd()
-        path = self._tmp_h5()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.h5")
 
-        sd.to_hdf5(
-            path,
-            style="ragged",
-            spike_times_unit="s",
-        )
+        sd.to_hdf5(path, style="ragged", spike_times_unit="s")
 
         sd2 = loaders.load_spikedata_from_hdf5(
             path,
@@ -122,11 +98,10 @@ class TestHDF5Exporters(BaseExportTest):
             spike_times_index_dataset="spike_times_index",
             spike_times_unit="s",
         )
-        # Round-trip equality on trains
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(a, b))
+            assert np.allclose(a, b)
 
-    def test_export_hdf5_group_roundtrip_samples(self):
+    def test_export_hdf5_group_roundtrip_samples(self, tmp_path):
         """
         Test group-per-unit export with sample-based time units.
 
@@ -136,14 +111,12 @@ class TestHDF5Exporters(BaseExportTest):
         (Method 3) Spike times are converted from milliseconds to sample indices
         (Test Case 1) Round-trip through loader verifies conversion accuracy
 
-
         Notes:
         - The group style makes it easy to access individual units without parsing index arrays,
         and sample units preserve exact timing relationships with the original recording.
         """
-        sd = self.make_sd()
-        path = self._tmp_h5()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.h5")
 
         sd.to_hdf5(
             path,
@@ -165,9 +138,9 @@ class TestHDF5Exporters(BaseExportTest):
             return samp / 1000.0 * 1e3
 
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(q(a), b))
+            assert np.allclose(q(a), b)
 
-    def test_export_hdf5_paired_roundtrip_ms(self):
+    def test_export_hdf5_paired_roundtrip_ms(self, tmp_path):
         """
         Tests paired arrays export with millisecond time units.
 
@@ -180,12 +153,9 @@ class TestHDF5Exporters(BaseExportTest):
         Notes:
         - The paired style is a simple format that stores unit indices and spike times in separate parallel arrays,
         keeping original millisecond timing.
-        - This format is intuitive and matches how many analysis pipelines represent spike data internally.
-        - Keeping millisecond units avoids precision loss from time conversions.
         """
-        sd = self.make_sd()
-        path = self._tmp_h5()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.h5")
 
         sd.to_hdf5(
             path,
@@ -198,55 +168,45 @@ class TestHDF5Exporters(BaseExportTest):
             path, idces_dataset="idces", times_dataset="times", times_unit="ms"
         )
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(a, b))
+            assert np.allclose(a, b)
 
-    def test_export_hdf5_raster(self):
+    def test_export_hdf5_raster(self, tmp_path):
         """
         Test raster export for binned spike count analysis.
 
         Tests:
         (Method 1) Export specifies a 5ms bin size for rasterization
-        (Method 2) SpikeData.raster() method is used internally to create the count matrix
-        (Method 3) Result is a 2D array: units × time bins
         (Test Case 1) Verify exported raster matches SpikeData's own raster() output
 
         Notes:
-        - Raster format enables analyses that require fixed-size inputs (like neural decoders) and
-        is the standard format for population dynamics studies.
+        - Raster format enables analyses that require fixed-size inputs (like neural decoders).
         """
-        sd = self.make_sd()
-        path = self._tmp_h5()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.h5")
 
         sd.to_hdf5(
             path, style="raster", raster_dataset="raster", raster_bin_size_ms=5.0
         )
         with h5py.File(path, "r") as f:  # type: ignore
             raster = np.asarray(f["raster"])
-        self.assertTrue(np.array_equal(raster, sd.raster(5.0)))
+        assert np.array_equal(raster, sd.raster(5.0))
 
-    def test_export_hdf5_with_raw(self):
+    def test_export_hdf5_with_raw(self, tmp_path):
         """
         Tests export of raw data arrays alongside spike data.
 
         Tests:
         (Method 1) Creates SpikeData with mock raw voltage data and time arrays
         (Method 2) Exports both spike data (ragged style) and raw data
-        (Method 3) Raw time is converted from milliseconds to seconds
         (Test Case 1) Verifies the time conversion was applied correctly to raw_time
 
         Notes:
-        - Validates that continuous raw data (like voltage traces) can be exported alongside spike times with proper time unit conversion.
-        - Many analyses require both spike times and the underlying continuous data.
-        - This ensures both can be stored together with consistent time bases.
-
+        - Validates that continuous raw data (like voltage traces) can be exported alongside spike times.
         """
-        # Attach raw arrays and export raw dataset/time in seconds
-        sd = self.make_sd()
+        sd = make_sd()
         raw = np.random.randn(2, 10)
         sd = SpikeData(sd.train, length=sd.length, raw_data=raw, raw_time=np.arange(10))
-        path = self._tmp_h5()
-        self._last = path
+        path = str(tmp_path / "test.h5")
 
         sd.to_hdf5(
             path,
@@ -257,144 +217,94 @@ class TestHDF5Exporters(BaseExportTest):
             raw_time_unit="s",
         )
         with h5py.File(path, "r") as f:  # type: ignore
-            self.assertTrue(np.allclose(np.asarray(f["raw_time"]), sd.raw_time / 1e3))
+            assert np.allclose(np.asarray(f["raw_time"]), sd.raw_time / 1e3)
 
 
-@unittest.skipIf(h5py is None, "h5py not installed; skipping NWB exporter tests")
-class TestNWBExporters(BaseExportTest):
+@skip_no_h5py
+class TestNWBExporters:
     """
     Tests for Neurodata Without Borders (NWB) format export.
 
     NWB is a standardized format for neurophysiology data that uses HDF5 as its
-    storage backend. The exporter creates minimal NWB-compatible files that can
-    be read by both our custom loader and standard NWB tools.
-
-    These tests focus on the NWB-specific conventions like time units (seconds)
-    and dataset organization within the /units group.
+    storage backend.
     """
 
-    def _tmp_nwb(self) -> str:
-        """Creates a temporary NWB file path for testing."""
-        fd, path = tempfile.mkstemp(suffix=(".nwb"))
-        os.close(fd)
-        return path
-
-    def tearDown(self) -> None:
-        """Clean up temporary files created during tests."""
-        for attr in ("_last",):
-            p = getattr(self, attr, None)
-            if p and os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
-
-    def test_export_nwb_roundtrip(self):
+    def test_export_nwb_roundtrip(self, tmp_path):
         """
-        Tests that SpikeData can be exported to NWB format and
-        successfully re-imported with round-trip compatibility / identical spike timing data.
+        Tests NWB export and re-import round-trip.
 
         Tests:
-        (Method 1) Export SpikeData using the NWB exporter (uses ragged array format internally)
-        (Method 2) Times are automatically converted to seconds (NWB standard)
-        (Method 3) Data is organized in /units group with standard dataset names
-        (Method 4) Re-import using NWB loader with prefer_pynwb=False (h5py-based)
+        (Method 1) Export SpikeData using the NWB exporter
+        (Method 2) Re-import using NWB loader with prefer_pynwb=False (h5py-based)
         (Test Case 1) Verify all spike trains match original within floating-point precision
-
-        Notes:
-        - This test ensures NWB format compliance and round-trip data integrity.
-        - The use of prefer_pynwb=False tests our h5py-based NWB reader rather than
-        the full pynwb library, ensuring compatibility with our minimal NWB export.
         """
-        sd = self.make_sd()
-        path = self._tmp_nwb()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.nwb")
 
         sd.to_nwb(path)
         sd2 = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(a, b))
+            assert np.allclose(a, b)
 
 
-class TestKiloSortExporters(BaseExportTest):
+class TestKiloSortExporters:
     """
     Tests for KiloSort/Phy format export.
 
     KiloSort is a popular spike sorting algorithm that outputs spike times and
-    cluster assignments in simple NumPy array format. This format is also used
-    by Phy (manual curation GUI) and other spike sorting tools.
-
-    The format consists of:
-    spike_times.npy: All spike times (usually in samples)
-    spike_clusters.npy: Cluster ID for each spike
-
-    These tests validate the export creates properly formatted files and handles
-    cluster ID assignment correctly.
+    cluster assignments in simple NumPy array format.
     """
 
-    def test_export_kilosort_roundtrip_samples(self):
+    def test_export_kilosort_roundtrip_samples(self, tmp_path):
         """
-         Test KiloSort export and import with sample-based timing.
+        Test KiloSort export and import with sample-based timing.
 
-         Test:
-         (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
-         (Method 2) Each unit index becomes a cluster ID (0, 1, 2, ...)
-         (Method 3) Spike times are converted from milliseconds to sample indices
-         (Method 4) Creates spike_times.npy and spike_clusters.npy files
-         (Method 5) Round-trip through KiloSort loader
-         (Test Case 1) Verify spike trains match (loader sorts by cluster ID, which matches our order)
+        Tests:
+        (Method 1) Export SpikeData to KiloSort format with 1000 Hz sampling rate
+        (Test Case 1) Verify spike trains match after round-trip
 
         Notes:
-         - Tests both the export logic and the assumption that unit indices map directly
-         to cluster IDs in ascending order.
+        - Tests both the export logic and the assumption that unit indices map directly
+        to cluster IDs in ascending order.
         """
-        sd = self.make_sd()
-        with tempfile.TemporaryDirectory() as d:
-            sd.to_kilosort(d, fs_Hz=1000.0)
-            # Round-trip through loader
-            sd2 = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+        sd = make_sd()
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
 
-            # trains may be in different order: loader sorts by cluster id ascending
-            # Our export uses unit index as cluster id, so order should match sd.train
-            # Quantization to 1 kHz samples; compare to quantized originals
-            def q(ms):
-                samp = np.rint(ms * (1000.0 / 1e3))
-                return samp / 1000.0 * 1e3
+        sd.to_kilosort(d, fs_Hz=1000.0)
+        sd2 = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
 
-            for a, b in zip(sd.train, sd2.train):
-                self.assertTrue(np.allclose(q(a), b))
+        def q(ms):
+            samp = np.rint(ms * (1000.0 / 1e3))
+            return samp / 1000.0 * 1e3
 
-    def test_export_kilosort_custom_cluster_ids(self):
+        for a, b in zip(sd.train, sd2.train):
+            assert np.allclose(q(a), b)
+
+    def test_export_kilosort_custom_cluster_ids(self, tmp_path):
         """
         Tests KiloSort export with custom cluster ID assignment.
 
         Tests:
         (Method 1) Export with custom cluster IDs [10, 5, 7] instead of [0, 1, 2]
-        (Method 2) Load the raw NumPy files directly (not through loader)
-        (Method 3) Verify that cluster IDs 10 and 5 appear with correct spike counts
-        (Method 4) Unit 0 (3 spikes) → cluster 10, Unit 1 (2 spikes) → cluster 5
-        (Method 5) Unit 2 (empty) → cluster 7 with 0 spikes (not present in arrays)
-        (Test Case 1) Verify the cluster ID mapping works correctly with clusters
-        10 and 5, and counts match events per unit (3 and 2)
-
+        (Test Case 1) Verify cluster ID mapping: unit 0 (3 spikes) -> cluster 10,
+            unit 1 (2 spikes) -> cluster 5
 
         Notes:
-        - This test ensures the cluster ID mapping works correctly and that
-        empty units are handled properly (they don't contribute any spikes
-        to the output arrays).
+        - Empty units (unit 2) don't contribute any spikes to the output arrays.
         """
-        sd = self.make_sd()
-        # Swap cluster ids to ensure mapping is honored
-        with tempfile.TemporaryDirectory() as d:
-            sd.to_kilosort(d, fs_Hz=1000.0, cluster_ids=[10, 5, 7])
-            times = np.load(os.path.join(d, "spike_times.npy"))
-            clusters = np.load(os.path.join(d, "spike_clusters.npy"))
-            # Check that clusters contain 10 and 5, and counts match events per unit (3 and 2)
-            self.assertEqual((clusters == 10).sum(), 3)
-            self.assertEqual((clusters == 5).sum(), 2)
+        sd = make_sd()
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+
+        sd.to_kilosort(d, fs_Hz=1000.0, cluster_ids=[10, 5, 7])
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
+        assert (clusters == 10).sum() == 3
+        assert (clusters == 5).sum() == 2
 
 
-class TestPickleExporters(BaseExportTest):
+class TestPickleExporters:
     """
     Tests for pickle export functionality.
 
@@ -405,64 +315,37 @@ class TestPickleExporters(BaseExportTest):
     - Temporary file cleanup after S3 upload
     """
 
-    def _tmp_pkl(self) -> str:
-        """Creates a temporary pickle file path for testing."""
-        fd, path = tempfile.mkstemp(suffix=".pkl")
-        os.close(fd)
-        return path
-
-    def tearDown(self) -> None:
-        """Clean up temporary files created during tests."""
-        for attr in ("_last",):
-            p = getattr(self, attr, None)
-            if p and os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
-
-    def test_export_pickle_roundtrip(self):
+    def test_export_pickle_roundtrip(self, tmp_path):
         """
         Tests basic pickle export and import round-trip.
 
         Tests:
-        (Method 1) Export SpikeData to pickle using export_spikedata_to_pickle
-        (Method 2) Re-import using load_spikedata_from_pickle
-        (Test Case 1) Verify all spike trains match original
-        (Test Case 2) Verify metadata is preserved
+        (Test Case 1) Verify all spike trains match original.
+        (Test Case 2) Verify metadata is preserved.
         """
-        sd = self.make_sd()
-        path = self._tmp_pkl()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.pkl")
 
-        # Export SpikeData to pickle file
         exporters.export_spikedata_to_pickle(sd, path)
-        # Re-import and verify spike trains match
         sd2 = loaders.load_spikedata_from_pickle(path)
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(a, b))
-        # Verify metadata is preserved
-        self.assertEqual(sd.metadata, sd2.metadata)
+            assert np.allclose(a, b)
+        assert sd.metadata == sd2.metadata
 
-    def test_export_pickle_protocol(self):
+    def test_export_pickle_protocol(self, tmp_path):
         """
         Tests protocol parameter is passed through correctly.
 
         Tests:
-        (Method 1) Export with protocol=2 (Python 2.3+ compatible)
-        (Method 2) Re-import and verify round-trip works
-        (Test Case 1) Lower protocols produce loadable files
+        (Test Case 1) Lower protocols produce loadable files.
         """
-        sd = self.make_sd()
-        path = self._tmp_pkl()
-        self._last = path
+        sd = make_sd()
+        path = str(tmp_path / "test.pkl")
 
-        # Export with protocol=2 for backward compatibility
         exporters.export_spikedata_to_pickle(sd, path, protocol=2)
-        # Verify lower protocol files are loadable and round-trip correctly
         sd2 = loaders.load_spikedata_from_pickle(path)
         for a, b in zip(sd.train, sd2.train):
-            self.assertTrue(np.allclose(a, b))
+            assert np.allclose(a, b)
 
     @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_s3_upload(self, mock_upload):
@@ -470,25 +353,19 @@ class TestPickleExporters(BaseExportTest):
         Tests S3 upload flow when upload_to_s3=True.
 
         Tests:
-        (Method 1) Export with upload_to_s3=True and S3 URL
-        (Method 2) Verify _upload_to_s3 is called with temp path and S3 URL
-        (Test Case 1) Returns S3 URL on success
+        (Test Case 1) Returns S3 URL on success.
+        (Test Case 2) upload_to_s3 called with correct arguments.
         """
-        sd = self.make_sd()
+        sd = make_sd()
         s3_url = "s3://mybucket/path/output.pkl"
 
-        # Export with S3 upload; upload_to_s3 is mocked so no real AWS call
         result = exporters.export_spikedata_to_pickle(sd, s3_url, upload_to_s3=True)
 
-        # Verify return value is the S3 URL
-        self.assertEqual(result, s3_url)
-        # Verify upload was called exactly once
+        assert result == s3_url
         mock_upload.assert_called_once()
         call_args = mock_upload.call_args
-        # Verify second arg (s3_url) matches
-        self.assertEqual(call_args[0][1], s3_url)
-        # Verify first arg (temp path) ends with .pkl
-        self.assertTrue(call_args[0][0].endswith(".pkl"))
+        assert call_args[0][1] == s3_url
+        assert call_args[0][0].endswith(".pkl")
 
     @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_temp_cleanup(self, mock_upload):
@@ -496,29 +373,19 @@ class TestPickleExporters(BaseExportTest):
         Tests temporary file is removed after S3 upload.
 
         Tests:
-        (Method 1) Export with upload_to_s3=True
-        (Method 2) Capture temp path passed to _upload_to_s3
-        (Test Case 1) Temp file does not exist after export completes
+        (Test Case 1) Temp file does not exist after export completes.
         """
-        sd = self.make_sd()
+        sd = make_sd()
         temp_paths = []
 
-        # Side effect captures the temp path passed to upload_to_s3
         def capture_temp(local_path, s3_url, **kwargs):
             temp_paths.append(local_path)
 
         mock_upload.side_effect = capture_temp
 
-        # Export triggers temp file creation, upload, then cleanup in finally block
         exporters.export_spikedata_to_pickle(
             sd, "s3://bucket/key.pkl", upload_to_s3=True
         )
 
-        # Verify exactly one temp file was created
-        self.assertEqual(len(temp_paths), 1)
-        # Verify temp file was removed (cleanup in finally block)
-        self.assertFalse(os.path.exists(temp_paths[0]))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert len(temp_paths) == 1
+        assert not os.path.exists(temp_paths[0])
