@@ -7,6 +7,7 @@ frames, get_pairwise_fr_corr, and get_manifold.
 
 import pathlib
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -17,8 +18,6 @@ if str(ROOT) not in sys.path:
 
 from SpikeLab.spikedata.ratedata import RateData
 from SpikeLab.spikedata.rateslicestack import RateSliceStack
-
-import warnings
 
 try:
     import umap  # noqa: F401
@@ -31,6 +30,7 @@ try:
     import community  # noqa: F401
     import networkx  # noqa: F401
 
+    # All three packages (umap, networkx, community) are needed for graph communities
     COMMUNITY_AVAILABLE = UMAP_AVAILABLE
 except ImportError:
     COMMUNITY_AVAILABLE = False

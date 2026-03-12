@@ -246,7 +246,8 @@ class TestToRasterArray:
 
         for i, slice_sd in enumerate(sss.spike_stack):
             expected = slice_sd.sparse_raster(bin_size=1).toarray()
-            # Shapes may differ by one bin at the edge; compare the common portion
+            # Rasterization may differ by at most one bin at the edge
+            assert abs(result.shape[1] - expected.shape[1]) <= 1
             min_t = min(result.shape[1], expected.shape[1])
             np.testing.assert_array_equal(result[:, :min_t, i], expected[:, :min_t])
 
