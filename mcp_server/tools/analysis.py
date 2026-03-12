@@ -860,7 +860,7 @@ async def create_spike_slice_stack(
     }
 
 
-async def spike_slice_to_sparse(
+async def spike_slice_to_raster(
     workspace_id: str,
     namespace: str,
     stack_key: str,
@@ -868,16 +868,17 @@ async def spike_slice_to_sparse(
     bin_size: float = 1.0,
 ) -> Dict[str, Any]:
     """
-    Convert a SpikeSliceStack stored in the workspace to a (U, T, S) binary
-    sparse raster ndarray and store the result in the workspace.
+    Convert a SpikeSliceStack stored in the workspace to a (U, T, S) spike
+    count raster ndarray and store the result in the workspace.
     """
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
-    sparse_list = [
-        spike_slice.sparse_raster(bin_size=bin_size) for spike_slice in sss.spike_stack
+    dense_list = [
+        spike_slice.sparse_raster(bin_size=bin_size).toarray()
+        for spike_slice in sss.spike_stack
     ]
-    sparse_stack = np.stack(sparse_list, axis=2)
-    ws.store(namespace, key, sparse_stack)
+    raster_stack = np.stack(dense_list, axis=2)
+    ws.store(namespace, key, raster_stack)
     return {
         "workspace_id": workspace_id,
         "namespace": namespace,

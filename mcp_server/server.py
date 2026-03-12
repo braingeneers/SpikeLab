@@ -1277,8 +1277,8 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Split a SpikeData recording into fixed-length frames and store "
                     "the resulting SpikeSliceStack at (namespace, key). Partial windows "
-                    "at the end are excluded. Use spike_slice_to_sparse to convert to "
-                    "a binary raster stack."
+                    "at the end are excluded. Use spike_slice_to_raster to convert to "
+                    "a raster count stack."
                 ),
                 inputSchema={
                     "type": "object",
@@ -1305,8 +1305,8 @@ async def _list_tools() -> list[types.Tool]:
                 name="create_spike_slice_stack",
                 description=(
                     "Build event-aligned spike slices from SpikeData and store the "
-                    "SpikeSliceStack at (namespace, key). Use spike_slice_to_sparse to "
-                    "convert to a binary raster stack."
+                    "SpikeSliceStack at (namespace, key). Use spike_slice_to_raster to "
+                    "convert to a raster count stack."
                 ),
                 inputSchema={
                     "type": "object",
@@ -1336,10 +1336,10 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
-                name="spike_slice_to_sparse",
+                name="spike_slice_to_raster",
                 description=(
                     "Convert a SpikeSliceStack stored in the workspace to a (U, T, S) "
-                    "binary sparse raster ndarray. Loads SpikeSliceStack from "
+                    "spike count raster ndarray. Loads SpikeSliceStack from "
                     "(namespace, stack_key) and stores the ndarray at (namespace, key). "
                     "Prerequisite: frames_spike_data or create_spike_slice_stack."
                 ),
@@ -2184,8 +2184,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.frames_spike_data(**arguments)
         elif name == "create_spike_slice_stack":
             result = await analysis.create_spike_slice_stack(**arguments)
-        elif name == "spike_slice_to_sparse":
-            result = await analysis.spike_slice_to_sparse(**arguments)
+        elif name == "spike_slice_to_raster":
+            result = await analysis.spike_slice_to_raster(**arguments)
         elif name == "align_to_events":
             result = await analysis.align_to_events(**arguments)
 
