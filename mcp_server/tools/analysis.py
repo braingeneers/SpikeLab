@@ -21,7 +21,6 @@ from ...spikedata.utils import (
     UMAP_reduction,
     compute_cosine_similarity_with_lag,
     compute_cross_correlation_with_lag,
-    extract_lower_triangle_features as _extract_lower_triangle,
 )
 from ...workspace.workspace import get_workspace_manager
 
@@ -1083,15 +1082,15 @@ async def extract_lower_triangle_features(
     if obj is None:
         raise ValueError(f"Item not found: ({namespace!r}, {key!r})")
     if isinstance(obj, PairwiseCompMatrixStack):
-        array = obj.stack
+        stack = obj
     elif isinstance(obj, np.ndarray) and obj.ndim == 3 and obj.shape[0] == obj.shape[1]:
-        array = obj
+        stack = PairwiseCompMatrixStack(stack=obj)
     else:
         raise ValueError(
             f"Expected PairwiseCompMatrixStack or (N, N, S) ndarray at "
             f"({namespace!r}, {key!r}), got {type(obj).__name__}"
         )
-    features = _extract_lower_triangle(array)
+    features = stack.extract_lower_triangle_features()
     ws.store(namespace, out_key, features)
     return {
         "workspace_id": workspace_id,
@@ -1113,15 +1112,15 @@ async def pca_on_lower_triangle(
     if obj is None:
         raise ValueError(f"Item not found: ({namespace!r}, {key!r})")
     if isinstance(obj, PairwiseCompMatrixStack):
-        array = obj.stack
+        stack = obj
     elif isinstance(obj, np.ndarray) and obj.ndim == 3 and obj.shape[0] == obj.shape[1]:
-        array = obj
+        stack = PairwiseCompMatrixStack(stack=obj)
     else:
         raise ValueError(
             f"Expected PairwiseCompMatrixStack or (N, N, S) ndarray at "
             f"({namespace!r}, {key!r}), got {type(obj).__name__}"
         )
-    lower_tri = _extract_lower_triangle(array)
+    lower_tri = stack.extract_lower_triangle_features()
     embedding = PCA_reduction(lower_tri, n_components=n_components)
     ws.store(namespace, out_key, embedding)
     return {
