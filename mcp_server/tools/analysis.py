@@ -887,6 +887,54 @@ async def spike_slice_to_sparse(
     }
 
 
+async def align_to_events(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    events,
+    pre_ms: float,
+    post_ms: float,
+    kind: str = "spike",
+    bin_size_ms: float = 1.0,
+    sigma_ms: float = 10.0,
+) -> Dict[str, Any]:
+    """
+    Create an event-aligned slice stack from SpikeData and store it in the workspace.
+
+    Reads SpikeData from (namespace, 'spikedata'). Events can be a list of
+    times in ms or a string key into SpikeData.metadata. Stores either a
+    SpikeSliceStack (kind='spike') or a RateSliceStack (kind='rate') at
+    (namespace, key). Out-of-bounds events are dropped with a warning.
+    """
+    import numpy as np
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    if isinstance(events, list):
+        events = np.array(events, dtype=float)
+
+    result = sd.align_to_events(
+        events,
+        pre_ms,
+        post_ms,
+        kind=kind,
+        bin_size_ms=bin_size_ms,
+        sigma_ms=sigma_ms,
+    )
+    ws.store(namespace, key, result)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "kind": kind,
+        "n_slices": (
+            len(result.spike_stack) if kind == "spike" else result.event_stack.shape[2]
+        ),
+        "info": ws.get_info(namespace, key),
+    }
+
+
 # ---------------------------------------------------------------------------
 # RateSliceStack-based analysis — load from workspace
 # ---------------------------------------------------------------------------

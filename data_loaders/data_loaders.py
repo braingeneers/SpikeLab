@@ -7,6 +7,7 @@ Supported inputs (best-effort, optional deps):
     - NWB: reads Units table spike_times (via pynwb if available, else h5py)
     - KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)
     - SpikeInterface: from a SortingExtractor
+    - IBL (International Brain Laboratory): via ONE API + brainwidemap
 
 Times are converted to milliseconds to match `SpikeData` conventions.
 These helpers avoid hard dependencies: optional libraries are imported lazily.
@@ -38,6 +39,8 @@ __all__ = [
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
     "load_spikedata_from_pickle",
+    "load_spikedata_from_ibl",
+    "query_ibl_probes",
 ]
 
 from ..spikedata.utils import ensure_h5py, to_ms
@@ -818,3 +821,300 @@ def load_spikedata_from_pickle(
         )
 
     return obj
+
+
+# ----------------------------
+# IBL (International Brain Laboratory)
+# ----------------------------
+
+#: IBL public server URL used for ONE authentication.
+_IBL_BASE_URL = "https://openalyx.internationalbrainlab.org"
+
+#: Collections searched in order when loading spikes. The probe-specific
+#: collection is prepended at runtime based on the PID suffix.
+_IBL_FALLBACK_COLLECTIONS = [
+    "alf/probe00/pykilosort",
+    "alf/probe01/pykilosort",
+    "alf",
+]
+
+
+def load_spikedata_from_ibl(
+    eid: str,
+    pid: str,
+    *,
+    length_ms: Optional[float] = None,
+) -> SpikeData:
+    """
+    Load spike trains for a single IBL probe into SpikeData.
+
+    Authenticates against the public IBL server automatically. Only units
+    labelled as good (``label == 1``) in the Brain-Wide Map unit table are
+    included. Trial event times are stored in ``SpikeData.metadata`` as
+    individual numpy arrays, all in milliseconds.
+
+    Parameters:
+        eid (str): IBL experiment ID (UUID string).
+        pid (str): IBL probe ID (UUID string).
+        length_ms (float, optional): Recording duration in milliseconds.
+            If not provided, the maximum spike time across all units is used.
+
+    Returns:
+        sd (SpikeData): Loaded spike train data. ``neuron_attributes`` contains
+        ``{"region": <Beryl atlas region>}`` per unit. ``metadata`` contains:
+
+        - ``eid`` (str): experiment ID
+        - ``pid`` (str): probe ID
+        - ``n_trials`` (int): number of trials
+        - ``trial_start_times`` (np.ndarray): trial onset times in ms
+        - ``trial_end_times`` (np.ndarray): trial end times in ms
+        - ``stim_on_times`` (np.ndarray): stimulus onset times in ms
+        - ``stim_off_times`` (np.ndarray): stimulus offset times in ms
+        - ``go_cue_times`` (np.ndarray): go-cue times in ms
+        - ``response_times`` (np.ndarray): response times in ms
+        - ``feedback_times`` (np.ndarray): feedback delivery times in ms
+        - ``first_movement_times`` (np.ndarray): first movement onset times in ms
+        - ``choice`` (np.ndarray): trial choice (-1 = left, 1 = right)
+        - ``feedback_type`` (np.ndarray): feedback outcome (1 = correct, -1 = incorrect)
+        - ``contrast_left`` (np.ndarray): left stimulus contrast (0–1)
+        - ``contrast_right`` (np.ndarray): right stimulus contrast (0–1)
+        - ``probability_left`` (np.ndarray): prior probability of left stimulus (0–1)
+
+    Notes:
+        - Requires ``one-api`` and ``brainwidemap`` packages (optional dependencies).
+        - Spike times are converted from seconds (IBL convention) to milliseconds.
+        - Trial times are converted from seconds to milliseconds.
+        - Probe collection is inferred from the PID suffix; falls back through
+          ``alf/probe00/pykilosort``, ``alf/probe01/pykilosort``, and ``alf``.
+    """
+    try:
+        from one.api import ONE  # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            "one-api is required for load_spikedata_from_ibl. "
+            "Install with: pip install one-api"
+        ) from e
+
+    try:
+        from brainwidemap import bwm_units  # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            "brainwidemap is required for load_spikedata_from_ibl. "
+            "Install with: pip install brainwidemap"
+        ) from e
+
+    # Authenticate against the public IBL server.
+    ONE.setup(base_url=_IBL_BASE_URL, silent=True)
+    one = ONE(password="international")
+
+    # Retrieve good units for this probe from the Brain-Wide Map table.
+    unit_df = bwm_units(one)
+    good_units = unit_df[(unit_df["pid"] == pid) & (unit_df["label"] == 1)]
+
+    # Build the ordered list of collections to try, with the probe-specific
+    # one first when the PID suffix unambiguously identifies the probe.
+    collections = []
+    if pid.endswith("00") or pid.endswith("01"):
+        collections.append(f"alf/probe{pid[-2:]}/pykilosort")
+    collections.extend(_IBL_FALLBACK_COLLECTIONS)
+    # Deduplicate while preserving order.
+    seen: set = set()
+    ordered_collections: List[str] = []
+    for c in collections:
+        if c not in seen:
+            seen.add(c)
+            ordered_collections.append(c)
+
+    # Load spikes from the first available collection.
+    spikes = None
+    for collection in ordered_collections:
+        try:
+            spikes = one.load_object(eid, "spikes", collection=collection)
+            break
+        except Exception:
+            continue
+
+    # Build per-unit spike trains (seconds → milliseconds).
+    spike_trains: List[np.ndarray] = []
+    neuron_attributes: List[dict] = []
+    for _, unit in good_units.iterrows():
+        if spikes is None:
+            spike_trains.append(np.array([], dtype=float))
+        else:
+            mask = spikes["clusters"] == unit["cluster_id"]
+            spike_trains.append(spikes["times"][mask] * 1_000.0)
+        neuron_attributes.append({"region": unit["Beryl"]})
+
+    # Infer session length from the largest spike time if not provided.
+    if length_ms is None:
+        max_t = max((t.max() for t in spike_trains if len(t) > 0), default=0.0)
+        length_ms = float(max_t) if max_t > 0 else 10_000.0
+
+    # Load trials and extract relevant fields as numpy arrays (seconds → ms).
+    trials = one.load_object(eid, "trials")
+    trials_df = trials.to_df()
+    n_trials = len(trials_df)
+
+    def _to_ms_array(col: str) -> np.ndarray:
+        """Extract a trials column and convert seconds to milliseconds."""
+        return trials_df[col].to_numpy(dtype=float) * 1_000.0
+
+    def _to_array(col: str) -> np.ndarray:
+        """Extract a trials column as a plain numpy array (no unit conversion)."""
+        return trials_df[col].to_numpy(dtype=float)
+
+    metadata: dict = {
+        "eid": eid,
+        "pid": pid,
+        "n_trials": n_trials,
+        "trial_start_times": _to_ms_array("intervals_0"),
+        "trial_end_times": _to_ms_array("intervals_1"),
+        "stim_on_times": _to_ms_array("stimOn_times"),
+        "stim_off_times": _to_ms_array("stimOff_times"),
+        "go_cue_times": _to_ms_array("goCue_times"),
+        "response_times": _to_ms_array("response_times"),
+        "feedback_times": _to_ms_array("feedback_times"),
+        "first_movement_times": _to_ms_array("firstMovement_times"),
+        "choice": _to_array("choice"),
+        "feedback_type": _to_array("feedbackType"),
+        "contrast_left": _to_array("contrastLeft"),
+        "contrast_right": _to_array("contrastRight"),
+        "probability_left": _to_array("probabilityLeft"),
+    }
+
+    return _build_spikedata(
+        spike_trains,
+        length_ms=length_ms,
+        metadata=metadata,
+        neuron_attributes=neuron_attributes,
+    )
+
+
+def query_ibl_probes(
+    target_regions: Optional[List[str]] = None,
+    *,
+    min_units: int = 0,
+    min_fraction_in_target: float = 0.0,
+    labs: Optional[List[str]] = None,
+    subjects: Optional[List[str]] = None,
+):
+    """
+    Search the IBL Brain-Wide Map database for probes matching given criteria.
+
+    Authenticates against the public IBL server automatically. Filters probes
+    by brain region, unit count, lab, and subject. Returns matching (eid, pid)
+    pairs alongside a per-probe statistics DataFrame.
+
+    Parameters:
+        target_regions (list[str], optional): Beryl atlas region names to
+            filter by (e.g. ``["MOs", "MOp"]``). If ``None``, no region filter
+            is applied.
+        min_units (int): Minimum number of good units required per probe.
+            Default ``0`` (no minimum).
+        min_fraction_in_target (float): Minimum fraction (0–1) of good units
+            that must fall within ``target_regions``. Ignored when
+            ``target_regions`` is ``None``. Default ``0.0``.
+        labs (list[str], optional): Restrict to probes from these lab names
+            (e.g. ``["wittenlab"]``). If ``None``, no lab filter is applied.
+        subjects (list[str], optional): Restrict to probes from these subject
+            names (e.g. ``["dop_59"]``). If ``None``, no subject filter is
+            applied.
+
+    Returns:
+        probes (list[tuple[str, str]]): List of ``(eid, pid)`` pairs for
+            probes that pass all filters, sorted by descending good unit count.
+        stats (pd.DataFrame): One row per matching probe with columns:
+            ``eid``, ``pid``, ``subject``, ``lab``, ``n_good_units``, and
+            (when ``target_regions`` is not ``None``) ``n_in_target`` and
+            ``fraction_in_target``.
+
+    Notes:
+        - Requires ``one-api`` and ``brainwidemap`` packages (optional
+          dependencies).
+        - ``bwm_units()`` fetches the full Brain-Wide Map unit table from the
+          IBL server; this may take several seconds on first call.
+    """
+    try:
+        from one.api import ONE  # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            "one-api is required for query_ibl_probes. "
+            "Install with: pip install one-api"
+        ) from e
+
+    try:
+        from brainwidemap import bwm_units  # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            "brainwidemap is required for query_ibl_probes. "
+            "Install with: pip install brainwidemap"
+        ) from e
+
+    try:
+        import pandas as pd  # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            "pandas is required for query_ibl_probes. "
+            "Install with: pip install pandas"
+        ) from e
+
+    # Authenticate against the public IBL server.
+    ONE.setup(base_url=_IBL_BASE_URL, silent=True)
+    one = ONE(password="international")
+
+    # Fetch all good units from the Brain-Wide Map table.
+    unit_df = bwm_units(one)
+    good_units = unit_df[unit_df["label"] == 1].copy()
+
+    # Apply lab / subject filters before aggregation.
+    if labs is not None:
+        good_units = good_units[good_units["lab"].isin(labs)]
+    if subjects is not None:
+        good_units = good_units[good_units["subject"].isin(subjects)]
+
+    # Build per-probe aggregation.
+    group_cols = ["eid", "pid", "subject", "lab"]
+    # Only include columns that exist (guard against schema differences).
+    group_cols = [c for c in group_cols if c in good_units.columns]
+
+    agg = good_units.groupby(["eid", "pid"], as_index=False).agg(
+        n_good_units=("cluster_id", "count"),
+        subject=(
+            ("subject", "first")
+            if "subject" in good_units.columns
+            else ("cluster_id", "count")
+        ),
+        lab=(
+            ("lab", "first") if "lab" in good_units.columns else ("cluster_id", "count")
+        ),
+    )
+
+    # Compute region-based columns when target_regions is provided.
+    if target_regions is not None:
+        in_target = good_units["Beryl"].isin(target_regions)
+        region_counts = (
+            good_units[in_target]
+            .groupby(["eid", "pid"], as_index=False)
+            .agg(n_in_target=("cluster_id", "count"))
+        )
+        agg = agg.merge(region_counts, on=["eid", "pid"], how="left")
+        agg["n_in_target"] = agg["n_in_target"].fillna(0).astype(int)
+        agg["fraction_in_target"] = np.where(
+            agg["n_good_units"] > 0,
+            agg["n_in_target"] / agg["n_good_units"],
+            0.0,
+        )
+
+    # Apply unit-count filter.
+    mask = agg["n_good_units"] >= min_units
+
+    # Apply region fraction filter.
+    if target_regions is not None:
+        mask = mask & (agg["fraction_in_target"] >= min_fraction_in_target)
+
+    stats = (
+        agg[mask].sort_values("n_good_units", ascending=False).reset_index(drop=True)
+    )
+
+    probes = list(zip(stats["eid"].tolist(), stats["pid"].tolist()))
+    return probes, stats

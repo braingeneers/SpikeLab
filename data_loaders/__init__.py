@@ -13,6 +13,8 @@ from .data_loaders import (
     load_spikedata_from_spikeinterface,
     load_spikedata_from_spikeinterface_recording,
     load_spikedata_from_pickle,
+    load_spikedata_from_ibl,
+    query_ibl_probes,
 )
 
 from .data_exporters import (
@@ -38,6 +40,8 @@ __all__ = [
     "load_spikedata_from_spikeinterface",
     "load_spikedata_from_spikeinterface_recording",
     "load_spikedata_from_pickle",
+    "load_spikedata_from_ibl",
+    "query_ibl_probes",
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",

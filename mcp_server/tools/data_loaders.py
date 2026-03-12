@@ -11,9 +11,11 @@ from typing import Any, Dict, Optional
 from ...data_loaders.data_loaders import (
     load_spikedata_from_hdf5,
     load_spikedata_from_hdf5_raw_thresholded,
+    load_spikedata_from_ibl,
     load_spikedata_from_kilosort,
     load_spikedata_from_nwb,
     load_spikedata_from_pickle,
+    query_ibl_probes as _query_ibl_probes,
 )
 
 from ..s3_adapter import ensure_local, is_s3_url
@@ -480,3 +482,91 @@ async def load_from_hdf5_thresholded(
                 os.unlink(local_path)
             except Exception:
                 pass
+
+
+async def load_from_ibl(
+    eid: str,
+    pid: str,
+    length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
+) -> Dict[str, Any]:
+    """
+    Load spike data for a single IBL probe into the workspace.
+
+    Authenticates against the public IBL server automatically. Only units
+    with label==1 in the Brain-Wide Map table are included. Trial event times
+    are stored in SpikeData.metadata as individual numpy arrays in milliseconds.
+    Stores SpikeData at (namespace, 'spikedata').
+
+    Args:
+        eid: IBL experiment ID (UUID string).
+        pid: IBL probe ID (UUID string).
+        length_ms: Optional recording duration in ms; inferred from max spike time if absent.
+        workspace_id: Workspace to store the SpikeData in; creates a new one if empty.
+        namespace: Recording namespace; derived from the eid if empty.
+
+    Returns:
+        Dictionary with workspace_id, namespace, workspace_key, and info.
+    """
+    spikedata = load_spikedata_from_ibl(eid, pid, length_ms=length_ms)
+
+    ns_derived = namespace or eid[:8]
+    ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+    ns_final = _unique_namespace(ws, ns_derived)
+    ws.store(ns_final, "spikedata", spikedata)
+
+    return {
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
+        "info": {
+            "num_neurons": spikedata.N,
+            "length_ms": spikedata.length,
+            "metadata": {
+                k: v
+                for k, v in spikedata.metadata.items()
+                if not hasattr(v, "__len__") or isinstance(v, str)
+            },
+        },
+    }
+
+
+async def query_ibl_probes(
+    target_regions: Optional[list] = None,
+    min_units: int = 0,
+    min_fraction_in_target: float = 0.0,
+    labs: Optional[list] = None,
+    subjects: Optional[list] = None,
+) -> Dict[str, Any]:
+    """
+    Search the IBL Brain-Wide Map database for probes matching given criteria.
+
+    Returns matching (eid, pid) pairs and per-probe statistics inline.
+    Does not store anything in the workspace.
+
+    Args:
+        target_regions: Beryl atlas region names to filter by (e.g. ["MOs", "MOp"]).
+            If None, no region filter is applied.
+        min_units: Minimum number of good units required per probe.
+        min_fraction_in_target: Minimum fraction of good units in target_regions.
+            Ignored when target_regions is None.
+        labs: Restrict to probes from these lab names. If None, no filter applied.
+        subjects: Restrict to probes from these subject names. If None, no filter applied.
+
+    Returns:
+        Dictionary with probes list and stats list of dicts.
+    """
+    probes, stats_df = _query_ibl_probes(
+        target_regions,
+        min_units=min_units,
+        min_fraction_in_target=min_fraction_in_target,
+        labs=labs,
+        subjects=subjects,
+    )
+    stats = stats_df.to_dict(orient="records")
+    return {
+        "probes": probes,
+        "n_probes": len(probes),
+        "stats": stats,
+    }
