@@ -892,19 +892,16 @@ class TestResampledIsi:
 
     def test_resampled_isi_identical_time_values(self):
         """
-        Identical time values are deduplicated, leaving fewer than 2 unique
-        values, which raises ValueError.
+        Duplicate time grid values raise ValueError immediately.
 
         Tests:
-            (Test Case 1) All-identical time grid values are deduplicated with
-                a RuntimeWarning. With only 1 unique time value remaining,
-                a ValueError is raised.
+            (Test Case 1) All-identical time grid values are rejected with
+                a ValueError indicating duplicates are not allowed.
         """
         spikes = np.array([5.0, 10.0])
         times = np.array([1.0, 1.0, 1.0])
-        with pytest.warns(RuntimeWarning, match="duplicate time grid value"):
-            with pytest.raises(ValueError, match="less than 2 unique values"):
-                _resampled_isi(spikes, times, sigma_ms=2.0)
+        with pytest.raises(ValueError, match="duplicate values"):
+            _resampled_isi(spikes, times, sigma_ms=2.0)
 
 
 class TestRandomize:

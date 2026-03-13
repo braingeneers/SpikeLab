@@ -206,23 +206,26 @@ class TestPlotRecording:
         Raster-only figure has one panel.
 
         Tests:
-            (Test Case 1) Returns a Figure with exactly 1 Axes.
+            (Test Case 1) Returns a Figure with 1 main panel (plus its
+                colorbar slot in the GridSpec).
         """
         sd = _make_sd()
         fig = plot_recording(sd, show_raster=True, show=False)
         assert isinstance(fig, matplotlib.figure.Figure)
-        assert len(fig.axes) == 1
+        # 1 panel × 2 columns (main + colorbar slot) = 2 axes
+        assert len(fig.axes) == 2
 
     def test_raster_plus_pop_rate(self):
         """
         Raster + population rate produces 2 panels.
 
         Tests:
-            (Test Case 1) Figure has 2 Axes.
+            (Test Case 1) Figure has 2 main panels (plus colorbar slots).
         """
         sd = _make_sd()
         fig = plot_recording(sd, show_raster=True, show_pop_rate=True, show=False)
-        assert len(fig.axes) == 2
+        # 2 panels × 2 columns = 4 axes
+        assert len(fig.axes) == 4
 
     def test_all_four_panels(self):
         """
@@ -264,7 +267,8 @@ class TestPlotRecording:
         sd = _make_sd()
         pop = sd.get_pop_rate()
         fig = plot_recording(sd, show_raster=True, pop_rate=pop, show=False)
-        assert len(fig.axes) == 2
+        # 2 panels × 2 columns = 4 axes
+        assert len(fig.axes) == 4
 
     def test_auto_enable_from_cont_prob(self):
         """
@@ -458,7 +462,8 @@ class TestPlotRecording:
         sd = _make_sd()
         fig = plot_recording(sd, show_raster=False, show_pop_rate=True, show=False)
         assert isinstance(fig, matplotlib.figure.Figure)
-        assert len(fig.axes) == 1
+        # 1 panel × 2 columns = 2 axes
+        assert len(fig.axes) == 2
 
     def test_spikedata_plot_wrapper(self):
         """
@@ -500,4 +505,5 @@ class TestPlotRecording:
             height_ratios=[3, 1],
             show=False,
         )
-        assert len(fig.axes) == 2
+        # 2 panels × 2 columns = 4 axes
+        assert len(fig.axes) == 4

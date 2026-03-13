@@ -1535,7 +1535,8 @@ async def _list_tools() -> list[types.Tool]:
                 name="compute_rate_slice_unit_order",
                 description=(
                     "Order units by their peak firing time from a RateSliceStack stored "
-                    "in the workspace. Returns unit ordering inline. "
+                    "in the workspace. Returns unit ordering inline, split into "
+                    "highly_active and low_active groups based on min_frac_active. "
                     "Prerequisite: create_rate_slice_stack or frames_rate_data."
                 ),
                 inputSchema={
@@ -1552,6 +1553,15 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Aggregation function across slices ('median' or 'mean')",
                         },
                         "min_rate_threshold": {"type": "number", "default": 0.1},
+                        "min_frac_active": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": (
+                                "Minimum fraction of slices a unit must be active in "
+                                "to be placed in the highly_active group. "
+                                "Default 0.0 puts all units in highly_active."
+                            ),
+                        },
                     },
                     "required": ["workspace_id", "namespace", "stack_key"],
                 },

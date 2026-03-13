@@ -1034,16 +1034,31 @@ async def compute_rate_slice_unit_order(
     stack_key: str,
     agg_func: str = "median",
     min_rate_threshold: float = 0.1,
+    min_frac_active: float = 0.0,
 ) -> Dict[str, Any]:
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
-    _, unit_ids_in_order, unit_std_indices, unit_peak_times = (
-        rss.order_units_across_slices(agg_func, MIN_RATE_THRESHOLD=min_rate_threshold)
+    _, unit_ids_in_order, unit_std_indices, unit_peak_times, unit_frac_active = (
+        rss.order_units_across_slices(
+            agg_func,
+            MIN_RATE_THRESHOLD=min_rate_threshold,
+            MIN_FRAC_ACTIVE=min_frac_active,
+        )
     )
+    # Each element is a tuple of two arrays (highly_active, low_active)
     return {
-        "unit_ids_in_order": _to_list(unit_ids_in_order),
-        "unit_std_indices": _to_list(unit_std_indices),
-        "unit_peak_times": _to_list(unit_peak_times),
+        "highly_active": {
+            "unit_ids_in_order": _to_list(unit_ids_in_order[0]),
+            "unit_std_indices": _to_list(unit_std_indices[0]),
+            "unit_peak_times": _to_list(unit_peak_times[0]),
+            "unit_frac_active": _to_list(unit_frac_active[0]),
+        },
+        "low_active": {
+            "unit_ids_in_order": _to_list(unit_ids_in_order[1]),
+            "unit_std_indices": _to_list(unit_std_indices[1]),
+            "unit_peak_times": _to_list(unit_peak_times[1]),
+            "unit_frac_active": _to_list(unit_frac_active[1]),
+        },
     }
 
 

@@ -23,6 +23,22 @@ def _import_matplotlib():
         ) from e
 
 
+def _add_colorbar(im, ax, label="", font_size=14):
+    """Add a colorbar on a dedicated axes so the parent axes width is unchanged.
+
+    Uses ``make_axes_locatable`` to append a thin axes to the right of *ax*.
+    This avoids the width-stealing behaviour of ``fig.colorbar(im, ax=ax)``.
+    """
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cb = ax.figure.colorbar(im, cax=cax)
+    cb.set_label(label, fontsize=font_size)
+    cb.ax.tick_params(labelsize=font_size)
+    return cb
+
+
 def _apply_font_size(ax, font_size):
     """Apply font_size to axis labels and tick labels."""
     ax.xaxis.label.set_fontsize(font_size)
@@ -148,7 +164,7 @@ def plot_heatmap(
             )
 
     if show_colorbar:
-        plt.colorbar(im, ax=ax, label=colorbar_label)
+        _add_colorbar(im, ax, label=colorbar_label, font_size=font_size)
 
     _apply_font_size(ax, font_size)
 
@@ -409,8 +425,10 @@ def plot_recording(
         burst_edges_view = clipped if clipped else None
 
     # ------------------------------------------------------------------
-    # 4. Create figure
+    # 4. Create figure with two-column GridSpec (panels + colorbars)
     # ------------------------------------------------------------------
+    from matplotlib.gridspec import GridSpec
+
     default_ratio_map = {
         "raster": 2,
         "pop_rate": 1,
@@ -421,16 +439,30 @@ def plot_recording(
     default_height = sum(default_ratios) * 1.7
     default_figsize = (12, default_height)
 
-    fig, axes = plt.subplots(
+    fig = plt.figure(figsize=figsize or default_figsize)
+    gs = GridSpec(
         n_panels,
-        1,
-        figsize=figsize or default_figsize,
-        gridspec_kw={"height_ratios": height_ratios or default_ratios},
-        sharex=True,
-        squeeze=False,
+        2,
+        figure=fig,
+        height_ratios=height_ratios or default_ratios,
+        width_ratios=[1, 0.02],
+        wspace=0.03,
     )
-    axes = axes.ravel()
+
+    # Create main panel axes with shared x
+    axes = []
+    for i in range(n_panels):
+        ax = fig.add_subplot(gs[i, 0], sharex=axes[0] if axes else None)
+        axes.append(ax)
     panel_axes = dict(zip(panels, axes))
+
+    # Create colorbar axes (one per row, hidden by default)
+    cbar_axes = []
+    for i in range(n_panels):
+        cax = fig.add_subplot(gs[i, 1])
+        cax.axis("off")
+        cbar_axes.append(cax)
+    panel_cbar = dict(zip(panels, cbar_axes))
 
     # ------------------------------------------------------------------
     # 5. Raster panel
@@ -446,7 +478,10 @@ def plot_recording(
                 vmax=raster_vmax,
                 origin="lower",
             )
-            plt.colorbar(im, ax=ax, label="Spike Count")
+            cax = panel_cbar["raster"]
+            cax.axis("on")
+            fig.colorbar(im, cax=cax, label="Spike Count")
+            cax.tick_params(labelsize=font_size)
         else:
             spike_times_list = [
                 np.where(spk_mat_view[i, :] >= 1)[0]
@@ -478,9 +513,13 @@ def plot_recording(
 
         # Burst overlays
         if burst_times_view is not None and pop_rate_view is not None:
-            valid = burst_times_view < len(pop_rate_view)
-            bt = burst_times_view[valid]
-            ax.scatter(bt, pop_rate_view[bt], c="k", zorder=9)
+            # Scale burst times from raster-bin coords to pop_rate coords
+            scale = len(pop_rate_view) / n_samples
+            bt_scaled = (burst_times_view * scale).astype(int)
+            valid = bt_scaled < len(pop_rate_view)
+            bt_scaled = bt_scaled[valid]
+            bt_plot = burst_times_view[valid]  # x position in raster coords
+            ax.scatter(bt_plot, pop_rate_view[bt_scaled], c="k", zorder=9)
 
         if burst_edges_view is not None:
             for t0, t1 in burst_edges_view:
@@ -505,9 +544,14 @@ def plot_recording(
             extent=fr_extent,
             xlabel="Time (ms)",
             ylabel="Unit",
-            colorbar_label="Rate (Hz)",
+            show_colorbar=False,
             font_size=font_size,
         )
+        cax = panel_cbar["fr_heatmap"]
+        cax.axis("on")
+        cb_label = "Norm. Rate (Hz)" if norm_heatmap else "Rate (Hz)"
+        fig.colorbar(ax.images[0], cax=cax, label=cb_label)
+        cax.tick_params(labelsize=font_size)
 
     # ------------------------------------------------------------------
     # 8. Model states panel
@@ -526,9 +570,13 @@ def plot_recording(
             extent=ms_extent,
             xlabel="Time (ms)",
             ylabel="State",
-            colorbar_label="Probability",
+            show_colorbar=False,
             font_size=font_size,
         )
+        cax = panel_cbar["model_states"]
+        cax.axis("on")
+        fig.colorbar(ax.images[0], cax=cax, label="Probability")
+        cax.tick_params(labelsize=font_size)
 
     # ------------------------------------------------------------------
     # 9. X-axis formatting
@@ -552,7 +600,7 @@ def plot_recording(
     # ------------------------------------------------------------------
     # 10. Output
     # ------------------------------------------------------------------
-    plt.tight_layout()
+    gs.tight_layout(fig)
 
     if save_path is not None:
         fig.savefig(save_path, bbox_inches="tight")
