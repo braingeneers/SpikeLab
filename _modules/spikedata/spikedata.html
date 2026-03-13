@@ -298,7 +298,7 @@
         <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="n">N</span> <span class="o">=</span> <span class="n">N</span> <span class="ow">or</span> <span class="mi">0</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">N</span>
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">_train_from_i_t_list</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
