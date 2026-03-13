@@ -350,7 +350,9 @@ class TestOrderUnitsAcrossSlices:
             mat[2, 3, s] = 5.0  # unit 2 peaks at t=3
         rss = RateSliceStack(event_matrix=mat)
 
-        reordered, order, std, peaks, frac_active = rss.order_units_across_slices("median")
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "median"
+        )
         # With default MIN_FRAC_ACTIVE=0.0, all units are in the highly-active group
         assert reordered[0].shape == mat.shape
         assert set(order[0]) == {0, 1, 2}
@@ -370,7 +372,9 @@ class TestOrderUnitsAcrossSlices:
         """
         mat = make_event_matrix(4, 30, 5, seed=42)
         rss = RateSliceStack(event_matrix=mat)
-        reordered, order, std, peaks, frac_active = rss.order_units_across_slices("mean")
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "mean"
+        )
         # With default MIN_FRAC_ACTIVE=0.0, all units are in the highly-active group
         assert reordered[0].shape == mat.shape
         assert len(order[0]) == 4
@@ -809,7 +813,9 @@ class TestRateSliceStackEdgeCases:
         mat = rng.random((1, 20, 5)) + 0.5
         rss = RateSliceStack(event_matrix=mat)
 
-        reordered, order, std, peaks, frac_active = rss.order_units_across_slices("median")
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "median"
+        )
 
         # With default MIN_FRAC_ACTIVE=0.0, all units are in the highly-active group
         assert reordered[0].shape == mat.shape
