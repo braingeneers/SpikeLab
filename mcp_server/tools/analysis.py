@@ -436,14 +436,18 @@ async def compute_spike_trig_pop_rate(
 ) -> Dict[str, Any]:
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    stPR_filtered, coupling_zero_lag, coupling_max, delays, lags = (
-        sd.compute_spike_trig_pop_rate(
-            window_ms=window_ms,
-            cutoff_hz=cutoff_hz,
-            fs=fs,
-            bin_size=bin_size,
-            cut_outer=cut_outer,
-        )
+    (
+        stPR_filtered,
+        coupling_zero_lag,
+        coupling_max,
+        delays,
+        lags,
+    ) = sd.compute_spike_trig_pop_rate(
+        window_ms=window_ms,
+        cutoff_hz=cutoff_hz,
+        fs=fs,
+        bin_size=bin_size,
+        cut_outer=cut_outer,
     )
     # Store stPR (U, T) and lags (T,) separately; combine coupling stats as (3, U)
     coupling_stack = np.stack(
@@ -1012,9 +1016,12 @@ async def compute_rate_slice_unit_order(
 ) -> Dict[str, Any]:
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
-    _, unit_ids_in_order, unit_std_indices, unit_peak_times = (
-        rss.order_units_across_slices(agg_func, MIN_RATE_THRESHOLD=min_rate_threshold)
-    )
+    (
+        _,
+        unit_ids_in_order,
+        unit_std_indices,
+        unit_peak_times,
+    ) = rss.order_units_across_slices(agg_func, MIN_RATE_THRESHOLD=min_rate_threshold)
     return {
         "unit_ids_in_order": _to_list(unit_ids_in_order),
         "unit_std_indices": _to_list(unit_std_indices),
@@ -1610,7 +1617,11 @@ async def plot_distributions(
         arr = np.asarray(obj).ravel()
         data_list.append(arr)
 
-    ylim = (ylim_bottom, ylim_top) if (ylim_bottom is not None or ylim_top is not None) else None
+    ylim = (
+        (ylim_bottom, ylim_top)
+        if (ylim_bottom is not None or ylim_top is not None)
+        else None
+    )
     kwargs = {
         "style": style,
         "x_tick_labs": x_tick_labs if x_tick_labs is not None else keys,

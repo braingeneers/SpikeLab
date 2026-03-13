@@ -839,7 +839,11 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Workspace key to store the 1D array (default: per_unit_rates)",
                             "default": "per_unit_rates",
                         },
-                        "unit": {"type": "string", "enum": ["Hz", "kHz"], "default": "Hz"},
+                        "unit": {
+                            "type": "string",
+                            "enum": ["Hz", "kHz"],
+                            "default": "Hz",
+                        },
                     },
                     "required": ["workspace_id", "namespace"],
                 },
@@ -2058,10 +2062,22 @@ async def _list_tools() -> list[types.Tool]:
                     "properties": {
                         "workspace_id": {"type": "string"},
                         "namespace": {"type": "string"},
-                        "save_path": {"type": "string", "description": "Path to save the figure (e.g. .png)"},
-                        "start_ms": {"type": "number", "description": "Start time (ms) for the plot window"},
-                        "end_ms": {"type": "number", "description": "End time (ms) for the plot window"},
-                        "n_units": {"type": "integer", "description": "Plot only the first n units"},
+                        "save_path": {
+                            "type": "string",
+                            "description": "Path to save the figure (e.g. .png)",
+                        },
+                        "start_ms": {
+                            "type": "number",
+                            "description": "Start time (ms) for the plot window",
+                        },
+                        "end_ms": {
+                            "type": "number",
+                            "description": "End time (ms) for the plot window",
+                        },
+                        "n_units": {
+                            "type": "integer",
+                            "description": "Plot only the first n units",
+                        },
                         "unit_indices": {
                             "type": "array",
                             "items": {"type": "integer"},
@@ -2085,7 +2101,12 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "event_periods": {
                             "type": "array",
-                            "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
                             "description": "List of [start_ms, end_ms] periods to shade",
                         },
                         "figsize": {"type": "array", "items": {"type": "number"}},
@@ -2114,7 +2135,10 @@ async def _list_tools() -> list[types.Tool]:
                             "items": {"type": "string"},
                             "description": "Workspace keys holding 1D arrays (one per distribution)",
                         },
-                        "save_path": {"type": "string", "description": "Path to save the figure"},
+                        "save_path": {
+                            "type": "string",
+                            "description": "Path to save the figure",
+                        },
                         "x_tick_labs": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -2135,8 +2159,15 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Matplotlib color per group",
                         },
                         "edge_color": {"type": "string", "default": "black"},
-                        "yscale": {"type": "string", "enum": ["log", "linear"], "default": "log"},
-                        "ylim_top": {"type": "number", "description": "Y-axis max (e.g. 100)"},
+                        "yscale": {
+                            "type": "string",
+                            "enum": ["log", "linear"],
+                            "default": "log",
+                        },
+                        "ylim_top": {
+                            "type": "number",
+                            "description": "Y-axis max (e.g. 100)",
+                        },
                         "ylim_bottom": {"type": "number"},
                         "show_means": {"type": "boolean", "default": False},
                         "show_medians": {"type": "boolean", "default": True},

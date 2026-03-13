@@ -1145,13 +1145,11 @@ class SpikeData:
 
         # for each unit
         for unit in range(t_spk_mat.shape[0]):
-
             # obtain spike time indices. +1 since these are 1 indexes
             unit_spk_times = np.where(t_spk_mat[unit, :])[0]
 
             # for each burst
             for burst in range(edges.shape[0]):
-
                 # obtain all spike times within burst
                 burst_times = unit_spk_times[
                     (unit_spk_times >= edges[burst, 0])

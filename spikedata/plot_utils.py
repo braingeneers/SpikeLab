@@ -326,6 +326,7 @@ def plot_raster(
         else:
             # Resample to raster grid (e.g. RateData from resampled ISI)
             from scipy.ndimage import zoom
+
             zoom_factors = (1, n_bins / n_fr)
             fr_rates = zoom(fr_rates, zoom_factors, order=1)
 
@@ -370,13 +371,19 @@ def plot_raster(
         else:
             height_ratios = [2, 1, 1]
     fig, axes = plt.subplots(
-        n_subplots, 1, sharex=True, figsize=figsize, gridspec_kw={"height_ratios": height_ratios}
+        n_subplots,
+        1,
+        sharex=True,
+        figsize=figsize,
+        gridspec_kw={"height_ratios": height_ratios},
     )
     axes = [axes] if n_subplots == 1 else list(axes)
     ax1 = axes[0]
 
     # Raster: eventplot uses bin indices on x (one marker per bin that has any spike)
-    spike_times_list = [np.where(spk[i, :] > 0)[0].astype(float) for i in range(spk.shape[0])]
+    spike_times_list = [
+        np.where(spk[i, :] > 0)[0].astype(float) for i in range(spk.shape[0])
+    ]
     ax1.eventplot(spike_times_list, colors="black")
     ax1.set_ylim(0, spk.shape[0])
     ax1.set_ylabel("Unit", fontsize=font_size)
@@ -547,7 +554,14 @@ def plot_distributions(
         plot_fig = False
 
     if colors is None:
-        default_colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown"]
+        default_colors = [
+            "tab:blue",
+            "tab:orange",
+            "tab:green",
+            "tab:red",
+            "tab:purple",
+            "tab:brown",
+        ]
         colors = [default_colors[i % len(default_colors)] for i in range(n)]
     elif len(colors) < n:
         colors = list(colors) + [colors[-1]] * (n - len(colors))
@@ -555,7 +569,10 @@ def plot_distributions(
     # Original TODO: LET USER CHOOSE BETWEEN BOXPLOTS OR VIOLIN PLOTS
     if style == "violin":
         vplot = ax.violinplot(
-            data_list, positions=positions, showmeans=show_means, showmedians=show_medians
+            data_list,
+            positions=positions,
+            showmeans=show_means,
+            showmedians=show_medians,
         )
         for i, body in enumerate(vplot["bodies"]):
             body.set_facecolor(colors[i] if i < len(colors) else "gray")

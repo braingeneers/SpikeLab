@@ -26,6 +26,7 @@ from typing import Any, List, Optional, Tuple
 try:
     from spikedata import SpikeData
     from spikedata.plot_utils import plot_raster
+
     _HAS_IAT = True
 except ImportError:
     _HAS_IAT = False
@@ -110,7 +111,9 @@ def plot_raster_from_workspace(
             "Load data first (e.g. load_from_pickle, load_from_hdf5)."
         )
     if not isinstance(sd, SpikeData):
-        raise TypeError(f"Item (namespace={namespace!r}, key='spikedata') is not SpikeData.")
+        raise TypeError(
+            f"Item (namespace={namespace!r}, key='spikedata') is not SpikeData."
+        )
 
     if start_ms is not None or end_ms is not None:
         t_start = start_ms if start_ms is not None else 0.0
@@ -165,8 +168,12 @@ def plot_raster_from_workspace(
 
 if __name__ == "__main__":
     if not _HAS_IAT:
-        print("Run with IntegratedAnalysisTools on PYTHONPATH to use plot_raster / plot_raster_from_workspace.")
+        print(
+            "Run with IntegratedAnalysisTools on PYTHONPATH to use plot_raster / plot_raster_from_workspace."
+        )
         print("Example: cd IntegratedAnalysisTools && python viz/new_plot_raster.py")
     else:
         print("plot_raster and SpikeData.plot_raster are available.")
-        print("Example: plot_raster_from_workspace('my_ws', 'rec1', 'raster.png', rate_key='ratedata')")
+        print(
+            "Example: plot_raster_from_workspace('my_ws', 'rec1', 'raster.png', rate_key='ratedata')"
+        )
