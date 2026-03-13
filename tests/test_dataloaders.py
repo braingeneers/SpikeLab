@@ -1561,3 +1561,225 @@ class TestIBLQuery:
                 sys.modules["one.api"] = original
             if original_one is not None:
                 sys.modules["one"] = original_one
+
+
+class TestDataLoadersEdgeCases:
+    def test_kilosort_missing_files(self, tmp_path):
+        """
+        Verify load_spikedata_from_kilosort raises when required .npy files are missing.
+
+        Tests:
+            (Test Case 1) Calling with an empty directory raises FileNotFoundError (or OSError).
+        """
+        with pytest.raises((FileNotFoundError, OSError)):
+            loaders.load_spikedata_from_kilosort(str(tmp_path), fs_Hz=30000.0)
+
+    @skip_no_h5py
+    def test_hdf5_paired_empty_idces(self, tmp_path):
+        """
+        Verify that loading paired-style HDF5 with empty idces/times arrays
+        raises an error due to max() on empty sequence in SpikeData.from_idces_times.
+
+        Tests:
+            (Test Case 1) Raises ValueError because SpikeData.__init__ calls
+                          max() on empty trains when length is not provided.
+
+        Notes:
+            - This is a known source bug (BUG-006): from_idces_times does not
+              handle the empty-input case gracefully.
+        """
+        path = str(tmp_path / "empty_paired.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=np.array([], dtype=int))
+            f.create_dataset("times", data=np.array([], dtype=float))
+
+        with pytest.raises(ValueError, match="empty sequence"):
+            loaders.load_spikedata_from_hdf5(
+                path, idces_dataset="idces", times_dataset="times", times_unit="ms"
+            )
+
+    @skip_no_pandas
+    def test_ibl_all_collections_fail(self):
+        """
+        Verify that when all ONE API collection lookups fail, the loader
+        still returns a SpikeData with empty trains (one per good unit) rather
+        than crashing silently.
+
+        Tests:
+            (Test Case 1) Returns a SpikeData with the correct number of units.
+            (Test Case 2) All spike trains are empty arrays.
+        """
+        import pandas as pd
+
+        eid, pid = "test-eid", "test-pid"
+
+        # Build a unit_df with 2 good units
+        unit_df = pd.DataFrame(
+            [
+                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 0, "Beryl": "VISl"},
+                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 1, "Beryl": "VISl"},
+            ]
+        )
+
+        # Build a trials DataFrame
+        t = np.array([1.0, 3.0])
+        trials_df = pd.DataFrame(
+            {
+                "intervals_0": t,
+                "intervals_1": t + 1.0,
+                "stimOn_times": t + 0.1,
+                "stimOff_times": t + 0.8,
+                "goCue_times": t + 0.05,
+                "response_times": t + 0.5,
+                "feedback_times": t + 0.55,
+                "firstMovement_times": t + 0.45,
+                "choice": [-1.0, 1.0],
+                "feedbackType": [1.0, 1.0],
+                "contrastLeft": [0.5, 0.5],
+                "contrastRight": [0.5, 0.5],
+                "probabilityLeft": [0.5, 0.5],
+            }
+        )
+
+        def load_object_side_effect(eid_arg, obj_name, **kwargs):
+            if obj_name == "trials":
+                mock_trials = MagicMock()
+                mock_trials.to_df.return_value = trials_df
+                return mock_trials
+            if obj_name == "spikes":
+                raise Exception("collection not found")
+            raise Exception(f"Unexpected: {obj_name}")
+
+        mock_one_instance = MagicMock()
+        mock_one_instance.load_object.side_effect = load_object_side_effect
+
+        mock_one_class = MagicMock()
+        mock_one_class.return_value = mock_one_instance
+
+        mock_one_api = MagicMock()
+        mock_one_api.ONE = mock_one_class
+
+        mock_brainwidemap = MagicMock()
+        mock_brainwidemap.bwm_units.return_value = unit_df
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            sd = loaders.load_spikedata_from_ibl(eid, pid)
+
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 2
+        for train in sd.train:
+            assert len(train) == 0
+
+    def test_kilosort_empty_spike_files(self, tmp_path):
+        """
+        Verify that loading KiloSort files with shape-(0,) arrays
+        returns an empty SpikeData with no units.
+
+        Tests:
+            (Test Case 1) Returns a valid SpikeData with N == 0.
+            (Test Case 2) No spike trains are present.
+        """
+        d = str(tmp_path / "ks_empty")
+        os.makedirs(d)
+        np.save(os.path.join(d, "spike_times.npy"), np.array([], dtype=float))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([], dtype=int))
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=30000.0)
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 0
+        assert len(sd.train) == 0
+
+    def test_spikeinterface_empty_unit_ids(self):
+        """
+        Verify that loading from a SpikeInterface sorting with an empty
+        unit_ids list returns an empty SpikeData.
+
+        Tests:
+            (Test Case 1) Returns a valid SpikeData with N == 0.
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = []
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([], dtype=float)
+
+        sd = loaders.load_spikedata_from_spikeinterface(mock_sorting, unit_ids=[])
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 0
+        assert len(sd.train) == 0
+
+    def test_spikeinterface_negative_sampling_frequency(self):
+        """
+        Verify that a negative sampling_frequency override raises ValueError.
+
+        Tests:
+            (Test Case 1) sampling_frequency=-1000 raises ValueError.
+            (Test Case 2) sampling_frequency=0 does not raise (zero is treated as
+                          falsy and falls through to the extractor's own frequency).
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([100], dtype=float)
+
+        with pytest.raises(ValueError, match="positive"):
+            loaders.load_spikedata_from_spikeinterface(
+                mock_sorting, sampling_frequency=-1000.0
+            )
+
+        # fs=0 is falsy, so the loader falls through to the extractor's frequency
+        sd = loaders.load_spikedata_from_spikeinterface(
+            mock_sorting, sampling_frequency=0
+        )
+        assert sd.N == 1
+
+    @skip_no_h5py
+    def test_nwb_empty_units_group(self, tmp_path):
+        """
+        Verify that loading an NWB file whose units group has no
+        spike_times datasets raises a clear error.
+
+        Tests:
+            (Test Case 1) Raises ValueError mentioning missing spike_times.
+        """
+        path = str(tmp_path / "empty_units.nwb")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("units")
+            # Write only an id dataset but no spike_times or spike_times_index
+            grp.create_dataset("id", data=np.array([0, 1], dtype=int))
+
+        with pytest.raises(ValueError, match="spike_times"):
+            loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+
+    def test_trains_from_flat_index_non_monotonic(self):
+        """
+        Verify that _trains_from_flat_index handles or tolerates
+        non-monotonic end_indices by slicing according to the given indices.
+
+        Tests:
+            (Test Case 1) Non-monotonic end_indices (e.g. [3, 2, 5]) produce
+                segments based on sequential start-stop iteration. The second
+                segment will be empty because stop < start after the first
+                segment consumed indices 0..2.
+        """
+        flat_times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        # Non-monotonic: first segment uses [0:3], second tries [3:2] -> empty,
+        # third uses [2:5]
+        end_indices = np.array([3, 2, 5])
+
+        trains = loaders._trains_from_flat_index(
+            flat_times, end_indices, unit="ms", fs_Hz=None
+        )
+        assert len(trains) == 3
+        # First segment: indices 0..2 -> [10, 20, 30]
+        assert len(trains[0]) == 3
+        # Second segment: start=3, stop=2 -> empty slice
+        assert len(trains[1]) == 0
+        # Third segment: start=2, stop=5 -> [30, 40, 50]
+        assert len(trains[2]) == 3

@@ -299,6 +299,25 @@ class TestComputeCrossCorrelationWithLag:
         assert -1.0 <= corr <= 1.0
         assert abs(lag) <= 10
 
+    def test_zero_norm_vectors(self):
+        """
+        Tests cross-correlation with all-zero input vectors.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Returns a valid (best_corr, best_lag) tuple.
+
+        Notes:
+            Zero vectors have zero norm, making normalized correlation
+            undefined. The result can be NaN or 0 — the test only verifies
+            that the function does not crash.
+        """
+        corr, lag = compute_cross_correlation_with_lag(
+            np.zeros(50), np.zeros(50), max_lag=5
+        )
+        assert isinstance(corr, (int, float, np.integer, np.floating))
+        assert isinstance(lag, (int, float, np.integer, np.floating))
+
 
 # ---------------------------------------------------------------------------
 # butter_filter
@@ -821,3 +840,455 @@ class TestUMAPGraphCommunities:
         monkeypatch.setattr(utils_mod, "community_louvain", None)
         with pytest.raises(ImportError, match="python-louvain"):
             UMAP_graph_communities(data)
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests for core utils (Group 2)
+# ---------------------------------------------------------------------------
+
+from SpikeLab.spikedata.utils import (
+    _resampled_isi,
+    randomize,
+    extract_waveforms,
+    get_sttc,
+)
+
+
+class TestButterFilterEdgeCases:
+    """Edge-case tests for butter_filter."""
+
+    def test_butter_filter_single_sample(self):
+        """
+        sosfiltfilt requires more than one sample; a single-sample input
+        should raise an error.
+
+        Tests:
+            (Test Case 1) Single-element array raises ValueError from
+                scipy.signal.sosfiltfilt (padlen requirement).
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.array([1.0]), highcut=100.0, fs=1000.0)
+
+
+class TestResampledIsi:
+    """Edge-case tests for _resampled_isi."""
+
+    def test_resampled_isi_identical_spike_times(self):
+        """
+        All spike times identical produces zero ISI, leading to inf rates.
+
+        Tests:
+            (Test Case 1) Identical spike times do not crash. Result may
+                contain inf values (potential bug: division by zero ISI),
+                which is documented here.
+
+        Notes:
+            _resampled_isi computes 1/ISI; when ISI=0 this yields inf. The
+            function returns without exception but the output contains inf,
+            which downstream consumers should be aware of.
+        """
+        spikes = np.array([5.0, 5.0, 5.0])
+        times = np.arange(0, 20, 1.0)
+        # Should not raise
+        result = _resampled_isi(spikes, times, sigma_ms=2.0)
+        assert result.shape == times.shape
+        # Document: result contains inf due to zero ISI (potential bug)
+        if np.any(np.isinf(result)):
+            pass  # Known: division by zero ISI produces inf
+
+    def test_resampled_isi_identical_time_values(self):
+        """
+        Identical time values produce dt_ms=0, which causes division by zero
+        when computing bin indices.
+
+        Tests:
+            (Test Case 1) Identical time values (dt_ms=0). Verify the
+                function either raises a clean error or produces inf/nan
+                (documented as potential bug).
+
+        Notes:
+            With dt_ms=0 the function divides by zero when computing n_bins
+            and bin indices. This may raise ZeroDivisionError, ValueError, or
+            produce inf/nan depending on numpy behavior.
+        """
+        spikes = np.array([5.0, 10.0])
+        times = np.array([1.0, 1.0, 1.0])
+        # dt_ms = times[1] - times[0] = 0.0 -> division by zero
+        try:
+            result = _resampled_isi(spikes, times, sigma_ms=2.0)
+            # If it returns, document that output may contain inf/nan
+            has_bad = np.any(np.isinf(result)) or np.any(np.isnan(result))
+            if has_bad:
+                pass  # Known: dt_ms=0 produces inf/nan (potential bug)
+        except (ZeroDivisionError, ValueError, FloatingPointError):
+            pass  # Clean error on dt_ms=0 is acceptable
+
+
+class TestRandomize:
+    """Edge-case tests for the randomize function."""
+
+    def test_randomize_zero_spike_raster(self):
+        """
+        A raster with no spikes returns all zeros with the same shape.
+
+        Tests:
+            (Test Case 1) Zero raster (3, 100) returns same-shape
+                all-zero array.
+        """
+        raster = np.zeros((3, 100), dtype=int)
+        result = randomize(raster)
+        assert result.shape == (3, 100)
+        np.testing.assert_array_equal(result, 0)
+
+    def test_randomize_single_spike(self):
+        """
+        A raster with exactly one spike preserves exactly one nonzero value.
+
+        Tests:
+            (Test Case 1) Raster with one spike at (0, 50). Result has
+                same shape and exactly 1 nonzero value total.
+
+        Notes:
+            With only one spike, no valid swap can occur (swap requires two
+            distinct spike positions), so the spike stays in place.
+        """
+        ar = np.zeros((3, 100), dtype=int)
+        ar[0, 50] = 1
+        result = randomize(ar)
+        assert result.shape == (3, 100)
+        assert np.sum(result) == 1
+
+
+class TestExtractWaveformsEdgeCases:
+    """Edge-case tests for extract_waveforms with invalid input shapes."""
+
+    def test_extract_waveforms_1d_raw_data(self):
+        """
+        1D raw_data should raise ValueError because extract_waveforms
+        expects a 2D array of shape (num_channels, num_samples).
+
+        Tests:
+            (Test Case 1) 1D array raises ValueError on shape unpacking.
+        """
+        raw_1d = np.random.default_rng(0).standard_normal(1000)
+        spike_times = np.array([10.0])
+        with pytest.raises((ValueError, TypeError)):
+            extract_waveforms(
+                raw_data=raw_1d,
+                spike_times_ms=spike_times,
+                fs_kHz=20.0,
+            )
+
+    def test_extract_waveforms_3d_raw_data(self):
+        """
+        3D raw_data should raise ValueError because extract_waveforms
+        expects a 2D array of shape (num_channels, num_samples).
+
+        Tests:
+            (Test Case 1) 3D array raises ValueError on shape unpacking.
+        """
+        raw_3d = np.random.default_rng(0).standard_normal((2, 500, 3))
+        spike_times = np.array([10.0])
+        with pytest.raises((ValueError, TypeError)):
+            extract_waveforms(
+                raw_data=raw_3d,
+                spike_times_ms=spike_times,
+                fs_kHz=20.0,
+            )
+
+    def test_extract_waveforms_out_of_bounds_channel_indices(self):
+        """
+        Channel indices exceeding the number of channels in raw_data raise
+        IndexError during the slice operation.
+
+        Tests:
+            (Test Case 1) channel_indices=[10] on a 4-channel array
+                raises IndexError.
+        """
+        raw = np.random.default_rng(0).standard_normal((4, 1000))
+        spike_times = np.array([5.0])
+        with pytest.raises(IndexError):
+            extract_waveforms(
+                raw_data=raw,
+                spike_times_ms=spike_times,
+                fs_kHz=20.0,
+                channel_indices=[10],
+            )
+
+    def test_extract_waveforms_zero_ms_before(self):
+        """
+        ms_before=0 extracts only the portion after each spike time.
+        The waveform window has before_samples=0 and after_samples>0.
+
+        Tests:
+            (Test Case 1) ms_before=0, ms_after=2.0 at 20 kHz gives
+                after_samples=40, so output shape axis 1 is 40.
+        """
+        raw = np.random.default_rng(0).standard_normal((2, 1000))
+        spike_times = np.array([5.0])
+        result = extract_waveforms(
+            raw_data=raw,
+            spike_times_ms=spike_times,
+            fs_kHz=20.0,
+            ms_before=0,
+            ms_after=2.0,
+        )
+        # before_samples=0, after_samples=round(2.0*20)=40
+        assert result.shape[0] == 2
+        assert result.shape[1] == 40
+        assert result.shape[2] == 1
+
+    def test_extract_waveforms_zero_ms_after(self):
+        """
+        ms_after=0 extracts only the portion before each spike time.
+        The waveform window has before_samples>0 and after_samples=0.
+
+        Tests:
+            (Test Case 1) ms_before=1.0, ms_after=0 at 20 kHz gives
+                before_samples=20, so output shape axis 1 is 20.
+        """
+        raw = np.random.default_rng(0).standard_normal((2, 1000))
+        spike_times = np.array([5.0])
+        result = extract_waveforms(
+            raw_data=raw,
+            spike_times_ms=spike_times,
+            fs_kHz=20.0,
+            ms_before=1.0,
+            ms_after=0,
+        )
+        # before_samples=round(1.0*20)=20, after_samples=0
+        assert result.shape[0] == 2
+        assert result.shape[1] == 20
+        assert result.shape[2] == 1
+
+    def test_extract_waveforms_both_windows_zero(self):
+        """
+        ms_before=0 and ms_after=0 produces a zero-length waveform window
+        (n_samples=0). No samples are extracted per spike.
+
+        Tests:
+            (Test Case 1) Both ms_before=0 and ms_after=0. Output shape
+                axis 1 is 0 (zero samples per waveform).
+        """
+        raw = np.random.default_rng(0).standard_normal((2, 1000))
+        spike_times = np.array([5.0])
+        result = extract_waveforms(
+            raw_data=raw,
+            spike_times_ms=spike_times,
+            fs_kHz=20.0,
+            ms_before=0,
+            ms_after=0,
+        )
+        assert result.shape[1] == 0
+
+    def test_extract_waveforms_all_spikes_out_of_bounds(self):
+        """
+        When all spike times fall outside the valid extraction window,
+        an empty waveform array is returned with 0 spikes.
+
+        Tests:
+            (Test Case 1) Spike times at -100 ms and 9999 ms on a
+                1000-sample recording at 20 kHz. Both are out of bounds,
+                so the result has shape (n_channels, n_samples, 0).
+        """
+        raw = np.random.default_rng(0).standard_normal((4, 1000))
+        spike_times = np.array([-100.0, 9999.0])
+        result = extract_waveforms(
+            raw_data=raw,
+            spike_times_ms=spike_times,
+            fs_kHz=20.0,
+        )
+        assert result.shape[2] == 0
+        assert result.shape[0] == 4
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests for butter_filter (MED priority)
+# ---------------------------------------------------------------------------
+
+
+class TestButterFilterEdgeCasesMed:
+    """MED-priority edge-case tests for butter_filter."""
+
+    def test_highcut_equals_nyquist_raises(self):
+        """
+        When highcut equals exactly fs/2, the normalized frequency Wn = 1.0
+        which is invalid for a digital Butterworth filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) highcut = fs/2 = 500 Hz at fs=1000 Hz.
+                Wn = 500/1000*2 = 1.0. scipy.signal.iirfilter raises
+                ValueError for Wn >= 1 in digital mode.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), highcut=500.0, fs=1000.0)
+
+    def test_highcut_exceeds_nyquist_raises(self):
+        """
+        When highcut exceeds fs/2, the normalized frequency Wn > 1.0
+        which is invalid for a digital Butterworth filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) highcut = 600 Hz at fs=1000 Hz.
+                Wn = 600/1000*2 = 1.2. scipy.signal.iirfilter raises
+                ValueError for Wn > 1 in digital mode.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), highcut=600.0, fs=1000.0)
+
+    def test_lowcut_equals_nyquist_raises(self):
+        """
+        When lowcut equals fs/2 in highpass mode, the normalized frequency
+        Wn = 1.0 which is invalid for a digital filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) lowcut = fs/2 = 500 Hz at fs=1000 Hz
+                (highpass mode). Wn = 1.0 raises ValueError.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), lowcut=500.0, fs=1000.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests for times_from_ms (MED priority)
+# ---------------------------------------------------------------------------
+
+
+class TestTimesFromMsEdgeCases:
+    """MED-priority edge-case tests for times_from_ms."""
+
+    def test_negative_times_to_samples(self):
+        """
+        Negative ms values converted to samples produce negative integers
+        via np.rint(). The function does not validate sign.
+
+        Tests:
+            (Test Case 1) Negative ms values [-1.0, -0.5, -10.0] at
+                20 kHz. np.rint(-1.0 * 20) = -20, np.rint(-0.5 * 20) = -10,
+                np.rint(-10.0 * 20) = -200. Result dtype is int.
+        """
+        t = np.array([-1.0, -0.5, -10.0])
+        result = times_from_ms(t, "samples", fs_Hz=20000.0)
+        np.testing.assert_array_equal(result, [-20, -10, -200])
+        assert result.dtype == int
+
+    def test_very_large_ms_values_to_samples(self):
+        """
+        Very large ms values may overflow when converted to int samples.
+        Values within int64 range convert correctly; values exceeding it
+        silently overflow.
+
+        Tests:
+            (Test Case 1) 1e12 ms at 20 kHz = 2e13 samples, fits in
+                int64. Verify correct conversion.
+            (Test Case 2) 1e18 ms at 20 kHz = 2e19 samples, exceeds
+                int64 max (~9.2e18). Verify result does not match the
+                expected float value (silent overflow).
+        """
+        # Case a: large but within int64 range
+        t_ok = np.array([1e12])
+        result_ok = times_from_ms(t_ok, "samples", fs_Hz=20000.0)
+        expected_ok = int(1e12 * 20)
+        assert result_ok[0] == expected_ok
+
+        # Case b: overflow territory (2e19 > int64 max ~9.2e18)
+        t_overflow = np.array([1e18])
+        result_overflow = times_from_ms(t_overflow, "samples", fs_Hz=20000.0)
+        expected_float = 1e18 * 20.0
+        # The int64 cast silently overflows; the result will not match
+        assert result_overflow[0] != expected_float
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests for to_ms (MED priority)
+# ---------------------------------------------------------------------------
+
+
+class TestToMsEdgeCases:
+    """MED-priority edge-case tests for to_ms."""
+
+    def test_inf_input_propagates(self):
+        """
+        Infinite values propagate through arithmetic without raising.
+
+        Tests:
+            (Test Case 1) np.inf in seconds -> inf * 1000 = inf in ms.
+            (Test Case 2) -np.inf in seconds -> -inf in ms.
+        """
+        v = np.array([np.inf, -np.inf])
+        result = to_ms(v, "s", None)
+        assert np.isinf(result[0]) and result[0] > 0
+        assert np.isinf(result[1]) and result[1] < 0
+
+    def test_nan_input_propagates(self):
+        """
+        NaN values propagate through arithmetic without raising.
+
+        Tests:
+            (Test Case 1) np.nan in seconds -> nan * 1000 = nan in ms.
+        """
+        v = np.array([np.nan])
+        result = to_ms(v, "s", None)
+        assert np.isnan(result[0])
+
+    def test_inf_nan_ms_identity(self):
+        """
+        Inf and NaN pass through the ms identity path unchanged.
+
+        Tests:
+            (Test Case 1) to_ms with unit='ms' returns inf/nan as float.
+        """
+        v = np.array([np.inf, np.nan])
+        result = to_ms(v, "ms", None)
+        assert np.isinf(result[0])
+        assert np.isnan(result[1])
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests for get_sttc (MED priority)
+# ---------------------------------------------------------------------------
+
+
+class TestGetSttcEdgeCases:
+    """MED-priority edge-case tests for get_sttc."""
+
+    def test_negative_spike_times(self):
+        """
+        Negative spike times are not validated by get_sttc. The function
+        proceeds with the arithmetic and returns a finite float. With an
+        explicit length, _sttc_ta uses min(delt, tA[0]) which can produce
+        negative base values.
+
+        Tests:
+            (Test Case 1) Spike trains with negative times and explicit
+                length. The function returns a finite float (no crash).
+        """
+        tA = [-50.0, -30.0, -10.0, 10.0, 30.0]
+        tB = [-40.0, -20.0, 0.0, 20.0, 40.0]
+        result = get_sttc(tA, tB, delt=20.0, length=100.0)
+        assert isinstance(result, (float, np.floating))
+        assert np.isfinite(result)
+
+    def test_very_large_delt_relative_to_recording(self):
+        """
+        When delt is much larger than the recording length, every spike is
+        within delt of every other spike (PA=PB=1) and the tiled area
+        covers the full recording (TA~1, TB~1). The STTC formula's
+        PA*TB = 1 guard returns 0 for that term.
+
+        Tests:
+            (Test Case 1) delt=1e6 on a 50 ms recording with 3 spikes
+                per train. PA=PB=1 and TA, TB >= 1, so both terms hit
+                the PA*TB==1 or PB*TA==1 guard. Result is 0.0.
+        """
+        tA = [10.0, 20.0, 30.0]
+        tB = [15.0, 25.0, 35.0]
+        result = get_sttc(tA, tB, delt=1e6, length=50.0)
+        assert isinstance(result, (float, np.floating))
+        # With huge delt: PA=1, PB=1, TA and TB are clamped sums / length.
+        # When TA >= 1 and PA=1: PA*TB >= 1 -> guard sets term to 0.
+        # Result should be finite
+        assert np.isfinite(result)

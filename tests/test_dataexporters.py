@@ -389,3 +389,143 @@ class TestPickleExporters:
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
+
+
+class TestDataExportersEdgeCases:
+    """Edge case tests for data export functions."""
+
+    @skip_no_h5py
+    def test_export_hdf5_all_empty_trains_ragged(self, tmp_path):
+        """
+        Verify that exporting a SpikeData where all spike trains are empty
+        works correctly with the ragged style.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Round-trip produces a SpikeData with the same number of units.
+            (Test Case 3) All spike trains remain empty after round-trip.
+        """
+        trains = [np.array([], float), np.array([], float), np.array([], float)]
+        sd = SpikeData(trains, length=100.0)
+        path = str(tmp_path / "empty_ragged.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
+
+        sd2 = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="spike_times",
+            spike_times_index_dataset="spike_times_index",
+            spike_times_unit="s",
+        )
+        assert sd2.N == 3
+        for train in sd2.train:
+            assert len(train) == 0
+
+    @skip_no_h5py
+    def test_export_hdf5_all_empty_trains_paired(self, tmp_path):
+        """
+        Verify that exporting a SpikeData where all spike trains are empty
+        works correctly with the paired style.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The resulting HDF5 contains empty idces and times arrays.
+        """
+        trains = [np.array([], float), np.array([], float)]
+        sd = SpikeData(trains, length=50.0)
+        path = str(tmp_path / "empty_paired.h5")
+
+        exporters.export_spikedata_to_hdf5(
+            sd, path, style="paired", idces_dataset="idces", times_dataset="times"
+        )
+
+        import h5py as h5
+
+        with h5.File(path, "r") as f:
+            assert f["idces"].shape[0] == 0
+            assert f["times"].shape[0] == 0
+
+    @skip_no_h5py
+    def test_export_hdf5_very_small_raster_bin_size(self, tmp_path):
+        """
+        Verify that export_spikedata_to_hdf5 with raster style raises
+        ValueError when raster_bin_size_ms is zero or negative.
+
+        Tests:
+            (Test Case 1) raster_bin_size_ms=0 raises ValueError.
+            (Test Case 2) raster_bin_size_ms=-1.0 raises ValueError.
+        """
+        sd = make_sd()
+        path = str(tmp_path / "bad_raster.h5")
+
+        with pytest.raises(ValueError, match="raster_bin_size_ms"):
+            exporters.export_spikedata_to_hdf5(
+                sd, path, style="raster", raster_bin_size_ms=0
+            )
+
+        with pytest.raises(ValueError, match="raster_bin_size_ms"):
+            exporters.export_spikedata_to_hdf5(
+                sd, path, style="raster", raster_bin_size_ms=-1.0
+            )
+
+    def test_export_kilosort_very_small_fs(self, tmp_path):
+        """
+        Verify that exporting to KiloSort with a very small fs_Hz
+        does not produce integer overflow. With very small fs_Hz, sample indices
+        should be very small numbers (close to 0).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Spike times in samples are finite (no overflow).
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_small_fs")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=0.001)
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        assert np.all(np.isfinite(times))
+
+    def test_export_kilosort_very_large_fs(self, tmp_path):
+        """
+        Verify that exporting to KiloSort with a very large fs_Hz
+        does not produce integer overflow. With large fs_Hz and moderate spike
+        times in ms, sample indices should remain within int64 range.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Spike times in samples are finite (no overflow).
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_large_fs")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1e9)
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        assert np.all(np.isfinite(times))
+        # With fs_Hz=1e9 and times in ms (max 20ms), samples = 20 * 1e6 = 2e7
+        # which is well within int64 range
+        assert times.max() < np.iinfo(np.int64).max
+
+    def test_export_kilosort_duplicate_cluster_ids(self, tmp_path):
+        """
+        Verify that export_spikedata_to_kilosort accepts duplicate
+        cluster_ids (two units mapping to the same cluster ID).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The cluster array contains the duplicated ID for both units.
+        """
+        trains = [
+            np.array([5.0, 10.0]),
+            np.array([15.0, 20.0]),
+        ]
+        sd = SpikeData(trains, length=25.0)
+        d = str(tmp_path / "ks_dup")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0, cluster_ids=[7, 7])
+        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
+        # All 4 spikes should map to cluster 7
+        assert np.all(clusters == 7)
+        assert len(clusters) == 4
