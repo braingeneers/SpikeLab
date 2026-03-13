@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
@@ -144,6 +145,29 @@ def _resampled_isi(spikes, times, sigma_ms):
 
     spikes = np.array(spikes)
     times = np.array(times)
+
+    # Remove duplicate spike times (BUG-002)
+    unique_spikes = np.unique(spikes)
+    if len(unique_spikes) < len(spikes):
+        warnings.warn(
+            f"{len(spikes) - len(unique_spikes)} duplicate spike time(s) removed "
+            f"before ISI computation.",
+            RuntimeWarning,
+        )
+        spikes = unique_spikes
+    if len(spikes) < 2:
+        return np.zeros_like(times)
+
+    # Remove duplicate time grid values (BUG-003)
+    unique_times = np.unique(times)
+    if len(unique_times) < len(times):
+        warnings.warn(
+            f"{len(times) - len(unique_times)} duplicate time grid value(s) removed.",
+            RuntimeWarning,
+        )
+        times = unique_times
+    if len(times) < 2:
+        raise ValueError("times has less than 2 unique values. Input more times")
 
     # Compute inter spike intervals (piece 1 logic)
     isi = np.diff(spikes)
@@ -378,11 +402,14 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     if max_lag is None:
         max_lag = 0
 
+    # Return 0.0 for zero-norm vectors (BUG-004)
+    norm_product = np.sum(ref_rate**2) * np.sum(comp_rate**2)
+    if norm_product == 0:
+        return 0.0, 0
+
     # Fast path for zero lag (no time shift)
     if max_lag == 0:
-        max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(
-            np.sum(ref_rate**2) * np.sum(comp_rate**2)
-        )
+        max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(norm_product)
         return max_corr, 0
     # r is the correlation between ref and comp. Each value is sum of elementwise products
     # for each possible lag and it is normalized so each value is between -1 and 1

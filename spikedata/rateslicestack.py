@@ -376,6 +376,20 @@ class RateSliceStack:
         num_time_bins = event_stack.shape[1]  # T
         num_slices = event_stack.shape[2]  # B
 
+        # Early return for single slice — pairwise comparison undefined (BUG-005)
+        if num_slices < 2:
+            warnings.warn(
+                "Cannot compute slice-to-slice unit correlation with fewer than "
+                "2 slices. Returning NaN.",
+                RuntimeWarning,
+            )
+            av_slice_corr_scores = np.full(num_units, np.nan)
+            all_slice_corr_scores = np.full((num_slices, num_slices, num_units), np.nan)
+            return (
+                PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+                av_slice_corr_scores,
+            )
+
         # Initialize result matrices (compute in U x S x S, then transpose)
         av_slice_corr_scores = np.full(num_units, np.nan)
         all_slice_corr_scores = np.full((num_units, num_slices, num_slices), np.nan)
@@ -454,6 +468,22 @@ class RateSliceStack:
         num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
         num_slices = event_stack.shape[2]  # B
+
+        # Early return for single slice — pairwise comparison undefined (BUG-005)
+        if num_slices < 2:
+            warnings.warn(
+                "Cannot compute slice-to-slice time correlation with fewer than "
+                "2 slices. Returning NaN.",
+                RuntimeWarning,
+            )
+            av_slice_corr_scores = np.full(num_time_bins, np.nan)
+            all_slice_corr_scores = np.full(
+                (num_slices, num_slices, num_time_bins), np.nan
+            )
+            return (
+                PairwiseCompMatrixStack(stack=all_slice_corr_scores),
+                av_slice_corr_scores,
+            )
 
         # Initialize result matrices (compute in T x S x S, then transpose)
         av_slice_corr_scores = np.full(num_time_bins, np.nan)
@@ -543,6 +573,25 @@ class RateSliceStack:
         av_max_corr_lag (array): Average lag where correlation between pair is at max. Shape is (S,)
 
         """
+        num_units = self.event_stack.shape[0]
+        num_slices = self.event_stack.shape[2]
+
+        # Early return for single unit — pairwise comparison undefined (BUG-005)
+        if num_units < 2:
+            warnings.warn(
+                "Cannot compute unit-to-unit correlation with fewer than "
+                "2 units. Returning NaN.",
+                RuntimeWarning,
+            )
+            nan_stack = np.full((num_units, num_units, num_slices), np.nan)
+            nan_avgs = np.full(num_slices, np.nan)
+            return (
+                PairwiseCompMatrixStack(stack=nan_stack, times=self.times),
+                PairwiseCompMatrixStack(stack=nan_stack.copy(), times=self.times),
+                nan_avgs,
+                nan_avgs.copy(),
+            )
+
         max_corr_stack = []
         max_corr_lag_stack = []
         rate_data_stack = self.convert_to_list_of_RateData()

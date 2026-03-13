@@ -472,3 +472,297 @@ class TestRateData:
         assert embedding2.shape == (60, 2)
         assert labels.shape == (60,)
         assert labels.dtype in (np.int32, np.int64, int)
+
+
+class TestRateDataEdgeCases:
+    def test_get_pairwise_fr_corr_single_unit(self):
+        """
+        Tests get_pairwise_fr_corr() with a single unit (U=1).
+
+        Tests:
+            (Test Case 1) Returns two (1, 1) matrices without error.
+            (Test Case 2) Diagonal correlation value is a valid number (not NaN).
+        """
+        rng = np.random.default_rng(0)
+        data = rng.random((1, 50))
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+
+        assert corr.shape == (1, 1)
+        assert lag.shape == (1, 1)
+        assert not np.isnan(corr[0, 0]), "Diagonal correlation must not be NaN"
+
+    def test_get_pairwise_fr_corr_single_time_bin(self):
+        """
+        Tests get_pairwise_fr_corr() with a single time bin (T=1).
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Result has shape (3, 3).
+
+        Notes:
+            Values may be NaN for degenerate single-bin correlation; the test
+            only verifies that the method does not crash.
+        """
+        data = np.array([[1.0], [2.0], [3.0]])
+        times = np.array([0.0])
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
+
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+
+    def test_get_pairwise_fr_corr_constant_rate(self):
+        """
+        Tests get_pairwise_fr_corr() with constant (zero-variance) firing rates.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Result has shape (3, 3).
+
+        Notes:
+            Constant signals have zero variance, so Pearson correlation is
+            undefined. Values may be NaN but the method must not raise.
+        """
+        data = np.ones((3, 50))
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+
+    def test_subset_empty_units(self):
+        """
+        Verify that subset with an empty units list returns a RateData with zero rows.
+
+        Tests:
+            (Test Case 1) Result shape is (0, T).
+            (Test Case 2) Times are preserved unchanged.
+        """
+        rd = make_ratedata(n_units=3, n_times=50)
+
+        sub = rd.subset(units=[])
+        assert sub.inst_Frate_data.shape == (0, 50)
+        assert sub.N == 0
+        np.testing.assert_array_equal(sub.times, rd.times)
+
+    def test_subset_duplicate_indices(self):
+        """
+        Verify that subset deduplicates repeated unit indices.
+
+        Tests:
+            (Test Case 1) Duplicate indices are collapsed so result has N=2.
+            (Test Case 2) Data rows match the unique requested units.
+        """
+        rd = make_ratedata(n_units=3, n_times=50)
+
+        sub = rd.subset(units=[0, 0, 1])
+        assert sub.N == 2
+        assert sub.inst_Frate_data.shape == (2, 50)
+        np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[0])
+        np.testing.assert_array_equal(sub.inst_Frate_data[1], rd.inst_Frate_data[1])
+
+    def test_subtime_single_time_point(self):
+        """
+        Verify that subtime extracts exactly one time bin when the range spans a single point.
+
+        Tests:
+            (Test Case 1) Result shape is (U, 1).
+            (Test Case 2) Times array has exactly 1 element.
+        """
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)
+
+        sub = rd.subtime(50.0, 51.0)
+        assert sub.inst_Frate_data.shape == (2, 1)
+        assert len(sub.times) == 1
+
+    def test_subtime_by_index_empty_slice(self):
+        """
+        Verify that subtime_by_index with start equal to end produces an empty slice or raises.
+
+        Tests:
+            (Test Case 1) Either returns shape (U, 0) or raises ValueError.
+
+        Notes:
+            When shift_time is True and the slice is empty, indexing new_times[0]
+            raises an IndexError, so this test accepts either an empty result or
+            any exception.
+        """
+        rd = make_ratedata(n_units=2, n_times=50)
+
+        try:
+            sub = rd.subtime_by_index(5, 5)
+            assert sub.inst_Frate_data.shape == (2, 0)
+        except (ValueError, IndexError):
+            pass  # acceptable: method rejects empty slice
+
+    def test_frames_length_equals_recording(self):
+        """
+        Verify that frames with length equal to the recording span returns exactly 1 frame.
+
+        Tests:
+            (Test Case 1) Returns a RateSliceStack with 1 slice.
+            (Test Case 2) The single frame covers the full time range.
+        """
+        rd = make_ratedata(n_units=3, n_times=100, step=1.0)  # times 0..99
+
+        # Recording span = times[-1] - times[0] + step_size = 99 - 0 + 1 = 100
+        # Use length=100 to get exactly 1 frame covering the whole recording.
+        stack = rd.frames(length=100.0)
+        assert isinstance(stack, RateSliceStack)
+        assert stack.event_stack.shape[2] == 1
+
+    def test_subtime_start_equals_end(self):
+        """
+        Verify that subtime raises ValueError when start equals end.
+
+        Tests:
+            (Test Case 1) ValueError is raised with start >= end message.
+        """
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)
+
+        with pytest.raises(ValueError, match="start.*must be less than end"):
+            rd.subtime(50.0, 50.0)
+
+    def test_subtime_negative_boundary(self):
+        """
+        Verify that subtime with a large negative start resolves correctly or raises.
+
+        Tests:
+            (Test Case 1) Start of -100 on a recording with times[-1]=99 resolves
+                          to -1 after adjustment, which raises ValueError because
+                          the adjusted value is still negative.
+        """
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times 0..99
+
+        # length = times[-1] = 99; start = -100 + 99 = -1 < 0 -> ValueError
+        with pytest.raises(ValueError):
+            rd.subtime(-100.0, None)
+
+    def test_frames_single_time_bin(self):
+        """
+        Verify that frames produces a valid single-slice stack for T=1 RateData.
+
+        Tests:
+            (Test Case 1) A RateSliceStack with one slice and shape (U, 1, 1)
+                          is returned when the RateData has only one time bin.
+        """
+        rd = make_ratedata(n_units=2, n_times=1)
+        result = rd.frames(length=1.0)
+        assert result.event_stack.shape == (2, 1, 1)
+
+    def test_get_pairwise_fr_corr_max_lag_zero(self):
+        """
+        Verify that get_pairwise_fr_corr with max_lag=0 runs without error.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Result matrices have shape (U, U).
+            (Test Case 3) Diagonal of correlation matrix is 1.
+        """
+        rd = make_ratedata(n_units=3, n_times=80)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
+
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+        np.testing.assert_array_almost_equal(np.diag(corr), np.ones(3))
+        np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
+
+    def test_get_manifold_single_time_bin(self):
+        """PCA on a single time bin (T=1) should not crash.
+
+        Tests: With shape (1, U) input to PCA, sklearn may clamp
+        n_components to min(n_samples, n_features). Verify safe handling.
+        """
+        data = np.random.default_rng(0).random((5, 1))
+        rd = RateData(data, np.array([0.0]))
+        try:
+            result = rd.get_manifold("PCA", n_components=2)
+            # sklearn may clamp n_components; accept any valid shape
+            assert result.shape[0] == 1
+            assert result.shape[1] >= 1
+        except ValueError:
+            pass  # raising is also acceptable for degenerate input
+
+    def test_get_manifold_n_components_exceeds_dims(self):
+        """n_components greater than min(T, U) should raise or degrade gracefully.
+
+        Tests: Requesting more components than available dimensions
+        should raise a ValueError from sklearn PCA.
+        """
+        data = np.random.default_rng(0).random((3, 10))
+        rd = RateData(data, np.arange(10, dtype=float))
+        with pytest.raises(ValueError):
+            rd.get_manifold("PCA", n_components=20)
+
+    def test_subtime_by_index_shift_time_single_bin(self):
+        """subtime_by_index with shift_time=True on a single bin yields times=[0.0].
+
+        Tests: Extracting one time bin with shift_time=True should
+        produce a times array containing only 0.0.
+        """
+        rd = make_ratedata(n_units=2, n_times=10, step=5.0, t0=100.0)
+        result = rd.subtime_by_index(3, 4, shift_time=True)
+        assert result.inst_Frate_data.shape == (2, 1)
+        assert len(result.times) == 1
+        assert float(result.times[0]) == pytest.approx(0.0)
+
+    def test_get_pairwise_fr_corr_max_lag_exceeds_T(self):
+        """max_lag larger than T should not crash.
+
+        Tests: When max_lag > number of time bins, the search window
+        is clamped by the array length. Verify the method returns valid output.
+        """
+        data = np.random.default_rng(0).random((3, 5))
+        rd = RateData(data, np.arange(5, dtype=float))
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=100)
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+        # Diagonal should still be valid
+        np.testing.assert_array_almost_equal(np.diag(corr), np.ones(3))
+
+    def test_get_manifold_n_components_zero(self):
+        """n_components=0 returns an embedding with zero columns.
+
+        Tests: PCA with zero components produces shape (T, 0).
+        """
+        rd = make_ratedata(n_units=3, n_times=20)
+        result = rd.get_manifold("PCA", n_components=0)
+        assert result.shape == (20, 0)
+
+    def test_subset_out_of_bounds_index(self):
+        """Out-of-bounds unit index should raise an IndexError.
+
+        Tests: Requesting a unit index beyond the number of units
+        should raise an IndexError from numpy array indexing.
+        """
+        rd = make_ratedata(n_units=3, n_times=20)
+        with pytest.raises(IndexError):
+            rd.subset([0, 1, 100])
+
+    def test_subset_by_no_matching_attribute(self):
+        """by parameter with no matching attribute values returns empty RateData.
+
+        Tests: When no unit's attribute matches the requested values,
+        the result should be an empty RateData with shape (0, T).
+        """
+        from dataclasses import dataclass
+
+        @dataclass
+        class MockAttr:
+            region: str
+
+        data = np.random.default_rng(0).random((3, 10))
+        times = np.arange(10, dtype=float)
+        attrs = [MockAttr("CA1"), MockAttr("CA3"), MockAttr("CA1")]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        result = rd.subset(["V1"], by="region")
+        assert result.N == 0
+        assert result.inst_Frate_data.shape == (0, 10)

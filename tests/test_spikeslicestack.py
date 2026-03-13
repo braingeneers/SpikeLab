@@ -262,3 +262,128 @@ class TestToRasterArray:
         sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 30.0)])
         result = sss.to_raster_array()
         assert result.shape[2] == 1
+
+
+class TestSpikeSliceStackEdgeCases:
+    def test_to_raster_array_empty_slices(self):
+        """
+        Verify to_raster_array handles slices where one window has no spikes.
+
+        Tests:
+            (Test Case 1) np.stack succeeds even when slices have different sparsity.
+            (Test Case 2) Output shape is (U, T, 2) where T matches the 20 ms window.
+
+        Notes:
+            If np.stack fails because dense rasters have different shapes, this
+            indicates a bug in to_raster_array (all windows have equal duration so
+            the dense shapes should match regardless of spike content).
+        """
+        # Place spikes only in [0, 50]; second window [80, 100] should be empty
+        train = [np.array([5.0, 10.0, 25.0, 40.0])]
+        sd = SpikeData(train, length=120.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 20.0), (80.0, 100.0)])
+
+        result = sss.to_raster_array()
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape[0] == 1  # U
+        assert result.shape[2] == 2  # S
+        # Second slice should be all zeros (no spikes in [80, 100])
+        assert np.all(result[:, :, 1] == 0)
+
+    def test_single_unit_construction(self):
+        """
+        Verify SpikeSliceStack can be constructed with N=1 (single unit).
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Each slice has N=1.
+        """
+        train = [np.array([10.0, 50.0, 90.0, 130.0])]
+        sd = SpikeData(train, length=200.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 40.0), (80.0, 120.0)])
+
+        assert len(sss.spike_stack) == 2
+        for s in sss.spike_stack:
+            assert isinstance(s, SpikeData)
+            assert s.N == 1
+
+    def test_to_raster_array_single_unit(self):
+        """
+        Verify to_raster_array output shape with N=1 (single unit).
+
+        Tests:
+            (Test Case 1) Output shape is (1, T, S).
+        """
+        train = [np.array([5.0, 15.0, 55.0, 65.0])]
+        sd = SpikeData(train, length=100.0)
+        times = [(0.0, 20.0), (50.0, 70.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+
+        result = sss.to_raster_array()
+
+        assert result.shape[0] == 1  # U
+        assert result.shape[2] == 2  # S
+
+    def test_single_spike_total(self):
+        """
+        Tests SpikeSliceStack with only one spike across all units and slices.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Slices without spikes have empty spike trains.
+            (Test Case 3) The slice containing the spike has 1 spike for that unit.
+            (Test Case 4) All slices are valid SpikeData objects.
+
+        Notes:
+            Only one spike exists at 15ms, so the first slice (0-20ms) contains it
+            while the other two slices (40-60ms, 70-90ms) have zero spikes for all
+            units. This verifies that SpikeSliceStack handles near-empty data.
+        """
+        train = [
+            np.array([15.0]),
+            np.array([]),
+        ]
+        sd = SpikeData(train, length=100.0)
+        sss = SpikeSliceStack(
+            sd, times_start_to_end=[(0.0, 20.0), (40.0, 60.0), (70.0, 90.0)]
+        )
+
+        assert len(sss.spike_stack) == 3
+        for s in sss.spike_stack:
+            assert isinstance(s, SpikeData)
+            assert s.N == 2
+
+        # First slice should have 1 spike for unit 0
+        assert len(sss.spike_stack[0].train[0]) == 1
+        # Second and third slices should have 0 spikes for all units
+        for s in sss.spike_stack[1:]:
+            for u in range(s.N):
+                assert len(s.train[u]) == 0
+
+    def test_duplicate_time_windows(self):
+        """
+        Tests SpikeSliceStack with duplicate time windows.
+
+        Tests:
+            (Test Case 1) Construction succeeds with two identical windows.
+            (Test Case 2) Both slices contain identical spike data.
+            (Test Case 3) times list contains both entries.
+
+        Notes:
+            Duplicate time windows are not rejected by the validator because
+            they have the same duration. The result is two slices with identical
+            spike content.
+        """
+        train = [np.array([5.0, 15.0, 50.0, 90.0])]
+        sd = SpikeData(train, length=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 20.0), (0.0, 20.0)])
+
+        assert len(sss.spike_stack) == 2
+        assert len(sss.times) == 2
+        assert sss.times[0] == sss.times[1]
+
+        # Both slices should have the same spikes
+        spikes_0 = sss.spike_stack[0].train[0]
+        spikes_1 = sss.spike_stack[1].train[0]
+        np.testing.assert_array_equal(spikes_0, spikes_1)
