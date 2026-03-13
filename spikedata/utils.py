@@ -158,16 +158,12 @@ def _resampled_isi(spikes, times, sigma_ms):
     if len(spikes) < 2:
         return np.zeros_like(times)
 
-    # Remove duplicate time grid values (BUG-003)
-    unique_times = np.unique(times)
-    if len(unique_times) < len(times):
-        warnings.warn(
-            f"{len(times) - len(unique_times)} duplicate time grid value(s) removed.",
-            RuntimeWarning,
+    # Reject duplicate time grid values (BUG-003)
+    if len(np.unique(times)) < len(times):
+        raise ValueError(
+            "times array contains duplicate values. "
+            "Provide an evenly-spaced grid with unique time points."
         )
-        times = unique_times
-    if len(times) < 2:
-        raise ValueError("times has less than 2 unique values. Input more times")
 
     # Compute inter spike intervals (piece 1 logic)
     isi = np.diff(spikes)

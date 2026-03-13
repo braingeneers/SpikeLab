@@ -87,7 +87,7 @@ class SpikeData:
         idces = np.asarray(idces)
         if idces.size == 0:
             kwargs.setdefault("length", 0)
-            N = N or 0
+            N = 0 if N is None else N
         return SpikeData(_train_from_i_t_list(idces, times, N), N=N, **kwargs)
 
     @staticmethod

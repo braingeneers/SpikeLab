@@ -513,9 +513,13 @@ def plot_recording(
 
         # Burst overlays
         if burst_times_view is not None and pop_rate_view is not None:
-            valid = burst_times_view < len(pop_rate_view)
-            bt = burst_times_view[valid]
-            ax.scatter(bt, pop_rate_view[bt], c="k", zorder=9)
+            # Scale burst times from raster-bin coords to pop_rate coords
+            scale = len(pop_rate_view) / n_samples
+            bt_scaled = (burst_times_view * scale).astype(int)
+            valid = bt_scaled < len(pop_rate_view)
+            bt_scaled = bt_scaled[valid]
+            bt_plot = burst_times_view[valid]  # x position in raster coords
+            ax.scatter(bt_plot, pop_rate_view[bt_scaled], c="k", zorder=9)
 
         if burst_edges_view is not None:
             for t0, t1 in burst_edges_view:
