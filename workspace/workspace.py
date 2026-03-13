@@ -30,27 +30,27 @@ def _make_summary(obj: Any) -> dict:
     """
     # Lazy imports to avoid circular dependencies and keep optional deps optional.
     try:
-        from ..spikedata.spikedata import SpikeData
+        from spikedata.spikedata import SpikeData
     except ImportError:
         SpikeData = None
 
     try:
-        from ..spikedata.ratedata import RateData
+        from spikedata.ratedata import RateData
     except ImportError:
         RateData = None
 
     try:
-        from ..spikedata.rateslicestack import RateSliceStack
+        from spikedata.rateslicestack import RateSliceStack
     except ImportError:
         RateSliceStack = None
 
     try:
-        from ..spikedata.spikeslicestack import SpikeSliceStack
+        from spikedata.spikeslicestack import SpikeSliceStack
     except ImportError:
         SpikeSliceStack = None
 
     try:
-        from ..spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+        from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
     except ImportError:
         PairwiseCompMatrix = None
         PairwiseCompMatrixStack = None

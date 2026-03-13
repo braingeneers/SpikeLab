@@ -54,7 +54,41 @@ raster = sd.raster(bin_size=1.0)
 sd.to_kilosort("ks_output/", fs_Hz=30000.0)
 ```
 
+## Using the MCP server in Cursor
 
+The MCP (Model Context Protocol) server exposes IntegratedAnalysisTools as Cursor tools so you can load data, compute rates, plot heatmaps, and more from chat.
+
+### 1. Set up the environment
+
+From the **IntegratedAnalysisTools** directory, create the conda env and install the package in editable mode:
+
+```bash
+cd IntegratedAnalysisTools
+conda env create -f environment.yml
+conda activate integrated-analysis-tools
+python -m pip install -e .
+```
+
+Use `python -m pip` (or the full path to the env's pip) so the install uses the conda env's Python, not the system one.
+
+### 2. Add the server in Cursor
+
+In Cursor, go to **Settings → MCP** and add a new server, or edit your MCP config file (e.g. `~/.cursor/mcp.json`). Add an entry like this, replacing the paths with your actual paths:
+
+```json
+"IntegratedAnalysisTools": {
+  "command": "/path/to/your/anaconda3/envs/integrated-analysis-tools/bin/python",
+  "args": ["-m", "mcp_server"],
+  "cwd": "/path/to/your/IntegratedAnalysisTools",
+  "type": "stdio"
+}
+```
+
+Replace `command` with the path to your conda env's Python (run `which python` with the env activated). Replace `cwd` with the absolute path to your IntegratedAnalysisTools directory.
+
+### 3. Reload and use
+
+Reload Cursor (or turn the IntegratedAnalysisTools MCP off and on). The server should start and expose tools such as `create_workspace`, `load_from_pickle`, `load_from_hdf5`, `compute_resampled_isi`, `plot_rate_heatmap`, and others. You can then ask the AI to load data, compute rates, and plot heatmaps using those tools.
 
 ## Contributing
 

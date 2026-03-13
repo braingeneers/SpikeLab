@@ -16,6 +16,7 @@ __all__ = [
     "times_from_ms",
     "to_ms",
     "extract_waveforms",
+    "extract_lower_triangle_features",
     "check_neuron_attributes",
     "get_channels_for_unit",
     "compute_avg_waveform",
@@ -474,6 +475,32 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     max_lag_idx = valid_lags[max_idx]
 
     return max_sim, max_lag_idx
+
+
+def extract_lower_triangle_features(matrix_3d: np.ndarray) -> np.ndarray:
+    """
+    Extract lower triangle (excluding diagonal) from each matrix in a 3D stack.
+
+    Parameters
+    ----------
+    matrix_3d : ndarray, shape (n, n, S)
+        Stack of S correlation matrices, each (n, n).
+
+    Returns
+    -------
+    features : ndarray, shape (S, F)
+        2D matrix where each row contains lower triangle values for that
+        matrix. F = n*(n-1)/2 (number of unique pairs).
+    """
+    if matrix_3d.ndim != 3:
+        raise ValueError(f"Stack must be a 3D array (n, n, S), got {matrix_3d.ndim}D")
+    if matrix_3d.shape[0] != matrix_3d.shape[1]:
+        raise ValueError(
+            "Stack must have shape (n, n, S) where the first two dimensions are equal."
+        )
+    num_items = matrix_3d.shape[0]
+    lower_tri_idx = np.tril_indices(num_items, k=-1)
+    return matrix_3d[lower_tri_idx[0], lower_tri_idx[1], :].T
 
 
 def PCA_reduction(matrix_2d, n_components=2):

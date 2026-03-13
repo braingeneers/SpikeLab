@@ -220,23 +220,23 @@ def delete_item_from_file(
 def _dump_item(grp, obj: Any, created_at: float, note: Optional[str]) -> None:
     """Write one object to an HDF5 group, tagging with __type__ and metadata attrs."""
     try:
-        from ..spikedata.spikedata import SpikeData
+        from spikedata.spikedata import SpikeData
     except ImportError:
         SpikeData = None
     try:
-        from ..spikedata.ratedata import RateData
+        from spikedata.ratedata import RateData
     except ImportError:
         RateData = None
     try:
-        from ..spikedata.rateslicestack import RateSliceStack
+        from spikedata.rateslicestack import RateSliceStack
     except ImportError:
         RateSliceStack = None
     try:
-        from ..spikedata.spikeslicestack import SpikeSliceStack
+        from spikedata.spikeslicestack import SpikeSliceStack
     except ImportError:
         SpikeSliceStack = None
     try:
-        from ..spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+        from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
     except ImportError:
         PairwiseCompMatrix = None
         PairwiseCompMatrixStack = None
@@ -561,7 +561,7 @@ def _dump_spikedata(grp, sd) -> None:
 
 
 def _load_spikedata(grp):
-    from ..spikedata.spikedata import SpikeData
+    from spikedata.spikedata import SpikeData
 
     flat = np.array(grp["spike_times"], dtype=np.float64)
     index = np.array(grp["spike_times_index"], dtype=np.int64)
@@ -603,7 +603,7 @@ def _dump_ratedata(grp, rd) -> None:
 
 
 def _load_ratedata(grp):
-    from ..spikedata.ratedata import RateData
+    from spikedata.ratedata import RateData
 
     inst_Frate_data = np.array(grp["inst_Frate_data"])
     times = np.array(grp["times"])
@@ -623,7 +623,7 @@ def _dump_rateslicestack(grp, rss) -> None:
 
 
 def _load_rateslicestack(grp):
-    from ..spikedata.rateslicestack import RateSliceStack
+    from spikedata.rateslicestack import RateSliceStack
 
     event_stack = np.array(grp["event_stack"])
     times = _load_times_tuples(grp)
@@ -650,7 +650,7 @@ def _dump_spikeslicestack(grp, sss) -> None:
 
 
 def _load_spikeslicestack(grp):
-    from ..spikedata.spikeslicestack import SpikeSliceStack
+    from spikedata.spikeslicestack import SpikeSliceStack
 
     times = _load_times_tuples(grp)
     slices_grp = grp["spike_stack"]
@@ -677,7 +677,7 @@ def _dump_pairwise(grp, pcm) -> None:
 
 
 def _load_pairwise(grp):
-    from ..spikedata.pairwise import PairwiseCompMatrix
+    from spikedata.pairwise import PairwiseCompMatrix
 
     matrix = np.array(grp["matrix"])
     labels = _load_labels(grp)
@@ -698,7 +698,7 @@ def _dump_pairwise_stack(grp, pcms) -> None:
 
 
 def _load_pairwise_stack(grp):
-    from ..spikedata.pairwise import PairwiseCompMatrixStack
+    from spikedata.pairwise import PairwiseCompMatrixStack
 
     stack = np.array(grp["stack"])
     labels = _load_labels(grp)

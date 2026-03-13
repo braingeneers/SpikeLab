@@ -28,7 +28,7 @@ except ImportError:
 
 import pickle
 
-from ..spikedata import SpikeData
+from spikedata import SpikeData
 
 __all__ = [
     "load_spikedata_from_hdf5",
@@ -40,7 +40,7 @@ __all__ = [
     "load_spikedata_from_pickle",
 ]
 
-from ..spikedata.utils import ensure_h5py, to_ms
+from spikedata.utils import ensure_h5py, to_ms
 
 
 def _trains_from_flat_index(

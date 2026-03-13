@@ -358,3 +358,34 @@ class RateData:
         raise ValueError(
             f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."
         )
+
+    def plot_heatmap(self, temporal_offset=0, **kwargs):
+        """
+        Plot a heatmap of the instantaneous firing rate matrix (units x time).
+        Original TODO (heatmap): MAKE THIS A METHOD OF RateData (SCRIPT IN plot_utils.py).
+
+        Uses plot_utils.plot_av_rate. All keyword arguments are passed through
+        (e.g. norm, vmax, vmin, save_path, show_colorbar, show_fig, xlabel, ylabel,
+        xticks, xticklabels, yticks, yticklabels, vlines, hlines, font_size, figsize).
+
+        Parameters
+        ----------
+        temporal_offset : float or int, default 0
+            Column index for the reference line and for x-tick label offset.
+        **kwargs
+            Passed to plot_utils.plot_av_rate.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure or None
+            The figure if one was created, else None.
+        ax : matplotlib.axes.Axes
+            The axes used.
+        """
+        from .plot_utils import plot_av_rate
+
+        return plot_av_rate(
+            self.inst_Frate_data,
+            temporal_offset=temporal_offset,
+            **kwargs,
+        )
