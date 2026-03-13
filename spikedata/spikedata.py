@@ -1279,7 +1279,7 @@ class SpikeData:
         - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
-        from ..data_loaders.data_exporters import export_spikedata_to_hdf5
+        from data_loaders.data_exporters import export_spikedata_to_hdf5
 
         # Delegate to the standalone exporter function with all parameters
         export_spikedata_to_hdf5(
@@ -1325,7 +1325,7 @@ class SpikeData:
         - Compatible with both pynwb and h5py-based NWB readers
         """
         # Import locally to avoid circular imports
-        from ..data_loaders.data_exporters import export_spikedata_to_nwb
+        from data_loaders.data_exporters import export_spikedata_to_nwb
 
         # Delegate to the standalone NWB exporter
         export_spikedata_to_nwb(
@@ -1366,7 +1366,7 @@ class SpikeData:
         - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
-        from ..data_loaders.data_exporters import export_spikedata_to_kilosort
+        from data_loaders.data_exporters import export_spikedata_to_kilosort
 
         # Delegate to the standalone KiloSort exporter and return file paths
         return export_spikedata_to_kilosort(
@@ -1423,6 +1423,110 @@ class SpikeData:
             pop_rate = square_smooth_summed_spike
 
         return pop_rate
+
+    def plot_raster(
+        self,
+        time_range: Optional[Tuple[float, float]] = None,
+        raster_bin_size_ms: float = 1.0,
+        fr_rates: Optional[Union[np.ndarray, "RateData"]] = None,
+        fr_rate_bin_ms: Optional[float] = None,
+        pop_rate: Optional[np.ndarray] = None,
+        pop_rate_square_width: int = 5,
+        pop_rate_gauss_sigma: int = 5,
+        sort_indices: Optional[Union[np.ndarray, List[int]]] = None,
+        event_times_ms: Optional[List[float]] = None,
+        event_periods: Optional[List[Tuple[float, float]]] = None,
+        figsize: Tuple[float, float] = (12, 6),
+        height_ratios: Optional[List[float]] = None,
+        font_size: int = 14,
+        xlabel: str = "Time (ms)",
+        time_axis_absolute: bool = True,
+        fr_vmin: Optional[float] = None,
+        fr_vmax: Optional[float] = None,
+        save_path: Optional[str] = None,
+        show_fig: bool = True,
+        **kwargs: Any,
+    ) -> Tuple[Optional[Any], List[Any]]:
+        """
+        Plot spike raster with optional population rate and per-unit rate heatmap.
+        Original TODO (raster): MAKE THIS A SPIKEDATA METHOD (SCRIPT IN plot_utils.py).
+
+        Uses plot_utils.plot_raster. Pass precomputed pop_rate or fr_rates, or let
+        them be computed (pop_rate via get_pop_rate; fr_rates from binned rates if
+        fr_rate_bin_ms is set).
+
+        Parameters
+        ----------
+        time_range : (float, float) or None
+            (start_ms, end_ms) to display.
+        raster_bin_size_ms : float
+            Bin width in ms for the spike raster (default 1 ms).
+        fr_rates : np.ndarray or RateData or None
+            Per-unit rate matrix (units x time) for bottom heatmap. If RateData,
+            uses .inst_Frate_data (must match raster time bins or be sliced).
+        fr_rate_bin_ms : float or None
+            If fr_rates is None and this is set, compute fr_rates as binned spike
+            counts converted to Hz (counts / (bin_ms/1000)).
+        pop_rate : np.ndarray 1D or None
+            Precomputed population rate (spikes per bin). If None, computed with
+            get_pop_rate(pop_rate_square_width, pop_rate_gauss_sigma, raster_bin_size_ms).
+        pop_rate_square_width, pop_rate_gauss_sigma : int
+            Used only when pop_rate is None.
+        sort_indices : array-like or None
+            Reorder units for raster and fr_rates.
+        event_times_ms, event_periods : optional
+            Passed to plot_utils.plot_raster.
+        **kwargs
+            Passed to plot_utils.plot_raster (e.g. figsize, height_ratios, font_size).
+
+        Returns
+        -------
+        fig, axes
+        """
+        from .plot_utils import plot_raster as _plot_raster
+
+        spk_mat = self.sparse_raster(bin_size=raster_bin_size_ms).toarray()
+        if sort_indices is not None:
+            sort_indices = np.asarray(sort_indices)
+
+        if pop_rate is None:
+            pop_rate = self.get_pop_rate(
+                square_width=pop_rate_square_width,
+                gauss_sigma=pop_rate_gauss_sigma,
+                raster_bin_size_ms=raster_bin_size_ms,
+            )
+
+        fr_arr: Optional[np.ndarray] = None
+        if fr_rates is not None:
+            if hasattr(fr_rates, "inst_Frate_data"):
+                fr_arr = np.asarray(fr_rates.inst_Frate_data)
+            else:
+                fr_arr = np.asarray(fr_rates)
+        elif fr_rate_bin_ms is not None:
+            # Binned counts -> Hz
+            binned = self.raster(bin_size=fr_rate_bin_ms)
+            fr_arr = binned / (fr_rate_bin_ms / 1000.0)
+
+        return _plot_raster(
+            spk_mat,
+            bin_size_ms=raster_bin_size_ms,
+            time_range=time_range,
+            pop_rate=pop_rate,
+            fr_rates=fr_arr,
+            sort_indices=sort_indices,
+            event_times_ms=event_times_ms,
+            event_periods=event_periods,
+            figsize=figsize,
+            height_ratios=height_ratios,
+            font_size=font_size,
+            xlabel=xlabel,
+            time_axis_absolute=time_axis_absolute,
+            fr_vmin=fr_vmin,
+            fr_vmax=fr_vmax,
+            save_path=save_path,
+            show_fig=show_fig,
+            **kwargs,
+        )
 
     def compute_spike_trig_pop_rate(
         self, window_ms=80, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=10

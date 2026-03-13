@@ -10,12 +10,12 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from ...spikedata.pairwise import PairwiseCompMatrixStack
-from ...spikedata.ratedata import RateData
-from ...spikedata.rateslicestack import RateSliceStack
-from ...spikedata.spikeslicestack import SpikeSliceStack
-from ...spikedata.spikedata import SpikeData
-from ...spikedata.utils import (
+from spikedata.pairwise import PairwiseCompMatrixStack
+from spikedata.ratedata import RateData
+from spikedata.rateslicestack import RateSliceStack
+from spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.spikedata import SpikeData
+from spikedata.utils import (
     PCA_reduction,
     UMAP_graph_communities,
     UMAP_reduction,
@@ -23,7 +23,7 @@ from ...spikedata.utils import (
     compute_cross_correlation_with_lag,
     extract_lower_triangle_features as _extract_lower_triangle,
 )
-from ...workspace.workspace import get_workspace_manager
+from workspace.workspace import get_workspace_manager
 
 _COMPARE_FUNCS = {
     "cross_correlation": compute_cross_correlation_with_lag,
@@ -559,6 +559,29 @@ async def get_frac_active(
 # ---------------------------------------------------------------------------
 # Metadata queries — return inline (no large arrays)
 # ---------------------------------------------------------------------------
+
+
+async def compute_per_unit_rates(
+    workspace_id: str,
+    namespace: str,
+    out_key: str = "per_unit_rates",
+    unit: str = "Hz",
+) -> Dict[str, Any]:
+    """
+    Compute mean firing rate per unit from SpikeData and store as a 1D array in the workspace.
+    Use with plot_distributions(keys=[out_key]) to plot the distribution of rates.
+    """
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    rates = np.asarray(sd.rates(unit=unit), dtype=np.float64)
+    ws.store(namespace, out_key, rates)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "n_units": len(rates),
+        "info": ws.get_info(namespace, out_key),
+    }
 
 
 async def get_data_info(
@@ -1397,3 +1420,219 @@ async def fetch_workspace_item(
         f"fetch_workspace_item supports ndarray and PairwiseCompMatrixStack; "
         f"got {type(obj).__name__}. Use type-specific tools for other object types."
     )
+
+
+async def plot_rate_heatmap(
+    workspace_id: str,
+    namespace: str,
+    save_path: str,
+    key: str = "ratedata",
+    temporal_offset: float = 0,
+    norm: Optional[str] = None,
+    vmax: Optional[float] = None,
+    vmin: Optional[float] = None,
+    show_colorbar: bool = True,
+    xlabel: Optional[str] = "Relative time (ms)",
+    ylabel: Optional[str] = "Unit",
+    font_size: int = 14,
+    figsize: Optional[List[Any]] = None,
+    start_ms: Optional[float] = None,
+    end_ms: Optional[float] = None,
+    n_units: Optional[int] = None,
+    unit_indices: Optional[List[int]] = None,
+) -> Dict[str, Any]:
+    """
+    Load RateData from the workspace and save a heatmap to save_path.
+    Optional start_ms/end_ms restrict the time window; n_units or unit_indices restrict units.
+    """
+    ws = _get_workspace(workspace_id)
+    rd = _get_ratedata(ws, namespace, key)
+
+    if start_ms is not None or end_ms is not None:
+        t_start = float(start_ms) if start_ms is not None else float(rd.times[0])
+        t_end = float(end_ms) if end_ms is not None else float(rd.times[-1])
+        rd = rd.subtime(t_start, t_end, shift_time=True)
+
+    if unit_indices is not None:
+        rd = rd.subset(unit_indices)
+    elif n_units is not None:
+        n = min(int(n_units), rd.N)
+        rd = rd.subset(list(range(n)))
+
+    n_bins = rd.inst_Frate_data.shape[1]
+    times_ms = np.asarray(rd.times)
+    if len(times_ms) == n_bins:
+        xticklabels = [str(int(t)) for t in times_ms]
+    else:
+        xticklabels = None
+    kwargs = {
+        "temporal_offset": temporal_offset,
+        "save_path": save_path,
+        "show_fig": False,
+        "show_colorbar": show_colorbar,
+        "xlabel": xlabel,
+        "ylabel": ylabel,
+        "font_size": font_size,
+    }
+    if xticklabels is not None:
+        kwargs["xticklabels"] = xticklabels
+    if norm is not None:
+        kwargs["norm"] = norm
+    if vmax is not None:
+        kwargs["vmax"] = vmax
+    if vmin is not None:
+        kwargs["vmin"] = vmin
+    if figsize is not None:
+        kwargs["figsize"] = tuple(figsize)
+    rd.plot_heatmap(**kwargs)
+    shape = list(rd.inst_Frate_data.shape)
+    return {
+        "save_path": save_path,
+        "shape": shape,
+        "n_units": shape[0],
+        "n_time_bins": shape[1],
+    }
+
+
+async def plot_raster(
+    workspace_id: str,
+    namespace: str,
+    save_path: str,
+    start_ms: Optional[float] = None,
+    end_ms: Optional[float] = None,
+    n_units: Optional[int] = None,
+    unit_indices: Optional[List[int]] = None,
+    raster_bin_size_ms: float = 1.0,
+    rate_key: Optional[str] = None,
+    fr_rate_bin_ms: Optional[float] = None,
+    pop_rate_square_width: int = 5,
+    pop_rate_gauss_sigma: int = 5,
+    event_times_ms: Optional[List[float]] = None,
+    event_periods: Optional[List[List[float]]] = None,
+    figsize: Optional[List[Any]] = None,
+    font_size: int = 14,
+    time_axis_absolute: bool = True,
+    fr_vmin: Optional[float] = None,
+    fr_vmax: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Plot spike raster (and optional population rate and rate heatmap) from SpikeData
+    in the workspace and save to save_path.
+    """
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    if unit_indices is not None:
+        sd = sd.subset(unit_indices)
+    elif n_units is not None:
+        n = min(int(n_units), sd.N)
+        sd = sd.subset(list(range(n)))
+
+    fr_rates = None
+    if rate_key is not None:
+        rd = _get_ratedata(ws, namespace, rate_key)
+        if unit_indices is not None:
+            rd = rd.subset(unit_indices)
+        elif n_units is not None:
+            n = min(int(n_units), rd.N)
+            rd = rd.subset(list(range(n)))
+        fr_rates = rd.inst_Frate_data
+
+    time_range = None
+    if start_ms is not None or end_ms is not None:
+        t_start = float(start_ms) if start_ms is not None else 0.0
+        t_end = float(end_ms) if end_ms is not None else float(sd.length)
+        time_range = (t_start, t_end)
+
+    periods_tuples = None
+    if event_periods is not None:
+        periods_tuples = [tuple(p) for p in event_periods]
+
+    kwargs = {
+        "time_range": time_range,
+        "raster_bin_size_ms": raster_bin_size_ms,
+        "fr_rates": fr_rates,
+        "fr_rate_bin_ms": fr_rate_bin_ms,
+        "pop_rate_square_width": pop_rate_square_width,
+        "pop_rate_gauss_sigma": pop_rate_gauss_sigma,
+        "event_times_ms": event_times_ms,
+        "event_periods": periods_tuples,
+        "font_size": font_size,
+        "time_axis_absolute": time_axis_absolute,
+        "fr_vmin": fr_vmin,
+        "fr_vmax": fr_vmax,
+        "save_path": save_path,
+        "show_fig": False,
+    }
+    if figsize is not None:
+        kwargs["figsize"] = tuple(figsize)
+
+    sd.plot_raster(**kwargs)
+    return {
+        "save_path": save_path,
+        "n_units": sd.N,
+        "length_ms": sd.length,
+    }
+
+
+async def plot_distributions(
+    workspace_id: str,
+    namespace: str,
+    keys: List[str],
+    save_path: str,
+    x_tick_labs: Optional[List[str]] = None,
+    style: str = "violin",
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = "Av. rate (Hz)",
+    font_size: int = 14,
+    figsize: Optional[List[Any]] = None,
+    colors: Optional[List[str]] = None,
+    edge_color: str = "black",
+    yscale: str = "log",
+    ylim_top: Optional[float] = 100,
+    ylim_bottom: Optional[float] = None,
+    show_means: bool = False,
+    show_medians: bool = True,
+    alpha: float = 0.8,
+) -> Dict[str, Any]:
+    """
+    Load one 1D array per workspace key from (namespace, key), then plot their
+    distributions as violin or box plots and save to save_path.
+    """
+    from spikedata.plot_utils import plot_distributions as _plot_distributions
+
+    ws = _get_workspace(workspace_id)
+    data_list = []
+    for key in keys:
+        obj = ws.get(namespace, key)
+        if obj is None:
+            raise ValueError(f"No item at ({namespace!r}, {key!r}).")
+        arr = np.asarray(obj).ravel()
+        data_list.append(arr)
+
+    ylim = (ylim_bottom, ylim_top) if (ylim_bottom is not None or ylim_top is not None) else None
+    kwargs = {
+        "style": style,
+        "x_tick_labs": x_tick_labs if x_tick_labs is not None else keys,
+        "xlabel": xlabel,
+        "ylabel": ylabel,
+        "font_size": font_size,
+        "colors": colors,
+        "edge_color": edge_color,
+        "yscale": yscale,
+        "ylim": ylim,
+        "show_means": show_means,
+        "show_medians": show_medians,
+        "alpha": alpha,
+        "save_path": save_path,
+        "show_fig": False,
+    }
+    if figsize is not None:
+        kwargs["figsize"] = tuple(figsize)
+    _plot_distributions(data_list, **kwargs)
+    n_per = [len(d) for d in data_list]
+    return {
+        "save_path": save_path,
+        "keys": keys,
+        "n_per_group": n_per,
+    }

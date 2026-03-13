@@ -4,9 +4,16 @@ Main MCP server implementation for spike data analysis.
 Registers all tools and handles stdio transport.
 """
 
+import sys
+from pathlib import Path
+
+# Project root for imports
+_root = Path(__file__).resolve().parent.parent
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
+
 import asyncio
 import json
-import sys
 from typing import Any
 
 from mcp.server import Server
@@ -817,6 +824,26 @@ async def _list_tools() -> list[types.Tool]:
     # -----------------------------------------------------------------------
     tools.extend(
         [
+            types.Tool(
+                name="compute_per_unit_rates",
+                description=(
+                    "Compute mean firing rate per unit from SpikeData and store as a 1D array. "
+                    "Use out_key with plot_distributions(keys=[out_key]) to plot rate distributions."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_key": {
+                            "type": "string",
+                            "description": "Workspace key to store the 1D array (default: per_unit_rates)",
+                            "default": "per_unit_rates",
+                        },
+                        "unit": {"type": "string", "enum": ["Hz", "kHz"], "default": "Hz"},
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
             types.Tool(
                 name="get_data_info",
                 description=(
@@ -1956,6 +1983,171 @@ async def _list_tools() -> list[types.Tool]:
         ]
     )
 
+    # -----------------------------------------------------------------------
+    # Plot tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="plot_rate_heatmap",
+                description=(
+                    "Plot a heatmap of RateData (units x time) and save to a file. "
+                    "Loads RateData from (namespace, key). Optional start_ms/end_ms restrict the time window; "
+                    "n_units or unit_indices restrict which neurons are plotted."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "key": {
+                            "type": "string",
+                            "description": "Workspace key of the RateData (e.g. from compute_rates)",
+                            "default": "ratedata",
+                        },
+                        "save_path": {
+                            "type": "string",
+                            "description": "Path to save the figure (e.g. .png, .pdf)",
+                        },
+                        "start_ms": {
+                            "type": "number",
+                            "description": "Start time (ms) for the plot window; omit for full range",
+                        },
+                        "end_ms": {
+                            "type": "number",
+                            "description": "End time (ms) for the plot window; omit for full range",
+                        },
+                        "n_units": {
+                            "type": "integer",
+                            "description": "Plot only the first n units (neurons); omit for all units",
+                        },
+                        "unit_indices": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of unit indices to plot; omit for all units (overrides n_units if both set)",
+                        },
+                        "temporal_offset": {"type": "number", "default": 0},
+                        "norm": {
+                            "type": "string",
+                            "enum": ["row", "column"],
+                            "description": "Normalize per row or column; omit for no normalization",
+                        },
+                        "vmax": {"type": "number"},
+                        "vmin": {"type": "number"},
+                        "show_colorbar": {"type": "boolean", "default": True},
+                        "xlabel": {"type": "string", "default": "Relative time (ms)"},
+                        "ylabel": {"type": "string", "default": "Unit"},
+                        "font_size": {"type": "integer", "default": 14},
+                        "figsize": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Figure size [width, height] in inches",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "save_path"],
+                },
+            ),
+            types.Tool(
+                name="plot_raster",
+                description=(
+                    "Plot spike raster (and optional population rate and per-unit rate heatmap) "
+                    "from SpikeData in the workspace and save to a file."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "save_path": {"type": "string", "description": "Path to save the figure (e.g. .png)"},
+                        "start_ms": {"type": "number", "description": "Start time (ms) for the plot window"},
+                        "end_ms": {"type": "number", "description": "End time (ms) for the plot window"},
+                        "n_units": {"type": "integer", "description": "Plot only the first n units"},
+                        "unit_indices": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of unit indices to plot",
+                        },
+                        "raster_bin_size_ms": {"type": "number", "default": 1.0},
+                        "rate_key": {
+                            "type": "string",
+                            "description": "Workspace key of RateData for bottom heatmap (e.g. from compute_resampled_isi)",
+                        },
+                        "fr_rate_bin_ms": {
+                            "type": "number",
+                            "description": "If rate_key not set, bin size in ms to compute binned rate heatmap",
+                        },
+                        "pop_rate_square_width": {"type": "integer", "default": 5},
+                        "pop_rate_gauss_sigma": {"type": "integer", "default": 5},
+                        "event_times_ms": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Event times in ms to mark on population rate",
+                        },
+                        "event_periods": {
+                            "type": "array",
+                            "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+                            "description": "List of [start_ms, end_ms] periods to shade",
+                        },
+                        "figsize": {"type": "array", "items": {"type": "number"}},
+                        "font_size": {"type": "integer", "default": 14},
+                        "time_axis_absolute": {"type": "boolean", "default": True},
+                        "fr_vmin": {"type": "number"},
+                        "fr_vmax": {"type": "number"},
+                    },
+                    "required": ["workspace_id", "namespace", "save_path"],
+                },
+            ),
+            types.Tool(
+                name="plot_distributions",
+                description=(
+                    "Plot distributions (violin or box) from a list of workspace keys. "
+                    "Each key must hold a 1D array (e.g. per-unit average rate per condition). "
+                    "Loads all arrays from (namespace, key), then plots and saves to save_path."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "keys": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Workspace keys holding 1D arrays (one per distribution)",
+                        },
+                        "save_path": {"type": "string", "description": "Path to save the figure"},
+                        "x_tick_labs": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Tick labels per group (default: keys)",
+                        },
+                        "style": {
+                            "type": "string",
+                            "enum": ["violin", "box"],
+                            "default": "violin",
+                        },
+                        "xlabel": {"type": "string"},
+                        "ylabel": {"type": "string", "default": "Av. rate (Hz)"},
+                        "font_size": {"type": "integer", "default": 14},
+                        "figsize": {"type": "array", "items": {"type": "number"}},
+                        "colors": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Matplotlib color per group",
+                        },
+                        "edge_color": {"type": "string", "default": "black"},
+                        "yscale": {"type": "string", "enum": ["log", "linear"], "default": "log"},
+                        "ylim_top": {"type": "number", "description": "Y-axis max (e.g. 100)"},
+                        "ylim_bottom": {"type": "number"},
+                        "show_means": {"type": "boolean", "default": False},
+                        "show_medians": {"type": "boolean", "default": True},
+                        "alpha": {"type": "number", "default": 0.8},
+                    },
+                    "required": ["workspace_id", "namespace", "keys", "save_path"],
+                },
+            ),
+        ]
+    )
+
     return tools
 
 
@@ -2012,6 +2204,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.get_frac_active(**arguments)
 
         # Metadata query tools
+        elif name == "compute_per_unit_rates":
+            result = await analysis.compute_per_unit_rates(**arguments)
         elif name == "get_data_info":
             result = await analysis.get_data_info(**arguments)
         elif name == "list_neurons":
@@ -2114,6 +2308,14 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await exporters.export_to_kilosort(**arguments)
         elif name == "export_to_pickle":
             result = await exporters.export_to_pickle(**arguments)
+
+        # Plot tools
+        elif name == "plot_rate_heatmap":
+            result = await analysis.plot_rate_heatmap(**arguments)
+        elif name == "plot_raster":
+            result = await analysis.plot_raster(**arguments)
+        elif name == "plot_distributions":
+            result = await analysis.plot_distributions(**arguments)
 
         else:
             raise ValueError(f"Unknown tool: {name}")
