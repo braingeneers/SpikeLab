@@ -18,6 +18,14 @@ from SpikeLab.spikedata.rateslicestack import RateSliceStack
 
 class TestPairwise(unittest.TestCase):
     def test_pairwise_comp_matrix_init(self):
+        """
+        Tests PairwiseCompMatrix initialization and validation.
+
+        Tests:
+        (Test Case 1) Tests normal initialization with valid matrix and labels.
+        (Test Case 2) Tests that non-square matrix raises ValueError.
+        (Test Case 3) Tests that label count mismatch raises ValueError.
+        """
         # Normal init
         matrix = np.random.rand(5, 5)
         pcm = PairwiseCompMatrix(matrix=matrix, labels=["a", "b", "c", "d", "e"])
@@ -33,6 +41,14 @@ class TestPairwise(unittest.TestCase):
             PairwiseCompMatrix(matrix=np.random.rand(5, 5), labels=["a", "b"])
 
     def test_pairwise_comp_matrix_to_networkx(self):
+        """
+        Tests conversion of PairwiseCompMatrix to NetworkX graph.
+
+        Tests:
+        (Test Case 1) Tests basic conversion without threshold.
+        (Test Case 2) Tests conversion with threshold filtering edges.
+        (Test Case 3) Tests that NaN values are excluded from graph edges.
+        """
         matrix = np.array([[1.0, 0.5, 0.1], [0.5, 1.0, 0.8], [0.1, 0.8, 1.0]])
         pcm = PairwiseCompMatrix(matrix=matrix, labels=["A", "B", "C"])
 
@@ -55,7 +71,14 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(G_nan.number_of_edges(), 2)  # (0,2) and (1,2)
 
     def test_pairwise_comp_matrix_to_networkx_invert_weights(self):
-        """Test that invert_weights correctly transforms edge weights to 1-value."""
+        """
+        Tests that invert_weights correctly transforms edge weights to 1-value.
+
+        Tests:
+        (Test Case 1) Tests that weights remain unchanged without invert_weights.
+        (Test Case 2) Tests that weights are inverted (1 - value) with invert_weights=True.
+        (Test Case 3) Tests that shortest path uses inverted weights correctly.
+        """
         matrix = np.array([[1.0, 0.9, 0.1], [0.9, 1.0, 0.5], [0.1, 0.5, 1.0]])
         pcm = PairwiseCompMatrix(matrix=matrix)
 
@@ -78,7 +101,14 @@ class TestPairwise(unittest.TestCase):
         self.assertAlmostEqual(path_length, 0.1)
 
     def test_pairwise_comp_matrix_threshold(self):
-        """Test the threshold method for creating binary matrices."""
+        """
+        Tests the threshold method for creating binary matrices.
+
+        Tests:
+        (Test Case 1) Tests thresholding creates correct binary matrix.
+        (Test Case 2) Tests that metadata includes threshold value and binary flag.
+        (Test Case 3) Tests thresholding with negative values uses absolute value.
+        """
         matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])
         pcm = PairwiseCompMatrix(matrix=matrix)
 
@@ -96,6 +126,15 @@ class TestPairwise(unittest.TestCase):
         np.testing.assert_array_equal(binary_neg.matrix, expected)
 
     def test_pairwise_comp_matrix_stack(self):
+        """
+        Tests PairwiseCompMatrixStack initialization and mean calculation.
+
+        Tests:
+        (Test Case 1) Tests stack initialization with correct shape and time metadata.
+        (Test Case 2) Tests mean calculation across slices.
+        (Test Case 3) Tests mean with ignore_nan=True excludes NaN values.
+        (Test Case 4) Tests mean with ignore_nan=False propagates NaN values.
+        """
         # n x n x S format (5x5 matrices, 10 slices)
         stack_data = np.random.rand(5, 5, 10)
         times = [(i * 100, (i + 1) * 100) for i in range(10)]
@@ -121,13 +160,17 @@ class TestPairwise(unittest.TestCase):
 
     def test_pairwise_comp_matrix_stack_slicing_and_iter(self):
         """
-        Test slicing and iteration on PairwiseCompMatrixStack.
+        Tests slicing and iteration on PairwiseCompMatrixStack.
 
-        Slicing is fully supported:
+        Tests:
+        (Test Case 1) Tests slice with range returns new PairwiseCompMatrixStack.
+        (Test Case 2) Tests slice with step returns correct subset.
+        (Test Case 3) Tests iteration yields PairwiseCompMatrix objects.
+
+        Notes:
         - stack[i] returns a single PairwiseCompMatrix
         - stack[start:end] returns a new PairwiseCompMatrixStack with selected slices
         - stack[::step] returns every nth slice as a new stack
-        - Iteration: for matrix in stack: yields each PairwiseCompMatrix
         """
         # n x n x S format (5x5 matrices, 10 slices)
         stack_data = np.random.rand(5, 5, 10)
@@ -151,7 +194,14 @@ class TestPairwise(unittest.TestCase):
         self.assertTrue(np.array_equal(matrices[0].matrix, stack_data[:, :, 0]))
 
     def test_pairwise_comp_matrix_stack_subslice(self):
-        """Test the subslice method for selecting specific non-contiguous slices."""
+        """
+        Tests the subslice method for selecting specific non-contiguous slices.
+
+        Tests:
+        (Test Case 1) Tests subslice returns correct number of slices.
+        (Test Case 2) Tests subslice data matches original at selected indices.
+        (Test Case 3) Tests times are correctly subsliced.
+        """
         # n x n x S format (5x5 matrices, 10 slices)
         stack_data = np.random.rand(5, 5, 10)
         times = [(i * 100, (i + 1) * 100) for i in range(10)]
@@ -169,7 +219,13 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(sub.times, [(0, 100), (200, 300), (500, 600), (900, 1000)])
 
     def test_pairwise_comp_matrix_stack_threshold(self):
-        """Test the threshold method for PairwiseCompMatrixStack."""
+        """
+        Tests the threshold method for PairwiseCompMatrixStack.
+
+        Tests:
+        (Test Case 1) Tests threshold creates correct binary stack.
+        (Test Case 2) Tests metadata includes threshold value.
+        """
         # n x n x S format
         stack_data = np.array(
             [
@@ -194,6 +250,13 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(binary_stack.metadata["threshold"], 0.4)
 
     def test_integration_spikedata(self):
+        """
+        Tests integration of PairwiseCompMatrix with SpikeData.
+
+        Tests:
+        (Test Case 1) Tests spike_time_tilings returns PairwiseCompMatrix.
+        (Test Case 2) Tests correct shape and metadata from STTC calculation.
+        """
         # Create dummy SpikeData
         train = [np.array([10, 20, 30]), np.array([15, 25, 35])]
         sd = SpikeData(train, length=100)
@@ -204,6 +267,14 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(sttc_pcm.metadata["delt"], 5.0)
 
     def test_integration_rateslicestack(self):
+        """
+        Tests integration of PairwiseCompMatrixStack with RateSliceStack.
+
+        Tests:
+        (Test Case 1) Tests unit_to_unit_correlation returns correct shape (U x U x S).
+        (Test Case 2) Tests get_slice_to_slice_unit_corr_from_stack returns correct shape (S x S x U).
+        (Test Case 3) Tests get_slice_to_slice_time_corr_from_stack returns correct shape (S x S x T).
+        """
         # Create dummy RateSliceStack
         event_matrix = np.random.rand(2, 50, 5)  # U x T x S
         rss = RateSliceStack(None, event_matrix=event_matrix)
@@ -236,6 +307,15 @@ class TestPairwise(unittest.TestCase):
         )  # n x n x S (where n=S=5, third dim=T=50)
 
     def test_rigorous_edge_cases(self):
+        """
+        Tests edge cases for PairwiseCompMatrix and PairwiseCompMatrixStack.
+
+        Tests:
+        (Test Case 1) Tests empty stack has length 0.
+        (Test Case 2) Tests mean on empty stack returns NaN matrix.
+        (Test Case 3) Tests single unit matrix converts to graph with 1 node and 0 edges.
+        (Test Case 4) Tests infinite values are preserved in graph edges.
+        """
         # Empty stack
         empty_stack_data = np.zeros((5, 5, 0))  # n x n x S with S=0
         empty_stack = PairwiseCompMatrixStack(stack=empty_stack_data)
@@ -260,6 +340,13 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(G_inf.edges[0, 1]["weight"], float("inf"))
 
     def test_pca_compatibility(self):
+        """
+        Tests PCA dimensionality reduction on lower triangle features.
+
+        Tests:
+        (Test Case 1) Tests extract_lower_triangle_features returns correct shape.
+        (Test Case 2) Tests dim_red_on_lower_diagonal_corr_matrix with PCA returns correct shape.
+        """
         # Create a stack of 10 matrices (5x5 units) - now n x n x S
         stack_data = np.random.rand(5, 5, 10)
         # Make them symmetric
@@ -279,7 +366,12 @@ class TestPairwise(unittest.TestCase):
         self.assertEqual(pca_result.shape, (10, 2))
 
     def test_dim_red_pca_with_kwargs_raises(self):
-        """Test that PCA method raises TypeError when given extra kwargs."""
+        """
+        Tests that PCA method raises TypeError when given extra kwargs.
+
+        Tests:
+        (Test Case 1) Tests that passing UMAP-specific kwargs to PCA raises TypeError.
+        """
         stack_data = np.random.rand(5, 5, 10)
         for i in range(10):
             stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
@@ -292,7 +384,12 @@ class TestPairwise(unittest.TestCase):
         self.assertIn("only supported for UMAP", str(ctx.exception))
 
     def test_dim_red_unknown_method_raises(self):
-        """Test that unknown method raises ValueError."""
+        """
+        Tests that unknown method raises ValueError.
+
+        Tests:
+        (Test Case 1) Tests that passing unknown method name raises ValueError with method name in message.
+        """
         stack_data = np.random.rand(5, 5, 10)
         for i in range(10):
             stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
@@ -304,7 +401,15 @@ class TestPairwise(unittest.TestCase):
         self.assertIn("TSNE", str(ctx.exception))
 
     def test_dim_red_umap(self):
-        """Test UMAP dimensionality reduction, skipped if umap-learn not installed."""
+        """
+        Tests UMAP dimensionality reduction on lower triangle features.
+
+        Tests:
+        (Test Case 1) Tests dim_red_on_lower_diagonal_corr_matrix with UMAP returns correct shape.
+
+        Notes:
+        - Skipped if umap-learn is not installed.
+        """
         try:
             import umap  # noqa: F401
         except ImportError:
