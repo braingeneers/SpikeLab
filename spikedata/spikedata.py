@@ -1771,3 +1771,126 @@ class SpikeData:
             )
 
         return tburst, edges, peak_amp
+
+    def fit_gplvm(
+        self,
+        bin_size_ms=50.0,
+        movement_variance=1.0,
+        tuning_lengthscale=10.0,
+        n_latent_bin=100,
+        n_iter=20,
+        n_time_per_chunk=10000,
+        random_seed=3,
+        model_class=None,
+        **model_kwargs,
+    ):
+        """
+        Fit a Gaussian Process Latent Variable Model to binned spike counts.
+
+        Bins the spike data into a spike count matrix using ``raster(bin_size_ms)``,
+        then fits a GPLVM model via expectation-maximisation, decodes latent states,
+        and returns the results together with a unit reordering based on tuning peaks.
+
+        Parameters:
+            bin_size_ms (float): Bin width in milliseconds for spike count matrix.
+            movement_variance (float): Movement variance hyperparameter for the
+                GPLVM transition kernel.
+            tuning_lengthscale (float): Lengthscale hyperparameter for the tuning
+                curve kernel.
+            n_latent_bin (int): Number of latent bins (discretisation of the latent
+                space).
+            n_iter (int): Number of EM iterations.
+            n_time_per_chunk (int): Number of time bins per chunk for chunked
+                inference (controls memory usage).
+            random_seed (int): Random seed for JAX PRNG key.
+            model_class: Model class to use. Defaults to
+                ``PoissonGPLVMJump1D`` from ``poor_man_gplvm``.
+            **model_kwargs: Additional keyword arguments passed to the model
+                constructor (e.g. ``p_move_to_jump``, ``basis_type``).
+
+        Returns:
+            result (dict): Dictionary with keys:
+                - ``"decode_res"`` — decoded latent state dictionary from
+                  ``model.decode_latent()``, containing ``posterior_latent_marg``,
+                  ``posterior_dynamics_marg``, etc.
+                - ``"log_marginal_l"`` — array of log marginal likelihoods per EM
+                  iteration.
+                - ``"reorder_indices"`` — unit reordering indices based on tuning
+                  curve peak positions.
+                - ``"model"`` — the fitted model object.
+                - ``"binned_spike_counts"`` — the ``(T, N)`` binned spike count
+                  matrix used for fitting.
+
+        Notes:
+            - Requires ``poor_man_gplvm`` and ``jax``. Install with
+              ``pip install poor-man-gplvm jax jaxlib``.
+            - The binned spike count matrix has shape ``(T, N)`` where T is the
+              number of time bins and N is the number of units.
+        """
+        try:
+            import poor_man_gplvm as pmg
+            import poor_man_gplvm.utils as pmg_utils
+            import jax.random as jr
+        except ImportError as e:
+            raise ImportError(
+                "fit_gplvm requires 'poor_man_gplvm' and 'jax'. "
+                "Install with: pip install poor-man-gplvm jax jaxlib jaxopt optax"
+            ) from e
+
+        if model_class is None:
+            model_class = pmg.PoissonGPLVMJump1D
+
+        # Build (T, N) binned spike count matrix
+        binned_spk_mat = self.raster(bin_size_ms).T
+
+        # Initialise model
+        model = model_class(
+            n_neuron=binned_spk_mat.shape[1],
+            n_latent_bin=n_latent_bin,
+            movement_variance=movement_variance,
+            tuning_lengthscale=tuning_lengthscale,
+            **model_kwargs,
+        )
+
+        # Fit via EM
+        em_res = model.fit_em(
+            binned_spk_mat,
+            key=jr.PRNGKey(random_seed),
+            n_iter=n_iter,
+            n_time_per_chunk=n_time_per_chunk,
+        )
+
+        log_marginal_l = em_res["log_marginal_l"]
+
+        # Decode latent states
+        decode_res = model.decode_latent(binned_spk_mat)
+
+        # Get unit reordering by tuning curve peaks
+        sort_res = pmg_utils.post_fit_sort_neuron(em_res)
+        reorder_indices = sort_res["argsort"]
+
+        return {
+            "decode_res": decode_res,
+            "log_marginal_l": log_marginal_l,
+            "reorder_indices": reorder_indices,
+            "model": model,
+            "binned_spike_counts": binned_spk_mat,
+        }
+
+    def plot(self, **kwargs):
+        """
+        Assemble a multi-panel column figure from this SpikeData object.
+
+        Thin wrapper around ``plot_utils.plot_recording(self, **kwargs)``.
+        See ``plot_recording`` for the full list of parameters.
+
+        Parameters:
+            **kwargs: All keyword arguments are forwarded to
+                ``plot_recording``.
+
+        Returns:
+            fig (matplotlib.Figure): The assembled figure.
+        """
+        from .plot_utils import plot_recording
+
+        return plot_recording(self, **kwargs)

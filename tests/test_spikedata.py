@@ -15,6 +15,17 @@ except ImportError:
     SpikeTrain = None
     quantities = None
 
+try:
+    import poor_man_gplvm
+
+    _has_pmgplvm = True
+except ImportError:
+    _has_pmgplvm = False
+
+skip_no_pmgplvm = pytest.mark.skipif(
+    not _has_pmgplvm, reason="poor_man_gplvm or jax not installed"
+)
+
 # Ensure project root is on sys.path, then import package normally so relative imports work.
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -2504,3 +2515,161 @@ class TestSpikeDataEdgeCases:
         result = sd.resampled_isi(times, sigma_ms=0.0)
         assert result.shape == (1, 50)
         assert np.all(np.isfinite(result))
+
+
+# ---------------------------------------------------------------------------
+# Tests for fit_gplvm
+# ---------------------------------------------------------------------------
+
+
+class TestFitGplvm:
+    """Tests for SpikeData.fit_gplvm."""
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_basic(self):
+        """
+        Fit GPLVM on small synthetic data and verify return dict structure.
+
+        Tests:
+            (Test Case 1) Verify all expected keys are present in the result.
+            (Test Case 2) Verify binned_spike_counts has shape (T, N).
+            (Test Case 3) Verify reorder_indices has length N.
+            (Test Case 4) Verify model object is returned.
+        """
+        # 5 units, 500 ms recording, sparse spikes
+        trains = [
+            [10.0, 50.0, 120.0, 200.0, 350.0],
+            [20.0, 80.0, 180.0, 300.0, 450.0],
+            [30.0, 100.0, 150.0, 250.0, 400.0],
+            [15.0, 60.0, 130.0, 210.0, 380.0],
+            [40.0, 90.0, 170.0, 280.0, 420.0],
+        ]
+        sd = SpikeData(trains, N=5, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=50.0,
+            n_latent_bin=10,
+            n_iter=2,
+            random_seed=42,
+        )
+
+        # Check all expected keys
+        expected_keys = {
+            "decode_res",
+            "log_marginal_l",
+            "reorder_indices",
+            "model",
+            "binned_spike_counts",
+        }
+        assert set(result.keys()) == expected_keys
+
+        # binned_spike_counts shape: raster uses ceil, so 500ms / 50ms → 11 bins
+        binned = result["binned_spike_counts"]
+        assert binned.shape[1] == 5  # N units
+        assert binned.shape[0] == sd.raster(50.0).shape[1]  # T bins match raster
+
+        # reorder_indices should have one entry per unit
+        assert len(result["reorder_indices"]) == 5
+
+        # model should be a PoissonGPLVMJump1D instance
+        from poor_man_gplvm.core import PoissonGPLVMJump1D
+
+        assert isinstance(result["model"], PoissonGPLVMJump1D)
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_custom_bin_size(self):
+        """
+        Verify that bin_size_ms controls the time dimension of binned counts.
+
+        Tests:
+            (Test Case 1) bin_size_ms=100 on 500ms recording → T=5 bins.
+        """
+        trains = [
+            [10.0, 150.0, 300.0],
+            [50.0, 200.0, 400.0],
+            [80.0, 250.0, 450.0],
+        ]
+        sd = SpikeData(trains, N=3, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=100.0,
+            n_latent_bin=10,
+            n_iter=2,
+        )
+
+        binned = result["binned_spike_counts"]
+        assert binned.shape[1] == 3  # N units
+        assert binned.shape[0] == sd.raster(100.0).shape[1]  # T bins match raster
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_custom_model_class(self):
+        """
+        Verify that model_class parameter overrides the default model.
+
+        Tests:
+            (Test Case 1) Pass GaussianGPLVMJump1D and verify the returned
+                model is an instance of that class.
+        """
+        from poor_man_gplvm.core import GaussianGPLVMJump1D
+
+        trains = [
+            [10.0, 50.0, 120.0, 200.0, 350.0],
+            [20.0, 80.0, 180.0, 300.0, 450.0],
+            [30.0, 100.0, 150.0, 250.0, 400.0],
+        ]
+        sd = SpikeData(trains, N=3, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=50.0,
+            n_latent_bin=10,
+            n_iter=2,
+            model_class=GaussianGPLVMJump1D,
+        )
+
+        assert isinstance(result["model"], GaussianGPLVMJump1D)
+
+    def test_fit_gplvm_import_error(self):
+        """
+        Verify clean ImportError when poor_man_gplvm is not available.
+
+        Tests:
+            (Test Case 1) Mock the import to fail and check the error message
+                mentions the package name and install instructions.
+        """
+        sd = SpikeData([[10.0, 50.0]], N=1, length=100.0)
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if "poor_man_gplvm" in name or name == "jax.random":
+                raise ImportError(f"No module named '{name}'")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with pytest.raises(ImportError, match="poor_man_gplvm"):
+                sd.fit_gplvm()
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_log_marginal_likelihood_length(self):
+        """
+        Verify log_marginal_l has one entry per EM iteration.
+
+        Tests:
+            (Test Case 1) n_iter=3 produces log_marginal_l with length 3.
+        """
+        trains = [
+            [10.0, 50.0, 120.0, 200.0, 350.0],
+            [20.0, 80.0, 180.0, 300.0, 450.0],
+            [30.0, 100.0, 150.0, 250.0, 400.0],
+        ]
+        sd = SpikeData(trains, N=3, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=50.0,
+            n_latent_bin=10,
+            n_iter=3,
+        )
+
+        assert len(result["log_marginal_l"]) == 3

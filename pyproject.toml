@@ -35,8 +35,20 @@ docs = [
 s3 = [
   "boto3>=1.28.0",
 ]
+gplvm = [
+  "poor-man-gplvm>=0.1.0",
+  "jax>=0.4.26",
+  "jaxlib>=0.4.26",
+  "jaxopt>=0.8.2",
+  "optax>=0.2.2",
+]
 all = [
   "boto3>=1.28.0",
+  "poor-man-gplvm>=0.1.0",
+  "jax>=0.4.26",
+  "jaxlib>=0.4.26",
+  "jaxopt>=0.8.2",
+  "optax>=0.2.2",
 ]
 
 [tool.black]
