@@ -231,7 +231,7 @@ def plot_raster(
     """
     Plot spike raster with optional population rate and per-unit rate heatmap.
 
-    Original raster TODOs addressed (from old_plots/original_plot_raster.py):
+    Original raster TODOs addressed (implemented here):
     - MAKE THIS A SPIKEDATA METHOD: see SpikeData.plot_raster() in spikedata.py (script here in plot_utils).
     - MAKE FONT SIZE SPECIFIC TO FIGURE: font_size on ax only below, no rcParams.
     - ALLOW fr_rates COMPUTED FROM SPIKEDATA: SpikeData.plot_raster() supports fr_rate_bin_ms.
