@@ -728,61 +728,65 @@ class TestRateSliceStackEdgeCases:
         Tests get_slice_to_slice_unit_corr_from_stack() with S=1.
 
         Tests:
-            (Test Case 1) No exception is raised.
+            (Test Case 1) Emits RuntimeWarning about fewer than 2 slices.
             (Test Case 2) Returns a PairwiseCompMatrixStack with shape (1, 1, U).
-
-        Notes:
-            With only one slice the lower triangle is empty, so nanmean
-            produces NaN for average scores. This is acceptable as long as the
-            method does not crash.
+            (Test Case 3) Average scores are NaN (no pairwise comparisons possible).
         """
         rng = np.random.default_rng(0)
         mat = rng.random((3, 20, 1)) + 0.5
         rss = RateSliceStack(event_matrix=mat)
 
-        pcm_stack, av_scores = rss.get_slice_to_slice_unit_corr_from_stack(max_lag=2)
+        with pytest.warns(RuntimeWarning, match="fewer than 2 slices"):
+            pcm_stack, av_scores = rss.get_slice_to_slice_unit_corr_from_stack(
+                max_lag=2
+            )
 
         assert isinstance(pcm_stack, PairwiseCompMatrixStack)
         assert pcm_stack.stack.shape == (1, 1, 3)
         assert av_scores.shape == (3,)
+        assert np.all(np.isnan(av_scores))
 
     def test_slice_to_slice_time_corr_single_slice(self):
         """
         Tests get_slice_to_slice_time_corr_from_stack() with S=1.
 
         Tests:
-            (Test Case 1) No exception is raised.
+            (Test Case 1) Emits RuntimeWarning about fewer than 2 slices.
             (Test Case 2) Returns a PairwiseCompMatrixStack with shape (1, 1, T).
-
-        Notes:
-            With only one slice the lower triangle is empty, so nanmean
-            produces NaN for average scores. This is acceptable as long as the
-            method does not crash.
+            (Test Case 3) Average scores are NaN (no pairwise comparisons possible).
         """
         rng = np.random.default_rng(0)
         mat = rng.random((3, 20, 1))
         rss = RateSliceStack(event_matrix=mat)
 
-        pcm_stack, av_scores = rss.get_slice_to_slice_time_corr_from_stack(max_lag=0)
+        with pytest.warns(RuntimeWarning, match="fewer than 2 slices"):
+            pcm_stack, av_scores = rss.get_slice_to_slice_time_corr_from_stack(
+                max_lag=0
+            )
 
         assert isinstance(pcm_stack, PairwiseCompMatrixStack)
         assert pcm_stack.stack.shape == (1, 1, 20)
         assert av_scores.shape == (20,)
+        assert np.all(np.isnan(av_scores))
 
     def test_unit_to_unit_correlation_single_unit(self):
         """
         Tests unit_to_unit_correlation() with U=1.
 
         Tests:
-            (Test Case 1) No exception is raised.
+            (Test Case 1) Emits RuntimeWarning about fewer than 2 units.
             (Test Case 2) Correlation stack has shape (1, 1, S).
             (Test Case 3) Lag stack has shape (1, 1, S).
+            (Test Case 4) Average values are NaN (no pairwise comparisons possible).
         """
         rng = np.random.default_rng(0)
         mat = rng.random((1, 20, 5))
         rss = RateSliceStack(event_matrix=mat)
 
-        corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation(max_lag=2)
+        with pytest.warns(RuntimeWarning, match="fewer than 2 units"):
+            corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation(
+                max_lag=2
+            )
 
         assert isinstance(corr_stack, PairwiseCompMatrixStack)
         assert isinstance(lag_stack, PairwiseCompMatrixStack)
@@ -790,6 +794,8 @@ class TestRateSliceStackEdgeCases:
         assert lag_stack.stack.shape == (1, 1, 5)
         assert av_corr.shape == (5,)
         assert av_lag.shape == (5,)
+        assert np.all(np.isnan(av_corr))
+        assert np.all(np.isnan(av_lag))
 
     def test_order_units_single_unit(self):
         """

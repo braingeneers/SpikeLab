@@ -875,53 +875,36 @@ class TestResampledIsi:
 
     def test_resampled_isi_identical_spike_times(self):
         """
-        All spike times identical produces zero ISI, leading to inf rates.
+        Identical spike times are deduplicated with a RuntimeWarning.
 
         Tests:
-            (Test Case 1) Identical spike times do not crash. Result may
-                contain inf values (potential bug: division by zero ISI),
-                which is documented here.
-
-        Notes:
-            _resampled_isi computes 1/ISI; when ISI=0 this yields inf. The
-            function returns without exception but the output contains inf,
-            which downstream consumers should be aware of.
+            (Test Case 1) Three identical spike times are reduced to one unique
+                value. A RuntimeWarning about duplicate removal is emitted.
+                With only 1 unique spike, the function returns zeros.
         """
         spikes = np.array([5.0, 5.0, 5.0])
         times = np.arange(0, 20, 1.0)
-        # Should not raise
-        result = _resampled_isi(spikes, times, sigma_ms=2.0)
+        with pytest.warns(RuntimeWarning, match="duplicate spike time"):
+            result = _resampled_isi(spikes, times, sigma_ms=2.0)
         assert result.shape == times.shape
-        # Document: result contains inf due to zero ISI (potential bug)
-        if np.any(np.isinf(result)):
-            pass  # Known: division by zero ISI produces inf
+        # Only 1 unique spike -> returns zeros (single-spike path)
+        np.testing.assert_array_equal(result, np.zeros_like(times))
 
     def test_resampled_isi_identical_time_values(self):
         """
-        Identical time values produce dt_ms=0, which causes division by zero
-        when computing bin indices.
+        Identical time values are deduplicated, leaving fewer than 2 unique
+        values, which raises ValueError.
 
         Tests:
-            (Test Case 1) Identical time values (dt_ms=0). Verify the
-                function either raises a clean error or produces inf/nan
-                (documented as potential bug).
-
-        Notes:
-            With dt_ms=0 the function divides by zero when computing n_bins
-            and bin indices. This may raise ZeroDivisionError, ValueError, or
-            produce inf/nan depending on numpy behavior.
+            (Test Case 1) All-identical time grid values are deduplicated with
+                a RuntimeWarning. With only 1 unique time value remaining,
+                a ValueError is raised.
         """
         spikes = np.array([5.0, 10.0])
         times = np.array([1.0, 1.0, 1.0])
-        # dt_ms = times[1] - times[0] = 0.0 -> division by zero
-        try:
-            result = _resampled_isi(spikes, times, sigma_ms=2.0)
-            # If it returns, document that output may contain inf/nan
-            has_bad = np.any(np.isinf(result)) or np.any(np.isnan(result))
-            if has_bad:
-                pass  # Known: dt_ms=0 produces inf/nan (potential bug)
-        except (ZeroDivisionError, ValueError, FloatingPointError):
-            pass  # Clean error on dt_ms=0 is acceptable
+        with pytest.warns(RuntimeWarning, match="duplicate time grid value"):
+            with pytest.raises(ValueError, match="less than 2 unique values"):
+                _resampled_isi(spikes, times, sigma_ms=2.0)
 
 
 class TestRandomize:
@@ -1188,6 +1171,8 @@ class TestTimesFromMsEdgeCases:
                 int64 max (~9.2e18). Verify result does not match the
                 expected float value (silent overflow).
         """
+        import warnings
+
         # Case a: large but within int64 range
         t_ok = np.array([1e12])
         result_ok = times_from_ms(t_ok, "samples", fs_Hz=20000.0)
@@ -1195,8 +1180,11 @@ class TestTimesFromMsEdgeCases:
         assert result_ok[0] == expected_ok
 
         # Case b: overflow territory (2e19 > int64 max ~9.2e18)
+        # numpy may emit a RuntimeWarning on int64 overflow
         t_overflow = np.array([1e18])
-        result_overflow = times_from_ms(t_overflow, "samples", fs_Hz=20000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result_overflow = times_from_ms(t_overflow, "samples", fs_Hz=20000.0)
         expected_float = 1e18 * 20.0
         # The int64 cast silently overflows; the result will not match
         assert result_overflow[0] != expected_float
