@@ -205,7 +205,8 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikedata.utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">signal</span>
@@ -351,6 +352,29 @@
 
     <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
+    <span class="c1"># Remove duplicate spike times (BUG-002)</span>
+    <span class="n">unique_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_spikes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">unique_spikes</span><span class="p">)</span><span class="si">}</span><span class="s2"> duplicate spike time(s) removed &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;before ISI computation.&quot;</span><span class="p">,</span>
+            <span class="ne">RuntimeWarning</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">spikes</span> <span class="o">=</span> <span class="n">unique_spikes</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
+    <span class="c1"># Remove duplicate time grid values (BUG-003)</span>
+    <span class="n">unique_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_times</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">unique_times</span><span class="p">)</span><span class="si">}</span><span class="s2"> duplicate time grid value(s) removed.&quot;</span><span class="p">,</span>
+            <span class="ne">RuntimeWarning</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">unique_times</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;times has less than 2 unique values. Input more times&quot;</span><span class="p">)</span>
 
     <span class="c1"># Compute inter spike intervals (piece 1 logic)</span>
     <span class="n">isi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
@@ -591,11 +615,14 @@
     <span class="k">if</span> <span class="n">max_lag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">max_lag</span> <span class="o">=</span> <span class="mi">0</span>
 
+    <span class="c1"># Return 0.0 for zero-norm vectors (BUG-004)</span>
+    <span class="n">norm_product</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">comp_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">norm_product</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span>
+
     <span class="c1"># Fast path for zero lag (no time shift)</span>
     <span class="k">if</span> <span class="n">max_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span> <span class="o">*</span> <span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">comp_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span> <span class="o">*</span> <span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="mi">0</span>
     <span class="c1"># r is the correlation between ref and comp. Each value is sum of elementwise products</span>
     <span class="c1"># for each possible lag and it is normalized so each value is between -1 and 1</span>

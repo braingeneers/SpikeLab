@@ -295,6 +295,10 @@
 <span class="sd">        Notes:</span>
 <span class="sd">        - This method is a wrapper around the _train_from_i_t_list helper function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">N</span> <span class="ow">or</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span><span class="n">_train_from_i_t_list</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
@@ -2089,6 +2093,135 @@
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.fit_gplvm">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.fit_gplvm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit_gplvm</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bin_size_ms</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+        <span class="n">movement_variance</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">tuning_lengthscale</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">n_latent_bin</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">n_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">n_time_per_chunk</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+        <span class="n">random_seed</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">model_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit a Gaussian Process Latent Variable Model to binned spike counts.</span>
+
+<span class="sd">        Bins the spike data into a spike count matrix using ``raster(bin_size_ms)``,</span>
+<span class="sd">        then fits a GPLVM model via expectation-maximisation, decodes latent states,</span>
+<span class="sd">        and returns the results together with a unit reordering based on tuning peaks.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bin_size_ms (float): Bin width in milliseconds for spike count matrix.</span>
+<span class="sd">            movement_variance (float): Movement variance hyperparameter for the</span>
+<span class="sd">                GPLVM transition kernel.</span>
+<span class="sd">            tuning_lengthscale (float): Lengthscale hyperparameter for the tuning</span>
+<span class="sd">                curve kernel.</span>
+<span class="sd">            n_latent_bin (int): Number of latent bins (discretisation of the latent</span>
+<span class="sd">                space).</span>
+<span class="sd">            n_iter (int): Number of EM iterations.</span>
+<span class="sd">            n_time_per_chunk (int): Number of time bins per chunk for chunked</span>
+<span class="sd">                inference (controls memory usage).</span>
+<span class="sd">            random_seed (int): Random seed for JAX PRNG key.</span>
+<span class="sd">            model_class: Model class to use. Defaults to</span>
+<span class="sd">                ``PoissonGPLVMJump1D`` from ``poor_man_gplvm``.</span>
+<span class="sd">            **model_kwargs: Additional keyword arguments passed to the model</span>
+<span class="sd">                constructor (e.g. ``p_move_to_jump``, ``basis_type``).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (dict): Dictionary with keys:</span>
+<span class="sd">                - ``&quot;decode_res&quot;`` — decoded latent state dictionary from</span>
+<span class="sd">                  ``model.decode_latent()``, containing ``posterior_latent_marg``,</span>
+<span class="sd">                  ``posterior_dynamics_marg``, etc.</span>
+<span class="sd">                - ``&quot;log_marginal_l&quot;`` — array of log marginal likelihoods per EM</span>
+<span class="sd">                  iteration.</span>
+<span class="sd">                - ``&quot;reorder_indices&quot;`` — unit reordering indices based on tuning</span>
+<span class="sd">                  curve peak positions.</span>
+<span class="sd">                - ``&quot;model&quot;`` — the fitted model object.</span>
+<span class="sd">                - ``&quot;binned_spike_counts&quot;`` — the ``(T, N)`` binned spike count</span>
+<span class="sd">                  matrix used for fitting.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Requires ``poor_man_gplvm`` and ``jax``. Install with</span>
+<span class="sd">              ``pip install poor-man-gplvm jax jaxlib``.</span>
+<span class="sd">            - The binned spike count matrix has shape ``(T, N)`` where T is the</span>
+<span class="sd">              number of time bins and N is the number of units.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">poor_man_gplvm</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pmg</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">poor_man_gplvm.utils</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pmg_utils</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">jax.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jr</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;fit_gplvm requires &#39;poor_man_gplvm&#39; and &#39;jax&#39;. &quot;</span>
+                <span class="s2">&quot;Install with: pip install poor-man-gplvm jax jaxlib jaxopt optax&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">if</span> <span class="n">model_class</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">model_class</span> <span class="o">=</span> <span class="n">pmg</span><span class="o">.</span><span class="n">PoissonGPLVMJump1D</span>
+
+        <span class="c1"># Build (T, N) binned spike count matrix</span>
+        <span class="n">binned_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raster</span><span class="p">(</span><span class="n">bin_size_ms</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Initialise model</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">model_class</span><span class="p">(</span>
+            <span class="n">n_neuron</span><span class="o">=</span><span class="n">binned_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">n_latent_bin</span><span class="o">=</span><span class="n">n_latent_bin</span><span class="p">,</span>
+            <span class="n">movement_variance</span><span class="o">=</span><span class="n">movement_variance</span><span class="p">,</span>
+            <span class="n">tuning_lengthscale</span><span class="o">=</span><span class="n">tuning_lengthscale</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">model_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Fit via EM</span>
+        <span class="n">em_res</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit_em</span><span class="p">(</span>
+            <span class="n">binned_spk_mat</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">jr</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="n">random_seed</span><span class="p">),</span>
+            <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter</span><span class="p">,</span>
+            <span class="n">n_time_per_chunk</span><span class="o">=</span><span class="n">n_time_per_chunk</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">log_marginal_l</span> <span class="o">=</span> <span class="n">em_res</span><span class="p">[</span><span class="s2">&quot;log_marginal_l&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Decode latent states</span>
+        <span class="n">decode_res</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">decode_latent</span><span class="p">(</span><span class="n">binned_spk_mat</span><span class="p">)</span>
+
+        <span class="c1"># Get unit reordering by tuning curve peaks</span>
+        <span class="n">sort_res</span> <span class="o">=</span> <span class="n">pmg_utils</span><span class="o">.</span><span class="n">post_fit_sort_neuron</span><span class="p">(</span><span class="n">em_res</span><span class="p">)</span>
+        <span class="n">reorder_indices</span> <span class="o">=</span> <span class="n">sort_res</span><span class="p">[</span><span class="s2">&quot;argsort&quot;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;decode_res&quot;</span><span class="p">:</span> <span class="n">decode_res</span><span class="p">,</span>
+            <span class="s2">&quot;log_marginal_l&quot;</span><span class="p">:</span> <span class="n">log_marginal_l</span><span class="p">,</span>
+            <span class="s2">&quot;reorder_indices&quot;</span><span class="p">:</span> <span class="n">reorder_indices</span><span class="p">,</span>
+            <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+            <span class="s2">&quot;binned_spike_counts&quot;</span><span class="p">:</span> <span class="n">binned_spk_mat</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.plot">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.plot">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assemble a multi-panel column figure from this SpikeData object.</span>
+
+<span class="sd">        Thin wrapper around ``plot_utils.plot_recording(self, **kwargs)``.</span>
+<span class="sd">        See ``plot_recording`` for the full list of parameters.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            **kwargs: All keyword arguments are forwarded to</span>
+<span class="sd">                ``plot_recording``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            fig (matplotlib.Figure): The assembled figure.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_recording</span>
+
+        <span class="k">return</span> <span class="n">plot_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

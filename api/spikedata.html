@@ -1010,6 +1010,84 @@ peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indi
 - In the case that duplicate bursts are detected, prints an error with potential fixes</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.fit_gplvm">
+<span class="sig-name descname"><span class="pre">fit_gplvm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">movement_variance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tuning_lengthscale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_latent_bin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_time_per_chunk</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_class</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">model_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.fit_gplvm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.fit_gplvm" title="Link to this definition"></a></dt>
+<dd><p>Fit a Gaussian Process Latent Variable Model to binned spike counts.</p>
+<p>Bins the spike data into a spike count matrix using <code class="docutils literal notranslate"><span class="pre">raster(bin_size_ms)</span></code>,
+then fits a GPLVM model via expectation-maximisation, decodes latent states,
+and returns the results together with a unit reordering based on tuning peaks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin width in milliseconds for spike count matrix.</p></li>
+<li><p><strong>movement_variance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Movement variance hyperparameter for the
+GPLVM transition kernel.</p></li>
+<li><p><strong>tuning_lengthscale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Lengthscale hyperparameter for the tuning
+curve kernel.</p></li>
+<li><p><strong>n_latent_bin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of latent bins (discretisation of the latent
+space).</p></li>
+<li><p><strong>n_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of EM iterations.</p></li>
+<li><p><strong>n_time_per_chunk</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of time bins per chunk for chunked
+inference (controls memory usage).</p></li>
+<li><p><strong>random_seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Random seed for JAX PRNG key.</p></li>
+<li><p><strong>model_class</strong> – Model class to use. Defaults to
+<code class="docutils literal notranslate"><span class="pre">PoissonGPLVMJump1D</span></code> from <code class="docutils literal notranslate"><span class="pre">poor_man_gplvm</span></code>.</p></li>
+<li><p><strong>**model_kwargs</strong> – Additional keyword arguments passed to the model
+constructor (e.g. <code class="docutils literal notranslate"><span class="pre">p_move_to_jump</span></code>, <code class="docutils literal notranslate"><span class="pre">basis_type</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary with keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;decode_res&quot;</span></code> — decoded latent state dictionary from
+<code class="docutils literal notranslate"><span class="pre">model.decode_latent()</span></code>, containing <code class="docutils literal notranslate"><span class="pre">posterior_latent_marg</span></code>,
+<code class="docutils literal notranslate"><span class="pre">posterior_dynamics_marg</span></code>, etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;log_marginal_l&quot;</span></code> — array of log marginal likelihoods per EM
+iteration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;reorder_indices&quot;</span></code> — unit reordering indices based on tuning
+curve peak positions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;model&quot;</span></code> — the fitted model object.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;binned_spike_counts&quot;</span></code> — the <code class="docutils literal notranslate"><span class="pre">(T,</span> <span class="pre">N)</span></code> binned spike count
+matrix used for fitting.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">poor_man_gplvm</span></code> and <code class="docutils literal notranslate"><span class="pre">jax</span></code>. Install with
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">poor-man-gplvm</span> <span class="pre">jax</span> <span class="pre">jaxlib</span></code>.</p></li>
+<li><p>The binned spike count matrix has shape <code class="docutils literal notranslate"><span class="pre">(T,</span> <span class="pre">N)</span></code> where T is the
+number of time bins and N is the number of units.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.plot" title="Link to this definition"></a></dt>
+<dd><p>Assemble a multi-panel column figure from this SpikeData object.</p>
+<p>Thin wrapper around <code class="docutils literal notranslate"><span class="pre">plot_utils.plot_recording(self,</span> <span class="pre">**kwargs)</span></code>.
+See <code class="docutils literal notranslate"><span class="pre">plot_recording</span></code> for the full list of parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**kwargs</strong> – All keyword arguments are forwarded to
+<code class="docutils literal notranslate"><span class="pre">plot_recording</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The assembled figure.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>fig (matplotlib.Figure)</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
