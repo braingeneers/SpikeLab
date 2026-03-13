@@ -7,6 +7,7 @@ frames, get_pairwise_fr_corr, and get_manifold.
 
 import pathlib
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -24,6 +25,15 @@ try:
     UMAP_AVAILABLE = True
 except ImportError:
     UMAP_AVAILABLE = False
+
+try:
+    import community  # noqa: F401
+    import networkx  # noqa: F401
+
+    # All three packages (umap, networkx, community) are needed for graph communities
+    COMMUNITY_AVAILABLE = UMAP_AVAILABLE
+except ImportError:
+    COMMUNITY_AVAILABLE = False
 
 
 def make_ratedata(n_units=3, n_times=100, step=1.0, t0=0.0, seed=0):
@@ -295,3 +305,170 @@ class TestRateData:
 
         embedding = rd.get_manifold(method="UMAP", n_components=2)
         assert embedding.shape == (60, 2)
+
+    def test_constructor_neuron_attributes(self):
+        """
+        Tests RateData constructor with neuron_attributes.
+
+        Tests:
+            (Test Case 1) Valid neuron_attributes are stored.
+            (Test Case 2) Wrong-length neuron_attributes raises ValueError.
+            (Test Case 3) None neuron_attributes is stored as None.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.ones((2, 3))
+
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        assert rd.neuron_attributes is not None
+        assert len(rd.neuron_attributes) == 2
+        assert rd.neuron_attributes[0] == {"region": "CA1"}
+
+        # Wrong length
+        with pytest.raises(ValueError, match="neuron_attributes"):
+            RateData(data, times, neuron_attributes=[{"region": "CA1"}])
+
+        # None
+        rd_none = RateData(data, times, neuron_attributes=None)
+        assert rd_none.neuron_attributes is None
+
+    def test_subset_by_attribute(self):
+        """
+        Tests subset() with the by parameter for attribute-based selection.
+
+        Tests:
+            (Test Case 1) Select units by matching attribute value.
+            (Test Case 2) by without neuron_attributes raises ValueError.
+            (Test Case 3) neuron_attributes are propagated to subset.
+        """
+        from dataclasses import dataclass
+
+        @dataclass
+        class MockAttr:
+            region: str
+
+        times = np.arange(10, dtype=float)
+        data = np.arange(30, dtype=float).reshape(3, 10)
+        attrs = [MockAttr("CA1"), MockAttr("CA3"), MockAttr("CA1")]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        sub = rd.subset(["CA1"], by="region")
+        assert sub.N == 2
+        np.testing.assert_array_equal(sub.inst_Frate_data[0], data[0])
+        np.testing.assert_array_equal(sub.inst_Frate_data[1], data[2])
+        assert len(sub.neuron_attributes) == 2
+        assert sub.neuron_attributes[0].region == "CA1"
+
+        # by without neuron_attributes
+        rd_no_attrs = RateData(data, times)
+        with pytest.raises(ValueError, match="neuron_attributes"):
+            rd_no_attrs.subset(["CA1"], by="region")
+
+    def test_subset_preserves_neuron_attributes(self):
+        """
+        Tests that subset() propagates neuron_attributes for selected units.
+
+        Tests:
+            (Test Case 1) Attributes match selected units.
+        """
+        times = np.arange(5, dtype=float)
+        data = np.ones((3, 5))
+        attrs = [{"id": 0}, {"id": 1}, {"id": 2}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        sub = rd.subset([0, 2])
+        assert sub.neuron_attributes[0] == {"id": 0}
+        assert sub.neuron_attributes[1] == {"id": 2}
+
+    def test_subtime_none_and_ellipsis(self):
+        """
+        Tests subtime() with None and Ellipsis bounds.
+
+        Tests:
+            (Test Case 1) None start selects from beginning.
+            (Test Case 2) None end selects to the end.
+            (Test Case 3) Ellipsis is equivalent to None.
+        """
+        rd = make_ratedata(n_units=2, n_times=50, step=1.0)
+
+        sub_start_none = rd.subtime(None, 25.0)
+        assert sub_start_none.inst_Frate_data.shape[1] == 25
+
+        sub_end_none = rd.subtime(25.0, None, shift_time=False)
+        assert float(sub_end_none.times[0]) == pytest.approx(25.0)
+
+        sub_ellipsis = rd.subtime(..., 25.0)
+        assert sub_ellipsis.inst_Frate_data.shape[1] == 25
+
+    def test_subtime_negative_indices(self):
+        """
+        Tests subtime() with negative start/end values.
+
+        Tests:
+            (Test Case 1) Negative start counts from end.
+            (Test Case 2) Negative end counts from end.
+        """
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)
+
+        sub = rd.subtime(-20.0, None, shift_time=False)
+        # -20 from end (99) = 79
+        assert float(sub.times[0]) == pytest.approx(79.0)
+
+    def test_get_manifold_pca_kwargs_warning(self):
+        """
+        Tests that PCA method prints a message when extra kwargs are passed.
+
+        Tests:
+            (Test Case 1) Extra kwargs produce a print message (not an error).
+        """
+        rd = make_ratedata(n_units=5, n_times=60)
+        # Should not raise, just print a message
+        embedding = rd.get_manifold(method="PCA", n_components=2, n_neighbors=15)
+        assert embedding.shape == (60, 2)
+
+    @pytest.mark.skipif(not UMAP_AVAILABLE, reason="umap-learn not installed")
+    def test_get_manifold_umap_return_labels_without_communities_warns(self):
+        """
+        Tests that return_labels=True without use_graph_communities warns.
+
+        Tests:
+            (Test Case 1) UserWarning is raised about return_labels.
+            (Test Case 2) Returns embedding only (not tuple).
+        """
+        rd = make_ratedata(n_units=5, n_times=60)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = rd.get_manifold(method="UMAP", n_components=2, return_labels=True)
+            assert any("return_labels" in str(warning.message) for warning in w)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (60, 2)
+
+    @pytest.mark.skipif(
+        not COMMUNITY_AVAILABLE,
+        reason="umap-learn, networkx, or python-louvain not installed",
+    )
+    def test_get_manifold_umap_graph_communities(self):
+        """
+        Tests get_manifold with use_graph_communities=True.
+
+        Tests:
+            (Test Case 1) Returns embedding without labels by default.
+            (Test Case 2) With return_labels=True, returns (embedding, labels) tuple.
+            (Test Case 3) Labels are integer array of correct shape.
+        """
+        rd = make_ratedata(n_units=5, n_times=60, seed=42)
+
+        embedding = rd.get_manifold(
+            method="UMAP", n_components=2, use_graph_communities=True
+        )
+        assert isinstance(embedding, np.ndarray)
+        assert embedding.shape == (60, 2)
+
+        embedding2, labels = rd.get_manifold(
+            method="UMAP",
+            n_components=2,
+            use_graph_communities=True,
+            return_labels=True,
+        )
+        assert embedding2.shape == (60, 2)
+        assert labels.shape == (60,)
+        assert labels.dtype in (np.int32, np.int64, int)

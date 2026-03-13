@@ -110,28 +110,20 @@ class SpikeSliceStack:
 
         self.spike_stack = event_stack
 
-    def to_sparse_matrices(self):
+    def to_raster_array(self):
         """
-        Transforms the list of spike objects from self.spike_stack into a 3D matrix of shape (U,T,S).
-        Each 2D matrix U x T is a sparse spike matrix, which means there is a binary value for each unit's
-        timebin to indicate whether there was a spike or not.
-            - U: Units (refers to neuron/neuron clusters)
-            - T: Time bins
-            - S: Slices (can be bursts, events, etc)
+        Convert the spike stack into a 3D raster array of shape (U, T, S).
 
-        Parameters:
-            - No input: It uses the underlying self.spike_stack.
+        Each slice is rasterized with 1 ms bins, producing a spike count matrix
+        where entry (u, t, s) is the number of spikes unit u fired in time bin t
+        of slice s.
+
         Returns:
-            - sparse_stack: 3D sparse spike matrix of size UxTxS where each value is
-                            a 1 or 0 if there is a spike for unit i in a time_bin t
-                            at a slice s.
+            raster_stack (np.ndarray): 3D array of shape (U, T, S) with
+                non-negative integer spike counts.
         """
-        sparse_list = []
-        for i in range(len(self.spike_stack)):
-            spike_obj_slice = self.spike_stack[i]
-            event_matrix = spike_obj_slice.sparse_raster(bin_size=1)
-
-            sparse_list.append(event_matrix)
-        sparse_stack = np.stack(sparse_list, axis=2)
-        # Make sparse stack into U x T x S
-        return sparse_stack
+        dense_list = [
+            spike_slice.sparse_raster(bin_size=1).toarray()
+            for spike_slice in self.spike_stack
+        ]
+        return np.stack(dense_list, axis=2)
