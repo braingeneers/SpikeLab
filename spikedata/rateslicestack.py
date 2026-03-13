@@ -234,7 +234,9 @@ class RateSliceStack:
                 raise ValueError("All time windows must have the same length")
         return valid_time_tuples
 
-    def order_units_across_slices(self, agg_func, MIN_RATE_THRESHOLD=0.1):
+    def order_units_across_slices(
+        self, agg_func, MIN_RATE_THRESHOLD=0.1, MIN_FRAC_ACTIVE=0.0
+    ):
         """
         Reorders the units across slices from earliest to latest peak firing rate in underlying 3D self.event_stack matrix
         that is UxTxS (units x time_bin x slice)
@@ -245,21 +247,33 @@ class RateSliceStack:
         MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a slice to be included in the ordering calculation.
                                     Slices where a unit's max rate < threshold are excluded from that unit's typical
                                     peak time calculation.
+        MIN_FRAC_ACTIVE (float): Minimum fraction of slices across a unit that must be active (above MIN_RATE_THRESHOLD) in order to be
+                                 placed in the first group(backbone units). Default 0.0 means all units are in the first group, so the second
+                                 array in each of the tuple outputs will be empty.
 
 
         Returns:
         --------
-        reordered_slice_matrices (array): This is 3D self.event_stack but the 0th dimension U is reordered temporally
-                                    Now, the first unit/neuron is the one that usually fires off first across all slices.
-        unit_ids_in_order(array): Array of size U which is original unit/neuron indices sorted by their typical firing order.
-                                  For example, [3, 1, 0, 2] means unit/neuron 3 fires first, then unit/neuron 1,
-                                  then unit/neuron 0, then unit/neuron 2. So unit/neuron 3 is now the first unit/neuron in reordered_burst_matrices.
-                                  Use this to map back to original unit/neuron IDs.
-        unit_std_indices(array): Array of the size U. Shows the standard deviation of max firing rate times for units in original order.
-                                 If a unit has lower standard deviation, it means it has a similar firing rate time across
-                                 all bursts. For example, [.1,.5,.6] means that unit 0 has standard deviation of .1
-        unit_peak_times(array): Array of size U. Contains the median/mean (depending on agg_func input) firing peak time_bins for each unit
-                                in original order. For example, [2,8,5] means that unit 0's mean/median peak firing rate occurs in time_bin 2
+        reordered_slice_matrices (tuple of arrays): This is a tuple of 3D self.event_stack but the 0th dimension U is reordered temporally, and the first array
+                                                    represents the highly active group of units and the second array is the lower activity group of units.
+                                                    Now, the first unit/neuron is the one that usually fires off first across slices.
+
+        unit_ids_in_order(tuple of arrays): Two arrays in a tuple where the first array is highly active group of unit ids in temporal order, and the second array
+                                            is the lower activity group of unit ids in temporal order. The length of both combined is U.
+                                            For example, [3, 1, 0, 2] means unit/neuron 3 fires first, then unit/neuron 1, then unit/neuron 0, then unit/neuron 2.
+                                            So unit/neuron 3 is now the first unit/neuron in reordered_burst_matrices. Use this to map back to original unit/neuron IDs.
+
+        unit_std_indices (tuple of arrays): Two arrays in a tuple where the first array is the standard deviation of peak firing
+                                            rate times for the highly active group, and the second array is for the lower activity
+                                            group. Lower standard deviation means the unit fires at a consistent time across slices.
+
+        unit_peak_times (tuple of arrays): Two arrays in a tuple where the first array is the median/mean peak firing time bin
+                                           for the highly active group, and the second array is for the lower activity group.
+
+        unit_frac_active (tuple of arrays): Two arrays in a tuple where the first array is the fraction of slices each unit in
+                                            the highly active group was active in (above MIN_RATE_THRESHOLD), and the second array
+                                            is for the lower activity group.
+
         """
         # burst_matrices is U x T x S
         slice_matrices = self.event_stack
@@ -272,6 +286,8 @@ class RateSliceStack:
         # Make mask for removing those below threshold
         mask = unit_max_rates >= MIN_RATE_THRESHOLD
 
+        unit_frac_active = np.sum(mask, axis=1) / mask.shape[1]
+
         unit_max_indices_matrix = unit_max_indices_matrix.astype(float)
         unit_max_indices_matrix[~mask] = np.nan
 
@@ -279,30 +295,53 @@ class RateSliceStack:
 
         # This gives you a list of size N. Now you have median peak time for each neuron
         if agg_func == "median":
-            unit_peak_times = np.round(
-                np.nanmedian(unit_max_indices_matrix, axis=1)
-            ).astype(int)
+            unit_peak_times = np.nanmedian(unit_max_indices_matrix, axis=1)
+
         elif agg_func == "mean":
-            unit_peak_times = np.round(
-                np.nanmean(unit_max_indices_matrix, axis=1)
-            ).astype(int)
+            unit_peak_times = np.nanmean(unit_max_indices_matrix, axis=1)
         else:
             raise ValueError(
                 f"{agg_func} is not a valid input option. Must be either median or mean"
             )
 
-        # arr = [5,2,9,1] means neuron 0 max firing at time 5, neuron 1 max firing at time 2.
-        # So np.argsort(arr) returns [3, 1, 0, 2] which means neuron 3 has max firing first, then neuron 1, etc
+        # Split units into two groups based on MIN_FRAC_ACTIVE
+        highly_active_units = np.where(unit_frac_active >= MIN_FRAC_ACTIVE)[0]
+        low_active_units = np.where(unit_frac_active < MIN_FRAC_ACTIVE)[0]
 
-        unit_ids_in_order = np.argsort(unit_peak_times)
-        # Reorder the units in orginal slice_matrices so that they are in temporal order
-        reordered_slice_matrices = slice_matrices[unit_ids_in_order, :, :]
+        highly_active_order = highly_active_units[
+            np.argsort(unit_peak_times[highly_active_units])
+        ]
+        low_active_order = low_active_units[
+            np.argsort(unit_peak_times[low_active_units])
+        ]
+
+        # Cast to int for output only after sorting is done
+        unit_peak_times = np.round(unit_peak_times).astype(int)
+
+        reordered_slice_matrices = (
+            slice_matrices[highly_active_order, :, :],
+            slice_matrices[low_active_order, :, :],
+        )
+        unit_ids_in_order = (highly_active_order, low_active_order)
+        unit_std_indices = (
+            unit_std_indices[highly_active_order],
+            unit_std_indices[low_active_order],
+        )
+        unit_peak_times = (
+            unit_peak_times[highly_active_order],
+            unit_peak_times[low_active_order],
+        )
+        unit_frac_active = (
+            unit_frac_active[highly_active_order],
+            unit_frac_active[low_active_order],
+        )
 
         return (
             reordered_slice_matrices,
             unit_ids_in_order,
             unit_std_indices,
             unit_peak_times,
+            unit_frac_active,
         )
 
     def get_slice_to_slice_unit_corr_from_stack(
