@@ -1,9 +1,10 @@
 """
 Main MCP server implementation for spike data analysis.
 
-Registers all tools and handles stdio transport.
+Registers all tools and handles transport (stdio or SSE).
 """
 
+import argparse
 import asyncio
 import json
 import sys
@@ -419,16 +420,6 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "number",
                             "default": 0.0,
                             "description": "Minimum fraction (0-1) of good units in target_regions. Ignored when target_regions is not provided.",
-                        },
-                        "labs": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Restrict to probes from these lab names. If omitted, no lab filter is applied.",
-                        },
-                        "subjects": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Restrict to probes from these subject names. If omitted, no subject filter is applied.",
                         },
                     },
                     "required": [],
@@ -3375,17 +3366,69 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
         return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
 
-async def main():
-    """Run the MCP server with stdio transport."""
-    # Stdout is reserved for MCP JSON-RPC; user-visible status must use stderr.
-    print(
-        "MCP Server running at stdio://spikelab",
-        file=sys.stderr,
-        flush=True,
+def _parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for transport selection."""
+    parser = argparse.ArgumentParser(description="SpikeLab MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default="stdio",
+        help="Transport protocol (default: stdio)",
     )
-    async with stdio_server() as streams:
-        await server.run(streams[0], streams[1], server.create_initialization_options())
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port for SSE transport (default: 8080)",
+    )
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host for SSE transport (default: 0.0.0.0)",
+    )
+    return parser.parse_args()
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+async def main():
+    """Run the MCP server with the selected transport."""
+    args = _parse_args()
+
+    if args.transport == "sse":
+        from mcp.server.sse import SseServerTransport
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        import uvicorn
+
+        sse = SseServerTransport("/messages/")
+
+        async def handle_sse(scope, receive, send):
+            async with sse.connect_sse(scope, receive, send) as streams:
+                await server.run(
+                    streams[0], streams[1], server.create_initialization_options()
+                )
+
+        app = Starlette(
+            routes=[
+                Mount("/sse", app=handle_sse),
+                Mount("/messages/", app=sse.handle_post_message),
+            ],
+        )
+
+        print(
+            f"MCP Server running at http://{args.host}:{args.port}/sse",
+            file=sys.stderr,
+            flush=True,
+        )
+        config = uvicorn.Config(app, host=args.host, port=args.port)
+        uv_server = uvicorn.Server(config)
+        await uv_server.serve()
+    else:
+        print(
+            "MCP Server running at stdio://spikelab",
+            file=sys.stderr,
+            flush=True,
+        )
+        async with stdio_server() as streams:
+            await server.run(
+                streams[0], streams[1], server.create_initialization_options()
+            )

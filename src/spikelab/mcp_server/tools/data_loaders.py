@@ -741,8 +741,6 @@ async def query_ibl_probes(
     target_regions: Optional[list] = None,
     min_units: int = 0,
     min_fraction_in_target: float = 0.0,
-    labs: Optional[list] = None,
-    subjects: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Search the IBL Brain-Wide Map database for probes matching given criteria.
@@ -756,8 +754,6 @@ async def query_ibl_probes(
         min_units: Minimum number of good units required per probe.
         min_fraction_in_target: Minimum fraction of good units in target_regions.
             Ignored when target_regions is None.
-        labs: Restrict to probes from these lab names. If None, no filter applied.
-        subjects: Restrict to probes from these subject names. If None, no filter applied.
 
     Returns:
         Dictionary with probes list and stats list of dicts.
@@ -766,8 +762,6 @@ async def query_ibl_probes(
         target_regions,
         min_units=min_units,
         min_fraction_in_target=min_fraction_in_target,
-        labs=labs,
-        subjects=subjects,
     )
     stats = stats_df.to_dict(orient="records")
     return {
