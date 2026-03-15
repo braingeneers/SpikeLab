@@ -501,7 +501,7 @@ def plot_recording(
         if pop_rate_view is not None:
             x_pop = np.linspace(0, n_samples, len(pop_rate_view), endpoint=False)
             ax.plot(x_pop, pop_rate_view, color="blue", label="Pop. rate")
-            ax.set_ylabel("Population rate (Hz)")
+            ax.set_ylabel("Pop. rate (Hz)")
 
         if cont_prob_view is not None:
             ax2 = ax.twinx()
