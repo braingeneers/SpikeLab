@@ -1362,13 +1362,13 @@ class TestIBLQuery:
         Test that stats DataFrame contains the expected columns when no target_regions given.
 
         Tests:
-            (Test Case 1) eid, pid, subject, lab, n_good_units are present.
+            (Test Case 1) eid, pid, n_good_units are present.
             (Test Case 2) n_in_target and fraction_in_target are absent.
         """
         mock_bwm = self._make_mock_brainwidemap()
         _, stats = self._query(mock_bwm)
 
-        for col in ("eid", "pid", "subject", "lab", "n_good_units"):
+        for col in ("eid", "pid", "n_good_units"):
             assert col in stats.columns
         assert "n_in_target" not in stats.columns
         assert "fraction_in_target" not in stats.columns
@@ -1467,54 +1467,35 @@ class TestIBLQuery:
 
         assert len(probes) == 3
 
-    def test_labs_filter(self):
-        """
-        Test that only probes from the specified labs are returned.
-
-        Tests:
-            (Test Case 1) labs=['wittenlab'] returns pid-A and pid-B only.
-            (Test Case 2) labs=['churchland'] returns pid-C only.
-        """
-        mock_bwm = self._make_mock_brainwidemap()
-
-        probes, _ = self._query(mock_bwm, labs=["wittenlab"])
-        returned_pids = {p[1] for p in probes}
-        assert returned_pids == {"pid-A", "pid-B"}
-
-        probes2, _ = self._query(mock_bwm, labs=["churchland"])
-        assert len(probes2) == 1
-        assert probes2[0][1] == "pid-C"
-
-    def test_subjects_filter(self):
-        """
-        Test that only probes from the specified subjects are returned.
-
-        Tests:
-            (Test Case 1) subjects=['sub-1'] returns only pid-A.
-            (Test Case 2) subjects=['sub-1', 'sub-3'] returns pid-A and pid-C.
-        """
-        mock_bwm = self._make_mock_brainwidemap()
-
-        probes, _ = self._query(mock_bwm, subjects=["sub-1"])
-        assert len(probes) == 1
-        assert probes[0][1] == "pid-A"
-
-        probes2, _ = self._query(mock_bwm, subjects=["sub-1", "sub-3"])
-        returned_pids = {p[1] for p in probes2}
-        assert returned_pids == {"pid-A", "pid-C"}
-
     def test_combined_filters(self):
         """
         Test that multiple filters are applied conjunctively.
 
         Tests:
-            (Test Case 1) labs=['wittenlab'] + min_units=4 returns only pid-A (pid-B has 3 units).
+            (Test Case 1) target_regions=['MOs'] + min_units=4 + min_fraction_in_target=0.5
+                returns pid-A (3/5 MOs, fraction 0.6) and pid-C (4/8 MOs, fraction 0.5),
+                but not pid-B (0/3 MOs).
+            (Test Case 2) Adding min_units=6 narrows to pid-C only (8 units).
         """
         mock_bwm = self._make_mock_brainwidemap()
 
-        probes, stats = self._query(mock_bwm, labs=["wittenlab"], min_units=4)
-        assert len(probes) == 1
-        assert probes[0][1] == "pid-A"
+        probes, stats = self._query(
+            mock_bwm,
+            target_regions=["MOs"],
+            min_units=4,
+            min_fraction_in_target=0.5,
+        )
+        returned_pids = {p[1] for p in probes}
+        assert returned_pids == {"pid-A", "pid-C"}
+
+        probes2, _ = self._query(
+            mock_bwm,
+            target_regions=["MOs"],
+            min_units=6,
+            min_fraction_in_target=0.5,
+        )
+        assert len(probes2) == 1
+        assert probes2[0][1] == "pid-C"
 
     def test_empty_result(self):
         """

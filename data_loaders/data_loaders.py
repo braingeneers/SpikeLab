@@ -995,15 +995,13 @@ def query_ibl_probes(
     *,
     min_units: int = 0,
     min_fraction_in_target: float = 0.0,
-    labs: Optional[List[str]] = None,
-    subjects: Optional[List[str]] = None,
 ):
     """
     Search the IBL Brain-Wide Map database for probes matching given criteria.
 
     Authenticates against the public IBL server automatically. Filters probes
-    by brain region, unit count, lab, and subject. Returns matching (eid, pid)
-    pairs alongside a per-probe statistics DataFrame.
+    by brain region and unit count. Returns matching (eid, pid) pairs
+    alongside a per-probe statistics DataFrame.
 
     Parameters:
         target_regions (list[str], optional): Beryl atlas region names to
@@ -1014,19 +1012,13 @@ def query_ibl_probes(
         min_fraction_in_target (float): Minimum fraction (0–1) of good units
             that must fall within ``target_regions``. Ignored when
             ``target_regions`` is ``None``. Default ``0.0``.
-        labs (list[str], optional): Restrict to probes from these lab names
-            (e.g. ``["wittenlab"]``). If ``None``, no lab filter is applied.
-        subjects (list[str], optional): Restrict to probes from these subject
-            names (e.g. ``["dop_59"]``). If ``None``, no subject filter is
-            applied.
 
     Returns:
         probes (list[tuple[str, str]]): List of ``(eid, pid)`` pairs for
             probes that pass all filters, sorted by descending good unit count.
         stats (pd.DataFrame): One row per matching probe with columns:
-            ``eid``, ``pid``, ``subject``, ``lab``, ``n_good_units``, and
-            (when ``target_regions`` is not ``None``) ``n_in_target`` and
-            ``fraction_in_target``.
+            ``eid``, ``pid``, ``n_good_units``, and (when ``target_regions``
+            is not ``None``) ``n_in_target`` and ``fraction_in_target``.
 
     Notes:
         - Requires ``one-api`` and ``brainwidemap`` packages (optional
@@ -1066,27 +1058,9 @@ def query_ibl_probes(
     unit_df = bwm_units(one)
     good_units = unit_df[unit_df["label"] == 1].copy()
 
-    # Apply lab / subject filters before aggregation.
-    if labs is not None:
-        good_units = good_units[good_units["lab"].isin(labs)]
-    if subjects is not None:
-        good_units = good_units[good_units["subject"].isin(subjects)]
-
     # Build per-probe aggregation.
-    group_cols = ["eid", "pid", "subject", "lab"]
-    # Only include columns that exist (guard against schema differences).
-    group_cols = [c for c in group_cols if c in good_units.columns]
-
     agg = good_units.groupby(["eid", "pid"], as_index=False).agg(
         n_good_units=("cluster_id", "count"),
-        subject=(
-            ("subject", "first")
-            if "subject" in good_units.columns
-            else ("cluster_id", "count")
-        ),
-        lab=(
-            ("lab", "first") if "lab" in good_units.columns else ("cluster_id", "count")
-        ),
     )
 
     # Compute region-based columns when target_regions is provided.
