@@ -304,8 +304,9 @@ def plot_recording(
         - When ``gplvm_result`` is provided, ``model_states`` and
           ``cont_prob`` are extracted from the ``decode_res`` sub-dict
           (keys ``posterior_latent_marg`` and ``posterior_dynamics_marg``).
-          The binned time axis is used, so ``time_range`` should be
-          specified in bin units (not ms) when working with GPLVM output.
+          Arrays with a different time resolution (e.g. GPLVM binned
+          output) are automatically cropped to match the ms-based
+          ``time_range``.
     """
     plt, mticker = _import_matplotlib()
 
@@ -385,23 +386,30 @@ def plot_recording(
 
     # Crop arrays whose time axis matches the raster resolution.
     # Arrays with a different time resolution (e.g. GPLVM binned output)
-    # are passed through uncropped — their x-axis is linearly scaled to
-    # fit the display window.
+    # are cropped using proportional index conversion so the correct
+    # time window is displayed.
     raster_T = spk_mat.shape[1]
+
+    def _rescaled_range(arr_len):
+        """Convert raster-resolution [start, end) to indices for an array of length arr_len."""
+        if arr_len == raster_T:
+            return start, end
+        scale = arr_len / raster_T
+        s = max(0, min(int(round(start * scale)), arr_len))
+        e = max(s, min(int(round(end * scale)), arr_len))
+        return s, e
 
     def _crop_1d(arr):
         if arr is None:
             return None
-        if len(arr) == raster_T:
-            return arr[start:end]
-        return arr  # different resolution, pass through
+        s, e = _rescaled_range(len(arr))
+        return arr[s:e]
 
     def _crop_2d(arr):
         if arr is None:
             return None
-        if arr.shape[-1] == raster_T:
-            return arr[:, start:end]
-        return arr  # different resolution, pass through
+        s, e = _rescaled_range(arr.shape[-1])
+        return arr[:, s:e]
 
     pop_rate_view = _crop_1d(pop_rate)
     fr_rates_view = _crop_2d(fr_rates)

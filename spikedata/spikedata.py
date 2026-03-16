@@ -1820,6 +1820,8 @@ class SpikeData:
                 - ``"model"`` — the fitted model object.
                 - ``"binned_spike_counts"`` — the ``(T, N)`` binned spike count
                   matrix used for fitting.
+                - ``"bin_size_ms"`` — the bin width in milliseconds used for
+                  binning.
 
         Notes:
             - Requires ``poor_man_gplvm`` and ``jax``. Install with
@@ -1875,6 +1877,7 @@ class SpikeData:
             "reorder_indices": reorder_indices,
             "model": model,
             "binned_spike_counts": binned_spk_mat,
+            "bin_size_ms": bin_size_ms,
         }
 
     def plot(self, **kwargs):

@@ -14,7 +14,7 @@ Each workspace is stored in a single .h5 file with the following structure:
 Supported types
 ---------------
 ndarray, SpikeData, RateData, RateSliceStack, SpikeSliceStack,
-PairwiseCompMatrix, PairwiseCompMatrixStack.
+PairwiseCompMatrix, PairwiseCompMatrixStack, dict (with serializable leaf values).
 """
 
 import json
@@ -269,11 +269,14 @@ def _dump_item(grp, obj: Any, created_at: float, note: Optional[str]) -> None:
     elif PairwiseCompMatrix is not None and isinstance(obj, PairwiseCompMatrix):
         grp.attrs["__type__"] = "PairwiseCompMatrix"
         _dump_pairwise(grp, obj)
+    elif isinstance(obj, dict):
+        grp.attrs["__type__"] = "dict"
+        _dump_dict(grp, obj, created_at, note)
     else:
         raise TypeError(
             f"Cannot serialise object of type '{type(obj).__name__}' to HDF5. "
             "Supported types: ndarray, SpikeData, RateData, RateSliceStack, "
-            "SpikeSliceStack, PairwiseCompMatrix, PairwiseCompMatrixStack."
+            "SpikeSliceStack, PairwiseCompMatrix, PairwiseCompMatrixStack, dict."
         )
 
 
@@ -300,6 +303,7 @@ def _load_item(grp) -> Tuple[Any, dict]:
         "SpikeSliceStack": _load_spikeslicestack,
         "PairwiseCompMatrixStack": _load_pairwise_stack,
         "PairwiseCompMatrix": _load_pairwise,
+        "dict": _load_dict,
     }
 
     if type_tag not in _dispatch:
@@ -329,6 +333,61 @@ def _dump_ndarray(grp, arr: np.ndarray) -> None:
 
 def _load_ndarray(grp) -> np.ndarray:
     return np.array(grp["data"])
+
+
+# ===========================================================================
+# dict
+# ===========================================================================
+
+
+def _dump_dict(grp, d: dict, created_at: float, note) -> None:
+    """Recursively serialise a plain dict to an HDF5 group.
+
+    Each dict key becomes a child group whose value is serialised via
+    ``_dump_item``.  Scalar values (int, float, bool, str) that cannot be
+    wrapped in a group are stored as scalar datasets with
+    ``__type__ = "scalar"``.  Lists are converted to numpy arrays before
+    serialisation.
+    """
+    for k, v in d.items():
+        if isinstance(v, list):
+            v = np.asarray(v)
+        if isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
+            child = grp.create_group(k)
+            child.attrs["__type__"] = "scalar"
+            child.attrs["__scalar_value__"] = float(v)
+            child.attrs["__scalar_kind__"] = type(v).__name__
+        elif isinstance(v, str):
+            child = grp.create_group(k)
+            child.attrs["__type__"] = "scalar_str"
+            child.attrs["__scalar_value__"] = v
+        else:
+            child = grp.create_group(k)
+            _dump_item(child, v, created_at, note=None)
+
+
+def _load_dict(grp) -> dict:
+    """Reconstruct a dict from an HDF5 group written by ``_dump_dict``."""
+    result = {}
+    for k in grp.keys():
+        child = grp[k]
+        type_tag = str(child.attrs.get("__type__", ""))
+        if type_tag == "scalar":
+            kind = str(child.attrs.get("__scalar_kind__", "float"))
+            val = child.attrs["__scalar_value__"]
+            if kind in ("int", "int64", "int32"):
+                val = int(val)
+            elif kind in ("bool", "bool_"):
+                val = bool(val)
+            else:
+                val = float(val)
+            result[k] = val
+        elif type_tag == "scalar_str":
+            result[k] = str(child.attrs["__scalar_value__"])
+        else:
+            obj, _ = _load_item(child)
+            result[k] = obj
+    return result
 
 
 # ===========================================================================

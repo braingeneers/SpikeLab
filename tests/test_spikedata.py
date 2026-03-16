@@ -2560,8 +2560,10 @@ class TestFitGplvm:
             "reorder_indices",
             "model",
             "binned_spike_counts",
+            "bin_size_ms",
         }
         assert set(result.keys()) == expected_keys
+        assert result["bin_size_ms"] == 50.0
 
         # binned_spike_counts shape: raster uses ceil, so 500ms / 50ms → 11 bins
         binned = result["binned_spike_counts"]

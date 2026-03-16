@@ -1502,6 +1502,143 @@ class TestHDF5IO:
         assert info["created_at"] > 0.0
 
     # ------------------------------------------------------------------
+    # dict
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_dict_with_arrays(self):
+        """
+        Round-trip a dict whose values are numpy arrays.
+
+        Tests:
+            (Test Case 1) All keys are preserved.
+            (Test Case 2) Array values are numerically equal after reload.
+            (Test Case 3) Array shapes are preserved.
+        """
+        d = {
+            "weights": np.array([1.0, 2.0, 3.0]),
+            "matrix": np.eye(3),
+        }
+        out = self._roundtrip(d)
+        assert isinstance(out, dict)
+        assert set(out.keys()) == {"weights", "matrix"}
+        np.testing.assert_array_equal(out["weights"], d["weights"])
+        np.testing.assert_array_equal(out["matrix"], d["matrix"])
+        assert out["matrix"].shape == (3, 3)
+
+    def test_roundtrip_dict_with_scalars(self):
+        """
+        Round-trip a dict containing int, float, and bool scalar values.
+
+        Tests:
+            (Test Case 1) Integer value preserved (as int).
+            (Test Case 2) Float value preserved.
+            (Test Case 3) Bool value preserved (as bool).
+        """
+        d = {"count": 42, "threshold": 3.14, "flag": True}
+        out = self._roundtrip(d)
+        assert isinstance(out, dict)
+        assert out["count"] == 42
+        assert isinstance(out["count"], int)
+        assert out["threshold"] == pytest.approx(3.14)
+        assert out["flag"] is True
+
+    def test_roundtrip_dict_with_strings(self):
+        """
+        Round-trip a dict containing string values.
+
+        Tests:
+            (Test Case 1) String values are preserved exactly.
+        """
+        d = {"label": "hello", "tag": "world"}
+        out = self._roundtrip(d)
+        assert out["label"] == "hello"
+        assert out["tag"] == "world"
+
+    def test_roundtrip_dict_mixed_types(self):
+        """
+        Round-trip a dict with a mix of arrays, scalars, and strings.
+
+        Tests:
+            (Test Case 1) All keys present after reload.
+            (Test Case 2) Each value type is correctly reconstructed.
+        """
+        d = {
+            "arr": np.array([10.0, 20.0]),
+            "n_iter": 5,
+            "name": "gplvm",
+            "score": 0.95,
+        }
+        out = self._roundtrip(d)
+        assert set(out.keys()) == set(d.keys())
+        np.testing.assert_array_equal(out["arr"], d["arr"])
+        assert out["n_iter"] == 5
+        assert out["name"] == "gplvm"
+        assert out["score"] == pytest.approx(0.95)
+
+    def test_roundtrip_dict_nested(self):
+        """
+        Round-trip a nested dict (dict containing a dict).
+
+        Tests:
+            (Test Case 1) Outer dict keys preserved.
+            (Test Case 2) Inner dict reconstructed as a dict with correct values.
+        """
+        d = {
+            "outer_val": np.array([1.0]),
+            "inner": {
+                "a": np.array([2.0, 3.0]),
+                "b": 99,
+            },
+        }
+        out = self._roundtrip(d)
+        assert isinstance(out["inner"], dict)
+        np.testing.assert_array_equal(out["inner"]["a"], np.array([2.0, 3.0]))
+        assert out["inner"]["b"] == 99
+
+    def test_roundtrip_dict_empty(self):
+        """
+        Round-trip an empty dict.
+
+        Tests:
+            (Test Case 1) Empty dict is reconstructed as an empty dict.
+        """
+        d = {}
+        out = self._roundtrip(d)
+        assert isinstance(out, dict)
+        assert len(out) == 0
+
+    def test_roundtrip_dict_item_level(self):
+        """
+        Round-trip a dict via selective item loading (load_item).
+
+        Tests:
+            (Test Case 1) Dict loaded via load_item matches the original.
+        """
+        d = {"x": np.array([1.0, 2.0]), "y": 7}
+        out = self._roundtrip_item(d)
+        assert isinstance(out, dict)
+        np.testing.assert_array_equal(out["x"], d["x"])
+        assert out["y"] == 7
+
+    def test_dict_with_unsupported_leaf_raises(self):
+        """
+        A dict containing an unsupported leaf type raises TypeError on save.
+
+        Tests:
+            (Test Case 1) Dict with a custom object value raises TypeError.
+        """
+
+        class Custom:
+            pass
+
+        ws = AnalysisWorkspace()
+        ws.store("ns", "d", {"bad": Custom()})
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            with pytest.raises(TypeError):
+                ws.save(base)
+
+    # ------------------------------------------------------------------
     # list_namespaces on LazyAnalysisWorkspace
     # ------------------------------------------------------------------
 
