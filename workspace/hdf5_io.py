@@ -346,9 +346,12 @@ def _dump_dict(grp, d: dict, created_at: float, note) -> None:
     Each dict key becomes a child group whose value is serialised via
     ``_dump_item``.  Scalar values (int, float, bool, str) that cannot be
     wrapped in a group are stored as scalar datasets with
-    ``__type__ = "scalar"``.
+    ``__type__ = "scalar"``.  Lists are converted to numpy arrays before
+    serialisation.
     """
     for k, v in d.items():
+        if isinstance(v, list):
+            v = np.asarray(v)
         if isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
             child = grp.create_group(k)
             child.attrs["__type__"] = "scalar"

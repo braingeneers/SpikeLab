@@ -32,6 +32,14 @@ def _make_sd(n_units=3, length=400.0):
     return SpikeData(trains, N=n_units, length=length)
 
 
+def _get_model_states_data(fig):
+    """Return the image data from the model-states panel, or None."""
+    for ax in reversed(fig.axes):
+        if ax.images:
+            return ax.images[0].get_array()
+    return None
+
+
 @pytest.fixture(autouse=True)
 def close_figs():
     """Close all matplotlib figures after each test."""
@@ -477,14 +485,6 @@ class TestPlotRecording:
             show=False,
         )
 
-        # Extract model_states panel image data from each figure.
-        # The model_states panel is the last panel with an AxesImage.
-        def _get_model_states_data(fig):
-            for ax in reversed(fig.axes):
-                if ax.images:
-                    return ax.images[0].get_array()
-            return None
-
         data1 = _get_model_states_data(fig1)
         data2 = _get_model_states_data(fig2)
 
@@ -528,12 +528,6 @@ class TestPlotRecording:
             time_range=(200, 400),
             show=False,
         )
-
-        def _get_model_states_data(fig):
-            for ax in reversed(fig.axes):
-                if ax.images:
-                    return ax.images[0].get_array()
-            return None
 
         data1 = _get_model_states_data(fig1)
         data2 = _get_model_states_data(fig2)

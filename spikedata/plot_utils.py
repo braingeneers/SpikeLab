@@ -313,7 +313,6 @@ def plot_recording(
     # ------------------------------------------------------------------
     # 0. Auto-extract from gplvm_result
     # ------------------------------------------------------------------
-    gplvm_bin_size_ms = None
     if gplvm_result is not None:
         decode = gplvm_result.get("decode_res", {})
         if model_states is None and "posterior_latent_marg" in decode:
@@ -321,8 +320,6 @@ def plot_recording(
         if cont_prob is None and "posterior_dynamics_marg" in decode:
             dyn = np.asarray(decode["posterior_dynamics_marg"])
             cont_prob = dyn[:, 0] if dyn.ndim == 2 else dyn
-        if "bin_size_ms" in gplvm_result:
-            gplvm_bin_size_ms = float(gplvm_result["bin_size_ms"])
 
     # ------------------------------------------------------------------
     # 1. Resolve panel flags — auto-enable when data is provided
@@ -398,7 +395,9 @@ def plot_recording(
         if arr_len == raster_T:
             return start, end
         scale = arr_len / raster_T
-        return int(round(start * scale)), int(round(end * scale))
+        s = max(0, min(int(round(start * scale)), arr_len))
+        e = max(s, min(int(round(end * scale)), arr_len))
+        return s, e
 
     def _crop_1d(arr):
         if arr is None:
