@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 
 from .spikedata import SpikeData
+from .utils import _validate_time_start_to_end
 
 
 class SpikeSliceStack:
@@ -67,14 +68,9 @@ class SpikeSliceStack:
         spike_stack=None,
         neuron_attributes=None,
     ):
-        if (
-            data_obj is None
-            and spike_stack is None
-            and times_start_to_end is None
-            and time_peaks is None
-        ):
-            raise ValueError(
-                "Must input either data_obj (option 1) or spike_stack (option 2)"
+        if data_obj is None and spike_stack is None:
+            raise TypeError(
+                "Must input either a SpikeData as data_obj (option 1) or spike_stack (option 2)"
             )
         if data_obj is not None and spike_stack is not None:
             warnings.warn(
@@ -84,8 +80,8 @@ class SpikeSliceStack:
             )
             data_obj = None
 
-        # Option 1: spike_stack not provided
-        if spike_stack is None:
+        # Option 1: Using data_obj
+        if data_obj is not None:
             if not isinstance(data_obj, SpikeData):
                 raise TypeError("data_obj must be a SpikeData object")
 
@@ -105,7 +101,7 @@ class SpikeSliceStack:
                 for t in time_peaks:
                     times_start_to_end.append((t - before, t + after))
 
-            times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
+            times_start_to_end = _validate_time_start_to_end(times_start_to_end)
 
             self.times = times_start_to_end
             self.spike_stack = []
@@ -115,7 +111,7 @@ class SpikeSliceStack:
             if neuron_attributes is None:
                 neuron_attributes = data_obj.neuron_attributes
 
-        # Option 2: spike_stack provided
+        # Option 2: Using spike_stack directly
         if spike_stack is not None:
             if not isinstance(spike_stack, list):
                 raise TypeError("spike_stack must be a list of SpikeData objects")
@@ -139,9 +135,7 @@ class SpikeSliceStack:
                     times_start_to_end.append((t, t + s.length))
                     t += s.length
             else:
-                times_start_to_end = self._validate_time_start_to_end(
-                    times_start_to_end
-                )
+                times_start_to_end = _validate_time_start_to_end(times_start_to_end)
                 if len(times_start_to_end) != len(spike_stack):
                     raise ValueError(
                         "times_start_to_end must have the same length as spike_stack"
@@ -160,52 +154,6 @@ class SpikeSliceStack:
                     f"neuron_attributes has {len(self.neuron_attributes)} items "
                     f"but spike_stack has {self.N} units"
                 )
-
-    def _validate_time_start_to_end(self, times_start_to_end):
-        """
-        Validates that the list of (start, end) tuples has the same duration and is in
-        proper format for the object constructor.
-
-        Parameters:
-        -----------
-        times_start_to_end (list): Each entry must be a tuple (start, end).
-
-        Returns:
-        --------
-        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with
-                                  negative-start windows removed.
-        """
-        if not isinstance(times_start_to_end, list):
-            raise TypeError("times must be a list of tuples")
-        time_diff_check = []
-        valid_time_tuples = []
-        times_start_to_end = sorted(times_start_to_end)
-        for i, time_window in enumerate(times_start_to_end):
-            if not isinstance(time_window, tuple):
-                raise TypeError(f"Element {i} of times is not a tuple: {time_window}")
-            if len(time_window) != 2:
-                raise TypeError(
-                    f"Element {i} of times must be a tuple of length 2 (start, end): "
-                    f"{time_window}"
-                )
-            if not (
-                isinstance(time_window[0], (int, float, np.number))
-                and isinstance(time_window[1], (int, float, np.number))
-            ):
-                raise TypeError(
-                    f"Start and end times in element {i} must be numbers: {time_window}"
-                )
-            if time_window[0] >= time_window[1]:
-                raise ValueError(
-                    f"Start time must be less than end time in element {i}: {time_window}"
-                )
-            if time_window[0] < 0:
-                continue
-            time_diff_check.append(time_window[1] - time_window[0])
-            valid_time_tuples.append(time_window)
-            if len(set(time_diff_check)) > 1:
-                raise ValueError("All time windows must have the same length")
-        return valid_time_tuples
 
     def subslice(self, slices):
         """
