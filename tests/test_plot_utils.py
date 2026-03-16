@@ -440,6 +440,108 @@ class TestPlotRecording:
         )
         assert isinstance(fig, matplotlib.figure.Figure)
 
+    def test_gplvm_crop_with_time_range(self):
+        """
+        GPLVM model_states and cont_prob are correctly cropped when
+        time_range is specified in ms and arrays have a coarser resolution.
+
+        Tests:
+            (Test Case 1) Cropped model_states panel shows only the data
+                corresponding to the requested time_range, not the full
+                recording.
+            (Test Case 2) Two non-overlapping time_range windows produce
+                different model_states image data.
+        """
+        sd = _make_sd(n_units=3, length=400.0)
+        # 8 bins for 400ms → 50ms bin size
+        rng = np.random.default_rng(99)
+        model_states = rng.random((5, 8))
+        cont_prob = rng.random(8)
+
+        # First half: 0-200ms → bins 0-4
+        fig1 = plot_recording(
+            sd,
+            show_raster=True,
+            model_states=model_states,
+            cont_prob=cont_prob,
+            time_range=(0, 200),
+            show=False,
+        )
+        # Last half: 200-400ms → bins 4-8
+        fig2 = plot_recording(
+            sd,
+            show_raster=True,
+            model_states=model_states,
+            cont_prob=cont_prob,
+            time_range=(200, 400),
+            show=False,
+        )
+
+        # Extract model_states panel image data from each figure.
+        # The model_states panel is the last panel with an AxesImage.
+        def _get_model_states_data(fig):
+            for ax in reversed(fig.axes):
+                if ax.images:
+                    return ax.images[0].get_array()
+            return None
+
+        data1 = _get_model_states_data(fig1)
+        data2 = _get_model_states_data(fig2)
+
+        assert data1 is not None
+        assert data2 is not None
+        # The two windows must show different data
+        assert not np.array_equal(data1, data2)
+
+    def test_gplvm_result_bin_size_ms_extraction(self):
+        """
+        When gplvm_result contains bin_size_ms, plot_recording extracts it
+        and correctly crops model_states with time_range.
+
+        Tests:
+            (Test Case 1) Figure is produced without error when gplvm_result
+                includes bin_size_ms.
+            (Test Case 2) Model states panel data differs for different
+                time_range windows.
+        """
+        sd = _make_sd(n_units=3, length=400.0)
+        rng = np.random.default_rng(77)
+        gplvm_res = {
+            "decode_res": {
+                "posterior_latent_marg": rng.random((8, 5)),
+                "posterior_dynamics_marg": rng.random((8, 2)),
+            },
+            "bin_size_ms": 50.0,
+        }
+
+        fig1 = plot_recording(
+            sd,
+            show_raster=True,
+            gplvm_result=gplvm_res,
+            time_range=(0, 200),
+            show=False,
+        )
+        fig2 = plot_recording(
+            sd,
+            show_raster=True,
+            gplvm_result=gplvm_res,
+            time_range=(200, 400),
+            show=False,
+        )
+
+        def _get_model_states_data(fig):
+            for ax in reversed(fig.axes):
+                if ax.images:
+                    return ax.images[0].get_array()
+            return None
+
+        data1 = _get_model_states_data(fig1)
+        data2 = _get_model_states_data(fig2)
+
+        assert data1 is not None
+        assert data2 is not None
+        assert not np.array_equal(data1, data2)
+
     def test_save_path(self, tmp_path):
         """
         Providing save_path saves the figure to disk.
