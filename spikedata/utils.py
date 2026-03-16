@@ -1039,3 +1039,50 @@ def extract_waveforms(
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
     return np.array(waveforms).transpose(1, 2, 0)
+
+
+def _validate_time_start_to_end(times_start_to_end):
+    """
+    Validates that the list of (start, end) tuples has the same duration and is in
+    proper format for the object constructor.
+
+    Parameters:
+    -----------
+    times_start_to_end (list): Each entry must be a tuple (start, end).
+
+    Returns:
+    --------
+    valid_time_tuples (list): Sorted list of valid (start, end) tuples, with
+                                negative-start windows removed.
+    """
+    if not isinstance(times_start_to_end, list):
+        raise TypeError("times must be a list of tuples")
+    time_diff_check = []
+    valid_time_tuples = []
+    times_start_to_end = sorted(times_start_to_end)
+    for i, time_window in enumerate(times_start_to_end):
+        if not isinstance(time_window, tuple):
+            raise TypeError(f"Element {i} of times is not a tuple: {time_window}")
+        if len(time_window) != 2:
+            raise TypeError(
+                f"Element {i} of times must be a tuple of length 2 (start, end): "
+                f"{time_window}"
+            )
+        if not (
+            isinstance(time_window[0], (int, float, np.number))
+            and isinstance(time_window[1], (int, float, np.number))
+        ):
+            raise TypeError(
+                f"Start and end times in element {i} must be numbers: {time_window}"
+            )
+        if time_window[0] >= time_window[1]:
+            raise ValueError(
+                f"Start time must be less than end time in element {i}: {time_window}"
+            )
+        if time_window[0] < 0:
+            continue
+        time_diff_check.append(time_window[1] - time_window[0])
+        valid_time_tuples.append(time_window)
+        if len(set(time_diff_check)) > 1:
+            raise ValueError("All time windows must have the same length")
+    return valid_time_tuples

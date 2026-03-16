@@ -298,7 +298,9 @@ class TestSpikeData:
         assert isinstance(stack, SpikeSliceStack)
         assert len(stack.spike_stack) == 5  # 100ms / 20ms = 5 frames
         for i, frame in enumerate(stack.spike_stack):
-            self.assert_spikedata_equal(frame, sd.subtime(i * 20, (i + 1) * 20))
+            self.assert_spikedata_equal(
+                frame, sd.subtime(i * 20, (i + 1) * 20, shift_time=False)
+            )
 
         # Test overlap parameter and that the partial last window is excluded.
         # step=10ms, so starts at [0,10,...,80]; start=90 → window (90,110) excluded.
@@ -306,7 +308,9 @@ class TestSpikeData:
         assert isinstance(stack_overlap, SpikeSliceStack)
         assert len(stack_overlap.spike_stack) == 9
         for i, frame in enumerate(stack_overlap.spike_stack):
-            self.assert_spikedata_equal(frame, sd.subtime(i * 10, i * 10 + 20))
+            self.assert_spikedata_equal(
+                frame, sd.subtime(i * 10, i * 10 + 20, shift_time=False)
+            )
 
         # Test ValueError for overlap >= length and recording shorter than frame.
         with pytest.raises(ValueError):

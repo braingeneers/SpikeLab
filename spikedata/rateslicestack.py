@@ -9,6 +9,7 @@ from .pairwise import PairwiseCompMatrixStack
 from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
+    _validate_time_start_to_end,
 )
 
 
@@ -113,7 +114,7 @@ class RateSliceStack:
                 times_start_to_end = [(t - before, t + after) for t in time_peaks]
 
             # Now that everything is times_start_to_end format, checking if inputs are correct types
-            times_start_to_end = self._validate_time_start_to_end(times_start_to_end)
+            times_start_to_end = _validate_time_start_to_end(times_start_to_end)
 
             # Actual constructor
 
@@ -165,9 +166,7 @@ class RateSliceStack:
                     tup = (start, end)
                     times_start_to_end.append(tup)
             else:
-                times_start_to_end = self._validate_time_start_to_end(
-                    times_start_to_end
-                )
+                times_start_to_end = _validate_time_start_to_end(times_start_to_end)
                 # Make sure there is a (start,end) tuple for each slice
                 if len(times_start_to_end) != event_matrix.shape[2]:
                     raise ValueError(
@@ -184,55 +183,6 @@ class RateSliceStack:
                     f"neuron_attributes has {len(neuron_attributes)} items "
                     f"but event_stack has {self.event_stack.shape[0]} units"
                 )
-
-    def _validate_time_start_to_end(self, times_start_to_end):
-        """
-        Validates that the list of (start,end) tuples has the same duration of time_steps and are in proper format for object constructor.
-
-        Parameters:
-        -----------
-        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and
-                                   end times of a desired slice. Each tuple must have same duration. Length must equal S.
-
-        Returns:
-        --------
-        valid_time_tuples (list): Sorted list of valid (start, end) tuples, with negative-start
-                                  windows removed.
-        """
-        if not isinstance(times_start_to_end, list):
-            raise TypeError("times must be a list of tuples")
-        time_diff_check = []
-        valid_time_tuples = []
-        times_start_to_end = sorted(times_start_to_end)
-        for i, time_window in enumerate(times_start_to_end):
-            if not isinstance(time_window, tuple):
-                raise TypeError(f"Element {i} of times is not a tuple: {time_window}")
-            if len(time_window) != 2:
-                raise TypeError(
-                    f"Element {i} of times must be a tuple of length 2 (start, end): {time_window}"
-                )
-            if not (
-                isinstance(time_window[0], (int, float, np.number))
-                and isinstance(time_window[1], (int, float, np.number))
-            ):
-                raise TypeError(
-                    f"Start and end times in element {i} must be numbers: {time_window}"
-                )
-            if time_window[0] >= time_window[1]:
-                raise ValueError(
-                    f"Start time must be less than end time in element {i}: {time_window}"
-                )
-
-            # Check if any times are negative due to time_bounds and time_peaks operation
-            if time_window[0] < 0:
-                continue
-
-            time_diff_check.append(time_window[1] - time_window[0])
-            # We only want to address time windows that are above 0 (recording start) and below recording end
-            valid_time_tuples.append(time_window)
-            if len(set(time_diff_check)) > 1:
-                raise ValueError("All time windows must have the same length")
-        return valid_time_tuples
 
     def order_units_across_slices(
         self, agg_func, MIN_RATE_THRESHOLD=0.1, MIN_FRAC_ACTIVE=0.0
