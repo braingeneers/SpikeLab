@@ -10,12 +10,12 @@ import sys
 import numpy as np
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.spikedata import SpikeData
-from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.spikedata import SpikeData
+from spikedata.spikeslicestack import SpikeSliceStack
 
 
 def make_spikedata(n_units=3, length_ms=200.0, seed=0):
@@ -244,8 +244,13 @@ class TestToRasterArray:
         sss = SpikeSliceStack(sd, times_start_to_end=times)
         result = sss.to_raster_array()
 
-        for i, slice_sd in enumerate(sss.spike_stack):
-            expected = slice_sd.sparse_raster(bin_size=1).toarray()
+        for i, (slice_sd, (t0, t1)) in enumerate(zip(sss.spike_stack, sss.times)):
+            # Spike times are absolute; shift to 0-based before rasterizing to match
+            # what to_raster_array produces internally.
+            duration = t1 - t0
+            shifted_train = [ts - t0 for ts in slice_sd.train]
+            temp_sd = SpikeData(shifted_train, length=duration, N=slice_sd.N)
+            expected = temp_sd.sparse_raster(bin_size=1).toarray()
             # Rasterization may differ by at most one bin at the edge
             assert abs(result.shape[1] - expected.shape[1]) <= 1
             min_t = min(result.shape[1], expected.shape[1])

@@ -67,7 +67,12 @@ class SpikeSliceStack:
         spike_stack=None,
         neuron_attributes=None,
     ):
-        if data_obj is None and spike_stack is None:
+        if (
+            data_obj is None
+            and spike_stack is None
+            and times_start_to_end is None
+            and time_peaks is None
+        ):
             raise ValueError(
                 "Must input either data_obj (option 1) or spike_stack (option 2)"
             )
@@ -79,8 +84,8 @@ class SpikeSliceStack:
             )
             data_obj = None
 
-        # Option 1: Using data_obj
-        if data_obj is not None:
+        # Option 1: spike_stack not provided
+        if spike_stack is None:
             if not isinstance(data_obj, SpikeData):
                 raise TypeError("data_obj must be a SpikeData object")
 
@@ -110,7 +115,7 @@ class SpikeSliceStack:
             if neuron_attributes is None:
                 neuron_attributes = data_obj.neuron_attributes
 
-        # Option 2: Using spike_stack directly
+        # Option 2: spike_stack provided
         if spike_stack is not None:
             if not isinstance(spike_stack, list):
                 raise TypeError("spike_stack must be a list of SpikeData objects")
@@ -356,7 +361,18 @@ class SpikeSliceStack:
         """
         dense_list = []
         for sd, (start, end) in zip(self.spike_stack, self.times):
-            # Shift spike times to 0-based temporarily so sparse_raster bins correctly
-            shifted = sd.subtime(start, end, shift_time=True)
-            dense_list.append(shifted.sparse_raster(bin_size=bin_size).toarray())
+            # Spike times are absolute so we manually shift to 0-based before
+            # rasterizing. Calling sd.subtime(start, end) would fail because
+            # sd.length == duration, not the absolute end time.
+            duration = end - start
+            shifted_train = []
+            for spikes in sd.train:
+                shifted_train.append(spikes - start)
+            temp_sd = SpikeData(
+                shifted_train,
+                length=duration,
+                N=sd.N,
+                neuron_attributes=sd.neuron_attributes,
+            )
+            dense_list.append(temp_sd.sparse_raster(bin_size=bin_size).toarray())
         return np.stack(dense_list, axis=2)
