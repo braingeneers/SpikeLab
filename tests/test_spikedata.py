@@ -2679,3 +2679,37 @@ class TestFitGplvm:
         )
 
         assert len(result["log_marginal_l"]) == 3
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_returns_numpy_arrays(self):
+        """
+        Verify all arrays in the result dict are numpy ndarrays, not JAX types.
+
+        Tests:
+            (Test Case 1) Top-level array values are np.ndarray.
+            (Test Case 2) All arrays inside decode_res are np.ndarray.
+        """
+        trains = [
+            [10.0, 50.0, 120.0, 200.0, 350.0],
+            [20.0, 80.0, 180.0, 300.0, 450.0],
+            [30.0, 100.0, 150.0, 250.0, 400.0],
+        ]
+        sd = SpikeData(trains, N=3, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=50.0,
+            n_latent_bin=10,
+            n_iter=2,
+        )
+
+        # Top-level arrays
+        for key in ("log_marginal_l", "reorder_indices", "binned_spike_counts"):
+            assert isinstance(
+                result[key], np.ndarray
+            ), f"result['{key}'] is {type(result[key])}, expected np.ndarray"
+
+        # All values inside decode_res must be numpy arrays or plain scalars
+        for key, val in result["decode_res"].items():
+            assert isinstance(
+                val, (np.ndarray, int, float, bool, str)
+            ), f"decode_res['{key}'] is {type(val)}, expected np.ndarray or scalar"

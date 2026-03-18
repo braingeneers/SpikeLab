@@ -1862,21 +1862,27 @@ class SpikeData:
             n_time_per_chunk=n_time_per_chunk,
         )
 
-        log_marginal_l = em_res["log_marginal_l"]
+        log_marginal_l = np.asarray(em_res["log_marginal_l"])
 
         # Decode latent states
         decode_res = model.decode_latent(binned_spk_mat)
 
+        # Convert decode_res values from JAX arrays to numpy
+        decode_res = {
+            k: np.asarray(v) if hasattr(v, "shape") else v
+            for k, v in decode_res.items()
+        }
+
         # Get unit reordering by tuning curve peaks
         sort_res = pmg_utils.post_fit_sort_neuron(em_res)
-        reorder_indices = sort_res["argsort"]
+        reorder_indices = np.asarray(sort_res["argsort"])
 
         return {
             "decode_res": decode_res,
             "log_marginal_l": log_marginal_l,
             "reorder_indices": reorder_indices,
             "model": model,
-            "binned_spike_counts": binned_spk_mat,
+            "binned_spike_counts": np.asarray(binned_spk_mat),
             "bin_size_ms": bin_size_ms,
         }
 
