@@ -18,14 +18,14 @@ IMAGE_NAME = "spikelab-mcp-smoke-test"
 
 
 def _docker_available() -> bool:
-    """Check whether the Docker CLI is available."""
+    """Check whether the Docker CLI is available and the daemon is running."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["docker", "info"],
             capture_output=True,
             timeout=10,
         )
-        return True
+        return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
