@@ -943,7 +943,7 @@ class TestIBLLoader:
             if obj_name == "spikes":
                 collection = kwargs.get("collection", "")
                 if fail_collections and collection in fail_collections:
-                    raise Exception(f"collection not found: {collection}")
+                    raise FileNotFoundError(f"collection not found: {collection}")
                 return spikes
             raise Exception(f"Unexpected load_object call: {obj_name}")
 
@@ -1625,7 +1625,7 @@ class TestDataLoadersEdgeCases:
                 mock_trials.to_df.return_value = trials_df
                 return mock_trials
             if obj_name == "spikes":
-                raise Exception("collection not found")
+                raise FileNotFoundError("collection not found")
             raise Exception(f"Unexpected: {obj_name}")
 
         mock_one_instance = MagicMock()
