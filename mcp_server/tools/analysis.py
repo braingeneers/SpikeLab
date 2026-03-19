@@ -519,6 +519,45 @@ async def get_bursts(
     }
 
 
+async def burst_sensitivity(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    thr_values: List[float],
+    dist_values: List[float],
+    burst_edge_mult_thresh: float,
+    square_width: int = 20,
+    gauss_sigma: int = 100,
+    acc_square_width: int = 5,
+    acc_gauss_sigma: int = 5,
+    raster_bin_size_ms: float = 1.0,
+    peak_to_trough: bool = True,
+    pop_rms_override: Optional[float] = None,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    burst_counts = sd.burst_sensitivity(
+        thr_values=np.asarray(thr_values),
+        dist_values=np.asarray(dist_values),
+        burst_edge_mult_thresh=burst_edge_mult_thresh,
+        square_width=square_width,
+        gauss_sigma=gauss_sigma,
+        acc_square_width=acc_square_width,
+        acc_gauss_sigma=acc_gauss_sigma,
+        raster_bin_size_ms=raster_bin_size_ms,
+        peak_to_trough=peak_to_trough,
+        pop_rms_override=pop_rms_override,
+    )
+    ws.store(namespace, key, burst_counts)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "shape": list(burst_counts.shape),
+        "info": ws.get_info(namespace, key),
+    }
+
+
 async def get_frac_active(
     workspace_id: str,
     namespace: str,

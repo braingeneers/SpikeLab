@@ -380,7 +380,7 @@ class TestDataLoaders:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders.ensure_local")
+    @patch("SpikeLab.mcp_server.tools.data_loaders.ensure_local_file")
     async def test_load_from_hdf5_s3(self, mock_ensure):
         """
         Test loading HDF5 spike data from an S3 URL.
@@ -1077,7 +1077,7 @@ class TestServerIntegration:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.server.analysis.compute_rates")
+    @patch("SpikeLab.mcp_server.server.analysis.compute_rates")
     async def test_call_tool(self, mock_compute):
         """Test calling a tool through the server."""
         from SpikeLab.mcp_server.server import _call_tool
