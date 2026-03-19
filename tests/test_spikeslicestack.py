@@ -392,3 +392,482 @@ class TestSpikeSliceStackEdgeCases:
         spikes_0 = sss.spike_stack[0].train[0]
         spikes_1 = sss.spike_stack[1].train[0]
         np.testing.assert_array_equal(spikes_0, spikes_1)
+
+
+class TestSpikeStackConstructor:
+    """Tests for the spike_stack= (Option 2) constructor path."""
+
+    def test_basic_spike_stack_construction(self):
+        """
+        Construct a SpikeSliceStack from a pre-built list of SpikeData objects.
+
+        Tests:
+            (Test Case 1) spike_stack length matches input list length.
+            (Test Case 2) N is set correctly from the SpikeData objects.
+            (Test Case 3) times are auto-generated end-to-end when not provided.
+        """
+        sd1 = SpikeData([np.array([5.0, 15.0])], length=20.0)
+        sd2 = SpikeData([np.array([3.0, 12.0])], length=20.0)
+        sd3 = SpikeData([np.array([8.0])], length=20.0)
+
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2, sd3])
+
+        assert len(sss.spike_stack) == 3
+        assert sss.N == 1
+        # Auto-generated times: (0,20), (20,40), (40,60)
+        assert sss.times[0] == pytest.approx((0.0, 20.0))
+        assert sss.times[1] == pytest.approx((20.0, 40.0))
+        assert sss.times[2] == pytest.approx((40.0, 60.0))
+
+    def test_spike_stack_with_explicit_times(self):
+        """
+        Construct with spike_stack and explicit times_start_to_end.
+
+        Tests:
+            (Test Case 1) Provided times are stored correctly.
+            (Test Case 2) spike_stack is stored without modification.
+        """
+        sd1 = SpikeData([np.array([5.0]), np.array([10.0])], length=20.0)
+        sd2 = SpikeData([np.array([2.0]), np.array([18.0])], length=20.0)
+        times = [(100.0, 120.0), (200.0, 220.0)]
+
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2], times_start_to_end=times)
+
+        assert sss.times == times
+        assert sss.N == 2
+        assert len(sss.spike_stack) == 2
+
+    def test_spike_stack_with_neuron_attributes(self):
+        """
+        Construct with spike_stack and neuron_attributes.
+
+        Tests:
+            (Test Case 1) neuron_attributes are stored correctly.
+        """
+        sd1 = SpikeData([np.array([5.0]), np.array([10.0])], length=20.0)
+        sd2 = SpikeData([np.array([2.0]), np.array([18.0])], length=20.0)
+        attrs = [{"id": "A"}, {"id": "B"}]
+
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2], neuron_attributes=attrs)
+
+        assert sss.neuron_attributes == attrs
+
+    def test_spike_stack_overrides_data_obj(self):
+        """
+        When both data_obj and spike_stack are provided, spike_stack wins with a warning.
+
+        Tests:
+            (Test Case 1) UserWarning is raised.
+            (Test Case 2) Result uses spike_stack, not data_obj.
+        """
+        sd_obj = make_spikedata(n_units=3, length_ms=200.0)
+        sd1 = SpikeData([np.array([5.0])], length=20.0)
+        sd2 = SpikeData([np.array([10.0])], length=20.0)
+
+        with pytest.warns(UserWarning, match="Ignoring data_obj"):
+            sss = SpikeSliceStack(
+                data_obj=sd_obj,
+                spike_stack=[sd1, sd2],
+            )
+
+        assert sss.N == 1  # From spike_stack, not data_obj (which has 3 units)
+        assert len(sss.spike_stack) == 2
+
+    def test_spike_stack_non_list_raises(self):
+        """
+        Non-list spike_stack raises TypeError.
+
+        Tests:
+            (Test Case 1) Tuple input raises TypeError.
+        """
+        sd1 = SpikeData([np.array([5.0])], length=20.0)
+        with pytest.raises(TypeError, match="list of SpikeData"):
+            SpikeSliceStack(spike_stack=(sd1,))
+
+    def test_spike_stack_non_spikedata_element_raises(self):
+        """
+        Non-SpikeData element in spike_stack raises TypeError.
+
+        Tests:
+            (Test Case 1) String element raises TypeError.
+        """
+        with pytest.raises(TypeError, match="list of SpikeData"):
+            SpikeSliceStack(spike_stack=["not_spikedata"])
+
+    def test_spike_stack_empty_raises(self):
+        """
+        Empty spike_stack list raises ValueError.
+
+        Tests:
+            (Test Case 1) Empty list raises ValueError.
+        """
+        with pytest.raises(ValueError, match="must not be empty"):
+            SpikeSliceStack(spike_stack=[])
+
+    def test_spike_stack_mismatched_units_raises(self):
+        """
+        SpikeData objects with different N raise ValueError.
+
+        Tests:
+            (Test Case 1) Mismatched unit counts raise ValueError.
+        """
+        sd1 = SpikeData([np.array([5.0])], length=20.0)
+        sd2 = SpikeData([np.array([5.0]), np.array([10.0])], length=20.0)
+        with pytest.raises(ValueError, match="same number of units"):
+            SpikeSliceStack(spike_stack=[sd1, sd2])
+
+    def test_spike_stack_times_length_mismatch_raises(self):
+        """
+        times_start_to_end with wrong length raises ValueError.
+
+        Tests:
+            (Test Case 1) 3 times for 2 slices raises ValueError.
+        """
+        sd1 = SpikeData([np.array([5.0])], length=20.0)
+        sd2 = SpikeData([np.array([10.0])], length=20.0)
+        with pytest.raises(ValueError, match="same length"):
+            SpikeSliceStack(
+                spike_stack=[sd1, sd2],
+                times_start_to_end=[(0.0, 20.0), (20.0, 40.0), (40.0, 60.0)],
+            )
+
+
+class TestSubslice:
+    """Tests for SpikeSliceStack.subslice()."""
+
+    def _make_stack(self):
+        """Helper: 3-unit, 4-slice stack."""
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=7)
+        times = [(10.0, 30.0), (50.0, 70.0), (100.0, 120.0), (150.0, 170.0)]
+        return SpikeSliceStack(
+            sd,
+            times_start_to_end=times,
+            neuron_attributes=[{"id": "A"}, {"id": "B"}, {"id": "C"}],
+        )
+
+    def test_subslice_single_int(self):
+        """
+        Extract a single slice by integer index.
+
+        Tests:
+            (Test Case 1) Result has exactly 1 slice.
+            (Test Case 2) The slice times match the original slice at that index.
+            (Test Case 3) neuron_attributes are preserved.
+        """
+        sss = self._make_stack()
+        result = sss.subslice(2)
+
+        assert len(result.spike_stack) == 1
+        assert result.times[0] == sss.times[2]
+        assert result.neuron_attributes == sss.neuron_attributes
+
+    def test_subslice_list(self):
+        """
+        Extract multiple slices by list of indices.
+
+        Tests:
+            (Test Case 1) Result has the correct number of slices.
+            (Test Case 2) Times are in sorted order matching the selected indices.
+        """
+        sss = self._make_stack()
+        result = sss.subslice([3, 0, 2])
+
+        assert len(result.spike_stack) == 3
+        # Subslice sorts indices, so order is 0, 2, 3
+        assert result.times[0] == sss.times[0]
+        assert result.times[1] == sss.times[2]
+        assert result.times[2] == sss.times[3]
+
+    def test_subslice_negative_index(self):
+        """
+        Extract a slice using negative indexing.
+
+        Tests:
+            (Test Case 1) Index -1 returns the last slice.
+        """
+        sss = self._make_stack()
+        result = sss.subslice(-1)
+
+        assert len(result.spike_stack) == 1
+        assert result.times[0] == sss.times[-1]
+
+    def test_subslice_out_of_range_raises(self):
+        """
+        Out-of-range slice index raises ValueError.
+
+        Tests:
+            (Test Case 1) Index equal to S raises ValueError.
+            (Test Case 2) Negative index beyond -S raises ValueError.
+        """
+        sss = self._make_stack()
+        with pytest.raises(ValueError, match="out of range"):
+            sss.subslice(4)
+        with pytest.raises(ValueError, match="out of range"):
+            sss.subslice(-5)
+
+    def test_subslice_preserves_spike_data(self):
+        """
+        Extracted slices contain the same spike trains as the originals.
+
+        Tests:
+            (Test Case 1) Spike trains in the subsliced result match the original.
+        """
+        sss = self._make_stack()
+        result = sss.subslice([1])
+
+        for u in range(sss.N):
+            np.testing.assert_array_equal(
+                result.spike_stack[0].train[u], sss.spike_stack[1].train[u]
+            )
+
+
+class TestSubset:
+    """Tests for SpikeSliceStack.subset()."""
+
+    def _make_stack(self):
+        """Helper: 3-unit, 2-slice stack with neuron_attributes."""
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=11)
+        times = [(10.0, 30.0), (50.0, 70.0)]
+        return SpikeSliceStack(
+            sd,
+            times_start_to_end=times,
+            neuron_attributes=[
+                {"id": "A", "region": "ctx"},
+                {"id": "B", "region": "hpc"},
+                {"id": "C", "region": "ctx"},
+            ],
+        )
+
+    def test_subset_by_index_single(self):
+        """
+        Extract a single unit by index.
+
+        Tests:
+            (Test Case 1) Result has N=1.
+            (Test Case 2) neuron_attributes contain only the selected unit.
+            (Test Case 3) All slices are preserved.
+        """
+        sss = self._make_stack()
+        result = sss.subset(1)
+
+        assert result.N == 1
+        assert len(result.spike_stack) == 2
+        assert result.neuron_attributes == [{"id": "B", "region": "hpc"}]
+
+    def test_subset_by_index_list(self):
+        """
+        Extract multiple units by index list.
+
+        Tests:
+            (Test Case 1) Result has the correct number of units.
+            (Test Case 2) neuron_attributes match selected units in order.
+        """
+        sss = self._make_stack()
+        result = sss.subset([0, 2])
+
+        assert result.N == 2
+        assert result.neuron_attributes[0]["id"] == "A"
+        assert result.neuron_attributes[1]["id"] == "C"
+
+    @pytest.mark.xfail(
+        reason="Source bug: SpikeSliceStack.subset(by=) passes by= to individual "
+        "SpikeData.subset() but the slice SpikeData objects may not have "
+        "neuron_attributes. Should pass resolved indices instead.",
+        strict=True,
+    )
+    def test_subset_by_attribute(self):
+        """
+        Extract units by neuron_attribute key.
+
+        Tests:
+            (Test Case 1) Selecting by region="ctx" returns 2 units.
+            (Test Case 2) neuron_attributes of result match the filtered units.
+        """
+        sss = self._make_stack()
+        result = sss.subset("ctx", by="region")
+
+        assert result.N == 2
+        assert result.neuron_attributes[0]["id"] == "A"
+        assert result.neuron_attributes[1]["id"] == "C"
+
+    def test_subset_by_attribute_no_neuron_attributes_raises(self):
+        """
+        Using by= without neuron_attributes raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError is raised with descriptive message.
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 20.0), (30.0, 50.0)])
+
+        with pytest.raises(ValueError, match="neuron_attributes"):
+            sss.subset("A", by="id")
+
+    def test_subset_preserves_times(self):
+        """
+        Subset preserves the original time windows.
+
+        Tests:
+            (Test Case 1) Times are unchanged after subsetting units.
+        """
+        sss = self._make_stack()
+        result = sss.subset([0])
+
+        assert result.times == sss.times
+
+    def test_subset_preserves_spike_trains(self):
+        """
+        Spike trains for selected units match the originals.
+
+        Tests:
+            (Test Case 1) Unit 1 spike trains match across all slices.
+        """
+        sss = self._make_stack()
+        result = sss.subset(1)
+
+        for s_idx in range(len(sss.spike_stack)):
+            np.testing.assert_array_equal(
+                result.spike_stack[s_idx].train[0],
+                sss.spike_stack[s_idx].train[1],
+            )
+
+
+@pytest.mark.xfail(
+    reason="Source bug: subtime_by_index passes absolute times to SpikeData "
+    "with relative length (from shift_time=False subtime). Needs source fix.",
+    strict=True,
+)
+class TestSubtimeByIndex:
+    """Tests for SpikeSliceStack.subtime_by_index().
+
+    NOTE: These tests are currently xfail because subtime_by_index has a source
+    bug — it passes absolute time coordinates to sd.subtime() but the slice
+    SpikeData objects have length = window_duration (not absolute end time),
+    causing subtime to clip the start/end to the duration and raise ValueError.
+    """
+
+    def _make_stack(self):
+        """Helper: 2-unit, 3-slice stack with 50ms slices."""
+        sd = make_spikedata(n_units=2, length_ms=500.0, seed=22)
+        times = [(100.0, 150.0), (200.0, 250.0), (300.0, 350.0)]
+        return SpikeSliceStack(
+            sd,
+            times_start_to_end=times,
+            neuron_attributes=[{"id": "X"}, {"id": "Y"}],
+        )
+
+    def test_basic_subtime(self):
+        """
+        Trim each slice to an inner sub-window.
+
+        Tests:
+            (Test Case 1) Result has the same number of slices.
+            (Test Case 2) Each slice time window reflects the trimmed range.
+            (Test Case 3) neuron_attributes are preserved.
+        """
+        sss = self._make_stack()
+        result = sss.subtime_by_index(10, 40)
+
+        assert len(result.spike_stack) == 3
+        assert result.times[0] == pytest.approx((110.0, 140.0))
+        assert result.times[1] == pytest.approx((210.0, 240.0))
+        assert result.times[2] == pytest.approx((310.0, 340.0))
+        assert result.neuron_attributes == sss.neuron_attributes
+
+    def test_subtime_negative_indices(self):
+        """
+        Trim with negative indices (relative to slice end).
+
+        Tests:
+            (Test Case 1) Negative start_idx trims from the end.
+        """
+        sss = self._make_stack()
+        result = sss.subtime_by_index(-20, -5)
+
+        assert result.times[0] == pytest.approx((130.0, 145.0))
+        assert result.times[1] == pytest.approx((230.0, 245.0))
+
+    def test_subtime_full_range(self):
+        """
+        Trimming to the full range (0, T) returns equivalent data.
+
+        Tests:
+            (Test Case 1) Times match the originals.
+        """
+        sss = self._make_stack()
+        result = sss.subtime_by_index(0, 50)
+
+        for orig, trimmed in zip(sss.times, result.times):
+            assert trimmed == pytest.approx(orig)
+
+    def test_subtime_spikes_within_window(self):
+        """
+        After trimming, spikes outside the new window are excluded.
+
+        Tests:
+            (Test Case 1) All spike times fall within the new absolute window.
+        """
+        sss = self._make_stack()
+        result = sss.subtime_by_index(10, 30)
+
+        for sd, (t_start, t_end) in zip(result.spike_stack, result.times):
+            for unit_spikes in sd.train:
+                if len(unit_spikes) > 0:
+                    assert np.all(unit_spikes >= t_start)
+                    assert np.all(unit_spikes < t_end)
+
+
+class TestToRasterArrayCustomBin:
+    """Tests for to_raster_array with non-default bin_size."""
+
+    def test_bin_size_changes_time_dimension(self):
+        """
+        Larger bin_size reduces the T dimension of the output.
+
+        Tests:
+            (Test Case 1) bin_size=5 produces smaller T than bin_size=1.
+            (Test Case 2) U and S dimensions are unchanged.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0, seed=33)
+        times = [(10.0, 60.0), (80.0, 130.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+
+        result_1ms = sss.to_raster_array(bin_size=1.0)
+        result_5ms = sss.to_raster_array(bin_size=5.0)
+
+        assert result_1ms.shape[0] == result_5ms.shape[0] == 2  # U
+        assert result_1ms.shape[2] == result_5ms.shape[2] == 2  # S
+        assert result_5ms.shape[1] < result_1ms.shape[1]  # Fewer time bins
+
+    def test_bin_size_preserves_total_spike_count(self):
+        """
+        Total spike count is the same regardless of bin_size.
+
+        Tests:
+            (Test Case 1) Sum of all bins is identical for bin_size=1 and bin_size=10.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0, seed=44)
+        times = [(0.0, 50.0), (100.0, 150.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+
+        result_1ms = sss.to_raster_array(bin_size=1.0)
+        result_10ms = sss.to_raster_array(bin_size=10.0)
+
+        assert result_1ms.sum() == result_10ms.sum()
+
+    def test_bin_size_large_single_bin(self):
+        """
+        bin_size equal to slice duration captures all spikes in the first bin.
+
+        Tests:
+            (Test Case 1) The first bin contains all spikes from the slice.
+        """
+        train = [np.array([5.0, 15.0, 25.0])]
+        sd = SpikeData(train, length=50.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 30.0)])
+
+        result = sss.to_raster_array(bin_size=30.0)
+
+        assert result.shape[0] == 1  # U
+        assert result.shape[2] == 1  # S
+        assert result[0, 0, 0] == 3  # All 3 spikes in first bin

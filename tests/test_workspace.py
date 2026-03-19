@@ -1668,3 +1668,421 @@ class TestHDF5IO:
         assert isinstance(namespaces, list)
         assert sorted(namespaces) == sorted(["alpha", "beta"])
         assert "gamma" not in namespaces
+
+
+# ---------------------------------------------------------------------------
+# Tests: LazyAnalysisWorkspace — dedicated coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestLazyAnalysisWorkspace:
+    """
+    Dedicated tests for LazyAnalysisWorkspace.
+
+    Covers construction, store/get round-trips, list_keys, list_namespaces,
+    delete, describe, save/load persistence, and WorkspaceManager lazy creation.
+    """
+
+    # ------------------------------------------------------------------
+    # Construction
+    # ------------------------------------------------------------------
+
+    def test_construction_creates_valid_workspace(self):
+        """
+        Construct a LazyAnalysisWorkspace and verify its attributes.
+
+        Tests:
+            (Test Case 1) workspace_id is a non-empty string.
+            (Test Case 2) name attribute matches the provided name.
+            (Test Case 3) created_at is a positive float timestamp.
+            (Test Case 4) The backing temp HDF5 file exists on disk.
+            (Test Case 5) _items dict is empty (data lives on disk, not in memory).
+            (Test Case 6) _index dict is empty for a fresh workspace.
+        """
+        ws = LazyAnalysisWorkspace(name="test_lazy")
+
+        assert isinstance(ws.workspace_id, str) and len(ws.workspace_id) > 0
+        assert ws.name == "test_lazy"
+        assert isinstance(ws.created_at, float) and ws.created_at > 0
+        assert pathlib.Path(ws._h5_path).exists()
+        assert ws._items == {}
+        assert ws._index == {}
+
+    def test_construction_without_name(self):
+        """
+        Construct a LazyAnalysisWorkspace without a name.
+
+        Tests:
+            (Test Case 1) name attribute is None when not provided.
+            (Test Case 2) Workspace is still functional (temp file exists).
+        """
+        ws = LazyAnalysisWorkspace()
+
+        assert ws.name is None
+        assert pathlib.Path(ws._h5_path).exists()
+
+    # ------------------------------------------------------------------
+    # store() and get()
+    # ------------------------------------------------------------------
+
+    def test_store_and_get_ndarray(self):
+        """
+        Store a numpy ndarray and retrieve it, verifying equality.
+
+        Tests:
+            (Test Case 1) get() returns an array equal to the stored array.
+            (Test Case 2) The dtype is preserved.
+            (Test Case 3) The shape is preserved.
+            (Test Case 4) _items remains empty (data is on disk, not in memory).
+        """
+        ws = LazyAnalysisWorkspace(name="store_get")
+        arr = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+        ws.store("ns1", "my_array", arr)
+        retrieved = ws.get("ns1", "my_array")
+
+        np.testing.assert_array_equal(retrieved, arr)
+        assert retrieved.dtype == arr.dtype
+        assert retrieved.shape == arr.shape
+        assert ws._items == {}
+
+    def test_store_and_get_multiple_items(self):
+        """
+        Store multiple items in different namespaces and retrieve each.
+
+        Tests:
+            (Test Case 1) Each item is retrieved correctly from its own namespace/key.
+            (Test Case 2) Items do not interfere with each other.
+        """
+        ws = LazyAnalysisWorkspace(name="multi")
+        arr1 = np.array([1.0, 2.0])
+        arr2 = np.array([10.0, 20.0, 30.0])
+        arr3 = np.array([[7.0]])
+
+        ws.store("ns_a", "first", arr1)
+        ws.store("ns_a", "second", arr2)
+        ws.store("ns_b", "only", arr3)
+
+        np.testing.assert_array_equal(ws.get("ns_a", "first"), arr1)
+        np.testing.assert_array_equal(ws.get("ns_a", "second"), arr2)
+        np.testing.assert_array_equal(ws.get("ns_b", "only"), arr3)
+
+    def test_get_missing_returns_none(self):
+        """
+        get() returns None for non-existent namespace or key.
+
+        Tests:
+            (Test Case 1) Missing namespace returns None.
+            (Test Case 2) Missing key in existing namespace returns None.
+        """
+        ws = LazyAnalysisWorkspace(name="missing")
+        ws.store("ns", "k", np.zeros(2))
+
+        assert ws.get("nonexistent", "k") is None
+        assert ws.get("ns", "nonexistent") is None
+
+    def test_store_overwrites_existing_key(self):
+        """
+        Storing under an existing (namespace, key) overwrites the previous value.
+
+        Tests:
+            (Test Case 1) After overwrite, get() returns the new value.
+            (Test Case 2) The old value is no longer retrievable.
+        """
+        ws = LazyAnalysisWorkspace(name="overwrite")
+        ws.store("ns", "k", np.array([1.0, 2.0]))
+        ws.store("ns", "k", np.array([99.0]))
+
+        result = ws.get("ns", "k")
+        np.testing.assert_array_equal(result, np.array([99.0]))
+
+    # ------------------------------------------------------------------
+    # list_keys() and list_namespaces()
+    # ------------------------------------------------------------------
+
+    def test_list_keys_all_namespaces(self):
+        """
+        list_keys() without arguments returns a dict of all namespaces to keys.
+
+        Tests:
+            (Test Case 1) Returns a dict with namespace names as keys.
+            (Test Case 2) Each namespace maps to the correct list of keys.
+            (Test Case 3) Empty workspace returns an empty dict.
+        """
+        ws = LazyAnalysisWorkspace(name="list_keys")
+
+        assert ws.list_keys() == {}
+
+        ws.store("alpha", "k1", np.zeros(1))
+        ws.store("alpha", "k2", np.zeros(1))
+        ws.store("beta", "k3", np.zeros(1))
+
+        result = ws.list_keys()
+        assert isinstance(result, dict)
+        assert sorted(result["alpha"]) == sorted(["k1", "k2"])
+        assert result["beta"] == ["k3"]
+
+    def test_list_keys_single_namespace(self):
+        """
+        list_keys(namespace) returns a list of keys for that namespace.
+
+        Tests:
+            (Test Case 1) Returns correct keys for an existing namespace.
+            (Test Case 2) Returns an empty list for a non-existent namespace.
+        """
+        ws = LazyAnalysisWorkspace(name="list_keys_ns")
+        ws.store("alpha", "k1", np.zeros(1))
+        ws.store("alpha", "k2", np.zeros(1))
+
+        keys = ws.list_keys("alpha")
+        assert isinstance(keys, list)
+        assert sorted(keys) == sorted(["k1", "k2"])
+
+        assert ws.list_keys("nonexistent") == []
+
+    def test_list_namespaces_after_storing(self):
+        """
+        list_namespaces() returns all namespace names after storing items.
+
+        Tests:
+            (Test Case 1) Empty workspace returns empty list.
+            (Test Case 2) After storing in two namespaces, both are returned.
+            (Test Case 3) Namespaces not stored are absent.
+        """
+        ws = LazyAnalysisWorkspace(name="ns_list")
+
+        assert ws.list_namespaces() == []
+
+        ws.store("rec1", "data", np.zeros(3))
+        ws.store("rec2", "data", np.ones(3))
+
+        ns = ws.list_namespaces()
+        assert sorted(ns) == ["rec1", "rec2"]
+        assert "rec3" not in ns
+
+    # ------------------------------------------------------------------
+    # delete()
+    # ------------------------------------------------------------------
+
+    def test_delete_single_item(self):
+        """
+        Delete a single item and verify it is gone.
+
+        Tests:
+            (Test Case 1) delete() returns True for an existing item.
+            (Test Case 2) get() returns None after deletion.
+            (Test Case 3) The key is removed from list_keys().
+            (Test Case 4) Other items in the same namespace are unaffected.
+        """
+        ws = LazyAnalysisWorkspace(name="delete_item")
+        ws.store("ns", "keep", np.array([1.0]))
+        ws.store("ns", "remove", np.array([2.0]))
+
+        assert ws.delete("ns", "remove") is True
+        assert ws.get("ns", "remove") is None
+        assert "remove" not in ws.list_keys("ns")
+        np.testing.assert_array_equal(ws.get("ns", "keep"), np.array([1.0]))
+
+    def test_delete_entire_namespace(self):
+        """
+        Delete an entire namespace and verify all its items are gone.
+
+        Tests:
+            (Test Case 1) delete() with key=None returns True.
+            (Test Case 2) The namespace is removed from list_namespaces().
+            (Test Case 3) get() returns None for any key in the deleted namespace.
+        """
+        ws = LazyAnalysisWorkspace(name="delete_ns")
+        ws.store("remove_ns", "k1", np.array([1.0]))
+        ws.store("remove_ns", "k2", np.array([2.0]))
+        ws.store("keep_ns", "k1", np.array([3.0]))
+
+        assert ws.delete("remove_ns") is True
+        assert "remove_ns" not in ws.list_namespaces()
+        assert ws.get("remove_ns", "k1") is None
+        assert ws.get("remove_ns", "k2") is None
+        np.testing.assert_array_equal(ws.get("keep_ns", "k1"), np.array([3.0]))
+
+    def test_delete_nonexistent_returns_false(self):
+        """
+        delete() returns False when the target does not exist.
+
+        Tests:
+            (Test Case 1) Missing namespace returns False.
+            (Test Case 2) Missing key in existing namespace returns False.
+        """
+        ws = LazyAnalysisWorkspace(name="delete_miss")
+        ws.store("ns", "k", np.zeros(1))
+
+        assert ws.delete("nonexistent") is False
+        assert ws.delete("ns", "nonexistent") is False
+
+    # ------------------------------------------------------------------
+    # describe()
+    # ------------------------------------------------------------------
+
+    def test_describe_after_storing(self):
+        """
+        describe() returns a nested dict reflecting stored items.
+
+        Tests:
+            (Test Case 1) Empty workspace returns an empty dict.
+            (Test Case 2) After storing items, top-level keys are namespace names.
+            (Test Case 3) Each namespace contains correct item keys.
+            (Test Case 4) Each item entry contains 'type' and 'created_at'.
+            (Test Case 5) ndarray entries contain 'shape' and 'dtype' fields.
+        """
+        ws = LazyAnalysisWorkspace(name="describe")
+
+        assert ws.describe() == {}
+
+        ws.store("rec1", "rates", np.zeros((3, 10)))
+        ws.store("rec1", "spikes", np.ones(5))
+        ws.store("rec2", "data", np.array([42.0]))
+
+        desc = ws.describe()
+        assert set(desc.keys()) == {"rec1", "rec2"}
+        assert set(desc["rec1"].keys()) == {"rates", "spikes"}
+        assert set(desc["rec2"].keys()) == {"data"}
+
+        rates_info = desc["rec1"]["rates"]
+        assert rates_info["type"] == "ndarray"
+        assert "created_at" in rates_info
+        assert rates_info["shape"] == [3, 10]
+        assert "dtype" in rates_info
+
+    def test_describe_with_note(self):
+        """
+        describe() includes notes when they were provided at store time.
+
+        Tests:
+            (Test Case 1) Note is present in the index entry when provided.
+            (Test Case 2) Note is absent when not provided.
+        """
+        ws = LazyAnalysisWorkspace(name="note_test")
+        ws.store("ns", "with_note", np.zeros(1), note="important result")
+        ws.store("ns", "no_note", np.zeros(1))
+
+        desc = ws.describe()
+        assert desc["ns"]["with_note"]["note"] == "important result"
+        assert "note" not in desc["ns"]["no_note"]
+
+    # ------------------------------------------------------------------
+    # save() and load()
+    # ------------------------------------------------------------------
+
+    def test_save_and_load_roundtrip(self):
+        """
+        Save a lazy workspace to a new path and load it back.
+
+        Tests:
+            (Test Case 1) save() creates .h5 and .json files at the target path.
+            (Test Case 2) load() reconstructs a workspace with the same workspace_id.
+            (Test Case 3) load() reconstructs a workspace with the same name.
+            (Test Case 4) Stored ndarray data survives the round-trip.
+            (Test Case 5) The index is preserved (list_keys matches).
+        """
+        ws = LazyAnalysisWorkspace(name="save_load")
+        arr = np.array([[1.0, 2.0], [3.0, 4.0]])
+        ws.store("ns", "matrix", arr)
+        ws.store("ns", "vector", np.array([10.0, 20.0, 30.0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "lazy_ws")
+            ws.save(base)
+
+            assert pathlib.Path(f"{base}.h5").exists()
+            assert pathlib.Path(f"{base}.json").exists()
+
+            loaded = AnalysisWorkspace.load(base)
+
+            assert loaded.workspace_id == ws.workspace_id
+            assert loaded.name == ws.name
+            np.testing.assert_array_equal(loaded.get("ns", "matrix"), arr)
+            np.testing.assert_array_equal(
+                loaded.get("ns", "vector"), np.array([10.0, 20.0, 30.0])
+            )
+            assert sorted(loaded.list_keys("ns")) == sorted(["matrix", "vector"])
+
+    def test_save_json_contains_index(self):
+        """
+        The .json file written by save() contains correct metadata.
+
+        Tests:
+            (Test Case 1) JSON has workspace_id matching the workspace.
+            (Test Case 2) JSON has name matching the workspace.
+            (Test Case 3) JSON index contains the stored namespace and key.
+        """
+        ws = LazyAnalysisWorkspace(name="json_check")
+        ws.store("ns", "arr", np.zeros(3))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+
+            with open(f"{base}.json", "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+            assert meta["workspace_id"] == ws.workspace_id
+            assert meta["name"] == "json_check"
+            assert "ns" in meta["index"]
+            assert "arr" in meta["index"]["ns"]
+
+    # ------------------------------------------------------------------
+    # WorkspaceManager.create_workspace(lazy=True)
+    # ------------------------------------------------------------------
+
+    def test_manager_create_lazy_workspace(self):
+        """
+        WorkspaceManager.create_workspace(lazy=True) creates a LazyAnalysisWorkspace.
+
+        Tests:
+            (Test Case 1) Returned workspace_id is a non-empty string.
+            (Test Case 2) get_workspace() returns a LazyAnalysisWorkspace instance.
+            (Test Case 3) The lazy workspace is functional (store and get work).
+        """
+        mgr = WorkspaceManager()
+        ws_id = mgr.create_workspace(name="mgr_lazy", lazy=True)
+
+        assert isinstance(ws_id, str) and len(ws_id) > 0
+
+        ws = mgr.get_workspace(ws_id)
+        assert isinstance(ws, LazyAnalysisWorkspace)
+
+        arr = np.array([1.0, 2.0, 3.0])
+        ws.store("ns", "data", arr)
+        np.testing.assert_array_equal(ws.get("ns", "data"), arr)
+
+    def test_manager_create_lazy_false_is_regular(self):
+        """
+        WorkspaceManager.create_workspace(lazy=False) creates a regular AnalysisWorkspace.
+
+        Tests:
+            (Test Case 1) get_workspace() returns an AnalysisWorkspace, not LazyAnalysisWorkspace.
+        """
+        mgr = WorkspaceManager()
+        ws_id = mgr.create_workspace(name="mgr_regular", lazy=False)
+        ws = mgr.get_workspace(ws_id)
+
+        assert type(ws) is AnalysisWorkspace
+        assert not isinstance(ws, LazyAnalysisWorkspace)
+
+    # ------------------------------------------------------------------
+    # __repr__
+    # ------------------------------------------------------------------
+
+    def test_repr(self):
+        """
+        __repr__ returns a descriptive string for the lazy workspace.
+
+        Tests:
+            (Test Case 1) repr includes 'LazyAnalysisWorkspace'.
+            (Test Case 2) repr includes the workspace name.
+            (Test Case 3) repr includes 'temp HDF5'.
+        """
+        ws = LazyAnalysisWorkspace(name="repr_test")
+        r = repr(ws)
+        assert "LazyAnalysisWorkspace" in r
+        assert "repr_test" in r
+        assert "temp HDF5" in r

@@ -36,6 +36,8 @@ from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
 from SpikeLab.spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
+    compute_cross_correlation_with_lag,
+    compute_cosine_similarity_with_lag,
     extract_unit_waveforms,
     extract_waveforms,
     get_channels_for_unit,
@@ -2155,6 +2157,157 @@ class TestSpikeData:
         )
         # Channel 0 should have spikes, channel 1 might not (only negative spike)
         assert len(sd_up.train[0]) > 0
+
+
+class TestGetPairwiseCCG:
+    """Tests for SpikeData.get_pairwise_ccg."""
+
+    def test_basic_shape_and_symmetry(self):
+        """
+        Tests that get_pairwise_ccg returns correctly shaped, symmetric matrices.
+
+        Tests:
+            (Test Case 1) Output shapes are (N, N) for both corr and lag matrices.
+            (Test Case 2) Correlation matrix is symmetric.
+            (Test Case 3) Lag matrix is antisymmetric (lag[i,j] == -lag[j,i]).
+            (Test Case 4) Diagonal of corr is 1, diagonal of lag is 0.
+        """
+        sd = random_spikedata(5, 5000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
+
+        assert corr.matrix.shape == (5, 5)
+        assert lag.matrix.shape == (5, 5)
+
+        # Symmetry
+        np.testing.assert_array_almost_equal(corr.matrix, corr.matrix.T)
+        # Antisymmetry of lags
+        np.testing.assert_array_almost_equal(lag.matrix, -lag.matrix.T)
+
+        # Diagonal
+        np.testing.assert_array_equal(np.diag(corr.matrix), np.ones(5))
+        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(5))
+
+    def test_returns_pairwise_comp_matrix(self):
+        """
+        Tests that both return values are PairwiseCompMatrix instances.
+
+        Tests:
+            (Test Case 1) corr is a PairwiseCompMatrix.
+            (Test Case 2) lag is a PairwiseCompMatrix.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert isinstance(lag, PairwiseCompMatrix)
+
+    def test_metadata(self):
+        """
+        Tests that metadata on returned matrices stores bin_size and max_lag.
+
+        Tests:
+            (Test Case 1) corr metadata contains bin_size and max_lag.
+            (Test Case 2) lag metadata contains bin_size and max_lag.
+        """
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=2.0, max_lag=100)
+
+        assert corr.metadata["bin_size"] == 2.0
+        assert corr.metadata["max_lag"] == 100
+        assert lag.metadata["bin_size"] == 2.0
+        assert lag.metadata["max_lag"] == 100
+
+    def test_identical_trains_perfect_correlation(self):
+        """
+        Tests that identical spike trains produce correlation of 1 and lag of 0.
+
+        Tests:
+            (Test Case 1) Two copies of the same train yield corr == 1 and lag == 0.
+        """
+        train = np.sort(np.random.uniform(0, 1000, size=200))
+        sd = SpikeData([train, train.copy()], length=1000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
+
+        assert corr.matrix[0, 1] == pytest.approx(1.0)
+        assert lag.matrix[0, 1] == 0
+
+    def test_cosine_similarity_func(self):
+        """
+        Tests that compute_cosine_similarity_with_lag works as compare_func.
+
+        Tests:
+            (Test Case 1) Output shapes are correct with cosine similarity.
+            (Test Case 2) Diagonal of corr is 1.
+            (Test Case 3) Correlation values are within [-1, 1].
+        """
+        sd = random_spikedata(4, 4000)
+        corr, lag = sd.get_pairwise_ccg(
+            compare_func=compute_cosine_similarity_with_lag,
+            bin_size=1.0,
+            max_lag=20,
+        )
+
+        assert corr.matrix.shape == (4, 4)
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(4))
+        assert np.all(corr.matrix >= -1.0 - 1e-10)
+        assert np.all(corr.matrix <= 1.0 + 1e-10)
+
+    def test_bin_size_affects_lag_conversion(self):
+        """
+        Tests that max_lag is converted to bins using bin_size.
+
+        Tests:
+            (Test Case 1) With bin_size=5 and max_lag=50, the maximum absolute lag
+                in bins should not exceed 10 (50/5).
+        """
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=5.0, max_lag=50)
+
+        # Lag values are in bins; max should be <= 10 (50ms / 5ms)
+        assert np.all(np.abs(lag.matrix) <= 10)
+
+    def test_single_unit(self):
+        """
+        Tests get_pairwise_ccg with a single unit.
+
+        Tests:
+            (Test Case 1) Returns 1x1 matrices with corr=1 and lag=0.
+        """
+        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert corr.matrix.shape == (1, 1)
+        assert corr.matrix[0, 0] == 1.0
+        assert lag.matrix[0, 0] == 0
+
+    def test_empty_train_pair(self):
+        """
+        Tests get_pairwise_ccg when one unit has no spikes.
+
+        Tests:
+            (Test Case 1) Correlation with an empty train is 0.
+        """
+        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert corr.matrix[0, 1] == pytest.approx(0.0)
+
+    def test_correlation_bounded(self):
+        """
+        Tests that all correlation values stay within [-1, 1].
+
+        Tests:
+            (Test Case 1) Random spike data with various configurations stays bounded.
+        """
+        for _ in range(10):
+            n_units = np.random.randint(2, 6)
+            sd = random_spikedata(n_units, n_units * 500)
+            corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=20)
+
+            assert np.all(corr.matrix >= -1.0 - 1e-10)
+            assert np.all(corr.matrix <= 1.0 + 1e-10)
 
 
 class TestSpikeDataEdgeCases:

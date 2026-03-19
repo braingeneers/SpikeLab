@@ -23,7 +23,11 @@ from SpikeLab.spikedata.utils import (
     butter_filter,
     compute_cosine_similarity_with_lag,
     compute_cross_correlation_with_lag,
+    consecutive_durations,
     ensure_h5py,
+    gplvm_average_state_probability,
+    gplvm_continuity_prob,
+    gplvm_state_entropy,
     times_from_ms,
     to_ms,
     trough_between,
@@ -851,6 +855,7 @@ from SpikeLab.spikedata.utils import (
     randomize,
     extract_waveforms,
     get_sttc,
+    swap,
 )
 
 
@@ -1277,3 +1282,610 @@ class TestGetSttcEdgeCases:
         # When TA >= 1 and PA=1: PA*TB >= 1 -> guard sets term to 0.
         # Result should be finite
         assert np.isfinite(result)
+
+
+# ---------------------------------------------------------------------------
+# get_sttc — standalone tests
+# ---------------------------------------------------------------------------
+
+class TestGetSttc:
+    """Standalone tests for the get_sttc utility function.
+
+    Tests:
+        - Basic correlated trains
+        - Empty train A, empty train B, both empty
+        - Single spike in each train
+        - Identical trains (STTC = 1.0)
+        - length=None (auto-calculated) vs explicit length
+        - delt=0
+    """
+
+    def test_basic_correlated_trains(self):
+        """
+        Two spike trains with spikes close together produce a positive STTC.
+
+        Tests:
+            (Test Case 1) Trains offset by 2 ms with delt=5 ms in a long recording.
+                Spikes are sparse relative to delt, so STTC > 0.
+        """
+        tA = np.array([50.0, 150.0, 250.0, 350.0, 450.0])
+        tB = np.array([52.0, 152.0, 252.0, 352.0, 452.0])
+        result = get_sttc(tA, tB, 5.0, 500.0)
+        assert isinstance(result, float)
+        assert result > 0.0
+        assert result <= 1.0
+
+    def test_empty_train_a(self):
+        """
+        Empty train A returns 0.0 immediately.
+
+        Tests:
+            (Test Case 1) tA=[], tB=[10, 20, 30]. Returns 0.0.
+        """
+        result = get_sttc([], [10.0, 20.0, 30.0], delt=20.0, length=50.0)
+        assert result == 0.0
+
+    def test_empty_train_b(self):
+        """
+        Empty train B returns 0.0 immediately.
+
+        Tests:
+            (Test Case 1) tA=[10, 20, 30], tB=[]. Returns 0.0.
+        """
+        result = get_sttc([10.0, 20.0, 30.0], [], delt=20.0, length=50.0)
+        assert result == 0.0
+
+    def test_both_empty(self):
+        """
+        Both trains empty returns 0.0 immediately.
+
+        Tests:
+            (Test Case 1) tA=[], tB=[]. Returns 0.0.
+        """
+        result = get_sttc([], [], delt=20.0, length=50.0)
+        assert result == 0.0
+
+    def test_single_spike_each(self):
+        """
+        Single spike in each train within delt of each other.
+
+        Tests:
+            (Test Case 1) tA=[50.0], tB=[55.0], delt=20, length=100.
+                Spikes are 5 ms apart, within delt. STTC > 0.
+            (Test Case 2) tA=[10.0], tB=[90.0], delt=5, length=100.
+                Spikes are 80 ms apart, well outside delt. STTC <= 0.
+        """
+        # Close spikes
+        result_close = get_sttc([50.0], [55.0], delt=20.0, length=100.0)
+        assert result_close > 0.0
+
+        # Far-apart spikes
+        result_far = get_sttc([10.0], [90.0], delt=5.0, length=100.0)
+        assert result_far <= 0.0
+
+    def test_identical_trains(self):
+        """
+        Identical sparse spike trains should produce STTC = 1.0.
+
+        Tests:
+            (Test Case 1) Sparse spikes in a long recording with small delt.
+                PA=PB=1 and TA,TB are small, so STTC approaches 1.0.
+        """
+        train = np.array([100.0, 300.0, 500.0, 700.0, 900.0])
+        result = get_sttc(train, train, 5.0, 1000.0)
+        assert result == pytest.approx(1.0)
+
+    def test_length_none_auto_calculated(self):
+        """
+        When length=None, get_sttc auto-calculates length as max(tA[-1], tB[-1]).
+
+        Tests:
+            (Test Case 1) Compare auto-calculated length vs explicit length
+                equal to max(tA[-1], tB[-1]). Results should match.
+        """
+        tA = [10.0, 30.0, 50.0]
+        tB = [15.0, 35.0, 60.0]
+        auto_length = max(tA[-1], tB[-1])
+
+        result_auto = get_sttc(tA, tB, delt=20.0, length=None)
+        result_explicit = get_sttc(tA, tB, delt=20.0, length=auto_length)
+        assert result_auto == pytest.approx(result_explicit)
+
+    def test_length_none_vs_different_explicit(self):
+        """
+        Auto-calculated length may differ from an arbitrary explicit length.
+
+        Tests:
+            (Test Case 1) Auto length = 60.0 (max of last spikes). Explicit
+                length = 200.0. Results differ because TA and TB change.
+        """
+        tA = [10.0, 30.0, 50.0]
+        tB = [15.0, 35.0, 60.0]
+        result_auto = get_sttc(tA, tB, delt=20.0, length=None)
+        result_long = get_sttc(tA, tB, delt=20.0, length=200.0)
+        # With a longer recording and same spikes, TA and TB shrink,
+        # so the STTC values will generally differ.
+        assert result_auto != pytest.approx(result_long, abs=1e-6)
+
+    def test_delt_zero(self):
+        """
+        delt=0 means only exact spike-time matches count. For non-identical
+        trains with no shared spike times, PA=PB=0.
+
+        Tests:
+            (Test Case 1) tA and tB with no shared times, delt=0.
+                No spike in A is within 0 ms of any spike in B. STTC <= 0.
+            (Test Case 2) Identical trains with delt=0. Every spike matches
+                exactly, so STTC = 1.0.
+        """
+        tA = [10.0, 30.0, 50.0]
+        tB = [15.0, 35.0, 55.0]
+        result_diff = get_sttc(tA, tB, delt=0, length=60.0)
+        assert result_diff <= 0.0
+
+        # Identical trains: exact matches exist
+        result_same = get_sttc(tA, tA, delt=0, length=60.0)
+        assert result_same == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# swap — standalone tests
+# ---------------------------------------------------------------------------
+
+
+class TestSwap:
+    """Standalone tests for the swap utility function.
+
+    Tests:
+        - Basic swap on a simple raster
+        - Empty raster (no spikes)
+        - Single-spike raster
+    """
+
+    def test_basic_swap(self):
+        """
+        A successful swap moves two spikes to off-diagonal positions while
+        preserving row and column sums.
+
+        Tests:
+            (Test Case 1) A 3x4 raster with 4 spikes arranged so a valid
+                swap exists. Run swap repeatedly until success, then verify
+                row sums and column sums are preserved.
+        """
+        ar = np.array(
+            [
+                [1, 0, 0, 0],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+            ],
+            dtype=float,
+        )
+        row_sums_before = ar.sum(axis=1).copy()
+        col_sums_before = ar.sum(axis=0).copy()
+
+        rng = np.random.default_rng(42)
+        idxs = list(np.where(ar == 1.0))
+        # Make idxs mutable arrays (swap modifies them in-place)
+        idxs[0] = idxs[0].copy()
+        idxs[1] = idxs[1].copy()
+
+        # Try enough times to get at least one successful swap
+        success = False
+        for _ in range(200):
+            if swap(ar, idxs, rng):
+                success = True
+                break
+
+        assert success, "Expected at least one successful swap in 200 attempts"
+
+        # Row and column sums must be preserved
+        np.testing.assert_array_equal(ar.sum(axis=1), row_sums_before)
+        np.testing.assert_array_equal(ar.sum(axis=0), col_sums_before)
+
+        # Total spike count preserved
+        assert ar.sum() == row_sums_before.sum()
+
+    def test_empty_raster(self):
+        """
+        A raster with no spikes has an empty idxs tuple. swap should handle
+        this gracefully without crashing (though it cannot perform a swap
+        because rng.integers(0) raises ValueError).
+
+        Tests:
+            (Test Case 1) Zero-filled 3x10 raster. np.where returns empty
+                index arrays. Calling swap raises ValueError from
+                rng.integers(0) because there are no spike positions
+                to choose from.
+        """
+        ar = np.zeros((3, 10), dtype=float)
+        idxs = list(np.where(ar == 1.0))
+        idxs[0] = idxs[0].copy()
+        idxs[1] = idxs[1].copy()
+        rng = np.random.default_rng(0)
+
+        # rng.integers(0) raises ValueError (empty range)
+        with pytest.raises(ValueError):
+            swap(ar, idxs, rng)
+
+    def test_single_spike_raster(self):
+        """
+        A raster with exactly one spike. swap picks idx0=idx1=0, so
+        i0==i1 and j0==j1, which triggers the early-return False.
+
+        Tests:
+            (Test Case 1) 3x10 raster with one spike at (1, 5). Both
+                randomly chosen indices are 0 (only option), so i0==i1
+                and swap returns False. Array is unchanged.
+        """
+        ar = np.zeros((3, 10), dtype=float)
+        ar[1, 5] = 1.0
+        ar_before = ar.copy()
+
+        idxs = list(np.where(ar == 1.0))
+        idxs[0] = idxs[0].copy()
+        idxs[1] = idxs[1].copy()
+        rng = np.random.default_rng(0)
+
+        result = swap(ar, idxs, rng)
+        assert result is False
+        np.testing.assert_array_equal(ar, ar_before)
+
+
+# ---------------------------------------------------------------------------
+# consecutive_durations
+# ---------------------------------------------------------------------------
+
+
+class TestConsecutiveDurations:
+    """Tests for the consecutive_durations utility function."""
+
+    def test_basic_above(self):
+        """
+        Runs above threshold are counted correctly.
+
+        Tests:
+            (Test Case 1) Signal with two runs above 0.5: one of length 3
+                and one of length 2.
+        """
+        signal = np.array([0.1, 0.7, 0.8, 0.9, 0.2, 0.6, 0.7, 0.3])
+        result = consecutive_durations(signal, 0.5, mode="above")
+        np.testing.assert_array_equal(result, [3, 2])
+
+    def test_basic_below(self):
+        """
+        Runs below threshold are counted correctly.
+
+        Tests:
+            (Test Case 1) Signal with two runs below 0.5: lengths 1 and 1.
+        """
+        signal = np.array([0.1, 0.7, 0.8, 0.9, 0.2, 0.6, 0.7, 0.3])
+        result = consecutive_durations(signal, 0.5, mode="below")
+        np.testing.assert_array_equal(result, [1, 1, 1])
+
+    def test_min_dur_filters_short_runs(self):
+        """
+        Runs shorter than min_dur are discarded.
+
+        Tests:
+            (Test Case 1) With min_dur=3, only the length-3 run is kept.
+        """
+        signal = np.array([0.1, 0.7, 0.8, 0.9, 0.2, 0.6, 0.7, 0.3])
+        result = consecutive_durations(signal, 0.5, mode="above", min_dur=3)
+        np.testing.assert_array_equal(result, [3])
+
+    def test_all_above(self):
+        """
+        Entire signal above threshold yields a single run.
+
+        Tests:
+            (Test Case 1) All values >= 0.5 gives one run of length 5.
+        """
+        signal = np.array([0.6, 0.7, 0.8, 0.9, 1.0])
+        result = consecutive_durations(signal, 0.5, mode="above")
+        np.testing.assert_array_equal(result, [5])
+
+    def test_none_above(self):
+        """
+        No values meet the threshold, result is empty.
+
+        Tests:
+            (Test Case 1) All values < 0.5 returns empty array.
+        """
+        signal = np.array([0.1, 0.2, 0.3, 0.4])
+        result = consecutive_durations(signal, 0.5, mode="above")
+        assert result.size == 0
+
+    def test_empty_signal(self):
+        """
+        Empty input returns empty array.
+
+        Tests:
+            (Test Case 1) Zero-length signal returns empty array for both modes.
+        """
+        result_above = consecutive_durations(np.array([]), 0.5, mode="above")
+        result_below = consecutive_durations(np.array([]), 0.5, mode="below")
+        assert result_above.size == 0
+        assert result_below.size == 0
+
+    def test_invalid_mode_raises(self):
+        """
+        Invalid mode string raises ValueError.
+
+        Tests:
+            (Test Case 1) mode='invalid' raises ValueError.
+        """
+        with pytest.raises(ValueError, match="mode must be"):
+            consecutive_durations(np.array([0.5]), 0.5, mode="invalid")
+
+    def test_non_1d_raises(self):
+        """
+        Non-1-D input raises ValueError.
+
+        Tests:
+            (Test Case 1) 2-D array raises ValueError.
+        """
+        with pytest.raises(ValueError, match="1-D"):
+            consecutive_durations(np.ones((3, 3)), 0.5)
+
+    def test_exact_threshold_counts_as_above(self):
+        """
+        Values exactly equal to threshold count as 'above' (>=).
+
+        Tests:
+            (Test Case 1) Signal of all 0.5 with threshold 0.5 gives one run.
+        """
+        signal = np.array([0.5, 0.5, 0.5])
+        result = consecutive_durations(signal, 0.5, mode="above")
+        np.testing.assert_array_equal(result, [3])
+
+    def test_accepts_list_input(self):
+        """
+        Plain list input is accepted and converted.
+
+        Tests:
+            (Test Case 1) List input works the same as ndarray.
+        """
+        result = consecutive_durations([0.1, 0.9, 0.9, 0.1], 0.5, mode="above")
+        np.testing.assert_array_equal(result, [2])
+
+
+# ---------------------------------------------------------------------------
+# gplvm_state_entropy
+# ---------------------------------------------------------------------------
+
+
+class TestGplvmStateEntropy:
+    """Tests for the gplvm_state_entropy utility function."""
+
+    def test_uniform_distribution_max_entropy(self):
+        """
+        Uniform distribution over K states gives maximum entropy.
+
+        Tests:
+            (Test Case 1) Each row is uniform over 4 states. Entropy should
+                equal ln(4) for every time bin.
+        """
+        K = 4
+        T = 10
+        posterior = np.full((T, K), 1.0 / K)
+        result = gplvm_state_entropy(posterior)
+        assert result.shape == (T,)
+        np.testing.assert_allclose(result, np.log(K), atol=1e-12)
+
+    def test_deterministic_distribution_zero_entropy(self):
+        """
+        Deterministic (one-hot) distribution gives zero entropy.
+
+        Tests:
+            (Test Case 1) Each row has all probability mass on one state.
+                Entropy should be 0 for every time bin.
+        """
+        T, K = 5, 3
+        posterior = np.zeros((T, K))
+        posterior[:, 0] = 1.0
+        result = gplvm_state_entropy(posterior)
+        assert result.shape == (T,)
+        np.testing.assert_allclose(result, 0.0, atol=1e-12)
+
+    def test_output_shape(self):
+        """
+        Output shape is (T,) matching the number of time bins.
+
+        Tests:
+            (Test Case 1) Random (T=20, K=8) input produces (20,) output.
+        """
+        rng = np.random.default_rng(42)
+        T, K = 20, 8
+        posterior = rng.dirichlet(np.ones(K), size=T)
+        result = gplvm_state_entropy(posterior)
+        assert result.shape == (T,)
+
+    def test_non_2d_raises(self):
+        """
+        Non-2-D input raises ValueError.
+
+        Tests:
+            (Test Case 1) 1-D array raises ValueError.
+            (Test Case 2) 3-D array raises ValueError.
+        """
+        with pytest.raises(ValueError, match="2-D"):
+            gplvm_state_entropy(np.array([0.5, 0.5]))
+        with pytest.raises(ValueError, match="2-D"):
+            gplvm_state_entropy(np.ones((2, 3, 4)))
+
+    def test_single_time_bin(self):
+        """
+        Single time bin input works correctly.
+
+        Tests:
+            (Test Case 1) (1, K) input returns (1,) output.
+        """
+        posterior = np.array([[0.25, 0.25, 0.25, 0.25]])
+        result = gplvm_state_entropy(posterior)
+        assert result.shape == (1,)
+        np.testing.assert_allclose(result[0], np.log(4), atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# gplvm_continuity_prob
+# ---------------------------------------------------------------------------
+
+
+class TestGplvmContinuityProb:
+    """Tests for the gplvm_continuity_prob utility function."""
+
+    def test_extracts_first_column(self):
+        """
+        Returns the first column of posterior_dynamics_marg.
+
+        Tests:
+            (Test Case 1) Decode result with known dynamics matrix. Output
+                matches column 0.
+        """
+        T, D = 10, 3
+        dynamics = np.random.default_rng(0).random((T, D))
+        decode_res = {"posterior_dynamics_marg": dynamics}
+        result = gplvm_continuity_prob(decode_res)
+        assert result.shape == (T,)
+        np.testing.assert_array_equal(result, dynamics[:, 0])
+
+    def test_output_is_1d(self):
+        """
+        Output is always a 1-D array.
+
+        Tests:
+            (Test Case 1) Result ndim is 1.
+        """
+        decode_res = {"posterior_dynamics_marg": np.ones((5, 2))}
+        result = gplvm_continuity_prob(decode_res)
+        assert result.ndim == 1
+
+    def test_missing_key_raises(self):
+        """
+        Missing 'posterior_dynamics_marg' key raises KeyError.
+
+        Tests:
+            (Test Case 1) Empty dict raises KeyError.
+            (Test Case 2) Dict with wrong key raises KeyError.
+        """
+        with pytest.raises(KeyError, match="posterior_dynamics_marg"):
+            gplvm_continuity_prob({})
+        with pytest.raises(KeyError, match="posterior_dynamics_marg"):
+            gplvm_continuity_prob({"wrong_key": np.ones((5, 2))})
+
+    def test_non_dict_raises(self):
+        """
+        Non-dict input raises TypeError.
+
+        Tests:
+            (Test Case 1) Passing an ndarray raises TypeError.
+        """
+        with pytest.raises(TypeError, match="dict"):
+            gplvm_continuity_prob(np.ones((5, 2)))
+
+    def test_1d_dynamics_raises(self):
+        """
+        1-D dynamics array raises ValueError.
+
+        Tests:
+            (Test Case 1) posterior_dynamics_marg with shape (T,) raises ValueError.
+        """
+        with pytest.raises(ValueError, match="2-D"):
+            gplvm_continuity_prob({"posterior_dynamics_marg": np.ones(5)})
+
+    def test_single_column_dynamics(self):
+        """
+        Dynamics matrix with a single column (T, 1) works correctly.
+
+        Tests:
+            (Test Case 1) (T, 1) matrix returns (T,) vector.
+        """
+        dynamics = np.array([[0.9], [0.8], [0.7]])
+        result = gplvm_continuity_prob({"posterior_dynamics_marg": dynamics})
+        np.testing.assert_array_equal(result, [0.9, 0.8, 0.7])
+
+
+# ---------------------------------------------------------------------------
+# gplvm_average_state_probability
+# ---------------------------------------------------------------------------
+
+
+class TestGplvmAverageStateProbability:
+    """Tests for the gplvm_average_state_probability utility function."""
+
+    def test_uniform_distribution(self):
+        """
+        Uniform rows average to uniform vector.
+
+        Tests:
+            (Test Case 1) All rows identical and uniform over K=4 states.
+                Average should be [0.25, 0.25, 0.25, 0.25].
+        """
+        K = 4
+        T = 10
+        posterior = np.full((T, K), 1.0 / K)
+        result = gplvm_average_state_probability(posterior)
+        assert result.shape == (K,)
+        np.testing.assert_allclose(result, 1.0 / K, atol=1e-12)
+
+    def test_known_average(self):
+        """
+        Known input gives expected average.
+
+        Tests:
+            (Test Case 1) Two rows [1, 0, 0] and [0, 0, 1] average to
+                [0.5, 0, 0.5].
+        """
+        posterior = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+        result = gplvm_average_state_probability(posterior)
+        np.testing.assert_allclose(result, [0.5, 0.0, 0.5])
+
+    def test_output_shape(self):
+        """
+        Output shape is (K,) matching the number of states.
+
+        Tests:
+            (Test Case 1) (T=20, K=8) input produces (8,) output.
+        """
+        rng = np.random.default_rng(42)
+        T, K = 20, 8
+        posterior = rng.dirichlet(np.ones(K), size=T)
+        result = gplvm_average_state_probability(posterior)
+        assert result.shape == (K,)
+
+    def test_non_2d_raises(self):
+        """
+        Non-2-D input raises ValueError.
+
+        Tests:
+            (Test Case 1) 1-D array raises ValueError.
+            (Test Case 2) 3-D array raises ValueError.
+        """
+        with pytest.raises(ValueError, match="2-D"):
+            gplvm_average_state_probability(np.array([0.5, 0.5]))
+        with pytest.raises(ValueError, match="2-D"):
+            gplvm_average_state_probability(np.ones((2, 3, 4)))
+
+    def test_single_time_bin(self):
+        """
+        Single time bin returns that row directly.
+
+        Tests:
+            (Test Case 1) (1, K) input returns that single row as (K,).
+        """
+        posterior = np.array([[0.1, 0.3, 0.6]])
+        result = gplvm_average_state_probability(posterior)
+        np.testing.assert_allclose(result, [0.1, 0.3, 0.6])
+
+    def test_probabilities_sum_to_one(self):
+        """
+        If all input rows sum to 1, the average also sums to 1.
+
+        Tests:
+            (Test Case 1) Random Dirichlet rows all sum to 1. Average should
+                also sum to 1.
+        """
+        rng = np.random.default_rng(99)
+        posterior = rng.dirichlet(np.ones(5), size=50)
+        result = gplvm_average_state_probability(posterior)
+        np.testing.assert_allclose(np.sum(result), 1.0, atol=1e-12)
