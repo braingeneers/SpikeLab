@@ -1772,6 +1772,84 @@ class SpikeData:
 
         return tburst, edges, peak_amp
 
+    def burst_sensitivity(
+        self,
+        thr_values,
+        dist_values,
+        burst_edge_mult_thresh,
+        square_width=20,
+        gauss_sigma=100,
+        acc_square_width=5,
+        acc_gauss_sigma=5,
+        raster_bin_size_ms=1.0,
+        peak_to_trough=True,
+        pop_rate=None,
+        pop_rate_acc=None,
+        pop_rms_override=None,
+    ):
+        """
+        Sweep burst detection parameters and return a matrix of detected burst counts.
+
+        Calls ``get_bursts`` for every combination of ``thr_values`` and
+        ``dist_values``, holding ``burst_edge_mult_thresh`` constant, and
+        returns the number of detected bursts for each parameter pair.
+
+        Parameters:
+            thr_values (array-like): 1-D array of ``thr_burst`` values to sweep.
+            dist_values (array-like): 1-D array of ``min_burst_diff`` values (in bins) to sweep.
+            burst_edge_mult_thresh (float): Held constant during the sweep.
+            square_width (int): Square window width for pop_rate (in bins).
+            gauss_sigma (int): Gaussian window sigma for pop_rate (in bins).
+            acc_square_width (int): Square window width for pop_rate_acc (in bins).
+            acc_gauss_sigma (int): Gaussian window sigma for pop_rate_acc (in bins).
+            raster_bin_size_ms (float): Time bin size for population rate in ms.
+            peak_to_trough (bool): Peak-to-trough (True) or peak-to-zero (False) burst detection.
+            pop_rate (np.ndarray, optional): Pre-computed smoothed population rate.
+            pop_rate_acc (np.ndarray, optional): Pre-computed accurate smoothed population rate.
+            pop_rms_override (float, optional): RMS override for burst threshold baseline.
+
+        Returns:
+            burst_counts (np.ndarray): Integer array of shape
+                ``(len(thr_values), len(dist_values))`` with the number of
+                detected bursts for each parameter combination.
+
+        Notes:
+            - Either ``thr_values`` or ``dist_values`` can have length 1 to
+              focus the sensitivity analysis on a single parameter.
+            - Pre-computing ``pop_rate`` and ``pop_rate_acc`` and passing them
+              in avoids redundant smoothing inside the loop and can speed up
+              the sweep significantly.
+        """
+        thr_values = np.asarray(thr_values)
+        dist_values = np.asarray(dist_values)
+
+        # Pre-compute population rates once if not provided
+        if pop_rate is None:
+            pop_rate = self.get_pop_rate(
+                square_width, gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
+            )
+        if pop_rate_acc is None:
+            pop_rate_acc = self.get_pop_rate(
+                acc_square_width, acc_gauss_sigma, raster_bin_size_ms=raster_bin_size_ms
+            )
+
+        burst_counts = np.empty((len(thr_values), len(dist_values)), dtype=int)
+
+        for i, thr in enumerate(thr_values):
+            for j, dist in enumerate(dist_values):
+                tburst, _, _ = self.get_bursts(
+                    thr_burst=float(thr),
+                    min_burst_diff=int(dist),
+                    burst_edge_mult_thresh=burst_edge_mult_thresh,
+                    peak_to_trough=peak_to_trough,
+                    pop_rate=pop_rate,
+                    pop_rate_acc=pop_rate_acc,
+                    pop_rms_override=pop_rms_override,
+                )
+                burst_counts[i, j] = len(tburst)
+
+        return burst_counts
+
     def fit_gplvm(
         self,
         bin_size_ms=50.0,
