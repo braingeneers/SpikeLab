@@ -18,7 +18,7 @@ from ...data_loaders.data_loaders import (
     query_ibl_probes as _query_ibl_probes,
 )
 
-from ..s3_adapter import ensure_local, is_s3_url
+from ...data_loaders.s3_utils import ensure_local_file, is_s3_url
 from ...workspace.workspace import get_workspace_manager
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ async def load_from_hdf5(
     Returns:
         Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
-    local_path, is_temp = ensure_local(
+    local_path, is_temp = ensure_local_file(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -238,7 +238,7 @@ async def load_from_nwb(
     Returns:
         Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
-    local_path, is_temp = ensure_local(
+    local_path, is_temp = ensure_local_file(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -442,7 +442,7 @@ async def load_from_hdf5_thresholded(
     Returns:
         Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
     """
-    local_path, is_temp = ensure_local(
+    local_path, is_temp = ensure_local_file(
         file_path,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,

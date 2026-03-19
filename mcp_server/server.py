@@ -841,6 +841,55 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="burst_sensitivity",
+                description=(
+                    "Sweep burst detection parameters (thr_burst × min_burst_diff) "
+                    "and store a 2-D matrix of detected burst counts at key."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Output key for burst counts matrix (len(thr_values), len(dist_values))",
+                        },
+                        "thr_values": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "1-D array of thr_burst values to sweep",
+                        },
+                        "dist_values": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "1-D array of min_burst_diff values (in bins) to sweep",
+                        },
+                        "burst_edge_mult_thresh": {
+                            "type": "number",
+                            "description": "Multiplier for burst edge detection threshold (held constant)",
+                        },
+                        "square_width": {"type": "integer", "default": 20},
+                        "gauss_sigma": {"type": "integer", "default": 100},
+                        "acc_square_width": {"type": "integer", "default": 5},
+                        "acc_gauss_sigma": {"type": "integer", "default": 5},
+                        "raster_bin_size_ms": {"type": "number", "default": 1.0},
+                        "peak_to_trough": {"type": "boolean", "default": True},
+                        "pop_rms_override": {
+                            "type": "number",
+                            "description": "Override baseline RMS for cross-dataset normalization",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key",
+                        "thr_values",
+                        "dist_values",
+                        "burst_edge_mult_thresh",
+                    ],
+                },
+            ),
+            types.Tool(
                 name="get_frac_active",
                 description=(
                     "Calculate fraction of active neurons in bursts. Loads burst edges "
@@ -2154,6 +2203,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_spike_trig_pop_rate(**arguments)
         elif name == "get_bursts":
             result = await analysis.get_bursts(**arguments)
+        elif name == "burst_sensitivity":
+            result = await analysis.burst_sensitivity(**arguments)
         elif name == "get_frac_active":
             result = await analysis.get_frac_active(**arguments)
 

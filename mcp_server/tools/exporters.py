@@ -16,7 +16,7 @@ from ...data_loaders.data_exporters import (
     export_spikedata_to_pickle,
 )
 
-from ..s3_adapter import is_s3_url, upload as upload_to_s3
+from ...data_loaders.s3_utils import is_s3_url, upload_to_s3
 from ...workspace.workspace import get_workspace_manager
 
 _SPIKEDATA_KEY = "spikedata"

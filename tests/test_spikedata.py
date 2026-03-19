@@ -784,6 +784,133 @@ class TestSpikeData:
         assert edges[0, 0] < tburst[0] < edges[0, 1]
         assert edges[1, 0] < tburst[1] < edges[1, 1]
 
+    def test_burst_sensitivity_basic(self):
+        """
+        Tests burst_sensitivity for correct output shape and counts.
+
+        Tests:
+            (Test Case 1) Output shape matches (len(thr_values), len(dist_values)).
+            (Test Case 2) All entries are non-negative integers.
+            (Test Case 3) Lower threshold detects more or equal bursts than higher threshold.
+        """
+        trains = [
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+            [48, 49, 50, 51, 52],
+            [50, 50, 50],
+            [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
+            [148, 149, 150, 151, 152],
+            [150, 150, 150, 150],
+        ]
+        sd = SpikeData(trains, length=200)
+
+        thr_values = np.array([0.3, 0.5, 1.0, 2.0])
+        dist_values = np.array([5, 10, 20])
+
+        result = sd.burst_sensitivity(
+            thr_values=thr_values,
+            dist_values=dist_values,
+            burst_edge_mult_thresh=0.2,
+            square_width=0,
+            gauss_sigma=0,
+            acc_square_width=0,
+            acc_gauss_sigma=0,
+        )
+
+        # Shape must match parameter grid
+        assert result.shape == (4, 3)
+        assert result.dtype == int
+
+        # All counts non-negative
+        assert np.all(result >= 0)
+
+        # Lower threshold should detect >= bursts than higher threshold
+        # (for every dist_value column)
+        for j in range(result.shape[1]):
+            for i in range(result.shape[0] - 1):
+                assert result[i, j] >= result[i + 1, j]
+
+    def test_burst_sensitivity_single_parameter(self):
+        """
+        Tests burst_sensitivity with one parameter held to a single value.
+
+        Tests:
+            (Test Case 1) Single thr_value produces shape (1, len(dist_values)).
+            (Test Case 2) Single dist_value produces shape (len(thr_values), 1).
+        """
+        trains = [
+            [50, 51, 52, 53, 54, 55],
+            [150, 151, 152, 153, 154, 155],
+        ]
+        sd = SpikeData(trains, length=200)
+
+        # Single threshold value
+        result_single_thr = sd.burst_sensitivity(
+            thr_values=np.array([0.5]),
+            dist_values=np.array([5, 10, 20]),
+            burst_edge_mult_thresh=0.2,
+            square_width=0,
+            gauss_sigma=0,
+            acc_square_width=0,
+            acc_gauss_sigma=0,
+        )
+        assert result_single_thr.shape == (1, 3)
+
+        # Single distance value
+        result_single_dist = sd.burst_sensitivity(
+            thr_values=np.array([0.3, 0.5, 1.0]),
+            dist_values=np.array([10]),
+            burst_edge_mult_thresh=0.2,
+            square_width=0,
+            gauss_sigma=0,
+            acc_square_width=0,
+            acc_gauss_sigma=0,
+        )
+        assert result_single_dist.shape == (3, 1)
+
+    def test_burst_sensitivity_precomputed_pop_rate(self):
+        """
+        Tests that passing pre-computed pop_rate and pop_rate_acc gives the
+        same result as letting the method compute them internally.
+
+        Tests:
+            (Test Case 1) Results with and without pre-computed rates are identical.
+        """
+        trains = [
+            [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+            [48, 49, 50, 51, 52],
+            [145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155],
+            [148, 149, 150, 151, 152],
+        ]
+        sd = SpikeData(trains, length=200)
+
+        thr_values = np.array([0.3, 0.5, 1.0])
+        dist_values = np.array([5, 10])
+
+        # Let the method compute internally
+        result_auto = sd.burst_sensitivity(
+            thr_values=thr_values,
+            dist_values=dist_values,
+            burst_edge_mult_thresh=0.2,
+            square_width=5,
+            gauss_sigma=3,
+            acc_square_width=3,
+            acc_gauss_sigma=2,
+        )
+
+        # Pre-compute and pass in
+        pop_rate = sd.get_pop_rate(square_width=5, gauss_sigma=3)
+        pop_rate_acc = sd.get_pop_rate(square_width=3, gauss_sigma=2)
+
+        result_precomputed = sd.burst_sensitivity(
+            thr_values=thr_values,
+            dist_values=dist_values,
+            burst_edge_mult_thresh=0.2,
+            pop_rate=pop_rate,
+            pop_rate_acc=pop_rate_acc,
+        )
+
+        np.testing.assert_array_equal(result_auto, result_precomputed)
+
     def test_get_frac_active(self):
         """
         Tests get_frac_active method for calculating burst participation rates.
@@ -2492,6 +2619,23 @@ class TestSpikeDataEdgeCases:
         assert len(tburst) == 0
         assert len(peak_amp) == 0
 
+    def test_burst_sensitivity_no_spikes(self):
+        """
+        burst_sensitivity on a SpikeData with no spikes.
+
+        Tests:
+            (Test Case 1) Returns an all-zero integer matrix of correct shape.
+        """
+        sd = SpikeData([[]], length=1000.0)
+        result = sd.burst_sensitivity(
+            thr_values=np.array([0.5, 1.0]),
+            dist_values=np.array([10, 20, 30]),
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result.shape == (2, 3)
+        assert result.dtype == int
+        np.testing.assert_array_equal(result, np.zeros((2, 3), dtype=int))
+
     def test_resampled_isi_single_spike(self):
         """
         resampled_isi with a train containing a single spike.
@@ -2679,3 +2823,37 @@ class TestFitGplvm:
         )
 
         assert len(result["log_marginal_l"]) == 3
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_returns_numpy_arrays(self):
+        """
+        Verify all arrays in the result dict are numpy ndarrays, not JAX types.
+
+        Tests:
+            (Test Case 1) Top-level array values are np.ndarray.
+            (Test Case 2) All arrays inside decode_res are np.ndarray.
+        """
+        trains = [
+            [10.0, 50.0, 120.0, 200.0, 350.0],
+            [20.0, 80.0, 180.0, 300.0, 450.0],
+            [30.0, 100.0, 150.0, 250.0, 400.0],
+        ]
+        sd = SpikeData(trains, N=3, length=500.0)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=50.0,
+            n_latent_bin=10,
+            n_iter=2,
+        )
+
+        # Top-level arrays
+        for key in ("log_marginal_l", "reorder_indices", "binned_spike_counts"):
+            assert isinstance(
+                result[key], np.ndarray
+            ), f"result['{key}'] is {type(result[key])}, expected np.ndarray"
+
+        # All values inside decode_res must be numpy arrays or plain scalars
+        for key, val in result["decode_res"].items():
+            assert isinstance(
+                val, (np.ndarray, int, float, bool, str)
+            ), f"decode_res['{key}'] is {type(val)}, expected np.ndarray or scalar"
