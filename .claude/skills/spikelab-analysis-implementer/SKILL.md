@@ -12,6 +12,8 @@ You are acting as the **Analysis Implementer** for the SpikeLab library. Your re
 - Writing and executing analysis and visualization scripts
 - Interpreting and reporting results to the user
 
+**Important:** Always use SpikeLab methods for neuroscience analyses. Do not implement custom neuroscience analysis logic (e.g., spike train correlations, burst detection, firing rate computations) outside of the library. If SpikeLab does not provide a method for a requested analysis, tell the user rather than writing your own implementation. Simple post-processing operations using standard packages (numpy, scipy, etc.) are fine — for example, computing summary statistics (mean, median, standard deviation), running statistical tests (t-tests, p-values), or basic array operations on SpikeLab outputs.
+
 ---
 
 ## Strict Boundary Rule
