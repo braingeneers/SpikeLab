@@ -577,3 +577,395 @@ class TestPairwiseEdgeCases:
         stack = PairwiseCompMatrixStack(stack=data)
         with pytest.raises(ValueError):
             stack.dim_red_on_lower_diagonal_corr_matrix("PCA", n_components=10)
+
+
+# ---------------------------------------------------------------------------
+# remove_by_condition — PairwiseCompMatrix
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveByConditionMatrix:
+    """Tests for PairwiseCompMatrix.remove_by_condition()."""
+
+    def _make_pair(self):
+        """Helper: target STTC matrix and condition latency matrix."""
+        target = np.array(
+            [[1.0, 0.8, 0.3], [0.8, 1.0, 0.6], [0.3, 0.6, 1.0]]
+        )
+        condition = np.array(
+            [[0.0, 1.5, 5.0], [1.5, 0.0, -3.0], [5.0, -3.0, 0.0]]
+        )
+        return (
+            PairwiseCompMatrix(matrix=target),
+            PairwiseCompMatrix(matrix=condition),
+        )
+
+    def test_abs_lt_removes_correct_entries(self):
+        """
+        Entries where |condition| < threshold are replaced by fill.
+
+        Tests:
+            (Test Case 1) |1.5| < 2 → entries (0,1) and (1,0) are set to NaN.
+            (Test Case 2) |5.0| >= 2 and |-3.0| >= 2 → those entries preserved.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(condition, op="abs_lt", threshold=2.0)
+
+        assert np.isnan(result.matrix[0, 1])
+        assert np.isnan(result.matrix[1, 0])
+        assert result.matrix[0, 2] == 0.3
+        assert result.matrix[1, 2] == 0.6
+
+    def test_custom_fill_value(self):
+        """
+        Custom fill value (0.0) is used instead of NaN.
+
+        Tests:
+            (Test Case 1) Removed entries are set to 0.0, not NaN.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="abs_lt", threshold=2.0, fill=0.0
+        )
+
+        assert result.matrix[0, 1] == 0.0
+        assert result.matrix[1, 0] == 0.0
+        assert result.matrix[0, 2] == 0.3
+
+    def test_gt_operator(self):
+        """
+        Entries where condition > threshold are replaced.
+
+        Tests:
+            (Test Case 1) condition values 5.0 > 4.0 are removed.
+            (Test Case 2) Values <= 4.0 are preserved.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(condition, op="gt", threshold=4.0)
+
+        assert np.isnan(result.matrix[0, 2])
+        assert np.isnan(result.matrix[2, 0])
+        assert result.matrix[0, 1] == 0.8  # 1.5 not > 4.0
+
+    def test_le_operator(self):
+        """
+        Entries where condition <= threshold are replaced.
+
+        Tests:
+            (Test Case 1) condition value 0.0 <= 1.5 → diagonal removed.
+            (Test Case 2) condition value 1.5 <= 1.5 → removed.
+            (Test Case 3) condition value -3.0 <= 1.5 → removed.
+            (Test Case 4) condition value 5.0 > 1.5 → preserved.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="le", threshold=1.5, fill=0.0
+        )
+
+        assert result.matrix[0, 0] == 0.0  # 0.0 <= 1.5
+        assert result.matrix[0, 1] == 0.0  # 1.5 <= 1.5
+        assert result.matrix[1, 2] == 0.0  # -3.0 <= 1.5, removed
+        assert result.matrix[0, 2] == 0.3  # 5.0 not <= 1.5
+
+    def test_abs_ge_operator(self):
+        """
+        Entries where |condition| >= threshold are replaced.
+
+        Tests:
+            (Test Case 1) abs_ge with threshold=3.0 removes entries where
+                |condition| >= 3.0 (values 5.0 and -3.0).
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(condition, op="abs_ge", threshold=3.0)
+
+        assert np.isnan(result.matrix[0, 2])  # |5.0| >= 3
+        assert np.isnan(result.matrix[2, 0])  # |5.0| >= 3
+        assert np.isnan(result.matrix[1, 2])  # |-3.0| >= 3
+        assert result.matrix[0, 1] == 0.8  # |1.5| < 3
+
+    def test_no_entries_removed(self):
+        """
+        When no entries match the condition, the result equals self.
+
+        Tests:
+            (Test Case 1) threshold=100 with abs_lt removes nothing.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(condition, op="gt", threshold=100.0)
+
+        np.testing.assert_array_equal(result.matrix, target.matrix)
+
+    def test_all_entries_removed(self):
+        """
+        When all entries match, the entire matrix is filled.
+
+        Tests:
+            (Test Case 1) abs_ge with threshold=0.0 removes everything.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="abs_ge", threshold=0.0, fill=-1.0
+        )
+
+        assert np.all(result.matrix == -1.0)
+
+    def test_labels_preserved(self):
+        """
+        Labels from self are preserved in the result.
+
+        Tests:
+            (Test Case 1) Labels are identical to the original.
+        """
+        target = PairwiseCompMatrix(
+            matrix=np.eye(3), labels=["A", "B", "C"]
+        )
+        condition = PairwiseCompMatrix(matrix=np.zeros((3, 3)))
+        result = target.remove_by_condition(condition, op="lt", threshold=1.0)
+
+        assert result.labels == ["A", "B", "C"]
+
+    def test_metadata_records_operation(self):
+        """
+        Metadata records the condition operation details.
+
+        Tests:
+            (Test Case 1) metadata contains 'removed_by_condition' with op, threshold, fill.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="abs_lt", threshold=2.0, fill=0.0
+        )
+
+        assert result.metadata["removed_by_condition"] == {
+            "op": "abs_lt",
+            "threshold": 2.0,
+            "fill": 0.0,
+        }
+
+    def test_shape_mismatch_raises(self):
+        """
+        Mismatched shapes raise ValueError.
+
+        Tests:
+            (Test Case 1) 3x3 target with 2x2 condition raises ValueError.
+        """
+        target = PairwiseCompMatrix(matrix=np.eye(3))
+        condition = PairwiseCompMatrix(matrix=np.eye(2))
+
+        with pytest.raises(ValueError, match="does not match"):
+            target.remove_by_condition(condition, op="lt", threshold=0.5)
+
+    def test_invalid_op_raises(self):
+        """
+        Invalid operator string raises ValueError.
+
+        Tests:
+            (Test Case 1) op='invalid' raises ValueError.
+            (Test Case 2) op='abs_invalid' raises ValueError.
+        """
+        target, condition = self._make_pair()
+
+        with pytest.raises(ValueError, match="Unknown op"):
+            target.remove_by_condition(condition, op="invalid", threshold=0.5)
+        with pytest.raises(ValueError, match="Unknown op"):
+            target.remove_by_condition(condition, op="abs_invalid", threshold=0.5)
+
+    def test_non_pcm_condition_raises(self):
+        """
+        Non-PairwiseCompMatrix condition raises TypeError.
+
+        Tests:
+            (Test Case 1) Passing a plain ndarray raises TypeError.
+        """
+        target = PairwiseCompMatrix(matrix=np.eye(3))
+
+        with pytest.raises(TypeError, match="PairwiseCompMatrix"):
+            target.remove_by_condition(np.eye(3), op="lt", threshold=0.5)
+
+    def test_self_referential(self):
+        """
+        Using self as the condition works correctly.
+
+        Tests:
+            (Test Case 1) Remove STTC entries where STTC < 0.5, preserving
+                values >= 0.5.
+        """
+        target, _ = self._make_pair()
+        result = target.remove_by_condition(target, op="lt", threshold=0.5)
+
+        assert np.isnan(result.matrix[0, 2])  # 0.3 < 0.5
+        assert np.isnan(result.matrix[2, 0])  # 0.3 < 0.5
+        assert result.matrix[0, 1] == 0.8  # 0.8 >= 0.5
+        assert result.matrix[1, 2] == 0.6  # 0.6 >= 0.5
+
+
+# ---------------------------------------------------------------------------
+# remove_by_condition — PairwiseCompMatrixStack
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveByConditionStack:
+    """Tests for PairwiseCompMatrixStack.remove_by_condition()."""
+
+    def _make_pair(self):
+        """Helper: target and condition stacks (3, 3, 2)."""
+        target = np.array(
+            [
+                [[0.9, 0.7], [0.5, 0.3], [0.1, 0.8]],
+                [[0.5, 0.3], [0.9, 0.7], [0.4, 0.6]],
+                [[0.1, 0.8], [0.4, 0.6], [0.9, 0.7]],
+            ]
+        )
+        condition = np.array(
+            [
+                [[0.0, 0.0], [1.0, 5.0], [3.0, 0.5]],
+                [[1.0, 5.0], [0.0, 0.0], [-2.0, 4.0]],
+                [[3.0, 0.5], [-2.0, 4.0], [0.0, 0.0]],
+            ]
+        )
+        return (
+            PairwiseCompMatrixStack(stack=target),
+            PairwiseCompMatrixStack(stack=condition),
+        )
+
+    def test_stack_abs_lt_removes_correct_entries(self):
+        """
+        Entries where |condition| < threshold are replaced across all slices.
+
+        Tests:
+            (Test Case 1) |1.0| < 2 in slice 0 at (0,1) → removed.
+            (Test Case 2) |5.0| >= 2 in slice 1 at (0,1) → preserved.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(condition, op="abs_lt", threshold=2.0)
+
+        assert np.isnan(result.stack[0, 1, 0])  # |1.0| < 2
+        assert result.stack[0, 1, 1] == 0.3  # |5.0| >= 2
+        assert result.stack[0, 2, 0] == 0.1  # |3.0| >= 2
+        assert np.isnan(result.stack[0, 2, 1])  # |0.5| < 2
+
+    def test_stack_custom_fill(self):
+        """
+        Custom fill value works for stacks.
+
+        Tests:
+            (Test Case 1) fill=-1 replaces matched entries with -1.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="abs_lt", threshold=2.0, fill=-1.0
+        )
+
+        assert result.stack[0, 1, 0] == -1.0  # |1.0| < 2
+
+    def test_broadcast_single_matrix(self):
+        """
+        A single PairwiseCompMatrix condition is broadcast across all slices.
+
+        Tests:
+            (Test Case 1) Same mask applied to both slices.
+            (Test Case 2) Entries matching in the single matrix are removed
+                in every slice of the target.
+        """
+        target, _ = self._make_pair()
+        single_condition = PairwiseCompMatrix(
+            matrix=np.array(
+                [[0.0, 1.0, 5.0], [1.0, 0.0, 3.0], [5.0, 3.0, 0.0]]
+            )
+        )
+        result = target.remove_by_condition(
+            single_condition, op="abs_lt", threshold=2.0
+        )
+
+        # (0,1) has |1.0| < 2 → both slices removed
+        assert np.isnan(result.stack[0, 1, 0])
+        assert np.isnan(result.stack[0, 1, 1])
+        # (0,2) has |5.0| >= 2 → both slices preserved
+        assert result.stack[0, 2, 0] == 0.1
+        assert result.stack[0, 2, 1] == 0.8
+
+    def test_stack_shape_mismatch_raises(self):
+        """
+        Mismatched stack shapes raise ValueError.
+
+        Tests:
+            (Test Case 1) (3,3,2) target with (3,3,3) condition raises ValueError.
+        """
+        target, _ = self._make_pair()
+        bad_condition = PairwiseCompMatrixStack(stack=np.zeros((3, 3, 3)))
+
+        with pytest.raises(ValueError, match="does not match"):
+            target.remove_by_condition(bad_condition, op="lt", threshold=0.5)
+
+    def test_broadcast_shape_mismatch_raises(self):
+        """
+        Broadcasting a single matrix with wrong N raises ValueError.
+
+        Tests:
+            (Test Case 1) (3,3,2) target with (2,2) condition raises ValueError.
+        """
+        target, _ = self._make_pair()
+        bad_single = PairwiseCompMatrix(matrix=np.zeros((2, 2)))
+
+        with pytest.raises(ValueError, match="does not match"):
+            target.remove_by_condition(bad_single, op="lt", threshold=0.5)
+
+    def test_invalid_condition_type_raises(self):
+        """
+        Non-PCM/Stack condition raises TypeError.
+
+        Tests:
+            (Test Case 1) Passing a plain ndarray raises TypeError.
+        """
+        target, _ = self._make_pair()
+
+        with pytest.raises(TypeError, match="PairwiseCompMatrix"):
+            target.remove_by_condition(np.zeros((3, 3, 2)), op="lt", threshold=0.5)
+
+    def test_invalid_op_raises(self):
+        """
+        Invalid operator string raises ValueError.
+
+        Tests:
+            (Test Case 1) op='bad' raises ValueError.
+        """
+        target, condition = self._make_pair()
+
+        with pytest.raises(ValueError, match="Unknown op"):
+            target.remove_by_condition(condition, op="bad", threshold=0.5)
+
+    def test_times_and_labels_preserved(self):
+        """
+        Times and labels from self are preserved in the result.
+
+        Tests:
+            (Test Case 1) Times and labels are identical to the original.
+        """
+        target_stack = PairwiseCompMatrixStack(
+            stack=np.ones((3, 3, 2)),
+            labels=["A", "B", "C"],
+            times=[(0, 10), (10, 20)],
+        )
+        condition = PairwiseCompMatrixStack(stack=np.zeros((3, 3, 2)))
+        result = target_stack.remove_by_condition(condition, op="lt", threshold=1.0)
+
+        assert result.labels == ["A", "B", "C"]
+        assert result.times == [(0, 10), (10, 20)]
+
+    def test_metadata_records_operation(self):
+        """
+        Metadata records the condition operation details on the stack.
+
+        Tests:
+            (Test Case 1) metadata contains 'removed_by_condition' dict.
+        """
+        target, condition = self._make_pair()
+        result = target.remove_by_condition(
+            condition, op="abs_gt", threshold=3.0, fill=0.0
+        )
+
+        assert result.metadata["removed_by_condition"] == {
+            "op": "abs_gt",
+            "threshold": 3.0,
+            "fill": 0.0,
+        }

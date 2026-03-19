@@ -1889,3 +1889,62 @@ class TestGplvmAverageStateProbability:
         posterior = rng.dirichlet(np.ones(5), size=50)
         result = gplvm_average_state_probability(posterior)
         np.testing.assert_allclose(np.sum(result), 1.0, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# _get_attr
+# ---------------------------------------------------------------------------
+
+
+class TestGetAttr:
+    """Tests for the _get_attr helper function."""
+
+    def test_get_attr_dict(self):
+        """
+        Tests _get_attr retrieves a value from a dict.
+
+        Tests:
+            (Test Case 1) Existing key returns the correct value.
+        """
+        from SpikeLab.spikedata.utils import _get_attr
+
+        assert _get_attr({"key": "value"}, "key", None) == "value"
+
+    def test_get_attr_dict_missing(self):
+        """
+        Tests _get_attr returns default for a missing dict key.
+
+        Tests:
+            (Test Case 1) Missing key returns the provided default.
+        """
+        from SpikeLab.spikedata.utils import _get_attr
+
+        assert _get_attr({"key": "value"}, "other", "default") == "default"
+
+    def test_get_attr_object(self):
+        """
+        Tests _get_attr retrieves an attribute from an object.
+
+        Tests:
+            (Test Case 1) Existing attribute returns the correct value.
+        """
+        from SpikeLab.spikedata.utils import _get_attr
+
+        class Obj:
+            attr = "hello"
+
+        assert _get_attr(Obj(), "attr", None) == "hello"
+
+    def test_get_attr_object_missing(self):
+        """
+        Tests _get_attr returns default for a missing object attribute.
+
+        Tests:
+            (Test Case 1) Missing attribute returns the provided default.
+        """
+        from SpikeLab.spikedata.utils import _get_attr
+
+        class Obj:
+            attr = "hello"
+
+        assert _get_attr(Obj(), "missing", "default") == "default"

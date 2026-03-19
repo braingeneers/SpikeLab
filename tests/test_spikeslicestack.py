@@ -14,6 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from SpikeLab.spikedata.pairwise import PairwiseCompMatrixStack
 from SpikeLab.spikedata.spikedata import SpikeData
 from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
 
@@ -855,3 +856,421 @@ class TestToRasterArrayCustomBin:
         assert result.shape[0] == 1  # U
         assert result.shape[2] == 1  # S
         assert result[0, 0, 0] == 3  # All 3 spikes in first bin
+
+
+# ---------------------------------------------------------------------------
+# Helper for comparison method tests
+# ---------------------------------------------------------------------------
+
+
+def _make_correlated_stack(n_units=4, n_slices=5, length_ms=100.0, seed=0):
+    """
+    Create a SpikeSliceStack with enough spikes per unit per slice for
+    meaningful STTC/CCG computation.
+    """
+    rng = np.random.default_rng(seed)
+    sd_list = []
+    for _ in range(n_slices):
+        train = []
+        for _ in range(n_units):
+            n_spikes = rng.integers(15, 40)
+            spikes = np.sort(rng.uniform(0, length_ms, n_spikes))
+            train.append(spikes)
+        sd_list.append(SpikeData(train, length=length_ms))
+    return SpikeSliceStack(spike_stack=sd_list)
+
+
+# ---------------------------------------------------------------------------
+# unit_to_unit_comparison
+# ---------------------------------------------------------------------------
+
+
+class TestUnitToUnitComparison:
+    """Tests for SpikeSliceStack.unit_to_unit_comparison()."""
+
+    def test_ccg_output_shapes(self):
+        """
+        CCG metric returns correct shapes and non-None lag.
+
+        Tests:
+            (Test Case 1) corr_stack is PairwiseCompMatrixStack with shape (U, U, S).
+            (Test Case 2) lag_stack is PairwiseCompMatrixStack with shape (U, U, S).
+            (Test Case 3) av_corr has shape (S,).
+            (Test Case 4) av_lag has shape (S,).
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5)
+        corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
+            metric="ccg"
+        )
+
+        assert isinstance(corr_stack, PairwiseCompMatrixStack)
+        assert corr_stack.stack.shape == (4, 4, 5)
+        assert isinstance(lag_stack, PairwiseCompMatrixStack)
+        assert lag_stack.stack.shape == (4, 4, 5)
+        assert av_corr.shape == (5,)
+        assert av_lag.shape == (5,)
+
+    def test_sttc_output_shapes(self):
+        """
+        STTC metric returns correct shapes and None for lag.
+
+        Tests:
+            (Test Case 1) corr_stack shape is (U, U, S).
+            (Test Case 2) lag_stack is None.
+            (Test Case 3) av_corr has shape (S,).
+            (Test Case 4) av_lag is None.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=4)
+        corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
+            metric="sttc", delt=20.0
+        )
+
+        assert corr_stack.stack.shape == (3, 3, 4)
+        assert lag_stack is None
+        assert av_corr.shape == (4,)
+        assert av_lag is None
+
+    def test_ccg_diagonal_is_one(self):
+        """
+        CCG correlation diagonal should be 1 (self-correlation).
+
+        Tests:
+            (Test Case 1) Diagonal entries of each slice are 1.0.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=3)
+        corr_stack, _, _, _ = sss.unit_to_unit_comparison(metric="ccg")
+
+        for s in range(3):
+            diag = np.diag(corr_stack.stack[:, :, s])
+            np.testing.assert_allclose(diag, 1.0, atol=1e-10)
+
+    def test_sttc_diagonal_is_one(self):
+        """
+        STTC diagonal should be 1 (self-tiling).
+
+        Tests:
+            (Test Case 1) Diagonal entries of each slice are 1.0.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=3)
+        corr_stack, _, _, _ = sss.unit_to_unit_comparison(metric="sttc")
+
+        for s in range(3):
+            diag = np.diag(corr_stack.stack[:, :, s])
+            np.testing.assert_allclose(diag, 1.0, atol=1e-10)
+
+    def test_ccg_symmetric(self):
+        """
+        CCG correlation matrices are symmetric.
+
+        Tests:
+            (Test Case 1) corr_stack[:, :, s] == corr_stack[:, :, s].T for each slice.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=3)
+        corr_stack, _, _, _ = sss.unit_to_unit_comparison(metric="ccg")
+
+        for s in range(3):
+            mat = corr_stack.stack[:, :, s]
+            np.testing.assert_allclose(mat, mat.T, atol=1e-10)
+
+    def test_sttc_symmetric(self):
+        """
+        STTC matrices are symmetric.
+
+        Tests:
+            (Test Case 1) corr_stack[:, :, s] == corr_stack[:, :, s].T for each slice.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=3)
+        corr_stack, _, _, _ = sss.unit_to_unit_comparison(metric="sttc")
+
+        for s in range(3):
+            mat = corr_stack.stack[:, :, s]
+            np.testing.assert_allclose(mat, mat.T, atol=1e-10)
+
+    def test_default_metric_is_ccg(self):
+        """
+        Default metric is CCG (lag_stack should not be None).
+
+        Tests:
+            (Test Case 1) Calling without metric= returns non-None lag_stack.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=2)
+        _, lag_stack, _, av_lag = sss.unit_to_unit_comparison()
+
+        assert lag_stack is not None
+        assert av_lag is not None
+
+    def test_invalid_metric_raises(self):
+        """
+        Invalid metric string raises ValueError.
+
+        Tests:
+            (Test Case 1) metric='invalid' raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=2, n_slices=2)
+        with pytest.raises(ValueError, match="metric must be"):
+            sss.unit_to_unit_comparison(metric="invalid")
+
+    def test_single_unit_returns_nan(self):
+        """
+        Single-unit stack returns NaN with a warning.
+
+        Tests:
+            (Test Case 1) RuntimeWarning is emitted.
+            (Test Case 2) corr_stack shape is (1, 1, S).
+            (Test Case 3) av_corr is all NaN.
+        """
+        sd1 = SpikeData([np.array([5.0, 15.0, 25.0])], length=50.0)
+        sd2 = SpikeData([np.array([8.0, 22.0, 40.0])], length=50.0)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
+
+        with pytest.warns(RuntimeWarning, match="fewer than 2 units"):
+            corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
+                metric="ccg"
+            )
+
+        assert corr_stack.stack.shape == (1, 1, 2)
+        assert np.all(np.isnan(av_corr))
+
+    def test_av_corr_within_bounds(self):
+        """
+        Average correlation values are within [-1, 1].
+
+        Tests:
+            (Test Case 1) All av_corr values are in [-1, 1].
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=99)
+        _, _, av_corr, _ = sss.unit_to_unit_comparison(metric="ccg")
+
+        assert np.all(av_corr >= -1.0)
+        assert np.all(av_corr <= 1.0)
+
+
+# ---------------------------------------------------------------------------
+# get_slice_to_slice_unit_comparison
+# ---------------------------------------------------------------------------
+
+
+class TestSliceToSliceUnitComparison:
+    """Tests for SpikeSliceStack.get_slice_to_slice_unit_comparison()."""
+
+    def test_ccg_output_shapes(self):
+        """
+        CCG metric returns correct shapes and non-None lag.
+
+        Tests:
+            (Test Case 1) all_corr is PairwiseCompMatrixStack with shape (S, S, U).
+            (Test Case 2) all_lag is PairwiseCompMatrixStack with shape (S, S, U).
+            (Test Case 3) av_corr has shape (U,).
+            (Test Case 4) av_lag has shape (U,).
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5)
+        all_corr, all_lag, av_corr, av_lag = (
+            sss.get_slice_to_slice_unit_comparison(metric="ccg")
+        )
+
+        assert isinstance(all_corr, PairwiseCompMatrixStack)
+        assert all_corr.stack.shape == (5, 5, 3)
+        assert isinstance(all_lag, PairwiseCompMatrixStack)
+        assert all_lag.stack.shape == (5, 5, 3)
+        assert av_corr.shape == (3,)
+        assert av_lag.shape == (3,)
+
+    def test_sttc_output_shapes(self):
+        """
+        STTC metric returns correct shapes and None for lag.
+
+        Tests:
+            (Test Case 1) all_corr shape is (S, S, U).
+            (Test Case 2) all_lag is None.
+            (Test Case 3) av_corr has shape (U,).
+            (Test Case 4) av_lag is None.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=4)
+        all_corr, all_lag, av_corr, av_lag = (
+            sss.get_slice_to_slice_unit_comparison(metric="sttc")
+        )
+
+        assert all_corr.stack.shape == (4, 4, 3)
+        assert all_lag is None
+        assert av_corr.shape == (3,)
+        assert av_lag is None
+
+    def test_ccg_symmetric_per_unit(self):
+        """
+        CCG slice-to-slice matrices are symmetric for each unit.
+
+        Tests:
+            (Test Case 1) all_corr[:, :, u] is symmetric for each unit.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=4)
+        all_corr, _, _, _ = sss.get_slice_to_slice_unit_comparison(metric="ccg")
+
+        for u in range(3):
+            mat = all_corr.stack[:, :, u]
+            np.testing.assert_allclose(mat, mat.T, atol=1e-10)
+
+    def test_sttc_symmetric_per_unit(self):
+        """
+        STTC slice-to-slice matrices are symmetric for each unit.
+
+        Tests:
+            (Test Case 1) all_corr[:, :, u] is symmetric for each unit.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=4)
+        all_corr, _, _, _ = sss.get_slice_to_slice_unit_comparison(metric="sttc")
+
+        for u in range(3):
+            mat = all_corr.stack[:, :, u]
+            np.testing.assert_allclose(mat, mat.T, atol=1e-10)
+
+    def test_default_metric_is_ccg(self):
+        """
+        Default metric is CCG.
+
+        Tests:
+            (Test Case 1) Calling without metric= returns non-None lag.
+        """
+        sss = _make_correlated_stack(n_units=2, n_slices=3)
+        _, all_lag, _, av_lag = sss.get_slice_to_slice_unit_comparison()
+
+        assert all_lag is not None
+        assert av_lag is not None
+
+    def test_invalid_metric_raises(self):
+        """
+        Invalid metric string raises ValueError.
+
+        Tests:
+            (Test Case 1) metric='pearson' raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=2, n_slices=2)
+        with pytest.raises(ValueError, match="metric must be"):
+            sss.get_slice_to_slice_unit_comparison(metric="pearson")
+
+    def test_single_slice_returns_nan(self):
+        """
+        Single-slice stack returns NaN with a warning.
+
+        Tests:
+            (Test Case 1) RuntimeWarning is emitted.
+            (Test Case 2) all_corr shape is (1, 1, U).
+            (Test Case 3) av_corr is all NaN.
+        """
+        sd = SpikeData(
+            [np.array([5.0, 15.0, 25.0]), np.array([8.0, 22.0])], length=50.0
+        )
+        sss = SpikeSliceStack(spike_stack=[sd])
+
+        with pytest.warns(RuntimeWarning, match="fewer than 2 slices"):
+            all_corr, all_lag, av_corr, av_lag = (
+                sss.get_slice_to_slice_unit_comparison(metric="ccg")
+            )
+
+        assert all_corr.stack.shape == (1, 1, 2)
+        assert np.all(np.isnan(av_corr))
+
+    def test_min_spikes_filters_inactive_units(self):
+        """
+        Units with too few spikes in most slices get NaN average.
+
+        Tests:
+            (Test Case 1) Unit with only 1 spike per slice (below min_spikes=5)
+                has NaN average.
+            (Test Case 2) Unit with many spikes has a valid (non-NaN) average.
+        """
+        rng = np.random.default_rng(42)
+        sd_list = []
+        for _ in range(4):
+            active_spikes = np.sort(rng.uniform(0, 100, 20))
+            sparse_spikes = np.array([rng.uniform(0, 100)])
+            sd_list.append(
+                SpikeData([active_spikes, sparse_spikes], length=100.0)
+            )
+        sss = SpikeSliceStack(spike_stack=sd_list)
+
+        _, _, av_corr, _ = sss.get_slice_to_slice_unit_comparison(
+            metric="ccg", min_spikes=5
+        )
+
+        assert not np.isnan(av_corr[0])  # Active unit
+        assert np.isnan(av_corr[1])  # Sparse unit
+
+    def test_av_corr_within_bounds(self):
+        """
+        Average correlation values are within [-1, 1] for valid units.
+
+        Tests:
+            (Test Case 1) Non-NaN av_corr values are in [-1, 1].
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5, seed=77)
+        _, _, av_corr, _ = sss.get_slice_to_slice_unit_comparison(metric="ccg")
+
+        valid = av_corr[~np.isnan(av_corr)]
+        assert np.all(valid >= -1.0)
+        assert np.all(valid <= 1.0)
+
+
+class TestZeroBasedInvariant:
+    """Tests that SpikeSliceStack slices always have 0-based spike times."""
+
+    def test_constructor_slices_are_zero_based(self):
+        """
+        Tests that slices from the constructor have 0-based spike times within
+        the window duration.
+
+        Tests:
+            (Test Case 1) All spikes in the slice are >= 0.
+            (Test Case 2) All spikes in the slice are < window duration (100 ms).
+            (Test Case 3) Slice length equals the window duration.
+        """
+        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
+
+        sliced = sss.spike_stack[0]
+        assert sliced.length == 100.0
+        for unit_spikes in sliced.train:
+            if len(unit_spikes) > 0:
+                assert np.all(unit_spikes >= 0)
+                assert np.all(unit_spikes < 100.0)
+
+    def test_constructor_preserves_absolute_times_in_metadata(self):
+        """
+        Tests that the absolute time window is preserved in sss.times even though
+        spike times are 0-based.
+
+        Tests:
+            (Test Case 1) sss.times[0] == (100, 200).
+        """
+        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
+
+        assert sss.times[0] == (100.0, 200.0)
+
+    def test_subtime_by_index_produces_zero_based_slices(self):
+        """
+        Tests that subtime_by_index produces slices with 0-based spike times
+        and correct absolute times in metadata.
+
+        Tests:
+            (Test Case 1) All spikes in the subtimed result are >= 0.
+            (Test Case 2) All spikes in the subtimed result are < 10 (the sub-window duration).
+            (Test Case 3) Result times contain the correct absolute windows.
+        """
+        sd = SpikeData(
+            [np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0])],
+            length=200.0,
+        )
+        times = [(0.0, 100.0), (100.0, 200.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+
+        result = sss.subtime_by_index(5, 15)
+
+        for sd_slice in result.spike_stack:
+            for unit_spikes in sd_slice.train:
+                if len(unit_spikes) > 0:
+                    assert np.all(unit_spikes >= 0)
+                    assert np.all(unit_spikes < 10.0)
+
+        # Absolute times should reflect the sub-window within each original window
+        assert result.times[0] == pytest.approx((5.0, 15.0))
+        assert result.times[1] == pytest.approx((105.0, 115.0))

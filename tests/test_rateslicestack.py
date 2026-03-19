@@ -1111,3 +1111,43 @@ class TestRateSliceStackEdgeCases:
         rss = RateSliceStack(data_obj=rd, times_start_to_end=times)
 
         assert rss.event_stack.shape[2] == 2
+
+
+class TestOrderUnitsNanSentinel:
+    """Tests for NaN handling in order_units_across_slices."""
+
+    def test_nan_peak_times_become_minus_one(self):
+        """
+        Tests that units with all-zero firing rates get a peak time of -1
+        instead of a garbage large negative integer from NaN-to-int cast.
+
+        Tests:
+            (Test Case 1) Unit 0 (all zeros) has peak time == -1 in the
+                highly_active group.
+            (Test Case 2) Units 1 and 2 (non-zero) have valid (>= 0) peak times.
+        """
+        rng = np.random.default_rng(42)
+        mat = rng.random((3, 20, 5)) + 0.5
+        # Set unit 0 to all zeros so its peak time is NaN
+        mat[0, :, :] = 0.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            reordered, order, std, peaks, frac_active = (
+                rss.order_units_across_slices("median", MIN_RATE_THRESHOLD=0.1)
+            )
+
+        # peaks is a tuple of (highly_active, low_active) arrays
+        highly_active_peaks = peaks[0]
+
+        # Find unit 0's position in the ordering
+        highly_active_order = order[0]
+        unit_0_pos = np.where(highly_active_order == 0)[0]
+        assert len(unit_0_pos) == 1, "Unit 0 should be in the highly_active group"
+        assert highly_active_peaks[unit_0_pos[0]] == -1
+
+        # Non-zero units should have valid peak times >= 0
+        for idx, unit_id in enumerate(highly_active_order):
+            if unit_id != 0:
+                assert highly_active_peaks[idx] >= 0

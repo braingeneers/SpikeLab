@@ -3228,3 +3228,79 @@ class TestFitGplvm:
             assert isinstance(
                 val, (np.ndarray, int, float, bool, str)
             ), f"decode_res['{key}'] is {type(val)}, expected np.ndarray or scalar"
+
+
+class TestRecentFixes:
+    """Tests for fixes applied during the 2026-03-19 code review."""
+
+    def test_subtime_always_shifts_to_zero(self):
+        """
+        Verify subtime shifts spike times so the new window starts at t=0.
+
+        Tests:
+            (Test Case 1) Spike times are shifted by the start offset.
+            (Test Case 2) Length equals the window size (end - start).
+        """
+        sd = SpikeData([[50, 100, 150]], length=200)
+        result = sd.subtime(50, 160)
+        # subtime uses [start, end), so 50, 100, 150 are all included
+        np.testing.assert_array_equal(result.train[0], [0, 50, 100])
+        assert result.length == 110
+
+    def test_concatenate_spike_data_with_raw_data(self):
+        """
+        Verify concatenate_spike_data stacks raw_data along axis 0.
+
+        Tests:
+            (Test Case 1) raw_data channels are concatenated (axis 0), not added.
+            (Test Case 2) raw_time arrays are concatenated along axis 0.
+        """
+        raw1 = np.ones((2, 10))
+        raw2 = np.ones((2, 10)) * 2
+        time1 = np.arange(10, dtype=float)
+        time2 = np.arange(10, dtype=float)
+        sd1 = SpikeData([[1, 2]], length=10, raw_data=raw1, raw_time=time1)
+        sd2 = SpikeData([[3, 4]], length=10, raw_data=raw2, raw_time=time2)
+        sd1.concatenate_spike_data(sd2)
+        assert sd1.raw_data.shape == (4, 10)
+        assert sd1.raw_time.shape == (20,)
+
+    def test_concatenate_spike_data_one_empty_raw(self):
+        """
+        Verify concatenation when one SpikeData has no raw_data.
+
+        Tests:
+            (Test Case 1) Result adopts the non-empty raw_data.
+        """
+        sd1 = SpikeData([[1, 2]], length=10)
+        raw2 = np.ones((2, 10))
+        time2 = np.arange(10, dtype=float)
+        sd2 = SpikeData([[3, 4]], length=10, raw_data=raw2, raw_time=time2)
+        sd1.concatenate_spike_data(sd2)
+        np.testing.assert_array_equal(sd1.raw_data, raw2)
+
+    def test_metadata_default_not_shared(self):
+        """
+        Verify that default metadata dicts are independent across instances.
+
+        Tests:
+            (Test Case 1) Mutating one instance's metadata does not affect another.
+        """
+        sd1 = SpikeData([[1]], length=5)
+        sd2 = SpikeData([[2]], length=5)
+        sd1.metadata["key"] = "value"
+        assert "key" not in sd2.metadata
+
+    def test_subtime_raw_data_shifted(self):
+        """
+        Verify subtime shifts raw_time to start at 0.
+
+        Tests:
+            (Test Case 1) raw_time is shifted so the first sample is at 0.
+        """
+        raw_time = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        raw_data = np.arange(6, dtype=float).reshape(1, 6)
+        sd = SpikeData([[2, 3, 4]], length=6, raw_data=raw_data, raw_time=raw_time)
+        result = sd.subtime(2, 5)
+        assert result.raw_time[0] == 0.0
+        np.testing.assert_array_almost_equal(result.raw_time, [0.0, 1.0, 2.0])

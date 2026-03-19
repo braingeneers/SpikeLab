@@ -758,3 +758,72 @@ class TestRateDataEdgeCases:
         result = rd.subset(["V1"], by="region")
         assert result.N == 0
         assert result.inst_Frate_data.shape == (0, 10)
+
+
+class TestRecentFixes:
+    """Tests for fixes applied during the 2026-03-19 code review."""
+
+    def test_subtime_always_shifts_to_zero(self):
+        """
+        Tests that subtime() shifts times to start at 0 even when the slice starts mid-recording.
+
+        Tests:
+            (Test Case 1) Result times start at 0.0.
+            (Test Case 2) Result times end at 20.0 (shifted from 40).
+        """
+        times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        data = np.ones((2, 5))
+        rd = RateData(data, times)
+
+        result = rd.subtime(20.0, 50.0)
+        assert result.times[0] == 0.0
+        assert result.times[-1] == 20.0
+
+    def test_subtime_by_index_always_shifts_to_zero(self):
+        """
+        Tests that subtime_by_index() shifts times to start at 0.
+
+        Tests:
+            (Test Case 1) Result times start at 0.0 after slicing indices 1 through 4.
+        """
+        times = np.array([100.0, 200.0, 300.0, 400.0, 500.0])
+        data = np.ones((2, 5))
+        rd = RateData(data, times)
+
+        result = rd.subtime_by_index(1, 4)
+        assert result.times[0] == 0.0
+
+    def test_subset_with_dict_neuron_attributes(self):
+        """
+        Tests that subset() works with dict-based neuron_attributes via _get_attr fix.
+
+        Tests:
+            (Test Case 1) Selecting by region from dict attributes returns correct count.
+        """
+        times = np.arange(10, dtype=float)
+        data = np.ones((3, 10))
+        attrs = [{"region": "ctx"}, {"region": "hpc"}, {"region": "ctx"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        result = rd.subset(["ctx"], by="region")
+        assert result.N == 2
+
+    def test_subset_with_object_neuron_attributes(self):
+        """
+        Tests that subset() works with object-based neuron_attributes via _get_attr fix.
+
+        Tests:
+            (Test Case 1) Selecting by region from object attributes returns correct count.
+        """
+
+        class MockAttr:
+            def __init__(self, region):
+                self.region = region
+
+        times = np.arange(10, dtype=float)
+        data = np.ones((3, 10))
+        attrs = [MockAttr("ctx"), MockAttr("hpc"), MockAttr("ctx")]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        result = rd.subset(["ctx"], by="region")
+        assert result.N == 2
