@@ -1242,6 +1242,38 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="compute_pairwise_latencies",
+                description=(
+                    "Compute pairwise nearest-spike latency distributions between all "
+                    "unit pairs. Stores PairwiseCompMatrix for mean latency at key_mean "
+                    "and std latency at key_std. Prerequisite: any load_from_* tool."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key_mean": {
+                            "type": "string",
+                            "description": "Output key for the (U, U) mean latency PairwiseCompMatrix",
+                        },
+                        "key_std": {
+                            "type": "string",
+                            "description": "Output key for the (U, U) std latency PairwiseCompMatrix",
+                        },
+                        "window_ms": {
+                            "type": "number",
+                            "description": "Maximum absolute latency in ms to include (default: no filtering)",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key_mean",
+                        "key_std",
+                    ],
+                },
+            ),
+            types.Tool(
                 name="compute_rate_manifold",
                 description=(
                     "Project instantaneous firing rates into a low-dimensional manifold "
@@ -1657,6 +1689,227 @@ async def _list_tools() -> list[types.Tool]:
                         },
                     },
                     "required": ["workspace_id", "namespace", "stack_key"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Pairwise matrix conditioning tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="remove_by_condition",
+                description=(
+                    "Remove entries from a PairwiseCompMatrix or PairwiseCompMatrixStack "
+                    "where a condition matrix satisfies a comparison. Stores the masked "
+                    "result at (namespace, out_key). Supports broadcasting a single "
+                    "PairwiseCompMatrix condition across all slices of a target stack."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "target_key": {
+                            "type": "string",
+                            "description": (
+                                "Workspace key of the target PairwiseCompMatrix or "
+                                "PairwiseCompMatrixStack to mask"
+                            ),
+                        },
+                        "condition_key": {
+                            "type": "string",
+                            "description": (
+                                "Workspace key of the condition PairwiseCompMatrix or "
+                                "PairwiseCompMatrixStack to evaluate"
+                            ),
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output workspace key for the masked result",
+                        },
+                        "op": {
+                            "type": "string",
+                            "enum": [
+                                "lt",
+                                "le",
+                                "gt",
+                                "ge",
+                                "eq",
+                                "ne",
+                                "abs_lt",
+                                "abs_le",
+                                "abs_gt",
+                                "abs_ge",
+                            ],
+                            "description": (
+                                "Comparison operator applied to the condition matrix. "
+                                "Entries where the comparison is True are replaced by fill. "
+                                "abs_ variants compare |condition| against threshold."
+                            ),
+                        },
+                        "threshold": {
+                            "type": "number",
+                            "description": "Threshold value for the comparison",
+                        },
+                        "fill": {
+                            "type": "number",
+                            "description": "Replacement value for removed entries (default: NaN)",
+                        },
+                        "condition_namespace": {
+                            "type": "string",
+                            "description": (
+                                "Namespace for the condition key, if different from "
+                                "the target namespace. Defaults to same namespace."
+                            ),
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "target_key",
+                        "condition_key",
+                        "out_key",
+                        "op",
+                        "threshold",
+                    ],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # SpikeSliceStack analysis tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="spike_unit_to_unit_comparison",
+                description=(
+                    "Compute pairwise unit-to-unit similarity within each slice of a "
+                    "SpikeSliceStack using STTC or CCG. Stores PairwiseCompMatrixStack "
+                    "(U, U, S) at (namespace, out_key_corr) and optionally lag stack at "
+                    "(namespace, out_key_lag). Returns average per slice inline. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "out_key_corr": {
+                            "type": "string",
+                            "description": "Output key for correlation PairwiseCompMatrixStack",
+                        },
+                        "out_key_lag": {
+                            "type": "string",
+                            "description": (
+                                "Output key for lag PairwiseCompMatrixStack "
+                                "(only stored when metric is 'ccg')"
+                            ),
+                        },
+                        "metric": {
+                            "type": "string",
+                            "enum": ["ccg", "sttc"],
+                            "default": "ccg",
+                            "description": "'ccg' for cross-correlogram or 'sttc' for spike time tiling coefficient",
+                        },
+                        "delt": {
+                            "type": "number",
+                            "default": 20.0,
+                            "description": "STTC time window in ms (only used for sttc)",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in ms for CCG raster (only used for ccg)",
+                        },
+                        "max_lag": {
+                            "type": "number",
+                            "default": 350,
+                            "description": "Max lag in ms for CCG (only used for ccg)",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key_corr",
+                        "out_key_lag",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="spike_slice_to_slice_unit_comparison",
+                description=(
+                    "Compute slice-to-slice similarity for each unit in a "
+                    "SpikeSliceStack using STTC or CCG. Stores PairwiseCompMatrixStack "
+                    "(S, S, U) at (namespace, out_key_corr) and optionally lag stack at "
+                    "(namespace, out_key_lag). Returns average per unit inline. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "out_key_corr": {
+                            "type": "string",
+                            "description": "Output key for correlation PairwiseCompMatrixStack",
+                        },
+                        "out_key_lag": {
+                            "type": "string",
+                            "description": (
+                                "Output key for lag PairwiseCompMatrixStack "
+                                "(only stored when metric is 'ccg')"
+                            ),
+                        },
+                        "metric": {
+                            "type": "string",
+                            "enum": ["ccg", "sttc"],
+                            "default": "ccg",
+                            "description": "'ccg' for cross-correlogram or 'sttc' for spike time tiling coefficient",
+                        },
+                        "delt": {
+                            "type": "number",
+                            "default": 20.0,
+                            "description": "STTC time window in ms (only used for sttc)",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in ms for CCG raster (only used for ccg)",
+                        },
+                        "max_lag": {
+                            "type": "number",
+                            "default": 350,
+                            "description": "Max lag in ms for CCG (only used for ccg)",
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "default": 3,
+                            "description": "Minimum spikes in a slice for a unit to be valid",
+                        },
+                        "min_frac": {
+                            "type": "number",
+                            "default": 0.3,
+                            "description": "Max fraction of invalid slices before unit average is NaN",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key_corr",
+                        "out_key_lag",
+                    ],
                 },
             ),
         ]
@@ -2474,6 +2727,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_pairwise_fr_corr(**arguments)
         elif name == "compute_pairwise_ccg":
             result = await analysis.compute_pairwise_ccg(**arguments)
+        elif name == "compute_pairwise_latencies":
+            result = await analysis.compute_pairwise_latencies(**arguments)
         elif name == "compute_rate_manifold":
             result = await analysis.compute_rate_manifold(**arguments)
         elif name == "frames_rate_data":
@@ -2500,6 +2755,16 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_unit_to_unit_slice_corr(**arguments)
         elif name == "compute_rate_slice_unit_order":
             result = await analysis.compute_rate_slice_unit_order(**arguments)
+
+        # Pairwise matrix conditioning tools
+        elif name == "remove_by_condition":
+            result = await analysis.remove_by_condition(**arguments)
+
+        # SpikeSliceStack analysis tools
+        elif name == "spike_unit_to_unit_comparison":
+            result = await analysis.spike_unit_to_unit_comparison(**arguments)
+        elif name == "spike_slice_to_slice_unit_comparison":
+            result = await analysis.spike_slice_to_slice_unit_comparison(**arguments)
 
         # Other workspace-based tools
         elif name == "get_idces_times":

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from ...spikedata.pairwise import PairwiseCompMatrixStack
+from ...spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 from ...spikedata.ratedata import RateData
 from ...spikedata.rateslicestack import RateSliceStack
 from ...spikedata.spikeslicestack import SpikeSliceStack
@@ -825,6 +825,28 @@ async def compute_pairwise_ccg(
     }
 
 
+async def compute_pairwise_latencies(
+    workspace_id: str,
+    namespace: str,
+    key_mean: str,
+    key_std: str,
+    window_ms: Optional[float] = None,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    mean_lat, std_lat = sd.get_pairwise_latencies(window_ms=window_ms)
+    ws.store(namespace, key_mean, mean_lat)
+    ws.store(namespace, key_std, std_lat)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_mean": key_mean,
+        "key_std": key_std,
+        "info_mean": ws.get_info(namespace, key_mean),
+        "info_std": ws.get_info(namespace, key_std),
+    }
+
+
 async def compute_rate_manifold(
     workspace_id: str,
     namespace: str,
@@ -1546,6 +1568,144 @@ async def fetch_workspace_item(
         f"fetch_workspace_item supports ndarray and PairwiseCompMatrixStack; "
         f"got {type(obj).__name__}. Use type-specific tools for other object types."
     )
+
+
+# ---------------------------------------------------------------------------
+# Pairwise matrix conditioning tools
+# ---------------------------------------------------------------------------
+
+
+async def remove_by_condition(
+    workspace_id: str,
+    namespace: str,
+    target_key: str,
+    condition_key: str,
+    out_key: str,
+    op: str,
+    threshold: float,
+    fill: float = float("nan"),
+    condition_namespace: Optional[str] = None,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    target = ws.get(namespace, target_key)
+    if target is None or not isinstance(
+        target, (PairwiseCompMatrixStack, PairwiseCompMatrix)
+    ):
+        raise ValueError(
+            f"No PairwiseCompMatrix or PairwiseCompMatrixStack found at "
+            f"({namespace!r}, {target_key!r}). "
+            "Compute a pairwise matrix first using: compute_spike_time_tilings, "
+            "compute_pairwise_ccg, compute_pairwise_latencies, "
+            "spike_unit_to_unit_comparison, or similar."
+        )
+
+    cond_ns = condition_namespace if condition_namespace is not None else namespace
+    condition = ws.get(cond_ns, condition_key)
+    if condition is None or not isinstance(
+        condition, (PairwiseCompMatrixStack, PairwiseCompMatrix)
+    ):
+        raise ValueError(
+            f"No PairwiseCompMatrix or PairwiseCompMatrixStack found at "
+            f"({cond_ns!r}, {condition_key!r}). "
+            "Compute the condition matrix first using: compute_pairwise_latencies, "
+            "compute_spike_time_tilings, compute_pairwise_ccg, or similar."
+        )
+
+    result = target.remove_by_condition(
+        condition=condition, op=op, threshold=threshold, fill=fill
+    )
+    ws.store(namespace, out_key, result)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# SpikeSliceStack comparison tools
+# ---------------------------------------------------------------------------
+
+
+async def spike_unit_to_unit_comparison(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_lag: str,
+    metric: str = "ccg",
+    delt: float = 20.0,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
+        metric=metric,
+        delt=delt,
+        bin_size=bin_size,
+        max_lag=max_lag,
+    )
+    ws.store(namespace, out_key_corr, corr_stack)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "av_corr": _to_list(av_corr),
+        "info_corr": ws.get_info(namespace, out_key_corr),
+    }
+    if lag_stack is not None:
+        ws.store(namespace, out_key_lag, lag_stack)
+        result["key_lag"] = out_key_lag
+        result["av_lag"] = _to_list(av_lag)
+        result["info_lag"] = ws.get_info(namespace, out_key_lag)
+    else:
+        result["key_lag"] = None
+        result["av_lag"] = None
+    return result
+
+
+async def spike_slice_to_slice_unit_comparison(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_lag: str,
+    metric: str = "ccg",
+    delt: float = 20.0,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+    min_spikes: int = 3,
+    min_frac: float = 0.3,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+        metric=metric,
+        delt=delt,
+        bin_size=bin_size,
+        max_lag=max_lag,
+        min_spikes=min_spikes,
+        min_frac=min_frac,
+    )
+    ws.store(namespace, out_key_corr, all_corr)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "av_corr": _to_list(av_corr),
+        "info_corr": ws.get_info(namespace, out_key_corr),
+    }
+    if all_lag is not None:
+        ws.store(namespace, out_key_lag, all_lag)
+        result["key_lag"] = out_key_lag
+        result["av_lag"] = _to_list(av_lag)
+        result["info_lag"] = ws.get_info(namespace, out_key_lag)
+    else:
+        result["key_lag"] = None
+        result["av_lag"] = None
+    return result
 
 
 # ---------------------------------------------------------------------------

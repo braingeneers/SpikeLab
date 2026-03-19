@@ -131,7 +131,7 @@ async def load_from_hdf5(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
     local_path, is_temp = ensure_local_file(
         file_path,
@@ -236,7 +236,7 @@ async def load_from_nwb(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
     local_path, is_temp = ensure_local_file(
         file_path,
@@ -310,7 +310,7 @@ async def load_from_kilosort(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
     # For S3, we need to handle folder paths differently
     # For now, assume local folder or handle S3 folder as a prefix
@@ -379,7 +379,7 @@ async def load_from_pickle(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
     spikedata = load_spikedata_from_pickle(
         file_path,
@@ -440,7 +440,7 @@ async def load_from_hdf5_thresholded(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'session_id', 'info', 'workspace_id', 'namespace', and 'workspace_key'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
     local_path, is_temp = ensure_local_file(
         file_path,
