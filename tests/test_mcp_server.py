@@ -1112,3 +1112,1011 @@ class TestServerIntegration:
         result = await _call_tool("unknown_tool", {})
         data = json.loads(result[0].text)
         assert "error" in data
+
+
+# ============================================================================
+# New MCP Tool Tests (session additions)
+# ============================================================================
+
+
+@pytest.fixture
+def loaded_ws_with_sss(sample_spikedata):
+    """Create a workspace with SpikeData and a SpikeSliceStack stored.
+
+    Returns (workspace_id, namespace).
+    """
+    if not MCP_SERVER_AVAILABLE:
+        pytest.skip("MCP server not available")
+    from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+
+    wm = get_workspace_manager()
+    ws_id = wm.create_workspace(name="test_ws_sss")
+    ws = wm.get_workspace(ws_id)
+    ws.store("rec1", "spikedata", sample_spikedata)
+
+    sss = SpikeSliceStack(
+        sample_spikedata, times_start_to_end=[(0.0, 25.0), (25.0, 50.0)]
+    )
+    ws.store("rec1", "sss", sss)
+    return ws_id, "rec1"
+
+
+@pytest.fixture
+def loaded_ws_with_rss(sample_spikedata):
+    """Create a workspace with SpikeData and a RateSliceStack stored.
+
+    Returns (workspace_id, namespace).
+    """
+    if not MCP_SERVER_AVAILABLE:
+        pytest.skip("MCP server not available")
+    from SpikeLab.spikedata.rateslicestack import RateSliceStack
+
+    wm = get_workspace_manager()
+    ws_id = wm.create_workspace(name="test_ws_rss")
+    ws = wm.get_workspace(ws_id)
+    ws.store("rec1", "spikedata", sample_spikedata)
+
+    rss = RateSliceStack(
+        sample_spikedata, times_start_to_end=[(0.0, 25.0), (25.0, 50.0)]
+    )
+    ws.store("rec1", "rss", rss)
+    return ws_id, "rec1"
+
+
+class TestSpikeSliceStackMCPTools:
+    """Tests for new SpikeSliceStack MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_unit_to_unit_comparison_ccg(self, loaded_ws_with_sss):
+        """
+        Test spike_unit_to_unit_comparison with CCG metric stores results.
+
+        Tests:
+            (Test Case 1) Returns key_corr and key_lag.
+            (Test Case 2) Stored corr item is PairwiseCompMatrixStack.
+            (Test Case 3) av_corr is returned inline.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.spike_unit_to_unit_comparison(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="u2u_corr",
+            out_key_lag="u2u_lag",
+            metric="ccg",
+        )
+        assert result["key_corr"] == "u2u_corr"
+        assert result["key_lag"] == "u2u_lag"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrixStack"
+        assert "av_corr" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_unit_to_unit_comparison_sttc(self, loaded_ws_with_sss):
+        """
+        Test spike_unit_to_unit_comparison with STTC metric (no lag).
+
+        Tests:
+            (Test Case 1) key_lag is None.
+            (Test Case 2) av_lag is None.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.spike_unit_to_unit_comparison(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="u2u_corr",
+            out_key_lag="u2u_lag",
+            metric="sttc",
+        )
+        assert result["key_lag"] is None
+        assert result["av_lag"] is None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_slice_to_slice_unit_comparison(self, loaded_ws_with_sss):
+        """
+        Test spike_slice_to_slice_unit_comparison stores correlation stack.
+
+        Tests:
+            (Test Case 1) Returns key_corr.
+            (Test Case 2) Stored item is PairwiseCompMatrixStack.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.spike_slice_to_slice_unit_comparison(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="s2s_corr",
+            out_key_lag="s2s_lag",
+            metric="ccg",
+        )
+        assert result["key_corr"] == "s2s_corr"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrixStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_frac_active(self, loaded_ws_with_sss):
+        """
+        Test compute_frac_active stores a (U,) ndarray.
+
+        Tests:
+            (Test Case 1) Returns key.
+            (Test Case 2) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.compute_frac_active(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key="frac",
+        )
+        assert result["key"] == "frac"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_order_units_across_slices(self, loaded_ws_with_sss):
+        """
+        Test spike_order_units_across_slices returns inline ordering.
+
+        Tests:
+            (Test Case 1) Result has highly_active and low_active groups.
+            (Test Case 2) highly_active contains unit_ids_in_order.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.spike_order_units_across_slices(
+            ws_id,
+            ns,
+            stack_key="sss",
+        )
+        assert "highly_active" in result
+        assert "low_active" in result
+        assert "unit_ids_in_order" in result["highly_active"]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_unit_timing_per_slice_spike(self, loaded_ws_with_sss):
+        """
+        Test get_unit_timing_per_slice_spike stores a (U, S) ndarray.
+
+        Tests:
+            (Test Case 1) Returns key.
+            (Test Case 2) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.get_unit_timing_per_slice_spike(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key="timing",
+        )
+        assert result["key"] == "timing"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rank_order_correlation_spike_raw(self, loaded_ws_with_sss):
+        """
+        Test rank_order_correlation_spike with n_shuffles=0 (raw Spearman).
+
+        Tests:
+            (Test Case 1) Returns key_corr and key_overlap.
+            (Test Case 2) Stored corr item is PairwiseCompMatrix.
+            (Test Case 3) av_corr is returned inline.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.rank_order_correlation_spike(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="rank_corr",
+            out_key_overlap="rank_overlap",
+            n_shuffles=0,
+        )
+        assert result["key_corr"] == "rank_corr"
+        assert result["key_overlap"] == "rank_overlap"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+        assert result["info_overlap"]["type"] == "PairwiseCompMatrix"
+        assert isinstance(result["av_corr"], float)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rank_order_correlation_spike_zscore(self, loaded_ws_with_sss):
+        """
+        Test rank_order_correlation_spike with z-scoring.
+
+        Tests:
+            (Test Case 1) n_shuffles is echoed back.
+            (Test Case 2) Result stores PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.rank_order_correlation_spike(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="zrank_corr",
+            out_key_overlap="zrank_overlap",
+            n_shuffles=10,
+            seed=42,
+        )
+        assert result["n_shuffles"] == 10
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rank_order_correlation_spike_with_timing_key(
+        self, loaded_ws_with_sss
+    ):
+        """
+        Test rank_order_correlation_spike using a pre-computed timing_key.
+
+        Tests:
+            (Test Case 1) Pre-computed timing matrix is accepted.
+            (Test Case 2) Result stores PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        await analysis.get_unit_timing_per_slice_spike(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key="timing",
+        )
+        result = await analysis.rank_order_correlation_spike(
+            ws_id,
+            ns,
+            stack_key="sss",
+            out_key_corr="rank_corr2",
+            out_key_overlap="rank_overlap2",
+            timing_key="timing",
+            n_shuffles=0,
+        )
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+
+
+class TestRateSliceStackMCPTools:
+    """Tests for new RateSliceStack MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_unit_timing_per_slice_rate(self, loaded_ws_with_rss):
+        """
+        Test get_unit_timing_per_slice_rate stores a (U, S) ndarray.
+
+        Tests:
+            (Test Case 1) Returns key.
+            (Test Case 2) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.get_unit_timing_per_slice_rate(
+            ws_id,
+            ns,
+            stack_key="rss",
+            out_key="timing",
+        )
+        assert result["key"] == "timing"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rank_order_correlation_rate_raw(self, loaded_ws_with_rss):
+        """
+        Test rank_order_correlation_rate with n_shuffles=0.
+
+        Tests:
+            (Test Case 1) Returns key_corr and key_overlap.
+            (Test Case 2) Both stored items are PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.rank_order_correlation_rate(
+            ws_id,
+            ns,
+            stack_key="rss",
+            out_key_corr="rank_corr",
+            out_key_overlap="rank_overlap",
+            n_shuffles=0,
+        )
+        assert result["key_corr"] == "rank_corr"
+        assert result["key_overlap"] == "rank_overlap"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+        assert result["info_overlap"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rank_order_correlation_rate_with_timing_key(
+        self, loaded_ws_with_rss
+    ):
+        """
+        Test rank_order_correlation_rate using a pre-computed timing_key.
+
+        Tests:
+            (Test Case 1) Pre-computed timing matrix is accepted.
+            (Test Case 2) Result stores PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        await analysis.get_unit_timing_per_slice_rate(
+            ws_id,
+            ns,
+            stack_key="rss",
+            out_key="timing",
+        )
+        result = await analysis.rank_order_correlation_rate(
+            ws_id,
+            ns,
+            stack_key="rss",
+            out_key_corr="rank_corr2",
+            out_key_overlap="rank_overlap2",
+            timing_key="timing",
+            n_shuffles=0,
+        )
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rate_slice_unit_corr_with_frac_active(
+        self, loaded_ws_with_rss
+    ):
+        """
+        Test compute_rate_slice_unit_corr accepts frac_active_key.
+
+        Tests:
+            (Test Case 1) frac_active_key is accepted without error.
+            (Test Case 2) Result stores PairwiseCompMatrixStack.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        # Store a frac_active array manually
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        ws.store(ns, "frac", np.array([1.0, 1.0, 1.0]))
+
+        result = await analysis.compute_rate_slice_unit_corr(
+            workspace_id=ws_id,
+            namespace=ns,
+            stack_key="rss",
+            out_key="corr",
+            frac_active_key="frac",
+        )
+        assert result["key"] == "corr"
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+
+
+class TestPairwiseConditioningMCPTools:
+    """Tests for remove_by_condition MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_remove_by_condition_matrix(self, loaded_ws):
+        """
+        Test remove_by_condition on PairwiseCompMatrix stored in workspace.
+
+        Tests:
+            (Test Case 1) Returns key.
+            (Test Case 2) Stored item is PairwiseCompMatrix.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        target = PairwiseCompMatrix(matrix=np.array([[1.0, 0.8], [0.8, 1.0]]))
+        condition = PairwiseCompMatrix(matrix=np.array([[0.0, 1.5], [1.5, 0.0]]))
+        ws.store(ns, "sttc", target)
+        ws.store(ns, "latency", condition)
+
+        result = await analysis.remove_by_condition(
+            workspace_id=ws_id,
+            namespace=ns,
+            target_key="sttc",
+            condition_key="latency",
+            out_key="masked",
+            op="abs_lt",
+            threshold=2.0,
+        )
+        assert result["key"] == "masked"
+        assert result["info"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_remove_by_condition_stack(self, loaded_ws):
+        """
+        Test remove_by_condition on PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) Stored item is PairwiseCompMatrixStack.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrixStack
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        target = PairwiseCompMatrixStack(stack=np.ones((3, 3, 2)))
+        condition = PairwiseCompMatrixStack(stack=np.zeros((3, 3, 2)))
+        ws.store(ns, "target_stack", target)
+        ws.store(ns, "cond_stack", condition)
+
+        result = await analysis.remove_by_condition(
+            workspace_id=ws_id,
+            namespace=ns,
+            target_key="target_stack",
+            condition_key="cond_stack",
+            out_key="masked_stack",
+            op="lt",
+            threshold=1.0,
+        )
+        assert result["key"] == "masked_stack"
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+
+
+# ============================================================================
+# Coverage gap tests — basic analysis tools
+# ============================================================================
+
+
+@pytest.fixture
+def loaded_ws_with_attrs():
+    """Workspace with SpikeData that has neuron_attributes.
+
+    Returns (workspace_id, namespace).
+    """
+    if not MCP_SERVER_AVAILABLE:
+        pytest.skip("MCP server not available")
+    train = [
+        [10.0, 20.0, 30.0, 40.0],
+        [15.0, 25.0, 35.0],
+        [5.0, 45.0],
+    ]
+    attrs = [
+        {"id": "A", "region": "ctx"},
+        {"id": "B", "region": "hpc"},
+        {"id": "C", "region": "ctx"},
+    ]
+    sd = SpikeData(train, length=50.0, neuron_attributes=attrs)
+    wm = get_workspace_manager()
+    ws_id = wm.create_workspace(name="test_ws_attrs")
+    wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+    return ws_id, "rec1"
+
+
+class TestBasicAnalysisCoverage:
+    """Coverage tests for basic analysis MCP tools not previously tested."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_binned(self, loaded_ws):
+        """
+        Test compute_binned stores binned spike counts.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_binned(ws_id, ns, "binned", bin_size=10.0)
+        assert result["key"] == "binned"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_binned_meanrate(self, loaded_ws):
+        """
+        Test compute_binned_meanrate stores mean rate per bin.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_binned_meanrate(
+            ws_id, ns, "meanrate", bin_size=10.0
+        )
+        assert result["key"] == "meanrate"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_sparse_raster(self, loaded_ws):
+        """
+        Test compute_sparse_raster stores a dense raster.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_sparse_raster(ws_id, ns, "sparse", bin_size=5.0)
+        assert result["key"] == "sparse"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_channel_raster(self, loaded_ws_with_attrs):
+        """
+        Test compute_channel_raster stores a channel-grouped raster.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+
+        Notes:
+            - Requires neuron_attributes with channel info.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        # Add channel attribute so channel_raster can find it
+        await analysis.set_neuron_attribute(ws_id, ns, key="channel", values=[0, 1, 0])
+        result = await analysis.compute_channel_raster(
+            ws_id, ns, "ch_raster", bin_size=5.0, channel_attr="channel"
+        )
+        assert result["key"] == "ch_raster"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_interspike_intervals(self, loaded_ws):
+        """
+        Test compute_interspike_intervals stores NaN-padded ISI array.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_interspike_intervals(ws_id, ns, "isis")
+        assert result["key"] == "isis"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_spike_time_tilings(self, loaded_ws):
+        """
+        Test compute_spike_time_tilings stores full STTC matrix.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray with shape (3, 3).
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_spike_time_tilings(ws_id, ns, "sttc_full")
+        assert result["key"] == "sttc_full"
+        assert result["info"]["type"] == "ndarray"
+        assert result["info"]["shape"] == [3, 3]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_threshold_spike_time_tilings(self, loaded_ws):
+        """
+        Test threshold_spike_time_tilings stores binary STTC matrix.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray with shape (3, 3).
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.threshold_spike_time_tilings(
+            ws_id, ns, "sttc_bin", threshold=0.1
+        )
+        assert result["key"] == "sttc_bin"
+        assert result["info"]["type"] == "ndarray"
+        assert result["info"]["shape"] == [3, 3]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_pairwise_ccg(self, loaded_ws):
+        """
+        Test compute_pairwise_ccg stores correlation and lag matrices.
+
+        Tests:
+            (Test Case 1) Both key_corr and key_lag stored as PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_pairwise_ccg(
+            ws_id, ns, key_corr="ccg_corr", key_lag="ccg_lag"
+        )
+        assert result["key_corr"] == "ccg_corr"
+        assert result["key_lag"] == "ccg_lag"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_pairwise_latencies(self, loaded_ws):
+        """
+        Test compute_pairwise_latencies stores mean and std matrices.
+
+        Tests:
+            (Test Case 1) Both key_mean and key_std stored as PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_pairwise_latencies(
+            ws_id, ns, key_mean="lat_mean", key_std="lat_std"
+        )
+        assert result["key_mean"] == "lat_mean"
+        assert result["key_std"] == "lat_std"
+        assert result["info_mean"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_pop_rate(self, loaded_ws):
+        """
+        Test get_pop_rate stores smoothed population rate.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.get_pop_rate(ws_id, ns, "pop_rate")
+        assert result["key"] == "pop_rate"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_idces_times(self, loaded_ws):
+        """
+        Test get_idces_times stores (2, n_spikes) array.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray with shape[0] == 2.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.get_idces_times(ws_id, ns, "it")
+        assert result["key"] == "it"
+        assert result["info"]["type"] == "ndarray"
+        assert result["info"]["shape"][0] == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_latencies(self, loaded_ws):
+        """
+        Test compute_latencies stores NaN-padded latency matrix.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_latencies(
+            ws_id, ns, "lats", times=[10.0, 20.0, 30.0]
+        )
+        assert result["key"] == "lats"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_latencies_to_index(self, loaded_ws):
+        """
+        Test compute_latencies_to_index stores latencies from one unit.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_latencies_to_index(
+            ws_id, ns, "lat_idx", neuron_index=0
+        )
+        assert result["key"] == "lat_idx"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_spike_trig_pop_rate(self, loaded_ws):
+        """
+        Test compute_spike_trig_pop_rate stores stPR and coupling stats.
+
+        Tests:
+            (Test Case 1) Three keys stored (stpr, lags, coupling).
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_spike_trig_pop_rate(
+            ws_id, ns, key="stpr", key_lags="stpr_lags", key_coupling="stpr_coupling"
+        )
+        assert result["key"] == "stpr"
+        assert result["key_lags"] == "stpr_lags"
+        assert result["key_coupling"] == "stpr_coupling"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_export_to_pickle(self, loaded_ws, tmp_path):
+        """
+        Test export_to_pickle writes a pickle file.
+
+        Tests:
+            (Test Case 1) File is created at the specified path.
+        """
+        ws_id, ns = loaded_ws
+        path = str(tmp_path / "test.pkl")
+        result = await exporters.export_to_pickle(ws_id, ns, path)
+        assert result["file_path"] == path
+        assert os.path.exists(path)
+
+
+# ============================================================================
+# Coverage gap tests — metadata and selection tools
+# ============================================================================
+
+
+class TestMetadataAndSelectionCoverage:
+    """Coverage tests for metadata query and selection MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_list_neurons(self, loaded_ws_with_attrs):
+        """
+        Test list_neurons returns neuron list inline.
+
+        Tests:
+            (Test Case 1) Returns list of 3 neurons.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.list_neurons(ws_id, ns)
+        assert len(result["neurons"]) == 3
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_neuron_attribute(self, loaded_ws_with_attrs):
+        """
+        Test get_neuron_attribute returns attribute values.
+
+        Tests:
+            (Test Case 1) Returns region values for all 3 neurons.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.get_neuron_attribute(ws_id, ns, key="region")
+        assert result["values"] == ["ctx", "hpc", "ctx"]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_set_neuron_attribute(self, loaded_ws_with_attrs):
+        """
+        Test set_neuron_attribute modifies attributes in place.
+
+        Tests:
+            (Test Case 1) Attribute key is confirmed set.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.set_neuron_attribute(
+            ws_id, ns, key="label", values=["x", "y", "z"]
+        )
+        assert result["key"] == "label"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_neuron_to_channel_map(self, loaded_ws_with_attrs):
+        """
+        Test get_neuron_to_channel_map returns the mapping dict.
+
+        Tests:
+            (Test Case 1) Returns a mapping dict (may be empty if no channel attr).
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.get_neuron_to_channel_map(ws_id, ns)
+        assert "mapping" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_subset(self, loaded_ws):
+        """
+        Test subset stores a subsetted SpikeData.
+
+        Tests:
+            (Test Case 1) Result contains workspace reference.
+            (Test Case 2) Stored item type is SpikeData.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subset(ws_id, ns, units=[0, 1])
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["type"] == "SpikeData"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_append_session(self, loaded_ws, sample_spikedata):
+        """
+        Test append_session concatenates two SpikeData in time.
+
+        Tests:
+            (Test Case 1) Result contains workspace reference.
+            (Test Case 2) Stored item type is SpikeData.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        ws.store("rec2", "spikedata", sample_spikedata)
+        result = await analysis.append_session(
+            ws_id, namespace_a="rec1", namespace_b="rec2"
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["type"] == "SpikeData"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_concatenate_units(self, loaded_ws, sample_spikedata):
+        """
+        Test concatenate_units merges units from two namespaces.
+
+        Tests:
+            (Test Case 1) Result contains workspace reference.
+            (Test Case 2) Stored item type is SpikeData.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        ws.store("rec2", "spikedata", sample_spikedata)
+        result = await analysis.concatenate_units(
+            ws_id, namespace_a="rec1", namespace_b="rec2"
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["type"] == "SpikeData"
+
+
+# ============================================================================
+# Coverage gap tests — slice stack tools
+# ============================================================================
+
+
+class TestSliceStackCoverage:
+    """Coverage tests for slice stack creation and analysis MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_create_spike_slice_stack(self, loaded_ws):
+        """
+        Test create_spike_slice_stack stores a SpikeSliceStack.
+
+        Tests:
+            (Test Case 1) Stored item type is SpikeSliceStack.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.create_spike_slice_stack(
+            ws_id, ns, "sss", times_start_to_end=[[0.0, 25.0], [25.0, 50.0]]
+        )
+        assert result["key"] == "sss"
+        assert result["info"]["type"] == "SpikeSliceStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_frames_spike_data(self, loaded_ws):
+        """
+        Test frames_spike_data stores a SpikeSliceStack from fixed-length frames.
+
+        Tests:
+            (Test Case 1) Stored item type is SpikeSliceStack.
+            (Test Case 2) n_frames is correct.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.frames_spike_data(ws_id, ns, "sss_frames", length=25.0)
+        assert result["key"] == "sss_frames"
+        assert result["info"]["type"] == "SpikeSliceStack"
+        assert result["n_frames"] == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_slice_to_raster(self, loaded_ws_with_sss):
+        """
+        Test spike_slice_to_raster converts SpikeSliceStack to dense raster.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.spike_slice_to_raster(
+            ws_id, ns, stack_key="sss", key="sss_raster"
+        )
+        assert result["key"] == "sss_raster"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_align_to_events(self, loaded_ws):
+        """
+        Test align_to_events creates event-aligned slices.
+
+        Tests:
+            (Test Case 1) Stored item type is SpikeSliceStack (kind='spike').
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.align_to_events(
+            ws_id,
+            ns,
+            key="aligned",
+            events=[15.0, 35.0],
+            pre_ms=5.0,
+            post_ms=5.0,
+            kind="spike",
+        )
+        assert result["key"] == "aligned"
+        assert result["info"]["type"] == "SpikeSliceStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rate_slice_time_corr(self, loaded_ws_with_rss):
+        """
+        Test compute_rate_slice_time_corr stores PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) Stored item is PairwiseCompMatrixStack.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.compute_rate_slice_time_corr(
+            ws_id, ns, stack_key="rss", out_key="time_corr"
+        )
+        assert result["key"] == "time_corr"
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rate_slice_unit_order(self, loaded_ws_with_rss):
+        """
+        Test compute_rate_slice_unit_order returns inline ordering.
+
+        Tests:
+            (Test Case 1) Result has highly_active group with unit_ids_in_order.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.compute_rate_slice_unit_order(
+            ws_id, ns, stack_key="rss"
+        )
+        assert "highly_active" in result
+        assert "unit_ids_in_order" in result["highly_active"]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_unit_to_unit_slice_corr(self, loaded_ws_with_rss):
+        """
+        Test compute_unit_to_unit_slice_corr stores corr and lag stacks.
+
+        Tests:
+            (Test Case 1) Both key_corr and key_lag stored as PairwiseCompMatrixStack.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.compute_unit_to_unit_slice_corr(
+            ws_id, ns, stack_key="rss", out_key_corr="u2u_c", out_key_lag="u2u_l"
+        )
+        assert result["key_corr"] == "u2u_c"
+        assert result["key_lag"] == "u2u_l"
+        assert result["info_corr"]["type"] == "PairwiseCompMatrixStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rate_manifold(self, loaded_ws):
+        """
+        Test compute_rate_manifold stores a low-dimensional embedding.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rates", times=times)
+        result = await analysis.compute_rate_manifold(
+            ws_id, ns, rate_key="rates", key="manifold", method="PCA", n_components=2
+        )
+        assert result["key"] == "manifold"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pca_on_lower_triangle(self, loaded_ws_with_rss):
+        """
+        Test pca_on_lower_triangle stores PCA embedding.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        await analysis.compute_rate_slice_unit_corr(
+            ws_id, ns, stack_key="rss", out_key="corr"
+        )
+        result = await analysis.pca_on_lower_triangle(
+            ws_id, ns, key="corr", out_key="pca_lt", n_components=1
+        )
+        assert result["key"] == "pca_lt"
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pca_on_workspace_item(self, loaded_ws):
+        """
+        Test pca_on_workspace_item stores PCA embedding from a 2D array.
+
+        Tests:
+            (Test Case 1) Stored item is ndarray.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        ws.store(ns, "mat2d", np.random.default_rng(0).random((10, 5)))
+        result = await analysis.pca_on_workspace_item(
+            ws_id, ns, key="mat2d", out_key="pca_out", n_components=2
+        )
+        assert result["key"] == "pca_out"
+        assert result["info"]["type"] == "ndarray"

@@ -287,10 +287,12 @@ class TestPairwise:
         assert features.shape == (10, 10)  # 5*(5-1)/2 = 10 features
 
         # Test dim_red_on_lower_diagonal_corr_matrix (default PCA)
-        pca_result = stack.dim_red_on_lower_diagonal_corr_matrix(
+        pca_result, var_ratio, components = stack.dim_red_on_lower_diagonal_corr_matrix(
             method="PCA", n_components=2
         )
         assert pca_result.shape == (10, 2)
+        assert var_ratio.shape == (2,)
+        assert components.shape == (2, 10)  # 10 lower-triangle features
 
     def test_dim_red_pca_with_kwargs_raises(self):
         """Test that PCA method raises TypeError when given extra kwargs."""
@@ -322,10 +324,11 @@ class TestPairwise:
             stack_data[:, :, i] = (stack_data[:, :, i] + stack_data[:, :, i].T) / 2
         stack = PairwiseCompMatrixStack(stack=stack_data)
 
-        umap_result = stack.dim_red_on_lower_diagonal_corr_matrix(
+        umap_result, tw = stack.dim_red_on_lower_diagonal_corr_matrix(
             method="UMAP", n_components=2, n_neighbors=5, min_dist=0.1
         )
         assert umap_result.shape == (20, 2)
+        assert isinstance(tw, float)
 
 
 class TestPairwiseEdgeCases:
@@ -589,12 +592,8 @@ class TestRemoveByConditionMatrix:
 
     def _make_pair(self):
         """Helper: target STTC matrix and condition latency matrix."""
-        target = np.array(
-            [[1.0, 0.8, 0.3], [0.8, 1.0, 0.6], [0.3, 0.6, 1.0]]
-        )
-        condition = np.array(
-            [[0.0, 1.5, 5.0], [1.5, 0.0, -3.0], [5.0, -3.0, 0.0]]
-        )
+        target = np.array([[1.0, 0.8, 0.3], [0.8, 1.0, 0.6], [0.3, 0.6, 1.0]])
+        condition = np.array([[0.0, 1.5, 5.0], [1.5, 0.0, -3.0], [5.0, -3.0, 0.0]])
         return (
             PairwiseCompMatrix(matrix=target),
             PairwiseCompMatrix(matrix=condition),
@@ -658,9 +657,7 @@ class TestRemoveByConditionMatrix:
             (Test Case 4) condition value 5.0 > 1.5 → preserved.
         """
         target, condition = self._make_pair()
-        result = target.remove_by_condition(
-            condition, op="le", threshold=1.5, fill=0.0
-        )
+        result = target.remove_by_condition(condition, op="le", threshold=1.5, fill=0.0)
 
         assert result.matrix[0, 0] == 0.0  # 0.0 <= 1.5
         assert result.matrix[0, 1] == 0.0  # 1.5 <= 1.5
@@ -716,9 +713,7 @@ class TestRemoveByConditionMatrix:
         Tests:
             (Test Case 1) Labels are identical to the original.
         """
-        target = PairwiseCompMatrix(
-            matrix=np.eye(3), labels=["A", "B", "C"]
-        )
+        target = PairwiseCompMatrix(matrix=np.eye(3), labels=["A", "B", "C"])
         condition = PairwiseCompMatrix(matrix=np.zeros((3, 3)))
         result = target.remove_by_condition(condition, op="lt", threshold=1.0)
 
@@ -869,9 +864,7 @@ class TestRemoveByConditionStack:
         """
         target, _ = self._make_pair()
         single_condition = PairwiseCompMatrix(
-            matrix=np.array(
-                [[0.0, 1.0, 5.0], [1.0, 0.0, 3.0], [5.0, 3.0, 0.0]]
-            )
+            matrix=np.array([[0.0, 1.0, 5.0], [1.0, 0.0, 3.0], [5.0, 3.0, 0.0]])
         )
         result = target.remove_by_condition(
             single_condition, op="abs_lt", threshold=2.0

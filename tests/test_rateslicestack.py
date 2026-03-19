@@ -1134,8 +1134,8 @@ class TestOrderUnitsNanSentinel:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            reordered, order, std, peaks, frac_active = (
-                rss.order_units_across_slices("median", MIN_RATE_THRESHOLD=0.1)
+            reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+                "median", MIN_RATE_THRESHOLD=0.1
             )
 
         # peaks is a tuple of (highly_active, low_active) arrays
@@ -1151,3 +1151,342 @@ class TestOrderUnitsNanSentinel:
         for idx, unit_id in enumerate(highly_active_order):
             if unit_id != 0:
                 assert highly_active_peaks[idx] >= 0
+
+
+# ---------------------------------------------------------------------------
+# frac_active override — order_units_across_slices
+# ---------------------------------------------------------------------------
+
+
+class TestOrderUnitsOverrideFracActive:
+    """Tests for the frac_active override on RateSliceStack.order_units_across_slices."""
+
+    def test_frac_active_override_splits_correctly(self):
+        """
+        Pre-computed frac_active controls which units go into each group.
+
+        Tests:
+            (Test Case 1) Unit with frac_active=0.1 < min_frac=0.5 goes to low group.
+            (Test Case 2) Units with frac_active >= 0.5 go to highly active group.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((4, 20, 5)) + 0.2
+        rss = RateSliceStack(event_matrix=mat)
+
+        frac = np.array([0.9, 0.1, 0.8, 0.6])
+        _, order, _, _, frac_out = rss.order_units_across_slices(
+            "median", MIN_FRAC_ACTIVE=0.5, frac_active=frac
+        )
+
+        ha_ids = set(order[0].tolist())
+        la_ids = set(order[1].tolist())
+        assert 1 not in ha_ids  # 0.1 < 0.5
+        assert 1 in la_ids
+        assert {0, 2, 3}.issubset(ha_ids)
+
+    def test_frac_active_override_wrong_shape_raises(self):
+        """
+        frac_active with wrong shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (3,) for 4 units raises ValueError.
+        """
+        mat = np.random.default_rng(0).random((4, 20, 5)) + 0.2
+        rss = RateSliceStack(event_matrix=mat)
+
+        with pytest.raises(ValueError, match="frac_active must have shape"):
+            rss.order_units_across_slices(
+                "median", MIN_FRAC_ACTIVE=0.5, frac_active=np.ones(3)
+            )
+
+    def test_no_split_when_min_frac_zero(self):
+        """
+        When MIN_FRAC_ACTIVE=0, all units go to highly-active regardless of frac_active.
+
+        Tests:
+            (Test Case 1) All 4 units are in the highly-active group.
+            (Test Case 2) Low-active group is empty.
+        """
+        rng = np.random.default_rng(1)
+        mat = rng.random((4, 20, 5)) + 0.2
+        rss = RateSliceStack(event_matrix=mat)
+
+        _, order, _, _, _ = rss.order_units_across_slices("median", MIN_FRAC_ACTIVE=0.0)
+
+        assert len(order[0]) == 4
+        assert len(order[1]) == 0
+
+    def test_no_split_when_min_frac_none_equivalent(self):
+        """
+        When MIN_FRAC_ACTIVE=0.0 (default), frac_active is not used even if provided.
+
+        Tests:
+            (Test Case 1) All units in highly-active group despite low frac_active values.
+        """
+        rng = np.random.default_rng(2)
+        mat = rng.random((3, 20, 5)) + 0.2
+        rss = RateSliceStack(event_matrix=mat)
+
+        _, order, _, _, _ = rss.order_units_across_slices(
+            "median", MIN_FRAC_ACTIVE=0.0, frac_active=np.array([0.01, 0.01, 0.01])
+        )
+
+        assert len(order[0]) == 3
+        assert len(order[1]) == 0
+
+
+# ---------------------------------------------------------------------------
+# frac_active override — get_slice_to_slice_unit_corr_from_stack
+# ---------------------------------------------------------------------------
+
+
+class TestSliceToSliceUnitCorrOverrideFracActive:
+    """Tests for the frac_active override on get_slice_to_slice_unit_corr_from_stack."""
+
+    def test_frac_active_override_filters_unit_averages(self):
+        """
+        Units with low frac_active get NaN averages.
+
+        Tests:
+            (Test Case 1) Unit with frac_active=0.1 and min_frac=0.3 has NaN average
+                since 0.1 < (1 - 0.3) = 0.7.
+            (Test Case 2) Unit with frac_active=0.9 has valid average.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 50, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        frac = np.array([0.9, 0.1, 0.8])
+        _, av_corr = rss.get_slice_to_slice_unit_corr_from_stack(
+            MIN_FRAC=0.3, frac_active=frac
+        )
+
+        assert not np.isnan(av_corr[0])  # 0.9 >= 0.7
+        assert np.isnan(av_corr[1])  # 0.1 < 0.7
+        assert not np.isnan(av_corr[2])  # 0.8 >= 0.7
+
+    def test_frac_active_override_wrong_shape_raises(self):
+        """
+        frac_active with wrong shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (2,) for 3 units raises ValueError.
+        """
+        mat = np.random.default_rng(0).random((3, 50, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        with pytest.raises(ValueError, match="frac_active must have shape"):
+            rss.get_slice_to_slice_unit_corr_from_stack(frac_active=np.ones(2))
+
+    def test_without_override_uses_rate_based(self):
+        """
+        Without frac_active override, rate-based filtering is used (backward compat).
+
+        Tests:
+            (Test Case 1) Output shapes are correct.
+            (Test Case 2) av_corr has shape (U,).
+        """
+        rng = np.random.default_rng(3)
+        mat = rng.random((3, 50, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        all_corr, av_corr = rss.get_slice_to_slice_unit_corr_from_stack()
+
+        assert all_corr.stack.shape == (5, 5, 3)
+        assert av_corr.shape == (3,)
+
+
+# ---------------------------------------------------------------------------
+# get_unit_timing_per_slice + rank_order_correlation (RateSliceStack)
+# ---------------------------------------------------------------------------
+
+from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+
+class TestGetUnitTimingPerSliceRate:
+    """Tests for RateSliceStack.get_unit_timing_per_slice()."""
+
+    def test_output_shape(self):
+        """
+        Output is (U, S) ndarray.
+
+        Tests:
+            (Test Case 1) 4 units, 5 slices → shape (4, 5).
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((4, 30, 5)) + 0.2
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice()
+        assert tm.shape == (4, 5)
+
+    def test_values_are_time_bin_indices(self):
+        """
+        Non-NaN values are valid time bin indices.
+
+        Tests:
+            (Test Case 1) All values in [0, T-1].
+        """
+        rng = np.random.default_rng(1)
+        mat = rng.random((3, 20, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice()
+        valid = tm[~np.isnan(tm)]
+        assert np.all(valid >= 0)
+        assert np.all(valid < 20)
+
+    def test_inactive_unit_is_nan(self):
+        """
+        Units below MIN_RATE_THRESHOLD get NaN.
+
+        Tests:
+            (Test Case 1) All-zero unit has NaN timing in every slice.
+        """
+        rng = np.random.default_rng(2)
+        mat = rng.random((3, 20, 5)) + 0.5
+        mat[0, :, :] = 0.0  # Unit 0 is silent
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
+        assert np.all(np.isnan(tm[0, :]))
+        assert np.all(~np.isnan(tm[1, :]))
+
+
+class TestRankOrderCorrelationRate:
+    """Tests for RateSliceStack.rank_order_correlation()."""
+
+    def test_raw_output_shapes(self):
+        """
+        Raw mode returns correct shapes and types.
+
+        Tests:
+            (Test Case 1) corr shape (S, S), overlap shape (S, S), av is float.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((6, 30, 8)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, av, overlap = rss.rank_order_correlation(n_shuffles=0)
+
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert corr.matrix.shape == (8, 8)
+        assert isinstance(overlap, PairwiseCompMatrix)
+        assert overlap.matrix.shape == (8, 8)
+        assert isinstance(av, float)
+
+    def test_raw_diagonal_is_one(self):
+        """
+        Raw mode diagonal is 1.0.
+
+        Tests:
+            (Test Case 1) All diagonal entries are 1.0.
+        """
+        rng = np.random.default_rng(1)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, _, _ = rss.rank_order_correlation(n_shuffles=0)
+        np.testing.assert_allclose(np.diag(corr.matrix), 1.0)
+
+    def test_raw_symmetric(self):
+        """
+        Correlation matrix is symmetric.
+
+        Tests:
+            (Test Case 1) corr[i,j] == corr[j,i].
+        """
+        rng = np.random.default_rng(2)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, _, _ = rss.rank_order_correlation(n_shuffles=0)
+        np.testing.assert_allclose(corr.matrix, corr.matrix.T, atol=1e-12)
+
+    def test_zscore_diagonal_is_nan(self):
+        """
+        Z-scored mode diagonal is NaN.
+
+        Tests:
+            (Test Case 1) All diagonal entries are NaN when n_shuffles > 0.
+        """
+        rng = np.random.default_rng(3)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, _, _ = rss.rank_order_correlation(n_shuffles=10)
+        assert np.all(np.isnan(np.diag(corr.matrix)))
+
+    def test_zscore_reproducible(self):
+        """
+        Same seed produces identical z-scores.
+
+        Tests:
+            (Test Case 1) Two calls with seed=42 yield identical results.
+        """
+        rng = np.random.default_rng(4)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr1, _, _ = rss.rank_order_correlation(n_shuffles=20, seed=42)
+        corr2, _, _ = rss.rank_order_correlation(n_shuffles=20, seed=42)
+        np.testing.assert_array_equal(corr1.matrix, corr2.matrix)
+
+    def test_overlap_is_fraction(self):
+        """
+        Overlap matrix entries are fractions in [0, 1].
+
+        Tests:
+            (Test Case 1) All overlap values in [0, 1].
+        """
+        rng = np.random.default_rng(5)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        _, _, overlap = rss.rank_order_correlation(n_shuffles=0)
+        assert np.all(overlap.matrix >= 0.0)
+        assert np.all(overlap.matrix <= 1.0)
+
+    def test_min_overlap_frac(self):
+        """
+        min_overlap_frac raises the effective threshold.
+
+        Tests:
+            (Test Case 1) frac=1.0 is stricter, producing at least as many NaN pairs.
+        """
+        rng = np.random.default_rng(6)
+        mat = rng.random((6, 30, 5)) + 0.5
+        # Make some units inactive in some slices
+        mat[0, :, 0:2] = 0.0
+        mat[1, :, 2:4] = 0.0
+        rss = RateSliceStack(event_matrix=mat)
+        corr_lax, _, _ = rss.rank_order_correlation(min_overlap=1, n_shuffles=0)
+        corr_strict, _, _ = rss.rank_order_correlation(
+            min_overlap=1, min_overlap_frac=1.0, n_shuffles=0
+        )
+        nan_lax = np.sum(np.isnan(corr_lax.matrix))
+        nan_strict = np.sum(np.isnan(corr_strict.matrix))
+        assert nan_strict >= nan_lax
+
+    def test_auto_compute_timing(self):
+        """
+        Without timing_matrix, timing is computed automatically.
+
+        Tests:
+            (Test Case 1) Explicit and auto timing produce identical results.
+        """
+        rng = np.random.default_rng(7)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
+        corr_explicit, av_exp, _ = rss.rank_order_correlation(
+            timing_matrix=tm, n_shuffles=0
+        )
+        corr_auto, av_auto, _ = rss.rank_order_correlation(
+            MIN_RATE_THRESHOLD=0.1, n_shuffles=0
+        )
+        np.testing.assert_array_equal(corr_explicit.matrix, corr_auto.matrix)
+
+    def test_invalid_n_shuffles_raises(self):
+        """
+        n_shuffles between 1 and 4 raises ValueError.
+
+        Tests:
+            (Test Case 1) n_shuffles=2 raises ValueError.
+        """
+        rng = np.random.default_rng(8)
+        mat = rng.random((4, 20, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        with pytest.raises(ValueError, match="n_shuffles"):
+            rss.rank_order_correlation(n_shuffles=2)

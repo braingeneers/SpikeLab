@@ -154,11 +154,8 @@ class TestSpikeData:
         # Get the binned result
         binned_result = sd.binned(1)
 
-        # Calculate expected output size based on our binning logic
-        expected_bins = len(counts)
-        if sd.length % 1 == 0:
-            # If length is exactly divisible by bin_size, expect an extra bin
-            expected_bins += 1
+        # Number of bins is always ceil(length / bin_size)
+        expected_bins = int(np.ceil(sd.length / 1))
 
         # Test 1: Check that the output has the expected number of bins
         assert (
@@ -169,12 +166,6 @@ class TestSpikeData:
         assert np.all(
             binned_result[: len(counts)] == counts
         ), "Binned values don't match input counts"
-
-        # Test 3: If there's an extra bin, it should be empty (0)
-        if expected_bins > len(counts):
-            assert (
-                binned_result[-1] == 0
-            ), f"Expected empty extra bin but got {binned_result[-1]}"
 
     @skip_no_neo
     def test_neo_conversion(self):
@@ -300,9 +291,7 @@ class TestSpikeData:
         assert isinstance(stack, SpikeSliceStack)
         assert len(stack.spike_stack) == 5  # 100ms / 20ms = 5 frames
         for i, frame in enumerate(stack.spike_stack):
-            self.assert_spikedata_equal(
-                frame, sd.subtime(i * 20, (i + 1) * 20)
-            )
+            self.assert_spikedata_equal(frame, sd.subtime(i * 20, (i + 1) * 20))
 
         # Test overlap parameter and that the partial last window is excluded.
         # step=10ms, so starts at [0,10,...,80]; start=90 → window (90,110) excluded.
@@ -310,9 +299,7 @@ class TestSpikeData:
         assert isinstance(stack_overlap, SpikeSliceStack)
         assert len(stack_overlap.spike_stack) == 9
         for i, frame in enumerate(stack_overlap.spike_stack):
-            self.assert_spikedata_equal(
-                frame, sd.subtime(i * 10, i * 10 + 20)
-            )
+            self.assert_spikedata_equal(frame, sd.subtime(i * 10, i * 10 + 20))
 
         # Test ValueError for overlap >= length and recording shorter than frame.
         with pytest.raises(ValueError):
@@ -347,15 +334,15 @@ class TestSpikeData:
         assert sdA.raster().shape == sdB.raster().shape
 
         # Test binning rules with specific spike times
+        # Bins are left-open, right-closed: (0,10], (10,20], (20,30], (30,40]
+        # t=0 clipped into bin 0, t=20 into bin 1 (right-closed), t=40 into bin 3
         sd = SpikeData([[0, 20, 40]])
         assert sd.length == 40
 
-        # With our new binning logic, this should create 5 bins
-        ground_truth = [[1, 0, 1, 0, 1]]
+        ground_truth = [[1, 1, 0, 1]]
         actual_raster = sd.raster(10)
 
-        # Verify raster shape and values
-        assert actual_raster.shape == (1, 5)
+        assert actual_raster.shape == (1, 4)
         assert np.all(actual_raster == ground_truth)
 
         # Also verify that binning rules are consistent with binned() method
@@ -531,8 +518,10 @@ class TestSpikeData:
         Tests:
         (Test Case 1) Tests that binning with size 4 produces the expected counts.
         """
+        # Bins are left-open, right-closed: (0,4], (4,8], (8,12], (12,16], (16,20], (20,24], (24,28]
+        # t=1→0, t=2→0, t=5→1, t=15→3, t=16→3, t=20→4, t=22→5, t=25→6
         spikes = SpikeData([[1, 2, 5, 15, 16, 20, 22, 25]])
-        assert list(spikes.binned(4)) == [2, 1, 0, 1, 1, 2, 1]
+        assert list(spikes.binned(4)) == [2, 1, 0, 2, 1, 1, 1]
 
     # Removed tests for deprecated avalanche/DCC utilities
 
@@ -690,12 +679,14 @@ class TestSpikeData:
         ]
 
         T, N = 100, 3
-        t_spk_mat = np.zeros(
-            (T + 1, N)
-        )  # T+1 because get_pop_rate adds a bin when len%bin_size==0
-        t_spk_mat[trains[0], 0] = 1
-        t_spk_mat[trains[1], 1] = 1
-        t_spk_mat[trains[2], 2] = 1
+        t_spk_mat = np.zeros((T, N))
+        # Left-open, right-closed binning: spike at time t goes to bin ceil(t/1)-1 = t-1
+        bin_idx_0 = [t - 1 for t in trains[0]]
+        bin_idx_1 = [t - 1 for t in trains[1]]
+        bin_idx_2 = [t - 1 for t in trains[2]]
+        t_spk_mat[bin_idx_0, 0] = 1
+        t_spk_mat[bin_idx_1, 1] = 1
+        t_spk_mat[bin_idx_2, 2] = 1
 
         sd = SpikeData(trains, length=T)
 
@@ -946,9 +937,13 @@ class TestSpikeData:
             edges, min_spikes, backbone_threshold
         )
 
-        expected_frac_per_unit = np.array([0.5, 1.0, 0.5])
-        expected_frac_per_burst = np.array([2 / 3, 2 / 3])
-        expected_backbone_units = np.array([1])
+        # With left-open, right-closed binning (ceil-1, bin_size=1):
+        # t=1→bin0, t=2→bin1, t=3→bin2, t=4→bin3, t=6→bin5, t=7→bin6, t=8→bin7, t=9→bin8
+        # Burst [1,4]: Unit0 bins{2,3}=2spk ✓, Unit1 bins{1,3}=2spk ✓, Unit2 bins{2}=1spk ✗
+        # Burst [6,9]: Unit0 bins{6}=1spk ✗, Unit1 bins{8}=1spk ✗, Unit2 bins{7}=1spk ✗
+        expected_frac_per_unit = np.array([0.5, 0.5, 0.0])
+        expected_frac_per_burst = np.array([2 / 3, 0.0])
+        expected_backbone_units = np.array([])
 
         assert np.allclose(frac_per_unit, expected_frac_per_unit)
         assert np.allclose(frac_per_burst, expected_frac_per_burst)
@@ -960,8 +955,8 @@ class TestSpikeData:
             edges, min_spikes_high, backbone_threshold
         )
 
-        expected_high_unit = np.array([0.5, 0.0, 0.0])
-        expected_high_burst = np.array([1 / 3, 0.0])
+        expected_high_unit = np.array([0.0, 0.0, 0.0])
+        expected_high_burst = np.array([0.0, 0.0])
         expected_high_backbone = np.array([])
 
         assert np.allclose(frac_per_unit_high, expected_high_unit)
@@ -971,7 +966,7 @@ class TestSpikeData:
         # Test with lower backbone threshold
         low_threshold = 0.4
         _, _, backbone_low = sd.get_frac_active(edges, min_spikes, low_threshold)
-        expected_low_backbone = np.array([0, 1, 2])
+        expected_low_backbone = np.array([0, 1])
         assert np.array_equal(backbone_low, expected_low_backbone)
 
     def test_neuron_to_channel_map(self):
@@ -1071,16 +1066,15 @@ class TestSpikeData:
 
         assert ch_raster.shape[0] == 3
         expected_bins = int(np.ceil(50.0 / 10.0))
-        if 50.0 % 10.0 == 0:
-            expected_bins += 1
         assert ch_raster.shape[1] == expected_bins
 
         assert ch_raster[0, :].sum() == 3
         assert ch_raster[1, :].sum() == 2
         assert ch_raster[2, :].sum() == 2
 
-        assert ch_raster[0, 1] == 2  # bin 1 (10-20)
-        assert ch_raster[0, 2] == 1  # bin 2 (20-30)
+        # Left-open, right-closed: t=10→bin0, t=20→bin1, t=15→bin1
+        assert ch_raster[0, 0] == 1  # t=10 in bin 0
+        assert ch_raster[0, 1] == 2  # t=15 and t=20 in bin 1
 
         # Verify total spike count matches neuron raster
         neuron_raster = sd.raster(bin_size=10.0)
@@ -2490,9 +2484,7 @@ class TestGetPairwiseLatencies:
             (Test Case 2) Distribution is empty for pairs involving empty trains.
         """
         sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
-        mean_lat, std_lat, dists = sd.get_pairwise_latencies(
-            return_distributions=True
-        )
+        mean_lat, std_lat, dists = sd.get_pairwise_latencies(return_distributions=True)
 
         assert mean_lat.matrix[0, 1] == 0.0
         assert mean_lat.matrix[1, 0] == 0.0
@@ -2762,19 +2754,17 @@ class TestSpikeDataEdgeCases:
 
         Tests:
         (Test Case 1) spikes=[0, 20, 40] with bin_size=20 assigns each spike
-        to the correct bin via floor division.
+        to the correct bin via left-open, right-closed convention.
         (Test Case 2) Total spike count is preserved.
         """
         sd = SpikeData([[0, 20, 40]], length=40.0)
-        # length=40, bin_size=20: ceil(40/20)=2, 40%20==0 so length=3
-        # floor([0,20,40]/20) = [0,1,2], clipped to [0,2]
+        # Bins: (0,20], (20,40]. t=0 clipped to bin 0, t=20 into bin 0
+        # (right-closed), t=40 into bin 1. length=ceil(40/20)=2.
         result = sd.binned(20)
-        assert len(result) == 3
+        assert len(result) == 2
         assert result.sum() == 3
-        # Each bin boundary spike lands in its own bin
-        assert result[0] == 1  # spike at t=0
-        assert result[1] == 1  # spike at t=20
-        assert result[2] == 1  # spike at t=40
+        assert result[0] == 2  # spikes at t=0 and t=20
+        assert result[1] == 1  # spike at t=40
 
     def test_raster_bin_size_larger_than_length(self):
         """

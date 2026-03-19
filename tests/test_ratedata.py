@@ -274,11 +274,16 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
 
-        embedding = rd.get_manifold(method="PCA", n_components=2)
+        embedding, var_ratio, components = rd.get_manifold(method="PCA", n_components=2)
         assert embedding.shape == (60, 2)
+        assert var_ratio.shape == (2,)
+        assert components.shape == (2, 5)
 
-        embedding3 = rd.get_manifold(method="PCA", n_components=3)
+        embedding3, var_ratio3, components3 = rd.get_manifold(
+            method="PCA", n_components=3
+        )
         assert embedding3.shape == (60, 3)
+        assert var_ratio3.shape == (3,)
 
         with pytest.raises(ValueError):
             rd.get_manifold(method="TSNE")
@@ -293,8 +298,10 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
 
-        embedding = rd.get_manifold(method="UMAP", n_components=2)
+        embedding, tw = rd.get_manifold(method="UMAP", n_components=2)
         assert embedding.shape == (60, 2)
+        assert isinstance(tw, float)
+        assert 0.0 <= tw <= 1.0 or np.isnan(tw)
 
     def test_constructor_neuron_attributes(self):
         """
@@ -414,7 +421,9 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
         # Should not raise, just print a message
-        embedding = rd.get_manifold(method="PCA", n_components=2, n_neighbors=15)
+        embedding, var_ratio, components = rd.get_manifold(
+            method="PCA", n_components=2, n_neighbors=15
+        )
         assert embedding.shape == (60, 2)
 
     @pytest.mark.skipif(not UMAP_AVAILABLE, reason="umap-learn not installed")
@@ -431,8 +440,10 @@ class TestRateData:
             warnings.simplefilter("always")
             result = rd.get_manifold(method="UMAP", n_components=2, return_labels=True)
             assert any("return_labels" in str(warning.message) for warning in w)
-        assert isinstance(result, np.ndarray)
-        assert result.shape == (60, 2)
+        # Returns (embedding, trustworthiness) when no communities
+        embedding, tw = result
+        assert isinstance(embedding, np.ndarray)
+        assert embedding.shape == (60, 2)
 
     @pytest.mark.skipif(
         not COMMUNITY_AVAILABLE,
@@ -449,13 +460,14 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60, seed=42)
 
-        embedding = rd.get_manifold(
+        embedding, tw = rd.get_manifold(
             method="UMAP", n_components=2, use_graph_communities=True
         )
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (60, 2)
+        assert isinstance(tw, float)
 
-        embedding2, labels = rd.get_manifold(
+        embedding2, labels, tw2 = rd.get_manifold(
             method="UMAP",
             n_components=2,
             use_graph_communities=True,
@@ -464,6 +476,7 @@ class TestRateData:
         assert embedding2.shape == (60, 2)
         assert labels.shape == (60,)
         assert labels.dtype in (np.int32, np.int64, int)
+        assert isinstance(tw2, float)
 
 
 class TestRateDataEdgeCases:
@@ -725,8 +738,8 @@ class TestRateDataEdgeCases:
         Tests: PCA with zero components produces shape (T, 0).
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        result = rd.get_manifold("PCA", n_components=0)
-        assert result.shape == (20, 0)
+        embedding, var_ratio, components = rd.get_manifold("PCA", n_components=0)
+        assert embedding.shape == (20, 0)
 
     def test_subset_out_of_bounds_index(self):
         """Out-of-bounds unit index should raise an IndexError.

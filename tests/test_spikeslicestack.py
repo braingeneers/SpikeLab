@@ -14,7 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.pairwise import PairwiseCompMatrixStack
+from SpikeLab.spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 from SpikeLab.spikedata.spikedata import SpikeData
 from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
 
@@ -1064,8 +1064,8 @@ class TestSliceToSliceUnitComparison:
             (Test Case 4) av_lag has shape (U,).
         """
         sss = _make_correlated_stack(n_units=3, n_slices=5)
-        all_corr, all_lag, av_corr, av_lag = (
-            sss.get_slice_to_slice_unit_comparison(metric="ccg")
+        all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+            metric="ccg"
         )
 
         assert isinstance(all_corr, PairwiseCompMatrixStack)
@@ -1086,8 +1086,8 @@ class TestSliceToSliceUnitComparison:
             (Test Case 4) av_lag is None.
         """
         sss = _make_correlated_stack(n_units=3, n_slices=4)
-        all_corr, all_lag, av_corr, av_lag = (
-            sss.get_slice_to_slice_unit_comparison(metric="sttc")
+        all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+            metric="sttc"
         )
 
         assert all_corr.stack.shape == (4, 4, 3)
@@ -1162,8 +1162,8 @@ class TestSliceToSliceUnitComparison:
         sss = SpikeSliceStack(spike_stack=[sd])
 
         with pytest.warns(RuntimeWarning, match="fewer than 2 slices"):
-            all_corr, all_lag, av_corr, av_lag = (
-                sss.get_slice_to_slice_unit_comparison(metric="ccg")
+            all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+                metric="ccg"
             )
 
         assert all_corr.stack.shape == (1, 1, 2)
@@ -1183,9 +1183,7 @@ class TestSliceToSliceUnitComparison:
         for _ in range(4):
             active_spikes = np.sort(rng.uniform(0, 100, 20))
             sparse_spikes = np.array([rng.uniform(0, 100)])
-            sd_list.append(
-                SpikeData([active_spikes, sparse_spikes], length=100.0)
-            )
+            sd_list.append(SpikeData([active_spikes, sparse_spikes], length=100.0))
         sss = SpikeSliceStack(spike_stack=sd_list)
 
         _, _, av_corr, _ = sss.get_slice_to_slice_unit_comparison(
@@ -1208,6 +1206,629 @@ class TestSliceToSliceUnitComparison:
         valid = av_corr[~np.isnan(av_corr)]
         assert np.all(valid >= -1.0)
         assert np.all(valid <= 1.0)
+
+
+# ---------------------------------------------------------------------------
+# compute_frac_active
+# ---------------------------------------------------------------------------
+
+
+class TestComputeFracActive:
+    """Tests for SpikeSliceStack.compute_frac_active()."""
+
+    def test_all_active(self):
+        """
+        All units active in all slices returns array of ones.
+
+        Tests:
+            (Test Case 1) Every unit has >= min_spikes in every slice.
+
+        Notes:
+            - Uses explicit times matching the spike ranges so that the
+              0-based shift in compute_frac_active works correctly.
+        """
+        rng = np.random.default_rng(0)
+        sd_list = []
+        times = []
+        for i in range(4):
+            start = i * 100.0
+            train = []
+            for _ in range(3):
+                spikes = np.sort(rng.uniform(start, start + 100, 15))
+                train.append(spikes)
+            sd_list.append(SpikeData(train, length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+        frac = sss.compute_frac_active(min_spikes=2)
+
+        assert frac.shape == (3,)
+        np.testing.assert_array_equal(frac, 1.0)
+
+    def test_sparse_unit_low_frac(self):
+        """
+        A unit with very few spikes has low fraction active.
+
+        Tests:
+            (Test Case 1) Unit with 1 spike per slice has frac=0 when min_spikes=2.
+            (Test Case 2) Unit with many spikes has frac=1.
+        """
+        rng = np.random.default_rng(10)
+        sd_list = []
+        times = []
+        for i in range(5):
+            start = i * 100.0
+            active = np.sort(rng.uniform(start, start + 100, 20))
+            sparse = np.array([rng.uniform(start, start + 100)])
+            sd_list.append(SpikeData([active, sparse], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        frac = sss.compute_frac_active(min_spikes=2)
+
+        assert frac[0] == 1.0  # Active unit
+        assert frac[1] == 0.0  # Only 1 spike per slice
+
+    def test_min_spikes_threshold(self):
+        """
+        Changing min_spikes affects the result.
+
+        Tests:
+            (Test Case 1) min_spikes=1 counts all slices with any spike.
+            (Test Case 2) Higher min_spikes reduces the fraction.
+        """
+        rng = np.random.default_rng(20)
+        sd_list = []
+        times = []
+        for i in range(4):
+            start = i * 100.0
+            # Unit 0: exactly 3 spikes per slice
+            u0 = np.sort(rng.uniform(start, start + 100, 3))
+            # Unit 1: exactly 1 spike per slice
+            u1 = np.array([rng.uniform(start, start + 100)])
+            sd_list.append(SpikeData([u0, u1], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        frac_1 = sss.compute_frac_active(min_spikes=1)
+        frac_3 = sss.compute_frac_active(min_spikes=3)
+
+        assert frac_1[1] == 1.0  # 1 spike >= 1
+        assert frac_3[1] == 0.0  # 1 spike < 3
+        assert frac_3[0] == 1.0  # 3 spikes >= 3
+
+    def test_output_shape(self):
+        """
+        Output shape is (U,).
+
+        Tests:
+            (Test Case 1) 4 units returns shape (4,).
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=3)
+        frac = sss.compute_frac_active()
+        assert frac.shape == (4,)
+
+    def test_values_between_zero_and_one(self):
+        """
+        All values are in [0, 1].
+
+        Tests:
+            (Test Case 1) Every element is between 0 and 1 inclusive.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=42)
+        frac = sss.compute_frac_active(min_spikes=2)
+        assert np.all(frac >= 0.0)
+        assert np.all(frac <= 1.0)
+
+
+# ---------------------------------------------------------------------------
+# order_units_across_slices
+# ---------------------------------------------------------------------------
+
+
+class TestOrderUnitsAcrossSlices:
+    """Tests for SpikeSliceStack.order_units_across_slices()."""
+
+    def test_default_all_in_highly_active(self):
+        """
+        With default min_frac_active=0, all units go to highly-active group.
+
+        Tests:
+            (Test Case 1) highly-active stack contains all units.
+            (Test Case 2) low-active stack is None.
+            (Test Case 3) unit_ids cover all original units.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=0)
+        stacks, ids, std, times, frac = sss.order_units_across_slices()
+
+        assert stacks[0] is not None
+        assert stacks[0].N == 4
+        assert stacks[1] is None
+        assert len(ids[0]) == 4
+        assert len(ids[1]) == 0
+
+    def test_units_sorted_by_timing(self):
+        """
+        Units are sorted by their typical spike timing (earliest first).
+
+        Tests:
+            (Test Case 1) Peak times in the highly-active group are non-decreasing.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=1)
+        _, _, _, times, _ = sss.order_units_across_slices()
+
+        ha_times = times[0]
+        # Filter out NaN before checking order
+        valid = ha_times[~np.isnan(ha_times)]
+        assert np.all(np.diff(valid) >= 0)
+
+    def test_timing_median_vs_first(self):
+        """
+        Different timing modes produce different orderings.
+
+        Tests:
+            (Test Case 1) timing='first' gives earlier or equal values than
+                timing='median' for the same unit.
+
+        Notes:
+            - First spike is always <= median spike time within a slice.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5, seed=2)
+        _, ids_med, _, times_med, _ = sss.order_units_across_slices(timing="median")
+        _, ids_first, _, times_first, _ = sss.order_units_across_slices(timing="first")
+
+        # Build lookup: unit_id -> peak_time for each mode
+        med_lookup = dict(zip(ids_med[0], times_med[0]))
+        first_lookup = dict(zip(ids_first[0], times_first[0]))
+
+        for uid in med_lookup:
+            if not np.isnan(med_lookup[uid]) and not np.isnan(first_lookup[uid]):
+                assert first_lookup[uid] <= med_lookup[uid]
+
+    def test_min_frac_active_splits_groups(self):
+        """
+        min_frac_active > 0 splits units into two groups.
+
+        Tests:
+            (Test Case 1) Sparse unit goes to low-active group.
+            (Test Case 2) Active units go to highly-active group.
+        """
+        rng = np.random.default_rng(30)
+        sd_list = []
+        times = []
+        for i in range(6):
+            start = i * 100.0
+            active = np.sort(rng.uniform(start, start + 100, 20))
+            sparse = np.array([rng.uniform(start, start + 100)])
+            sd_list.append(SpikeData([active, sparse], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        stacks, ids, _, _, _ = sss.order_units_across_slices(
+            min_frac_active=0.5, min_spikes=2
+        )
+
+        assert 0 in ids[0]  # Active unit in HA
+        assert 1 in ids[1]  # Sparse unit in LA
+
+    def test_frac_active_override(self):
+        """
+        Pre-computed frac_active overrides internal calculation.
+
+        Tests:
+            (Test Case 1) Unit forced to low frac goes to low-active group.
+            (Test Case 2) Other units stay in highly-active group.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5, seed=3)
+        frac = np.array([0.9, 0.1, 0.8])
+
+        _, ids, _, _, _ = sss.order_units_across_slices(
+            min_frac_active=0.5, frac_active=frac
+        )
+
+        assert 1 in ids[1]  # 0.1 < 0.5
+        assert 0 in ids[0]
+        assert 2 in ids[0]
+
+    def test_frac_active_override_wrong_shape_raises(self):
+        """
+        frac_active with wrong shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (2,) for 3 units raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5)
+
+        with pytest.raises(ValueError, match="frac_active must have shape"):
+            sss.order_units_across_slices(min_frac_active=0.5, frac_active=np.ones(2))
+
+    def test_frac_active_ignored_when_no_split(self):
+        """
+        frac_active is ignored when min_frac_active=0.
+
+        Tests:
+            (Test Case 1) All units in highly-active despite low frac values.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=4, seed=4)
+
+        _, ids, _, _, _ = sss.order_units_across_slices(
+            min_frac_active=0.0, frac_active=np.array([0.01, 0.01, 0.01])
+        )
+
+        assert len(ids[0]) == 3
+        assert len(ids[1]) == 0
+
+    def test_invalid_agg_func_raises(self):
+        """
+        Invalid agg_func raises ValueError.
+
+        Tests:
+            (Test Case 1) agg_func='invalid' raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=2, n_slices=3)
+        with pytest.raises(ValueError, match="agg_func"):
+            sss.order_units_across_slices(agg_func="invalid")
+
+    def test_invalid_timing_raises(self):
+        """
+        Invalid timing raises ValueError.
+
+        Tests:
+            (Test Case 1) timing='invalid' raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=2, n_slices=3)
+        with pytest.raises(ValueError, match="timing"):
+            sss.order_units_across_slices(timing="invalid")
+
+    def test_output_tuple_structure(self):
+        """
+        Return value has the correct 5-tuple structure with tuples inside.
+
+        Tests:
+            (Test Case 1) Each element is a tuple of length 2.
+            (Test Case 2) unit_ids arrays together cover all original units.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=5)
+        result = sss.order_units_across_slices()
+
+        assert len(result) == 5
+        for item in result:
+            assert isinstance(item, tuple)
+            assert len(item) == 2
+
+        # All unit IDs covered
+        all_ids = set(result[1][0].tolist()) | set(result[1][1].tolist())
+        assert all_ids == {0, 1, 2, 3}
+
+    def test_reordered_stack_has_correct_units(self):
+        """
+        The reordered SpikeSliceStack has the correct number of units and slices.
+
+        Tests:
+            (Test Case 1) N matches the number of units in the group.
+            (Test Case 2) Number of slices is unchanged.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=6)
+        stacks, _, _, _, _ = sss.order_units_across_slices()
+
+        assert stacks[0].N == 4
+        assert len(stacks[0].spike_stack) == 5
+
+
+# ---------------------------------------------------------------------------
+# get_slice_to_slice_unit_comparison — frac_active override
+# ---------------------------------------------------------------------------
+
+
+class TestSliceToSliceUnitComparisonFracActive:
+    """Tests for frac_active override on get_slice_to_slice_unit_comparison."""
+
+    def test_frac_active_override_filters_averages(self):
+        """
+        Units with low frac_active get NaN averages.
+
+        Tests:
+            (Test Case 1) Unit with frac_active=0.1 and min_frac=0.3 has NaN.
+            (Test Case 2) Unit with frac_active=0.9 has valid average.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5, seed=50)
+        frac = np.array([0.9, 0.1, 0.8])
+
+        _, _, av_corr, _ = sss.get_slice_to_slice_unit_comparison(
+            metric="ccg", min_frac=0.3, frac_active=frac
+        )
+
+        assert not np.isnan(av_corr[0])  # 0.9 >= 0.7
+        assert np.isnan(av_corr[1])  # 0.1 < 0.7
+        assert not np.isnan(av_corr[2])  # 0.8 >= 0.7
+
+    def test_frac_active_override_wrong_shape_raises(self):
+        """
+        frac_active with wrong shape raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (2,) for 3 units raises ValueError.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5)
+
+        with pytest.raises(ValueError, match="frac_active must have shape"):
+            sss.get_slice_to_slice_unit_comparison(frac_active=np.ones(2))
+
+    def test_without_override_backward_compatible(self):
+        """
+        Without frac_active, internal min_spikes counting is used (backward compat).
+
+        Tests:
+            (Test Case 1) Output shapes are correct.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=5, seed=51)
+        all_corr, _, av_corr, _ = sss.get_slice_to_slice_unit_comparison(metric="ccg")
+
+        assert all_corr.stack.shape == (5, 5, 3)
+        assert av_corr.shape == (3,)
+
+
+# ---------------------------------------------------------------------------
+# get_unit_timing_per_slice + rank_order_correlation (SpikeSliceStack)
+# ---------------------------------------------------------------------------
+
+
+def _make_timed_stack(n_units=4, n_slices=6, length_ms=100.0, seed=0):
+    """Create a SpikeSliceStack with times aligned to spike ranges."""
+    rng = np.random.default_rng(seed)
+    sd_list = []
+    times = []
+    for i in range(n_slices):
+        start = i * length_ms
+        train = []
+        for _ in range(n_units):
+            n_spikes = rng.integers(10, 25)
+            spikes = np.sort(rng.uniform(start, start + length_ms, n_spikes))
+            train.append(spikes)
+        sd_list.append(SpikeData(train, length=length_ms))
+        times.append((start, start + length_ms))
+    return SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+
+class TestGetUnitTimingPerSlice:
+    """Tests for SpikeSliceStack.get_unit_timing_per_slice()."""
+
+    def test_output_shape(self):
+        """
+        Output is (U, S) ndarray.
+
+        Tests:
+            (Test Case 1) 4 units, 6 slices → shape (4, 6).
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        tm = sss.get_unit_timing_per_slice()
+        assert tm.shape == (4, 6)
+
+    def test_values_within_slice_duration(self):
+        """
+        All non-NaN timing values are within [0, slice_duration].
+
+        Tests:
+            (Test Case 1) All valid entries in [0, 100].
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6, length_ms=100.0)
+        tm = sss.get_unit_timing_per_slice()
+        valid = tm[~np.isnan(tm)]
+        assert np.all(valid >= 0)
+        assert np.all(valid <= 100.0)
+
+    def test_first_timing_le_median(self):
+        """
+        First spike time is always <= median spike time for the same unit/slice.
+
+        Tests:
+            (Test Case 1) For every non-NaN entry, first <= median.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6, seed=10)
+        tm_first = sss.get_unit_timing_per_slice(timing="first")
+        tm_median = sss.get_unit_timing_per_slice(timing="median")
+        both_valid = ~np.isnan(tm_first) & ~np.isnan(tm_median)
+        assert np.all(tm_first[both_valid] <= tm_median[both_valid])
+
+    def test_sparse_unit_is_nan(self):
+        """
+        Units with fewer than min_spikes spikes get NaN.
+
+        Tests:
+            (Test Case 1) Unit with 1 spike per slice is NaN with min_spikes=2.
+        """
+        rng = np.random.default_rng(20)
+        sd_list = []
+        times = []
+        for i in range(4):
+            start = i * 100.0
+            active = np.sort(rng.uniform(start, start + 100, 15))
+            sparse = np.array([rng.uniform(start, start + 100)])
+            sd_list.append(SpikeData([active, sparse], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        tm = sss.get_unit_timing_per_slice(min_spikes=2)
+        assert np.all(~np.isnan(tm[0, :]))  # Active
+        assert np.all(np.isnan(tm[1, :]))  # Sparse
+
+    def test_invalid_timing_raises(self):
+        """
+        Invalid timing string raises ValueError.
+
+        Tests:
+            (Test Case 1) timing='bad' raises ValueError.
+        """
+        sss = _make_timed_stack(n_units=2, n_slices=3)
+        with pytest.raises(ValueError, match="timing"):
+            sss.get_unit_timing_per_slice(timing="bad")
+
+
+class TestRankOrderCorrelationSpike:
+    """Tests for SpikeSliceStack.rank_order_correlation()."""
+
+    def test_raw_output_shapes(self):
+        """
+        Raw mode (n_shuffles=0) returns correct shapes and types.
+
+        Tests:
+            (Test Case 1) corr_matrix is PairwiseCompMatrix with shape (S, S).
+            (Test Case 2) overlap_matrix is PairwiseCompMatrix with shape (S, S).
+            (Test Case 3) av_corr is a float.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, av, overlap = sss.rank_order_correlation(n_shuffles=0)
+
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert corr.matrix.shape == (6, 6)
+        assert isinstance(overlap, PairwiseCompMatrix)
+        assert overlap.matrix.shape == (6, 6)
+        assert isinstance(av, float)
+
+    def test_raw_diagonal_is_one(self):
+        """
+        Raw mode diagonal is 1.0.
+
+        Tests:
+            (Test Case 1) All diagonal entries are 1.0.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, _, _ = sss.rank_order_correlation(n_shuffles=0)
+        np.testing.assert_allclose(np.diag(corr.matrix), 1.0)
+
+    def test_raw_symmetric(self):
+        """
+        Correlation matrix is symmetric.
+
+        Tests:
+            (Test Case 1) corr[i,j] == corr[j,i] for all pairs.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, _, _ = sss.rank_order_correlation(n_shuffles=0)
+        np.testing.assert_allclose(corr.matrix, corr.matrix.T, atol=1e-12)
+
+    def test_raw_values_bounded(self):
+        """
+        Raw Spearman values are in [-1, 1].
+
+        Tests:
+            (Test Case 1) All non-NaN off-diagonal values in [-1, 1].
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, _, _ = sss.rank_order_correlation(n_shuffles=0)
+        valid = corr.matrix[~np.isnan(corr.matrix)]
+        assert np.all(valid >= -1.0)
+        assert np.all(valid <= 1.0)
+
+    def test_zscore_diagonal_is_nan(self):
+        """
+        Z-scored mode diagonal is NaN (self-comparison z undefined).
+
+        Tests:
+            (Test Case 1) All diagonal entries are NaN.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, _, _ = sss.rank_order_correlation(n_shuffles=10)
+        assert np.all(np.isnan(np.diag(corr.matrix)))
+
+    def test_zscore_reproducible_with_seed(self):
+        """
+        Same seed produces identical z-scores.
+
+        Tests:
+            (Test Case 1) Two calls with seed=42 produce identical matrices.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr1, _, _ = sss.rank_order_correlation(n_shuffles=20, seed=42)
+        corr2, _, _ = sss.rank_order_correlation(n_shuffles=20, seed=42)
+        np.testing.assert_array_equal(corr1.matrix, corr2.matrix)
+
+    def test_overlap_is_fraction(self):
+        """
+        Overlap matrix entries are fractions in [0, 1].
+
+        Tests:
+            (Test Case 1) All values in [0, 1].
+            (Test Case 2) Diagonal equals fraction of active units per slice.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        _, _, overlap = sss.rank_order_correlation(n_shuffles=0)
+        assert np.all(overlap.matrix >= 0.0)
+        assert np.all(overlap.matrix <= 1.0)
+
+    def test_min_overlap_filters_pairs(self):
+        """
+        Pairs with fewer overlapping units than min_overlap are NaN.
+
+        Tests:
+            (Test Case 1) With min_overlap set very high, all off-diagonal are NaN.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        corr, _, _ = sss.rank_order_correlation(min_overlap=1000, n_shuffles=0)
+        off_diag = corr.matrix.copy()
+        np.fill_diagonal(off_diag, np.nan)
+        assert np.all(np.isnan(off_diag))
+
+    def test_min_overlap_frac_stricter(self):
+        """
+        min_overlap_frac can be stricter than min_overlap.
+
+        Tests:
+            (Test Case 1) With min_overlap_frac=1.0, effective threshold = U.
+                Most pairs won't have all units active in both slices.
+
+        Notes:
+            - We compare against n_shuffles=0 with min_overlap=1 to confirm
+              that frac filtering produces more NaN pairs.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6, seed=55)
+        corr_lax, _, _ = sss.rank_order_correlation(min_overlap=1, n_shuffles=0)
+        corr_strict, _, _ = sss.rank_order_correlation(
+            min_overlap=1, min_overlap_frac=1.0, n_shuffles=0
+        )
+        nan_lax = np.sum(np.isnan(corr_lax.matrix))
+        nan_strict = np.sum(np.isnan(corr_strict.matrix))
+        assert nan_strict >= nan_lax
+
+    def test_auto_compute_timing(self):
+        """
+        When timing_matrix is None, it is computed automatically.
+
+        Tests:
+            (Test Case 1) Calling without timing_matrix succeeds.
+            (Test Case 2) Result matches explicit get_unit_timing_per_slice call.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        tm = sss.get_unit_timing_per_slice(timing="median", min_spikes=2)
+        corr_explicit, av_explicit, _ = sss.rank_order_correlation(
+            timing_matrix=tm, n_shuffles=0
+        )
+        corr_auto, av_auto, _ = sss.rank_order_correlation(
+            timing="median", min_spikes=2, n_shuffles=0
+        )
+        np.testing.assert_array_equal(corr_explicit.matrix, corr_auto.matrix)
+        assert av_explicit == av_auto
+
+    def test_invalid_n_shuffles_raises(self):
+        """
+        n_shuffles between 1 and 4 raises ValueError.
+
+        Tests:
+            (Test Case 1) n_shuffles=3 raises ValueError.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        with pytest.raises(ValueError, match="n_shuffles"):
+            sss.rank_order_correlation(n_shuffles=3)
+
+    def test_non_2d_timing_raises(self):
+        """
+        Non-2D timing_matrix raises ValueError.
+
+        Tests:
+            (Test Case 1) 1-D array raises ValueError.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=6)
+        with pytest.raises(ValueError, match="2-D"):
+            sss.rank_order_correlation(timing_matrix=np.ones(10), n_shuffles=0)
 
 
 class TestZeroBasedInvariant:

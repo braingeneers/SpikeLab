@@ -724,25 +724,32 @@ class TestPCAReduction:
 
         rng = np.random.default_rng(0)
         data = rng.random((20, 10))
-        result = PCA_reduction(data, n_components=2)
-        assert result.shape == (20, 2)
+        embedding, var_ratio, components = PCA_reduction(data, n_components=2)
+        assert embedding.shape == (20, 2)
+        assert var_ratio.shape == (2,)
+        assert components.shape == (2, 10)
 
-        result3 = PCA_reduction(data, n_components=3)
-        assert result3.shape == (20, 3)
+        embedding3, var_ratio3, components3 = PCA_reduction(data, n_components=3)
+        assert embedding3.shape == (20, 3)
+        assert var_ratio3.shape == (3,)
+        assert components3.shape == (3, 10)
 
     def test_variance_ordering(self):
         """
         First component captures more variance than the second.
 
         Tests:
-            (Test Case 1) Variance of column 0 >= variance of column 1.
+            (Test Case 1) Variance ratio is monotonically decreasing.
+            (Test Case 2) All variance ratios are positive and sum to <= 1.
         """
         from SpikeLab.spikedata.utils import PCA_reduction
 
         rng = np.random.default_rng(42)
         data = rng.random((50, 10))
-        result = PCA_reduction(data, n_components=2)
-        assert np.var(result[:, 0]) >= np.var(result[:, 1])
+        embedding, var_ratio, components = PCA_reduction(data, n_components=2)
+        assert var_ratio[0] >= var_ratio[1]
+        assert np.all(var_ratio > 0)
+        assert var_ratio.sum() <= 1.0 + 1e-10
 
 
 # ---------------------------------------------------------------------------
@@ -765,8 +772,10 @@ class TestUMAPReduction:
 
         rng = np.random.default_rng(0)
         data = rng.random((30, 5))
-        result = UMAP_reduction(data, n_components=2, random_state=42)
-        assert result.shape == (30, 2)
+        embedding, tw = UMAP_reduction(data, n_components=2, random_state=42)
+        assert embedding.shape == (30, 2)
+        assert isinstance(tw, float)
+        assert 0.0 <= tw <= 1.0
 
     def test_raises_without_umap(self, monkeypatch):
         """
@@ -807,12 +816,14 @@ class TestUMAPGraphCommunities:
 
         rng = np.random.default_rng(0)
         data = rng.random((30, 5))
-        embedding, labels = UMAP_graph_communities(
+        embedding, labels, tw = UMAP_graph_communities(
             data, n_components=2, random_state=42
         )
         assert embedding.shape == (30, 2)
         assert labels.shape == (30,)
         assert labels.dtype == int
+        assert isinstance(tw, float)
+        assert 0.0 <= tw <= 1.0
 
     def test_raises_without_deps(self, monkeypatch):
         """
@@ -1287,6 +1298,7 @@ class TestGetSttcEdgeCases:
 # ---------------------------------------------------------------------------
 # get_sttc — standalone tests
 # ---------------------------------------------------------------------------
+
 
 class TestGetSttc:
     """Standalone tests for the get_sttc utility function.
