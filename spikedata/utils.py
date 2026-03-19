@@ -32,23 +32,23 @@ TimeUnit = Literal["ms", "s", "samples"]
 
 try:  # optional, only needed for HDF5/NWB exporters
     import h5py  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     h5py = None  # type: ignore
 
 # Optional dependencies for manifold learning and graph-based clustering.
 try:  # optional, only needed for UMAP-based reductions
     import umap  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     umap = None  # type: ignore
 
 try:  # optional, only needed for graph/community detection
     import networkx as nx  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     nx = None  # type: ignore
 
 try:  # optional, only needed for Louvain community detection
     import community as community_louvain  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     community_louvain = None  # type: ignore
 
 
