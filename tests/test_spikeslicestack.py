@@ -1234,7 +1234,7 @@ class TestComputeFracActive:
             start = i * 100.0
             train = []
             for _ in range(3):
-                spikes = np.sort(rng.uniform(start, start + 100, 15))
+                spikes = np.sort(rng.uniform(0, 100, 15))
                 train.append(spikes)
             sd_list.append(SpikeData(train, length=100.0))
             times.append((start, start + 100.0))
@@ -1257,8 +1257,8 @@ class TestComputeFracActive:
         times = []
         for i in range(5):
             start = i * 100.0
-            active = np.sort(rng.uniform(start, start + 100, 20))
-            sparse = np.array([rng.uniform(start, start + 100)])
+            active = np.sort(rng.uniform(0, 100, 20))
+            sparse = np.array([rng.uniform(0, 100)])
             sd_list.append(SpikeData([active, sparse], length=100.0))
             times.append((start, start + 100.0))
         sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
@@ -1282,9 +1282,9 @@ class TestComputeFracActive:
         for i in range(4):
             start = i * 100.0
             # Unit 0: exactly 3 spikes per slice
-            u0 = np.sort(rng.uniform(start, start + 100, 3))
+            u0 = np.sort(rng.uniform(0, 100, 3))
             # Unit 1: exactly 1 spike per slice
-            u1 = np.array([rng.uniform(start, start + 100)])
+            u1 = np.array([rng.uniform(0, 100)])
             sd_list.append(SpikeData([u0, u1], length=100.0))
             times.append((start, start + 100.0))
         sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
@@ -1397,8 +1397,8 @@ class TestOrderUnitsAcrossSlices:
         times = []
         for i in range(6):
             start = i * 100.0
-            active = np.sort(rng.uniform(start, start + 100, 20))
-            sparse = np.array([rng.uniform(start, start + 100)])
+            active = np.sort(rng.uniform(0, 100, 20))
+            sparse = np.array([rng.uniform(0, 100)])
             sd_list.append(SpikeData([active, sparse], length=100.0))
             times.append((start, start + 100.0))
         sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
@@ -1582,7 +1582,7 @@ def _make_timed_stack(n_units=4, n_slices=6, length_ms=100.0, seed=0):
         train = []
         for _ in range(n_units):
             n_spikes = rng.integers(10, 25)
-            spikes = np.sort(rng.uniform(start, start + length_ms, n_spikes))
+            spikes = np.sort(rng.uniform(0, length_ms, n_spikes))
             train.append(spikes)
         sd_list.append(SpikeData(train, length=length_ms))
         times.append((start, start + length_ms))
@@ -1641,8 +1641,8 @@ class TestGetUnitTimingPerSlice:
         times = []
         for i in range(4):
             start = i * 100.0
-            active = np.sort(rng.uniform(start, start + 100, 15))
-            sparse = np.array([rng.uniform(start, start + 100)])
+            active = np.sort(rng.uniform(0, 100, 15))
+            sparse = np.array([rng.uniform(0, 100)])
             sd_list.append(SpikeData([active, sparse], length=100.0))
             times.append((start, start + 100.0))
         sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)

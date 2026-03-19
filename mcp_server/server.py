@@ -1277,7 +1277,7 @@ async def _list_tools() -> list[types.Tool]:
                 name="compute_rate_manifold",
                 description=(
                     "Project instantaneous firing rates into a low-dimensional manifold "
-                    "using PCA or UMAP. Loads RateData from (namespace, rate_key) and"
+                    "using PCA or UMAP. Loads RateData from (namespace, rate_key) and "
                     "stores a (T, n_components) embedding at (namespace, key). "
                     "Prerequisite: compute_resampled_isi."
                 ),
@@ -1303,6 +1303,11 @@ async def _list_tools() -> list[types.Tool]:
                         "min_dist": {"type": "number", "description": "UMAP only"},
                         "metric": {"type": "string", "description": "UMAP only"},
                         "random_state": {"type": "integer"},
+                        "store_pca_details": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "If true, store explained variance and PC components to workspace",
+                        },
                     },
                     "required": [
                         "workspace_id",
@@ -1581,6 +1586,14 @@ async def _list_tools() -> list[types.Tool]:
                             "enum": ["cross_correlation", "cosine_similarity"],
                             "default": "cross_correlation",
                         },
+                        "frac_active_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a (U,) frac_active array "
+                                "to override rate-based activity filtering. "
+                                "Produced by compute_frac_active or get_frac_active."
+                            ),
+                        },
                     },
                     "required": ["workspace_id", "namespace", "stack_key", "out_key"],
                 },
@@ -1685,6 +1698,14 @@ async def _list_tools() -> list[types.Tool]:
                                 "Minimum fraction of slices a unit must be active in "
                                 "to be placed in the highly_active group. "
                                 "Default 0.0 puts all units in highly_active."
+                            ),
+                        },
+                        "frac_active_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a (U,) frac_active array "
+                                "to override rate-based activity filtering. "
+                                "Produced by compute_frac_active or get_frac_active."
                             ),
                         },
                     },
@@ -1894,13 +1915,21 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "min_spikes": {
                             "type": "integer",
-                            "default": 3,
+                            "default": 2,
                             "description": "Minimum spikes in a slice for a unit to be valid",
                         },
                         "min_frac": {
                             "type": "number",
                             "default": 0.3,
                             "description": "Max fraction of invalid slices before unit average is NaN",
+                        },
+                        "frac_active_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a (U,) frac_active array "
+                                "to override internal activity filtering. "
+                                "Produced by compute_frac_active or get_frac_active."
+                            ),
                         },
                     },
                     "required": [
@@ -1909,6 +1938,329 @@ async def _list_tools() -> list[types.Tool]:
                         "stack_key",
                         "out_key_corr",
                         "out_key_lag",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="compute_frac_active",
+                description=(
+                    "Compute the fraction of slices each unit is active in from a "
+                    "SpikeSliceStack. Stores a (U,) ndarray at (namespace, out_key). "
+                    "The result can be passed as frac_active_key to other tools. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output workspace key for the (U,) frac_active array",
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": (
+                                "Minimum spikes for a unit to count as active in a slice"
+                            ),
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="spike_order_units_across_slices",
+                description=(
+                    "Order units by their typical spike timing across slices of a "
+                    "SpikeSliceStack. Returns unit ordering inline, split into "
+                    "highly_active and low_active groups. Supports median, mean, "
+                    "or first-spike timing. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "agg_func": {
+                            "type": "string",
+                            "default": "median",
+                            "description": "Aggregation across slices: 'median' or 'mean'",
+                        },
+                        "timing": {
+                            "type": "string",
+                            "enum": ["median", "mean", "first"],
+                            "default": "median",
+                            "description": (
+                                "Which spike time to extract per unit per slice: "
+                                "'median' (default), 'mean', or 'first' (onset latency)"
+                            ),
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": (
+                                "Minimum spikes for a unit to count as active in a slice"
+                            ),
+                        },
+                        "min_frac_active": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": (
+                                "Minimum fraction of slices a unit must be active in "
+                                "to be placed in the highly_active group. "
+                                "0.0 puts all units in highly_active."
+                            ),
+                        },
+                        "frac_active_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a (U,) frac_active array "
+                                "to override internal activity calculation. "
+                                "Produced by compute_frac_active or get_frac_active."
+                            ),
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "stack_key"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Unit timing and rank-order correlation tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="get_unit_timing_per_slice_spike",
+                description=(
+                    "Compute a representative spike time for each unit in each slice "
+                    "of a SpikeSliceStack. Stores a (U, S) ndarray at (namespace, out_key). "
+                    "Result can be passed to rank_order_correlation_spike or "
+                    "spike_order_units_across_slices via timing_key. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the (U, S) timing matrix",
+                        },
+                        "timing": {
+                            "type": "string",
+                            "enum": ["median", "mean", "first"],
+                            "default": "median",
+                            "description": "Spike time to extract: 'median', 'mean', or 'first'",
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": "Minimum spikes for a unit to be active in a slice",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="get_unit_timing_per_slice_rate",
+                description=(
+                    "Compute the peak firing rate time bin for each unit in each slice "
+                    "of a RateSliceStack. Stores a (U, S) ndarray at (namespace, out_key). "
+                    "Result can be passed to rank_order_correlation_rate or "
+                    "compute_rate_slice_unit_order via timing_key. "
+                    "Prerequisite: create_rate_slice_stack or frames_rate_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored RateSliceStack",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the (U, S) timing matrix",
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum peak firing rate for a unit to be active",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="rank_order_correlation_spike",
+                description=(
+                    "Compute Spearman rank-order correlation of unit timing between all "
+                    "slice pairs of a SpikeSliceStack. Stores correlation PairwiseCompMatrix "
+                    "(S, S) at out_key_corr and overlap PairwiseCompMatrix (S, S) at "
+                    "out_key_overlap. Supports shuffle-based z-scoring. "
+                    "Prerequisite: create_spike_slice_stack or frames_spike_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored SpikeSliceStack",
+                        },
+                        "out_key_corr": {
+                            "type": "string",
+                            "description": "Output key for correlation PairwiseCompMatrix (S, S)",
+                        },
+                        "out_key_overlap": {
+                            "type": "string",
+                            "description": "Output key for overlap fraction PairwiseCompMatrix (S, S)",
+                        },
+                        "timing_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a pre-computed (U, S) timing "
+                                "matrix from get_unit_timing_per_slice_spike"
+                            ),
+                        },
+                        "timing": {
+                            "type": "string",
+                            "enum": ["median", "mean", "first"],
+                            "default": "median",
+                            "description": "Spike time mode (only used when timing_key is not provided)",
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": "Minimum spikes for activity (only used when timing_key is not provided)",
+                        },
+                        "min_overlap": {
+                            "type": "integer",
+                            "default": 3,
+                            "description": "Minimum units active in both slices",
+                        },
+                        "min_overlap_frac": {
+                            "type": "number",
+                            "description": (
+                                "Minimum fraction of total units active in both slices. "
+                                "Effective threshold = max(min_overlap, ceil(frac * U))."
+                            ),
+                        },
+                        "n_shuffles": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Shuffle iterations for z-scoring. 0 = raw Spearman.",
+                        },
+                        "seed": {
+                            "type": "integer",
+                            "default": 1,
+                            "description": "Random seed for shuffle reproducibility",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key_corr",
+                        "out_key_overlap",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="rank_order_correlation_rate",
+                description=(
+                    "Compute Spearman rank-order correlation of unit timing between all "
+                    "slice pairs of a RateSliceStack. Stores correlation PairwiseCompMatrix "
+                    "(S, S) at out_key_corr and overlap PairwiseCompMatrix (S, S) at "
+                    "out_key_overlap. Supports shuffle-based z-scoring. "
+                    "Prerequisite: create_rate_slice_stack or frames_rate_data."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "stack_key": {
+                            "type": "string",
+                            "description": "Workspace key of the stored RateSliceStack",
+                        },
+                        "out_key_corr": {
+                            "type": "string",
+                            "description": "Output key for correlation PairwiseCompMatrix (S, S)",
+                        },
+                        "out_key_overlap": {
+                            "type": "string",
+                            "description": "Output key for overlap fraction PairwiseCompMatrix (S, S)",
+                        },
+                        "timing_key": {
+                            "type": "string",
+                            "description": (
+                                "Optional workspace key of a pre-computed (U, S) timing "
+                                "matrix from get_unit_timing_per_slice_rate"
+                            ),
+                        },
+                        "min_rate_threshold": {
+                            "type": "number",
+                            "default": 0.1,
+                            "description": "Minimum peak firing rate (only used when timing_key is not provided)",
+                        },
+                        "min_overlap": {
+                            "type": "integer",
+                            "default": 3,
+                            "description": "Minimum units active in both slices",
+                        },
+                        "min_overlap_frac": {
+                            "type": "number",
+                            "description": (
+                                "Minimum fraction of total units active in both slices. "
+                                "Effective threshold = max(min_overlap, ceil(frac * U))."
+                            ),
+                        },
+                        "n_shuffles": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "Shuffle iterations for z-scoring. 0 = raw Spearman.",
+                        },
+                        "seed": {
+                            "type": "integer",
+                            "default": 1,
+                            "description": "Random seed for shuffle reproducibility",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "stack_key",
+                        "out_key_corr",
+                        "out_key_overlap",
                     ],
                 },
             ),
@@ -2016,6 +2368,11 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Output key for the (S, n_components) embedding",
                         },
                         "n_components": {"type": "integer", "default": 2},
+                        "store_pca_details": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "If true, store explained variance and PC components to workspace",
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key", "out_key"],
                 },
@@ -2040,6 +2397,11 @@ async def _list_tools() -> list[types.Tool]:
                             "description": "Output key for the embedding",
                         },
                         "n_components": {"type": "integer", "default": 2},
+                        "store_pca_details": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "If true, store explained variance and PC components to workspace",
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key", "out_key"],
                 },
@@ -2765,6 +3127,20 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.spike_unit_to_unit_comparison(**arguments)
         elif name == "spike_slice_to_slice_unit_comparison":
             result = await analysis.spike_slice_to_slice_unit_comparison(**arguments)
+        elif name == "compute_frac_active":
+            result = await analysis.compute_frac_active(**arguments)
+        elif name == "spike_order_units_across_slices":
+            result = await analysis.spike_order_units_across_slices(**arguments)
+
+        # Unit timing and rank-order correlation tools
+        elif name == "get_unit_timing_per_slice_spike":
+            result = await analysis.get_unit_timing_per_slice_spike(**arguments)
+        elif name == "get_unit_timing_per_slice_rate":
+            result = await analysis.get_unit_timing_per_slice_rate(**arguments)
+        elif name == "rank_order_correlation_spike":
+            result = await analysis.rank_order_correlation_spike(**arguments)
+        elif name == "rank_order_correlation_rate":
+            result = await analysis.rank_order_correlation_rate(**arguments)
 
         # Other workspace-based tools
         elif name == "get_idces_times":

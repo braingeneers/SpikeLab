@@ -822,11 +822,6 @@ async def compute_pairwise_ccg(
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
 
-    from spikedata.utils import (
-        compute_cross_correlation_with_lag,
-        compute_cosine_similarity_with_lag,
-    )
-
     func_map = {
         "cross_correlation": compute_cross_correlation_with_lag,
         "cosine_similarity": compute_cosine_similarity_with_lag,
@@ -904,11 +899,12 @@ async def compute_rate_manifold(
     manifold_result = rd.get_manifold(
         method=method, n_components=n_components, **umap_kwargs
     )
-    # PCA returns (embedding, var_ratio, components); UMAP returns embedding or tuple
+    # PCA returns (embedding, var_ratio, components); UMAP returns (embedding, trustworthiness)
     if method.upper() == "PCA":
         embedding, var_ratio, components = manifold_result
+        tw = None
     else:
-        embedding = manifold_result
+        embedding, tw = manifold_result
         var_ratio = None
     ws.store(namespace, key, embedding)
     result: Dict[str, Any] = {
@@ -926,6 +922,8 @@ async def compute_rate_manifold(
             ws.store(namespace, comp_key, components)
             result["key_variance"] = var_key
             result["key_components"] = comp_key
+    if tw is not None:
+        result["trustworthiness"] = tw
     return result
 
 
@@ -1456,7 +1454,7 @@ async def umap_reduction(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
-    embedding = UMAP_reduction(
+    embedding, tw = UMAP_reduction(
         obj,
         n_components=n_components,
         n_neighbors=n_neighbors,
@@ -1470,6 +1468,7 @@ async def umap_reduction(
         "namespace": namespace,
         "key": out_key,
         "info": ws.get_info(namespace, out_key),
+        "trustworthiness": tw,
     }
 
 
@@ -1496,7 +1495,7 @@ async def umap_graph_communities(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
-    embedding, labels = UMAP_graph_communities(
+    embedding, labels, tw = UMAP_graph_communities(
         obj,
         n_components=n_components,
         resolution=resolution,
@@ -1512,6 +1511,7 @@ async def umap_graph_communities(
         "key": out_key,
         "labels": labels.tolist(),
         "info": ws.get_info(namespace, out_key),
+        "trustworthiness": tw,
     }
 
 
@@ -1839,6 +1839,7 @@ async def compute_frac_active(
     out_key: str,
     min_spikes: int = 2,
 ) -> Dict[str, Any]:
+    """Compute fraction of slices each unit is active in and store to workspace."""
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
     frac = sss.compute_frac_active(min_spikes=min_spikes)
@@ -1861,6 +1862,7 @@ async def spike_order_units_across_slices(
     min_frac_active: float = 0.0,
     frac_active_key: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Compute unit activation ordering across SpikeSliceStack slices and return inline."""
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
     frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
@@ -1888,6 +1890,142 @@ async def spike_order_units_across_slices(
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Unit timing and rank-order correlation tools
+# ---------------------------------------------------------------------------
+
+
+async def get_unit_timing_per_slice_spike(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key: str,
+    timing: str = "median",
+    min_spikes: int = 2,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    tm = sss.get_unit_timing_per_slice(timing=timing, min_spikes=min_spikes)
+    ws.store(namespace, out_key, tm)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def get_unit_timing_per_slice_rate(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key: str,
+    min_rate_threshold: float = 0.1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, stack_key)
+    tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=min_rate_threshold)
+    ws.store(namespace, out_key, tm)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def rank_order_correlation_spike(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_overlap: str,
+    timing_key: Optional[str] = None,
+    timing: str = "median",
+    min_spikes: int = 2,
+    min_overlap: int = 3,
+    min_overlap_frac: Optional[float] = None,
+    n_shuffles: int = 100,
+    seed: int = 1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    timing_matrix = None
+    if timing_key is not None:
+        timing_matrix = ws.get(namespace, timing_key)
+        if timing_matrix is None or not isinstance(timing_matrix, np.ndarray):
+            raise ValueError(
+                f"No ndarray found at ({namespace!r}, {timing_key!r}). "
+                "Compute timing first using: get_unit_timing_per_slice_spike."
+            )
+    corr, av_corr, overlap = sss.rank_order_correlation(
+        timing_matrix=timing_matrix,
+        timing=timing,
+        min_spikes=min_spikes,
+        min_overlap=min_overlap,
+        min_overlap_frac=min_overlap_frac,
+        n_shuffles=n_shuffles,
+        seed=seed,
+    )
+    ws.store(namespace, out_key_corr, corr)
+    ws.store(namespace, out_key_overlap, overlap)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "key_overlap": out_key_overlap,
+        "av_corr": av_corr,
+        "n_shuffles": n_shuffles,
+        "info_corr": ws.get_info(namespace, out_key_corr),
+        "info_overlap": ws.get_info(namespace, out_key_overlap),
+    }
+
+
+async def rank_order_correlation_rate(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_overlap: str,
+    timing_key: Optional[str] = None,
+    min_rate_threshold: float = 0.1,
+    min_overlap: int = 3,
+    min_overlap_frac: Optional[float] = None,
+    n_shuffles: int = 100,
+    seed: int = 1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, stack_key)
+    timing_matrix = None
+    if timing_key is not None:
+        timing_matrix = ws.get(namespace, timing_key)
+        if timing_matrix is None or not isinstance(timing_matrix, np.ndarray):
+            raise ValueError(
+                f"No ndarray found at ({namespace!r}, {timing_key!r}). "
+                "Compute timing first using: get_unit_timing_per_slice_rate."
+            )
+    corr, av_corr, overlap = rss.rank_order_correlation(
+        timing_matrix=timing_matrix,
+        MIN_RATE_THRESHOLD=min_rate_threshold,
+        min_overlap=min_overlap,
+        min_overlap_frac=min_overlap_frac,
+        n_shuffles=n_shuffles,
+        seed=seed,
+    )
+    ws.store(namespace, out_key_corr, corr)
+    ws.store(namespace, out_key_overlap, overlap)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "key_overlap": out_key_overlap,
+        "av_corr": av_corr,
+        "n_shuffles": n_shuffles,
+        "info_corr": ws.get_info(namespace, out_key_corr),
+        "info_overlap": ws.get_info(namespace, out_key_overlap),
+    }
+
+
 # GPLVM tools
 # ---------------------------------------------------------------------------
 

@@ -331,6 +331,186 @@ class SpikeSliceStack:
             dense_list.append(temp_sd.sparse_raster(bin_size=bin_size).toarray())
         return np.stack(dense_list, axis=2)
 
+    def compute_frac_active(self, min_spikes=2):
+        """
+        Compute the fraction of slices each unit is active in.
+
+        A unit counts as active in a slice if it has at least *min_spikes*
+        spikes within that slice's time window.
+
+        Parameters:
+            min_spikes (int): Minimum number of spikes for a unit to count as
+                active in a slice (default: 2).
+
+        Returns:
+            frac_active (np.ndarray): 1-D array of shape ``(U,)`` with the
+                fraction of slices each unit is active in (values in [0, 1]).
+
+        Notes:
+            - The returned array can be passed as ``frac_active`` to
+              ``RateSliceStack.order_units_across_slices``,
+              ``RateSliceStack.get_slice_to_slice_unit_corr_from_stack``,
+              ``SpikeSliceStack.order_units_across_slices``, or
+              ``SpikeSliceStack.get_slice_to_slice_unit_comparison``
+              to override their internal activity calculation.
+            - ``SpikeData.get_frac_active`` produces a compatible ``(U,)``
+              array based on burst edges and can be used in the same way.
+        """
+        num_units = self.N
+        num_slices = len(self.spike_stack)
+        active_count = np.zeros(num_units, dtype=int)
+
+        for sd, (start, end) in zip(self.spike_stack, self.times):
+            for u in range(num_units):
+                spikes = np.asarray(sd.train[u])
+                n_valid = np.sum((spikes >= 0) & (spikes <= (end - start)))
+                if n_valid >= min_spikes:
+                    active_count[u] += 1
+
+        return active_count / num_slices if num_slices > 0 else np.zeros(num_units)
+
+    def order_units_across_slices(
+        self,
+        agg_func="median",
+        timing="median",
+        min_spikes=2,
+        min_frac_active=0.0,
+        frac_active=None,
+        timing_matrix=None,
+    ):
+        """
+        Reorder units by their typical spike timing across slices.
+
+        For each unit in each slice, computes a representative spike time
+        (median, mean, or first spike) relative to the slice start. These
+        per-slice values are aggregated across slices to obtain a single
+        typical timing per unit. Units are then sorted by this value from
+        earliest to latest and optionally split into a highly-active group
+        and a low-activity group.
+
+        Parameters:
+            agg_func (str): How to aggregate per-slice timing values across
+                slices. ``"median"`` (default) or ``"mean"``.
+            timing (str): Which spike time to extract per unit per slice.
+                ``"median"`` — median spike time within the slice (default).
+                ``"mean"`` — mean spike time within the slice.
+                ``"first"`` — first spike time (onset latency).
+                Ignored when ``timing_matrix`` is provided.
+            min_spikes (int): Minimum number of spikes for a unit to count as
+                active in a slice (default: 2). Ignored when ``timing_matrix``
+                is provided.
+            min_frac_active (float or None): Minimum fraction of slices a unit
+                must be active in to be placed in the highly-active group.
+                ``0.0`` or ``None`` (default: 0.0) skips the split entirely
+                and places all units in the highly-active group without
+                computing activity fractions.
+            frac_active (np.ndarray or None): Optional pre-computed
+                fraction-active array of shape ``(U,)`` to override the
+                internal calculation for the group split. Only used when
+                ``min_frac_active > 0``. Compatible sources:
+                ``SpikeSliceStack.compute_frac_active`` and
+                ``SpikeData.get_frac_active`` (``frac_per_unit`` output).
+            timing_matrix (np.ndarray or None): Optional pre-computed ``(U, S)``
+                timing matrix from ``get_unit_timing_per_slice``. When provided,
+                ``timing`` and ``min_spikes`` are ignored and this matrix is
+                used directly.
+
+        Returns:
+            reordered_stacks (tuple): Two ``SpikeSliceStack`` objects
+                ``(highly_active, low_active)`` with units reordered by typical
+                timing. The low-activity stack is ``None`` when the group is
+                empty.
+            unit_ids_in_order (tuple): Two ``ndarray``
+                ``(highly_active, low_active)`` of original unit indices in the
+                reordered sequence.
+            unit_std (tuple): Two ``ndarray`` ``(highly_active, low_active)``
+                of standard deviation of per-slice timing values. Lower values
+                indicate more consistent timing across slices.
+            unit_peak_times_ms (tuple): Two ``ndarray``
+                ``(highly_active, low_active)`` of the aggregated typical
+                timing in milliseconds relative to slice start. NaN for units
+                with no active slices.
+            unit_frac_active (tuple): Two ``ndarray``
+                ``(highly_active, low_active)`` of the fraction of slices each
+                unit was active in.
+
+        Notes:
+            - Call ``get_unit_timing_per_slice`` first to pre-compute the
+              timing matrix if you want to reuse it across multiple calls
+              (e.g. ``rank_order_correlation`` and this method).
+            - When ``frac_active`` is None and ``min_frac_active > 0``,
+              activity fraction is computed via ``compute_frac_active``.
+            - Analogous to ``RateSliceStack.order_units_across_slices`` but
+              operates on raw spike trains instead of firing rate curves.
+        """
+        if agg_func not in ("median", "mean"):
+            raise ValueError(f"agg_func must be 'median' or 'mean', got {agg_func!r}")
+
+        num_units = self.N
+        num_slices = len(self.spike_stack)
+
+        if timing_matrix is not None:
+            timing_matrix = np.asarray(timing_matrix, dtype=float)
+            if timing_matrix.shape != (num_units, num_slices):
+                raise ValueError(
+                    f"timing_matrix must have shape ({num_units}, {num_slices}), "
+                    f"got {timing_matrix.shape}"
+                )
+        else:
+            timing_matrix = self.get_unit_timing_per_slice(
+                timing=timing, min_spikes=min_spikes
+            )
+
+        # Standard deviation across slices
+        unit_std_values = np.nanstd(timing_matrix, axis=1)
+
+        # Aggregate across slices
+        if agg_func == "median":
+            unit_timing = np.nanmedian(timing_matrix, axis=1)
+        else:
+            unit_timing = np.nanmean(timing_matrix, axis=1)
+
+        # Compute or validate frac_active only when splitting is requested
+        skip_split = not min_frac_active
+        if skip_split:
+            frac_active = np.ones(num_units)
+            ha_units = np.arange(num_units)
+            la_units = np.array([], dtype=int)
+        else:
+            if frac_active is not None:
+                frac_active = np.asarray(frac_active, dtype=float)
+                if frac_active.shape != (num_units,):
+                    raise ValueError(
+                        f"frac_active must have shape ({num_units},), "
+                        f"got {frac_active.shape}"
+                    )
+            else:
+                frac_active = self.compute_frac_active(min_spikes=min_spikes)
+            highly_active_mask = frac_active >= min_frac_active
+            ha_units = np.where(highly_active_mask)[0]
+            la_units = np.where(~highly_active_mask)[0]
+
+        # Sort within each group by typical timing
+        ha_order = ha_units[np.argsort(unit_timing[ha_units])]
+        la_order = la_units[np.argsort(unit_timing[la_units])]
+
+        # Build reordered SpikeSliceStacks
+        def _reorder_stack(unit_indices):
+            if len(unit_indices) == 0:
+                return None
+            return self.subset(list(unit_indices))
+
+        ha_stack = _reorder_stack(ha_order)
+        la_stack = _reorder_stack(la_order)
+
+        return (
+            (ha_stack, la_stack),
+            (ha_order, la_order),
+            (unit_std_values[ha_order], unit_std_values[la_order]),
+            (unit_timing[ha_order], unit_timing[la_order]),
+            (frac_active[ha_order], frac_active[la_order]),
+        )
+
     def unit_to_unit_comparison(
         self,
         metric="ccg",
@@ -432,8 +612,9 @@ class SpikeSliceStack:
         delt=20.0,
         bin_size=1.0,
         max_lag=350,
-        min_spikes=3,
+        min_spikes=2,
         min_frac=0.3,
+        frac_active=None,
     ):
         """
         Compute slice-to-slice similarity for each unit using spike-based metrics.
@@ -452,9 +633,17 @@ class SpikeSliceStack:
             max_lag (float): Maximum lag in milliseconds to search for the peak
                 correlation (default: 350). Only used when metric is ``"ccg"``.
             min_spikes (int): Minimum number of spikes in a slice for a unit to
-                be considered valid in that slice (default: 3).
+                be considered valid in that slice (default: 2).
             min_frac (float): Maximum fraction of slices that can be invalid before
                 a unit's average is set to NaN (default: 0.3).
+            frac_active (np.ndarray or None): Optional pre-computed
+                fraction-active array of shape ``(U,)`` to override the
+                internal per-unit validity check for computing averages.
+                When provided, a unit's average is set to NaN if
+                ``frac_active[u] < (1 - min_frac)``. ``min_spikes`` still
+                controls which individual slice pairs are computed.
+                Compatible sources: ``SpikeSliceStack.compute_frac_active``
+                and ``SpikeData.get_frac_active`` (``frac_per_unit`` output).
 
         Returns:
             all_corr (PairwiseCompMatrixStack): Pairwise similarity between all
@@ -509,7 +698,7 @@ class SpikeSliceStack:
             slice_durations.append(duration)
             trains = []
             for u in range(num_units):
-                trains.append(np.asarray(sd.train[u]) - start)
+                trains.append(np.asarray(sd.train[u]))
             shifted_trains.append(trains)
 
             if metric == "ccg":
@@ -518,6 +707,15 @@ class SpikeSliceStack:
                 slice_rasters.append(temp_sd.raster(bin_size))
 
         max_lag_bins = int(round(max_lag / bin_size)) if metric == "ccg" else 0
+
+        # Validate frac_active override if provided
+        if frac_active is not None:
+            frac_active = np.asarray(frac_active, dtype=float)
+            if frac_active.shape != (num_units,):
+                raise ValueError(
+                    f"frac_active must have shape ({num_units},), "
+                    f"got {frac_active.shape}"
+                )
 
         # Initialize result arrays: (U, S, S), will transpose to (S, S, U) at end
         all_corr_scores = np.full((num_units, num_slices, num_slices), np.nan)
@@ -565,7 +763,12 @@ class SpikeSliceStack:
                         all_lag_scores[unit, comp_s, ref_s] = -lag
 
             # Compute average if enough slices were valid
-            if invalid_count / num_slices <= min_frac:
+            if frac_active is not None:
+                unit_valid = frac_active[unit] >= (1 - min_frac)
+            else:
+                unit_valid = invalid_count / num_slices <= min_frac
+
+            if unit_valid:
                 av_corr[unit] = np.nanmean(
                     all_corr_scores[unit, lower_tri[0], lower_tri[1]]
                 )
@@ -585,3 +788,205 @@ class SpikeSliceStack:
             all_lag_stack = None
 
         return all_corr_stack, all_lag_stack, av_corr, av_lag
+
+    def get_unit_timing_per_slice(
+        self,
+        timing="median",
+        min_spikes=2,
+    ):
+        """
+        Compute a representative spike time for each unit in each slice.
+
+        Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the timing
+        value (in milliseconds relative to slice start) for unit *u* in
+        slice *s*. Units with fewer than *min_spikes* spikes in a slice
+        are marked NaN.
+
+        Parameters:
+            timing (str): Which spike time to extract per unit per slice.
+                ``"median"`` (default), ``"mean"``, or ``"first"`` (onset
+                latency).
+            min_spikes (int): Minimum number of spikes for a unit to count
+                as active in a slice (default: 2).
+
+        Returns:
+            timing_matrix (np.ndarray): Array of shape ``(U, S)`` with timing
+                values in milliseconds. NaN where the unit is inactive.
+
+        Notes:
+            - The returned matrix can be passed to ``rank_order_correlation``
+              to compute Spearman rank correlations between slice pairs, or
+              used as input to ``order_units_across_slices`` for manual
+              inspection of per-slice timing values.
+        """
+        if timing not in ("median", "mean", "first"):
+            raise ValueError(
+                f"timing must be 'median', 'mean', or 'first', got {timing!r}"
+            )
+
+        num_units = self.N
+        num_slices = len(self.spike_stack)
+        timing_matrix = np.full((num_units, num_slices), np.nan)
+
+        for s_idx, (sd, (start, end)) in enumerate(zip(self.spike_stack, self.times)):
+            for u in range(num_units):
+                spikes = np.asarray(sd.train[u])
+                spikes = spikes[(spikes >= 0) & (spikes <= (end - start))]
+                if len(spikes) < min_spikes:
+                    continue
+                if timing == "median":
+                    timing_matrix[u, s_idx] = np.median(spikes)
+                elif timing == "mean":
+                    timing_matrix[u, s_idx] = np.mean(spikes)
+                else:
+                    timing_matrix[u, s_idx] = spikes[0]
+
+        return timing_matrix
+
+    def rank_order_correlation(
+        self,
+        timing_matrix=None,
+        timing="median",
+        min_spikes=2,
+        min_overlap=3,
+        n_shuffles=100,
+        min_overlap_frac=None,
+        seed=1,
+    ):
+        """
+        Compute Spearman rank-order correlation of unit timing between all slice pairs.
+
+        For each pair of slices, only units active in both slices (non-NaN in
+        both columns of the timing matrix) are included. If the overlap falls
+        below the required minimum, the pair is set to NaN.
+
+        When ``n_shuffles > 0``, the rank orders are shuffled *n_shuffles*
+        times for each pair to build a null distribution, and the raw
+        correlation is z-score normalised against it.
+
+        Parameters:
+            timing_matrix (np.ndarray or None): Array of shape ``(U, S)`` with
+                timing values per unit per slice. NaN entries mark inactive
+                units. Typically produced by ``get_unit_timing_per_slice``.
+                When ``None``, computed automatically using ``timing`` and
+                ``min_spikes``.
+            timing (str): Which spike time to extract per unit per slice.
+                ``"median"`` (default), ``"mean"``, or ``"first"``. Only used
+                when ``timing_matrix`` is None.
+            min_spikes (int): Minimum spikes for activity (default: 2). Only
+                used when ``timing_matrix`` is None.
+            min_overlap (int): Minimum number of units that must be active in
+                both slices (default: 3).
+            min_overlap_frac (float or None): Minimum fraction of total units
+                that must be active in both slices (default: None). When
+                provided, the effective threshold is
+                ``max(min_overlap, ceil(min_overlap_frac * U))``.
+            n_shuffles (int): Number of shuffle iterations for z-scoring
+                (default: 100). Set to 0 to return raw Spearman correlations.
+                Values between 1 and 4 are rejected (minimum 5 required for
+                a meaningful null distribution).
+            seed (int or None): Random seed for reproducibility of the shuffle
+                (default: 1).
+
+        Returns:
+            corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of
+                shape ``(S, S)``. When ``n_shuffles > 0``, values are z-scores.
+                When ``n_shuffles == 0``, values are raw Spearman correlations.
+                Diagonal is 1 (raw) or NaN (z-scored). NaN where overlap is
+                below the effective minimum.
+            av_corr (float): Average correlation (or z-score) across all valid
+                lower-triangle pairs.
+            overlap_matrix (PairwiseCompMatrix): Matrix of shape ``(S, S)``
+                where entry ``[i, j]`` is the fraction of total units active
+                in both slices *i* and *j*. Diagonal is the fraction of units
+                active in each slice.
+
+        Notes:
+            - Call ``get_unit_timing_per_slice`` first to pre-compute the
+              timing matrix if you want to reuse it across multiple calls
+              (e.g. this method and ``order_units_across_slices``).
+            - Z-scoring: for each slice pair, one column's values are randomly
+              permuted ``n_shuffles`` times to produce a null distribution of
+              Spearman correlations. The z-score is
+              ``(rho - mean_null) / std_null``. Pairs where ``std_null == 0``
+              are set to NaN.
+        """
+        from scipy.stats import spearmanr
+
+        if 0 < n_shuffles < 5:
+            raise ValueError(
+                f"n_shuffles must be 0 (no shuffling) or >= 5, got {n_shuffles}"
+            )
+
+        if timing_matrix is None:
+            timing_matrix = self.get_unit_timing_per_slice(
+                timing=timing, min_spikes=min_spikes
+            )
+
+        timing_matrix = np.asarray(timing_matrix)
+        if timing_matrix.ndim != 2:
+            raise ValueError(
+                f"timing_matrix must be 2-D (U, S), got shape {timing_matrix.shape}"
+            )
+
+        num_units = timing_matrix.shape[0]
+        effective_min = min_overlap
+        if min_overlap_frac is not None:
+            frac_count = int(np.ceil(min_overlap_frac * num_units))
+            effective_min = max(effective_min, frac_count)
+
+        rng = np.random.default_rng(seed)
+        num_slices = timing_matrix.shape[1]
+        corr = np.full((num_slices, num_slices), np.nan)
+        overlap = np.zeros((num_slices, num_slices), dtype=int)
+        if n_shuffles == 0:
+            np.fill_diagonal(corr, 1.0)
+
+        for i in range(num_slices):
+            overlap[i, i] = int(np.sum(~np.isnan(timing_matrix[:, i])))
+
+        for i in range(num_slices):
+            for j in range(i + 1, num_slices):
+                valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
+                n_valid = int(np.sum(valid))
+                overlap[i, j] = n_valid
+                overlap[j, i] = n_valid
+
+                if n_valid < effective_min:
+                    continue
+
+                a = timing_matrix[valid, i]
+                b = timing_matrix[valid, j]
+                rho, _ = spearmanr(a, b)
+
+                if n_shuffles == 0:
+                    corr[i, j] = rho
+                    corr[j, i] = rho
+                else:
+                    null_rhos = np.empty(n_shuffles)
+                    for k in range(n_shuffles):
+                        b_shuffled = rng.permutation(b)
+                        null_rhos[k], _ = spearmanr(a, b_shuffled)
+                    null_mean = np.mean(null_rhos)
+                    null_std = np.std(null_rhos)
+                    if null_std > 0:
+                        z = (rho - null_mean) / null_std
+                    else:
+                        z = np.nan
+                    corr[i, j] = z
+                    corr[j, i] = z
+
+        lower_tri = np.tril_indices(num_slices, k=-1)
+        av_corr = float(np.nanmean(corr[lower_tri]))
+
+        overlap_frac = (
+            overlap.astype(float) / num_units
+            if num_units > 0
+            else overlap.astype(float)
+        )
+
+        return (
+            PairwiseCompMatrix(matrix=corr),
+            av_corr,
+            PairwiseCompMatrix(matrix=overlap_frac),
+        )
