@@ -66,11 +66,11 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
         comparison of methods and application to the study of retinal waves. Journal of
         Neuroscience 34:43, 14288–14303 (2014).
     """
-    if length is None:
-        length = float(max(tA[-1], tB[-1]))
-
     if len(tA) == 0 or len(tB) == 0:
         return 0.0
+
+    if length is None:
+        length = float(max(tA[-1], tB[-1]))
 
     TA = _sttc_ta(tA, delt, length) / length
     TB = _sttc_ta(tB, delt, length) / length
@@ -347,10 +347,11 @@ def randomize(ar, swap_per_spike=5, seed=None):
                 cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:
-        print(
-            "ERROR: Not sufficient succesfull swaps, only {} of {} required".format(
+        warnings.warn(
+            "Not sufficient successful swaps, only {} of {} required".format(
                 cnt_swap, swap_per_spike * n_spikes
-            )
+            ),
+            RuntimeWarning,
         )
 
     return ar.astype(int)
@@ -1039,6 +1040,13 @@ def extract_waveforms(
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
     return np.array(waveforms).transpose(1, 2, 0)
+
+
+def _get_attr(obj, key, default):
+    """Get an attribute from a dict-like or object-like neuron attribute entry."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 def _validate_time_start_to_end(times_start_to_end):

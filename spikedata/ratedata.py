@@ -8,6 +8,7 @@ from .utils import (
     PCA_reduction,
     UMAP_reduction,
     UMAP_graph_communities,
+    _get_attr,
 )
 
 
@@ -96,7 +97,7 @@ class RateData:
             units = {
                 i
                 for i in range(self.N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
         units = sorted(units)
 
@@ -321,8 +322,9 @@ class RateData:
         method_upper = method.upper()
         if method_upper == "PCA":
             if kwargs:
-                print(
-                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
+                warnings.warn(
+                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'.",
+                    UserWarning,
                 )
             return PCA_reduction(data_T, n_components=n_components)
         if method_upper == "UMAP":

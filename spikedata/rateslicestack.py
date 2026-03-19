@@ -10,6 +10,7 @@ from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
     _validate_time_start_to_end,
+    _get_attr,
 )
 
 
@@ -265,8 +266,11 @@ class RateSliceStack:
             np.argsort(unit_peak_times[low_active_units])
         ]
 
-        # Cast to int for output only after sorting is done
-        unit_peak_times = np.round(unit_peak_times).astype(int)
+        # Cast to int for output only after sorting is done.
+        # NaN values (units with no active slices) become -1.
+        unit_peak_times_int = np.full(unit_peak_times.shape, -1, dtype=int)
+        valid = ~np.isnan(unit_peak_times)
+        unit_peak_times_int[valid] = np.round(unit_peak_times[valid]).astype(int)
 
         reordered_slice_matrices = (
             slice_matrices[highly_active_order, :, :],
@@ -278,8 +282,8 @@ class RateSliceStack:
             unit_std_indices[low_active_order],
         )
         unit_peak_times = (
-            unit_peak_times[highly_active_order],
-            unit_peak_times[low_active_order],
+            unit_peak_times_int[highly_active_order],
+            unit_peak_times_int[low_active_order],
         )
         unit_frac_active = (
             unit_frac_active[highly_active_order],
@@ -607,7 +611,7 @@ class RateSliceStack:
             units = {
                 i
                 for i in range(N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
         units = sorted(units)
         neuron_attributes = None

@@ -1558,26 +1558,23 @@ class TestDataLoadersEdgeCases:
     @skip_no_h5py
     def test_hdf5_paired_empty_idces(self, tmp_path):
         """
-        Verify that loading paired-style HDF5 with empty idces/times arrays
-        raises an error due to max() on empty sequence in SpikeData.from_idces_times.
+        Loading paired-style HDF5 with empty idces/times arrays produces a valid
+        zero-unit SpikeData with duration 0.
 
         Tests:
-            (Test Case 1) Raises ValueError because SpikeData.__init__ calls
-                          max() on empty trains when length is not provided.
-
-        Notes:
-            - This is a known source bug (BUG-006): from_idces_times does not
-              handle the empty-input case gracefully.
+            (Test Case 1) Empty idces and times arrays produce a SpikeData with
+                N=0 and length=0.0.
         """
         path = str(tmp_path / "empty_paired.h5")
         with h5py.File(path, "w") as f:
             f.create_dataset("idces", data=np.array([], dtype=int))
             f.create_dataset("times", data=np.array([], dtype=float))
 
-        with pytest.raises(ValueError, match="empty sequence"):
-            loaders.load_spikedata_from_hdf5(
-                path, idces_dataset="idces", times_dataset="times", times_unit="ms"
-            )
+        sd = loaders.load_spikedata_from_hdf5(
+            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
+        )
+        assert sd.N == 0
+        assert sd.length == 0.0
 
     @skip_no_pandas
     def test_ibl_all_collections_fail(self):

@@ -2162,14 +2162,16 @@ class TestSpikeDataEdgeCases:
 
     def test_init_all_empty_trains_no_length(self):
         """
-        SpikeData with all-empty trains and no explicit length.
+        SpikeData with all-empty trains and no explicit length defaults to duration 0.
 
         Tests:
-        (Test Case 1) Verify that SpikeData([[], [], []], length=None) raises an
-        exception because max() over empty trains has no valid result.
+            (Test Case 1) Verify that SpikeData([[], [], []], length=None) creates
+                a valid object with length=0.0 and the correct number of units.
         """
-        with pytest.raises(Exception):
-            SpikeData([[], [], []], length=None)
+        sd = SpikeData([[], [], []], length=None)
+        assert sd.length == 0.0
+        assert sd.N == 3
+        assert all(len(t) == 0 for t in sd.train)
 
     def test_frames_length_equals_recording(self):
         """

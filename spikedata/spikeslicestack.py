@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 
 from .spikedata import SpikeData
-from .utils import _validate_time_start_to_end
+from .utils import _validate_time_start_to_end, _get_attr
 
 
 class SpikeSliceStack:
@@ -219,7 +219,7 @@ class SpikeSliceStack:
             unit_set = set(units)
             kept_indices = []
             for i in range(self.N):
-                if self.neuron_attributes[i].get(by, _missing) in unit_set:
+                if _get_attr(self.neuron_attributes[i], by, _missing) in unit_set:
                     kept_indices.append(i)
         else:
             kept_indices = sorted(set(int(u) for u in units))

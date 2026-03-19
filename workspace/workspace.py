@@ -712,13 +712,14 @@ class WorkspaceManager:
         """
         result = []
         for ws in self._workspaces.values():
-            item_count = sum(len(v) for v in ws._items.values())
+            index = ws._index if hasattr(ws, "_index") else ws._items
+            item_count = sum(len(v) for v in index.values())
             result.append(
                 {
                     "workspace_id": ws.workspace_id,
                     "name": ws.name,
                     "created_at": ws.created_at,
-                    "namespace_count": len(ws._items),
+                    "namespace_count": len(index),
                     "item_count": item_count,
                 }
             )

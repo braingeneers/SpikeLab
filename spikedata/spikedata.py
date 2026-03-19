@@ -29,6 +29,7 @@ from .utils import (
     randomize,
     trough_between,
     extract_unit_waveforms,
+    _get_attr,
 )
 
 __all__ = [
@@ -157,7 +158,7 @@ class SpikeData:
         for st in trains:
             st.units = "ms"
 
-        return SpikeData([np.asarray(st) for st in spiketrains], **kwargs)
+        return SpikeData([np.asarray(st) for st in trains], **kwargs)
 
     @staticmethod
     def from_thresholding(
@@ -215,7 +216,7 @@ class SpikeData:
         N=None,
         length=None,
         neuron_attributes=None,
-        metadata={},
+        metadata=None,
         raw_data=None,
         raw_time: Optional[Union[NDArray, float]] = None,
     ):
@@ -247,7 +248,7 @@ class SpikeData:
         # The length of the spike train defaults to the last spike
         # time it contains.
         if length is None:
-            length = max((t[-1] for t in self.train if len(t) > 0))
+            length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
         self.length = length
 
         # If a number of units was provided, make the list of spike
@@ -278,6 +279,8 @@ class SpikeData:
         # Note that if there is no metadata, it should be an empty dict, because that
         # way arbitrary fields can be added later, but null neuron_attributes requires
         # storing None so we don't break concatenation semantics.
+        if metadata is None:
+            metadata = {}
         self.metadata = metadata.copy()
         self.neuron_attributes = None
         if neuron_attributes:
@@ -638,7 +641,7 @@ class SpikeData:
             units = {
                 i
                 for i in range(self.N)
-                if self.neuron_attributes[i].get(by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
 
         train = []
@@ -1112,8 +1115,12 @@ class SpikeData:
             sd = sd.subtime(0, self.length)
         self.train += sd.train
         self.N += sd.N
-        self.raw_data += sd.raw_data
-        self.raw_time += sd.raw_time
+        if self.raw_data.size > 0 and sd.raw_data.size > 0:
+            self.raw_data = np.concatenate((self.raw_data, sd.raw_data), axis=0)
+            self.raw_time = np.concatenate((self.raw_time, sd.raw_time), axis=0)
+        elif sd.raw_data.size > 0:
+            self.raw_data = sd.raw_data.copy()
+            self.raw_time = sd.raw_time.copy()
         self.metadata.update(sd.metadata)
         if self.neuron_attributes and sd.neuron_attributes:
             self.neuron_attributes += sd.neuron_attributes
@@ -1763,11 +1770,12 @@ class SpikeData:
         unique_bursts, counts = np.unique(tburst, return_counts=True)
         duplicates = unique_bursts[counts > 1]
         if len(duplicates) != 0:
-            print(
-                f"\n{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}.\n"
-                + f"This is likely due identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True.\n"
-                + f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data.\n"
-                + f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.\n"
+            warnings.warn(
+                f"{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}. "
+                f"This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
+                f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.",
+                RuntimeWarning,
             )
 
         return tburst, edges, peak_amp
