@@ -1198,10 +1198,54 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="compute_pairwise_ccg",
+                description=(
+                    "Compute pairwise cross-correlogram matrices from binned binary "
+                    "spike arrays. Stores PairwiseCompMatrix for correlation at key_corr "
+                    "and lag at key_lag. Prerequisite: any load_from_* tool."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key_corr": {
+                            "type": "string",
+                            "description": "Output key for the (U, U) correlation PairwiseCompMatrix",
+                        },
+                        "key_lag": {
+                            "type": "string",
+                            "description": "Output key for the (U, U) lag PairwiseCompMatrix",
+                        },
+                        "bin_size": {
+                            "type": "number",
+                            "default": 1.0,
+                            "description": "Bin size in milliseconds for the binary raster (default: 1.0)",
+                        },
+                        "max_lag": {
+                            "type": "number",
+                            "default": 350,
+                            "description": "Maximum lag in milliseconds (default: 350)",
+                        },
+                        "compare_func": {
+                            "type": "string",
+                            "enum": ["cross_correlation", "cosine_similarity"],
+                            "default": "cross_correlation",
+                            "description": "Comparison function: 'cross_correlation' (default) or 'cosine_similarity'",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key_corr",
+                        "key_lag",
+                    ],
+                },
+            ),
+            types.Tool(
                 name="compute_rate_manifold",
                 description=(
                     "Project instantaneous firing rates into a low-dimensional manifold "
-                    "using PCA or UMAP. Loads RateData from (namespace, rate_key) and "
+                    "using PCA or UMAP. Loads RateData from (namespace, rate_key) and"
                     "stores a (T, n_components) embedding at (namespace, key). "
                     "Prerequisite: compute_resampled_isi."
                 ),
@@ -1809,6 +1853,201 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
+    # GPLVM tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="fit_gplvm",
+                description=(
+                    "Fit a Gaussian Process Latent Variable Model (GPLVM) to binned "
+                    "spike counts. Stores the decode_res dict at (namespace, key), "
+                    "reorder_indices at (namespace, key_reorder), and binned_spike_counts "
+                    "at (namespace, key_binned). Returns log marginal likelihoods inline. "
+                    "Requires poor_man_gplvm and jax."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Output key for the decode_res dict",
+                        },
+                        "key_reorder": {
+                            "type": "string",
+                            "description": "Output key for reorder_indices (U,)",
+                        },
+                        "key_binned": {
+                            "type": "string",
+                            "description": "Output key for binned_spike_counts (T, U)",
+                        },
+                        "bin_size_ms": {
+                            "type": "number",
+                            "description": "Bin width in milliseconds",
+                            "default": 50.0,
+                        },
+                        "movement_variance": {
+                            "type": "number",
+                            "description": "Movement variance hyperparameter",
+                            "default": 1.0,
+                        },
+                        "tuning_lengthscale": {
+                            "type": "number",
+                            "description": "Tuning curve lengthscale hyperparameter",
+                            "default": 10.0,
+                        },
+                        "n_latent_bin": {
+                            "type": "integer",
+                            "description": "Number of latent bins",
+                            "default": 100,
+                        },
+                        "n_iter": {
+                            "type": "integer",
+                            "description": "Number of EM iterations",
+                            "default": 20,
+                        },
+                        "n_time_per_chunk": {
+                            "type": "integer",
+                            "description": "Time bins per chunk (controls memory)",
+                            "default": 10000,
+                        },
+                        "random_seed": {
+                            "type": "integer",
+                            "description": "Random seed for JAX PRNG",
+                            "default": 3,
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key",
+                        "key_reorder",
+                        "key_binned",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="compute_gplvm_state_entropy",
+                description=(
+                    "Compute Shannon entropy of the latent state distribution at each "
+                    "time bin from a GPLVM decode_res dict. Stores ndarray (T,) at "
+                    "(namespace, out_key). Requires fit_gplvm first."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Workspace key of the decode_res dict from fit_gplvm",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the entropy array",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "out_key"],
+                },
+            ),
+            types.Tool(
+                name="compute_gplvm_continuity_prob",
+                description=(
+                    "Extract the continuity (non-jump) probability time series from a "
+                    "GPLVM decode_res dict. Stores ndarray (T,) at (namespace, out_key). "
+                    "Requires fit_gplvm first."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Workspace key of the decode_res dict from fit_gplvm",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the continuity probability array",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "out_key"],
+                },
+            ),
+            types.Tool(
+                name="compute_gplvm_avg_state_prob",
+                description=(
+                    "Compute the average probability of each latent state across all "
+                    "time bins from a GPLVM decode_res dict. Stores ndarray (K,) at "
+                    "(namespace, out_key). Requires fit_gplvm first."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Workspace key of the decode_res dict from fit_gplvm",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the average state probability array",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "out_key"],
+                },
+            ),
+            types.Tool(
+                name="compute_gplvm_consecutive_durations",
+                description=(
+                    "Compute lengths of consecutive runs above or below a threshold in "
+                    "a 1-D signal stored in the workspace (e.g. continuity probability "
+                    "from compute_gplvm_continuity_prob). Stores durations ndarray at "
+                    "(namespace, out_key). Returns count and summary statistics inline."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": (
+                                "Workspace key of the 1-D signal array "
+                                "(e.g. from compute_gplvm_continuity_prob)"
+                            ),
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key for the durations array",
+                        },
+                        "threshold": {
+                            "type": "number",
+                            "description": "Threshold value for the condition",
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["above", "below"],
+                            "description": "'above' for >= threshold; 'below' for < threshold",
+                            "default": "above",
+                        },
+                        "min_dur": {
+                            "type": "integer",
+                            "description": "Minimum run length to keep",
+                            "default": 1,
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key",
+                        "out_key",
+                        "threshold",
+                    ],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
     # Workspace management tools
     # -----------------------------------------------------------------------
     tools.extend(
@@ -2233,6 +2472,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
         # RateData-based analysis tools
         elif name == "compute_pairwise_fr_corr":
             result = await analysis.compute_pairwise_fr_corr(**arguments)
+        elif name == "compute_pairwise_ccg":
+            result = await analysis.compute_pairwise_ccg(**arguments)
         elif name == "compute_rate_manifold":
             result = await analysis.compute_rate_manifold(**arguments)
         elif name == "frames_rate_data":
@@ -2277,6 +2518,18 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.umap_reduction(**arguments)
         elif name == "umap_graph_communities":
             result = await analysis.umap_graph_communities(**arguments)
+
+        # GPLVM tools
+        elif name == "fit_gplvm":
+            result = await analysis.fit_gplvm(**arguments)
+        elif name == "compute_gplvm_state_entropy":
+            result = await analysis.compute_gplvm_state_entropy(**arguments)
+        elif name == "compute_gplvm_continuity_prob":
+            result = await analysis.compute_gplvm_continuity_prob(**arguments)
+        elif name == "compute_gplvm_avg_state_prob":
+            result = await analysis.compute_gplvm_avg_state_prob(**arguments)
+        elif name == "compute_gplvm_consecutive_durations":
+            result = await analysis.compute_gplvm_consecutive_durations(**arguments)
 
         # Workspace management tools
         elif name == "create_workspace":

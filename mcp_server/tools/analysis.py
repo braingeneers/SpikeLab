@@ -21,6 +21,10 @@ from ...spikedata.utils import (
     UMAP_reduction,
     compute_cosine_similarity_with_lag,
     compute_cross_correlation_with_lag,
+    consecutive_durations,
+    gplvm_average_state_probability,
+    gplvm_continuity_prob,
+    gplvm_state_entropy,
 )
 from ...workspace.workspace import get_workspace_manager
 
@@ -778,6 +782,49 @@ async def compute_pairwise_fr_corr(
     }
 
 
+async def compute_pairwise_ccg(
+    workspace_id: str,
+    namespace: str,
+    key_corr: str,
+    key_lag: str,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+    compare_func: str = "cross_correlation",
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    from spikedata.utils import (
+        compute_cross_correlation_with_lag,
+        compute_cosine_similarity_with_lag,
+    )
+
+    func_map = {
+        "cross_correlation": compute_cross_correlation_with_lag,
+        "cosine_similarity": compute_cosine_similarity_with_lag,
+    }
+    func = func_map.get(compare_func)
+    if func is None:
+        raise ValueError(
+            f"Unknown compare_func {compare_func!r}. "
+            "Choose 'cross_correlation' or 'cosine_similarity'."
+        )
+
+    corr_matrix, lag_matrix = sd.get_pairwise_ccg(
+        compare_func=func, bin_size=bin_size, max_lag=max_lag
+    )
+    ws.store(namespace, key_corr, corr_matrix)
+    ws.store(namespace, key_lag, lag_matrix)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": key_corr,
+        "key_lag": key_lag,
+        "info_corr": ws.get_info(namespace, key_corr),
+        "info_lag": ws.get_info(namespace, key_lag),
+    }
+
+
 async def compute_rate_manifold(
     workspace_id: str,
     namespace: str,
@@ -1499,3 +1546,158 @@ async def fetch_workspace_item(
         f"fetch_workspace_item supports ndarray and PairwiseCompMatrixStack; "
         f"got {type(obj).__name__}. Use type-specific tools for other object types."
     )
+
+
+# ---------------------------------------------------------------------------
+# GPLVM tools
+# ---------------------------------------------------------------------------
+
+
+async def fit_gplvm(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    key_reorder: str,
+    key_binned: str,
+    bin_size_ms: float = 50.0,
+    movement_variance: float = 1.0,
+    tuning_lengthscale: float = 10.0,
+    n_latent_bin: int = 100,
+    n_iter: int = 20,
+    n_time_per_chunk: int = 10000,
+    random_seed: int = 3,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    result = sd.fit_gplvm(
+        bin_size_ms=bin_size_ms,
+        movement_variance=movement_variance,
+        tuning_lengthscale=tuning_lengthscale,
+        n_latent_bin=n_latent_bin,
+        n_iter=n_iter,
+        n_time_per_chunk=n_time_per_chunk,
+        random_seed=random_seed,
+    )
+    # Store decode_res dict, reorder indices, and binned spike counts
+    ws.store(namespace, key, result["decode_res"])
+    ws.store(namespace, key_reorder, result["reorder_indices"])
+    ws.store(namespace, key_binned, result["binned_spike_counts"])
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "key_reorder": key_reorder,
+        "key_binned": key_binned,
+        "log_marginal_l": _to_list(result["log_marginal_l"]),
+        "bin_size_ms": result["bin_size_ms"],
+        "n_time_bins": result["binned_spike_counts"].shape[0],
+        "n_units": result["binned_spike_counts"].shape[1],
+        "note": (
+            f"decode_res dict stored at key={key!r}; "
+            f"reorder_indices (U,) at key={key_reorder!r}; "
+            f"binned_spike_counts (T, U) at key={key_binned!r}. "
+            "The fitted model object is not stored (not serializable)."
+        ),
+    }
+
+
+async def compute_gplvm_state_entropy(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    posterior = np.asarray(decode_res["posterior_latent_marg"])
+    ent = gplvm_state_entropy(posterior)
+    ws.store(namespace, out_key, ent)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_continuity_prob(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    cont_prob = gplvm_continuity_prob(decode_res)
+    ws.store(namespace, out_key, cont_prob)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_avg_state_prob(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    posterior = np.asarray(decode_res["posterior_latent_marg"])
+    avg_prob = gplvm_average_state_probability(posterior)
+    ws.store(namespace, out_key, avg_prob)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_consecutive_durations(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+    threshold: float,
+    mode: str = "above",
+    min_dur: int = 1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    signal = ws.get(namespace, key)
+    if signal is None or not isinstance(signal, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {key!r}). "
+            "Compute the signal first using: compute_gplvm_continuity_prob "
+            "or another tool that stores a 1-D array."
+        )
+    durations = consecutive_durations(signal, threshold, mode=mode, min_dur=min_dur)
+    ws.store(namespace, out_key, durations)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "n_durations": int(durations.size),
+    }
+    if durations.size > 0:
+        result["mean_duration"] = float(np.mean(durations))
+        result["median_duration"] = float(np.median(durations))
+    return result

@@ -2310,6 +2310,218 @@ class TestGetPairwiseCCG:
             assert np.all(corr.matrix <= 1.0 + 1e-10)
 
 
+class TestGetPairwiseLatencies:
+    """Tests for SpikeData.get_pairwise_latencies."""
+
+    def test_basic_shape(self):
+        """
+        Tests that get_pairwise_latencies returns correctly shaped matrices.
+
+        Tests:
+            (Test Case 1) Mean and std matrices are (N, N).
+            (Test Case 2) Both are PairwiseCompMatrix instances.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        sd = random_spikedata(5, 5000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix.shape == (5, 5)
+        assert std_lat.matrix.shape == (5, 5)
+        assert isinstance(mean_lat, PairwiseCompMatrix)
+        assert isinstance(std_lat, PairwiseCompMatrix)
+
+    def test_diagonal_is_zero(self):
+        """
+        Tests that diagonal entries are zero for both mean and std.
+
+        Tests:
+            (Test Case 1) Diagonal of mean matrix is all zeros.
+            (Test Case 2) Diagonal of std matrix is all zeros.
+        """
+        sd = random_spikedata(4, 4000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        np.testing.assert_array_equal(np.diag(mean_lat.matrix), np.zeros(4))
+        np.testing.assert_array_equal(np.diag(std_lat.matrix), np.zeros(4))
+
+    def test_approximate_antisymmetry(self):
+        """
+        Tests that mean latency matrix is approximately antisymmetric.
+
+        Tests:
+            (Test Case 1) mean[i,j] is approximately -mean[j,i] for dense spike trains.
+
+        Notes:
+            - Not exact because different spike counts per train yield different
+              nearest-spike pairings in each direction.
+        """
+        # Use dense trains so the approximation is tight
+        sd = random_spikedata(3, 30000)
+        mean_lat, _ = sd.get_pairwise_latencies()
+
+        # Should be roughly antisymmetric
+        for i in range(3):
+            for j in range(i + 1, 3):
+                assert mean_lat.matrix[i, j] == pytest.approx(
+                    -mean_lat.matrix[j, i], abs=5.0
+                )
+
+    def test_std_is_non_negative(self):
+        """
+        Tests that all std values are non-negative.
+
+        Tests:
+            (Test Case 1) No negative entries in the std matrix.
+        """
+        sd = random_spikedata(4, 4000)
+        _, std_lat = sd.get_pairwise_latencies()
+
+        assert np.all(std_lat.matrix >= 0)
+
+    def test_identical_trains_zero_latency(self):
+        """
+        Tests that identical spike trains produce zero mean and zero std.
+
+        Tests:
+            (Test Case 1) Mean latency between identical trains is 0.
+            (Test Case 2) Std latency between identical trains is 0.
+        """
+        train = np.sort(np.random.uniform(0, 1000, size=200))
+        sd = SpikeData([train, train.copy()], length=1000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix[0, 1] == pytest.approx(0.0)
+        assert mean_lat.matrix[1, 0] == pytest.approx(0.0)
+        assert std_lat.matrix[0, 1] == pytest.approx(0.0)
+        assert std_lat.matrix[1, 0] == pytest.approx(0.0)
+
+    def test_known_latency(self):
+        """
+        Tests with a known offset between trains.
+
+        Tests:
+            (Test Case 1) Train B is train A shifted by +10ms. Mean latency
+                from A to B should be approximately +10.
+            (Test Case 2) Mean latency from B to A should be approximately -10.
+        """
+        train_a = np.arange(0, 1000, 20, dtype=float)  # every 20ms
+        train_b = train_a + 10.0  # shifted by +10ms
+        sd = SpikeData([train_a, train_b], length=1020)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix[0, 1] == pytest.approx(10.0, abs=0.1)
+        assert mean_lat.matrix[1, 0] == pytest.approx(-10.0, abs=0.1)
+        assert std_lat.matrix[0, 1] == pytest.approx(0.0, abs=0.1)
+
+    def test_window_ms_filter(self):
+        """
+        Tests that window_ms filters out distant latencies.
+
+        Tests:
+            (Test Case 1) With a tight window, only close spikes contribute.
+            (Test Case 2) A pair with all latencies beyond the window yields
+                mean=0 and std=0.
+        """
+        # Two trains: one spike at 0, one spike at 500 — latency is 500ms
+        sd = SpikeData([[0.5], [500.5]], length=600)
+
+        # No window — latency is 500
+        mean_no_win, _ = sd.get_pairwise_latencies()
+        assert mean_no_win.matrix[0, 1] == pytest.approx(500.0)
+
+        # Window of 100ms — the 500ms latency is filtered out
+        mean_win, std_win = sd.get_pairwise_latencies(window_ms=100.0)
+        assert mean_win.matrix[0, 1] == pytest.approx(0.0)
+        assert std_win.matrix[0, 1] == pytest.approx(0.0)
+
+    def test_metadata(self):
+        """
+        Tests that metadata stores window_ms.
+
+        Tests:
+            (Test Case 1) Metadata contains window_ms=None by default.
+            (Test Case 2) Metadata contains the specified window_ms value.
+        """
+        sd = random_spikedata(2, 2000)
+
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+        assert mean_lat.metadata["window_ms"] is None
+
+        mean_lat2, std_lat2 = sd.get_pairwise_latencies(window_ms=50.0)
+        assert mean_lat2.metadata["window_ms"] == 50.0
+
+    def test_return_distributions(self):
+        """
+        Tests that return_distributions=True returns a third element.
+
+        Tests:
+            (Test Case 1) Returns a tuple of length 3 when True.
+            (Test Case 2) The distributions array has shape (U, U).
+            (Test Case 3) Each entry is an ndarray.
+            (Test Case 4) Diagonal entries are empty arrays.
+            (Test Case 5) Number of latencies in [i,j] equals number of spikes
+                in train i (without window filtering).
+        """
+        train_a = np.sort(np.random.uniform(0, 1000, size=50))
+        train_b = np.sort(np.random.uniform(0, 1000, size=80))
+        sd = SpikeData([train_a, train_b], length=1000)
+
+        result = sd.get_pairwise_latencies(return_distributions=True)
+        assert len(result) == 3
+
+        mean_lat, std_lat, dists = result
+        assert dists.shape == (2, 2)
+        assert isinstance(dists[0, 1], np.ndarray)
+        assert len(dists[0, 0]) == 0  # diagonal
+        assert len(dists[0, 1]) == 50  # one latency per spike in train_a
+        assert len(dists[1, 0]) == 80  # one latency per spike in train_b
+
+    def test_empty_train(self):
+        """
+        Tests get_pairwise_latencies when one unit has no spikes.
+
+        Tests:
+            (Test Case 1) Mean and std are 0 for pairs involving empty trains.
+            (Test Case 2) Distribution is empty for pairs involving empty trains.
+        """
+        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
+        mean_lat, std_lat, dists = sd.get_pairwise_latencies(
+            return_distributions=True
+        )
+
+        assert mean_lat.matrix[0, 1] == 0.0
+        assert mean_lat.matrix[1, 0] == 0.0
+        assert std_lat.matrix[0, 1] == 0.0
+        assert len(dists[0, 1]) == 0
+        assert len(dists[1, 0]) == 0
+
+    def test_single_unit(self):
+        """
+        Tests get_pairwise_latencies with a single unit.
+
+        Tests:
+            (Test Case 1) Returns 1x1 matrices with zeros.
+        """
+        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix.shape == (1, 1)
+        assert mean_lat.matrix[0, 0] == 0.0
+        assert std_lat.matrix[0, 0] == 0.0
+
+    def test_without_distributions_returns_two(self):
+        """
+        Tests that return_distributions=False returns only two values.
+
+        Tests:
+            (Test Case 1) Default call returns a tuple of length 2.
+        """
+        sd = random_spikedata(3, 3000)
+        result = sd.get_pairwise_latencies()
+        assert len(result) == 2
+
+
 class TestSpikeDataEdgeCases:
     """Edge-case tests for SpikeData boundaries (Group 3)."""
 

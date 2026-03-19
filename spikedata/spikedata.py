@@ -30,6 +30,8 @@ from .utils import (
     trough_between,
     extract_unit_waveforms,
     _get_attr,
+    compute_cross_correlation_with_lag,
+    compute_cosine_similarity_with_lag,
 )
 
 __all__ = [
@@ -1173,6 +1175,65 @@ class SpikeData:
         """
         return get_sttc(self.train[i], self.train[j], delt, self.length)
 
+    def get_pairwise_ccg(
+        self,
+        compare_func=compute_cross_correlation_with_lag,
+        bin_size=1.0,
+        max_lag=350,
+    ):
+        """
+        Compute pairwise cross-correlogram matrices from binned binary spike arrays.
+
+        Bins the spike trains into a binary raster and computes the pairwise
+        similarity between all unit pairs using lagged cross-correlation (default)
+        or lagged cosine similarity.
+
+        Parameters:
+            compare_func (callable): Comparison function from utils. Must accept
+                (ref_signal, comp_signal, max_lag=int) and return (score, lag).
+                Default is compute_cross_correlation_with_lag. Alternative:
+                compute_cosine_similarity_with_lag.
+            bin_size (float): Bin size in milliseconds for the binary raster
+                (default: 1.0).
+            max_lag (float): Maximum lag in milliseconds to search for the peak
+                correlation (default: 350). Converted to bins internally.
+
+        Returns:
+            corr_matrix (PairwiseCompMatrix): Matrix of maximum correlation
+                coefficients between all unit pairs. Diagonal is always 1.
+            lag_matrix (PairwiseCompMatrix): Matrix of time lags in bins at which
+                maximum correlation occurs. Positive lag means unit j leads unit i.
+                Diagonal is always 0.
+        """
+        raster_matrix = self.raster(bin_size)
+        num_units = raster_matrix.shape[0]
+        max_lag_bins = int(round(max_lag / bin_size))
+
+        corr_matrix = np.full((num_units, num_units), np.nan)
+        lag_matrix = np.full((num_units, num_units), np.nan)
+
+        for n1 in range(num_units):
+            for n2 in range(n1, num_units):
+                ref_signal = raster_matrix[n1, :]
+                comp_signal = raster_matrix[n2, :]
+                max_corr, max_lag_idx = compare_func(
+                    ref_signal, comp_signal, max_lag=max_lag_bins
+                )
+
+                corr_matrix[n1, n2] = max_corr
+                lag_matrix[n1, n2] = max_lag_idx
+
+                corr_matrix[n2, n1] = max_corr
+                lag_matrix[n2, n1] = -max_lag_idx
+
+        return PairwiseCompMatrix(
+            matrix=corr_matrix,
+            metadata={"bin_size": bin_size, "max_lag": max_lag},
+        ), PairwiseCompMatrix(
+            matrix=lag_matrix,
+            metadata={"bin_size": bin_size, "max_lag": max_lag},
+        )
+
     def latencies(self, times, window_ms=100.0):
         """
         Given a sorted list of times, compute the latencies from that time to each spike
@@ -1208,6 +1269,87 @@ class SpikeData:
                     cur_latencies.append(latency)
             latencies.append(cur_latencies)
         return latencies
+
+    def get_pairwise_latencies(self, window_ms=None, return_distributions=False):
+        """
+        Compute pairwise nearest-spike latency distributions between all unit pairs.
+
+        For each ordered pair (i, j), and for each spike in train i, finds the
+        closest spike in train j and records the signed latency (t_j - t_i).
+        Both directions are computed independently.
+
+        Parameters:
+            window_ms (float or None): If not None, discard latencies where the
+                absolute distance exceeds this value (default: None, no filtering).
+            return_distributions (bool): If True, also return a (U, U) numpy
+                object array where entry [i, j] is an ndarray of all individual
+                signed latencies from unit i to unit j (default: False).
+
+        Returns:
+            mean_latency (PairwiseCompMatrix): Matrix of mean signed latencies
+                in milliseconds. Entry [i, j] is the average latency from each
+                spike in unit i to the nearest spike in unit j. Diagonal is 0.
+            std_latency (PairwiseCompMatrix): Matrix of latency standard
+                deviations. Entry [i, j] is the std of latencies from unit i
+                to unit j. Diagonal is 0.
+            distributions (np.ndarray): Only returned when return_distributions
+                is True. A (U, U) object array where [i, j] is an ndarray of
+                all signed latencies from unit i to unit j.
+        """
+        N = self.N
+        mean_matrix = np.zeros((N, N))
+        std_matrix = np.zeros((N, N))
+
+        if return_distributions:
+            dist_matrix = np.empty((N, N), dtype=object)
+
+        for i in range(N):
+            train_i = np.asarray(self.train[i])
+            for j in range(N):
+                if i == j:
+                    if return_distributions:
+                        dist_matrix[i, j] = np.array([], dtype=np.float64)
+                    continue
+
+                train_j = np.asarray(self.train[j])
+
+                if len(train_i) == 0 or len(train_j) == 0:
+                    if return_distributions:
+                        dist_matrix[i, j] = np.array([], dtype=np.float64)
+                    continue
+
+                # For each spike in train_i, find the closest spike in train_j
+                idx = np.searchsorted(train_j, train_i)
+                np.clip(idx, 1, len(train_j) - 1, out=idx)
+
+                # Check both the candidate and its predecessor
+                dt_right = train_j[idx] - train_i
+                dt_left = train_j[idx - 1] - train_i
+
+                # Pick whichever is closer in absolute value
+                use_left = np.abs(dt_left) < np.abs(dt_right)
+                latencies = np.where(use_left, dt_left, dt_right)
+
+                # Apply window filter
+                if window_ms is not None:
+                    mask = np.abs(latencies) <= window_ms
+                    latencies = latencies[mask]
+
+                if return_distributions:
+                    dist_matrix[i, j] = latencies
+
+                if len(latencies) > 0:
+                    mean_matrix[i, j] = np.mean(latencies)
+                    std_matrix[i, j] = np.std(latencies)
+
+        meta = {"window_ms": window_ms}
+        result = (
+            PairwiseCompMatrix(matrix=mean_matrix, metadata=meta),
+            PairwiseCompMatrix(matrix=std_matrix, metadata=meta),
+        )
+        if return_distributions:
+            return result + (dist_matrix,)
+        return result
 
     def latencies_to_index(self, i, window_ms=100.0):
         """
@@ -1914,6 +2056,12 @@ class SpikeData:
               ``pip install poor-man-gplvm jax jaxlib``.
             - The binned spike count matrix has shape ``(T, N)`` where T is the
               number of time bins and N is the number of units.
+            - To compute metrics from the fitted model, see the GPLVM utility
+              functions in ``spikedata.utils``:
+              ``gplvm_state_entropy`` (Shannon entropy per time bin),
+              ``gplvm_continuity_prob`` (continuity probability time series),
+              ``gplvm_average_state_probability`` (mean state probability),
+              and ``consecutive_durations`` (run lengths above/below a threshold).
         """
         try:
             import poor_man_gplvm as pmg

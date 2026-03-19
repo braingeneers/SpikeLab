@@ -2,6 +2,8 @@ import warnings
 from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
+from itertools import groupby as _groupby
+
 from scipy import ndimage, signal
 from scipy.stats import norm
 
@@ -21,6 +23,10 @@ __all__ = [
     "get_valid_spike_times",
     "waveforms_by_channel",
     "extract_unit_waveforms",
+    "consecutive_durations",
+    "gplvm_state_entropy",
+    "gplvm_continuity_prob",
+    "gplvm_average_state_probability",
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
@@ -1040,6 +1046,132 @@ def extract_waveforms(
         return np.zeros((n_channels, n_samples, 0), dtype=raw_data.dtype)
 
     return np.array(waveforms).transpose(1, 2, 0)
+
+
+def consecutive_durations(signal, threshold, mode="above", min_dur=1):
+    """
+    Compute the lengths of consecutive runs in a 1-D signal that satisfy a threshold condition.
+
+    Scans *signal* for contiguous stretches of bins that are above (>=) or
+    below (<) *threshold*, returns an array of their durations, and optionally
+    filters out runs shorter than *min_dur*.
+
+    Parameters:
+        signal (array_like): 1-D numeric array (e.g. continuity probability
+            time series from a GPLVM).
+        threshold (float): Threshold value for the condition.
+        mode (str): ``"above"`` keeps runs where ``signal >= threshold``;
+            ``"below"`` keeps runs where ``signal < threshold``.
+        min_dur (int): Minimum run length to keep. Runs shorter than this
+            are discarded.
+
+    Returns:
+        durations (np.ndarray): 1-D integer array of run lengths that satisfy
+            the condition and are at least *min_dur* bins long. May be empty.
+    """
+    signal = np.asarray(signal)
+    if signal.ndim != 1:
+        raise ValueError(f"signal must be 1-D, got shape {signal.shape}")
+
+    if mode == "above":
+        condition = signal >= threshold
+    elif mode == "below":
+        condition = signal < threshold
+    else:
+        raise ValueError("mode must be 'above' or 'below'")
+
+    # Compute lengths of consecutive True runs
+    durations = np.array(
+        [sum(1 for _ in group) for key, group in _groupby(condition) if key],
+        dtype=int,
+    )
+
+    if durations.size > 0:
+        durations = durations[durations >= min_dur]
+
+    return durations
+
+
+def gplvm_state_entropy(posterior_latent_marg):
+    """
+    Compute Shannon entropy of the latent state distribution at each time bin.
+
+    Parameters:
+        posterior_latent_marg (np.ndarray): Marginal posterior over latent
+            states with shape ``(T, K)`` where *T* is the number of time bins
+            and *K* is the number of latent states. Typically obtained from
+            ``SpikeData.fit_gplvm()["decode_res"]["posterior_latent_marg"]``.
+
+    Returns:
+        entropy (np.ndarray): 1-D array of shape ``(T,)`` with the Shannon
+            entropy (in nats) for each time bin.
+    """
+    from scipy.stats import entropy as _entropy
+
+    posterior_latent_marg = np.asarray(posterior_latent_marg)
+    if posterior_latent_marg.ndim != 2:
+        raise ValueError(
+            f"posterior_latent_marg must be 2-D (T, K), got shape "
+            f"{posterior_latent_marg.shape}"
+        )
+    return _entropy(posterior_latent_marg, axis=1)
+
+
+def gplvm_continuity_prob(decode_res):
+    """
+    Extract the continuity (non-jump) probability time series from a GPLVM decode result.
+
+    The continuity probability at each time bin is the marginal posterior
+    probability that the dynamics remained continuous (i.e. did not jump)
+    between the previous and current time bin.
+
+    Parameters:
+        decode_res (dict): Decoded latent state dictionary as returned by
+            ``SpikeData.fit_gplvm()["decode_res"]``. Must contain the key
+            ``"posterior_dynamics_marg"`` with shape ``(T, D)`` where the
+            first column (index 0) holds the continuity probability.
+
+    Returns:
+        continuity_prob (np.ndarray): 1-D array of shape ``(T,)`` with the
+            continuity probability at each time bin.
+    """
+    if not isinstance(decode_res, dict):
+        raise TypeError("decode_res must be a dict from SpikeData.fit_gplvm()")
+    if "posterior_dynamics_marg" not in decode_res:
+        raise KeyError(
+            "decode_res must contain 'posterior_dynamics_marg'. "
+            "Pass the 'decode_res' dict from SpikeData.fit_gplvm()."
+        )
+    dynamics = np.asarray(decode_res["posterior_dynamics_marg"])
+    if dynamics.ndim != 2 or dynamics.shape[1] < 1:
+        raise ValueError(
+            f"posterior_dynamics_marg must be 2-D with at least 1 column, "
+            f"got shape {dynamics.shape}"
+        )
+    return dynamics[:, 0]
+
+
+def gplvm_average_state_probability(posterior_latent_marg):
+    """
+    Compute the average probability of each latent state across all time bins.
+
+    Parameters:
+        posterior_latent_marg (np.ndarray): Marginal posterior over latent
+            states with shape ``(T, K)`` where *T* is the number of time bins
+            and *K* is the number of latent states. Typically obtained from
+            ``SpikeData.fit_gplvm()["decode_res"]["posterior_latent_marg"]``.
+
+    Returns:
+        avg_prob (np.ndarray): 1-D array of shape ``(K,)`` with the mean
+            probability of each latent state, averaged over all time bins.
+    """
+    posterior_latent_marg = np.asarray(posterior_latent_marg)
+    if posterior_latent_marg.ndim != 2:
+        raise ValueError(
+            f"posterior_latent_marg must be 2-D (T, K), got shape "
+            f"{posterior_latent_marg.shape}"
+        )
+    return np.mean(posterior_latent_marg, axis=0)
 
 
 def _get_attr(obj, key, default):
