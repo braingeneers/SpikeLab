@@ -112,15 +112,15 @@ class RateData:
             neuron_attributes=neuron_attributes,
         )
 
-    def subtime(self, start, end, shift_time=True):
+    def subtime(self, start, end):
         """
         Extract a subset of time points from the rate data using time values.
 
+        Times are always shifted so that the new RateData starts at t=0.
+
         Parameters:
         start (int/float): Starting time value (inclusive)
-        end (int/flot): Ending time value (exclusive)
-        shift_time (bool): If true, this will make the new output rate object where self.times[0] = 0 (starting time is 0)
-                      If false, this will make the new output rate object where self.times[0] = start (starting time is start input)
+        end (int/float): Ending time value (exclusive)
 
         Returns:
         RateData: New RateData object containing only the specified time range
@@ -163,24 +163,22 @@ class RateData:
             )
 
         output = self.inst_Frate_data[:, mask]
-        new_times = self.times[mask]
-        if shift_time:
-            new_times = new_times - new_times[0]
+        new_times = self.times[mask] - self.times[mask][0]
         return RateData(
             inst_Frate_data=output,
             times=new_times,
             neuron_attributes=self.neuron_attributes,
         )
 
-    def subtime_by_index(self, start_idx, end_idx, shift_time=True):
+    def subtime_by_index(self, start_idx, end_idx):
         """
         Extract a subset of time points from the rate data using time index values.
 
+        Times are always shifted so that the new RateData starts at t=0.
+
         Parameters:
-        start (int): Starting time index (inclusive)
-        end (int): Ending time index (exclusive)
-        shift_time (bool): If true, this will make the new output rate object where self.times[0] = 0 (starting time is 0)
-                      If false, this will make the new output rate object where self.times[0] = start (starting time is start input)
+        start_idx (int): Starting time index (inclusive)
+        end_idx (int): Ending time index (exclusive)
 
         Returns:
         RateData: New RateData object containing only the specified time range
@@ -197,9 +195,7 @@ class RateData:
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
         new_times = self.times[start_idx:end_idx]
-
-        if shift_time:
-            new_times = new_times - new_times[0]
+        new_times = new_times - new_times[0]
 
         return RateData(
             inst_Frate_data=output,

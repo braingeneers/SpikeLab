@@ -710,22 +710,16 @@ class SpikeData:
 
         return mapping
 
-    def subtime(self, start, end, shift_time=True):
+    def subtime(self, start, end):
         """
         Extract a subset of time points from spikedata using time values.
+
+        Spike times are always shifted so that the new SpikeData starts at t=0.
+        For example, subtime(100, 200) produces spikes in the range [0, 100).
 
         Parameters:
         start (int/float): Starting time value (inclusive)
         end (int/float): Ending time value (exclusive)
-        shift_time (bool): If True, this will make the new output spike data object where the times are shifted so
-                           relative to 0 (input start time becomes 0 for new spikedata)
-                           If False, preserve original time values (spikes retain their original timestamps).
-                           Example) shift_time=False
-                                        subtime(1.0, 4.0, shift_time=False)
-                                        Result: train[0] = [1.2, 2.3, 3.7]  Original timestamps preserved.
-                                    shift_time=True (default)
-                                        subtime(1.0, 4.0, shift_time=True)
-                                        Result: train[0] = [0.2, 1.3, 2.7]  Shifted by -1.0 (the start value)
 
         Returns:
         SpikeData: New SpikeData object containing only the specified time range
@@ -762,10 +756,8 @@ class SpikeData:
                 f"Cannot create subtime with invalid range."
             )
 
-        time_shift = start if shift_time else 0
-
-        # Subset the spike train by time
-        train = [t[(t >= start) & (t < end)] - time_shift for t in self.train]
+        # Subset the spike train by time, shifting to start at 0
+        train = [t[(t >= start) & (t < end)] - start for t in self.train]
 
         # Subset and propagate the raw data
         rawmask = (self.raw_time >= start) & (self.raw_time < end)
@@ -776,7 +768,7 @@ class SpikeData:
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - time_shift,
+            raw_time=self.raw_time[rawmask] - start,
             raw_data=self.raw_data[..., rawmask],
         )
 

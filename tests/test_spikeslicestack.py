@@ -669,12 +669,6 @@ class TestSubset:
         assert result.neuron_attributes[0]["id"] == "A"
         assert result.neuron_attributes[1]["id"] == "C"
 
-    @pytest.mark.xfail(
-        reason="Source bug: SpikeSliceStack.subset(by=) passes by= to individual "
-        "SpikeData.subset() but the slice SpikeData objects may not have "
-        "neuron_attributes. Should pass resolved indices instead.",
-        strict=True,
-    )
     def test_subset_by_attribute(self):
         """
         Extract units by neuron_attribute key.
@@ -732,19 +726,8 @@ class TestSubset:
             )
 
 
-@pytest.mark.xfail(
-    reason="Source bug: subtime_by_index passes absolute times to SpikeData "
-    "with relative length (from shift_time=False subtime). Needs source fix.",
-    strict=True,
-)
 class TestSubtimeByIndex:
-    """Tests for SpikeSliceStack.subtime_by_index().
-
-    NOTE: These tests are currently xfail because subtime_by_index has a source
-    bug — it passes absolute time coordinates to sd.subtime() but the slice
-    SpikeData objects have length = window_duration (not absolute end time),
-    causing subtime to clip the start/end to the duration and raise ValueError.
-    """
+    """Tests for SpikeSliceStack.subtime_by_index()."""
 
     def _make_stack(self):
         """Helper: 2-unit, 3-slice stack with 50ms slices."""
@@ -802,19 +785,20 @@ class TestSubtimeByIndex:
 
     def test_subtime_spikes_within_window(self):
         """
-        After trimming, spikes outside the new window are excluded.
+        After trimming, spikes are 0-based and within the slice duration.
 
         Tests:
-            (Test Case 1) All spike times fall within the new absolute window.
+            (Test Case 1) All spike times fall within [0, end_idx - start_idx).
         """
         sss = self._make_stack()
         result = sss.subtime_by_index(10, 30)
+        window_duration = 30 - 10
 
-        for sd, (t_start, t_end) in zip(result.spike_stack, result.times):
+        for sd in result.spike_stack:
             for unit_spikes in sd.train:
                 if len(unit_spikes) > 0:
-                    assert np.all(unit_spikes >= t_start)
-                    assert np.all(unit_spikes < t_end)
+                    assert np.all(unit_spikes >= 0)
+                    assert np.all(unit_spikes < window_duration)
 
 
 class TestToRasterArrayCustomBin:

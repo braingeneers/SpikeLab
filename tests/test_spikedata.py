@@ -301,7 +301,7 @@ class TestSpikeData:
         assert len(stack.spike_stack) == 5  # 100ms / 20ms = 5 frames
         for i, frame in enumerate(stack.spike_stack):
             self.assert_spikedata_equal(
-                frame, sd.subtime(i * 20, (i + 1) * 20, shift_time=False)
+                frame, sd.subtime(i * 20, (i + 1) * 20)
             )
 
         # Test overlap parameter and that the partial last window is excluded.
@@ -311,7 +311,7 @@ class TestSpikeData:
         assert len(stack_overlap.spike_stack) == 9
         for i, frame in enumerate(stack_overlap.spike_stack):
             self.assert_spikedata_equal(
-                frame, sd.subtime(i * 10, i * 10 + 20, shift_time=False)
+                frame, sd.subtime(i * 10, i * 10 + 20)
             )
 
         # Test ValueError for overlap >= length and recording shorter than frame.
@@ -2402,16 +2402,20 @@ class TestGetPairwiseLatencies:
 
         Tests:
             (Test Case 1) Train B is train A shifted by +10ms. Mean latency
-                from A to B should be approximately +10.
-            (Test Case 2) Mean latency from B to A should be approximately -10.
+                from A to B should be exactly +10.
+            (Test Case 2) Mean latency from B to A is close to -10 but not
+                exact due to boundary effects (last spike in B has no forward
+                match in A).
+            (Test Case 3) Std from A to B is 0 (all latencies identical).
         """
-        train_a = np.arange(0, 1000, 20, dtype=float)  # every 20ms
-        train_b = train_a + 10.0  # shifted by +10ms
-        sd = SpikeData([train_a, train_b], length=1020)
+        # Offset of 5ms with 20ms spacing avoids equidistant tie-breaking
+        train_a = np.arange(20, 980, 20, dtype=float)
+        train_b = train_a + 5.0  # shifted by +5ms
+        sd = SpikeData([train_a, train_b], length=1000)
         mean_lat, std_lat = sd.get_pairwise_latencies()
 
-        assert mean_lat.matrix[0, 1] == pytest.approx(10.0, abs=0.1)
-        assert mean_lat.matrix[1, 0] == pytest.approx(-10.0, abs=0.1)
+        assert mean_lat.matrix[0, 1] == pytest.approx(5.0, abs=0.1)
+        assert mean_lat.matrix[1, 0] == pytest.approx(-5.0, abs=0.1)
         assert std_lat.matrix[0, 1] == pytest.approx(0.0, abs=0.1)
 
     def test_window_ms_filter(self):

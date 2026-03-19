@@ -113,26 +113,20 @@ class TestRateData:
 
     def test_subtime(self):
         """
-        Tests that subtime() slices correctly with both shift_time modes.
+        Tests that subtime() slices correctly, always shifting times to start at 0.
 
         Tests:
             (Test Case 1) Basic slice extracts correct time range.
-            (Test Case 2) shift_time=True shifts times to start from 0.
-            (Test Case 3) shift_time=False preserves original time values.
-            (Test Case 4) No time points in range raises ValueError.
+            (Test Case 2) Times always start from 0.
+            (Test Case 3) No time points in range raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times: 0..99
 
         sub = rd.subtime(20.0, 40.0)
         # times in [20, 40) -> 20 bins
         assert sub.inst_Frate_data.shape[1] == 20
-        # shift_time=True (default): times start at 0
+        # Times always start at 0
         assert float(sub.times[0]) == pytest.approx(0.0)
-
-        # shift_time=False: times retain original values
-        sub_abs = rd.subtime(20.0, 40.0, shift_time=False)
-        assert float(sub_abs.times[0]) == pytest.approx(20.0)
-        assert float(sub_abs.times[-1]) == pytest.approx(39.0)
 
         # Data matches the original slice.
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 20:40])
@@ -143,11 +137,11 @@ class TestRateData:
 
     def test_subtime_by_index(self):
         """
-        Tests that subtime_by_index() slices by column index.
+        Tests that subtime_by_index() slices by column index, always shifting to 0.
 
         Tests:
             (Test Case 1) Correct data and shape returned for valid indices.
-            (Test Case 2) shift_time=True shifts times to start from 0.
+            (Test Case 2) Times always start from 0.
             (Test Case 3) Invalid start or end index raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)  # times: 0,2,4,...,118
@@ -155,11 +149,7 @@ class TestRateData:
         sub = rd.subtime_by_index(10, 30)
         assert sub.inst_Frate_data.shape == (2, 20)
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 10:30])
-        assert float(sub.times[0]) == pytest.approx(0.0)  # shift_time=True default
-
-        # shift_time=False preserves values.
-        sub_abs = rd.subtime_by_index(10, 30, shift_time=False)
-        assert float(sub_abs.times[0]) == pytest.approx(float(rd.times[10]))
+        assert float(sub.times[0]) == pytest.approx(0.0)
 
         # Out-of-bounds indices raise ValueError.
         with pytest.raises(ValueError):
@@ -188,7 +178,7 @@ class TestRateData:
 
         # Each frame's data must match the raw subtime slice.
         for i, (start, end) in enumerate(stack.times):
-            expected = rd.subtime(start, end, shift_time=False).inst_Frate_data
+            expected = rd.subtime(start, end).inst_Frate_data
             np.testing.assert_array_equal(stack.event_stack[:, :, i], expected)
 
     def test_frames_overlap(self):
@@ -393,8 +383,9 @@ class TestRateData:
         sub_start_none = rd.subtime(None, 25.0)
         assert sub_start_none.inst_Frate_data.shape[1] == 25
 
-        sub_end_none = rd.subtime(25.0, None, shift_time=False)
-        assert float(sub_end_none.times[0]) == pytest.approx(25.0)
+        sub_end_none = rd.subtime(25.0, None)
+        assert float(sub_end_none.times[0]) == pytest.approx(0.0)
+        assert sub_end_none.inst_Frate_data.shape[1] == 24  # times [25, 49) = 24 bins
 
         sub_ellipsis = rd.subtime(..., 25.0)
         assert sub_ellipsis.inst_Frate_data.shape[1] == 25
@@ -409,9 +400,10 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)
 
-        sub = rd.subtime(-20.0, None, shift_time=False)
-        # -20 from end (99) = 79
-        assert float(sub.times[0]) == pytest.approx(79.0)
+        sub = rd.subtime(-20.0, None)
+        # -20 from end (99) = 79; times always shifted to 0
+        assert float(sub.times[0]) == pytest.approx(0.0)
+        assert sub.inst_Frate_data.shape[1] == 20  # times [79, 99) = 20 bins
 
     def test_get_manifold_pca_kwargs_warning(self):
         """
@@ -708,7 +700,7 @@ class TestRateDataEdgeCases:
         produce a times array containing only 0.0.
         """
         rd = make_ratedata(n_units=2, n_times=10, step=5.0, t0=100.0)
-        result = rd.subtime_by_index(3, 4, shift_time=True)
+        result = rd.subtime_by_index(3, 4)
         assert result.inst_Frate_data.shape == (2, 1)
         assert len(result.times) == 1
         assert float(result.times[0]) == pytest.approx(0.0)

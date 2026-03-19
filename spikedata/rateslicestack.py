@@ -137,7 +137,7 @@ class RateSliceStack:
                 for time in times_start_to_end:
                     start = time[0]
                     end = time[1]
-                    rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
+                    rate_obj_slice = data_obj.subtime(start, end)
                     slice_matrix = rate_obj_slice.inst_Frate_data
                     event_stack.append(slice_matrix)
 
