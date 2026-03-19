@@ -1011,6 +1011,52 @@ peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indi
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.burst_sensitivity">
+<span class="sig-name descname"><span class="pre">burst_sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">thr_values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist_values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_edge_mult_thresh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">square_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gauss_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acc_square_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acc_gauss_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_to_trough</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_acc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rms_override</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.burst_sensitivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.burst_sensitivity" title="Link to this definition"></a></dt>
+<dd><p>Sweep burst detection parameters and return a matrix of detected burst counts.</p>
+<p>Calls <code class="docutils literal notranslate"><span class="pre">get_bursts</span></code> for every combination of <code class="docutils literal notranslate"><span class="pre">thr_values</span></code> and
+<code class="docutils literal notranslate"><span class="pre">dist_values</span></code>, holding <code class="docutils literal notranslate"><span class="pre">burst_edge_mult_thresh</span></code> constant, and
+returns the number of detected bursts for each parameter pair.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>thr_values</strong> (<em>array-like</em>) – 1-D array of <code class="docutils literal notranslate"><span class="pre">thr_burst</span></code> values to sweep.</p></li>
+<li><p><strong>dist_values</strong> (<em>array-like</em>) – 1-D array of <code class="docutils literal notranslate"><span class="pre">min_burst_diff</span></code> values (in bins) to sweep.</p></li>
+<li><p><strong>burst_edge_mult_thresh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Held constant during the sweep.</p></li>
+<li><p><strong>square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Square window width for pop_rate (in bins).</p></li>
+<li><p><strong>gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Gaussian window sigma for pop_rate (in bins).</p></li>
+<li><p><strong>acc_square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Square window width for pop_rate_acc (in bins).</p></li>
+<li><p><strong>acc_gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Gaussian window sigma for pop_rate_acc (in bins).</p></li>
+<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time bin size for population rate in ms.</p></li>
+<li><p><strong>peak_to_trough</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Peak-to-trough (True) or peak-to-zero (False) burst detection.</p></li>
+<li><p><strong>pop_rate</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Pre-computed smoothed population rate.</p></li>
+<li><p><strong>pop_rate_acc</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Pre-computed accurate smoothed population rate.</p></li>
+<li><p><strong>pop_rms_override</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – RMS override for burst threshold baseline.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Integer array of shape</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(len(thr_values),</span> <span class="pre">len(dist_values))</span></code> with the number of
+detected bursts for each parameter combination.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>burst_counts (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Either <code class="docutils literal notranslate"><span class="pre">thr_values</span></code> or <code class="docutils literal notranslate"><span class="pre">dist_values</span></code> can have length 1 to
+focus the sensitivity analysis on a single parameter.</p></li>
+<li><p>Pre-computing <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> and <code class="docutils literal notranslate"><span class="pre">pop_rate_acc</span></code> and passing them
+in avoids redundant smoothing inside the loop and can speed up
+the sweep significantly.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.fit_gplvm">
 <span class="sig-name descname"><span class="pre">fit_gplvm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">movement_variance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tuning_lengthscale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_latent_bin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_time_per_chunk</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_class</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">model_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.fit_gplvm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.fit_gplvm" title="Link to this definition"></a></dt>
 <dd><p>Fit a Gaussian Process Latent Variable Model to binned spike counts.</p>

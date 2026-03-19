@@ -2095,6 +2095,87 @@
         <span class="k">return</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span></div>
 
 
+<div class="viewcode-block" id="SpikeData.burst_sensitivity">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.burst_sensitivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">burst_sensitivity</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">thr_values</span><span class="p">,</span>
+        <span class="n">dist_values</span><span class="p">,</span>
+        <span class="n">burst_edge_mult_thresh</span><span class="p">,</span>
+        <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">acc_square_width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">acc_gauss_sigma</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">peak_to_trough</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">pop_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pop_rate_acc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pop_rms_override</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sweep burst detection parameters and return a matrix of detected burst counts.</span>
+
+<span class="sd">        Calls ``get_bursts`` for every combination of ``thr_values`` and</span>
+<span class="sd">        ``dist_values``, holding ``burst_edge_mult_thresh`` constant, and</span>
+<span class="sd">        returns the number of detected bursts for each parameter pair.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            thr_values (array-like): 1-D array of ``thr_burst`` values to sweep.</span>
+<span class="sd">            dist_values (array-like): 1-D array of ``min_burst_diff`` values (in bins) to sweep.</span>
+<span class="sd">            burst_edge_mult_thresh (float): Held constant during the sweep.</span>
+<span class="sd">            square_width (int): Square window width for pop_rate (in bins).</span>
+<span class="sd">            gauss_sigma (int): Gaussian window sigma for pop_rate (in bins).</span>
+<span class="sd">            acc_square_width (int): Square window width for pop_rate_acc (in bins).</span>
+<span class="sd">            acc_gauss_sigma (int): Gaussian window sigma for pop_rate_acc (in bins).</span>
+<span class="sd">            raster_bin_size_ms (float): Time bin size for population rate in ms.</span>
+<span class="sd">            peak_to_trough (bool): Peak-to-trough (True) or peak-to-zero (False) burst detection.</span>
+<span class="sd">            pop_rate (np.ndarray, optional): Pre-computed smoothed population rate.</span>
+<span class="sd">            pop_rate_acc (np.ndarray, optional): Pre-computed accurate smoothed population rate.</span>
+<span class="sd">            pop_rms_override (float, optional): RMS override for burst threshold baseline.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            burst_counts (np.ndarray): Integer array of shape</span>
+<span class="sd">                ``(len(thr_values), len(dist_values))`` with the number of</span>
+<span class="sd">                detected bursts for each parameter combination.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Either ``thr_values`` or ``dist_values`` can have length 1 to</span>
+<span class="sd">              focus the sensitivity analysis on a single parameter.</span>
+<span class="sd">            - Pre-computing ``pop_rate`` and ``pop_rate_acc`` and passing them</span>
+<span class="sd">              in avoids redundant smoothing inside the loop and can speed up</span>
+<span class="sd">              the sweep significantly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">thr_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">thr_values</span><span class="p">)</span>
+        <span class="n">dist_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dist_values</span><span class="p">)</span>
+
+        <span class="c1"># Pre-compute population rates once if not provided</span>
+        <span class="k">if</span> <span class="n">pop_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pop_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pop_rate</span><span class="p">(</span>
+                <span class="n">square_width</span><span class="p">,</span> <span class="n">gauss_sigma</span><span class="p">,</span> <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="n">raster_bin_size_ms</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">pop_rate_acc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pop_rate_acc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pop_rate</span><span class="p">(</span>
+                <span class="n">acc_square_width</span><span class="p">,</span> <span class="n">acc_gauss_sigma</span><span class="p">,</span> <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="n">raster_bin_size_ms</span>
+            <span class="p">)</span>
+
+        <span class="n">burst_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">thr_values</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">dist_values</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">thr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">thr_values</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">dist</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dist_values</span><span class="p">):</span>
+                <span class="n">tburst</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bursts</span><span class="p">(</span>
+                    <span class="n">thr_burst</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">thr</span><span class="p">),</span>
+                    <span class="n">min_burst_diff</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">dist</span><span class="p">),</span>
+                    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="n">burst_edge_mult_thresh</span><span class="p">,</span>
+                    <span class="n">peak_to_trough</span><span class="o">=</span><span class="n">peak_to_trough</span><span class="p">,</span>
+                    <span class="n">pop_rate</span><span class="o">=</span><span class="n">pop_rate</span><span class="p">,</span>
+                    <span class="n">pop_rate_acc</span><span class="o">=</span><span class="n">pop_rate_acc</span><span class="p">,</span>
+                    <span class="n">pop_rms_override</span><span class="o">=</span><span class="n">pop_rms_override</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">burst_counts</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tburst</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">burst_counts</span></div>
+
+
 <div class="viewcode-block" id="SpikeData.fit_gplvm">
 <a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.fit_gplvm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">fit_gplvm</span><span class="p">(</span>
@@ -2187,21 +2268,27 @@
             <span class="n">n_time_per_chunk</span><span class="o">=</span><span class="n">n_time_per_chunk</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">log_marginal_l</span> <span class="o">=</span> <span class="n">em_res</span><span class="p">[</span><span class="s2">&quot;log_marginal_l&quot;</span><span class="p">]</span>
+        <span class="n">log_marginal_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">em_res</span><span class="p">[</span><span class="s2">&quot;log_marginal_l&quot;</span><span class="p">])</span>
 
         <span class="c1"># Decode latent states</span>
         <span class="n">decode_res</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">decode_latent</span><span class="p">(</span><span class="n">binned_spk_mat</span><span class="p">)</span>
 
+        <span class="c1"># Convert decode_res values from JAX arrays to numpy</span>
+        <span class="n">decode_res</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">decode_res</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
         <span class="c1"># Get unit reordering by tuning curve peaks</span>
         <span class="n">sort_res</span> <span class="o">=</span> <span class="n">pmg_utils</span><span class="o">.</span><span class="n">post_fit_sort_neuron</span><span class="p">(</span><span class="n">em_res</span><span class="p">)</span>
-        <span class="n">reorder_indices</span> <span class="o">=</span> <span class="n">sort_res</span><span class="p">[</span><span class="s2">&quot;argsort&quot;</span><span class="p">]</span>
+        <span class="n">reorder_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sort_res</span><span class="p">[</span><span class="s2">&quot;argsort&quot;</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">&quot;decode_res&quot;</span><span class="p">:</span> <span class="n">decode_res</span><span class="p">,</span>
             <span class="s2">&quot;log_marginal_l&quot;</span><span class="p">:</span> <span class="n">log_marginal_l</span><span class="p">,</span>
             <span class="s2">&quot;reorder_indices&quot;</span><span class="p">:</span> <span class="n">reorder_indices</span><span class="p">,</span>
             <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
-            <span class="s2">&quot;binned_spike_counts&quot;</span><span class="p">:</span> <span class="n">binned_spk_mat</span><span class="p">,</span>
+            <span class="s2">&quot;binned_spike_counts&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">binned_spk_mat</span><span class="p">),</span>
             <span class="s2">&quot;bin_size_ms&quot;</span><span class="p">:</span> <span class="n">bin_size_ms</span><span class="p">,</span>
         <span class="p">}</span></div>
 
