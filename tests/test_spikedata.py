@@ -3296,13 +3296,9 @@ class TestRecentFixes:
         shuf_raster = shuffled.sparse_raster(bin_size=1).toarray()
 
         # Row sums (spikes per unit) must match
-        np.testing.assert_array_equal(
-            orig_raster.sum(axis=1), shuf_raster.sum(axis=1)
-        )
+        np.testing.assert_array_equal(orig_raster.sum(axis=1), shuf_raster.sum(axis=1))
         # Column sums (population rate per bin) must match
-        np.testing.assert_array_equal(
-            orig_raster.sum(axis=0), shuf_raster.sum(axis=0)
-        )
+        np.testing.assert_array_equal(orig_raster.sum(axis=0), shuf_raster.sum(axis=0))
 
     def test_spike_shuffle_seed_reproducibility(self):
         """
@@ -3364,12 +3360,8 @@ class TestRecentFixes:
         # Output should be binary
         assert set(np.unique(shuf_raster)).issubset({0, 1})
         # Row and column sums of binarized original should be preserved
-        np.testing.assert_array_equal(
-            orig_binary.sum(axis=1), shuf_raster.sum(axis=1)
-        )
-        np.testing.assert_array_equal(
-            orig_binary.sum(axis=0), shuf_raster.sum(axis=0)
-        )
+        np.testing.assert_array_equal(orig_binary.sum(axis=1), shuf_raster.sum(axis=1))
+        np.testing.assert_array_equal(orig_binary.sum(axis=0), shuf_raster.sum(axis=0))
 
     def test_spike_shuffle_warns_on_multi_spike_bins(self):
         """
@@ -3465,9 +3457,7 @@ class TestRecentFixes:
             SpikeData([np.array([1.0, np.nan, 5.0])], length=10.0)
 
         with pytest.raises(ValueError, match="unit 1.*NaN"):
-            SpikeData(
-                [np.array([1.0, 2.0]), np.array([3.0, np.nan])], length=10.0
-            )
+            SpikeData([np.array([1.0, 2.0]), np.array([3.0, np.nan])], length=10.0)
 
         # Empty trains and clean trains are fine
         sd = SpikeData([np.array([]), np.array([1.0, 2.0])], length=10.0)

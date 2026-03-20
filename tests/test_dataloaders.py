@@ -1921,3 +1921,72 @@ class TestS3Utils:
 
         with pytest.raises(FileNotFoundError):
             ensure_local_file(str(tmp_path / "nonexistent.txt"))
+
+
+class TestS3UtilsErrorPaths:
+    """
+    Tests for download_from_s3 error-handling paths.
+
+    Mocks boto3 to simulate S3 errors without real AWS connections.
+    """
+
+    def _make_client_error(self, code: str) -> Exception:
+        """Build a botocore ClientError with the given error code."""
+        from botocore.exceptions import ClientError
+
+        return ClientError(
+            {"Error": {"Code": code, "Message": f"Mocked {code}"}},
+            "download_file",
+        )
+
+    def test_download_from_s3_no_such_bucket(self):
+        """
+        download_from_s3 raises ValueError when the bucket does not exist.
+
+        Tests:
+            (Test Case 1) ClientError with code NoSuchBucket is translated to ValueError.
+        """
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = self._make_client_error("NoSuchBucket")
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(ValueError, match="S3 bucket not found"):
+                download_from_s3("s3://nonexistent-bucket/key.h5")
+
+    def test_download_from_s3_access_denied(self):
+        """
+        download_from_s3 raises PermissionError when access is denied.
+
+        Tests:
+            (Test Case 1) ClientError with code AccessDenied is translated to PermissionError.
+        """
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = self._make_client_error("AccessDenied")
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(PermissionError, match="Access denied"):
+                download_from_s3("s3://my-bucket/secret.h5")
+
+    def test_download_from_s3_no_credentials(self):
+        """
+        download_from_s3 raises RuntimeError when AWS credentials are missing.
+
+        Tests:
+            (Test Case 1) NoCredentialsError is translated to RuntimeError with guidance message.
+        """
+        from botocore.exceptions import NoCredentialsError
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = NoCredentialsError()
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(RuntimeError, match="AWS credentials not found"):
+                download_from_s3("s3://my-bucket/data.h5")

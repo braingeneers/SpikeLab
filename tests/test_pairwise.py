@@ -513,9 +513,7 @@ class TestPairwiseEdgeCases:
             (Test Case 1) Result shape is (3,) — F = 3*(3-1)/2 = 3.
             (Test Case 2) Values match entries (1,0), (2,0), (2,1).
         """
-        matrix = np.array(
-            [[1.0, 0.2, 0.3], [0.4, 1.0, 0.5], [0.6, 0.7, 1.0]]
-        )
+        matrix = np.array([[1.0, 0.2, 0.3], [0.4, 1.0, 0.5], [0.6, 0.7, 1.0]])
         pcm = PairwiseCompMatrix(matrix=matrix)
         result = pcm.extract_lower_triangle()
         assert result.shape == (3,)

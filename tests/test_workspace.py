@@ -2136,3 +2136,104 @@ class TestLazyAnalysisWorkspace:
         assert "LazyAnalysisWorkspace" in r
         assert "repr_test" in r
         assert "temp HDF5" in r
+
+
+# ---------------------------------------------------------------------------
+# delete_item_from_file
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestDeleteItemFromFile:
+    """Tests for the delete_item_from_file function in hdf5_io."""
+
+    def test_delete_single_item(self, tmp_path):
+        """
+        Deleting a single item by namespace and key removes only that item.
+
+        Tests:
+            (Test Case 1) The deleted item raises KeyError on load.
+            (Test Case 2) The other item in a different namespace still loads correctly.
+        """
+        from SpikeLab.workspace.hdf5_io import (
+            dump_item_to_file,
+            load_item_from_file,
+            delete_item_from_file,
+        )
+
+        h5_path = str(tmp_path / "test.h5")
+        arr_a = np.array([1.0, 2.0, 3.0])
+        arr_b = np.array([4.0, 5.0, 6.0])
+
+        dump_item_to_file(h5_path, "ns_a", "key_a", arr_a, created_at=0.0)
+        dump_item_to_file(h5_path, "ns_b", "key_b", arr_b, created_at=0.0)
+
+        delete_item_from_file(h5_path, "ns_a", key="key_a")
+
+        with pytest.raises(KeyError):
+            load_item_from_file(h5_path, "ns_a", "key_a")
+
+        loaded_b = load_item_from_file(h5_path, "ns_b", "key_b")
+        np.testing.assert_array_equal(loaded_b, arr_b)
+
+    def test_delete_nonexistent_key_is_noop(self, tmp_path):
+        """
+        Deleting a key that does not exist completes without error.
+
+        Tests:
+            (Test Case 1) No exception is raised when the namespace does not exist.
+            (Test Case 2) No exception is raised when the key does not exist within
+                an existing namespace.
+            (Test Case 3) Existing items remain accessible after the no-op delete.
+        """
+        from SpikeLab.workspace.hdf5_io import (
+            dump_item_to_file,
+            load_item_from_file,
+            delete_item_from_file,
+        )
+
+        h5_path = str(tmp_path / "test.h5")
+        arr = np.array([10.0, 20.0])
+        dump_item_to_file(h5_path, "ns", "real_key", arr, created_at=0.0)
+
+        # Namespace doesn't exist
+        delete_item_from_file(h5_path, "no_such_ns", key="any_key")
+
+        # Key doesn't exist in existing namespace
+        delete_item_from_file(h5_path, "ns", key="no_such_key")
+
+        loaded = load_item_from_file(h5_path, "ns", "real_key")
+        np.testing.assert_array_equal(loaded, arr)
+
+    def test_delete_entire_namespace(self, tmp_path):
+        """
+        Calling delete_item_from_file with key=None removes the entire namespace.
+
+        Tests:
+            (Test Case 1) All items in the deleted namespace are gone.
+            (Test Case 2) Items in other namespaces are unaffected.
+        """
+        from SpikeLab.workspace.hdf5_io import (
+            dump_item_to_file,
+            load_item_from_file,
+            delete_item_from_file,
+        )
+
+        h5_path = str(tmp_path / "test.h5")
+        arr_1 = np.array([1.0])
+        arr_2 = np.array([2.0])
+        arr_other = np.array([99.0])
+
+        dump_item_to_file(h5_path, "doomed", "item1", arr_1, created_at=0.0)
+        dump_item_to_file(h5_path, "doomed", "item2", arr_2, created_at=0.0)
+        dump_item_to_file(h5_path, "safe", "item", arr_other, created_at=0.0)
+
+        delete_item_from_file(h5_path, "doomed", key=None)
+
+        with pytest.raises(KeyError):
+            load_item_from_file(h5_path, "doomed", "item1")
+        with pytest.raises(KeyError):
+            load_item_from_file(h5_path, "doomed", "item2")
+
+        loaded = load_item_from_file(h5_path, "safe", "item")
+        np.testing.assert_array_equal(loaded, arr_other)
