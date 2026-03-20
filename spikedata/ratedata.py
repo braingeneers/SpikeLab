@@ -307,10 +307,13 @@ class RateData:
             - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
 
         Returns:
-        embedding (ndarray): Low-dimensional embedding, shape (T, n_components), where T is the number of time bins.
-            Each row corresponds to a time bin in self.times.
-        (embedding, labels) (tuple): If method="UMAP", use_graph_communities=True, and return_labels=True,
-            returns both the embedding and an array of integer community labels for each time bin.
+        (embedding, explained_variance_ratio, components) (tuple): If method="PCA", returns the embedding
+            of shape (T, n_components), the fraction of variance explained per component (n_components,),
+            and the principal axes of shape (n_components, U).
+        (embedding, trustworthiness) (tuple): If method="UMAP", returns the embedding of shape
+            (T, n_components) and a trustworthiness score (float, 0 to 1).
+        (embedding, labels, trustworthiness) (tuple): If method="UMAP", use_graph_communities=True,
+            and return_labels=True, returns embedding, community labels, and trustworthiness.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -322,7 +325,9 @@ class RateData:
                     f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'.",
                     UserWarning,
                 )
-            return PCA_reduction(data_T, n_components=n_components)
+            return PCA_reduction(
+                data_T, n_components=n_components
+            )  # (embedding, var_ratio, components)
         if method_upper == "UMAP":
             # Optional graph-based UMAP + Louvain communities.
             use_graph_communities = kwargs.pop("use_graph_communities", False)
@@ -337,21 +342,21 @@ class RateData:
                 )
 
             if use_graph_communities:
-                embedding, labels = UMAP_graph_communities(
+                embedding, labels, tw = UMAP_graph_communities(
                     data_T,
                     n_components=n_components,
                     **kwargs,
                 )
                 if return_labels:
-                    return embedding, labels
-                return embedding
+                    return embedding, labels, tw
+                return embedding, tw
 
-            # Default: plain UMAP embedding only.
+            # Default: plain UMAP embedding + trustworthiness.
             return UMAP_reduction(
                 data_T,
                 n_components=n_components,
                 **kwargs,
-            )
+            )  # (embedding, trustworthiness)
 
         raise ValueError(
             f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."

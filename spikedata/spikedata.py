@@ -505,9 +505,9 @@ class SpikeData:
 
     def binned(self, bin_size=40.0):
         """
-        Quantize time into intervals of bin_size and counts the number of events in
-        each bin, considered as a lower half-open interval of times, with the exception
-        that events at time precisely zero will be included in the first bin.
+        Quantize time into intervals of bin_size and count the number of events in
+        each bin. Bins are left-open, right-closed intervals: (0, bin_size],
+        (bin_size, 2*bin_size], ... A spike at exactly t=0 is included in bin 0.
 
         Parameters:
         bin_size (float): Size of the time bin in milliseconds
@@ -839,23 +839,17 @@ class SpikeData:
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open and right-closed intervals except the first, which will
-        capture any spikes occurring exactly at t=0.
+        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
+        - A spike at exactly t=0 is clipped into bin 0.
+        - The number of bins is always ceil(length / bin_size).
         """
-        # indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
-        #     int
-        # )
-        indices = np.hstack([np.floor(ts / bin_size) for ts in self.train]).astype(int)
+        indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
+            int
+        )
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
         length = int(np.ceil(self.length / bin_size))
-        if (self.length % bin_size) == 0:
-            # if length is 40 and bin size is 10, you don't want 40 falling into bin that
-            # should only contain times 30-39. The other bins only have 10 times considered in each
-            # So its best to show this spike in a new bin
-            length += 1
-
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
@@ -873,8 +867,8 @@ class SpikeData:
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open and right-closed intervals except the first, which will
-        capture any spikes occurring exactly at t=0.
+        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
+        - A spike at exactly t=0 is clipped into bin 0.
         """
         return self.sparse_raster(bin_size).toarray()
 

@@ -509,15 +509,22 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
 
 def PCA_reduction(matrix_2d, n_components=2):
     """
-    Compute PCA dimensionality reduction on axis 1 of a 2d matrix
+    Compute PCA dimensionality reduction on axis 1 of a 2d matrix.
 
     Parameters:
     -----------
-    matrix_2d (array): 2D matrix where values must be int, float, or bool
+    matrix_2d (array): 2D matrix of shape (samples, features) where values
+        must be int, float, or bool.
+    n_components (int): Number of principal components to retain (default: 2).
 
     Returns:
     --------
-    pca_result (array): 2D matrix of shape (rows, n_components)
+    embedding (array): 2D matrix of shape (samples, n_components).
+    explained_variance_ratio (array): 1D array of shape (n_components,) with the
+        fraction of total variance explained by each component.
+    components (array): 2D matrix of shape (n_components, features) with the
+        principal axes (loadings) — each row is one PC expressed in the
+        original feature space.
     """
 
     try:
@@ -529,9 +536,9 @@ def PCA_reduction(matrix_2d, n_components=2):
         )
 
     pca = PCA(n_components=n_components)
-    pca_result = pca.fit_transform(matrix_2d)
+    embedding = pca.fit_transform(matrix_2d)
 
-    return pca_result
+    return embedding, pca.explained_variance_ratio_, pca.components_
 
 
 def UMAP_reduction(
@@ -574,6 +581,10 @@ def UMAP_reduction(
     -------
     embedding : ndarray, shape (n_samples, n_components)
         Low-dimensional embedding of the data.
+    trustworthiness_score : float
+        Trustworthiness of the embedding (0 to 1). Measures how well local
+        neighborhoods in the high-dimensional space are preserved in the
+        embedding. Requires scikit-learn; returns NaN if unavailable.
     """
     if umap is None:
         raise ImportError(
@@ -590,7 +601,15 @@ def UMAP_reduction(
         **umap_kwargs,
     )
     embedding = reducer.fit_transform(matrix_2d)
-    return embedding
+
+    try:
+        from sklearn.manifold import trustworthiness
+
+        tw = float(trustworthiness(matrix_2d, embedding, n_neighbors=n_neighbors))
+    except ImportError:
+        tw = float("nan")
+
+    return embedding, tw
 
 
 def UMAP_graph_communities(
@@ -632,6 +651,10 @@ def UMAP_graph_communities(
 
     labels : ndarray, shape (n_samples,)
         Integer community label for each sample.
+
+    trustworthiness_score : float
+        Trustworthiness of the embedding (0 to 1). Returns NaN if
+        scikit-learn is not available.
     """
     # First compute the UMAP embedding and fitted mapper using the same
     # configuration as UMAP_reduction.
@@ -678,7 +701,16 @@ def UMAP_graph_communities(
     for node, c_id in clustering.items():
         labels[node] = c_id
 
-    return mapper.embedding_, labels
+    try:
+        from sklearn.manifold import trustworthiness
+
+        tw = float(
+            trustworthiness(matrix_2d, mapper.embedding_, n_neighbors=n_neighbors)
+        )
+    except ImportError:
+        tw = float("nan")
+
+    return mapper.embedding_, labels, tw
 
 
 def ensure_h5py():
