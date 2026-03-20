@@ -1,5 +1,7 @@
 import numpy as np
 from scipy import signal
+
+__all__ = ["RateSliceStack"]
 from .ratedata import RateData
 from .spikedata import SpikeData
 import warnings

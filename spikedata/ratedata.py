@@ -1,6 +1,8 @@
 import warnings
 
 import numpy as np
+
+__all__ = ["RateData"]
 from scipy import signal
 
 from .utils import (

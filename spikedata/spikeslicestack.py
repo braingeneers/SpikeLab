@@ -2,6 +2,8 @@ import warnings
 
 import numpy as np
 
+__all__ = ["SpikeSliceStack"]
+
 from .pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 from .spikedata import SpikeData
 from .utils import (
