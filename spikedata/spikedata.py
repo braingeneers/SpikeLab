@@ -565,6 +565,8 @@ class SpikeData:
         Returns:
         rates (numpy.ndarray): Array of the firing rate of each neuron.
         """
+        if self.length == 0:
+            return np.zeros(self.N)
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
             return 1e3 * rates
@@ -1792,8 +1794,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=5,
-        acc_gauss_sigma=5,
+        acc_square_width=10,
+        acc_gauss_sigma=10,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,
