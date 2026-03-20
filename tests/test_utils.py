@@ -95,20 +95,20 @@ class TestCosineSim:
         a = np.array([1.0, 2.0, 3.0])
         assert _cosine_sim(a, -a) == pytest.approx(-1.0)
 
-    def test_zero_vector_returns_zero(self):
+    def test_zero_vector_returns_zero_or_nan(self):
         """
-        A zero vector paired with any vector returns 0.0.
+        Zero-norm vectors: one zero → 0.0 (uncorrelated), both zero → NaN (undefined).
 
         Tests:
-            (Test Case 1) Zero first argument returns 0.0.
-            (Test Case 2) Zero second argument returns 0.0.
-            (Test Case 3) Both zero returns 0.0.
+            (Test Case 1) Zero first argument, nonzero second returns 0.0.
+            (Test Case 2) Nonzero first, zero second returns 0.0.
+            (Test Case 3) Both zero returns NaN.
         """
         a = np.array([1.0, 2.0, 3.0])
         z = np.zeros(3)
         assert _cosine_sim(z, a) == 0.0
         assert _cosine_sim(a, z) == 0.0
-        assert _cosine_sim(z, z) == 0.0
+        assert np.isnan(_cosine_sim(z, z))
 
     def test_scaled_vectors(self):
         """

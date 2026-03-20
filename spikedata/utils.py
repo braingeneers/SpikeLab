@@ -405,10 +405,16 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     if max_lag is None:
         max_lag = 0
 
-    # Return 0.0 for zero-norm vectors (BUG-004)
-    norm_product = np.sum(ref_rate**2) * np.sum(comp_rate**2)
-    if norm_product == 0:
+    # Handle zero-norm vectors:
+    # - Both zero → undefined (NaN)
+    # - One zero, one not → uncorrelated (0.0)
+    ref_norm = np.sum(ref_rate**2)
+    comp_norm = np.sum(comp_rate**2)
+    if ref_norm == 0 and comp_norm == 0:
+        return np.nan, 0
+    if ref_norm == 0 or comp_norm == 0:
         return 0.0, 0
+    norm_product = ref_norm * comp_norm
 
     # Fast path for zero lag (no time shift)
     if max_lag == 0:
@@ -440,9 +446,11 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
 
 
 def _cosine_sim(a, b):
-    """Cosine similarity between two 1-D vectors. Returns 0.0 if either has zero norm."""
+    """Cosine similarity between two 1-D vectors. NaN if both zero-norm, 0.0 if one is."""
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
+    if norm_a == 0.0 and norm_b == 0.0:
+        return np.nan
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return float(np.dot(a, b) / (norm_a * norm_b))

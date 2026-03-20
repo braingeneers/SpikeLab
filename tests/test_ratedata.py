@@ -858,18 +858,14 @@ class TestRecentFixes:
 
     def test_get_pairwise_fr_corr_all_zero(self):
         """
-        get_pairwise_fr_corr() with all-zero firing rates returns 0.0 on diagonal.
+        get_pairwise_fr_corr() with all-zero firing rates returns NaN on diagonal.
 
         Tests:
             (Test Case 1) Result matrices have correct shape (U, U).
-            (Test Case 2) Diagonal of correlation matrix is 0.0, because
-                          zero-norm vectors return 0.0 from cross-correlation.
-            (Test Case 3) Diagonal of lag matrix is 0.
-
-        Notes:
-            compute_cross_correlation_with_lag returns (0.0, 0) when either
-            input vector has zero norm (BUG-004 guard). This means the
-            diagonal is 0.0 instead of the usual 1.0 for self-correlation.
+            (Test Case 2) Diagonal of correlation matrix is NaN (both signals
+                          have zero norm → undefined self-correlation).
+            (Test Case 3) Off-diagonal is also NaN (both zero → undefined).
+            (Test Case 4) Diagonal of lag matrix is 0.
         """
         data = np.zeros((3, 50))
         times = np.arange(50, dtype=float)
@@ -879,7 +875,7 @@ class TestRecentFixes:
 
         assert corr.shape == (3, 3)
         assert lag.shape == (3, 3)
-        np.testing.assert_array_equal(np.diag(corr), np.zeros(3))
+        assert np.all(np.isnan(np.diag(corr)))
         np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
 
     def test_subtime_negative_times_literal(self):
