@@ -53,13 +53,13 @@ class SpikeSliceStack:
     Instance Variables:
     --------
     self.spike_stack (list): List of SpikeData objects, one per slice. Spike times within each
-                             slice are preserved in absolute recording time (not shifted to 0).
-                             Use self.times to know each slice's absolute time window.
+                             slice are shifted to start at 0 (relative to the slice window).
+                             Use self.times for absolute recording time positions.
                              Example)
-                                spike_stack[0].train[neuron_0] = [810, 950, 1200, 1480]   # absolute ms
-                                spike_stack[1].train[neuron_0] = [4800, 4900, 5100, 5450] # absolute ms
-                                spike_stack[2].train[neuron_0] = [8800, 9050, 9300]       # absolute ms
-    self.times (list of tuples): List of (start, end) time bounds for each slice in original
+                                spike_stack[0].train[neuron_0] = [10, 150, 400, 680]   # 0-based ms within slice
+                                spike_stack[1].train[neuron_0] = [0, 100, 300, 650]    # 0-based ms within slice
+                                spike_stack[2].train[neuron_0] = [50, 300, 550]        # 0-based ms within slice
+    self.times (list of tuples): List of (start, end) time bounds for each slice in absolute
                                  recording time, sorted chronologically. Length equals S.
                                  Example: [(100, 350), (500, 750), (1000, 1250)]
     self.N (int): Number of units.
