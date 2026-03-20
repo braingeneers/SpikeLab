@@ -1419,8 +1419,9 @@ class SpikeData:
         -----------
         - swap_per_spike (int): Determines total number of swaps: num_spikes * swap_per_spike (optional, default=5).
         - seed (int): Set the random seed number for repeatability of results, None means no seed is set (optional, default=None).
-        - bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
-                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved (optional, default=1).
+        - bin_size(int): The number of individual time steps per bin. Bins with multiple
+                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
+                       A RuntimeWarning is issued when multi-spike bins are detected (optional, default=1).
         Returns:
         --------
         - shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
@@ -1436,10 +1437,13 @@ class SpikeData:
         - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
-        if bin_size != 1:
-            binary_mat = spk_mat > 0
-        else:
-            binary_mat = spk_mat
+        if (spk_mat > 1).any():
+            warnings.warn(
+                "Multi-spike bins detected; binarizing before shuffle "
+                "(spike counts not preserved)",
+                RuntimeWarning,
+            )
+        binary_mat = spk_mat > 0
         shuffled_mat = randomize(binary_mat, swap_per_spike=swap_per_spike, seed=seed)
         shuffled_spike_data = SpikeData.from_raster(
             shuffled_mat,

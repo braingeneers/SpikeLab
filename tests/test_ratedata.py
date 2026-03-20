@@ -65,7 +65,7 @@ class TestRateData:
             (Test Case 1) Valid construction stores correct attributes.
             (Test Case 2) Non-2D array raises ValueError.
             (Test Case 3) Mismatched times length raises ValueError.
-            (Test Case 4) Negative time value raises ValueError.
+            (Test Case 4) Negative times are accepted for event-aligned data.
         """
         times = np.array([0.0, 1.0, 2.0, 3.0])
         data = np.ones((2, 4))
@@ -83,9 +83,9 @@ class TestRateData:
         with pytest.raises(ValueError):
             RateData(data, np.array([0.0, 1.0]))
 
-        # Negative time raises ValueError.
-        with pytest.raises(ValueError):
-            RateData(data, np.array([-1.0, 0.0, 1.0, 2.0]))
+        # Negative times are valid (event-aligned data).
+        rd_neg = RateData(data, np.array([-1.0, 0.0, 1.0, 2.0]))
+        assert rd_neg.times[0] == -1.0
 
     def test_subset(self):
         """
@@ -840,3 +840,18 @@ class TestRecentFixes:
 
         result = rd.subset(["ctx"], by="region")
         assert result.N == 2
+
+    # ------------------------------------------------------------------
+    # subtime_by_index edge cases
+    # ------------------------------------------------------------------
+
+    def test_subtime_by_index_equal_start_end(self):
+        """
+        subtime_by_index with start_idx == end_idx raises ValueError.
+
+        Tests:
+            (Test Case 1) start_idx == end_idx is rejected as an invalid range.
+        """
+        rd = make_ratedata(n_units=2, n_times=60, step=2.0)
+        with pytest.raises(ValueError):
+            rd.subtime_by_index(10, 10)

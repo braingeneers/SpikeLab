@@ -751,6 +751,21 @@ class TestPCAReduction:
         assert np.all(var_ratio > 0)
         assert var_ratio.sum() <= 1.0 + 1e-10
 
+    def test_n_components_exceeds_features(self):
+        """
+        PCA_reduction with n_components > n_features raises ValueError.
+
+        Tests:
+            (Test Case 1) n_components=10 on a (20, 3) matrix raises ValueError.
+            (Test Case 2) Error message includes the offending values.
+        """
+        from SpikeLab.spikedata.utils import PCA_reduction
+
+        rng = np.random.default_rng(0)
+        data = rng.random((20, 3))
+        with pytest.raises(ValueError, match="n_components=10.*min.*=3"):
+            PCA_reduction(data, n_components=10)
+
 
 # ---------------------------------------------------------------------------
 # UMAP_reduction

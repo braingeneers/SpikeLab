@@ -2069,6 +2069,56 @@ class TestLazyAnalysisWorkspace:
         assert not isinstance(ws, LazyAnalysisWorkspace)
 
     # ------------------------------------------------------------------
+    # rename()
+    # ------------------------------------------------------------------
+
+    def test_rename_existing_key(self):
+        """
+        rename() moves a stored item to a new key within the same namespace.
+
+        Tests:
+            (Test Case 1) rename returns True on success.
+            (Test Case 2) get(new_key) retrieves the same data.
+            (Test Case 3) get(old_key) returns None after rename.
+            (Test Case 4) list_keys shows the new key, not the old one.
+        """
+        ws = LazyAnalysisWorkspace(name="rename_test")
+        arr = np.array([1.0, 2.0, 3.0])
+        ws.store("ns", "old_key", arr)
+
+        result = ws.rename("ns", "old_key", "new_key")
+        assert result is True
+
+        retrieved = ws.get("ns", "new_key")
+        np.testing.assert_array_equal(retrieved, arr)
+        assert ws.get("ns", "old_key") is None
+        assert "new_key" in ws.list_keys("ns")
+        assert "old_key" not in ws.list_keys("ns")
+
+    def test_rename_missing_namespace_returns_false(self):
+        """
+        rename() returns False when the namespace does not exist.
+
+        Tests:
+            (Test Case 1) Returns False without error.
+        """
+        ws = LazyAnalysisWorkspace(name="rename_miss_ns")
+        assert ws.rename("nonexistent", "a", "b") is False
+
+    def test_rename_missing_key_returns_false(self):
+        """
+        rename() returns False when the old_key does not exist in the namespace.
+
+        Tests:
+            (Test Case 1) Returns False without error.
+            (Test Case 2) Existing keys are unaffected.
+        """
+        ws = LazyAnalysisWorkspace(name="rename_miss_key")
+        ws.store("ns", "exists", np.array([1.0]))
+        assert ws.rename("ns", "missing", "new") is False
+        assert ws.get("ns", "exists") is not None
+
+    # ------------------------------------------------------------------
     # __repr__
     # ------------------------------------------------------------------
 

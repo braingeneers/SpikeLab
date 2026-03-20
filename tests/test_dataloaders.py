@@ -1761,3 +1761,163 @@ class TestDataLoadersEdgeCases:
         assert len(trains[1]) == 0
         # Third segment: start=2, stop=5 -> [30, 40, 50]
         assert len(trains[2]) == 3
+
+
+# ---------------------------------------------------------------------------
+# s3_utils — URL parsing and ensure_local_file
+# ---------------------------------------------------------------------------
+
+
+class TestS3Utils:
+    """
+    Tests for s3_utils URL parsing functions.
+
+    Covers is_s3_url, parse_s3_url, and the local-path branch of ensure_local_file.
+    No real S3 connections are made.
+    """
+
+    def test_is_s3_url_native_scheme(self):
+        """
+        Native s3:// URLs are recognized.
+
+        Tests:
+            (Test Case 1) s3://bucket/key returns True.
+            (Test Case 2) s3://bucket returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("s3://my-bucket/path/to/file.h5") is True
+        assert is_s3_url("s3://bucket") is True
+
+    def test_is_s3_url_virtual_hosted(self):
+        """
+        Virtual-hosted-style HTTPS S3 URLs are recognized.
+
+        Tests:
+            (Test Case 1) https://bucket.s3.amazonaws.com/key returns True.
+            (Test Case 2) https://bucket.s3.us-east-1.amazonaws.com/key returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://mybucket.s3.amazonaws.com/data/file.h5") is True
+        assert is_s3_url("https://mybucket.s3.us-west-2.amazonaws.com/data.h5") is True
+
+    def test_is_s3_url_path_style(self):
+        """
+        Path-style HTTPS S3 URLs are recognized.
+
+        Tests:
+            (Test Case 1) https://s3.amazonaws.com/bucket/key returns True.
+            (Test Case 2) https://s3.us-east-1.amazonaws.com/bucket/key returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://s3.amazonaws.com/mybucket/key.h5") is True
+        assert is_s3_url("https://s3.eu-west-1.amazonaws.com/bucket/key") is True
+
+    def test_is_s3_url_non_s3(self):
+        """
+        Non-S3 URLs and local paths return False.
+
+        Tests:
+            (Test Case 1) Regular HTTPS URL returns False.
+            (Test Case 2) Local file path returns False.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://example.com/file.h5") is False
+        assert is_s3_url("/local/path/file.h5") is False
+
+    def test_parse_s3_url_native(self):
+        """
+        parse_s3_url correctly splits s3:// URLs.
+
+        Tests:
+            (Test Case 1) Bucket and key extracted from s3://bucket/path/key.
+            (Test Case 2) Bare bucket with no key returns empty string key.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://my-bucket/path/to/file.h5")
+        assert bucket == "my-bucket"
+        assert key == "path/to/file.h5"
+
+        bucket2, key2 = parse_s3_url("s3://my-bucket")
+        assert bucket2 == "my-bucket"
+        assert key2 == ""
+
+    def test_parse_s3_url_virtual_hosted(self):
+        """
+        parse_s3_url correctly parses virtual-hosted-style URLs.
+
+        Tests:
+            (Test Case 1) Bucket extracted from subdomain, key from path.
+            (Test Case 2) Regional virtual-hosted URL also parsed correctly.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("https://mybucket.s3.amazonaws.com/data/file.h5")
+        assert bucket == "mybucket"
+        assert key == "data/file.h5"
+
+        bucket2, key2 = parse_s3_url(
+            "https://mybucket.s3.us-west-2.amazonaws.com/folder/data.h5"
+        )
+        assert bucket2 == "mybucket"
+        assert key2 == "folder/data.h5"
+
+    def test_parse_s3_url_path_style(self):
+        """
+        parse_s3_url correctly parses path-style URLs.
+
+        Tests:
+            (Test Case 1) https://s3.amazonaws.com/bucket/key parsed correctly.
+            (Test Case 2) Regional path-style URL parsed correctly.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("https://s3.amazonaws.com/mybucket/data/file.h5")
+        assert bucket == "mybucket"
+        assert key == "data/file.h5"
+
+        bucket2, key2 = parse_s3_url(
+            "https://s3.eu-west-1.amazonaws.com/mybucket/key.h5"
+        )
+        assert bucket2 == "mybucket"
+        assert key2 == "key.h5"
+
+    def test_parse_s3_url_invalid_raises(self):
+        """
+        parse_s3_url raises ValueError on non-S3 URLs.
+
+        Tests:
+            (Test Case 1) Regular HTTPS URL raises ValueError.
+            (Test Case 2) Plain local path raises ValueError.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        with pytest.raises(ValueError):
+            parse_s3_url("https://example.com/file.h5")
+        with pytest.raises(ValueError):
+            parse_s3_url("/local/path.h5")
+
+    def test_ensure_local_file_local_path(self, tmp_path):
+        """
+        ensure_local_file returns (path, False) for existing local files.
+
+        Tests:
+            (Test Case 1) Returns the same path and is_temporary=False.
+            (Test Case 2) Non-existent local path raises FileNotFoundError.
+        """
+        from SpikeLab.data_loaders.s3_utils import ensure_local_file
+
+        path = str(tmp_path / "test.txt")
+        with open(path, "w") as f:
+            f.write("data")
+
+        result_path, is_temp = ensure_local_file(path)
+        assert result_path == path
+        assert is_temp is False
+
+        with pytest.raises(FileNotFoundError):
+            ensure_local_file(str(tmp_path / "nonexistent.txt"))

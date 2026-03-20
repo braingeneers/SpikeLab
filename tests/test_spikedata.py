@@ -3266,6 +3266,273 @@ class TestRecentFixes:
         sd1.metadata["key"] = "value"
         assert "key" not in sd2.metadata
 
+    # ------------------------------------------------------------------
+    # spike_shuffle
+    # ------------------------------------------------------------------
+
+    def test_spike_shuffle_preserves_row_and_column_sums(self):
+        """
+        spike_shuffle preserves per-unit spike counts and per-bin population rates.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeData with same N and length.
+            (Test Case 2) Row sums (spikes per unit) are preserved.
+            (Test Case 3) Column sums (population rate per bin) are preserved.
+
+        Notes:
+            - Uses a SpikeData built from a binary raster to avoid multi-spike
+              bins, which spike_shuffle's internal binarization would alter.
+        """
+        rng = np.random.default_rng(42)
+        binary_raster = (rng.random((5, 100)) < 0.2).astype(int)
+        sd = SpikeData.from_raster(binary_raster, bin_size_ms=1)
+        shuffled = sd.spike_shuffle(swap_per_spike=5, seed=42, bin_size=1)
+
+        assert isinstance(shuffled, SpikeData)
+        assert shuffled.N == sd.N
+        assert shuffled.length == sd.length
+
+        orig_raster = sd.sparse_raster(bin_size=1).toarray()
+        shuf_raster = shuffled.sparse_raster(bin_size=1).toarray()
+
+        # Row sums (spikes per unit) must match
+        np.testing.assert_array_equal(
+            orig_raster.sum(axis=1), shuf_raster.sum(axis=1)
+        )
+        # Column sums (population rate per bin) must match
+        np.testing.assert_array_equal(
+            orig_raster.sum(axis=0), shuf_raster.sum(axis=0)
+        )
+
+    def test_spike_shuffle_seed_reproducibility(self):
+        """
+        Same seed produces the same shuffled result.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed yield identical rasters.
+            (Test Case 2) Different seeds yield different rasters.
+        """
+        np.random.seed(0)
+        sd = random_spikedata(4, 100, rate=1.0)
+
+        shuf1 = sd.spike_shuffle(seed=123, bin_size=1)
+        shuf2 = sd.spike_shuffle(seed=123, bin_size=1)
+        r1 = shuf1.sparse_raster(bin_size=1).toarray()
+        r2 = shuf2.sparse_raster(bin_size=1).toarray()
+        np.testing.assert_array_equal(r1, r2)
+
+        shuf3 = sd.spike_shuffle(seed=456, bin_size=1)
+        r3 = shuf3.sparse_raster(bin_size=1).toarray()
+        assert not np.array_equal(r1, r3)
+
+    def test_spike_shuffle_metadata_preserved(self):
+        """
+        spike_shuffle carries metadata and neuron_attributes forward.
+
+        Tests:
+            (Test Case 1) metadata dict is preserved.
+            (Test Case 2) neuron_attributes are preserved.
+        """
+        attrs = [{"region": "ctx"}, {"region": "hpc"}]
+        sd = SpikeData(
+            [np.array([1.0, 5.0, 10.0]), np.array([2.0, 8.0, 15.0])],
+            length=20.0,
+            metadata={"exp": "test"},
+            neuron_attributes=attrs,
+        )
+        shuffled = sd.spike_shuffle(seed=0)
+        assert shuffled.metadata == {"exp": "test"}
+        assert shuffled.neuron_attributes is not None
+        assert len(shuffled.neuron_attributes) == 2
+
+    def test_spike_shuffle_bin_size_gt_1(self):
+        """
+        spike_shuffle with bin_size > 1 binarizes multi-spike bins.
+
+        Tests:
+            (Test Case 1) Shuffled raster values are 0 or 1 (binary).
+            (Test Case 2) Row sums and column sums are preserved on the binarized raster.
+        """
+        np.random.seed(99)
+        sd = random_spikedata(3, 150, rate=1.0)
+        shuffled = sd.spike_shuffle(seed=0, bin_size=5)
+
+        orig_raster = sd.sparse_raster(bin_size=5).toarray()
+        orig_binary = (orig_raster > 0).astype(int)
+        shuf_raster = shuffled.sparse_raster(bin_size=5).toarray()
+
+        # Output should be binary
+        assert set(np.unique(shuf_raster)).issubset({0, 1})
+        # Row and column sums of binarized original should be preserved
+        np.testing.assert_array_equal(
+            orig_binary.sum(axis=1), shuf_raster.sum(axis=1)
+        )
+        np.testing.assert_array_equal(
+            orig_binary.sum(axis=0), shuf_raster.sum(axis=0)
+        )
+
+    def test_spike_shuffle_warns_on_multi_spike_bins(self):
+        """
+        spike_shuffle warns when multi-spike bins are binarized.
+
+        Tests:
+            (Test Case 1) RuntimeWarning issued when input has multi-spike bins.
+            (Test Case 2) No warning when input is already binary.
+        """
+        # Multi-spike data: random_spikedata can produce >1 spike per 1ms bin
+        np.random.seed(99)
+        sd_dense = random_spikedata(3, 150, rate=1.0)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            sd_dense.spike_shuffle(seed=0, bin_size=1)
+            multi_spike_warnings = [
+                x for x in w if "Multi-spike bins" in str(x.message)
+            ]
+            assert len(multi_spike_warnings) > 0
+
+        # Binary data: no warning
+        rng = np.random.default_rng(0)
+        binary_raster = (rng.random((3, 50)) < 0.2).astype(int)
+        sd_binary = SpikeData.from_raster(binary_raster, bin_size_ms=1)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            sd_binary.spike_shuffle(seed=0, bin_size=1)
+            multi_spike_warnings = [
+                x for x in w if "Multi-spike bins" in str(x.message)
+            ]
+            assert len(multi_spike_warnings) == 0
+
+    # ------------------------------------------------------------------
+    # N=0 edge cases
+    # ------------------------------------------------------------------
+
+    def test_empty_spikedata_rates(self):
+        """
+        SpikeData with zero units: rates() returns empty, binned_meanrate() returns zeros.
+
+        Tests:
+            (Test Case 1) rates() returns shape (0,).
+            (Test Case 2) rates(unit='Hz') returns shape (0,).
+            (Test Case 3) binned_meanrate() returns zeros array (no division by zero).
+            (Test Case 4) binned_meanrate(unit='Hz') also returns zeros.
+        """
+        sd = SpikeData([], length=100.0)
+        assert sd.N == 0
+        r = sd.rates()
+        assert r.shape == (0,)
+        r_hz = sd.rates(unit="Hz")
+        assert r_hz.shape == (0,)
+
+        bmr = sd.binned_meanrate(bin_size=40)
+        assert bmr.shape == (int(np.ceil(100.0 / 40)),)
+        np.testing.assert_array_equal(bmr, 0.0)
+
+        bmr_hz = sd.binned_meanrate(bin_size=40, unit="Hz")
+        np.testing.assert_array_equal(bmr_hz, 0.0)
+
+    def test_empty_spikedata_subset(self):
+        """
+        SpikeData.subset([]) produces an N=0 SpikeData.
+
+        Tests:
+            (Test Case 1) Subsetting with empty list returns N=0.
+            (Test Case 2) The resulting SpikeData has length preserved.
+            (Test Case 3) train is an empty list.
+        """
+        sd = SpikeData(
+            [np.array([1.0, 2.0]), np.array([3.0])],
+            length=10.0,
+        )
+        sub = sd.subset([])
+        assert sub.N == 0
+        assert sub.length == 10.0
+        assert len(sub.train) == 0
+
+    # ------------------------------------------------------------------
+    # NaN spike times
+    # ------------------------------------------------------------------
+
+    def test_nan_spike_times_rejected(self):
+        """
+        SpikeData constructor rejects NaN spike times with ValueError.
+
+        Tests:
+            (Test Case 1) NaN in first unit raises ValueError.
+            (Test Case 2) NaN in second unit raises ValueError with correct unit index.
+            (Test Case 3) Empty trains and trains without NaN are accepted.
+        """
+        with pytest.raises(ValueError, match="unit 0.*NaN"):
+            SpikeData([np.array([1.0, np.nan, 5.0])], length=10.0)
+
+        with pytest.raises(ValueError, match="unit 1.*NaN"):
+            SpikeData(
+                [np.array([1.0, 2.0]), np.array([3.0, np.nan])], length=10.0
+            )
+
+        # Empty trains and clean trains are fine
+        sd = SpikeData([np.array([]), np.array([1.0, 2.0])], length=10.0)
+        assert sd.N == 2
+
+    # ------------------------------------------------------------------
+    # to_hdf5 / to_nwb / to_kilosort delegation wrappers
+    # ------------------------------------------------------------------
+
+    def test_to_hdf5_delegates_to_exporter(self):
+        """
+        SpikeData.to_hdf5 delegates to data_exporters.export_spikedata_to_hdf5.
+
+        Tests:
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
+            (Test Case 3) The filepath keyword is forwarded.
+        """
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_hdf5"
+        ) as mock_export:
+            sd.to_hdf5("/tmp/fake.h5", style="ragged")
+            mock_export.assert_called_once()
+            args, kwargs = mock_export.call_args
+            assert args[0] is sd
+            assert args[1] == "/tmp/fake.h5"
+
+    def test_to_nwb_delegates_to_exporter(self):
+        """
+        SpikeData.to_nwb delegates to data_exporters.export_spikedata_to_nwb.
+
+        Tests:
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
+        """
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_nwb"
+        ) as mock_export:
+            sd.to_nwb("/tmp/fake.nwb")
+            mock_export.assert_called_once()
+            args, _ = mock_export.call_args
+            assert args[0] is sd
+
+    def test_to_kilosort_delegates_to_exporter(self):
+        """
+        SpikeData.to_kilosort delegates to data_exporters.export_spikedata_to_kilosort.
+
+        Tests:
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
+            (Test Case 3) fs_Hz keyword is forwarded.
+        """
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_kilosort"
+        ) as mock_export:
+            mock_export.return_value = ("/tmp/st.npy", "/tmp/sc.npy")
+            sd.to_kilosort("/tmp/fake_dir", fs_Hz=30000.0)
+            mock_export.assert_called_once()
+            args, kwargs = mock_export.call_args
+            assert args[0] is sd
+            assert kwargs["fs_Hz"] == 30000.0
+
     def test_subtime_raw_data_shifted(self):
         """
         Verify subtime shifts raw_time to start at 0.

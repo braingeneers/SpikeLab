@@ -491,6 +491,65 @@ class TestPairwiseEdgeCases:
         assert result.shape == (0,)
         assert len(result) == 0
 
+    def test_extract_lower_triangle_2x2(self):
+        """
+        Lower triangle of a 2x2 matrix contains exactly one element.
+
+        Tests:
+            (Test Case 1) Result shape is (1,) — one off-diagonal pair.
+            (Test Case 2) Value matches the (1, 0) entry.
+        """
+        matrix = np.array([[1.0, 0.3], [0.7, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (1,)
+        assert result[0] == pytest.approx(0.7)
+
+    def test_extract_lower_triangle_3x3(self):
+        """
+        Lower triangle of a 3x3 matrix contains 3 elements in column-major order.
+
+        Tests:
+            (Test Case 1) Result shape is (3,) — F = 3*(3-1)/2 = 3.
+            (Test Case 2) Values match entries (1,0), (2,0), (2,1).
+        """
+        matrix = np.array(
+            [[1.0, 0.2, 0.3], [0.4, 1.0, 0.5], [0.6, 0.7, 1.0]]
+        )
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (3,)
+        np.testing.assert_array_almost_equal(result, [0.4, 0.6, 0.7])
+
+    def test_extract_lower_triangle_with_nan(self):
+        """
+        NaN values in the lower triangle are preserved in the output.
+
+        Tests:
+            (Test Case 1) NaN at position (1,0) appears in the extracted array.
+            (Test Case 2) Non-NaN values are preserved.
+        """
+        matrix = np.array([[1.0, 0.5], [np.nan, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (1,)
+        assert np.isnan(result[0])
+
+    def test_single_unit_spikedata_produces_1x1_pairwise(self):
+        """
+        Pairwise comparison on single-unit SpikeData produces a trivial 1x1 matrix.
+
+        Tests:
+            (Test Case 1) spike_time_tilings on 1-unit data returns (1, 1) matrix.
+            (Test Case 2) Diagonal is 1.0 (self-tiling).
+            (Test Case 3) extract_lower_triangle returns empty array.
+        """
+        sd = SpikeData([np.array([5.0, 10.0, 15.0])], length=20.0)
+        sttc = sd.spike_time_tilings(delt=5.0)
+        assert sttc.matrix.shape == (1, 1)
+        assert sttc.matrix[0, 0] == pytest.approx(1.0)
+        assert sttc.extract_lower_triangle().shape == (0,)
+
     def test_threshold_zero(self):
         """Thresholding at zero turns all non-zero values to 1.
 

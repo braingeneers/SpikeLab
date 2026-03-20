@@ -54,8 +54,6 @@ class RateData:
                 "Number of columns in inst_Frate_data must be the same as length of times"
             )
 
-        if any(x < 0 for x in times):
-            raise ValueError("No negative values are allowed in times.")
         if not isinstance(times, np.ndarray):
             times = np.array(times)
         self.inst_Frate_data = inst_Frate_data
@@ -126,13 +124,22 @@ class RateData:
 
         Returns:
         RateData: New RateData object containing only the specified time range
+
+        Notes:
+        - Negative start/end values are treated as literal time coordinates when
+          the times array contains negative values (e.g., event-aligned data with
+          times from -200 to +500 ms). When times are all non-negative, negative
+          values are treated as offsets from the end (e.g., start=-20 means 20 ms
+          before the last time point).
         """
 
         length = self.times[-1] if len(self.times) > 0 else 0
+        has_negative_times = len(self.times) > 0 and self.times[0] < 0
+
         # Handle start
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
-        elif start < 0:
+        elif start < 0 and not has_negative_times:
             start += length
             if start < 0:
                 raise ValueError(
@@ -143,7 +150,7 @@ class RateData:
         # Handle end
         if end is None or end is Ellipsis:
             end = length
-        elif end < 0:
+        elif end < 0 and not has_negative_times:
             end += length
             if end < 0:
                 raise ValueError(

@@ -1245,6 +1245,31 @@ class TestComputeFracActive:
         assert frac.shape == (3,)
         np.testing.assert_array_equal(frac, 1.0)
 
+    def test_min_spikes_zero_all_active(self):
+        """
+        min_spikes=0 makes all units active in all slices.
+
+        Tests:
+            (Test Case 1) frac_active is 1.0 for all units when min_spikes=0.
+            (Test Case 2) Even a unit with zero spikes in a slice is counted as active.
+
+        Notes:
+            - With min_spikes=0, the condition n_valid >= 0 is always True.
+        """
+        rng = np.random.default_rng(55)
+        sd_list = []
+        times = []
+        for i in range(3):
+            start = i * 100.0
+            active = np.sort(rng.uniform(0, 100, 10))
+            empty = np.array([], dtype=float)  # unit with 0 spikes
+            sd_list.append(SpikeData([active, empty], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+        frac = sss.compute_frac_active(min_spikes=0)
+        assert frac.shape == (2,)
+        np.testing.assert_array_equal(frac, 1.0)
+
     def test_sparse_unit_low_frac(self):
         """
         A unit with very few spikes has low fraction active.
