@@ -513,6 +513,34 @@ class SpikeSliceStack:
             (frac_active[ha_order], frac_active[la_order]),
         )
 
+    def apply(self, func, *args, **kwargs):
+        """
+        Apply a function to each SpikeData in the stack and return stacked results.
+
+        Calls ``func(sd, *args, **kwargs)`` on every slice and stacks the
+        outputs into a single numpy array with a new leading axis of size S
+        (number of slices).
+
+        Parameters:
+            func (callable): Function that accepts a SpikeData as its first
+                argument and returns a numeric value (scalar, 1-D, or 2-D
+                array). Output shape must be consistent across all slices.
+            *args: Additional positional arguments forwarded to *func*.
+            **kwargs: Additional keyword arguments forwarded to *func*.
+
+        Returns:
+            result (np.ndarray): Stacked results with shape ``(S, ...)``.
+
+        Notes:
+            - Intended for use with stacks built by ``SpikeData.frames``,
+              ``SpikeData.align_to_events``, ``SpikeData.spike_shuffle_stack``,
+              or ``SpikeData.subset_stack``. Pair with ``shuffle_z_score``,
+              ``shuffle_percentile``, ``slice_trend``, or ``slice_stability``
+              from ``utils`` to interpret the results.
+        """
+        results = [func(sd, *args, **kwargs) for sd in self.spike_stack]
+        return np.stack(results, axis=0)
+
     def unit_to_unit_comparison(
         self,
         metric="ccg",

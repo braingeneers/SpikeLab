@@ -2839,6 +2839,33 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="merge_workspace",
+                description=(
+                    "Merge all items from a saved workspace file into an existing "
+                    "in-memory workspace. Use this to combine results from parallel "
+                    "agents that each saved to separate workspace files."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "ID of the target workspace to merge into",
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "Base file path (without extension) of the saved workspace to merge from",
+                        },
+                        "overwrite": {
+                            "type": "boolean",
+                            "description": "If true, overwrite existing keys; if false (default), skip duplicates",
+                            "default": False,
+                        },
+                    },
+                    "required": ["workspace_id", "path"],
+                },
+            ),
+            types.Tool(
                 name="fetch_workspace_item",
                 description=(
                     "Retrieve the data of a workspace item as a nested list. "
@@ -3195,6 +3222,8 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.load_workspace(**arguments)
         elif name == "load_workspace_item":
             result = await analysis.load_workspace_item(**arguments)
+        elif name == "merge_workspace":
+            result = await analysis.merge_workspace(**arguments)
         elif name == "fetch_workspace_item":
             result = await analysis.fetch_workspace_item(**arguments)
 

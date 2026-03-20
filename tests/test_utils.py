@@ -28,6 +28,10 @@ from SpikeLab.spikedata.utils import (
     gplvm_average_state_probability,
     gplvm_continuity_prob,
     gplvm_state_entropy,
+    shuffle_z_score,
+    shuffle_percentile,
+    slice_trend,
+    slice_stability,
     times_from_ms,
     to_ms,
     trough_between,
@@ -2081,3 +2085,270 @@ class TestGplvmEdgeCases:
         result = gplvm_average_state_probability(posterior)
         assert result.shape == (1,)
         np.testing.assert_allclose(result[0], 1.0)
+
+
+# ---------------------------------------------------------------------------
+# shuffle_z_score
+# ---------------------------------------------------------------------------
+
+
+class TestShuffleZScore:
+    """Tests for shuffle_z_score."""
+
+    def test_known_z_score(self):
+        """
+        A known observed value produces the expected z-score.
+
+        Tests:
+            (Test Case 1) observed=mean gives z=0.
+            (Test Case 2) observed=mean+std gives z=1.
+        """
+        dist = np.array([10.0, 10.0, 10.0, 10.0])
+        z_at_mean = shuffle_z_score(10.0, dist)
+        assert np.isnan(z_at_mean)  # std=0
+
+        dist2 = np.array([8.0, 10.0, 12.0])  # mean=10, std=~1.633
+        z_at_mean2 = shuffle_z_score(10.0, dist2)
+        np.testing.assert_allclose(z_at_mean2, 0.0, atol=1e-10)
+
+    def test_positive_z_score(self):
+        """
+        An observed value above the shuffle mean gives a positive z-score.
+
+        Tests:
+            (Test Case 1) z > 0 when observed > mean.
+        """
+        dist = np.random.default_rng(0).normal(0, 1, size=1000)
+        z = shuffle_z_score(3.0, dist)
+        assert z > 0
+
+    def test_array_input(self):
+        """
+        shuffle_z_score works element-wise on array inputs.
+
+        Tests:
+            (Test Case 1) Output shape matches observed shape.
+            (Test Case 2) Each element is z-scored independently.
+        """
+        observed = np.array([10.0, 20.0])
+        dist = np.array([[9.0, 19.0], [11.0, 21.0], [10.0, 20.0]])
+        z = shuffle_z_score(observed, dist)
+
+        assert z.shape == (2,)
+        np.testing.assert_allclose(z[0], 0.0, atol=1e-10)
+        np.testing.assert_allclose(z[1], 0.0, atol=1e-10)
+
+    def test_zero_std_returns_nan(self):
+        """
+        When all shuffle values are identical, z-score is NaN regardless of observed value.
+
+        Tests:
+            (Test Case 1) Result is NaN when observed differs from mean and std is zero.
+            (Test Case 2) Result is NaN when observed equals mean and std is zero.
+        """
+        dist = np.full((5,), 3.0)
+        z = shuffle_z_score(5.0, dist)
+        assert np.isnan(z)
+
+        z_same = shuffle_z_score(3.0, dist)
+        assert np.isnan(z_same)
+
+
+# ---------------------------------------------------------------------------
+# shuffle_percentile
+# ---------------------------------------------------------------------------
+
+
+class TestShufflePercentile:
+    """Tests for shuffle_percentile."""
+
+    def test_observed_above_all(self):
+        """
+        An observed value above all shuffle values gives percentile 1.0.
+
+        Tests:
+            (Test Case 1) Percentile is 1.0.
+        """
+        dist = np.array([1.0, 2.0, 3.0, 4.0])
+        pct = shuffle_percentile(100.0, dist)
+        assert pct == 1.0
+
+    def test_observed_below_all(self):
+        """
+        An observed value below all shuffle values gives percentile 0.0.
+
+        Tests:
+            (Test Case 1) Percentile is 0.0.
+        """
+        dist = np.array([1.0, 2.0, 3.0, 4.0])
+        pct = shuffle_percentile(-10.0, dist)
+        assert pct == 0.0
+
+    def test_observed_at_median(self):
+        """
+        An observed value at the median gives percentile ~0.5.
+
+        Tests:
+            (Test Case 1) Percentile is between 0.25 and 0.75.
+        """
+        dist = np.arange(1.0, 101.0)  # 1..100
+        pct = shuffle_percentile(50.0, dist)
+        assert 0.25 <= pct <= 0.75
+
+    def test_array_input(self):
+        """
+        shuffle_percentile works element-wise on array inputs.
+
+        Tests:
+            (Test Case 1) Output shape matches observed shape.
+        """
+        observed = np.array([100.0, -100.0])
+        dist = np.array([[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
+        pct = shuffle_percentile(observed, dist)
+
+        assert pct.shape == (2,)
+        assert pct[0] == 1.0
+        assert pct[1] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# slice_trend
+# ---------------------------------------------------------------------------
+
+
+class TestSliceTrend:
+    """Tests for slice_trend."""
+
+    def test_perfect_positive_trend(self):
+        """
+        A perfectly linear increasing sequence has positive slope and low p-value.
+
+        Tests:
+            (Test Case 1) Slope is positive.
+            (Test Case 2) p-value is very small.
+        """
+        values = np.arange(10, dtype=float)
+        slope, p = slice_trend(values)
+
+        assert slope > 0
+        assert p < 0.001
+
+    def test_flat_trend(self):
+        """
+        A constant sequence has zero slope.
+
+        Tests:
+            (Test Case 1) Slope is 0.0.
+        """
+        values = np.full(20, 5.0)
+        slope, p = slice_trend(values)
+
+        assert slope == pytest.approx(0.0)
+
+    def test_custom_times(self):
+        """
+        Providing explicit times changes the slope units.
+
+        Tests:
+            (Test Case 1) Slope is value-change per ms, not per index.
+        """
+        values = np.array([0.0, 10.0, 20.0, 30.0])
+        times = np.array([0.0, 1000.0, 2000.0, 3000.0])
+        slope, p = slice_trend(values, times=times)
+
+        np.testing.assert_allclose(slope, 0.01)  # 10 per 1000ms
+
+    def test_nan_values_ignored(self):
+        """
+        NaN values in the input are excluded from the regression.
+
+        Tests:
+            (Test Case 1) Slope is computed from non-NaN values only.
+        """
+        values = np.array([0.0, np.nan, 2.0, 3.0, 4.0])
+        slope, p = slice_trend(values)
+
+        assert slope > 0
+        assert p < 0.05
+
+    def test_2d_input_raises(self):
+        """
+        A 2-D input raises ValueError with guidance to reduce first.
+
+        Tests:
+            (Test Case 1) ValueError is raised.
+        """
+        values = np.ones((5, 3))
+        with pytest.raises(ValueError, match="1-D"):
+            slice_trend(values)
+
+
+# ---------------------------------------------------------------------------
+# slice_stability
+# ---------------------------------------------------------------------------
+
+
+class TestSliceStability:
+    """Tests for slice_stability."""
+
+    def test_constant_values_zero_cv(self):
+        """
+        A constant sequence has CV of 0.
+
+        Tests:
+            (Test Case 1) CV is 0.0.
+        """
+        values = np.full(10, 5.0)
+        cv = slice_stability(values)
+
+        assert cv == pytest.approx(0.0)
+
+    def test_known_cv(self):
+        """
+        A known distribution produces the expected CV.
+
+        Tests:
+            (Test Case 1) CV matches std / |mean|.
+        """
+        values = np.array([10.0, 20.0, 30.0])
+        expected_cv = np.std(values) / np.abs(np.mean(values))
+        cv = slice_stability(values)
+
+        assert cv == pytest.approx(expected_cv)
+
+    def test_2d_input(self):
+        """
+        A 2-D input computes CV along axis 0, returning shape matching trailing dims.
+
+        Tests:
+            (Test Case 1) Output shape is (3,) for input (S, 3).
+        """
+        values = np.array([[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]])
+        cv = slice_stability(values)
+
+        assert cv.shape == (3,)
+        np.testing.assert_array_almost_equal(cv, np.zeros(3))
+
+    def test_zero_mean_returns_nan(self):
+        """
+        When the mean is zero, CV is NaN regardless of std.
+
+        Tests:
+            (Test Case 1) Result is NaN for zero-mean data with nonzero std.
+        """
+        values = np.array([-1.0, 1.0, -1.0, 1.0])
+        cv = slice_stability(values)
+
+        assert np.isnan(cv)
+
+    def test_scalar_return_for_1d_input(self):
+        """
+        A 1-D input returns a Python float, not an array.
+
+        Tests:
+            (Test Case 1) Return type is float.
+        """
+        values = np.array([1.0, 2.0, 3.0])
+        cv = slice_stability(values)
+
+        assert isinstance(cv, float)

@@ -1468,6 +1468,83 @@ class SpikeData:
         )
         return shuffled_spike_data
 
+    def spike_shuffle_stack(self, n_shuffles, seed=None, swap_per_spike=5, bin_size=1):
+        """
+        Generate multiple degree-preserving shuffled copies and return them as a SpikeSliceStack.
+
+        Each shuffle is an independent call to ``spike_shuffle``. The resulting
+        stack can be used with ``SpikeSliceStack.apply`` to build null
+        distributions for statistical testing.
+
+        Parameters:
+            n_shuffles (int): Number of shuffled datasets to generate.
+            seed (int | None): Base random seed. Each shuffle uses
+                ``seed + i`` for reproducibility. None means no seed.
+            swap_per_spike (int): Forwarded to ``spike_shuffle`` (default: 5).
+            bin_size (int): Forwarded to ``spike_shuffle`` (default: 1).
+
+        Returns:
+            stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData
+                objects. All slices share the same time bounds ``(0, length)``.
+        """
+        from .spikeslicestack import SpikeSliceStack
+
+        shuffled = []
+        for i in range(n_shuffles):
+            s = seed + i if seed is not None else None
+            shuffled.append(
+                self.spike_shuffle(
+                    swap_per_spike=swap_per_spike, seed=s, bin_size=bin_size
+                )
+            )
+
+        times = [(0.0, self.length)] * n_shuffles
+        return SpikeSliceStack(
+            spike_stack=shuffled,
+            times_start_to_end=times,
+            neuron_attributes=self.neuron_attributes,
+        )
+
+    def subset_stack(self, n_subsets, units_per_subset, seed=None):
+        """
+        Generate multiple random unit subsets and return them as a SpikeSliceStack.
+
+        Each subset is drawn by sampling *units_per_subset* unit indices
+        without replacement from the full unit set. Draws are independent
+        across subsets (with replacement across draws), so the same unit may
+        appear in multiple subsets. The resulting stack can be used with
+        ``SpikeSliceStack.apply`` to test sensitivity of a metric to unit
+        count or composition.
+
+        Parameters:
+            n_subsets (int): Number of random subsets to generate.
+            units_per_subset (int): Number of units in each subset.
+            seed (int | None): Random seed for reproducibility.
+
+        Returns:
+            stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData
+                objects. All slices share the same time bounds ``(0, length)``.
+        """
+        from .spikeslicestack import SpikeSliceStack
+
+        if units_per_subset > self.N:
+            raise ValueError(
+                f"units_per_subset ({units_per_subset}) exceeds number of "
+                f"units ({self.N})"
+            )
+
+        rng = np.random.default_rng(seed)
+        subsets = []
+        for _ in range(n_subsets):
+            indices = sorted(rng.choice(self.N, size=units_per_subset, replace=False))
+            subsets.append(self.subset(indices))
+
+        times = [(0.0, self.length)] * n_subsets
+        return SpikeSliceStack(
+            spike_stack=subsets,
+            times_start_to_end=times,
+        )
+
     # ----------------------------
     # Exporters
     # ----------------------------

@@ -3547,3 +3547,192 @@ class TestRecentFixes:
         result = sd.rates()
         assert result.shape == (3,)
         np.testing.assert_array_equal(result, np.zeros(3))
+
+
+# ---------------------------------------------------------------------------
+# spike_shuffle_stack
+# ---------------------------------------------------------------------------
+
+
+class TestSpikeShuffleStack:
+    """Tests for SpikeData.spike_shuffle_stack."""
+
+    def test_basic_output_structure(self):
+        """
+        spike_shuffle_stack returns a SpikeSliceStack with the correct number of slices.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeSliceStack.
+            (Test Case 2) Number of slices matches n_shuffles.
+            (Test Case 3) Each slice has the same number of units as the original.
+        """
+        sd = random_spikedata(5, 100)
+        stack = sd.spike_shuffle_stack(n_shuffles=10, seed=0)
+
+        assert isinstance(stack, SpikeSliceStack)
+        assert len(stack.spike_stack) == 10
+        for s in stack.spike_stack:
+            assert s.N == sd.N
+
+    def test_times_all_zero_to_length(self):
+        """
+        All slices share the same time bounds (0, length).
+
+        Tests:
+            (Test Case 1) Every entry in times is (0.0, sd.length).
+        """
+        sd = random_spikedata(3, 50)
+        stack = sd.spike_shuffle_stack(n_shuffles=5, seed=0)
+
+        for start, end in stack.times:
+            assert start == 0.0
+            assert end == pytest.approx(sd.length)
+
+    def test_seed_reproducibility(self):
+        """
+        The same seed produces identical shuffle stacks.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed produce identical rasters.
+        """
+        sd = random_spikedata(4, 80)
+        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
+        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
+
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            r1 = s1.raster()
+            r2 = s2.raster()
+            np.testing.assert_array_equal(r1, r2)
+
+    def test_different_seeds_differ(self):
+        """
+        Different seeds produce different shuffles.
+
+        Tests:
+            (Test Case 1) At least one pair of shuffles differs across seed values.
+        """
+        sd = random_spikedata(4, 200)
+        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=0)
+        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=100)
+
+        any_differ = False
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            if not np.array_equal(s1.raster(), s2.raster()):
+                any_differ = True
+                break
+        assert any_differ
+
+    def test_neuron_attributes_propagated(self):
+        """
+        Neuron attributes from the original SpikeData are carried to the stack.
+
+        Tests:
+            (Test Case 1) Stack-level neuron_attributes matches original.
+        """
+        sd = random_spikedata(3, 60)
+        sd.neuron_attributes = [{"id": 0}, {"id": 1}, {"id": 2}]
+        stack = sd.spike_shuffle_stack(n_shuffles=2, seed=0)
+
+        assert stack.neuron_attributes is not None
+        assert len(stack.neuron_attributes) == 3
+
+
+# ---------------------------------------------------------------------------
+# subset_stack
+# ---------------------------------------------------------------------------
+
+
+class TestSubsetStack:
+    """Tests for SpikeData.subset_stack."""
+
+    def test_basic_output_structure(self):
+        """
+        subset_stack returns a SpikeSliceStack with the correct number of slices and units.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeSliceStack.
+            (Test Case 2) Number of slices matches n_subsets.
+            (Test Case 3) Each slice has units_per_subset units.
+        """
+        sd = random_spikedata(10, 200)
+        stack = sd.subset_stack(n_subsets=8, units_per_subset=4, seed=0)
+
+        assert isinstance(stack, SpikeSliceStack)
+        assert len(stack.spike_stack) == 8
+        for s in stack.spike_stack:
+            assert s.N == 4
+
+    def test_times_all_zero_to_length(self):
+        """
+        All slices share the same time bounds (0, length).
+
+        Tests:
+            (Test Case 1) Every entry in times is (0.0, sd.length).
+        """
+        sd = random_spikedata(6, 100)
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=2, seed=0)
+
+        for start, end in stack.times:
+            assert start == 0.0
+            assert end == pytest.approx(sd.length)
+
+    def test_seed_reproducibility(self):
+        """
+        The same seed produces identical subset stacks.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed produce identical spike trains.
+        """
+        sd = random_spikedata(8, 150)
+        stack1 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
+        stack2 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
+
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            assert s1.N == s2.N
+            for t1, t2 in zip(s1.train, s2.train):
+                np.testing.assert_array_equal(t1, t2)
+
+    def test_units_per_subset_exceeds_n_raises(self):
+        """
+        Requesting more units than available raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        sd = random_spikedata(3, 50)
+        with pytest.raises(ValueError, match="exceeds"):
+            sd.subset_stack(n_subsets=2, units_per_subset=5, seed=0)
+
+    def test_full_unit_count_returns_all_units(self):
+        """
+        Setting units_per_subset equal to N includes all units in every slice.
+
+        Tests:
+            (Test Case 1) Every slice has the same number of units as the original.
+            (Test Case 2) Recording length is preserved.
+        """
+        sd = random_spikedata(4, 80)
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=4, seed=0)
+
+        for s in stack.spike_stack:
+            assert s.N == 4
+            assert s.length == pytest.approx(sd.length)
+
+    def test_neuron_attributes_per_slice(self):
+        """
+        Each subsetted SpikeData carries its own neuron_attributes from the original.
+
+        Tests:
+            (Test Case 1) Each slice's neuron_attributes has length equal to units_per_subset.
+            (Test Case 2) Attributes come from the original set.
+        """
+        sd = random_spikedata(6, 100)
+        sd.neuron_attributes = [{"id": i} for i in range(6)]
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=3, seed=0)
+
+        original_ids = {a["id"] for a in sd.neuron_attributes}
+        for s in stack.spike_stack:
+            assert s.neuron_attributes is not None
+            assert len(s.neuron_attributes) == 3
+            for attr in s.neuron_attributes:
+                assert attr["id"] in original_ids
