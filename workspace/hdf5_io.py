@@ -679,6 +679,8 @@ def _dump_rateslicestack(grp, rss) -> None:
     grp.create_dataset("event_stack", data=rss.event_stack.astype(np.float64))
     _dump_times_tuples(grp, rss.times)
     grp.attrs["step_size"] = float(rss.step_size)
+    if rss.neuron_attributes is not None:
+        _dump_neuron_attributes(grp, rss.neuron_attributes)
 
 
 def _load_rateslicestack(grp):
@@ -687,11 +689,13 @@ def _load_rateslicestack(grp):
     event_stack = np.array(grp["event_stack"])
     times = _load_times_tuples(grp)
     step_size = float(grp.attrs["step_size"])
+    neuron_attributes = _load_neuron_attributes(grp)
     return RateSliceStack(
         data_obj=None,
         event_matrix=event_stack,
         times_start_to_end=times,
         step_size=step_size,
+        neuron_attributes=neuron_attributes,
     )
 
 
@@ -706,6 +710,8 @@ def _dump_spikeslicestack(grp, sss) -> None:
     for i, sd in enumerate(sss.spike_stack):
         sd_grp = slices_grp.create_group(str(i))
         _dump_spikedata(sd_grp, sd)
+    if sss.neuron_attributes is not None:
+        _dump_neuron_attributes(grp, sss.neuron_attributes)
 
 
 def _load_spikeslicestack(grp):
@@ -715,6 +721,7 @@ def _load_spikeslicestack(grp):
     slices_grp = grp["spike_stack"]
     n_slices = len(slices_grp)
     spike_stack = [_load_spikedata(slices_grp[str(i)]) for i in range(n_slices)]
+    neuron_attributes = _load_neuron_attributes(grp)
 
     # Bypass the constructor (which requires a full SpikeData + subtime slicing)
     # and set fields directly, as all slice data is already reconstructed.
@@ -722,7 +729,7 @@ def _load_spikeslicestack(grp):
     sss.spike_stack = spike_stack
     sss.times = times
     sss.N = spike_stack[0].N if spike_stack else 0
-    sss.neuron_attributes = spike_stack[0].neuron_attributes if spike_stack else None
+    sss.neuron_attributes = neuron_attributes
     return sss
 
 
