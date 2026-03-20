@@ -1490,3 +1490,77 @@ class TestRankOrderCorrelationRate:
         rss = RateSliceStack(event_matrix=mat)
         with pytest.raises(ValueError, match="n_shuffles"):
             rss.rank_order_correlation(n_shuffles=2)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests
+# ---------------------------------------------------------------------------
+
+
+class TestRankOrderEdgeCasesRate:
+    """Edge case tests for rank_order_correlation on RateSliceStack."""
+
+    def test_single_slice(self):
+        """
+        Single-slice stack produces (1,1) matrix with NaN average.
+
+        Tests:
+            (Test Case 1) corr shape (1, 1).
+            (Test Case 2) av_corr is NaN.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((6, 30, 1)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            corr, av, overlap = rss.rank_order_correlation(n_shuffles=0)
+        assert corr.matrix.shape == (1, 1)
+        assert np.isnan(av)
+
+    def test_all_nan_timing(self):
+        """
+        All-NaN timing matrix produces all-NaN correlation.
+
+        Tests:
+            (Test Case 1) Off-diagonal entries are all NaN.
+        """
+        rng = np.random.default_rng(1)
+        mat = rng.random((4, 20, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        all_nan = np.full((4, 5), np.nan)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            corr, av, _ = rss.rank_order_correlation(
+                timing_matrix=all_nan, n_shuffles=0
+            )
+        off_diag = corr.matrix.copy()
+        np.fill_diagonal(off_diag, np.nan)
+        assert np.all(np.isnan(off_diag))
+
+    def test_n_shuffles_exactly_5(self):
+        """
+        n_shuffles=5 (minimum allowed) produces valid output.
+
+        Tests:
+            (Test Case 1) No error raised; output shape correct.
+        """
+        rng = np.random.default_rng(2)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, _, _ = rss.rank_order_correlation(n_shuffles=5, seed=42)
+        assert corr.matrix.shape == (5, 5)
+
+    def test_min_overlap_exceeds_units(self):
+        """
+        min_overlap larger than U makes all off-diagonal NaN.
+
+        Tests:
+            (Test Case 1) All off-diagonal entries are NaN.
+        """
+        rng = np.random.default_rng(3)
+        mat = rng.random((4, 20, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr, _, _ = rss.rank_order_correlation(min_overlap=100, n_shuffles=0)
+        off_diag = corr.matrix.copy()
+        np.fill_diagonal(off_diag, np.nan)
+        assert np.all(np.isnan(off_diag))

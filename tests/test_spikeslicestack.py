@@ -6,6 +6,7 @@ Covers: constructor (both time modes), validation, to_raster_array.
 
 import pathlib
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -1895,3 +1896,100 @@ class TestZeroBasedInvariant:
         # Absolute times should reflect the sub-window within each original window
         assert result.times[0] == pytest.approx((5.0, 15.0))
         assert result.times[1] == pytest.approx((105.0, 115.0))
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests
+# ---------------------------------------------------------------------------
+
+
+class TestEdgeCasesSpikeTiming:
+    """Edge case tests for timing and rank-order methods on SpikeSliceStack."""
+
+    def test_rank_order_single_slice(self):
+        """
+        Single-slice stack produces (1,1) correlation matrix with NaN off-diagonal.
+
+        Tests:
+            (Test Case 1) corr shape is (1, 1).
+            (Test Case 2) av_corr is NaN (no lower-triangle pairs).
+        """
+        sd = SpikeData(
+            [np.array([5.0, 15.0, 25.0]), np.array([8.0, 22.0, 40.0])],
+            length=50.0,
+        )
+        sss = SpikeSliceStack(spike_stack=[sd])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            corr, av, overlap = sss.rank_order_correlation(n_shuffles=0)
+        assert corr.matrix.shape == (1, 1)
+        assert np.isnan(av)
+
+    def test_rank_order_all_nan_timing(self):
+        """
+        All-NaN timing matrix produces all-NaN correlation.
+
+        Tests:
+            (Test Case 1) Entire corr matrix is NaN.
+            (Test Case 2) av_corr is NaN.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5)
+        all_nan = np.full((4, 5), np.nan)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            corr, av, _ = sss.rank_order_correlation(
+                timing_matrix=all_nan, n_shuffles=0
+            )
+        assert np.all(np.isnan(corr.matrix[np.triu_indices(5, k=1)]))
+        assert np.isnan(av)
+
+    def test_rank_order_n_shuffles_exactly_5(self):
+        """
+        n_shuffles=5 (minimum allowed) produces valid z-scores.
+
+        Tests:
+            (Test Case 1) No error raised.
+            (Test Case 2) Output shape is (S, S).
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5, seed=99)
+        corr, _, _ = sss.rank_order_correlation(n_shuffles=5, seed=42)
+        assert corr.matrix.shape == (5, 5)
+
+    def test_rank_order_min_overlap_frac_zero(self):
+        """
+        min_overlap_frac=0.0 is a no-op (effective_min stays at min_overlap).
+
+        Tests:
+            (Test Case 1) Same result as without min_overlap_frac.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5)
+        corr1, _, _ = sss.rank_order_correlation(min_overlap=3, n_shuffles=0)
+        corr2, _, _ = sss.rank_order_correlation(
+            min_overlap=3, min_overlap_frac=0.0, n_shuffles=0
+        )
+        np.testing.assert_array_equal(corr1.matrix, corr2.matrix)
+
+    def test_timing_matrix_wrong_shape_raises(self):
+        """
+        Wrong-shaped timing_matrix in order_units_across_slices raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (3, 5) for 4-unit stack raises ValueError.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5)
+        with pytest.raises(ValueError, match="timing_matrix must have shape"):
+            sss.order_units_across_slices(timing_matrix=np.ones((3, 5)))
+
+    def test_order_units_agg_func_mean(self):
+        """
+        agg_func='mean' produces valid ordering.
+
+        Tests:
+            (Test Case 1) All 4 units in highly-active group.
+            (Test Case 2) Peak times are non-decreasing.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5, seed=7)
+        _, ids, _, times, _ = sss.order_units_across_slices(agg_func="mean")
+        assert len(ids[0]) == 4
+        valid = times[0][~np.isnan(times[0])]
+        assert np.all(np.diff(valid) >= 0)

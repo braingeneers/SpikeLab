@@ -1960,3 +1960,109 @@ class TestGetAttr:
             attr = "hello"
 
         assert _get_attr(Obj(), "missing", "default") == "default"
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests for new utility functions
+# ---------------------------------------------------------------------------
+
+
+class TestConsecutiveDurationsEdgeCases:
+    """Edge case tests for consecutive_durations."""
+
+    def test_single_element_signal(self):
+        """
+        Single-element signal produces a run of length 1.
+
+        Tests:
+            (Test Case 1) [0.6] with threshold 0.5 above → [1].
+        """
+        result = consecutive_durations(np.array([0.6]), 0.5, mode="above")
+        np.testing.assert_array_equal(result, [1])
+
+    def test_all_nan_signal(self):
+        """
+        All-NaN signal produces empty result for both modes.
+
+        Tests:
+            (Test Case 1) NaN >= threshold is False → no above runs.
+            (Test Case 2) NaN < threshold is False → no below runs.
+        """
+        sig = np.array([np.nan, np.nan, np.nan])
+        above = consecutive_durations(sig, 0.5, mode="above")
+        below = consecutive_durations(sig, 0.5, mode="below")
+        assert above.size == 0
+        assert below.size == 0
+
+    def test_min_dur_filters_all(self):
+        """
+        min_dur larger than all runs returns empty.
+
+        Tests:
+            (Test Case 1) Runs of length 1 and 2 filtered by min_dur=5.
+        """
+        signal = np.array([0.6, 0.1, 0.7, 0.8, 0.1])
+        result = consecutive_durations(signal, 0.5, mode="above", min_dur=5)
+        assert result.size == 0
+
+    def test_min_dur_zero(self):
+        """
+        min_dur=0 keeps all runs.
+
+        Tests:
+            (Test Case 1) Even length-1 runs are kept.
+        """
+        signal = np.array([0.6, 0.1, 0.7, 0.1])
+        result = consecutive_durations(signal, 0.5, mode="above", min_dur=0)
+        np.testing.assert_array_equal(result, [1, 1])
+
+    def test_negative_values(self):
+        """
+        Negative values in signal are handled correctly.
+
+        Tests:
+            (Test Case 1) Negative values below threshold=0 in 'below' mode.
+        """
+        signal = np.array([-1.0, -2.0, 0.5, -0.5])
+        result = consecutive_durations(signal, 0.0, mode="below")
+        np.testing.assert_array_equal(result, [2, 1])
+
+
+class TestGplvmEdgeCases:
+    """Edge case tests for GPLVM utility functions."""
+
+    def test_entropy_all_zeros_row(self):
+        """
+        Row of all zeros is not a valid probability distribution; entropy is NaN.
+
+        Tests:
+            (Test Case 1) All-zero row produces NaN (not a valid distribution).
+            (Test Case 2) Valid row produces positive entropy.
+        """
+        posterior = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.0]])
+        result = gplvm_state_entropy(posterior)
+        assert np.isnan(result[0])  # Invalid distribution → NaN
+        assert result[1] > 0.0
+
+    def test_entropy_single_state(self):
+        """
+        Single state (K=1) always has entropy 0.
+
+        Tests:
+            (Test Case 1) (T, 1) posterior → all zeros.
+        """
+        posterior = np.ones((5, 1))
+        result = gplvm_state_entropy(posterior)
+        np.testing.assert_allclose(result, 0.0, atol=1e-12)
+
+    def test_avg_state_prob_single_state(self):
+        """
+        Single state (K=1) returns (1,) array.
+
+        Tests:
+            (Test Case 1) Shape is (1,) with value 1.0.
+        """
+        posterior = np.ones((10, 1))
+        result = gplvm_average_state_probability(posterior)
+        assert result.shape == (1,)
+        np.testing.assert_allclose(result[0], 1.0)

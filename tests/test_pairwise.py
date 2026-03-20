@@ -962,3 +962,86 @@ class TestRemoveByConditionStack:
             "threshold": 3.0,
             "fill": 0.0,
         }
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests for remove_by_condition
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveByConditionEdgeCases:
+    """Edge case tests for remove_by_condition on both classes."""
+
+    def test_all_nan_condition_matrix(self):
+        """
+        All-NaN condition matrix removes no entries (NaN comparisons are False).
+
+        Tests:
+            (Test Case 1) Result matrix unchanged from target.
+        """
+        target = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
+        condition = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        np.testing.assert_array_equal(result.matrix, target.matrix)
+
+    def test_all_nan_target_matrix(self):
+        """
+        All-NaN target with matching condition replaces matched NaN entries with fill.
+
+        Tests:
+            (Test Case 1) Entries where condition matches are set to fill (0.0).
+            (Test Case 2) Other NaN entries remain NaN.
+        """
+        target = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
+        condition = PairwiseCompMatrix(matrix=np.array([[0.0, 1.0], [1.0, 0.0]]))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5, fill=0.0)
+        assert result.matrix[0, 0] == 0.0  # 0.0 < 0.5 → replaced
+        assert np.isnan(result.matrix[0, 1])  # 1.0 >= 0.5 → stays NaN
+
+    def test_1x1_matrix(self):
+        """
+        1x1 matrix works correctly.
+
+        Tests:
+            (Test Case 1) Single entry replaced when condition matches.
+        """
+        target = PairwiseCompMatrix(matrix=np.array([[0.9]]))
+        condition = PairwiseCompMatrix(matrix=np.array([[0.1]]))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        assert np.isnan(result.matrix[0, 0])
+
+    def test_nan_condition_with_abs_variant(self):
+        """
+        abs_ variant on NaN condition: |NaN| is NaN, comparison returns False.
+
+        Tests:
+            (Test Case 1) No entries removed.
+        """
+        target = PairwiseCompMatrix(matrix=np.eye(3))
+        condition = PairwiseCompMatrix(matrix=np.full((3, 3), np.nan))
+        result = target.remove_by_condition(condition, op="abs_lt", threshold=10.0)
+        np.testing.assert_array_equal(result.matrix, target.matrix)
+
+    def test_empty_stack_remove_by_condition(self):
+        """
+        Empty stack (S=0) returns empty stack.
+
+        Tests:
+            (Test Case 1) Result shape is (3, 3, 0).
+        """
+        target = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)))
+        condition = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        assert result.stack.shape == (3, 3, 0)
+
+    def test_all_nan_condition_stack(self):
+        """
+        All-NaN condition stack removes no entries.
+
+        Tests:
+            (Test Case 1) Result stack unchanged from target.
+        """
+        target = PairwiseCompMatrixStack(stack=np.ones((3, 3, 2)))
+        condition = PairwiseCompMatrixStack(stack=np.full((3, 3, 2), np.nan))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        np.testing.assert_array_equal(result.stack, target.stack)
