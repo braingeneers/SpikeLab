@@ -627,6 +627,8 @@ class SpikeData:
         Notes:
         - Units are included in the output according to their order in self.train, not the
         order in the unit list (which is treated as a set).
+        - raw_data and raw_time are not propagated to the subset — they remain on the
+        original SpikeData object.
         - If IDs are not unique, every neuron which matches is included in the output.
         - Neurons whose neuron_attributes entry does not have the key are always excluded.
         """
@@ -654,14 +656,14 @@ class SpikeData:
                 if self.neuron_attributes is not None:
                     neuron_attributes.append(self.neuron_attributes[i])
 
+        # raw_data/raw_time are not propagated to subsets — they remain
+        # on the original SpikeData object and can be accessed there.
         return SpikeData(
             train,
             length=self.length,
             N=len(train),
             neuron_attributes=neuron_attributes or None,
             metadata=self.metadata,
-            raw_time=self.raw_time,
-            raw_data=self.raw_data,
         )
 
     def neuron_to_channel_map(
@@ -810,8 +812,17 @@ class SpikeData:
             np.hstack([tr1, tr2 + self.length + offset])
             for tr1, tr2 in zip(self.train, spikeData.train)
         ]
-        raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
-        raw_time = np.concatenate((self.raw_time, spikeData.raw_time))
+        if self.raw_data.size > 0 and spikeData.raw_data.size > 0:
+            raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
+            raw_time = np.concatenate(
+                (self.raw_time, spikeData.raw_time + self.length + offset)
+            )
+        elif spikeData.raw_data.size > 0:
+            raw_data = spikeData.raw_data.copy()
+            raw_time = spikeData.raw_time + self.length + offset
+        else:
+            raw_data = self.raw_data
+            raw_time = self.raw_time
         length = self.length + spikeData.length + offset
         return SpikeData(
             train,
@@ -1103,12 +1114,7 @@ class SpikeData:
             sd = sd.subtime(0, self.length)
         self.train += sd.train
         self.N += sd.N
-        if self.raw_data.size > 0 and sd.raw_data.size > 0:
-            self.raw_data = np.concatenate((self.raw_data, sd.raw_data), axis=0)
-            # raw_time is a shared time axis — keep existing, don't double it
-        elif sd.raw_data.size > 0:
-            self.raw_data = sd.raw_data.copy()
-            self.raw_time = sd.raw_time.copy()
+        # raw_data/raw_time are not modified — they persist from the original object.
         self.metadata.update(sd.metadata)
         if self.neuron_attributes and sd.neuron_attributes:
             self.neuron_attributes += sd.neuron_attributes

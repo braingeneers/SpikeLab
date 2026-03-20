@@ -3237,37 +3237,22 @@ class TestRecentFixes:
         np.testing.assert_array_equal(result.train[0], [0, 50, 100])
         assert result.length == 110
 
-    def test_concatenate_spike_data_with_raw_data(self):
+    def test_concatenate_spike_data_preserves_raw(self):
         """
-        Verify concatenate_spike_data stacks raw_data along axis 0 and keeps shared raw_time.
+        Verify concatenate_spike_data does not modify raw_data or raw_time.
 
         Tests:
-            (Test Case 1) raw_data channels are concatenated (axis 0), not added.
-            (Test Case 2) raw_time is kept unchanged (shared time axis).
+            (Test Case 1) raw_data is unchanged after concatenating units.
+            (Test Case 2) raw_time is unchanged after concatenating units.
         """
         raw1 = np.ones((2, 10))
-        raw2 = np.ones((2, 10)) * 2
         time1 = np.arange(10, dtype=float)
-        time2 = np.arange(10, dtype=float)
         sd1 = SpikeData([[1, 2]], length=10, raw_data=raw1, raw_time=time1)
-        sd2 = SpikeData([[3, 4]], length=10, raw_data=raw2, raw_time=time2)
+        sd2 = SpikeData([[3, 4]], length=10)
         sd1.concatenate_spike_data(sd2)
-        assert sd1.raw_data.shape == (4, 10)
-        assert sd1.raw_time.shape == (10,)  # shared time axis, not doubled
-
-    def test_concatenate_spike_data_one_empty_raw(self):
-        """
-        Verify concatenation when one SpikeData has no raw_data.
-
-        Tests:
-            (Test Case 1) Result adopts the non-empty raw_data.
-        """
-        sd1 = SpikeData([[1, 2]], length=10)
-        raw2 = np.ones((2, 10))
-        time2 = np.arange(10, dtype=float)
-        sd2 = SpikeData([[3, 4]], length=10, raw_data=raw2, raw_time=time2)
-        sd1.concatenate_spike_data(sd2)
-        np.testing.assert_array_equal(sd1.raw_data, raw2)
+        assert sd1.raw_data.shape == (2, 10)  # unchanged
+        assert sd1.raw_time.shape == (10,)  # unchanged
+        np.testing.assert_array_equal(sd1.raw_data, raw1)
 
     def test_metadata_default_not_shared(self):
         """
