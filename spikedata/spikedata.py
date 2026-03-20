@@ -203,6 +203,10 @@ class SpikeData:
             raster = data > threshold
         elif direction == "down":
             raster = data < -threshold
+        else:
+            raise ValueError(
+                f"direction must be 'both', 'up', or 'down', got {direction!r}"
+            )
 
         if hysteresis:
             raster = np.diff(np.array(raster, dtype=int), axis=1) == 1
@@ -257,6 +261,8 @@ class SpikeData:
         # time it contains.
         if length is None:
             length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
+        if np.isnan(length):
+            raise ValueError("length must not be NaN")
         self.length = length
 
         # If a number of units was provided, make the list of spike
@@ -1405,7 +1411,13 @@ class SpikeData:
         above_thresh = spikes_per_burst >= MIN_SPIKES
 
         # compute fraction of bursts above threshold per unit
-        frac_per_unit = np.sum(above_thresh, axis=1) / edges.shape[0]
+        n_bursts = edges.shape[0]
+        if n_bursts == 0:
+            frac_per_unit = np.zeros(t_spk_mat.shape[0])
+            frac_per_burst = np.array([])
+            backbone_units = np.array([], dtype=int)
+            return frac_per_unit, frac_per_burst, backbone_units
+        frac_per_unit = np.sum(above_thresh, axis=1) / n_bursts
         frac_per_burst = np.sum(above_thresh, axis=0) / t_spk_mat.shape[0]
 
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
@@ -1828,6 +1840,10 @@ class SpikeData:
         if pop_rms_override is None:
             pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
         else:
+            if pop_rms_override <= 0:
+                raise ValueError(
+                    f"pop_rms_override must be positive, got {pop_rms_override}"
+                )
             pop_rms = pop_rms_override
 
         # Find peaks
