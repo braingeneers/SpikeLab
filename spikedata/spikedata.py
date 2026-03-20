@@ -247,6 +247,12 @@ class SpikeData:
         # also copy each array to avoid aliasing.
         self.train = [np.sort(times) for times in train]
 
+        # Reject NaN spike times — they propagate silently and corrupt
+        # downstream computations (rates, rasters, correlations).
+        for i, t in enumerate(self.train):
+            if len(t) > 0 and np.isnan(t).any():
+                raise ValueError(f"spike times for unit {i} contain NaN values")
+
         # The length of the spike train defaults to the last spike
         # time it contains.
         if length is None:
@@ -532,6 +538,8 @@ class SpikeData:
         Notes:
         - The rate is calculated as the number of events in each bin divided by the bin size and number of units.
         """
+        if self.N == 0:
+            return np.zeros(int(np.ceil(self.length / bin_size)))
         binned_rate = self.binned(bin_size) / self.N / bin_size
         if unit == "Hz":
             return 1e3 * binned_rate

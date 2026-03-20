@@ -843,101 +843,22 @@ class RateSliceStack:
             corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of
                 shape ``(S, S)``. When ``n_shuffles > 0``, values are z-scores.
                 When ``n_shuffles == 0``, values are raw Spearman correlations.
-                Diagonal is 1 (raw) or NaN (z-scored). NaN where overlap is
-                below the effective minimum.
             av_corr (float): Average correlation (or z-score) across all valid
                 lower-triangle pairs.
             overlap_matrix (PairwiseCompMatrix): Matrix of shape ``(S, S)``
-                where entry ``[i, j]`` is the fraction of total units active
-                in both slices *i* and *j*. Diagonal is the fraction of units
-                active in each slice.
-
-        Notes:
-            - Call ``get_unit_timing_per_slice`` first to pre-compute the
-              timing matrix if you want to reuse it across multiple calls
-              (e.g. this method and ``order_units_across_slices``).
-            - Z-scoring: for each slice pair, one column's values are randomly
-              permuted ``n_shuffles`` times to produce a null distribution of
-              Spearman correlations. The z-score is
-              ``(rho - mean_null) / std_null``. Pairs where ``std_null == 0``
-              are set to NaN.
+                with fraction of units active in both slices.
         """
-        from scipy.stats import spearmanr
-
-        if 0 < n_shuffles < 5:
-            raise ValueError(
-                f"n_shuffles must be 0 (no shuffling) or >= 5, got {n_shuffles}"
-            )
+        from .utils import _rank_order_correlation_from_timing
 
         if timing_matrix is None:
             timing_matrix = self.get_unit_timing_per_slice(
                 MIN_RATE_THRESHOLD=MIN_RATE_THRESHOLD
             )
 
-        timing_matrix = np.asarray(timing_matrix)
-        if timing_matrix.ndim != 2:
-            raise ValueError(
-                f"timing_matrix must be 2-D (U, S), got shape {timing_matrix.shape}"
-            )
-
-        num_units = timing_matrix.shape[0]
-        effective_min = min_overlap
-        if min_overlap_frac is not None:
-            frac_count = int(np.ceil(min_overlap_frac * num_units))
-            effective_min = max(effective_min, frac_count)
-
-        rng = np.random.default_rng(seed)
-        num_slices = timing_matrix.shape[1]
-        corr = np.full((num_slices, num_slices), np.nan)
-        overlap = np.zeros((num_slices, num_slices), dtype=int)
-        if n_shuffles == 0:
-            np.fill_diagonal(corr, 1.0)
-
-        for i in range(num_slices):
-            overlap[i, i] = int(np.sum(~np.isnan(timing_matrix[:, i])))
-
-        for i in range(num_slices):
-            for j in range(i + 1, num_slices):
-                valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
-                n_valid = int(np.sum(valid))
-                overlap[i, j] = n_valid
-                overlap[j, i] = n_valid
-
-                if n_valid < effective_min:
-                    continue
-
-                a = timing_matrix[valid, i]
-                b = timing_matrix[valid, j]
-                rho, _ = spearmanr(a, b)
-
-                if n_shuffles == 0:
-                    corr[i, j] = rho
-                    corr[j, i] = rho
-                else:
-                    null_rhos = np.empty(n_shuffles)
-                    for k in range(n_shuffles):
-                        b_shuffled = rng.permutation(b)
-                        null_rhos[k], _ = spearmanr(a, b_shuffled)
-                    null_mean = np.mean(null_rhos)
-                    null_std = np.std(null_rhos)
-                    if null_std > 0:
-                        z = (rho - null_mean) / null_std
-                    else:
-                        z = np.nan
-                    corr[i, j] = z
-                    corr[j, i] = z
-
-        lower_tri = np.tril_indices(num_slices, k=-1)
-        av_corr = float(np.nanmean(corr[lower_tri]))
-
-        overlap_frac = (
-            overlap.astype(float) / num_units
-            if num_units > 0
-            else overlap.astype(float)
-        )
-
-        return (
-            PairwiseCompMatrix(matrix=corr),
-            av_corr,
-            PairwiseCompMatrix(matrix=overlap_frac),
+        return _rank_order_correlation_from_timing(
+            timing_matrix,
+            min_overlap=min_overlap,
+            min_overlap_frac=min_overlap_frac,
+            n_shuffles=n_shuffles,
+            seed=seed,
         )

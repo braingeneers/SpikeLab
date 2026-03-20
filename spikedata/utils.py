@@ -538,6 +538,13 @@ def PCA_reduction(matrix_2d, n_components=2):
             "Install it with `pip install scikit-learn`."
         )
 
+    max_components = min(matrix_2d.shape)
+    if n_components > max_components:
+        raise ValueError(
+            f"n_components={n_components} exceeds "
+            f"min(n_samples, n_features)={max_components}"
+        )
+
     pca = PCA(n_components=n_components)
     embedding = pca.fit_transform(matrix_2d)
 
@@ -1261,3 +1268,109 @@ def _validate_time_start_to_end(times_start_to_end):
         if len(set(time_diff_check)) > 1:
             raise ValueError("All time windows must have the same length")
     return valid_time_tuples
+
+
+def _rank_order_correlation_from_timing(
+    timing_matrix,
+    min_overlap=3,
+    min_overlap_frac=None,
+    n_shuffles=100,
+    seed=1,
+):
+    """
+    Compute Spearman rank-order correlation of unit timing between all slice pairs.
+
+    Shared implementation used by both SpikeSliceStack.rank_order_correlation
+    and RateSliceStack.rank_order_correlation.
+
+    Parameters:
+        timing_matrix (np.ndarray): Array of shape (U, S) with timing values
+            per unit per slice. NaN entries mark inactive units.
+        min_overlap (int): Minimum units active in both slices (default: 3).
+        min_overlap_frac (float or None): Minimum fraction of total units
+            active in both slices. Effective threshold is
+            max(min_overlap, ceil(min_overlap_frac * U)).
+        n_shuffles (int): Shuffle iterations for z-scoring (default: 100).
+            0 = raw correlations. Values 1-4 are rejected.
+        seed (int or None): Random seed for shuffle reproducibility.
+
+    Returns:
+        corr_matrix (PairwiseCompMatrix): (S, S) Spearman correlation or z-score matrix.
+        av_corr (float): Average over valid lower-triangle pairs.
+        overlap_matrix (PairwiseCompMatrix): (S, S) fraction of units active in both slices.
+    """
+    from scipy.stats import spearmanr
+
+    # Import here to avoid circular import at module level
+    from .pairwise import PairwiseCompMatrix
+
+    if 0 < n_shuffles < 5:
+        raise ValueError(
+            f"n_shuffles must be 0 (no shuffling) or >= 5, got {n_shuffles}"
+        )
+
+    timing_matrix = np.asarray(timing_matrix)
+    if timing_matrix.ndim != 2:
+        raise ValueError(
+            f"timing_matrix must be 2-D (U, S), got shape {timing_matrix.shape}"
+        )
+
+    num_units = timing_matrix.shape[0]
+    effective_min = min_overlap
+    if min_overlap_frac is not None:
+        frac_count = int(np.ceil(min_overlap_frac * num_units))
+        effective_min = max(effective_min, frac_count)
+
+    rng = np.random.default_rng(seed)
+    num_slices = timing_matrix.shape[1]
+    corr = np.full((num_slices, num_slices), np.nan)
+    overlap = np.zeros((num_slices, num_slices), dtype=int)
+    if n_shuffles == 0:
+        np.fill_diagonal(corr, 1.0)
+
+    for i in range(num_slices):
+        overlap[i, i] = int(np.sum(~np.isnan(timing_matrix[:, i])))
+
+    for i in range(num_slices):
+        for j in range(i + 1, num_slices):
+            valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
+            n_valid = int(np.sum(valid))
+            overlap[i, j] = n_valid
+            overlap[j, i] = n_valid
+
+            if n_valid < effective_min:
+                continue
+
+            a = timing_matrix[valid, i]
+            b = timing_matrix[valid, j]
+            rho, _ = spearmanr(a, b)
+
+            if n_shuffles == 0:
+                corr[i, j] = rho
+                corr[j, i] = rho
+            else:
+                null_rhos = np.empty(n_shuffles)
+                for k in range(n_shuffles):
+                    b_shuffled = rng.permutation(b)
+                    null_rhos[k], _ = spearmanr(a, b_shuffled)
+                null_mean = np.mean(null_rhos)
+                null_std = np.std(null_rhos)
+                if null_std > 0:
+                    z = (rho - null_mean) / null_std
+                else:
+                    z = np.nan
+                corr[i, j] = z
+                corr[j, i] = z
+
+    lower_tri = np.tril_indices(num_slices, k=-1)
+    av_corr = float(np.nanmean(corr[lower_tri]))
+
+    overlap_frac = (
+        overlap.astype(float) / num_units if num_units > 0 else overlap.astype(float)
+    )
+
+    return (
+        PairwiseCompMatrix(matrix=corr),
+        av_corr,
+        PairwiseCompMatrix(matrix=overlap_frac),
+    )

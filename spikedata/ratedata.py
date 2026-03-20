@@ -192,7 +192,7 @@ class RateData:
 
         if start_idx < 0 or start_idx >= len(self.times):
             raise ValueError(f"start_idx {start_idx} out of range")
-        if end_idx < start_idx or end_idx > len(self.times):
+        if end_idx <= start_idx or end_idx > len(self.times):
             raise ValueError(f"end_idx {end_idx} invalid")
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
