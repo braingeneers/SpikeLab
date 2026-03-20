@@ -209,6 +209,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">groupby</span> <span class="k">as</span> <span class="n">_groupby</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">signal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">norm</span>
 
@@ -228,28 +230,32 @@
     <span class="s2">&quot;get_valid_spike_times&quot;</span><span class="p">,</span>
     <span class="s2">&quot;waveforms_by_channel&quot;</span><span class="p">,</span>
     <span class="s2">&quot;extract_unit_waveforms&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;consecutive_durations&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gplvm_state_entropy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gplvm_continuity_prob&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gplvm_average_state_probability&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 <span class="n">TimeUnit</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="s2">&quot;samples&quot;</span><span class="p">]</span>
 
 <span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for HDF5/NWB exporters</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>  <span class="c1"># type: ignore</span>
-<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
     <span class="n">h5py</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 <span class="c1"># Optional dependencies for manifold learning and graph-based clustering.</span>
 <span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for UMAP-based reductions</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">umap</span>  <span class="c1"># type: ignore</span>
-<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
     <span class="n">umap</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 <span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for graph/community detection</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>  <span class="c1"># type: ignore</span>
-<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
     <span class="n">nx</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 <span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for Louvain community detection</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">community</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">community_louvain</span>  <span class="c1"># type: ignore</span>
-<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
     <span class="n">community_louvain</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 
@@ -273,11 +279,11 @@
 <span class="sd">        comparison of methods and application to the study of retinal waves. Journal of</span>
 <span class="sd">        Neuroscience 34:43, 14288–14303 (2014).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tB</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
-
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
+
+    <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tB</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
 
     <span class="n">TA</span> <span class="o">=</span> <span class="n">_sttc_ta</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
     <span class="n">TB</span> <span class="o">=</span> <span class="n">_sttc_ta</span><span class="p">(</span><span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
@@ -559,10 +565,11 @@
                 <span class="n">cnt_swap</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="k">if</span> <span class="n">cnt_swap</span> <span class="o">&lt;</span> <span class="n">swap_per_spike</span> <span class="o">*</span> <span class="n">n_spikes</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="s2">&quot;ERROR: Not sufficient succesfull swaps, only </span><span class="si">{}</span><span class="s2"> of </span><span class="si">{}</span><span class="s2"> required&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;Not sufficient successful swaps, only </span><span class="si">{}</span><span class="s2"> of </span><span class="si">{}</span><span class="s2"> required&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">cnt_swap</span><span class="p">,</span> <span class="n">swap_per_spike</span> <span class="o">*</span> <span class="n">n_spikes</span>
-            <span class="p">)</span>
+            <span class="p">),</span>
+            <span class="ne">RuntimeWarning</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ar</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span></div>
@@ -611,10 +618,16 @@
     <span class="k">if</span> <span class="n">max_lag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">max_lag</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="c1"># Return 0.0 for zero-norm vectors (BUG-004)</span>
-    <span class="n">norm_product</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">comp_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">norm_product</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="c1"># Handle zero-norm vectors:</span>
+    <span class="c1"># - Both zero → undefined (NaN)</span>
+    <span class="c1"># - One zero, one not → uncorrelated (0.0)</span>
+    <span class="n">ref_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">comp_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">comp_rate</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ref_norm</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">comp_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">ref_norm</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">comp_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="n">norm_product</span> <span class="o">=</span> <span class="n">ref_norm</span> <span class="o">*</span> <span class="n">comp_norm</span>
 
     <span class="c1"># Fast path for zero lag (no time shift)</span>
     <span class="k">if</span> <span class="n">max_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -622,12 +635,15 @@
         <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="mi">0</span>
     <span class="c1"># r is the correlation between ref and comp. Each value is sum of elementwise products</span>
     <span class="c1"># for each possible lag and it is normalized so each value is between -1 and 1</span>
-    <span class="n">r</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-        <span class="c1"># Below is the normalziation method. You take signal&#39;s correaltion of itself, and</span>
-        <span class="c1"># take the center value which is lag = 0, and use that for normalizing</span>
-        <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">ref_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)]</span>
-        <span class="o">*</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)]</span>
-    <span class="p">)</span>
+    <span class="c1"># Normalization: autocorrelation at zero lag for each signal</span>
+    <span class="n">auto_ref</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">ref_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)]</span>
+    <span class="n">auto_comp</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span>
+        <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">denom</span> <span class="o">=</span> <span class="n">auto_ref</span> <span class="o">*</span> <span class="n">auto_comp</span>
+    <span class="k">if</span> <span class="n">denom</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">denom</span><span class="p">)</span>
 
     <span class="n">center</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
 
@@ -643,9 +659,11 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_cosine_sim</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cosine similarity between two 1-D vectors. Returns 0.0 if either has zero norm.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cosine similarity between two 1-D vectors. NaN if both zero-norm, 0.0 if one is.&quot;&quot;&quot;</span>
     <span class="n">norm_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
     <span class="n">norm_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">norm_a</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">norm_b</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
     <span class="k">if</span> <span class="n">norm_a</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">norm_b</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
     <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">norm_a</span> <span class="o">*</span> <span class="n">norm_b</span><span class="p">))</span>
@@ -715,15 +733,22 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">PCA_reduction</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute PCA dimensionality reduction on axis 1 of a 2d matrix</span>
+<span class="sd">    Compute PCA dimensionality reduction on axis 1 of a 2d matrix.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">    -----------</span>
-<span class="sd">    matrix_2d (array): 2D matrix where values must be int, float, or bool</span>
+<span class="sd">    matrix_2d (array): 2D matrix of shape (samples, features) where values</span>
+<span class="sd">        must be int, float, or bool.</span>
+<span class="sd">    n_components (int): Number of principal components to retain (default: 2).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">    --------</span>
-<span class="sd">    pca_result (array): 2D matrix of shape (rows, n_components)</span>
+<span class="sd">    embedding (array): 2D matrix of shape (samples, n_components).</span>
+<span class="sd">    explained_variance_ratio (array): 1D array of shape (n_components,) with the</span>
+<span class="sd">        fraction of total variance explained by each component.</span>
+<span class="sd">    components (array): 2D matrix of shape (n_components, features) with the</span>
+<span class="sd">        principal axes (loadings) — each row is one PC expressed in the</span>
+<span class="sd">        original feature space.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">try</span><span class="p">:</span>
@@ -734,10 +759,17 @@
             <span class="s2">&quot;Install it with `pip install scikit-learn`.&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">n_components</span><span class="p">)</span>
-    <span class="n">pca_result</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">)</span>
+    <span class="n">max_components</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">matrix_2d</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_components</span> <span class="o">&gt;</span> <span class="n">max_components</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;n_components=</span><span class="si">{</span><span class="n">n_components</span><span class="si">}</span><span class="s2"> exceeds &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;min(n_samples, n_features)=</span><span class="si">{</span><span class="n">max_components</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">pca_result</span>
+    <span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">n_components</span><span class="p">)</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">embedding</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">components_</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">UMAP_reduction</span><span class="p">(</span>
@@ -780,6 +812,10 @@
 <span class="sd">    -------</span>
 <span class="sd">    embedding : ndarray, shape (n_samples, n_components)</span>
 <span class="sd">        Low-dimensional embedding of the data.</span>
+<span class="sd">    trustworthiness_score : float</span>
+<span class="sd">        Trustworthiness of the embedding (0 to 1). Measures how well local</span>
+<span class="sd">        neighborhoods in the high-dimensional space are preserved in the</span>
+<span class="sd">        embedding. Requires scikit-learn; returns NaN if unavailable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">umap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
@@ -796,7 +832,15 @@
         <span class="o">**</span><span class="n">umap_kwargs</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">embedding</span> <span class="o">=</span> <span class="n">reducer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">embedding</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.manifold</span><span class="w"> </span><span class="kn">import</span> <span class="n">trustworthiness</span>
+
+        <span class="n">tw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">trustworthiness</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">,</span> <span class="n">embedding</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">tw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">embedding</span><span class="p">,</span> <span class="n">tw</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">UMAP_graph_communities</span><span class="p">(</span>
@@ -838,6 +882,10 @@
 
 <span class="sd">    labels : ndarray, shape (n_samples,)</span>
 <span class="sd">        Integer community label for each sample.</span>
+
+<span class="sd">    trustworthiness_score : float</span>
+<span class="sd">        Trustworthiness of the embedding (0 to 1). Returns NaN if</span>
+<span class="sd">        scikit-learn is not available.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># First compute the UMAP embedding and fitted mapper using the same</span>
     <span class="c1"># configuration as UMAP_reduction.</span>
@@ -884,7 +932,16 @@
     <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">c_id</span> <span class="ow">in</span> <span class="n">clustering</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">=</span> <span class="n">c_id</span>
 
-    <span class="k">return</span> <span class="n">mapper</span><span class="o">.</span><span class="n">embedding_</span><span class="p">,</span> <span class="n">labels</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.manifold</span><span class="w"> </span><span class="kn">import</span> <span class="n">trustworthiness</span>
+
+        <span class="n">tw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="n">trustworthiness</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">,</span> <span class="n">mapper</span><span class="o">.</span><span class="n">embedding_</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">tw</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mapper</span><span class="o">.</span><span class="n">embedding_</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">tw</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">ensure_h5py</span><span class="p">():</span>
@@ -1254,6 +1311,139 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">waveforms</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">consecutive_durations</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;above&quot;</span><span class="p">,</span> <span class="n">min_dur</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the lengths of consecutive runs in a 1-D signal that satisfy a threshold condition.</span>
+
+<span class="sd">    Scans *signal* for contiguous stretches of bins that are above (&gt;=) or</span>
+<span class="sd">    below (&lt;) *threshold*, returns an array of their durations, and optionally</span>
+<span class="sd">    filters out runs shorter than *min_dur*.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        signal (array_like): 1-D numeric array (e.g. continuity probability</span>
+<span class="sd">            time series from a GPLVM).</span>
+<span class="sd">        threshold (float): Threshold value for the condition.</span>
+<span class="sd">        mode (str): ``&quot;above&quot;`` keeps runs where ``signal &gt;= threshold``;</span>
+<span class="sd">            ``&quot;below&quot;`` keeps runs where ``signal &lt; threshold``.</span>
+<span class="sd">        min_dur (int): Minimum run length to keep. Runs shorter than this</span>
+<span class="sd">            are discarded.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        durations (np.ndarray): 1-D integer array of run lengths that satisfy</span>
+<span class="sd">            the condition and are at least *min_dur* bins long. May be empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">signal</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;signal must be 1-D, got shape </span><span class="si">{</span><span class="n">signal</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;above&quot;</span><span class="p">:</span>
+        <span class="n">condition</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">&gt;=</span> <span class="n">threshold</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;below&quot;</span><span class="p">:</span>
+        <span class="n">condition</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">&lt;</span> <span class="n">threshold</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;mode must be &#39;above&#39; or &#39;below&#39;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Compute lengths of consecutive True runs</span>
+    <span class="n">durations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">group</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">_groupby</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="k">if</span> <span class="n">key</span><span class="p">],</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">durations</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">durations</span> <span class="o">=</span> <span class="n">durations</span><span class="p">[</span><span class="n">durations</span> <span class="o">&gt;=</span> <span class="n">min_dur</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">durations</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">gplvm_state_entropy</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute Shannon entropy of the latent state distribution at each time bin.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        posterior_latent_marg (np.ndarray): Marginal posterior over latent</span>
+<span class="sd">            states with shape ``(T, K)`` where *T* is the number of time bins</span>
+<span class="sd">            and *K* is the number of latent states. Typically obtained from</span>
+<span class="sd">            ``SpikeData.fit_gplvm()[&quot;decode_res&quot;][&quot;posterior_latent_marg&quot;]``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        entropy (np.ndarray): 1-D array of shape ``(T,)`` with the Shannon</span>
+<span class="sd">            entropy (in nats) for each time bin.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">entropy</span> <span class="k">as</span> <span class="n">_entropy</span>
+
+    <span class="n">posterior_latent_marg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">posterior_latent_marg</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;posterior_latent_marg must be 2-D (T, K), got shape &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">posterior_latent_marg</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">_entropy</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">gplvm_continuity_prob</span><span class="p">(</span><span class="n">decode_res</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract the continuity (non-jump) probability time series from a GPLVM decode result.</span>
+
+<span class="sd">    The continuity probability at each time bin is the marginal posterior</span>
+<span class="sd">    probability that the dynamics remained continuous (i.e. did not jump)</span>
+<span class="sd">    between the previous and current time bin.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        decode_res (dict): Decoded latent state dictionary as returned by</span>
+<span class="sd">            ``SpikeData.fit_gplvm()[&quot;decode_res&quot;]``. Must contain the key</span>
+<span class="sd">            ``&quot;posterior_dynamics_marg&quot;`` with shape ``(T, D)`` where the</span>
+<span class="sd">            first column (index 0) holds the continuity probability.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        continuity_prob (np.ndarray): 1-D array of shape ``(T,)`` with the</span>
+<span class="sd">            continuity probability at each time bin.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">decode_res</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;decode_res must be a dict from SpikeData.fit_gplvm()&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;posterior_dynamics_marg&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">decode_res</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+            <span class="s2">&quot;decode_res must contain &#39;posterior_dynamics_marg&#39;. &quot;</span>
+            <span class="s2">&quot;Pass the &#39;decode_res&#39; dict from SpikeData.fit_gplvm().&quot;</span>
+        <span class="p">)</span>
+    <span class="n">dynamics</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">decode_res</span><span class="p">[</span><span class="s2">&quot;posterior_dynamics_marg&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">dynamics</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">dynamics</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;posterior_dynamics_marg must be 2-D with at least 1 column, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="n">dynamics</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">dynamics</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">gplvm_average_state_probability</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the average probability of each latent state across all time bins.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        posterior_latent_marg (np.ndarray): Marginal posterior over latent</span>
+<span class="sd">            states with shape ``(T, K)`` where *T* is the number of time bins</span>
+<span class="sd">            and *K* is the number of latent states. Typically obtained from</span>
+<span class="sd">            ``SpikeData.fit_gplvm()[&quot;decode_res&quot;][&quot;posterior_latent_marg&quot;]``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        avg_prob (np.ndarray): 1-D array of shape ``(K,)`` with the mean</span>
+<span class="sd">            probability of each latent state, averaged over all time bins.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">posterior_latent_marg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">posterior_latent_marg</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;posterior_latent_marg must be 2-D (T, K), got shape &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">posterior_latent_marg</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">posterior_latent_marg</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_attr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get an attribute from a dict-like or object-like neuron attribute entry.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time_start_to_end</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Validates that the list of (start, end) tuples has the same duration and is in</span>
@@ -1299,6 +1489,112 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All time windows must have the same length&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">valid_time_tuples</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_rank_order_correlation_from_timing</span><span class="p">(</span>
+    <span class="n">timing_matrix</span><span class="p">,</span>
+    <span class="n">min_overlap</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">min_overlap_frac</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_shuffles</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute Spearman rank-order correlation of unit timing between all slice pairs.</span>
+
+<span class="sd">    Shared implementation used by both SpikeSliceStack.rank_order_correlation</span>
+<span class="sd">    and RateSliceStack.rank_order_correlation.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        timing_matrix (np.ndarray): Array of shape (U, S) with timing values</span>
+<span class="sd">            per unit per slice. NaN entries mark inactive units.</span>
+<span class="sd">        min_overlap (int): Minimum units active in both slices (default: 3).</span>
+<span class="sd">        min_overlap_frac (float or None): Minimum fraction of total units</span>
+<span class="sd">            active in both slices. Effective threshold is</span>
+<span class="sd">            max(min_overlap, ceil(min_overlap_frac * U)).</span>
+<span class="sd">        n_shuffles (int): Shuffle iterations for z-scoring (default: 100).</span>
+<span class="sd">            0 = raw correlations. Values 1-4 are rejected.</span>
+<span class="sd">        seed (int or None): Random seed for shuffle reproducibility.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        corr_matrix (PairwiseCompMatrix): (S, S) Spearman correlation or z-score matrix.</span>
+<span class="sd">        av_corr (float): Average over valid lower-triangle pairs.</span>
+<span class="sd">        overlap_matrix (PairwiseCompMatrix): (S, S) fraction of units active in both slices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">spearmanr</span>
+
+    <span class="c1"># Import here to avoid circular import at module level</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.pairwise</span><span class="w"> </span><span class="kn">import</span> <span class="n">PairwiseCompMatrix</span>
+
+    <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">n_shuffles</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;n_shuffles must be 0 (no shuffling) or &gt;= 5, got </span><span class="si">{</span><span class="n">n_shuffles</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">timing_matrix</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;timing_matrix must be 2-D (U, S), got shape </span><span class="si">{</span><span class="n">timing_matrix</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">num_units</span> <span class="o">=</span> <span class="n">timing_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">effective_min</span> <span class="o">=</span> <span class="n">min_overlap</span>
+    <span class="k">if</span> <span class="n">min_overlap_frac</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">frac_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">min_overlap_frac</span> <span class="o">*</span> <span class="n">num_units</span><span class="p">))</span>
+        <span class="n">effective_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">effective_min</span><span class="p">,</span> <span class="n">frac_count</span><span class="p">)</span>
+
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">num_slices</span> <span class="o">=</span> <span class="n">timing_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">overlap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_shuffles</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">corr</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slices</span><span class="p">):</span>
+        <span class="n">overlap</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slices</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])</span>
+            <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
+            <span class="n">overlap</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_valid</span>
+            <span class="n">overlap</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_valid</span>
+
+            <span class="k">if</span> <span class="n">n_valid</span> <span class="o">&lt;</span> <span class="n">effective_min</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">a</span> <span class="o">=</span> <span class="n">timing_matrix</span><span class="p">[</span><span class="n">valid</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">timing_matrix</span><span class="p">[</span><span class="n">valid</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+            <span class="n">rho</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spearmanr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">n_shuffles</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">corr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho</span>
+                <span class="n">corr</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">null_rhos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">):</span>
+                    <span class="n">b_shuffled</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+                    <span class="n">null_rhos</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spearmanr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b_shuffled</span><span class="p">)</span>
+                <span class="n">null_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_rhos</span><span class="p">)</span>
+                <span class="n">null_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">null_rhos</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">null_std</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">rho</span> <span class="o">-</span> <span class="n">null_mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">null_std</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="n">corr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span>
+                <span class="n">corr</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span>
+
+    <span class="n">lower_tri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tril_indices</span><span class="p">(</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">av_corr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">corr</span><span class="p">[</span><span class="n">lower_tri</span><span class="p">]))</span>
+
+    <span class="n">overlap_frac</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">overlap</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_units</span> <span class="k">if</span> <span class="n">num_units</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">overlap</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">corr</span><span class="p">),</span>
+        <span class="n">av_corr</span><span class="p">,</span>
+        <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">overlap_frac</span><span class="p">),</span>
+    <span class="p">)</span>
 </pre></div>
 
            </div>
