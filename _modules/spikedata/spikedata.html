@@ -1779,6 +1779,89 @@
         <span class="k">return</span> <span class="n">shuffled_spike_data</span></div>
 
 
+<div class="viewcode-block" id="SpikeData.spike_shuffle_stack">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.spike_shuffle_stack">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spike_shuffle_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_shuffles</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">swap_per_spike</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate multiple degree-preserving shuffled copies and return them as a SpikeSliceStack.</span>
+
+<span class="sd">        Each shuffle is an independent call to ``spike_shuffle``. The resulting</span>
+<span class="sd">        stack can be used with ``SpikeSliceStack.apply`` to build null</span>
+<span class="sd">        distributions for statistical testing.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            n_shuffles (int): Number of shuffled datasets to generate.</span>
+<span class="sd">            seed (int | None): Base random seed. Each shuffle uses</span>
+<span class="sd">                ``seed + i`` for reproducibility. None means no seed.</span>
+<span class="sd">            swap_per_spike (int): Forwarded to ``spike_shuffle`` (default: 5).</span>
+<span class="sd">            bin_size (int): Forwarded to ``spike_shuffle`` (default: 1).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData</span>
+<span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
+
+        <span class="n">shuffled</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_shuffles</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">i</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">shuffled</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">spike_shuffle</span><span class="p">(</span>
+                    <span class="n">swap_per_spike</span><span class="o">=</span><span class="n">swap_per_spike</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_shuffles</span>
+        <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+            <span class="n">spike_stack</span><span class="o">=</span><span class="n">shuffled</span><span class="p">,</span>
+            <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.subset_stack">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.subset_stack">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_subsets</span><span class="p">,</span> <span class="n">units_per_subset</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate multiple random unit subsets and return them as a SpikeSliceStack.</span>
+
+<span class="sd">        Each subset is drawn by sampling *units_per_subset* unit indices</span>
+<span class="sd">        without replacement from the full unit set. Draws are independent</span>
+<span class="sd">        across subsets (with replacement across draws), so the same unit may</span>
+<span class="sd">        appear in multiple subsets. The resulting stack can be used with</span>
+<span class="sd">        ``SpikeSliceStack.apply`` to test sensitivity of a metric to unit</span>
+<span class="sd">        count or composition.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            n_subsets (int): Number of random subsets to generate.</span>
+<span class="sd">            units_per_subset (int): Number of units in each subset.</span>
+<span class="sd">            seed (int | None): Random seed for reproducibility.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData</span>
+<span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
+
+        <span class="k">if</span> <span class="n">units_per_subset</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;units_per_subset (</span><span class="si">{</span><span class="n">units_per_subset</span><span class="si">}</span><span class="s2">) exceeds number of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;units (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">subsets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_subsets</span><span class="p">):</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">units_per_subset</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+            <span class="n">subsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">indices</span><span class="p">))</span>
+
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_subsets</span>
+        <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+            <span class="n">spike_stack</span><span class="o">=</span><span class="n">subsets</span><span class="p">,</span>
+            <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
     <span class="c1"># ----------------------------</span>
     <span class="c1"># Exporters</span>
     <span class="c1"># ----------------------------</span>

@@ -913,6 +913,67 @@ A RuntimeWarning is issued when multi-spike bins are detected (optional, default
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.spike_shuffle_stack">
+<span class="sig-name descname"><span class="pre">spike_shuffle_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_shuffles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">swap_per_spike</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.spike_shuffle_stack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.spike_shuffle_stack" title="Link to this definition"></a></dt>
+<dd><p>Generate multiple degree-preserving shuffled copies and return them as a SpikeSliceStack.</p>
+<p>Each shuffle is an independent call to <code class="docutils literal notranslate"><span class="pre">spike_shuffle</span></code>. The resulting
+stack can be used with <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.apply</span></code> to build null
+distributions for statistical testing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffled datasets to generate.</p></li>
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>) – Base random seed. Each shuffle uses
+<code class="docutils literal notranslate"><span class="pre">seed</span> <span class="pre">+</span> <span class="pre">i</span></code> for reproducibility. None means no seed.</p></li>
+<li><p><strong>swap_per_spike</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">spike_shuffle</span></code> (default: 5).</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">spike_shuffle</span></code> (default: 1).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Stack of <em>n_shuffles</em> shuffled SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">length)</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>stack (SpikeSliceStack)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.subset_stack">
+<span class="sig-name descname"><span class="pre">subset_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_subsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units_per_subset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subset_stack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subset_stack" title="Link to this definition"></a></dt>
+<dd><p>Generate multiple random unit subsets and return them as a SpikeSliceStack.</p>
+<p>Each subset is drawn by sampling <em>units_per_subset</em> unit indices
+without replacement from the full unit set. Draws are independent
+across subsets (with replacement across draws), so the same unit may
+appear in multiple subsets. The resulting stack can be used with
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.apply</span></code> to test sensitivity of a metric to unit
+count or composition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_subsets</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of random subsets to generate.</p></li>
+<li><p><strong>units_per_subset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of units in each subset.</p></li>
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>) – Random seed for reproducibility.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Stack of <em>n_subsets</em> subsetted SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">length)</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>stack (SpikeSliceStack)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.to_hdf5">
 <span class="sig-name descname"><span class="pre">to_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ragged'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raster'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times_index'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'units'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'idces'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ms'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.to_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.to_hdf5" title="Link to this definition"></a></dt>
 <dd><p>Export this SpikeData to an HDF5 file with flexible formatting options.</p>

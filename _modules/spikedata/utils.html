@@ -234,6 +234,10 @@
     <span class="s2">&quot;gplvm_state_entropy&quot;</span><span class="p">,</span>
     <span class="s2">&quot;gplvm_continuity_prob&quot;</span><span class="p">,</span>
     <span class="s2">&quot;gplvm_average_state_probability&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;shuffle_z_score&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;shuffle_percentile&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;slice_trend&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;slice_stability&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 <span class="n">TimeUnit</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="s2">&quot;samples&quot;</span><span class="p">]</span>
 
@@ -1595,6 +1599,133 @@
         <span class="n">av_corr</span><span class="p">,</span>
         <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">overlap_frac</span><span class="p">),</span>
     <span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Slice comparison utilities</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">shuffle_z_score</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">shuffle_distribution</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Z-score an observed value against a shuffle null distribution.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        observed (scalar or np.ndarray): The metric computed on the real data.</span>
+<span class="sd">        shuffle_distribution (np.ndarray): Shape ``(N, ...)`` array of the</span>
+<span class="sd">            same metric computed on N shuffled datasets (e.g. from</span>
+<span class="sd">            ``SpikeSliceStack.apply`` on a shuffle stack built by</span>
+<span class="sd">            ``SpikeData.spike_shuffle_stack``).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        z (np.ndarray): Z-score ``(observed - mean) / std`` computed along</span>
+<span class="sd">            axis 0. Same shape as *observed*.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Intended for determining whether an observed metric is significantly</span>
+<span class="sd">          different from what degree-preserving shuffled data produces.</span>
+<span class="sd">        - Elements where the shuffle standard deviation is zero will be NaN.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shuffle_distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">safe_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">std</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">safe_std</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">z</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">shuffle_percentile</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">shuffle_distribution</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the percentile rank of an observed value within a shuffle distribution.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        observed (scalar or np.ndarray): The metric computed on the real data.</span>
+<span class="sd">        shuffle_distribution (np.ndarray): Shape ``(N, ...)`` array of the</span>
+<span class="sd">            same metric computed on N shuffled datasets.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pct (np.ndarray): Fraction of shuffle values ≤ observed, computed</span>
+<span class="sd">            along axis 0. Values in [0, 1]. Same shape as *observed*.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Non-parametric alternative to ``shuffle_z_score``; gives the rank</span>
+<span class="sd">          of the observed value within the null distribution without assuming</span>
+<span class="sd">          normality.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shuffle_distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">shuffle_distribution</span><span class="p">)</span>
+    <span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">shuffle_distribution</span> <span class="o">&lt;=</span> <span class="n">observed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">slice_trend</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fit a linear trend to a metric computed across ordered slices.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        values (np.ndarray): Shape ``(S,)`` array of metric values, one per</span>
+<span class="sd">            slice, in temporal order.</span>
+<span class="sd">        times (np.ndarray | None): Shape ``(S,)`` array of slice midpoints</span>
+<span class="sd">            in milliseconds. If None, integer indices ``0 .. S-1`` are used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        slope (float): Linear regression slope. Units are metric-change per</span>
+<span class="sd">            millisecond (if *times* provided) or per slice index.</span>
+<span class="sd">        p_value (float): Two-sided p-value for the null hypothesis that the</span>
+<span class="sd">            slope is zero.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Intended for detecting systematic drift of a metric over the course</span>
+<span class="sd">          of a recording. Apply to the output of ``SpikeSliceStack.apply`` on</span>
+<span class="sd">          a frames stack built by ``SpikeData.frames``. A significant</span>
+<span class="sd">          positive or negative slope indicates non-stationarity.</span>
+<span class="sd">        - Uses ``scipy.stats.linregress``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">linregress</span>
+
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;values must be 1-D, got shape </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="s2">&quot;For higher-dimensional metrics, reduce to a scalar per slice &quot;</span>
+            <span class="s2">&quot;before calling slice_trend.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">times</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">linregress</span><span class="p">(</span><span class="n">times</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">values</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">slope</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">pvalue</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">slice_stability</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the coefficient of variation of a metric across slices.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        values (np.ndarray): Shape ``(S,)`` or ``(S, ...)`` array of metric</span>
+<span class="sd">            values from ``SpikeSliceStack.apply``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        cv (np.ndarray or float): Coefficient of variation ``std / |mean|``</span>
+<span class="sd">            computed along axis 0. Scalar when input is ``(S,)``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Intended for summarising how much a metric varies across slices</span>
+<span class="sd">          (frames, trials, or shuffles). Low CV indicates a stable metric;</span>
+<span class="sd">          high CV indicates instability or sensitivity to the slicing.</span>
+<span class="sd">        - Elements where the mean is zero will be NaN.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">abs_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span>
+    <span class="n">safe_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">abs_mean</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">abs_mean</span><span class="p">)</span>
+    <span class="n">cv</span> <span class="o">=</span> <span class="n">std</span> <span class="o">/</span> <span class="n">safe_mean</span>
+    <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">abs_mean</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">cv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv</span><span class="p">)</span> <span class="k">if</span> <span class="n">cv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">cv</span>
 </pre></div>
 
            </div>
