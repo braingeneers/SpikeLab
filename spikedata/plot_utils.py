@@ -420,7 +420,7 @@ def plot_recording(
     burst_times_view = None
     if burst_times is not None:
         mask = (burst_times >= start) & (burst_times <= end)
-        burst_times_view = (burst_times[mask] - start).astype(int)
+        burst_times_view = np.round(burst_times[mask] - start).astype(int)
 
     # Burst edges: clip to range, skip fully-outside bursts
     burst_edges_view = None
@@ -523,7 +523,7 @@ def plot_recording(
         if burst_times_view is not None and pop_rate_view is not None:
             # Scale burst times from raster-bin coords to pop_rate coords
             scale = len(pop_rate_view) / n_samples
-            bt_scaled = (burst_times_view * scale).astype(int)
+            bt_scaled = np.round(burst_times_view * scale).astype(int)
             valid = bt_scaled < len(pop_rate_view)
             bt_scaled = bt_scaled[valid]
             bt_plot = burst_times_view[valid]  # x position in raster coords

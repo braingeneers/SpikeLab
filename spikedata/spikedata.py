@@ -1096,17 +1096,16 @@ class SpikeData:
 
     def concatenate_spike_data(self, sd):
         """
-        Add the units from another SpikeData object to this one.
+        Add the units from another SpikeData object to this one, in place.
 
         Parameters:
-        sd (SpikeData): SpikeData object to append
-
-        Returns:
-        sd (SpikeData): New SpikeData object with the appended data.
+        sd (SpikeData): SpikeData object whose units will be added.
 
         Notes:
+        - Modifies self in place. Does not return a new object.
         - New units are assigned indices starting from the end of the current data.
         - If the new units have a longer spike train, it is truncated to the length of the current data.
+        - raw_data and raw_time are not modified — they persist from the original object.
         """
 
         # Subtime the second SpikeData object to the length of the first

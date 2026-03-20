@@ -416,12 +416,15 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
         return max_corr, 0
     # r is the correlation between ref and comp. Each value is sum of elementwise products
     # for each possible lag and it is normalized so each value is between -1 and 1
-    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(
-        # Below is the normalziation method. You take signal's correaltion of itself, and
-        # take the center value which is lag = 0, and use that for normalizing
-        signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
-        * signal.correlate(comp_rate, comp_rate, mode="same")[int(len(comp_rate) / 2)]
-    )
+    # Normalization: autocorrelation at zero lag for each signal
+    auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
+    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[
+        int(len(comp_rate) / 2)
+    ]
+    denom = auto_ref * auto_comp
+    if denom <= 0:
+        return 0.0, 0
+    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(denom)
 
     center = int(len(r) / 2)
 
