@@ -122,8 +122,8 @@ class RateSliceStack:
             # Actual constructor
 
             if isinstance(data_obj, SpikeData):
-                # Make it step_size 1
-                all_times = np.arange(0, data_obj.length, 1.0)
+                resolution = step_size if step_size is not None else 1.0
+                all_times = np.arange(0, data_obj.length, resolution)
                 inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
                 data_obj = RateData(inst_Frate_matrix, all_times)
 
