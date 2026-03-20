@@ -27,6 +27,10 @@ __all__ = [
     "gplvm_state_entropy",
     "gplvm_continuity_prob",
     "gplvm_average_state_probability",
+    "shuffle_z_score",
+    "shuffle_percentile",
+    "slice_trend",
+    "slice_stability",
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
@@ -1382,3 +1386,130 @@ def _rank_order_correlation_from_timing(
         av_corr,
         PairwiseCompMatrix(matrix=overlap_frac),
     )
+
+
+# ---------------------------------------------------------------------------
+# Slice comparison utilities
+# ---------------------------------------------------------------------------
+
+
+def shuffle_z_score(observed, shuffle_distribution):
+    """
+    Z-score an observed value against a shuffle null distribution.
+
+    Parameters:
+        observed (scalar or np.ndarray): The metric computed on the real data.
+        shuffle_distribution (np.ndarray): Shape ``(N, ...)`` array of the
+            same metric computed on N shuffled datasets (e.g. from
+            ``SpikeSliceStack.apply`` on a shuffle stack built by
+            ``SpikeData.spike_shuffle_stack``).
+
+    Returns:
+        z (np.ndarray): Z-score ``(observed - mean) / std`` computed along
+            axis 0. Same shape as *observed*.
+
+    Notes:
+        - Intended for determining whether an observed metric is significantly
+          different from what degree-preserving shuffled data produces.
+        - Elements where the shuffle standard deviation is zero will be NaN.
+    """
+    shuffle_distribution = np.asarray(shuffle_distribution)
+    mean = np.nanmean(shuffle_distribution, axis=0)
+    std = np.nanstd(shuffle_distribution, axis=0)
+    safe_std = np.where(std == 0, 1.0, std)
+    z = (np.asarray(observed) - mean) / safe_std
+    z = np.where(std == 0, np.nan, z)
+    return z
+
+
+def shuffle_percentile(observed, shuffle_distribution):
+    """
+    Compute the percentile rank of an observed value within a shuffle distribution.
+
+    Parameters:
+        observed (scalar or np.ndarray): The metric computed on the real data.
+        shuffle_distribution (np.ndarray): Shape ``(N, ...)`` array of the
+            same metric computed on N shuffled datasets.
+
+    Returns:
+        pct (np.ndarray): Fraction of shuffle values ≤ observed, computed
+            along axis 0. Values in [0, 1]. Same shape as *observed*.
+
+    Notes:
+        - Non-parametric alternative to ``shuffle_z_score``; gives the rank
+          of the observed value within the null distribution without assuming
+          normality.
+    """
+    shuffle_distribution = np.asarray(shuffle_distribution)
+    observed = np.asarray(observed)
+    return np.mean(shuffle_distribution <= observed, axis=0)
+
+
+def slice_trend(values, times=None):
+    """
+    Fit a linear trend to a metric computed across ordered slices.
+
+    Parameters:
+        values (np.ndarray): Shape ``(S,)`` array of metric values, one per
+            slice, in temporal order.
+        times (np.ndarray | None): Shape ``(S,)`` array of slice midpoints
+            in milliseconds. If None, integer indices ``0 .. S-1`` are used.
+
+    Returns:
+        slope (float): Linear regression slope. Units are metric-change per
+            millisecond (if *times* provided) or per slice index.
+        p_value (float): Two-sided p-value for the null hypothesis that the
+            slope is zero.
+
+    Notes:
+        - Intended for detecting systematic drift of a metric over the course
+          of a recording. Apply to the output of ``SpikeSliceStack.apply`` on
+          a frames stack built by ``SpikeData.frames``. A significant
+          positive or negative slope indicates non-stationarity.
+        - Uses ``scipy.stats.linregress``.
+    """
+    from scipy.stats import linregress
+
+    values = np.asarray(values)
+    if values.ndim != 1:
+        raise ValueError(
+            f"values must be 1-D, got shape {values.shape}. "
+            "For higher-dimensional metrics, reduce to a scalar per slice "
+            "before calling slice_trend."
+        )
+    if times is None:
+        times = np.arange(len(values), dtype=float)
+    else:
+        times = np.asarray(times, dtype=float)
+
+    mask = ~np.isnan(values) & ~np.isnan(times)
+    result = linregress(times[mask], values[mask])
+    return result.slope, result.pvalue
+
+
+def slice_stability(values):
+    """
+    Compute the coefficient of variation of a metric across slices.
+
+    Parameters:
+        values (np.ndarray): Shape ``(S,)`` or ``(S, ...)`` array of metric
+            values from ``SpikeSliceStack.apply``.
+
+    Returns:
+        cv (np.ndarray or float): Coefficient of variation ``std / |mean|``
+            computed along axis 0. Scalar when input is ``(S,)``.
+
+    Notes:
+        - Intended for summarising how much a metric varies across slices
+          (frames, trials, or shuffles). Low CV indicates a stable metric;
+          high CV indicates instability or sensitivity to the slicing.
+        - Elements where the mean is zero will be NaN.
+    """
+    values = np.asarray(values, dtype=float)
+    mean = np.nanmean(values, axis=0)
+    std = np.nanstd(values, axis=0)
+    abs_mean = np.abs(mean)
+    safe_mean = np.where(abs_mean == 0, 1.0, abs_mean)
+    cv = std / safe_mean
+    cv = np.where(abs_mean == 0, np.nan, cv)
+    return float(cv) if cv.ndim == 0 else cv

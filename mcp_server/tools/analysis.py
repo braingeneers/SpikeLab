@@ -26,7 +26,7 @@ from ...spikedata.utils import (
     gplvm_continuity_prob,
     gplvm_state_entropy,
 )
-from ...workspace.workspace import get_workspace_manager
+from ...workspace.workspace import AnalysisWorkspace, get_workspace_manager
 
 _COMPARE_FUNCS = {
     "cross_correlation": compute_cross_correlation_with_lag,
@@ -1652,6 +1652,25 @@ async def load_workspace_item(
         "namespace": namespace,
         "key": key,
         "info": info,
+    }
+
+
+async def merge_workspace(
+    workspace_id: str,
+    path: str,
+    overwrite: bool = False,
+) -> Dict[str, Any]:
+    """Merge all items from a saved workspace file into an existing workspace."""
+    ws = _get_workspace(workspace_id)
+    other = AnalysisWorkspace.load(path)
+    result = ws.merge_from(other, overwrite=overwrite)
+    return {
+        "workspace_id": workspace_id,
+        "merged": result["merged"],
+        "skipped": result["skipped"],
+        "skipped_keys": [
+            {"namespace": ns, "key": k} for ns, k in result["skipped_keys"]
+        ],
     }
 
 

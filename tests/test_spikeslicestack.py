@@ -2018,3 +2018,102 @@ class TestEdgeCasesSpikeTiming:
         assert len(ids[0]) == 4
         valid = times[0][~np.isnan(times[0])]
         assert np.all(np.diff(valid) >= 0)
+
+
+# ---------------------------------------------------------------------------
+# apply
+# ---------------------------------------------------------------------------
+
+
+class TestApply:
+    """Tests for SpikeSliceStack.apply."""
+
+    def test_scalar_function(self):
+        """
+        apply with a function returning a scalar produces a 1-D array of length S.
+
+        Tests:
+            (Test Case 1) Output shape is (S,).
+            (Test Case 2) Values match manual per-slice computation.
+        """
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=0)
+        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100), (100, 200)])
+
+        def total_spikes(s):
+            return sum(len(t) for t in s.train)
+
+        result = stack.apply(total_spikes)
+
+        assert result.shape == (2,)
+        for i, s in enumerate(stack.spike_stack):
+            expected = sum(len(t) for t in s.train)
+            assert result[i] == expected
+
+    def test_1d_function(self):
+        """
+        apply with a function returning a 1-D array produces shape (S, U).
+
+        Tests:
+            (Test Case 1) Output shape is (S, U).
+            (Test Case 2) Values match per-slice rates.
+        """
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=1)
+        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100), (100, 200)])
+
+        result = stack.apply(lambda s: s.rates())
+
+        assert result.shape == (2, 3)
+        for i, s in enumerate(stack.spike_stack):
+            np.testing.assert_array_almost_equal(result[i], s.rates())
+
+    def test_2d_function(self):
+        """
+        apply with a function returning a 2-D array produces shape (S, U, U).
+
+        Tests:
+            (Test Case 1) Output shape is (S, U, U).
+        """
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=2)
+        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100), (100, 200)])
+
+        def raster_shape(s):
+            return s.raster()
+
+        result = stack.apply(raster_shape)
+
+        assert result.shape[0] == 2
+        assert result.shape[1] == 3
+
+    def test_extra_args_forwarded(self):
+        """
+        Additional positional and keyword arguments are forwarded to the function.
+
+        Tests:
+            (Test Case 1) args and kwargs are received by the function.
+        """
+        sd = make_spikedata(n_units=3, length_ms=200.0, seed=3)
+        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100), (100, 200)])
+
+        def spike_count_above(s, threshold, unit="kHz"):
+            rates = s.rates(unit=unit)
+            return np.sum(rates > threshold)
+
+        result = stack.apply(spike_count_above, 0.01, unit="kHz")
+
+        assert result.shape == (2,)
+        assert result.dtype in (np.int32, np.int64, np.intp)
+
+    def test_single_slice(self):
+        """
+        apply works with a stack containing a single slice.
+
+        Tests:
+            (Test Case 1) Output shape is (1,) for a scalar function.
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0, seed=4)
+        stack = SpikeSliceStack(sd, times_start_to_end=[(0, 100)])
+
+        result = stack.apply(lambda s: s.N)
+
+        assert result.shape == (1,)
+        assert result[0] == 2

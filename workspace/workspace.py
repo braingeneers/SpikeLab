@@ -287,6 +287,63 @@ class AnalysisWorkspace:
         del self._index[namespace][key]
         return True
 
+    def merge_from(self, other: "AnalysisWorkspace", overwrite: bool = False) -> dict:
+        """
+        Copy all items from another workspace into this one.
+
+        Parameters:
+            other (AnalysisWorkspace): Source workspace to merge from.
+                May be a regular or lazy workspace.
+            overwrite (bool): If True, existing (namespace, key) pairs in
+                this workspace are replaced by the incoming values. If
+                False (default), existing keys are kept and incoming
+                duplicates are skipped.
+
+        Returns:
+            result (dict): Summary with keys ``merged`` (int),
+                ``skipped`` (int), and ``skipped_keys``
+                (list[tuple[str, str]]).
+
+        Notes:
+            - HDF5 does not support concurrent writes to the same file.
+              When multiple processes (e.g. parallel Claude Code instances
+              or MCP agents) need to store analysis results, each process
+              should create its own workspace and save to a separate file.
+              After all processes finish, a single orchestrator loads each
+              file and calls ``merge_from`` to combine the results::
+
+                  ws_main = AnalysisWorkspace(name="combined")
+                  for path in agent_output_paths:
+                      ws_main.merge_from(AnalysisWorkspace.load(path))
+                  ws_main.save("path/to/combined_workspace")
+
+            - Only object data and notes are copied. The source
+              workspace's ``workspace_id``, ``name``, and ``created_at``
+              are not transferred.
+        """
+        merged = 0
+        skipped = 0
+        skipped_keys: list = []
+
+        for namespace in other.list_namespaces():
+            for key in other.list_keys(namespace):
+                if (
+                    not overwrite
+                    and namespace in self._index
+                    and key in self._index.get(namespace, {})
+                ):
+                    skipped += 1
+                    skipped_keys.append((namespace, key))
+                    continue
+
+                obj = other.get(namespace, key)
+                other_info = other.get_info(namespace, key)
+                note = other_info.get("note") if other_info else None
+                self.store(namespace, key, obj, note=note)
+                merged += 1
+
+        return {"merged": merged, "skipped": skipped, "skipped_keys": skipped_keys}
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------

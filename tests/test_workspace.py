@@ -2237,3 +2237,265 @@ class TestDeleteItemFromFile:
 
         loaded = load_item_from_file(h5_path, "safe", "item")
         np.testing.assert_array_equal(loaded, arr_other)
+
+
+# ---------------------------------------------------------------------------
+# Tests: merge_from
+# ---------------------------------------------------------------------------
+
+
+class TestMergeFrom:
+    """Tests for AnalysisWorkspace.merge_from()."""
+
+    def setup_method(self):
+        """Create a fresh target workspace for each test."""
+        self.ws = AnalysisWorkspace(name="target")
+
+    def test_merge_disjoint_namespaces(self):
+        """
+        Merging two workspaces with non-overlapping namespaces copies everything.
+
+        Tests:
+            (Test Case 1) All items from source appear in target after merge.
+            (Test Case 2) Result dict reports correct merged/skipped counts.
+            (Test Case 3) Original target items are still present.
+        """
+        self.ws.store("ns1", "arr", np.array([1.0, 2.0]))
+
+        other = AnalysisWorkspace(name="source")
+        other.store("ns2", "arr", np.array([3.0, 4.0]))
+        other.store("ns3", "val", np.array([5.0]))
+
+        result = self.ws.merge_from(other)
+
+        assert result["merged"] == 2
+        assert result["skipped"] == 0
+        assert result["skipped_keys"] == []
+
+        np.testing.assert_array_equal(self.ws.get("ns1", "arr"), [1.0, 2.0])
+        np.testing.assert_array_equal(self.ws.get("ns2", "arr"), [3.0, 4.0])
+        np.testing.assert_array_equal(self.ws.get("ns3", "val"), [5.0])
+
+    def test_merge_skip_existing_keys(self):
+        """
+        With overwrite=False, existing keys in the target are preserved.
+
+        Tests:
+            (Test Case 1) Conflicting key retains the target's value.
+            (Test Case 2) Non-conflicting key from source is merged.
+            (Test Case 3) Result reports the skipped key.
+        """
+        self.ws.store("ns1", "shared", np.array([1.0]))
+        self.ws.store("ns1", "target_only", np.array([2.0]))
+
+        other = AnalysisWorkspace(name="source")
+        other.store("ns1", "shared", np.array([99.0]))
+        other.store("ns1", "source_only", np.array([3.0]))
+
+        result = self.ws.merge_from(other, overwrite=False)
+
+        assert result["merged"] == 1
+        assert result["skipped"] == 1
+        assert ("ns1", "shared") in result["skipped_keys"]
+
+        np.testing.assert_array_equal(self.ws.get("ns1", "shared"), [1.0])
+        np.testing.assert_array_equal(self.ws.get("ns1", "target_only"), [2.0])
+        np.testing.assert_array_equal(self.ws.get("ns1", "source_only"), [3.0])
+
+    def test_merge_overwrite_existing_keys(self):
+        """
+        With overwrite=True, existing keys in the target are replaced.
+
+        Tests:
+            (Test Case 1) Conflicting key is replaced by source value.
+            (Test Case 2) Result reports zero skipped.
+        """
+        self.ws.store("ns1", "val", np.array([1.0]))
+
+        other = AnalysisWorkspace(name="source")
+        other.store("ns1", "val", np.array([99.0]))
+
+        result = self.ws.merge_from(other, overwrite=True)
+
+        assert result["merged"] == 1
+        assert result["skipped"] == 0
+        np.testing.assert_array_equal(self.ws.get("ns1", "val"), [99.0])
+
+    def test_merge_from_empty_workspace(self):
+        """
+        Merging from an empty workspace changes nothing.
+
+        Tests:
+            (Test Case 1) Target contents are unchanged.
+            (Test Case 2) Result reports zero merged and zero skipped.
+        """
+        self.ws.store("ns1", "arr", np.array([1.0]))
+
+        other = AnalysisWorkspace(name="empty")
+        result = self.ws.merge_from(other)
+
+        assert result["merged"] == 0
+        assert result["skipped"] == 0
+        np.testing.assert_array_equal(self.ws.get("ns1", "arr"), [1.0])
+
+    def test_merge_into_empty_workspace(self):
+        """
+        Merging into an empty workspace copies all items from source.
+
+        Tests:
+            (Test Case 1) All source items are present in target.
+            (Test Case 2) Result reports all items as merged.
+        """
+        other = AnalysisWorkspace(name="source")
+        other.store("ns1", "a", np.array([1.0]))
+        other.store("ns2", "b", np.array([2.0]))
+
+        result = self.ws.merge_from(other)
+
+        assert result["merged"] == 2
+        assert result["skipped"] == 0
+        np.testing.assert_array_equal(self.ws.get("ns1", "a"), [1.0])
+        np.testing.assert_array_equal(self.ws.get("ns2", "b"), [2.0])
+
+    def test_merge_preserves_notes(self):
+        """
+        Notes attached to source items are carried over during merge.
+
+        Tests:
+            (Test Case 1) The note from the source item appears in the target index.
+            (Test Case 2) An item without a note merges with no note in the target.
+        """
+        other = AnalysisWorkspace(name="source")
+        other.store("ns1", "with_note", np.array([1.0]), note="important result")
+        other.store("ns1", "no_note", np.array([2.0]))
+
+        self.ws.merge_from(other)
+
+        info_noted = self.ws.get_info("ns1", "with_note")
+        assert info_noted is not None
+        assert info_noted["note"] == "important result"
+
+        info_plain = self.ws.get_info("ns1", "no_note")
+        assert info_plain is not None
+        assert "note" not in info_plain
+
+    def test_merge_updates_index(self):
+        """
+        Merged items appear correctly in the target's index and describe output.
+
+        Tests:
+            (Test Case 1) list_namespaces includes the merged namespace.
+            (Test Case 2) list_keys includes the merged key.
+            (Test Case 3) describe includes summary for the merged item.
+        """
+        other = AnalysisWorkspace(name="source")
+        other.store("new_ns", "arr", np.arange(5))
+
+        self.ws.merge_from(other)
+
+        assert "new_ns" in self.ws.list_namespaces()
+        assert "arr" in self.ws.list_keys("new_ns")
+        desc = self.ws.describe()
+        assert "new_ns" in desc
+        assert "arr" in desc["new_ns"]
+        assert desc["new_ns"]["arr"]["type"] == "ndarray"
+
+    def test_merge_with_iat_types(self):
+        """
+        Merge works for SpikeData and PairwiseCompMatrix objects.
+
+        Tests:
+            (Test Case 1) SpikeData is retrievable with correct attributes.
+            (Test Case 2) PairwiseCompMatrix is retrievable with correct shape.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        pcm = PairwiseCompMatrix(matrix=np.eye(3))
+
+        other = AnalysisWorkspace(name="source")
+        other.store("rec", "spikedata", sd)
+        other.store("rec", "corr", pcm)
+
+        self.ws.merge_from(other)
+
+        out_sd = self.ws.get("rec", "spikedata")
+        assert out_sd is sd
+        assert out_sd.N == 3
+
+        out_pcm = self.ws.get("rec", "corr")
+        assert out_pcm.matrix.shape == (3, 3)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_merge_from_lazy_into_regular(self):
+        """
+        A LazyAnalysisWorkspace can be used as the source for merge_from.
+
+        Tests:
+            (Test Case 1) Item stored in a lazy workspace is correctly merged
+                into a regular workspace.
+            (Test Case 2) Retrieved value matches the original.
+        """
+        lazy = LazyAnalysisWorkspace(name="lazy_source")
+        arr = np.array([10.0, 20.0, 30.0])
+        lazy.store("ns1", "data", arr)
+
+        result = self.ws.merge_from(lazy)
+
+        assert result["merged"] == 1
+        np.testing.assert_array_equal(self.ws.get("ns1", "data"), arr)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_merge_into_lazy_workspace(self):
+        """
+        A LazyAnalysisWorkspace can be used as the target for merge_from.
+
+        Tests:
+            (Test Case 1) Item from a regular workspace is correctly merged
+                into a lazy workspace.
+            (Test Case 2) Retrieved value matches the original.
+        """
+        lazy_target = LazyAnalysisWorkspace(name="lazy_target")
+
+        other = AnalysisWorkspace(name="source")
+        arr = np.array([1.0, 2.0])
+        other.store("ns1", "val", arr)
+
+        result = lazy_target.merge_from(other)
+
+        assert result["merged"] == 1
+        np.testing.assert_array_equal(lazy_target.get("ns1", "val"), arr)
+
+    def test_merge_multiple_sources_sequentially(self):
+        """
+        Merging multiple sources into one target accumulates all results.
+
+        Tests:
+            (Test Case 1) Items from all three sources are present.
+            (Test Case 2) Duplicate spikedata key is skipped in later merges.
+            (Test Case 3) Total merged count equals unique items across sources.
+        """
+        sd = make_spikedata()
+
+        src1 = AnalysisWorkspace(name="agent1")
+        src1.store("rec", "spikedata", sd)
+        src1.store("rec", "ccg", np.eye(3))
+
+        src2 = AnalysisWorkspace(name="agent2")
+        src2.store("rec", "spikedata", sd)
+        src2.store("rec", "sttc", np.ones((3, 3)))
+
+        src3 = AnalysisWorkspace(name="agent3")
+        src3.store("rec", "spikedata", sd)
+        src3.store("rec", "gplvm", np.zeros(5))
+
+        r1 = self.ws.merge_from(src1)
+        r2 = self.ws.merge_from(src2)
+        r3 = self.ws.merge_from(src3)
+
+        assert r1["merged"] == 2 and r1["skipped"] == 0
+        assert r2["merged"] == 1 and r2["skipped"] == 1
+        assert r3["merged"] == 1 and r3["skipped"] == 1
+
+        assert self.ws.get("rec", "spikedata") is sd
+        np.testing.assert_array_equal(self.ws.get("rec", "ccg"), np.eye(3))
+        np.testing.assert_array_equal(self.ws.get("rec", "sttc"), np.ones((3, 3)))
+        np.testing.assert_array_equal(self.ws.get("rec", "gplvm"), np.zeros(5))

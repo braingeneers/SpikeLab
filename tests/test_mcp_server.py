@@ -728,6 +728,113 @@ class TestWorkspaceManagement:
         assert result["data"] == arr.tolist()
         assert result["info"]["type"] == "ndarray"
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_merge_workspace_disjoint(self, tmp_path):
+        """
+        Test merging a saved workspace with non-overlapping keys into an existing workspace.
+
+        Tests:
+            (Test Case 1) All items from the saved workspace are merged.
+            (Test Case 2) Original items in the target workspace are preserved.
+            (Test Case 3) Result reports correct merged and skipped counts.
+        """
+        # Target workspace
+        create_result = await analysis.create_workspace(name="target")
+        target_id = create_result["workspace_id"]
+        ws_target = get_workspace_manager().get_workspace(target_id)
+        ws_target.store("ns", "arr_a", np.array([1.0, 2.0]))
+
+        # Source workspace — save to disk
+        create_src = await analysis.create_workspace(name="source")
+        src_id = create_src["workspace_id"]
+        ws_src = get_workspace_manager().get_workspace(src_id)
+        ws_src.store("ns", "arr_b", np.array([3.0, 4.0]))
+        path = str(tmp_path / "source_ws")
+        await analysis.save_workspace(src_id, path)
+
+        # Merge
+        result = await analysis.merge_workspace(target_id, path)
+        assert result["merged"] == 1
+        assert result["skipped"] == 0
+        assert result["workspace_id"] == target_id
+
+        # Both items present
+        np.testing.assert_array_equal(ws_target.get("ns", "arr_a"), [1.0, 2.0])
+        np.testing.assert_array_equal(ws_target.get("ns", "arr_b"), [3.0, 4.0])
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_merge_workspace_skip_duplicates(self, tmp_path):
+        """
+        Test that merge_workspace skips existing keys when overwrite is False.
+
+        Tests:
+            (Test Case 1) Duplicate key retains target value.
+            (Test Case 2) skipped_keys lists the conflicting namespace/key pairs.
+        """
+        create_result = await analysis.create_workspace(name="target")
+        target_id = create_result["workspace_id"]
+        ws_target = get_workspace_manager().get_workspace(target_id)
+        ws_target.store("ns", "shared", np.array([1.0]))
+
+        create_src = await analysis.create_workspace(name="source")
+        src_id = create_src["workspace_id"]
+        ws_src = get_workspace_manager().get_workspace(src_id)
+        ws_src.store("ns", "shared", np.array([99.0]))
+        path = str(tmp_path / "source_ws")
+        await analysis.save_workspace(src_id, path)
+
+        result = await analysis.merge_workspace(target_id, path, overwrite=False)
+        assert result["skipped"] == 1
+        assert result["skipped_keys"] == [{"namespace": "ns", "key": "shared"}]
+        np.testing.assert_array_equal(ws_target.get("ns", "shared"), [1.0])
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_merge_workspace_overwrite(self, tmp_path):
+        """
+        Test that merge_workspace replaces existing keys when overwrite is True.
+
+        Tests:
+            (Test Case 1) Duplicate key is replaced by source value.
+            (Test Case 2) Result reports zero skipped.
+        """
+        create_result = await analysis.create_workspace(name="target")
+        target_id = create_result["workspace_id"]
+        ws_target = get_workspace_manager().get_workspace(target_id)
+        ws_target.store("ns", "val", np.array([1.0]))
+
+        create_src = await analysis.create_workspace(name="source")
+        src_id = create_src["workspace_id"]
+        ws_src = get_workspace_manager().get_workspace(src_id)
+        ws_src.store("ns", "val", np.array([99.0]))
+        path = str(tmp_path / "source_ws")
+        await analysis.save_workspace(src_id, path)
+
+        result = await analysis.merge_workspace(target_id, path, overwrite=True)
+        assert result["merged"] == 1
+        assert result["skipped"] == 0
+        np.testing.assert_array_equal(ws_target.get("ns", "val"), [99.0])
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_merge_workspace_invalid_workspace_id(self, tmp_path):
+        """
+        Test that merge_workspace raises ValueError for an unknown workspace ID.
+
+        Tests:
+            (Test Case 1) ValueError is raised with a descriptive message.
+        """
+        # Save a dummy workspace to have a valid path
+        create_src = await analysis.create_workspace(name="source")
+        src_id = create_src["workspace_id"]
+        path = str(tmp_path / "source_ws")
+        await analysis.save_workspace(src_id, path)
+
+        with pytest.raises(ValueError, match="Workspace not found"):
+            await analysis.merge_workspace("nonexistent-id", path)
+
 
 # ============================================================================
 # Workspace Analysis Tools Tests
@@ -1028,6 +1135,7 @@ class TestServerIntegration:
         assert "delete_workspace_item" in tool_names
         assert "save_workspace" in tool_names
         assert "load_workspace" in tool_names
+        assert "merge_workspace" in tool_names
         assert "fetch_workspace_item" in tool_names
 
         # Workspace-backed stack analysis tools
