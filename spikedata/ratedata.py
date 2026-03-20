@@ -16,7 +16,7 @@ class RateData:
     """
     Description:
     -----------
-    A data structure where the underlying data is a 2D instantneous firing rate matrix. This object allows the user
+    A data structure where the underlying data is a 2D instantaneous firing rate matrix. This object allows the user
     to perform a set of functions upon this data, including unit to unit correlation matrix computations.
 
     Parameters:

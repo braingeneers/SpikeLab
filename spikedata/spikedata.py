@@ -1105,7 +1105,7 @@ class SpikeData:
         self.N += sd.N
         if self.raw_data.size > 0 and sd.raw_data.size > 0:
             self.raw_data = np.concatenate((self.raw_data, sd.raw_data), axis=0)
-            self.raw_time = np.concatenate((self.raw_time, sd.raw_time), axis=0)
+            # raw_time is a shared time axis — keep existing, don't double it
         elif sd.raw_data.size > 0:
             self.raw_data = sd.raw_data.copy()
             self.raw_time = sd.raw_time.copy()

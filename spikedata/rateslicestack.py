@@ -352,7 +352,7 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cross correlation. These functions can be insepcted further in utils.py
+                                          The default is cross correlation. These functions can be inspected further in utils.py
         MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice valid for that neuron
         MIN_FRAC (float): Maximum fraction of slice that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
@@ -469,7 +469,7 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                        The default is cosine similarity. These functions can be insepcted further in utils.py
+                                        The default is cosine similarity. These functions can be inspected further in utils.py
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
 
         Returns:
@@ -576,7 +576,7 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cosine similarity. These functions can be insepcted further in utils.py
+                                          The default is cosine similarity. These functions can be inspected further in utils.py
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
 
         Returns:
