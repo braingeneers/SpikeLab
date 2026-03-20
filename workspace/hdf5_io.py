@@ -721,6 +721,8 @@ def _load_spikeslicestack(grp):
     sss = SpikeSliceStack.__new__(SpikeSliceStack)
     sss.spike_stack = spike_stack
     sss.times = times
+    sss.N = spike_stack[0].N if spike_stack else 0
+    sss.neuron_attributes = spike_stack[0].neuron_attributes if spike_stack else None
     return sss
 
 

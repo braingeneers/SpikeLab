@@ -483,11 +483,10 @@ class RateSliceStack:
         """
         # Get dimensions
         event_stack = self.event_stack
-        num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
-        num_slices = event_stack.shape[2]  # B
+        num_slices = event_stack.shape[2]  # S
 
-        # Early return for single slice — pairwise comparison undefined (BUG-005)
+        # Early return for single slice — pairwise comparison undefined
         if num_slices < 2:
             warnings.warn(
                 "Cannot compute slice-to-slice time correlation with fewer than "
