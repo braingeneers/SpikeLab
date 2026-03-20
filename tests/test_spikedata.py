@@ -3239,11 +3239,11 @@ class TestRecentFixes:
 
     def test_concatenate_spike_data_with_raw_data(self):
         """
-        Verify concatenate_spike_data stacks raw_data along axis 0.
+        Verify concatenate_spike_data stacks raw_data along axis 0 and keeps shared raw_time.
 
         Tests:
             (Test Case 1) raw_data channels are concatenated (axis 0), not added.
-            (Test Case 2) raw_time arrays are concatenated along axis 0.
+            (Test Case 2) raw_time is kept unchanged (shared time axis).
         """
         raw1 = np.ones((2, 10))
         raw2 = np.ones((2, 10)) * 2
@@ -3253,7 +3253,7 @@ class TestRecentFixes:
         sd2 = SpikeData([[3, 4]], length=10, raw_data=raw2, raw_time=time2)
         sd1.concatenate_spike_data(sd2)
         assert sd1.raw_data.shape == (4, 10)
-        assert sd1.raw_time.shape == (20,)
+        assert sd1.raw_time.shape == (10,)  # shared time axis, not doubled
 
     def test_concatenate_spike_data_one_empty_raw(self):
         """
