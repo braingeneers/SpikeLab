@@ -855,3 +855,77 @@ class TestRecentFixes:
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)
         with pytest.raises(ValueError):
             rd.subtime_by_index(10, 10)
+
+    def test_get_pairwise_fr_corr_all_zero(self):
+        """
+        get_pairwise_fr_corr() with all-zero firing rates returns 0.0 on diagonal.
+
+        Tests:
+            (Test Case 1) Result matrices have correct shape (U, U).
+            (Test Case 2) Diagonal of correlation matrix is 0.0, because
+                          zero-norm vectors return 0.0 from cross-correlation.
+            (Test Case 3) Diagonal of lag matrix is 0.
+
+        Notes:
+            compute_cross_correlation_with_lag returns (0.0, 0) when either
+            input vector has zero norm (BUG-004 guard). This means the
+            diagonal is 0.0 instead of the usual 1.0 for self-correlation.
+        """
+        data = np.zeros((3, 50))
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+        np.testing.assert_array_equal(np.diag(corr), np.zeros(3))
+        np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
+
+    def test_subtime_negative_times_literal(self):
+        """
+        subtime() treats negative start/end as literal coordinates when times contain negatives.
+
+        Tests:
+            (Test Case 1) subtime(-200, 0) selects the first 2 bins (times -200 and -100).
+            (Test Case 2) Result times are shifted to start at 0.
+
+        Notes:
+            When times contain negative values (event-aligned data), negative
+            start/end are treated as literal time coordinates, not offsets
+            from the end.
+        """
+        data = np.ones((2, 5))
+        times = np.array([-200.0, -100.0, 0.0, 100.0, 200.0])
+        rd = RateData(data, times)
+
+        result = rd.subtime(-200.0, 0.0)
+        assert result.inst_Frate_data.shape == (2, 2)
+        assert float(result.times[0]) == pytest.approx(0.0)
+        assert float(result.times[1]) == pytest.approx(100.0)
+
+    def test_subtime_negative_times_no_backward_offset(self):
+        """
+        subtime() with negative start on negative-times data uses literal coordinate.
+
+        Tests:
+            (Test Case 1) subtime(-50, 100) on times [-200, -100, 0, 100, 200]
+                          treats -50 as a literal coordinate, selecting times
+                          from -50 onward (i.e., times 0 and 100 which are >= -50
+                          and < 100).
+            (Test Case 2) Result times are shifted to start at 0.
+
+        Notes:
+            This verifies that -50 is NOT interpreted as an offset from the end
+            (which would be times[-1] - 50 = 150) but as a literal time value.
+        """
+        data = np.arange(10, dtype=float).reshape(2, 5)
+        times = np.array([-200.0, -100.0, 0.0, 100.0, 200.0])
+        rd = RateData(data, times)
+
+        result = rd.subtime(-50.0, 100.0)
+        # Times >= -50 and < 100: only time 0.0 qualifies
+        assert result.inst_Frate_data.shape == (2, 1)
+        assert float(result.times[0]) == pytest.approx(0.0)
+        # Data should match column index 2 (time=0.0) from original
+        np.testing.assert_array_equal(result.inst_Frate_data[:, 0], data[:, 2])

@@ -3536,3 +3536,27 @@ class TestRecentFixes:
         result = sd.subtime(2, 5)
         assert result.raw_time[0] == 0.0
         np.testing.assert_array_almost_equal(result.raw_time, [0.0, 1.0, 2.0])
+
+    def test_rates_zero_length(self):
+        """
+        SpikeData with length=0.0 and empty trains: rates() returns NaN due to 0/0.
+
+        Tests:
+            (Test Case 1) rates() on a zero-length SpikeData with N=3 empty
+                          trains emits a RuntimeWarning and returns NaN values.
+
+        Notes:
+            rates() computes ``np.array([len(t) for t in self.train]) / self.length``.
+            When length is 0.0, numpy evaluates 0/0 as NaN with a RuntimeWarning.
+            Ideally rates() would guard against zero length and return np.zeros(N),
+            but the current implementation does not. This test documents the
+            existing behavior.
+        """
+        sd = SpikeData([], N=3, length=0.0)
+        assert sd.N == 3
+        assert sd.length == 0.0
+
+        with pytest.warns(RuntimeWarning, match="invalid value|divide by zero"):
+            result = sd.rates()
+        assert result.shape == (3,)
+        assert np.all(np.isnan(result))
