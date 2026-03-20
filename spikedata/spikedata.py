@@ -29,6 +29,9 @@ from .utils import (
     randomize,
     trough_between,
     extract_unit_waveforms,
+    _get_attr,
+    compute_cross_correlation_with_lag,
+    compute_cosine_similarity_with_lag,
 )
 
 __all__ = [
@@ -157,7 +160,7 @@ class SpikeData:
         for st in trains:
             st.units = "ms"
 
-        return SpikeData([np.asarray(st) for st in spiketrains], **kwargs)
+        return SpikeData([np.asarray(st) for st in trains], **kwargs)
 
     @staticmethod
     def from_thresholding(
@@ -200,6 +203,10 @@ class SpikeData:
             raster = data > threshold
         elif direction == "down":
             raster = data < -threshold
+        else:
+            raise ValueError(
+                f"direction must be 'both', 'up', or 'down', got {direction!r}"
+            )
 
         if hysteresis:
             raster = np.diff(np.array(raster, dtype=int), axis=1) == 1
@@ -215,7 +222,7 @@ class SpikeData:
         N=None,
         length=None,
         neuron_attributes=None,
-        metadata={},
+        metadata=None,
         raw_data=None,
         raw_time: Optional[Union[NDArray, float]] = None,
     ):
@@ -244,10 +251,18 @@ class SpikeData:
         # also copy each array to avoid aliasing.
         self.train = [np.sort(times) for times in train]
 
+        # Reject NaN spike times — they propagate silently and corrupt
+        # downstream computations (rates, rasters, correlations).
+        for i, t in enumerate(self.train):
+            if len(t) > 0 and np.isnan(t).any():
+                raise ValueError(f"spike times for unit {i} contain NaN values")
+
         # The length of the spike train defaults to the last spike
         # time it contains.
         if length is None:
-            length = max((t[-1] for t in self.train if len(t) > 0))
+            length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
+        if np.isnan(length):
+            raise ValueError("length must not be NaN")
         self.length = length
 
         # If a number of units was provided, make the list of spike
@@ -278,6 +293,8 @@ class SpikeData:
         # Note that if there is no metadata, it should be an empty dict, because that
         # way arbitrary fields can be added later, but null neuron_attributes requires
         # storing None so we don't break concatenation semantics.
+        if metadata is None:
+            metadata = {}
         self.metadata = metadata.copy()
         self.neuron_attributes = None
         if neuron_attributes:
@@ -500,9 +517,9 @@ class SpikeData:
 
     def binned(self, bin_size=40.0):
         """
-        Quantize time into intervals of bin_size and counts the number of events in
-        each bin, considered as a lower half-open interval of times, with the exception
-        that events at time precisely zero will be included in the first bin.
+        Quantize time into intervals of bin_size and count the number of events in
+        each bin. Bins are left-open, right-closed intervals: (0, bin_size],
+        (bin_size, 2*bin_size], ... A spike at exactly t=0 is included in bin 0.
 
         Parameters:
         bin_size (float): Size of the time bin in milliseconds
@@ -527,6 +544,8 @@ class SpikeData:
         Notes:
         - The rate is calculated as the number of events in each bin divided by the bin size and number of units.
         """
+        if self.N == 0:
+            return np.zeros(int(np.ceil(self.length / bin_size)))
         binned_rate = self.binned(bin_size) / self.N / bin_size
         if unit == "Hz":
             return 1e3 * binned_rate
@@ -546,6 +565,8 @@ class SpikeData:
         Returns:
         rates (numpy.ndarray): Array of the firing rate of each neuron.
         """
+        if self.length == 0:
+            return np.zeros(self.N)
         rates = np.array([len(t) for t in self.train]) / self.length
         if unit == "Hz":
             return 1e3 * rates
@@ -622,6 +643,8 @@ class SpikeData:
         Notes:
         - Units are included in the output according to their order in self.train, not the
         order in the unit list (which is treated as a set).
+        - raw_data and raw_time are not propagated to the subset — they remain on the
+        original SpikeData object.
         - If IDs are not unique, every neuron which matches is included in the output.
         - Neurons whose neuron_attributes entry does not have the key are always excluded.
         """
@@ -638,7 +661,7 @@ class SpikeData:
             units = {
                 i
                 for i in range(self.N)
-                if self.neuron_attributes[i].get(by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
 
         train = []
@@ -649,14 +672,14 @@ class SpikeData:
                 if self.neuron_attributes is not None:
                     neuron_attributes.append(self.neuron_attributes[i])
 
+        # raw_data/raw_time are not propagated to subsets — they remain
+        # on the original SpikeData object and can be accessed there.
         return SpikeData(
             train,
             length=self.length,
             N=len(train),
             neuron_attributes=neuron_attributes or None,
             metadata=self.metadata,
-            raw_time=self.raw_time,
-            raw_data=self.raw_data,
         )
 
     def neuron_to_channel_map(
@@ -705,22 +728,16 @@ class SpikeData:
 
         return mapping
 
-    def subtime(self, start, end, shift_time=True):
+    def subtime(self, start, end):
         """
         Extract a subset of time points from spikedata using time values.
+
+        Spike times are always shifted so that the new SpikeData starts at t=0.
+        For example, subtime(100, 200) produces spikes in the range [0, 100).
 
         Parameters:
         start (int/float): Starting time value (inclusive)
         end (int/float): Ending time value (exclusive)
-        shift_time (bool): If True, this will make the new output spike data object where the times are shifted so
-                           relative to 0 (input start time becomes 0 for new spikedata)
-                           If False, preserve original time values (spikes retain their original timestamps).
-                           Example) shift_time=False
-                                        subtime(1.0, 4.0, shift_time=False)
-                                        Result: train[0] = [1.2, 2.3, 3.7]  Original timestamps preserved.
-                                    shift_time=True (default)
-                                        subtime(1.0, 4.0, shift_time=True)
-                                        Result: train[0] = [0.2, 1.3, 2.7]  Shifted by -1.0 (the start value)
 
         Returns:
         SpikeData: New SpikeData object containing only the specified time range
@@ -757,10 +774,8 @@ class SpikeData:
                 f"Cannot create subtime with invalid range."
             )
 
-        time_shift = start if shift_time else 0
-
-        # Subset the spike train by time
-        train = [t[(t >= start) & (t < end)] - time_shift for t in self.train]
+        # Subset the spike train by time, shifting to start at 0
+        train = [t[(t >= start) & (t < end)] - start for t in self.train]
 
         # Subset and propagate the raw data
         rawmask = (self.raw_time >= start) & (self.raw_time < end)
@@ -771,7 +786,7 @@ class SpikeData:
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - time_shift,
+            raw_time=self.raw_time[rawmask] - start,
             raw_data=self.raw_data[..., rawmask],
         )
 
@@ -813,8 +828,17 @@ class SpikeData:
             np.hstack([tr1, tr2 + self.length + offset])
             for tr1, tr2 in zip(self.train, spikeData.train)
         ]
-        raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
-        raw_time = np.concatenate((self.raw_time, spikeData.raw_time))
+        if self.raw_data.size > 0 and spikeData.raw_data.size > 0:
+            raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
+            raw_time = np.concatenate(
+                (self.raw_time, spikeData.raw_time + self.length + offset)
+            )
+        elif spikeData.raw_data.size > 0:
+            raw_data = spikeData.raw_data.copy()
+            raw_time = spikeData.raw_time + self.length + offset
+        else:
+            raw_data = self.raw_data
+            raw_time = self.raw_time
         length = self.length + spikeData.length + offset
         return SpikeData(
             train,
@@ -842,23 +866,17 @@ class SpikeData:
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open and right-closed intervals except the first, which will
-        capture any spikes occurring exactly at t=0.
+        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
+        - A spike at exactly t=0 is clipped into bin 0.
+        - The number of bins is always ceil(length / bin_size).
         """
-        # indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
-        #     int
-        # )
-        indices = np.hstack([np.floor(ts / bin_size) for ts in self.train]).astype(int)
+        indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
+            int
+        )
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
         length = int(np.ceil(self.length / bin_size))
-        if (self.length % bin_size) == 0:
-            # if length is 40 and bin size is 10, you don't want 40 falling into bin that
-            # should only contain times 30-39. The other bins only have 10 times considered in each
-            # So its best to show this spike in a new bin
-            length += 1
-
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
@@ -876,8 +894,8 @@ class SpikeData:
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open and right-closed intervals except the first, which will
-        capture any spikes occurring exactly at t=0.
+        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
+        - A spike at exactly t=0 is clipped into bin 0.
         """
         return self.sparse_raster(bin_size).toarray()
 
@@ -1094,17 +1112,16 @@ class SpikeData:
 
     def concatenate_spike_data(self, sd):
         """
-        Add the units from another SpikeData object to this one.
+        Add the units from another SpikeData object to this one, in place.
 
         Parameters:
-        sd (SpikeData): SpikeData object to append
-
-        Returns:
-        sd (SpikeData): New SpikeData object with the appended data.
+        sd (SpikeData): SpikeData object whose units will be added.
 
         Notes:
+        - Modifies self in place. Does not return a new object.
         - New units are assigned indices starting from the end of the current data.
         - If the new units have a longer spike train, it is truncated to the length of the current data.
+        - raw_data and raw_time are not modified — they persist from the original object.
         """
 
         # Subtime the second SpikeData object to the length of the first
@@ -1112,8 +1129,7 @@ class SpikeData:
             sd = sd.subtime(0, self.length)
         self.train += sd.train
         self.N += sd.N
-        self.raw_data += sd.raw_data
-        self.raw_time += sd.raw_time
+        # raw_data/raw_time are not modified — they persist from the original object.
         self.metadata.update(sd.metadata)
         if self.neuron_attributes and sd.neuron_attributes:
             self.neuron_attributes += sd.neuron_attributes
@@ -1166,6 +1182,65 @@ class SpikeData:
         """
         return get_sttc(self.train[i], self.train[j], delt, self.length)
 
+    def get_pairwise_ccg(
+        self,
+        compare_func=compute_cross_correlation_with_lag,
+        bin_size=1.0,
+        max_lag=350,
+    ):
+        """
+        Compute pairwise cross-correlogram matrices from binned binary spike arrays.
+
+        Bins the spike trains into a binary raster and computes the pairwise
+        similarity between all unit pairs using lagged cross-correlation (default)
+        or lagged cosine similarity.
+
+        Parameters:
+            compare_func (callable): Comparison function from utils. Must accept
+                (ref_signal, comp_signal, max_lag=int) and return (score, lag).
+                Default is compute_cross_correlation_with_lag. Alternative:
+                compute_cosine_similarity_with_lag.
+            bin_size (float): Bin size in milliseconds for the binary raster
+                (default: 1.0).
+            max_lag (float): Maximum lag in milliseconds to search for the peak
+                correlation (default: 350). Converted to bins internally.
+
+        Returns:
+            corr_matrix (PairwiseCompMatrix): Matrix of maximum correlation
+                coefficients between all unit pairs. Diagonal is always 1.
+            lag_matrix (PairwiseCompMatrix): Matrix of time lags in bins at which
+                maximum correlation occurs. Positive lag means unit j leads unit i.
+                Diagonal is always 0.
+        """
+        raster_matrix = self.raster(bin_size)
+        num_units = raster_matrix.shape[0]
+        max_lag_bins = int(round(max_lag / bin_size))
+
+        corr_matrix = np.full((num_units, num_units), np.nan)
+        lag_matrix = np.full((num_units, num_units), np.nan)
+
+        for n1 in range(num_units):
+            for n2 in range(n1, num_units):
+                ref_signal = raster_matrix[n1, :]
+                comp_signal = raster_matrix[n2, :]
+                max_corr, max_lag_idx = compare_func(
+                    ref_signal, comp_signal, max_lag=max_lag_bins
+                )
+
+                corr_matrix[n1, n2] = max_corr
+                lag_matrix[n1, n2] = max_lag_idx
+
+                corr_matrix[n2, n1] = max_corr
+                lag_matrix[n2, n1] = -max_lag_idx
+
+        return PairwiseCompMatrix(
+            matrix=corr_matrix,
+            metadata={"bin_size": bin_size, "max_lag": max_lag},
+        ), PairwiseCompMatrix(
+            matrix=lag_matrix,
+            metadata={"bin_size": bin_size, "max_lag": max_lag},
+        )
+
     def latencies(self, times, window_ms=100.0):
         """
         Given a sorted list of times, compute the latencies from that time to each spike
@@ -1201,6 +1276,87 @@ class SpikeData:
                     cur_latencies.append(latency)
             latencies.append(cur_latencies)
         return latencies
+
+    def get_pairwise_latencies(self, window_ms=None, return_distributions=False):
+        """
+        Compute pairwise nearest-spike latency distributions between all unit pairs.
+
+        For each ordered pair (i, j), and for each spike in train i, finds the
+        closest spike in train j and records the signed latency (t_j - t_i).
+        Both directions are computed independently.
+
+        Parameters:
+            window_ms (float or None): If not None, discard latencies where the
+                absolute distance exceeds this value (default: None, no filtering).
+            return_distributions (bool): If True, also return a (U, U) numpy
+                object array where entry [i, j] is an ndarray of all individual
+                signed latencies from unit i to unit j (default: False).
+
+        Returns:
+            mean_latency (PairwiseCompMatrix): Matrix of mean signed latencies
+                in milliseconds. Entry [i, j] is the average latency from each
+                spike in unit i to the nearest spike in unit j. Diagonal is 0.
+            std_latency (PairwiseCompMatrix): Matrix of latency standard
+                deviations. Entry [i, j] is the std of latencies from unit i
+                to unit j. Diagonal is 0.
+            distributions (np.ndarray): Only returned when return_distributions
+                is True. A (U, U) object array where [i, j] is an ndarray of
+                all signed latencies from unit i to unit j.
+        """
+        N = self.N
+        mean_matrix = np.zeros((N, N))
+        std_matrix = np.zeros((N, N))
+
+        if return_distributions:
+            dist_matrix = np.empty((N, N), dtype=object)
+
+        for i in range(N):
+            train_i = np.asarray(self.train[i])
+            for j in range(N):
+                if i == j:
+                    if return_distributions:
+                        dist_matrix[i, j] = np.array([], dtype=np.float64)
+                    continue
+
+                train_j = np.asarray(self.train[j])
+
+                if len(train_i) == 0 or len(train_j) == 0:
+                    if return_distributions:
+                        dist_matrix[i, j] = np.array([], dtype=np.float64)
+                    continue
+
+                # For each spike in train_i, find the closest spike in train_j
+                idx = np.searchsorted(train_j, train_i)
+                np.clip(idx, 1, len(train_j) - 1, out=idx)
+
+                # Check both the candidate and its predecessor
+                dt_right = train_j[idx] - train_i
+                dt_left = train_j[idx - 1] - train_i
+
+                # Pick whichever is closer in absolute value
+                use_left = np.abs(dt_left) < np.abs(dt_right)
+                latencies = np.where(use_left, dt_left, dt_right)
+
+                # Apply window filter
+                if window_ms is not None:
+                    mask = np.abs(latencies) <= window_ms
+                    latencies = latencies[mask]
+
+                if return_distributions:
+                    dist_matrix[i, j] = latencies
+
+                if len(latencies) > 0:
+                    mean_matrix[i, j] = np.mean(latencies)
+                    std_matrix[i, j] = np.std(latencies)
+
+        meta = {"window_ms": window_ms}
+        result = (
+            PairwiseCompMatrix(matrix=mean_matrix, metadata=meta),
+            PairwiseCompMatrix(matrix=std_matrix, metadata=meta),
+        )
+        if return_distributions:
+            return result + (dist_matrix,)
+        return result
 
     def latencies_to_index(self, i, window_ms=100.0):
         """
@@ -1257,7 +1413,13 @@ class SpikeData:
         above_thresh = spikes_per_burst >= MIN_SPIKES
 
         # compute fraction of bursts above threshold per unit
-        frac_per_unit = np.sum(above_thresh, axis=1) / edges.shape[0]
+        n_bursts = edges.shape[0]
+        if n_bursts == 0:
+            frac_per_unit = np.zeros(t_spk_mat.shape[0])
+            frac_per_burst = np.array([])
+            backbone_units = np.array([], dtype=int)
+            return frac_per_unit, frac_per_burst, backbone_units
+        frac_per_unit = np.sum(above_thresh, axis=1) / n_bursts
         frac_per_burst = np.sum(above_thresh, axis=0) / t_spk_mat.shape[0]
 
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
@@ -1271,8 +1433,9 @@ class SpikeData:
         -----------
         - swap_per_spike (int): Determines total number of swaps: num_spikes * swap_per_spike (optional, default=5).
         - seed (int): Set the random seed number for repeatability of results, None means no seed is set (optional, default=None).
-        - bin_size(int): The number of individual time steps per bin. If bin_size > 1 (not recommended), bins with multiple
-                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved (optional, default=1).
+        - bin_size(int): The number of individual time steps per bin. Bins with multiple
+                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
+                       A RuntimeWarning is issued when multi-spike bins are detected (optional, default=1).
         Returns:
         --------
         - shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
@@ -1288,10 +1451,13 @@ class SpikeData:
         - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
-        if bin_size != 1:
-            binary_mat = spk_mat > 0
-        else:
-            binary_mat = spk_mat
+        if (spk_mat > 1).any():
+            warnings.warn(
+                "Multi-spike bins detected; binarizing before shuffle "
+                "(spike counts not preserved)",
+                RuntimeWarning,
+            )
+        binary_mat = spk_mat > 0
         shuffled_mat = randomize(binary_mat, swap_per_spike=swap_per_spike, seed=seed)
         shuffled_spike_data = SpikeData.from_raster(
             shuffled_mat,
@@ -1628,8 +1794,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=5,
-        acc_gauss_sigma=5,
+        acc_square_width=10,
+        acc_gauss_sigma=10,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,
@@ -1676,6 +1842,10 @@ class SpikeData:
         if pop_rms_override is None:
             pop_rms = np.sqrt(np.mean(np.square(pop_rate)))
         else:
+            if pop_rms_override <= 0:
+                raise ValueError(
+                    f"pop_rms_override must be positive, got {pop_rms_override}"
+                )
             pop_rms = pop_rms_override
 
         # Find peaks
@@ -1763,11 +1933,12 @@ class SpikeData:
         unique_bursts, counts = np.unique(tburst, return_counts=True)
         duplicates = unique_bursts[counts > 1]
         if len(duplicates) != 0:
-            print(
-                f"\n{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}.\n"
-                + f"This is likely due identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True.\n"
-                + f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data.\n"
-                + f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.\n"
+            warnings.warn(
+                f"{len(tburst) - len(unique_bursts)} duplicate bursts were detected across the following times: {list(duplicates)}. "
+                f"This is likely due to identifying bursts using peak-to-zero calculations. Consider setting the PEAK-TO-TROUGH flag to True. "
+                f"Otherwise, consider increasing burst_edge_mult_thresh if this burst duration is longer than you would expect for your data. "
+                f"Alternatively, increase min_burst_diff to prevent two bursts from being detected too close to each other.",
+                RuntimeWarning,
             )
 
         return tburst, edges, peak_amp
@@ -1906,6 +2077,12 @@ class SpikeData:
               ``pip install poor-man-gplvm jax jaxlib``.
             - The binned spike count matrix has shape ``(T, N)`` where T is the
               number of time bins and N is the number of units.
+            - To compute metrics from the fitted model, see the GPLVM utility
+              functions in ``spikedata.utils``:
+              ``gplvm_state_entropy`` (Shannon entropy per time bin),
+              ``gplvm_continuity_prob`` (continuity probability time series),
+              ``gplvm_average_state_probability`` (mean state probability),
+              and ``consecutive_durations`` (run lengths above/below a threshold).
         """
         try:
             import poor_man_gplvm as pmg

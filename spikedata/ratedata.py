@@ -1,6 +1,8 @@
 import warnings
 
 import numpy as np
+
+__all__ = ["RateData"]
 from scipy import signal
 
 from .utils import (
@@ -8,6 +10,7 @@ from .utils import (
     PCA_reduction,
     UMAP_reduction,
     UMAP_graph_communities,
+    _get_attr,
 )
 
 
@@ -15,7 +18,7 @@ class RateData:
     """
     Description:
     -----------
-    A data structure where the underlying data is a 2D instantneous firing rate matrix. This object allows the user
+    A data structure where the underlying data is a 2D instantaneous firing rate matrix. This object allows the user
     to perform a set of functions upon this data, including unit to unit correlation matrix computations.
 
     Parameters:
@@ -51,8 +54,6 @@ class RateData:
                 "Number of columns in inst_Frate_data must be the same as length of times"
             )
 
-        if any(x < 0 for x in times):
-            raise ValueError("No negative values are allowed in times.")
         if not isinstance(times, np.ndarray):
             times = np.array(times)
         self.inst_Frate_data = inst_Frate_data
@@ -96,7 +97,7 @@ class RateData:
             units = {
                 i
                 for i in range(self.N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
         units = sorted(units)
 
@@ -111,25 +112,34 @@ class RateData:
             neuron_attributes=neuron_attributes,
         )
 
-    def subtime(self, start, end, shift_time=True):
+    def subtime(self, start, end):
         """
         Extract a subset of time points from the rate data using time values.
 
+        Times are always shifted so that the new RateData starts at t=0.
+
         Parameters:
         start (int/float): Starting time value (inclusive)
-        end (int/flot): Ending time value (exclusive)
-        shift_time (bool): If true, this will make the new output rate object where self.times[0] = 0 (starting time is 0)
-                      If false, this will make the new output rate object where self.times[0] = start (starting time is start input)
+        end (int/float): Ending time value (exclusive)
 
         Returns:
         RateData: New RateData object containing only the specified time range
+
+        Notes:
+        - Negative start/end values are treated as literal time coordinates when
+          the times array contains negative values (e.g., event-aligned data with
+          times from -200 to +500 ms). When times are all non-negative, negative
+          values are treated as offsets from the end (e.g., start=-20 means 20 ms
+          before the last time point).
         """
 
         length = self.times[-1] if len(self.times) > 0 else 0
+        has_negative_times = len(self.times) > 0 and self.times[0] < 0
+
         # Handle start
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
-        elif start < 0:
+        elif start < 0 and not has_negative_times:
             start += length
             if start < 0:
                 raise ValueError(
@@ -140,7 +150,7 @@ class RateData:
         # Handle end
         if end is None or end is Ellipsis:
             end = length
-        elif end < 0:
+        elif end < 0 and not has_negative_times:
             end += length
             if end < 0:
                 raise ValueError(
@@ -162,24 +172,22 @@ class RateData:
             )
 
         output = self.inst_Frate_data[:, mask]
-        new_times = self.times[mask]
-        if shift_time:
-            new_times = new_times - new_times[0]
+        new_times = self.times[mask] - self.times[mask][0]
         return RateData(
             inst_Frate_data=output,
             times=new_times,
             neuron_attributes=self.neuron_attributes,
         )
 
-    def subtime_by_index(self, start_idx, end_idx, shift_time=True):
+    def subtime_by_index(self, start_idx, end_idx):
         """
         Extract a subset of time points from the rate data using time index values.
 
+        Times are always shifted so that the new RateData starts at t=0.
+
         Parameters:
-        start (int): Starting time index (inclusive)
-        end (int): Ending time index (exclusive)
-        shift_time (bool): If true, this will make the new output rate object where self.times[0] = 0 (starting time is 0)
-                      If false, this will make the new output rate object where self.times[0] = start (starting time is start input)
+        start_idx (int): Starting time index (inclusive)
+        end_idx (int): Ending time index (exclusive)
 
         Returns:
         RateData: New RateData object containing only the specified time range
@@ -191,14 +199,12 @@ class RateData:
 
         if start_idx < 0 or start_idx >= len(self.times):
             raise ValueError(f"start_idx {start_idx} out of range")
-        if end_idx < start_idx or end_idx > len(self.times):
+        if end_idx <= start_idx or end_idx > len(self.times):
             raise ValueError(f"end_idx {end_idx} invalid")
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
         new_times = self.times[start_idx:end_idx]
-
-        if shift_time:
-            new_times = new_times - new_times[0]
+        new_times = new_times - new_times[0]
 
         return RateData(
             inst_Frate_data=output,
@@ -310,10 +316,13 @@ class RateData:
             - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
 
         Returns:
-        embedding (ndarray): Low-dimensional embedding, shape (T, n_components), where T is the number of time bins.
-            Each row corresponds to a time bin in self.times.
-        (embedding, labels) (tuple): If method="UMAP", use_graph_communities=True, and return_labels=True,
-            returns both the embedding and an array of integer community labels for each time bin.
+        (embedding, explained_variance_ratio, components) (tuple): If method="PCA", returns the embedding
+            of shape (T, n_components), the fraction of variance explained per component (n_components,),
+            and the principal axes of shape (n_components, U).
+        (embedding, trustworthiness) (tuple): If method="UMAP", returns the embedding of shape
+            (T, n_components) and a trustworthiness score (float, 0 to 1).
+        (embedding, labels, trustworthiness) (tuple): If method="UMAP", use_graph_communities=True,
+            and return_labels=True, returns embedding, community labels, and trustworthiness.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)
@@ -321,10 +330,13 @@ class RateData:
         method_upper = method.upper()
         if method_upper == "PCA":
             if kwargs:
-                print(
-                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'."
+                warnings.warn(
+                    f"Additional keyword arguments {list(kwargs.keys())} are ignored for method='{method}'.",
+                    UserWarning,
                 )
-            return PCA_reduction(data_T, n_components=n_components)
+            return PCA_reduction(
+                data_T, n_components=n_components
+            )  # (embedding, var_ratio, components)
         if method_upper == "UMAP":
             # Optional graph-based UMAP + Louvain communities.
             use_graph_communities = kwargs.pop("use_graph_communities", False)
@@ -339,21 +351,21 @@ class RateData:
                 )
 
             if use_graph_communities:
-                embedding, labels = UMAP_graph_communities(
+                embedding, labels, tw = UMAP_graph_communities(
                     data_T,
                     n_components=n_components,
                     **kwargs,
                 )
                 if return_labels:
-                    return embedding, labels
-                return embedding
+                    return embedding, labels, tw
+                return embedding, tw
 
-            # Default: plain UMAP embedding only.
+            # Default: plain UMAP embedding + trustworthiness.
             return UMAP_reduction(
                 data_T,
                 n_components=n_components,
                 **kwargs,
-            )
+            )  # (embedding, trustworthiness)
 
         raise ValueError(
             f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."

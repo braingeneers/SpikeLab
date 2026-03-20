@@ -419,14 +419,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         from .hdf5_io import _require_h5py
 
         _require_h5py()
-
-        # Initialise base fields without calling AnalysisWorkspace.__init__
-        # so that _items is never populated (data lives on disk).
-        self.workspace_id: str = str(uuid.uuid4())
-        self.name: Optional[str] = name
-        self.created_at: float = time.time()
-        self._items: Dict[str, Dict[str, Any]] = {}  # always empty
-        self._index: Dict[str, Dict[str, dict]] = {}
+        super().__init__(name=name)
 
         # Create the backing temp file.
         fd, self._h5_path = tempfile.mkstemp(suffix=".h5", prefix="iat_lazy_ws_")
@@ -712,13 +705,14 @@ class WorkspaceManager:
         """
         result = []
         for ws in self._workspaces.values():
-            item_count = sum(len(v) for v in ws._items.values())
+            index = ws._index if hasattr(ws, "_index") else ws._items
+            item_count = sum(len(v) for v in index.values())
             result.append(
                 {
                     "workspace_id": ws.workspace_id,
                     "name": ws.name,
                     "created_at": ws.created_at,
-                    "namespace_count": len(ws._items),
+                    "namespace_count": len(index),
                     "item_count": item_count,
                 }
             )

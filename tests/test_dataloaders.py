@@ -943,7 +943,7 @@ class TestIBLLoader:
             if obj_name == "spikes":
                 collection = kwargs.get("collection", "")
                 if fail_collections and collection in fail_collections:
-                    raise Exception(f"collection not found: {collection}")
+                    raise FileNotFoundError(f"collection not found: {collection}")
                 return spikes
             raise Exception(f"Unexpected load_object call: {obj_name}")
 
@@ -1558,26 +1558,23 @@ class TestDataLoadersEdgeCases:
     @skip_no_h5py
     def test_hdf5_paired_empty_idces(self, tmp_path):
         """
-        Verify that loading paired-style HDF5 with empty idces/times arrays
-        raises an error due to max() on empty sequence in SpikeData.from_idces_times.
+        Loading paired-style HDF5 with empty idces/times arrays produces a valid
+        zero-unit SpikeData with duration 0.
 
         Tests:
-            (Test Case 1) Raises ValueError because SpikeData.__init__ calls
-                          max() on empty trains when length is not provided.
-
-        Notes:
-            - This is a known source bug (BUG-006): from_idces_times does not
-              handle the empty-input case gracefully.
+            (Test Case 1) Empty idces and times arrays produce a SpikeData with
+                N=0 and length=0.0.
         """
         path = str(tmp_path / "empty_paired.h5")
         with h5py.File(path, "w") as f:
             f.create_dataset("idces", data=np.array([], dtype=int))
             f.create_dataset("times", data=np.array([], dtype=float))
 
-        with pytest.raises(ValueError, match="empty sequence"):
-            loaders.load_spikedata_from_hdf5(
-                path, idces_dataset="idces", times_dataset="times", times_unit="ms"
-            )
+        sd = loaders.load_spikedata_from_hdf5(
+            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
+        )
+        assert sd.N == 0
+        assert sd.length == 0.0
 
     @skip_no_pandas
     def test_ibl_all_collections_fail(self):
@@ -1628,7 +1625,7 @@ class TestDataLoadersEdgeCases:
                 mock_trials.to_df.return_value = trials_df
                 return mock_trials
             if obj_name == "spikes":
-                raise Exception("collection not found")
+                raise FileNotFoundError("collection not found")
             raise Exception(f"Unexpected: {obj_name}")
 
         mock_one_instance = MagicMock()
@@ -1764,3 +1761,232 @@ class TestDataLoadersEdgeCases:
         assert len(trains[1]) == 0
         # Third segment: start=2, stop=5 -> [30, 40, 50]
         assert len(trains[2]) == 3
+
+
+# ---------------------------------------------------------------------------
+# s3_utils — URL parsing and ensure_local_file
+# ---------------------------------------------------------------------------
+
+
+class TestS3Utils:
+    """
+    Tests for s3_utils URL parsing functions.
+
+    Covers is_s3_url, parse_s3_url, and the local-path branch of ensure_local_file.
+    No real S3 connections are made.
+    """
+
+    def test_is_s3_url_native_scheme(self):
+        """
+        Native s3:// URLs are recognized.
+
+        Tests:
+            (Test Case 1) s3://bucket/key returns True.
+            (Test Case 2) s3://bucket returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("s3://my-bucket/path/to/file.h5") is True
+        assert is_s3_url("s3://bucket") is True
+
+    def test_is_s3_url_virtual_hosted(self):
+        """
+        Virtual-hosted-style HTTPS S3 URLs are recognized.
+
+        Tests:
+            (Test Case 1) https://bucket.s3.amazonaws.com/key returns True.
+            (Test Case 2) https://bucket.s3.us-east-1.amazonaws.com/key returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://mybucket.s3.amazonaws.com/data/file.h5") is True
+        assert is_s3_url("https://mybucket.s3.us-west-2.amazonaws.com/data.h5") is True
+
+    def test_is_s3_url_path_style(self):
+        """
+        Path-style HTTPS S3 URLs are recognized.
+
+        Tests:
+            (Test Case 1) https://s3.amazonaws.com/bucket/key returns True.
+            (Test Case 2) https://s3.us-east-1.amazonaws.com/bucket/key returns True.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://s3.amazonaws.com/mybucket/key.h5") is True
+        assert is_s3_url("https://s3.eu-west-1.amazonaws.com/bucket/key") is True
+
+    def test_is_s3_url_non_s3(self):
+        """
+        Non-S3 URLs and local paths return False.
+
+        Tests:
+            (Test Case 1) Regular HTTPS URL returns False.
+            (Test Case 2) Local file path returns False.
+        """
+        from SpikeLab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://example.com/file.h5") is False
+        assert is_s3_url("/local/path/file.h5") is False
+
+    def test_parse_s3_url_native(self):
+        """
+        parse_s3_url correctly splits s3:// URLs.
+
+        Tests:
+            (Test Case 1) Bucket and key extracted from s3://bucket/path/key.
+            (Test Case 2) Bare bucket with no key returns empty string key.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://my-bucket/path/to/file.h5")
+        assert bucket == "my-bucket"
+        assert key == "path/to/file.h5"
+
+        bucket2, key2 = parse_s3_url("s3://my-bucket")
+        assert bucket2 == "my-bucket"
+        assert key2 == ""
+
+    def test_parse_s3_url_virtual_hosted(self):
+        """
+        parse_s3_url correctly parses virtual-hosted-style URLs.
+
+        Tests:
+            (Test Case 1) Bucket extracted from subdomain, key from path.
+            (Test Case 2) Regional virtual-hosted URL also parsed correctly.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("https://mybucket.s3.amazonaws.com/data/file.h5")
+        assert bucket == "mybucket"
+        assert key == "data/file.h5"
+
+        bucket2, key2 = parse_s3_url(
+            "https://mybucket.s3.us-west-2.amazonaws.com/folder/data.h5"
+        )
+        assert bucket2 == "mybucket"
+        assert key2 == "folder/data.h5"
+
+    def test_parse_s3_url_path_style(self):
+        """
+        parse_s3_url correctly parses path-style URLs.
+
+        Tests:
+            (Test Case 1) https://s3.amazonaws.com/bucket/key parsed correctly.
+            (Test Case 2) Regional path-style URL parsed correctly.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("https://s3.amazonaws.com/mybucket/data/file.h5")
+        assert bucket == "mybucket"
+        assert key == "data/file.h5"
+
+        bucket2, key2 = parse_s3_url(
+            "https://s3.eu-west-1.amazonaws.com/mybucket/key.h5"
+        )
+        assert bucket2 == "mybucket"
+        assert key2 == "key.h5"
+
+    def test_parse_s3_url_invalid_raises(self):
+        """
+        parse_s3_url raises ValueError on non-S3 URLs.
+
+        Tests:
+            (Test Case 1) Regular HTTPS URL raises ValueError.
+            (Test Case 2) Plain local path raises ValueError.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        with pytest.raises(ValueError):
+            parse_s3_url("https://example.com/file.h5")
+        with pytest.raises(ValueError):
+            parse_s3_url("/local/path.h5")
+
+    def test_ensure_local_file_local_path(self, tmp_path):
+        """
+        ensure_local_file returns (path, False) for existing local files.
+
+        Tests:
+            (Test Case 1) Returns the same path and is_temporary=False.
+            (Test Case 2) Non-existent local path raises FileNotFoundError.
+        """
+        from SpikeLab.data_loaders.s3_utils import ensure_local_file
+
+        path = str(tmp_path / "test.txt")
+        with open(path, "w") as f:
+            f.write("data")
+
+        result_path, is_temp = ensure_local_file(path)
+        assert result_path == path
+        assert is_temp is False
+
+        with pytest.raises(FileNotFoundError):
+            ensure_local_file(str(tmp_path / "nonexistent.txt"))
+
+
+class TestS3UtilsErrorPaths:
+    """
+    Tests for download_from_s3 error-handling paths.
+
+    Mocks boto3 to simulate S3 errors without real AWS connections.
+    """
+
+    def _make_client_error(self, code: str) -> Exception:
+        """Build a botocore ClientError with the given error code."""
+        from botocore.exceptions import ClientError
+
+        return ClientError(
+            {"Error": {"Code": code, "Message": f"Mocked {code}"}},
+            "download_file",
+        )
+
+    def test_download_from_s3_no_such_bucket(self):
+        """
+        download_from_s3 raises ValueError when the bucket does not exist.
+
+        Tests:
+            (Test Case 1) ClientError with code NoSuchBucket is translated to ValueError.
+        """
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = self._make_client_error("NoSuchBucket")
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(ValueError, match="S3 bucket not found"):
+                download_from_s3("s3://nonexistent-bucket/key.h5")
+
+    def test_download_from_s3_access_denied(self):
+        """
+        download_from_s3 raises PermissionError when access is denied.
+
+        Tests:
+            (Test Case 1) ClientError with code AccessDenied is translated to PermissionError.
+        """
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = self._make_client_error("AccessDenied")
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(PermissionError, match="Access denied"):
+                download_from_s3("s3://my-bucket/secret.h5")
+
+    def test_download_from_s3_no_credentials(self):
+        """
+        download_from_s3 raises RuntimeError when AWS credentials are missing.
+
+        Tests:
+            (Test Case 1) NoCredentialsError is translated to RuntimeError with guidance message.
+        """
+        from botocore.exceptions import NoCredentialsError
+        from SpikeLab.data_loaders.s3_utils import download_from_s3
+
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = NoCredentialsError()
+
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            with pytest.raises(RuntimeError, match="AWS credentials not found"):
+                download_from_s3("s3://my-bucket/data.h5")

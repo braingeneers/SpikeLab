@@ -408,7 +408,13 @@ def load_spikedata_from_nwb(
                 metadata=meta,
                 neuron_attributes=neuron_attributes,
             )
-        except Exception as e:  # pragma: no cover
+        except (
+            ImportError,
+            TypeError,
+            ValueError,
+            KeyError,
+            AttributeError,
+        ) as e:  # pragma: no cover
             warnings.warn(
                 f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
             )
@@ -519,7 +525,7 @@ def load_spikedata_from_spikeinterface(
         get_unit_ids = sorting.get_unit_ids  # type: ignore[attr-defined]
         get_sf = sorting.get_sampling_frequency  # type: ignore[attr-defined]
         get_train = sorting.get_unit_spike_train  # type: ignore[attr-defined]
-    except Exception as e:
+    except AttributeError as e:
         raise TypeError(
             "`sorting` must be a SpikeInterface SortingExtractor-like object"
         ) from e
@@ -538,14 +544,14 @@ def load_spikedata_from_spikeinterface(
         for prop_name in ("channel", "ch", "peak_channel", "electrode"):
             try:
                 channel_prop = sorting.get_property(prop_name)
-            except Exception:
+            except (AttributeError, KeyError):
                 continue
             if channel_prop is not None:
                 break
         for prop_name in ("location", "unit_location", "position"):
             try:
                 location_prop = sorting.get_property(prop_name)
-            except Exception:
+            except (AttributeError, KeyError):
                 continue
             if location_prop is not None:
                 break
@@ -620,7 +626,7 @@ def load_spikedata_from_kilosort(
     if os.path.exists(cm_path):
         try:
             channel_map = np.load(cm_path).flatten()
-        except Exception as e:
+        except (IOError, ValueError) as e:
             warnings.warn(f"Failed loading channel_map: {e}")
 
     channel_positions: Optional[np.ndarray] = None
@@ -628,7 +634,7 @@ def load_spikedata_from_kilosort(
     if os.path.exists(cp_path):
         try:
             channel_positions = np.load(cp_path)
-        except Exception as e:
+        except (IOError, ValueError) as e:
             warnings.warn(f"Failed loading channel_positions: {e}")
 
     keep_clusters: Optional[set] = None
@@ -664,7 +670,7 @@ def load_spikedata_from_kilosort(
                             .isin(["good", "mua", "mua good"])
                         )  # permissive
                         keep_clusters = set(df.loc[mask, id_col].astype(int).tolist())
-            except Exception as e:
+            except (IOError, ValueError, KeyError) as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
                 )
@@ -931,7 +937,7 @@ def load_spikedata_from_ibl(
         try:
             spikes = one.load_object(eid, "spikes", collection=collection)
             break
-        except Exception:
+        except (ValueError, KeyError, FileNotFoundError):
             continue
 
     # Build per-unit spike trains (seconds → milliseconds).

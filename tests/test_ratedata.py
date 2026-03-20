@@ -65,7 +65,7 @@ class TestRateData:
             (Test Case 1) Valid construction stores correct attributes.
             (Test Case 2) Non-2D array raises ValueError.
             (Test Case 3) Mismatched times length raises ValueError.
-            (Test Case 4) Negative time value raises ValueError.
+            (Test Case 4) Negative times are accepted for event-aligned data.
         """
         times = np.array([0.0, 1.0, 2.0, 3.0])
         data = np.ones((2, 4))
@@ -83,9 +83,9 @@ class TestRateData:
         with pytest.raises(ValueError):
             RateData(data, np.array([0.0, 1.0]))
 
-        # Negative time raises ValueError.
-        with pytest.raises(ValueError):
-            RateData(data, np.array([-1.0, 0.0, 1.0, 2.0]))
+        # Negative times are valid (event-aligned data).
+        rd_neg = RateData(data, np.array([-1.0, 0.0, 1.0, 2.0]))
+        assert rd_neg.times[0] == -1.0
 
     def test_subset(self):
         """
@@ -113,26 +113,20 @@ class TestRateData:
 
     def test_subtime(self):
         """
-        Tests that subtime() slices correctly with both shift_time modes.
+        Tests that subtime() slices correctly, always shifting times to start at 0.
 
         Tests:
             (Test Case 1) Basic slice extracts correct time range.
-            (Test Case 2) shift_time=True shifts times to start from 0.
-            (Test Case 3) shift_time=False preserves original time values.
-            (Test Case 4) No time points in range raises ValueError.
+            (Test Case 2) Times always start from 0.
+            (Test Case 3) No time points in range raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times: 0..99
 
         sub = rd.subtime(20.0, 40.0)
         # times in [20, 40) -> 20 bins
         assert sub.inst_Frate_data.shape[1] == 20
-        # shift_time=True (default): times start at 0
+        # Times always start at 0
         assert float(sub.times[0]) == pytest.approx(0.0)
-
-        # shift_time=False: times retain original values
-        sub_abs = rd.subtime(20.0, 40.0, shift_time=False)
-        assert float(sub_abs.times[0]) == pytest.approx(20.0)
-        assert float(sub_abs.times[-1]) == pytest.approx(39.0)
 
         # Data matches the original slice.
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 20:40])
@@ -143,11 +137,11 @@ class TestRateData:
 
     def test_subtime_by_index(self):
         """
-        Tests that subtime_by_index() slices by column index.
+        Tests that subtime_by_index() slices by column index, always shifting to 0.
 
         Tests:
             (Test Case 1) Correct data and shape returned for valid indices.
-            (Test Case 2) shift_time=True shifts times to start from 0.
+            (Test Case 2) Times always start from 0.
             (Test Case 3) Invalid start or end index raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)  # times: 0,2,4,...,118
@@ -155,11 +149,7 @@ class TestRateData:
         sub = rd.subtime_by_index(10, 30)
         assert sub.inst_Frate_data.shape == (2, 20)
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 10:30])
-        assert float(sub.times[0]) == pytest.approx(0.0)  # shift_time=True default
-
-        # shift_time=False preserves values.
-        sub_abs = rd.subtime_by_index(10, 30, shift_time=False)
-        assert float(sub_abs.times[0]) == pytest.approx(float(rd.times[10]))
+        assert float(sub.times[0]) == pytest.approx(0.0)
 
         # Out-of-bounds indices raise ValueError.
         with pytest.raises(ValueError):
@@ -188,7 +178,7 @@ class TestRateData:
 
         # Each frame's data must match the raw subtime slice.
         for i, (start, end) in enumerate(stack.times):
-            expected = rd.subtime(start, end, shift_time=False).inst_Frate_data
+            expected = rd.subtime(start, end).inst_Frate_data
             np.testing.assert_array_equal(stack.event_stack[:, :, i], expected)
 
     def test_frames_overlap(self):
@@ -284,11 +274,16 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
 
-        embedding = rd.get_manifold(method="PCA", n_components=2)
+        embedding, var_ratio, components = rd.get_manifold(method="PCA", n_components=2)
         assert embedding.shape == (60, 2)
+        assert var_ratio.shape == (2,)
+        assert components.shape == (2, 5)
 
-        embedding3 = rd.get_manifold(method="PCA", n_components=3)
+        embedding3, var_ratio3, components3 = rd.get_manifold(
+            method="PCA", n_components=3
+        )
         assert embedding3.shape == (60, 3)
+        assert var_ratio3.shape == (3,)
 
         with pytest.raises(ValueError):
             rd.get_manifold(method="TSNE")
@@ -303,8 +298,10 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
 
-        embedding = rd.get_manifold(method="UMAP", n_components=2)
+        embedding, tw = rd.get_manifold(method="UMAP", n_components=2)
         assert embedding.shape == (60, 2)
+        assert isinstance(tw, float)
+        assert 0.0 <= tw <= 1.0 or np.isnan(tw)
 
     def test_constructor_neuron_attributes(self):
         """
@@ -393,8 +390,9 @@ class TestRateData:
         sub_start_none = rd.subtime(None, 25.0)
         assert sub_start_none.inst_Frate_data.shape[1] == 25
 
-        sub_end_none = rd.subtime(25.0, None, shift_time=False)
-        assert float(sub_end_none.times[0]) == pytest.approx(25.0)
+        sub_end_none = rd.subtime(25.0, None)
+        assert float(sub_end_none.times[0]) == pytest.approx(0.0)
+        assert sub_end_none.inst_Frate_data.shape[1] == 24  # times [25, 49) = 24 bins
 
         sub_ellipsis = rd.subtime(..., 25.0)
         assert sub_ellipsis.inst_Frate_data.shape[1] == 25
@@ -409,9 +407,10 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)
 
-        sub = rd.subtime(-20.0, None, shift_time=False)
-        # -20 from end (99) = 79
-        assert float(sub.times[0]) == pytest.approx(79.0)
+        sub = rd.subtime(-20.0, None)
+        # -20 from end (99) = 79; times always shifted to 0
+        assert float(sub.times[0]) == pytest.approx(0.0)
+        assert sub.inst_Frate_data.shape[1] == 20  # times [79, 99) = 20 bins
 
     def test_get_manifold_pca_kwargs_warning(self):
         """
@@ -422,7 +421,9 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60)
         # Should not raise, just print a message
-        embedding = rd.get_manifold(method="PCA", n_components=2, n_neighbors=15)
+        embedding, var_ratio, components = rd.get_manifold(
+            method="PCA", n_components=2, n_neighbors=15
+        )
         assert embedding.shape == (60, 2)
 
     @pytest.mark.skipif(not UMAP_AVAILABLE, reason="umap-learn not installed")
@@ -439,8 +440,10 @@ class TestRateData:
             warnings.simplefilter("always")
             result = rd.get_manifold(method="UMAP", n_components=2, return_labels=True)
             assert any("return_labels" in str(warning.message) for warning in w)
-        assert isinstance(result, np.ndarray)
-        assert result.shape == (60, 2)
+        # Returns (embedding, trustworthiness) when no communities
+        embedding, tw = result
+        assert isinstance(embedding, np.ndarray)
+        assert embedding.shape == (60, 2)
 
     @pytest.mark.skipif(
         not COMMUNITY_AVAILABLE,
@@ -457,13 +460,14 @@ class TestRateData:
         """
         rd = make_ratedata(n_units=5, n_times=60, seed=42)
 
-        embedding = rd.get_manifold(
+        embedding, tw = rd.get_manifold(
             method="UMAP", n_components=2, use_graph_communities=True
         )
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (60, 2)
+        assert isinstance(tw, float)
 
-        embedding2, labels = rd.get_manifold(
+        embedding2, labels, tw2 = rd.get_manifold(
             method="UMAP",
             n_components=2,
             use_graph_communities=True,
@@ -472,6 +476,7 @@ class TestRateData:
         assert embedding2.shape == (60, 2)
         assert labels.shape == (60,)
         assert labels.dtype in (np.int32, np.int64, int)
+        assert isinstance(tw2, float)
 
 
 class TestRateDataEdgeCases:
@@ -708,7 +713,7 @@ class TestRateDataEdgeCases:
         produce a times array containing only 0.0.
         """
         rd = make_ratedata(n_units=2, n_times=10, step=5.0, t0=100.0)
-        result = rd.subtime_by_index(3, 4, shift_time=True)
+        result = rd.subtime_by_index(3, 4)
         assert result.inst_Frate_data.shape == (2, 1)
         assert len(result.times) == 1
         assert float(result.times[0]) == pytest.approx(0.0)
@@ -733,8 +738,8 @@ class TestRateDataEdgeCases:
         Tests: PCA with zero components produces shape (T, 0).
         """
         rd = make_ratedata(n_units=3, n_times=20)
-        result = rd.get_manifold("PCA", n_components=0)
-        assert result.shape == (20, 0)
+        embedding, var_ratio, components = rd.get_manifold("PCA", n_components=0)
+        assert embedding.shape == (20, 0)
 
     def test_subset_out_of_bounds_index(self):
         """Out-of-bounds unit index should raise an IndexError.
@@ -766,3 +771,157 @@ class TestRateDataEdgeCases:
         result = rd.subset(["V1"], by="region")
         assert result.N == 0
         assert result.inst_Frate_data.shape == (0, 10)
+
+
+class TestRecentFixes:
+    """Tests for fixes applied during the 2026-03-19 code review."""
+
+    def test_subtime_always_shifts_to_zero(self):
+        """
+        Tests that subtime() shifts times to start at 0 even when the slice starts mid-recording.
+
+        Tests:
+            (Test Case 1) Result times start at 0.0.
+            (Test Case 2) Result times end at 20.0 (shifted from 40).
+        """
+        times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        data = np.ones((2, 5))
+        rd = RateData(data, times)
+
+        result = rd.subtime(20.0, 50.0)
+        assert result.times[0] == 0.0
+        assert result.times[-1] == 20.0
+
+    def test_subtime_by_index_always_shifts_to_zero(self):
+        """
+        Tests that subtime_by_index() shifts times to start at 0.
+
+        Tests:
+            (Test Case 1) Result times start at 0.0 after slicing indices 1 through 4.
+        """
+        times = np.array([100.0, 200.0, 300.0, 400.0, 500.0])
+        data = np.ones((2, 5))
+        rd = RateData(data, times)
+
+        result = rd.subtime_by_index(1, 4)
+        assert result.times[0] == 0.0
+
+    def test_subset_with_dict_neuron_attributes(self):
+        """
+        Tests that subset() works with dict-based neuron_attributes via _get_attr fix.
+
+        Tests:
+            (Test Case 1) Selecting by region from dict attributes returns correct count.
+        """
+        times = np.arange(10, dtype=float)
+        data = np.ones((3, 10))
+        attrs = [{"region": "ctx"}, {"region": "hpc"}, {"region": "ctx"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        result = rd.subset(["ctx"], by="region")
+        assert result.N == 2
+
+    def test_subset_with_object_neuron_attributes(self):
+        """
+        Tests that subset() works with object-based neuron_attributes via _get_attr fix.
+
+        Tests:
+            (Test Case 1) Selecting by region from object attributes returns correct count.
+        """
+
+        class MockAttr:
+            def __init__(self, region):
+                self.region = region
+
+        times = np.arange(10, dtype=float)
+        data = np.ones((3, 10))
+        attrs = [MockAttr("ctx"), MockAttr("hpc"), MockAttr("ctx")]
+        rd = RateData(data, times, neuron_attributes=attrs)
+
+        result = rd.subset(["ctx"], by="region")
+        assert result.N == 2
+
+    # ------------------------------------------------------------------
+    # subtime_by_index edge cases
+    # ------------------------------------------------------------------
+
+    def test_subtime_by_index_equal_start_end(self):
+        """
+        subtime_by_index with start_idx == end_idx raises ValueError.
+
+        Tests:
+            (Test Case 1) start_idx == end_idx is rejected as an invalid range.
+        """
+        rd = make_ratedata(n_units=2, n_times=60, step=2.0)
+        with pytest.raises(ValueError):
+            rd.subtime_by_index(10, 10)
+
+    def test_get_pairwise_fr_corr_all_zero(self):
+        """
+        get_pairwise_fr_corr() with all-zero firing rates returns NaN on diagonal.
+
+        Tests:
+            (Test Case 1) Result matrices have correct shape (U, U).
+            (Test Case 2) Diagonal of correlation matrix is NaN (both signals
+                          have zero norm → undefined self-correlation).
+            (Test Case 3) Off-diagonal is also NaN (both zero → undefined).
+            (Test Case 4) Diagonal of lag matrix is 0.
+        """
+        data = np.zeros((3, 50))
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+
+        assert corr.shape == (3, 3)
+        assert lag.shape == (3, 3)
+        assert np.all(np.isnan(np.diag(corr)))
+        np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
+
+    def test_subtime_negative_times_literal(self):
+        """
+        subtime() treats negative start/end as literal coordinates when times contain negatives.
+
+        Tests:
+            (Test Case 1) subtime(-200, 0) selects the first 2 bins (times -200 and -100).
+            (Test Case 2) Result times are shifted to start at 0.
+
+        Notes:
+            When times contain negative values (event-aligned data), negative
+            start/end are treated as literal time coordinates, not offsets
+            from the end.
+        """
+        data = np.ones((2, 5))
+        times = np.array([-200.0, -100.0, 0.0, 100.0, 200.0])
+        rd = RateData(data, times)
+
+        result = rd.subtime(-200.0, 0.0)
+        assert result.inst_Frate_data.shape == (2, 2)
+        assert float(result.times[0]) == pytest.approx(0.0)
+        assert float(result.times[1]) == pytest.approx(100.0)
+
+    def test_subtime_negative_times_no_backward_offset(self):
+        """
+        subtime() with negative start on negative-times data uses literal coordinate.
+
+        Tests:
+            (Test Case 1) subtime(-50, 100) on times [-200, -100, 0, 100, 200]
+                          treats -50 as a literal coordinate, selecting times
+                          from -50 onward (i.e., times 0 and 100 which are >= -50
+                          and < 100).
+            (Test Case 2) Result times are shifted to start at 0.
+
+        Notes:
+            This verifies that -50 is NOT interpreted as an offset from the end
+            (which would be times[-1] - 50 = 150) but as a literal time value.
+        """
+        data = np.arange(10, dtype=float).reshape(2, 5)
+        times = np.array([-200.0, -100.0, 0.0, 100.0, 200.0])
+        rd = RateData(data, times)
+
+        result = rd.subtime(-50.0, 100.0)
+        # Times >= -50 and < 100: only time 0.0 qualifies
+        assert result.inst_Frate_data.shape == (2, 1)
+        assert float(result.times[0]) == pytest.approx(0.0)
+        # Data should match column index 2 (time=0.0) from original
+        np.testing.assert_array_equal(result.inst_Frate_data[:, 0], data[:, 2])

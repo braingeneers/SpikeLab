@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from ...spikedata.pairwise import PairwiseCompMatrixStack
+from ...spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 from ...spikedata.ratedata import RateData
 from ...spikedata.rateslicestack import RateSliceStack
 from ...spikedata.spikeslicestack import SpikeSliceStack
@@ -21,6 +21,10 @@ from ...spikedata.utils import (
     UMAP_reduction,
     compute_cosine_similarity_with_lag,
     compute_cross_correlation_with_lag,
+    consecutive_durations,
+    gplvm_average_state_probability,
+    gplvm_continuity_prob,
+    gplvm_state_entropy,
 )
 from ...workspace.workspace import get_workspace_manager
 
@@ -131,6 +135,7 @@ async def compute_rates(
     key: str,
     unit: str = "kHz",
 ) -> Dict[str, Any]:
+    """Compute mean firing rates for each unit and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     rates = sd.rates(unit=unit)
@@ -150,6 +155,7 @@ async def compute_binned(
     key: str,
     bin_size: float = 40.0,
 ) -> Dict[str, Any]:
+    """Compute binned spike counts and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     binned = sd.binned(bin_size=bin_size)
@@ -170,6 +176,7 @@ async def compute_binned_meanrate(
     bin_size: float = 40.0,
     unit: str = "kHz",
 ) -> Dict[str, Any]:
+    """Compute binned mean firing rate across units and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     meanrate = sd.binned_meanrate(bin_size=bin_size, unit=unit)
@@ -190,6 +197,7 @@ async def compute_raster(
     key: str,
     bin_size: float = 20.0,
 ) -> Dict[str, Any]:
+    """Compute a dense spike raster array and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     raster = sd.raster(bin_size=bin_size)
@@ -209,6 +217,7 @@ async def compute_sparse_raster(
     key: str,
     bin_size: float = 20.0,
 ) -> Dict[str, Any]:
+    """Compute a sparse raster converted to dense array and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     raster = sd.sparse_raster(bin_size=bin_size).toarray()
@@ -229,6 +238,7 @@ async def compute_channel_raster(
     bin_size: float = 20.0,
     channel_attr: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Compute a channel-grouped spike raster and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     raster = sd.channel_raster(bin_size=bin_size, channel_attr=channel_attr)
@@ -247,6 +257,7 @@ async def compute_interspike_intervals(
     namespace: str,
     key: str,
 ) -> Dict[str, Any]:
+    """Compute interspike intervals for all units and store NaN-padded array to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     isis = sd.interspike_intervals()
@@ -295,6 +306,7 @@ async def compute_spike_time_tiling(
     neuron_j: int,
     delt: float = 20.0,
 ) -> Dict[str, Any]:
+    """Compute spike time tiling coefficient for a neuron pair and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     sttc = sd.spike_time_tiling(neuron_i, neuron_j, delt=delt)
@@ -316,6 +328,7 @@ async def compute_spike_time_tilings(
     key: str,
     delt: float = 20.0,
 ) -> Dict[str, Any]:
+    """Compute pairwise spike time tiling coefficients for all units and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     pcm = sd.spike_time_tilings(delt=delt)
@@ -336,6 +349,7 @@ async def threshold_spike_time_tilings(
     threshold: float,
     delt: float = 20.0,
 ) -> Dict[str, Any]:
+    """Compute and threshold pairwise STTC matrix and store binary result to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     pcm = sd.spike_time_tilings(delt=delt)
@@ -358,6 +372,7 @@ async def compute_latencies(
     times: List[float],
     window_ms: float = 100.0,
 ) -> Dict[str, Any]:
+    """Compute spike latencies relative to event times and store NaN-padded array to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     latencies = sd.latencies(times, window_ms=window_ms)
@@ -380,6 +395,7 @@ async def compute_latencies_to_index(
     neuron_index: int,
     window_ms: float = 100.0,
 ) -> Dict[str, Any]:
+    """Compute spike latencies relative to a reference neuron and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     latencies = sd.latencies_to_index(neuron_index, window_ms=window_ms)
@@ -404,6 +420,7 @@ async def get_pop_rate(
     gauss_sigma: int = 100,
     raster_bin_size_ms: float = 1.0,
 ) -> Dict[str, Any]:
+    """Compute smoothed population firing rate and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     pop_rate = sd.get_pop_rate(
@@ -433,6 +450,7 @@ async def compute_spike_trig_pop_rate(
     bin_size: float = 1,
     cut_outer: int = 10,
 ) -> Dict[str, Any]:
+    """Compute spike-triggered population rate and coupling stats and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     stPR_filtered, coupling_zero_lag, coupling_max, delays, lags = (
@@ -489,6 +507,7 @@ async def get_bursts(
     peak_to_trough: bool = True,
     pop_rms_override: Optional[float] = None,
 ) -> Dict[str, Any]:
+    """Detect population bursts and store burst times, edges, and amplitudes to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     tburst, edges, peak_amp = sd.get_bursts(
@@ -534,6 +553,7 @@ async def burst_sensitivity(
     peak_to_trough: bool = True,
     pop_rms_override: Optional[float] = None,
 ) -> Dict[str, Any]:
+    """Compute burst count sensitivity over threshold and distance grids and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     burst_counts = sd.burst_sensitivity(
@@ -568,6 +588,7 @@ async def get_frac_active(
     min_spikes: int,
     backbone_threshold: float,
 ) -> Dict[str, Any]:
+    """Compute fraction of bursts each unit is active in and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     edges_obj = ws.get(namespace, edges_key)
@@ -603,6 +624,7 @@ async def get_data_info(
     workspace_id: str,
     namespace: str,
 ) -> Dict[str, Any]:
+    """Return SpikeData metadata including neuron count and recording length inline."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     return {
@@ -616,6 +638,7 @@ async def list_neurons(
     workspace_id: str,
     namespace: str,
 ) -> Dict[str, Any]:
+    """List all neurons with their attributes and return inline."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     if sd.neuron_attributes is None:
@@ -633,6 +656,7 @@ async def get_neuron_attribute(
     key: str,
     default=None,
 ) -> Dict[str, Any]:
+    """Retrieve a single neuron attribute by key and return inline."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     values = sd.get_neuron_attribute(key, default=default)
@@ -646,6 +670,7 @@ async def set_neuron_attribute(
     values,
     neuron_indices: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
+    """Set a neuron attribute on the SpikeData and re-store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     sd.set_neuron_attribute(key, values, neuron_indices=neuron_indices)
@@ -659,6 +684,7 @@ async def get_neuron_to_channel_map(
     namespace: str,
     channel_attr: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Return the neuron-to-channel mapping inline."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     mapping = sd.neuron_to_channel_map(channel_attr=channel_attr)
@@ -677,6 +703,7 @@ async def subtime(
     end: float,
     out_namespace: str = "",
 ) -> Dict[str, Any]:
+    """Extract a time-windowed SpikeData subset and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     new_sd = sd.subtime(start, end)
@@ -697,6 +724,7 @@ async def subset(
     by: Optional[str] = None,
     out_namespace: str = "",
 ) -> Dict[str, Any]:
+    """Extract a unit subset of SpikeData and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     new_sd = sd.subset(units, by=by)
@@ -717,6 +745,7 @@ async def append_session(
     out_namespace: str = "",
     offset: float = 0.0,
 ) -> Dict[str, Any]:
+    """Append two SpikeData sessions in time and store the result to workspace."""
     ws = _get_workspace(workspace_id)
     sd_a = _get_spikedata(ws, namespace_a)
     sd_b = _get_spikedata(ws, namespace_b)
@@ -736,6 +765,7 @@ async def concatenate_units(
     namespace_a: str,
     namespace_b: str,
 ) -> Dict[str, Any]:
+    """Concatenate units from two SpikeData objects and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd_a = _get_spikedata(ws, namespace_a)
     sd_b = _get_spikedata(ws, namespace_b)
@@ -763,6 +793,7 @@ async def compute_pairwise_fr_corr(
     key_lag: str,
     max_lag: int = 10,
 ) -> Dict[str, Any]:
+    """Compute pairwise firing rate correlations from RateData and store to workspace."""
     ws = _get_workspace(workspace_id)
     rd = _get_ratedata(ws, namespace, rate_key)
     corr_matrix, lag_matrix = rd.get_pairwise_fr_corr(max_lag=max_lag)
@@ -778,6 +809,68 @@ async def compute_pairwise_fr_corr(
     }
 
 
+async def compute_pairwise_ccg(
+    workspace_id: str,
+    namespace: str,
+    key_corr: str,
+    key_lag: str,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+    compare_func: str = "cross_correlation",
+) -> Dict[str, Any]:
+    """Compute pairwise cross-correlograms from SpikeData and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    func_map = {
+        "cross_correlation": compute_cross_correlation_with_lag,
+        "cosine_similarity": compute_cosine_similarity_with_lag,
+    }
+    func = func_map.get(compare_func)
+    if func is None:
+        raise ValueError(
+            f"Unknown compare_func {compare_func!r}. "
+            "Choose 'cross_correlation' or 'cosine_similarity'."
+        )
+
+    corr_matrix, lag_matrix = sd.get_pairwise_ccg(
+        compare_func=func, bin_size=bin_size, max_lag=max_lag
+    )
+    ws.store(namespace, key_corr, corr_matrix)
+    ws.store(namespace, key_lag, lag_matrix)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": key_corr,
+        "key_lag": key_lag,
+        "info_corr": ws.get_info(namespace, key_corr),
+        "info_lag": ws.get_info(namespace, key_lag),
+    }
+
+
+async def compute_pairwise_latencies(
+    workspace_id: str,
+    namespace: str,
+    key_mean: str,
+    key_std: str,
+    window_ms: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Compute pairwise mean and std spike latencies and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    mean_lat, std_lat = sd.get_pairwise_latencies(window_ms=window_ms)
+    ws.store(namespace, key_mean, mean_lat)
+    ws.store(namespace, key_std, std_lat)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_mean": key_mean,
+        "key_std": key_std,
+        "info_mean": ws.get_info(namespace, key_mean),
+        "info_std": ws.get_info(namespace, key_std),
+    }
+
+
 async def compute_rate_manifold(
     workspace_id: str,
     namespace: str,
@@ -789,7 +882,9 @@ async def compute_rate_manifold(
     min_dist: Optional[float] = None,
     metric: Optional[str] = None,
     random_state: Optional[int] = None,
+    store_pca_details: bool = False,
 ) -> Dict[str, Any]:
+    """Compute a low-dimensional manifold embedding from RateData and store to workspace."""
     ws = _get_workspace(workspace_id)
     rd = _get_ratedata(ws, namespace, rate_key)
     umap_kwargs: Dict[str, Any] = {}
@@ -801,14 +896,35 @@ async def compute_rate_manifold(
         umap_kwargs["metric"] = metric
     if random_state is not None:
         umap_kwargs["random_state"] = random_state
-    embedding = rd.get_manifold(method=method, n_components=n_components, **umap_kwargs)
+    manifold_result = rd.get_manifold(
+        method=method, n_components=n_components, **umap_kwargs
+    )
+    # PCA returns (embedding, var_ratio, components); UMAP returns (embedding, trustworthiness)
+    if method.upper() == "PCA":
+        embedding, var_ratio, components = manifold_result
+        tw = None
+    else:
+        embedding, tw = manifold_result
+        var_ratio = None
     ws.store(namespace, key, embedding)
-    return {
+    result: Dict[str, Any] = {
         "workspace_id": workspace_id,
         "namespace": namespace,
         "key": key,
         "info": ws.get_info(namespace, key),
     }
+    if var_ratio is not None:
+        result["explained_variance_ratio"] = var_ratio.tolist()
+        if store_pca_details:
+            var_key = f"{key}_variance"
+            comp_key = f"{key}_components"
+            ws.store(namespace, var_key, var_ratio)
+            ws.store(namespace, comp_key, components)
+            result["key_variance"] = var_key
+            result["key_components"] = comp_key
+    if tw is not None:
+        result["trustworthiness"] = tw
+    return result
 
 
 async def frames_rate_data(
@@ -819,6 +935,7 @@ async def frames_rate_data(
     length: float,
     overlap: float = 0.0,
 ) -> Dict[str, Any]:
+    """Slice RateData into overlapping frames as a RateSliceStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     rd = _get_ratedata(ws, namespace, rate_key)
     rss = rd.frames(length, overlap=overlap)
@@ -846,6 +963,7 @@ async def create_rate_slice_stack(
     times_start_to_end: List[List[float]],
     sigma_ms: float = 10.0,
 ) -> Dict[str, Any]:
+    """Build a RateSliceStack from event time windows and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     time_tuples = [tuple(t) for t in times_start_to_end]
@@ -866,6 +984,7 @@ async def frames_spike_data(
     length: float,
     overlap: float = 0.0,
 ) -> Dict[str, Any]:
+    """Slice SpikeData into overlapping frames as a SpikeSliceStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     sss = sd.frames(length, overlap=overlap)
@@ -886,6 +1005,7 @@ async def create_spike_slice_stack(
     key: str,
     times_start_to_end: List[List[float]],
 ) -> Dict[str, Any]:
+    """Build a SpikeSliceStack from event time windows and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     time_tuples = [tuple(t) for t in times_start_to_end]
@@ -980,6 +1100,20 @@ async def align_to_events(
 # ---------------------------------------------------------------------------
 
 
+def _get_optional_frac_active(ws, namespace, frac_active_key):
+    """Load an optional frac_active (U,) ndarray from the workspace."""
+    if frac_active_key is None:
+        return None
+    arr = ws.get(namespace, frac_active_key)
+    if arr is None or not isinstance(arr, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {frac_active_key!r}). "
+            "Compute activity fractions first using: compute_frac_active "
+            "or get_frac_active."
+        )
+    return arr
+
+
 async def compute_rate_slice_unit_corr(
     workspace_id: str,
     namespace: str,
@@ -989,16 +1123,20 @@ async def compute_rate_slice_unit_corr(
     min_frac: float = 0.3,
     max_lag: int = 10,
     compare_func: str = "cross_correlation",
+    frac_active_key: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Compute slice-to-slice unit correlations from a RateSliceStack and store to workspace."""
     if compare_func not in _COMPARE_FUNCS:
         raise ValueError(f"compare_func must be one of {list(_COMPARE_FUNCS.keys())}")
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
+    frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
     pcm_stack, av_corr = rss.get_slice_to_slice_unit_corr_from_stack(
         compare_func=_COMPARE_FUNCS[compare_func],
         MIN_RATE_THRESHOLD=min_rate_threshold,
         MIN_FRAC=min_frac,
         max_lag=max_lag,
+        frac_active=frac_active,
     )
     ws.store(namespace, out_key, pcm_stack)
     return {
@@ -1018,6 +1156,7 @@ async def compute_rate_slice_time_corr(
     max_lag: int = 0,
     compare_func: str = "cosine_similarity",
 ) -> Dict[str, Any]:
+    """Compute slice-to-slice time correlations from a RateSliceStack and store to workspace."""
     if compare_func not in _COMPARE_FUNCS:
         raise ValueError(f"compare_func must be one of {list(_COMPARE_FUNCS.keys())}")
     ws = _get_workspace(workspace_id)
@@ -1045,6 +1184,7 @@ async def compute_unit_to_unit_slice_corr(
     max_lag: int = 10,
     compare_func: str = "cross_correlation",
 ) -> Dict[str, Any]:
+    """Compute unit-to-unit correlations across RateSliceStack slices and store to workspace."""
     if compare_func not in _COMPARE_FUNCS:
         raise ValueError(f"compare_func must be one of {list(_COMPARE_FUNCS.keys())}")
     ws = _get_workspace(workspace_id)
@@ -1074,14 +1214,18 @@ async def compute_rate_slice_unit_order(
     agg_func: str = "median",
     min_rate_threshold: float = 0.1,
     min_frac_active: float = 0.0,
+    frac_active_key: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Compute unit activation ordering across RateSliceStack slices and return inline."""
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
+    frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
     _, unit_ids_in_order, unit_std_indices, unit_peak_times, unit_frac_active = (
         rss.order_units_across_slices(
             agg_func,
             MIN_RATE_THRESHOLD=min_rate_threshold,
             MIN_FRAC_ACTIVE=min_frac_active,
+            frac_active=frac_active,
         )
     )
     # Each element is a tuple of two arrays (highly_active, low_active)
@@ -1111,6 +1255,7 @@ async def get_idces_times(
     namespace: str,
     key: str,
 ) -> Dict[str, Any]:
+    """Extract flat spike indices and times arrays and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     idces, times = sd.idces_times()
@@ -1136,6 +1281,7 @@ async def get_waveform_traces(
     bandpass_high_hz: Optional[float] = None,
     filter_order: int = 3,
 ) -> Dict[str, Any]:
+    """Extract raw waveform traces for a unit and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     bandpass = None
@@ -1180,6 +1326,7 @@ async def extract_lower_triangle_features(
     key: str,
     out_key: str,
 ) -> Dict[str, Any]:
+    """Extract lower-triangle features from a PairwiseCompMatrixStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1209,7 +1356,9 @@ async def pca_on_lower_triangle(
     key: str,
     out_key: str,
     n_components: int = 2,
+    store_pca_details: bool = False,
 ) -> Dict[str, Any]:
+    """Run PCA on lower-triangle features of a PairwiseCompMatrixStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1224,14 +1373,25 @@ async def pca_on_lower_triangle(
             f"({namespace!r}, {key!r}), got {type(obj).__name__}"
         )
     lower_tri = stack.extract_lower_triangle_features()
-    embedding = PCA_reduction(lower_tri, n_components=n_components)
+    embedding, var_ratio, components = PCA_reduction(
+        lower_tri, n_components=n_components
+    )
     ws.store(namespace, out_key, embedding)
-    return {
+    result: Dict[str, Any] = {
         "workspace_id": workspace_id,
         "namespace": namespace,
         "key": out_key,
         "info": ws.get_info(namespace, out_key),
+        "explained_variance_ratio": var_ratio.tolist(),
     }
+    if store_pca_details:
+        var_key = f"{out_key}_variance"
+        comp_key = f"{out_key}_components"
+        ws.store(namespace, var_key, var_ratio)
+        ws.store(namespace, comp_key, components)
+        result["key_variance"] = var_key
+        result["key_components"] = comp_key
+    return result
 
 
 async def pca_on_workspace_item(
@@ -1240,7 +1400,9 @@ async def pca_on_workspace_item(
     key: str,
     out_key: str,
     n_components: int = 2,
+    store_pca_details: bool = False,
 ) -> Dict[str, Any]:
+    """Run PCA on a 2D workspace array and store the embedding to workspace."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1251,14 +1413,23 @@ async def pca_on_workspace_item(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
-    embedding = PCA_reduction(obj, n_components=n_components)
+    embedding, var_ratio, components = PCA_reduction(obj, n_components=n_components)
     ws.store(namespace, out_key, embedding)
-    return {
+    result: Dict[str, Any] = {
         "workspace_id": workspace_id,
         "namespace": namespace,
         "key": out_key,
         "info": ws.get_info(namespace, out_key),
+        "explained_variance_ratio": var_ratio.tolist(),
     }
+    if store_pca_details:
+        var_key = f"{out_key}_variance"
+        comp_key = f"{out_key}_components"
+        ws.store(namespace, var_key, var_ratio)
+        ws.store(namespace, comp_key, components)
+        result["key_variance"] = var_key
+        result["key_components"] = comp_key
+    return result
 
 
 async def umap_reduction(
@@ -1272,6 +1443,7 @@ async def umap_reduction(
     metric: str = "euclidean",
     random_state: Optional[int] = None,
 ) -> Dict[str, Any]:
+    """Run UMAP dimensionality reduction on a 2D workspace array and store to workspace."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1282,7 +1454,7 @@ async def umap_reduction(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
-    embedding = UMAP_reduction(
+    embedding, tw = UMAP_reduction(
         obj,
         n_components=n_components,
         n_neighbors=n_neighbors,
@@ -1296,6 +1468,7 @@ async def umap_reduction(
         "namespace": namespace,
         "key": out_key,
         "info": ws.get_info(namespace, out_key),
+        "trustworthiness": tw,
     }
 
 
@@ -1311,6 +1484,7 @@ async def umap_graph_communities(
     metric: str = "euclidean",
     random_state: Optional[int] = None,
 ) -> Dict[str, Any]:
+    """Run UMAP with Louvain community detection and store embedding to workspace."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1321,7 +1495,7 @@ async def umap_graph_communities(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
-    embedding, labels = UMAP_graph_communities(
+    embedding, labels, tw = UMAP_graph_communities(
         obj,
         n_components=n_components,
         resolution=resolution,
@@ -1337,6 +1511,7 @@ async def umap_graph_communities(
         "key": out_key,
         "labels": labels.tolist(),
         "info": ws.get_info(namespace, out_key),
+        "trustworthiness": tw,
     }
 
 
@@ -1348,6 +1523,7 @@ async def umap_graph_communities(
 async def create_workspace(
     name: Optional[str] = None, lazy: bool = False
 ) -> Dict[str, Any]:
+    """Create a new AnalysisWorkspace and return its ID inline."""
     wm = get_workspace_manager()
     workspace_id = wm.create_workspace(name=name, lazy=lazy)
     ws = wm.get_workspace(workspace_id)
@@ -1355,16 +1531,19 @@ async def create_workspace(
 
 
 async def delete_workspace(workspace_id: str) -> Dict[str, Any]:
+    """Delete a workspace by ID and return confirmation inline."""
     deleted = get_workspace_manager().delete_workspace(workspace_id)
     return {"deleted": deleted, "workspace_id": workspace_id}
 
 
 async def list_workspaces() -> Dict[str, Any]:
+    """List all active workspaces and return inline."""
     workspaces = get_workspace_manager().list_workspaces()
     return {"workspaces": workspaces, "count": len(workspaces)}
 
 
 async def describe_workspace(workspace_id: str) -> Dict[str, Any]:
+    """Return the full workspace index describing all stored items inline."""
     ws = _get_workspace(workspace_id)
     return {"workspace_id": workspace_id, "index": ws.describe()}
 
@@ -1374,6 +1553,7 @@ async def workspace_get_info(
     namespace: str,
     key: str,
 ) -> Dict[str, Any]:
+    """Return metadata for a single workspace item inline."""
     ws = _get_workspace(workspace_id)
     info = ws.get_info(namespace, key)
     if info is None:
@@ -1392,6 +1572,7 @@ async def rename_workspace_item(
     old_key: str,
     new_key: str,
 ) -> Dict[str, Any]:
+    """Rename a workspace item's key within its namespace."""
     ws = _get_workspace(workspace_id)
     success = ws.rename(namespace, old_key, new_key)
     return {
@@ -1408,6 +1589,7 @@ async def add_workspace_note(
     key: str,
     note: str,
 ) -> Dict[str, Any]:
+    """Attach a text note to a workspace item."""
     ws = _get_workspace(workspace_id)
     success = ws.add_note(namespace, key, note)
     return {"success": success}
@@ -1418,12 +1600,14 @@ async def delete_workspace_item(
     namespace: str,
     key: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Delete an item or entire namespace from a workspace."""
     ws = _get_workspace(workspace_id)
     deleted = ws.delete(namespace, key)
     return {"deleted": deleted}
 
 
 async def save_workspace(workspace_id: str, path: str) -> Dict[str, Any]:
+    """Serialize a workspace to HDF5 and JSON files on disk."""
     wm = get_workspace_manager()
     if wm.get_workspace(workspace_id) is None:
         raise ValueError(f"Workspace not found: {workspace_id}")
@@ -1437,6 +1621,7 @@ async def save_workspace(workspace_id: str, path: str) -> Dict[str, Any]:
 
 
 async def load_workspace(path: str) -> Dict[str, Any]:
+    """Load a workspace from HDF5/JSON files and return its ID inline."""
     wm = get_workspace_manager()
     workspace_id = wm.load_workspace(path)
     ws = wm.get_workspace(workspace_id)
@@ -1455,6 +1640,7 @@ async def load_workspace_item(
     key: str,
     workspace_id: str,
 ) -> Dict[str, Any]:
+    """Load a single item from a saved workspace file into an existing workspace."""
     wm = get_workspace_manager()
     if wm.get_workspace(workspace_id) is None:
         raise ValueError(f"Workspace not found: {workspace_id}")
@@ -1474,6 +1660,7 @@ async def fetch_workspace_item(
     namespace: str,
     key: str,
 ) -> Dict[str, Any]:
+    """Fetch the raw data of a workspace item and return it inline as a list."""
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
@@ -1499,3 +1686,500 @@ async def fetch_workspace_item(
         f"fetch_workspace_item supports ndarray and PairwiseCompMatrixStack; "
         f"got {type(obj).__name__}. Use type-specific tools for other object types."
     )
+
+
+# ---------------------------------------------------------------------------
+# Pairwise matrix conditioning tools
+# ---------------------------------------------------------------------------
+
+
+async def remove_by_condition(
+    workspace_id: str,
+    namespace: str,
+    target_key: str,
+    condition_key: str,
+    out_key: str,
+    op: str,
+    threshold: float,
+    fill: float = float("nan"),
+    condition_namespace: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Mask entries in a pairwise matrix by a condition matrix and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    target = ws.get(namespace, target_key)
+    if target is None or not isinstance(
+        target, (PairwiseCompMatrixStack, PairwiseCompMatrix)
+    ):
+        raise ValueError(
+            f"No PairwiseCompMatrix or PairwiseCompMatrixStack found at "
+            f"({namespace!r}, {target_key!r}). "
+            "Compute a pairwise matrix first using: compute_spike_time_tilings, "
+            "compute_pairwise_ccg, compute_pairwise_latencies, "
+            "spike_unit_to_unit_comparison, or similar."
+        )
+
+    cond_ns = condition_namespace if condition_namespace is not None else namespace
+    condition = ws.get(cond_ns, condition_key)
+    if condition is None or not isinstance(
+        condition, (PairwiseCompMatrixStack, PairwiseCompMatrix)
+    ):
+        raise ValueError(
+            f"No PairwiseCompMatrix or PairwiseCompMatrixStack found at "
+            f"({cond_ns!r}, {condition_key!r}). "
+            "Compute the condition matrix first using: compute_pairwise_latencies, "
+            "compute_spike_time_tilings, compute_pairwise_ccg, or similar."
+        )
+
+    result = target.remove_by_condition(
+        condition=condition, op=op, threshold=threshold, fill=fill
+    )
+    ws.store(namespace, out_key, result)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# SpikeSliceStack comparison tools
+# ---------------------------------------------------------------------------
+
+
+async def spike_unit_to_unit_comparison(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_lag: str,
+    metric: str = "ccg",
+    delt: float = 20.0,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+) -> Dict[str, Any]:
+    """Compute unit-to-unit pairwise comparisons from a SpikeSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
+        metric=metric,
+        delt=delt,
+        bin_size=bin_size,
+        max_lag=max_lag,
+    )
+    ws.store(namespace, out_key_corr, corr_stack)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "av_corr": _to_list(av_corr),
+        "info_corr": ws.get_info(namespace, out_key_corr),
+    }
+    if lag_stack is not None:
+        ws.store(namespace, out_key_lag, lag_stack)
+        result["key_lag"] = out_key_lag
+        result["av_lag"] = _to_list(av_lag)
+        result["info_lag"] = ws.get_info(namespace, out_key_lag)
+    else:
+        result["key_lag"] = None
+        result["av_lag"] = None
+    return result
+
+
+async def spike_slice_to_slice_unit_comparison(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_lag: str,
+    metric: str = "ccg",
+    delt: float = 20.0,
+    bin_size: float = 1.0,
+    max_lag: float = 350,
+    min_spikes: int = 2,
+    min_frac: float = 0.3,
+    frac_active_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Compute per-unit slice-to-slice comparisons from a SpikeSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
+    all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+        metric=metric,
+        delt=delt,
+        bin_size=bin_size,
+        max_lag=max_lag,
+        min_spikes=min_spikes,
+        min_frac=min_frac,
+        frac_active=frac_active,
+    )
+    ws.store(namespace, out_key_corr, all_corr)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "av_corr": _to_list(av_corr),
+        "info_corr": ws.get_info(namespace, out_key_corr),
+    }
+    if all_lag is not None:
+        ws.store(namespace, out_key_lag, all_lag)
+        result["key_lag"] = out_key_lag
+        result["av_lag"] = _to_list(av_lag)
+        result["info_lag"] = ws.get_info(namespace, out_key_lag)
+    else:
+        result["key_lag"] = None
+        result["av_lag"] = None
+    return result
+
+
+async def compute_frac_active(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key: str,
+    min_spikes: int = 2,
+) -> Dict[str, Any]:
+    """Compute fraction of slices each unit is active in and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    frac = sss.compute_frac_active(min_spikes=min_spikes)
+    ws.store(namespace, out_key, frac)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def spike_order_units_across_slices(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    agg_func: str = "median",
+    timing: str = "median",
+    min_spikes: int = 2,
+    min_frac_active: float = 0.0,
+    frac_active_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Compute unit activation ordering across SpikeSliceStack slices and return inline."""
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
+    _, unit_ids, unit_std, unit_times, unit_frac = sss.order_units_across_slices(
+        agg_func=agg_func,
+        timing=timing,
+        min_spikes=min_spikes,
+        min_frac_active=min_frac_active,
+        frac_active=frac_active,
+    )
+    return {
+        "highly_active": {
+            "unit_ids_in_order": _to_list(unit_ids[0]),
+            "unit_std": _to_list(unit_std[0]),
+            "unit_peak_times_ms": _to_list(unit_times[0]),
+            "unit_frac_active": _to_list(unit_frac[0]),
+        },
+        "low_active": {
+            "unit_ids_in_order": _to_list(unit_ids[1]),
+            "unit_std": _to_list(unit_std[1]),
+            "unit_peak_times_ms": _to_list(unit_times[1]),
+            "unit_frac_active": _to_list(unit_frac[1]),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Unit timing and rank-order correlation tools
+# ---------------------------------------------------------------------------
+
+
+async def get_unit_timing_per_slice_spike(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key: str,
+    timing: str = "median",
+    min_spikes: int = 2,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    tm = sss.get_unit_timing_per_slice(timing=timing, min_spikes=min_spikes)
+    ws.store(namespace, out_key, tm)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def get_unit_timing_per_slice_rate(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key: str,
+    min_rate_threshold: float = 0.1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, stack_key)
+    tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=min_rate_threshold)
+    ws.store(namespace, out_key, tm)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def rank_order_correlation_spike(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_overlap: str,
+    timing_key: Optional[str] = None,
+    timing: str = "median",
+    min_spikes: int = 2,
+    min_overlap: int = 3,
+    min_overlap_frac: Optional[float] = None,
+    n_shuffles: int = 100,
+    seed: int = 1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    sss = _get_spikeslicestack(ws, namespace, stack_key)
+    timing_matrix = None
+    if timing_key is not None:
+        timing_matrix = ws.get(namespace, timing_key)
+        if timing_matrix is None or not isinstance(timing_matrix, np.ndarray):
+            raise ValueError(
+                f"No ndarray found at ({namespace!r}, {timing_key!r}). "
+                "Compute timing first using: get_unit_timing_per_slice_spike."
+            )
+    corr, av_corr, overlap = sss.rank_order_correlation(
+        timing_matrix=timing_matrix,
+        timing=timing,
+        min_spikes=min_spikes,
+        min_overlap=min_overlap,
+        min_overlap_frac=min_overlap_frac,
+        n_shuffles=n_shuffles,
+        seed=seed,
+    )
+    ws.store(namespace, out_key_corr, corr)
+    ws.store(namespace, out_key_overlap, overlap)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "key_overlap": out_key_overlap,
+        "av_corr": av_corr,
+        "n_shuffles": n_shuffles,
+        "info_corr": ws.get_info(namespace, out_key_corr),
+        "info_overlap": ws.get_info(namespace, out_key_overlap),
+    }
+
+
+async def rank_order_correlation_rate(
+    workspace_id: str,
+    namespace: str,
+    stack_key: str,
+    out_key_corr: str,
+    out_key_overlap: str,
+    timing_key: Optional[str] = None,
+    min_rate_threshold: float = 0.1,
+    min_overlap: int = 3,
+    min_overlap_frac: Optional[float] = None,
+    n_shuffles: int = 100,
+    seed: int = 1,
+) -> Dict[str, Any]:
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, stack_key)
+    timing_matrix = None
+    if timing_key is not None:
+        timing_matrix = ws.get(namespace, timing_key)
+        if timing_matrix is None or not isinstance(timing_matrix, np.ndarray):
+            raise ValueError(
+                f"No ndarray found at ({namespace!r}, {timing_key!r}). "
+                "Compute timing first using: get_unit_timing_per_slice_rate."
+            )
+    corr, av_corr, overlap = rss.rank_order_correlation(
+        timing_matrix=timing_matrix,
+        MIN_RATE_THRESHOLD=min_rate_threshold,
+        min_overlap=min_overlap,
+        min_overlap_frac=min_overlap_frac,
+        n_shuffles=n_shuffles,
+        seed=seed,
+    )
+    ws.store(namespace, out_key_corr, corr)
+    ws.store(namespace, out_key_overlap, overlap)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key_corr": out_key_corr,
+        "key_overlap": out_key_overlap,
+        "av_corr": av_corr,
+        "n_shuffles": n_shuffles,
+        "info_corr": ws.get_info(namespace, out_key_corr),
+        "info_overlap": ws.get_info(namespace, out_key_overlap),
+    }
+
+
+# GPLVM tools
+# ---------------------------------------------------------------------------
+
+
+async def fit_gplvm(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    key_reorder: str,
+    key_binned: str,
+    bin_size_ms: float = 50.0,
+    movement_variance: float = 1.0,
+    tuning_lengthscale: float = 10.0,
+    n_latent_bin: int = 100,
+    n_iter: int = 20,
+    n_time_per_chunk: int = 10000,
+    random_seed: int = 3,
+) -> Dict[str, Any]:
+    """Fit a GPLVM model on SpikeData and store decode results to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    result = sd.fit_gplvm(
+        bin_size_ms=bin_size_ms,
+        movement_variance=movement_variance,
+        tuning_lengthscale=tuning_lengthscale,
+        n_latent_bin=n_latent_bin,
+        n_iter=n_iter,
+        n_time_per_chunk=n_time_per_chunk,
+        random_seed=random_seed,
+    )
+    # Store decode_res dict, reorder indices, and binned spike counts
+    ws.store(namespace, key, result["decode_res"])
+    ws.store(namespace, key_reorder, result["reorder_indices"])
+    ws.store(namespace, key_binned, result["binned_spike_counts"])
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "key_reorder": key_reorder,
+        "key_binned": key_binned,
+        "log_marginal_l": _to_list(result["log_marginal_l"]),
+        "bin_size_ms": result["bin_size_ms"],
+        "n_time_bins": result["binned_spike_counts"].shape[0],
+        "n_units": result["binned_spike_counts"].shape[1],
+        "note": (
+            f"decode_res dict stored at key={key!r}; "
+            f"reorder_indices (U,) at key={key_reorder!r}; "
+            f"binned_spike_counts (T, U) at key={key_binned!r}. "
+            "The fitted model object is not stored (not serializable)."
+        ),
+    }
+
+
+async def compute_gplvm_state_entropy(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    """Compute state entropy from GPLVM posterior and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    posterior = np.asarray(decode_res["posterior_latent_marg"])
+    ent = gplvm_state_entropy(posterior)
+    ws.store(namespace, out_key, ent)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_continuity_prob(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    """Compute GPLVM state continuity probability and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    cont_prob = gplvm_continuity_prob(decode_res)
+    ws.store(namespace, out_key, cont_prob)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_avg_state_prob(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    """Compute average state probability from GPLVM posterior and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    decode_res = ws.get(namespace, key)
+    if decode_res is None or not isinstance(decode_res, dict):
+        raise ValueError(
+            f"No decode_res dict found at ({namespace!r}, {key!r}). "
+            "Fit a GPLVM first using: fit_gplvm."
+        )
+    posterior = np.asarray(decode_res["posterior_latent_marg"])
+    avg_prob = gplvm_average_state_probability(posterior)
+    ws.store(namespace, out_key, avg_prob)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_gplvm_consecutive_durations(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+    threshold: float,
+    mode: str = "above",
+    min_dur: int = 1,
+) -> Dict[str, Any]:
+    """Compute consecutive durations above or below a threshold and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    signal = ws.get(namespace, key)
+    if signal is None or not isinstance(signal, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {key!r}). "
+            "Compute the signal first using: compute_gplvm_continuity_prob "
+            "or another tool that stores a 1-D array."
+        )
+    durations = consecutive_durations(signal, threshold, mode=mode, min_dur=min_dur)
+    ws.store(namespace, out_key, durations)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "n_durations": int(durations.size),
+    }
+    if durations.size > 0:
+        result["mean_duration"] = float(np.mean(durations))
+        result["median_duration"] = float(np.median(durations))
+    return result

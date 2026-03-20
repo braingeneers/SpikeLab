@@ -139,6 +139,83 @@ class PairwiseCompMatrix:
             metadata={**self.metadata, "threshold": threshold, "binary": True},
         )
 
+    _OPS = {
+        "lt": np.less,
+        "le": np.less_equal,
+        "gt": np.greater,
+        "ge": np.greater_equal,
+        "eq": np.equal,
+        "ne": np.not_equal,
+    }
+
+    def remove_by_condition(
+        self,
+        condition: "PairwiseCompMatrix",
+        op: str,
+        threshold: float,
+        fill: float = np.nan,
+    ) -> "PairwiseCompMatrix":
+        """
+        Return a copy with entries removed where a condition matrix satisfies a comparison.
+
+        Entries where the comparison ``op(condition, threshold)`` evaluates to
+        True are replaced by *fill*; all other entries keep their original value
+        from *self*.
+
+        Parameters:
+            condition (PairwiseCompMatrix): Matrix to evaluate the comparison on.
+                Must have the same shape as self.
+            op (str): Comparison operator applied element-wise to the condition
+                matrix. Standard: ``"lt"`` (<), ``"le"`` (<=), ``"gt"`` (>),
+                ``"ge"`` (>=), ``"eq"`` (==), ``"ne"`` (!=). Absolute-value
+                variants: ``"abs_lt"``, ``"abs_le"``, ``"abs_gt"``, ``"abs_ge"``
+                — these compare ``|condition|`` against the threshold.
+            threshold (float): Threshold value for the comparison.
+            fill (float): Replacement value for removed entries (default: NaN).
+
+        Returns:
+            result (PairwiseCompMatrix): Copy of self where entries satisfying
+                the condition are replaced by *fill*. Labels and metadata are
+                preserved from self.
+        """
+        if not isinstance(condition, PairwiseCompMatrix):
+            raise TypeError(
+                f"condition must be a PairwiseCompMatrix, got {type(condition).__name__}"
+            )
+        if condition.matrix.shape != self.matrix.shape:
+            raise ValueError(
+                f"condition shape {condition.matrix.shape} does not match "
+                f"self shape {self.matrix.shape}"
+            )
+
+        use_abs = op.startswith("abs_")
+        base_op = op[4:] if use_abs else op
+
+        if base_op not in self._OPS:
+            raise ValueError(
+                f"Unknown op {op!r}. Must be one of: "
+                f"{', '.join(sorted(self._OPS))} or their abs_ variants."
+            )
+
+        cond_values = np.abs(condition.matrix) if use_abs else condition.matrix
+        mask = self._OPS[base_op](cond_values, threshold)
+
+        result_matrix = self.matrix.copy()
+        result_matrix[mask] = fill
+
+        return PairwiseCompMatrix(
+            matrix=result_matrix,
+            labels=self.labels,
+            metadata={
+                **self.metadata,
+                "removed_by_condition": {
+                    "op": op,
+                    "threshold": threshold,
+                    "fill": fill,
+                },
+            },
+        )
+
     def extract_lower_triangle(self) -> np.ndarray:
         """
         Extract lower triangle (excluding diagonal) from this correlation matrix.
@@ -334,6 +411,94 @@ class PairwiseCompMatrixStack:
             metadata={**self.metadata, "threshold": threshold, "binary": True},
         )
 
+    _OPS = PairwiseCompMatrix._OPS
+
+    def remove_by_condition(
+        self,
+        condition: Union[PairwiseCompMatrix, "PairwiseCompMatrixStack"],
+        op: str,
+        threshold: float,
+        fill: float = np.nan,
+    ) -> "PairwiseCompMatrixStack":
+        """
+        Return a copy with entries removed where a condition satisfies a comparison.
+
+        Entries where ``op(condition, threshold)`` evaluates to True are
+        replaced by *fill*; all other entries keep their original value from
+        *self*. The condition is applied element-wise across all slices.
+
+        Parameters:
+            condition (PairwiseCompMatrix or PairwiseCompMatrixStack): Matrix or
+                stack to evaluate the comparison on. A single
+                ``PairwiseCompMatrix`` is broadcast across all slices. A
+                ``PairwiseCompMatrixStack`` must have the same shape
+                ``(N, N, S)`` as self.
+            op (str): Comparison operator applied element-wise to the condition.
+                Standard: ``"lt"`` (<), ``"le"`` (<=), ``"gt"`` (>),
+                ``"ge"`` (>=), ``"eq"`` (==), ``"ne"`` (!=). Absolute-value
+                variants: ``"abs_lt"``, ``"abs_le"``, ``"abs_gt"``, ``"abs_ge"``
+                — these compare ``|condition|`` against the threshold.
+            threshold (float): Threshold value for the comparison.
+            fill (float): Replacement value for removed entries (default: NaN).
+
+        Returns:
+            result (PairwiseCompMatrixStack): Copy of self where entries
+                satisfying the condition are replaced by *fill*. Labels, times,
+                and metadata are preserved from self.
+        """
+        use_abs = op.startswith("abs_")
+        base_op = op[4:] if use_abs else op
+
+        if base_op not in self._OPS:
+            raise ValueError(
+                f"Unknown op {op!r}. Must be one of: "
+                f"{', '.join(sorted(self._OPS))} or their abs_ variants."
+            )
+
+        if isinstance(condition, PairwiseCompMatrix):
+            if condition.matrix.shape != self.stack.shape[:2]:
+                raise ValueError(
+                    f"condition shape {condition.matrix.shape} does not match "
+                    f"stack matrix shape {self.stack.shape[:2]}"
+                )
+            # Broadcast (N, N) -> (N, N, S)
+            cond_values = condition.matrix[:, :, np.newaxis]
+            if use_abs:
+                cond_values = np.abs(cond_values)
+            mask = self._OPS[base_op](
+                np.broadcast_to(cond_values, self.stack.shape), threshold
+            )
+        elif isinstance(condition, PairwiseCompMatrixStack):
+            if condition.stack.shape != self.stack.shape:
+                raise ValueError(
+                    f"condition shape {condition.stack.shape} does not match "
+                    f"self shape {self.stack.shape}"
+                )
+            cond_values = np.abs(condition.stack) if use_abs else condition.stack
+            mask = self._OPS[base_op](cond_values, threshold)
+        else:
+            raise TypeError(
+                f"condition must be a PairwiseCompMatrix or PairwiseCompMatrixStack, "
+                f"got {type(condition).__name__}"
+            )
+
+        result_stack = self.stack.copy()
+        result_stack[mask] = fill
+
+        return PairwiseCompMatrixStack(
+            stack=result_stack,
+            labels=self.labels,
+            times=self.times,
+            metadata={
+                **self.metadata,
+                "removed_by_condition": {
+                    "op": op,
+                    "threshold": threshold,
+                    "fill": fill,
+                },
+            },
+        )
+
     def mean(self, ignore_nan: bool = True) -> PairwiseCompMatrix:
         """
         Compute the mean matrix across the stack.
@@ -410,9 +575,13 @@ class PairwiseCompMatrixStack:
 
         Returns
         -------
-        embedding : ndarray, shape (S, n_components)
-            Low-dimensional embedding of the lower-triangle features for each
-            matrix in the stack.
+        (embedding, explained_variance_ratio, components) : tuple
+            If method="PCA": embedding of shape (S, n_components), fraction of
+            variance explained per component (n_components,), and principal axes
+            of shape (n_components, F) where F = N*(N-1)/2.
+        (embedding, trustworthiness) : tuple
+            If method="UMAP": embedding of shape (S, n_components) and a
+            trustworthiness score (float, 0 to 1).
         """
         from .utils import PCA_reduction, UMAP_reduction
 

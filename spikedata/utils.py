@@ -2,6 +2,8 @@ import warnings
 from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
+from itertools import groupby as _groupby
+
 from scipy import ndimage, signal
 from scipy.stats import norm
 
@@ -21,28 +23,32 @@ __all__ = [
     "get_valid_spike_times",
     "waveforms_by_channel",
     "extract_unit_waveforms",
+    "consecutive_durations",
+    "gplvm_state_entropy",
+    "gplvm_continuity_prob",
+    "gplvm_average_state_probability",
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
 try:  # optional, only needed for HDF5/NWB exporters
     import h5py  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     h5py = None  # type: ignore
 
 # Optional dependencies for manifold learning and graph-based clustering.
 try:  # optional, only needed for UMAP-based reductions
     import umap  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     umap = None  # type: ignore
 
 try:  # optional, only needed for graph/community detection
     import networkx as nx  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     nx = None  # type: ignore
 
 try:  # optional, only needed for Louvain community detection
     import community as community_louvain  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     community_louvain = None  # type: ignore
 
 
@@ -66,11 +72,11 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
         comparison of methods and application to the study of retinal waves. Journal of
         Neuroscience 34:43, 14288–14303 (2014).
     """
-    if length is None:
-        length = float(max(tA[-1], tB[-1]))
-
     if len(tA) == 0 or len(tB) == 0:
         return 0.0
+
+    if length is None:
+        length = float(max(tA[-1], tB[-1]))
 
     TA = _sttc_ta(tA, delt, length) / length
     TB = _sttc_ta(tB, delt, length) / length
@@ -347,10 +353,11 @@ def randomize(ar, swap_per_spike=5, seed=None):
                 cnt_swap += 1
 
     if cnt_swap < swap_per_spike * n_spikes:
-        print(
-            "ERROR: Not sufficient succesfull swaps, only {} of {} required".format(
+        warnings.warn(
+            "Not sufficient successful swaps, only {} of {} required".format(
                 cnt_swap, swap_per_spike * n_spikes
-            )
+            ),
+            RuntimeWarning,
         )
 
     return ar.astype(int)
@@ -398,10 +405,16 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     if max_lag is None:
         max_lag = 0
 
-    # Return 0.0 for zero-norm vectors (BUG-004)
-    norm_product = np.sum(ref_rate**2) * np.sum(comp_rate**2)
-    if norm_product == 0:
+    # Handle zero-norm vectors:
+    # - Both zero → undefined (NaN)
+    # - One zero, one not → uncorrelated (0.0)
+    ref_norm = np.sum(ref_rate**2)
+    comp_norm = np.sum(comp_rate**2)
+    if ref_norm == 0 and comp_norm == 0:
+        return np.nan, 0
+    if ref_norm == 0 or comp_norm == 0:
         return 0.0, 0
+    norm_product = ref_norm * comp_norm
 
     # Fast path for zero lag (no time shift)
     if max_lag == 0:
@@ -409,12 +422,15 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
         return max_corr, 0
     # r is the correlation between ref and comp. Each value is sum of elementwise products
     # for each possible lag and it is normalized so each value is between -1 and 1
-    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(
-        # Below is the normalziation method. You take signal's correaltion of itself, and
-        # take the center value which is lag = 0, and use that for normalizing
-        signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
-        * signal.correlate(comp_rate, comp_rate, mode="same")[int(len(comp_rate) / 2)]
-    )
+    # Normalization: autocorrelation at zero lag for each signal
+    auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
+    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[
+        int(len(comp_rate) / 2)
+    ]
+    denom = auto_ref * auto_comp
+    if denom <= 0:
+        return 0.0, 0
+    r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(denom)
 
     center = int(len(r) / 2)
 
@@ -430,9 +446,11 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
 
 
 def _cosine_sim(a, b):
-    """Cosine similarity between two 1-D vectors. Returns 0.0 if either has zero norm."""
+    """Cosine similarity between two 1-D vectors. NaN if both zero-norm, 0.0 if one is."""
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
+    if norm_a == 0.0 and norm_b == 0.0:
+        return np.nan
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return float(np.dot(a, b) / (norm_a * norm_b))
@@ -502,15 +520,22 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
 
 def PCA_reduction(matrix_2d, n_components=2):
     """
-    Compute PCA dimensionality reduction on axis 1 of a 2d matrix
+    Compute PCA dimensionality reduction on axis 1 of a 2d matrix.
 
     Parameters:
     -----------
-    matrix_2d (array): 2D matrix where values must be int, float, or bool
+    matrix_2d (array): 2D matrix of shape (samples, features) where values
+        must be int, float, or bool.
+    n_components (int): Number of principal components to retain (default: 2).
 
     Returns:
     --------
-    pca_result (array): 2D matrix of shape (rows, n_components)
+    embedding (array): 2D matrix of shape (samples, n_components).
+    explained_variance_ratio (array): 1D array of shape (n_components,) with the
+        fraction of total variance explained by each component.
+    components (array): 2D matrix of shape (n_components, features) with the
+        principal axes (loadings) — each row is one PC expressed in the
+        original feature space.
     """
 
     try:
@@ -521,10 +546,17 @@ def PCA_reduction(matrix_2d, n_components=2):
             "Install it with `pip install scikit-learn`."
         )
 
-    pca = PCA(n_components=n_components)
-    pca_result = pca.fit_transform(matrix_2d)
+    max_components = min(matrix_2d.shape)
+    if n_components > max_components:
+        raise ValueError(
+            f"n_components={n_components} exceeds "
+            f"min(n_samples, n_features)={max_components}"
+        )
 
-    return pca_result
+    pca = PCA(n_components=n_components)
+    embedding = pca.fit_transform(matrix_2d)
+
+    return embedding, pca.explained_variance_ratio_, pca.components_
 
 
 def UMAP_reduction(
@@ -567,6 +599,10 @@ def UMAP_reduction(
     -------
     embedding : ndarray, shape (n_samples, n_components)
         Low-dimensional embedding of the data.
+    trustworthiness_score : float
+        Trustworthiness of the embedding (0 to 1). Measures how well local
+        neighborhoods in the high-dimensional space are preserved in the
+        embedding. Requires scikit-learn; returns NaN if unavailable.
     """
     if umap is None:
         raise ImportError(
@@ -583,7 +619,15 @@ def UMAP_reduction(
         **umap_kwargs,
     )
     embedding = reducer.fit_transform(matrix_2d)
-    return embedding
+
+    try:
+        from sklearn.manifold import trustworthiness
+
+        tw = float(trustworthiness(matrix_2d, embedding, n_neighbors=n_neighbors))
+    except ImportError:
+        tw = float("nan")
+
+    return embedding, tw
 
 
 def UMAP_graph_communities(
@@ -625,6 +669,10 @@ def UMAP_graph_communities(
 
     labels : ndarray, shape (n_samples,)
         Integer community label for each sample.
+
+    trustworthiness_score : float
+        Trustworthiness of the embedding (0 to 1). Returns NaN if
+        scikit-learn is not available.
     """
     # First compute the UMAP embedding and fitted mapper using the same
     # configuration as UMAP_reduction.
@@ -671,7 +719,16 @@ def UMAP_graph_communities(
     for node, c_id in clustering.items():
         labels[node] = c_id
 
-    return mapper.embedding_, labels
+    try:
+        from sklearn.manifold import trustworthiness
+
+        tw = float(
+            trustworthiness(matrix_2d, mapper.embedding_, n_neighbors=n_neighbors)
+        )
+    except ImportError:
+        tw = float("nan")
+
+    return mapper.embedding_, labels, tw
 
 
 def ensure_h5py():
@@ -1041,6 +1098,139 @@ def extract_waveforms(
     return np.array(waveforms).transpose(1, 2, 0)
 
 
+def consecutive_durations(signal, threshold, mode="above", min_dur=1):
+    """
+    Compute the lengths of consecutive runs in a 1-D signal that satisfy a threshold condition.
+
+    Scans *signal* for contiguous stretches of bins that are above (>=) or
+    below (<) *threshold*, returns an array of their durations, and optionally
+    filters out runs shorter than *min_dur*.
+
+    Parameters:
+        signal (array_like): 1-D numeric array (e.g. continuity probability
+            time series from a GPLVM).
+        threshold (float): Threshold value for the condition.
+        mode (str): ``"above"`` keeps runs where ``signal >= threshold``;
+            ``"below"`` keeps runs where ``signal < threshold``.
+        min_dur (int): Minimum run length to keep. Runs shorter than this
+            are discarded.
+
+    Returns:
+        durations (np.ndarray): 1-D integer array of run lengths that satisfy
+            the condition and are at least *min_dur* bins long. May be empty.
+    """
+    signal = np.asarray(signal)
+    if signal.ndim != 1:
+        raise ValueError(f"signal must be 1-D, got shape {signal.shape}")
+
+    if mode == "above":
+        condition = signal >= threshold
+    elif mode == "below":
+        condition = signal < threshold
+    else:
+        raise ValueError("mode must be 'above' or 'below'")
+
+    # Compute lengths of consecutive True runs
+    durations = np.array(
+        [sum(1 for _ in group) for key, group in _groupby(condition) if key],
+        dtype=int,
+    )
+
+    if durations.size > 0:
+        durations = durations[durations >= min_dur]
+
+    return durations
+
+
+def gplvm_state_entropy(posterior_latent_marg):
+    """
+    Compute Shannon entropy of the latent state distribution at each time bin.
+
+    Parameters:
+        posterior_latent_marg (np.ndarray): Marginal posterior over latent
+            states with shape ``(T, K)`` where *T* is the number of time bins
+            and *K* is the number of latent states. Typically obtained from
+            ``SpikeData.fit_gplvm()["decode_res"]["posterior_latent_marg"]``.
+
+    Returns:
+        entropy (np.ndarray): 1-D array of shape ``(T,)`` with the Shannon
+            entropy (in nats) for each time bin.
+    """
+    from scipy.stats import entropy as _entropy
+
+    posterior_latent_marg = np.asarray(posterior_latent_marg)
+    if posterior_latent_marg.ndim != 2:
+        raise ValueError(
+            f"posterior_latent_marg must be 2-D (T, K), got shape "
+            f"{posterior_latent_marg.shape}"
+        )
+    return _entropy(posterior_latent_marg, axis=1)
+
+
+def gplvm_continuity_prob(decode_res):
+    """
+    Extract the continuity (non-jump) probability time series from a GPLVM decode result.
+
+    The continuity probability at each time bin is the marginal posterior
+    probability that the dynamics remained continuous (i.e. did not jump)
+    between the previous and current time bin.
+
+    Parameters:
+        decode_res (dict): Decoded latent state dictionary as returned by
+            ``SpikeData.fit_gplvm()["decode_res"]``. Must contain the key
+            ``"posterior_dynamics_marg"`` with shape ``(T, D)`` where the
+            first column (index 0) holds the continuity probability.
+
+    Returns:
+        continuity_prob (np.ndarray): 1-D array of shape ``(T,)`` with the
+            continuity probability at each time bin.
+    """
+    if not isinstance(decode_res, dict):
+        raise TypeError("decode_res must be a dict from SpikeData.fit_gplvm()")
+    if "posterior_dynamics_marg" not in decode_res:
+        raise KeyError(
+            "decode_res must contain 'posterior_dynamics_marg'. "
+            "Pass the 'decode_res' dict from SpikeData.fit_gplvm()."
+        )
+    dynamics = np.asarray(decode_res["posterior_dynamics_marg"])
+    if dynamics.ndim != 2 or dynamics.shape[1] < 1:
+        raise ValueError(
+            f"posterior_dynamics_marg must be 2-D with at least 1 column, "
+            f"got shape {dynamics.shape}"
+        )
+    return dynamics[:, 0]
+
+
+def gplvm_average_state_probability(posterior_latent_marg):
+    """
+    Compute the average probability of each latent state across all time bins.
+
+    Parameters:
+        posterior_latent_marg (np.ndarray): Marginal posterior over latent
+            states with shape ``(T, K)`` where *T* is the number of time bins
+            and *K* is the number of latent states. Typically obtained from
+            ``SpikeData.fit_gplvm()["decode_res"]["posterior_latent_marg"]``.
+
+    Returns:
+        avg_prob (np.ndarray): 1-D array of shape ``(K,)`` with the mean
+            probability of each latent state, averaged over all time bins.
+    """
+    posterior_latent_marg = np.asarray(posterior_latent_marg)
+    if posterior_latent_marg.ndim != 2:
+        raise ValueError(
+            f"posterior_latent_marg must be 2-D (T, K), got shape "
+            f"{posterior_latent_marg.shape}"
+        )
+    return np.mean(posterior_latent_marg, axis=0)
+
+
+def _get_attr(obj, key, default):
+    """Get an attribute from a dict-like or object-like neuron attribute entry."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def _validate_time_start_to_end(times_start_to_end):
     """
     Validates that the list of (start, end) tuples has the same duration and is in
@@ -1086,3 +1276,109 @@ def _validate_time_start_to_end(times_start_to_end):
         if len(set(time_diff_check)) > 1:
             raise ValueError("All time windows must have the same length")
     return valid_time_tuples
+
+
+def _rank_order_correlation_from_timing(
+    timing_matrix,
+    min_overlap=3,
+    min_overlap_frac=None,
+    n_shuffles=100,
+    seed=1,
+):
+    """
+    Compute Spearman rank-order correlation of unit timing between all slice pairs.
+
+    Shared implementation used by both SpikeSliceStack.rank_order_correlation
+    and RateSliceStack.rank_order_correlation.
+
+    Parameters:
+        timing_matrix (np.ndarray): Array of shape (U, S) with timing values
+            per unit per slice. NaN entries mark inactive units.
+        min_overlap (int): Minimum units active in both slices (default: 3).
+        min_overlap_frac (float or None): Minimum fraction of total units
+            active in both slices. Effective threshold is
+            max(min_overlap, ceil(min_overlap_frac * U)).
+        n_shuffles (int): Shuffle iterations for z-scoring (default: 100).
+            0 = raw correlations. Values 1-4 are rejected.
+        seed (int or None): Random seed for shuffle reproducibility.
+
+    Returns:
+        corr_matrix (PairwiseCompMatrix): (S, S) Spearman correlation or z-score matrix.
+        av_corr (float): Average over valid lower-triangle pairs.
+        overlap_matrix (PairwiseCompMatrix): (S, S) fraction of units active in both slices.
+    """
+    from scipy.stats import spearmanr
+
+    # Import here to avoid circular import at module level
+    from .pairwise import PairwiseCompMatrix
+
+    if 0 < n_shuffles < 5:
+        raise ValueError(
+            f"n_shuffles must be 0 (no shuffling) or >= 5, got {n_shuffles}"
+        )
+
+    timing_matrix = np.asarray(timing_matrix)
+    if timing_matrix.ndim != 2:
+        raise ValueError(
+            f"timing_matrix must be 2-D (U, S), got shape {timing_matrix.shape}"
+        )
+
+    num_units = timing_matrix.shape[0]
+    effective_min = min_overlap
+    if min_overlap_frac is not None:
+        frac_count = int(np.ceil(min_overlap_frac * num_units))
+        effective_min = max(effective_min, frac_count)
+
+    rng = np.random.default_rng(seed)
+    num_slices = timing_matrix.shape[1]
+    corr = np.full((num_slices, num_slices), np.nan)
+    overlap = np.zeros((num_slices, num_slices), dtype=int)
+    if n_shuffles == 0:
+        np.fill_diagonal(corr, 1.0)
+
+    for i in range(num_slices):
+        overlap[i, i] = int(np.sum(~np.isnan(timing_matrix[:, i])))
+
+    for i in range(num_slices):
+        for j in range(i + 1, num_slices):
+            valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
+            n_valid = int(np.sum(valid))
+            overlap[i, j] = n_valid
+            overlap[j, i] = n_valid
+
+            if n_valid < effective_min:
+                continue
+
+            a = timing_matrix[valid, i]
+            b = timing_matrix[valid, j]
+            rho, _ = spearmanr(a, b)
+
+            if n_shuffles == 0:
+                corr[i, j] = rho
+                corr[j, i] = rho
+            else:
+                null_rhos = np.empty(n_shuffles)
+                for k in range(n_shuffles):
+                    b_shuffled = rng.permutation(b)
+                    null_rhos[k], _ = spearmanr(a, b_shuffled)
+                null_mean = np.mean(null_rhos)
+                null_std = np.std(null_rhos)
+                if null_std > 0:
+                    z = (rho - null_mean) / null_std
+                else:
+                    z = np.nan
+                corr[i, j] = z
+                corr[j, i] = z
+
+    lower_tri = np.tril_indices(num_slices, k=-1)
+    av_corr = float(np.nanmean(corr[lower_tri]))
+
+    overlap_frac = (
+        overlap.astype(float) / num_units if num_units > 0 else overlap.astype(float)
+    )
+
+    return (
+        PairwiseCompMatrix(matrix=corr),
+        av_corr,
+        PairwiseCompMatrix(matrix=overlap_frac),
+    )

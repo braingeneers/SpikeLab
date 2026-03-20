@@ -123,6 +123,12 @@ Use the workspace for:
 
 **HDF5 serialisation supported types:** The workspace `.h5` file supports: `ndarray`, `SpikeData`, `RateData`, `RateSliceStack`, `SpikeSliceStack`, `PairwiseCompMatrix`, `PairwiseCompMatrixStack`, and `dict`. Dicts are serialised recursively — leaf values must be one of the supported types, or a scalar (`int`, `float`, `bool`, `str`).
 
+**HDF5 file contention:** The workspace `.h5` file does not support concurrent writes. Never run two scripts that save to the same workspace at the same time — one will fail with a corrupted-object or lock error, and data from the other may be lost. Always wait for a running script to finish and release the workspace before starting another that writes to it. If you need to run analyses in parallel, write to separate workspaces and merge results afterwards.
+
+**Workspace save safety:** `ws.save()` opens the HDF5 file with mode `"w"` (truncate and rewrite). If the write fails partway through (e.g., disk full, crash), the entire workspace file is lost — there is no atomic save or rollback. Before running a save that adds large objects, check available disk space. Never delete workspace backup files (`.bak`) without asking the user first — they may be the only recovery path after a failed save.
+
+**Never delete files without permission.** Always ask the user before deleting any file — including temporary scripts, backup files, cached results, and pickle files. The cost of keeping an unnecessary file is low; the cost of losing needed data can be very high.
+
 ### Figure output
 
 - **Always save figures as `.png` files** — never call `plt.show()`. By default, use `plt.savefig("path/to/figure.png", dpi=150, bbox_inches="tight")` followed by `plt.close()`.

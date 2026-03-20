@@ -1,15 +1,18 @@
 import numpy as np
 from scipy import signal
+
+__all__ = ["RateSliceStack"]
 from .ratedata import RateData
 from .spikedata import SpikeData
 import warnings
-from .pairwise import PairwiseCompMatrixStack
+from .pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 
 
 from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
     _validate_time_start_to_end,
+    _get_attr,
 )
 
 
@@ -119,8 +122,8 @@ class RateSliceStack:
             # Actual constructor
 
             if isinstance(data_obj, SpikeData):
-                # Make it step_size 1
-                all_times = np.arange(0, data_obj.length, 1.0)
+                resolution = step_size if step_size is not None else 1.0
+                all_times = np.arange(0, data_obj.length, resolution)
                 inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
                 data_obj = RateData(inst_Frate_matrix, all_times)
 
@@ -136,7 +139,7 @@ class RateSliceStack:
                 for time in times_start_to_end:
                     start = time[0]
                     end = time[1]
-                    rate_obj_slice = data_obj.subtime(start, end, shift_time=False)
+                    rate_obj_slice = data_obj.subtime(start, end)
                     slice_matrix = rate_obj_slice.inst_Frate_data
                     event_stack.append(slice_matrix)
 
@@ -185,7 +188,12 @@ class RateSliceStack:
                 )
 
     def order_units_across_slices(
-        self, agg_func, MIN_RATE_THRESHOLD=0.1, MIN_FRAC_ACTIVE=0.0
+        self,
+        agg_func,
+        MIN_RATE_THRESHOLD=0.1,
+        MIN_FRAC_ACTIVE=0.0,
+        frac_active=None,
+        timing_matrix=None,
     ):
         """
         Reorders the units across slices from earliest to latest peak firing rate in underlying 3D self.event_stack matrix
@@ -196,11 +204,19 @@ class RateSliceStack:
                            unit has peak firing rate.
         MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a slice to be included in the ordering calculation.
                                     Slices where a unit's max rate < threshold are excluded from that unit's typical
-                                    peak time calculation.
+                                    peak time calculation. Ignored when timing_matrix is provided.
         MIN_FRAC_ACTIVE (float): Minimum fraction of slices across a unit that must be active (above MIN_RATE_THRESHOLD) in order to be
                                  placed in the first group(backbone units). Default 0.0 means all units are in the first group, so the second
                                  array in each of the tuple outputs will be empty.
-
+        frac_active (np.ndarray or None): Optional pre-computed fraction-active
+                                          array of shape (U,) to use for the group
+                                          split instead of the rate-based calculation.
+                                          Compatible sources: SpikeSliceStack.compute_frac_active and
+                                          SpikeData.get_frac_active (frac_per_unit output).
+        timing_matrix (np.ndarray or None): Optional pre-computed (U, S) timing matrix
+                                            from get_unit_timing_per_slice. When provided,
+                                            MIN_RATE_THRESHOLD is ignored and this matrix is
+                                            used directly.
 
         Returns:
         --------
@@ -221,25 +237,34 @@ class RateSliceStack:
                                            for the highly active group, and the second array is for the lower activity group.
 
         unit_frac_active (tuple of arrays): Two arrays in a tuple where the first array is the fraction of slices each unit in
-                                            the highly active group was active in (above MIN_RATE_THRESHOLD), and the second array
+                                            the highly active group was active in (above MIN_RATE_THRESHOLD or from frac_active override), and the second array
                                             is for the lower activity group.
+
+        Notes:
+        ------
+        - Call get_unit_timing_per_slice first to pre-compute the timing matrix if you want
+          to reuse it across multiple calls (e.g. rank_order_correlation and this method).
 
         """
         # burst_matrices is U x T x S
         slice_matrices = self.event_stack
+        num_units = slice_matrices.shape[0]
+        num_slices = slice_matrices.shape[2]
 
-        # This is a matrix (UxS) where row is unit, and each column is a burst. Value is the time index
-        # firing rate peak for unit U in slice S
-        unit_max_indices_matrix = np.argmax(slice_matrices, axis=1)
-        # This matrix is same size as one above, but instead of time_bins with max rates, the values are the max rates
-        unit_max_rates = np.max(slice_matrices, axis=1)
-        # Make mask for removing those below threshold
-        mask = unit_max_rates >= MIN_RATE_THRESHOLD
-
-        unit_frac_active = np.sum(mask, axis=1) / mask.shape[1]
-
-        unit_max_indices_matrix = unit_max_indices_matrix.astype(float)
-        unit_max_indices_matrix[~mask] = np.nan
+        if timing_matrix is not None:
+            unit_max_indices_matrix = np.asarray(timing_matrix, dtype=float)
+            if unit_max_indices_matrix.shape != (num_units, num_slices):
+                raise ValueError(
+                    f"timing_matrix must have shape ({num_units}, {num_slices}), "
+                    f"got {unit_max_indices_matrix.shape}"
+                )
+            # For frac_active fallback, derive mask from non-NaN entries
+            mask = ~np.isnan(unit_max_indices_matrix)
+        else:
+            unit_max_indices_matrix = self.get_unit_timing_per_slice(
+                MIN_RATE_THRESHOLD=MIN_RATE_THRESHOLD
+            )
+            mask = ~np.isnan(unit_max_indices_matrix)
 
         unit_std_indices = np.nanstd(unit_max_indices_matrix, axis=1)
 
@@ -254,9 +279,26 @@ class RateSliceStack:
                 f"{agg_func} is not a valid input option. Must be either median or mean"
             )
 
-        # Split units into two groups based on MIN_FRAC_ACTIVE
-        highly_active_units = np.where(unit_frac_active >= MIN_FRAC_ACTIVE)[0]
-        low_active_units = np.where(unit_frac_active < MIN_FRAC_ACTIVE)[0]
+        # Compute or validate frac_active only when splitting is requested
+        num_units = slice_matrices.shape[0]
+        skip_split = not MIN_FRAC_ACTIVE
+        if skip_split:
+            unit_frac_active = np.ones(num_units)
+            highly_active_units = np.arange(num_units)
+            low_active_units = np.array([], dtype=int)
+        else:
+            if frac_active is not None:
+                frac_active = np.asarray(frac_active, dtype=float)
+                if frac_active.shape != (num_units,):
+                    raise ValueError(
+                        f"frac_active must have shape ({num_units},), "
+                        f"got {frac_active.shape}"
+                    )
+                unit_frac_active = frac_active
+            else:
+                unit_frac_active = np.sum(mask, axis=1) / mask.shape[1]
+            highly_active_units = np.where(unit_frac_active >= MIN_FRAC_ACTIVE)[0]
+            low_active_units = np.where(unit_frac_active < MIN_FRAC_ACTIVE)[0]
 
         highly_active_order = highly_active_units[
             np.argsort(unit_peak_times[highly_active_units])
@@ -265,8 +307,11 @@ class RateSliceStack:
             np.argsort(unit_peak_times[low_active_units])
         ]
 
-        # Cast to int for output only after sorting is done
-        unit_peak_times = np.round(unit_peak_times).astype(int)
+        # Cast to int for output only after sorting is done.
+        # NaN values (units with no active slices) become -1.
+        unit_peak_times_int = np.full(unit_peak_times.shape, -1, dtype=int)
+        valid = ~np.isnan(unit_peak_times)
+        unit_peak_times_int[valid] = np.round(unit_peak_times[valid]).astype(int)
 
         reordered_slice_matrices = (
             slice_matrices[highly_active_order, :, :],
@@ -278,8 +323,8 @@ class RateSliceStack:
             unit_std_indices[low_active_order],
         )
         unit_peak_times = (
-            unit_peak_times[highly_active_order],
-            unit_peak_times[low_active_order],
+            unit_peak_times_int[highly_active_order],
+            unit_peak_times_int[low_active_order],
         )
         unit_frac_active = (
             unit_frac_active[highly_active_order],
@@ -300,6 +345,7 @@ class RateSliceStack:
         MIN_RATE_THRESHOLD=0.1,
         MIN_FRAC=0.3,
         max_lag=10,
+        frac_active=None,
     ):
         """
         Compute slice-to-slice (aka burst-to-burst) similarity along the 0th axis of self.event_stack (U x T x S)
@@ -308,10 +354,18 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cross correlation. These functions can be insepcted further in utils.py
+                                          The default is cross correlation. These functions can be inspected further in utils.py
         MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice valid for that neuron
         MIN_FRAC (float): Maximum fraction of slice that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
+        frac_active (np.ndarray or None): Optional pre-computed fraction-active
+                                          array of shape (U,) to override the internal
+                                          rate-based validity check for computing averages.
+                                          When provided, a unit's average is set to NaN if
+                                          frac_active[u] < (1 - MIN_FRAC). MIN_RATE_THRESHOLD
+                                          still controls which individual slice pairs are computed.
+                                          Compatible sources: SpikeSliceStack.compute_frac_active
+                                          and SpikeData.get_frac_active (frac_per_unit output).
 
         Returns:
         --------
@@ -325,6 +379,15 @@ class RateSliceStack:
         num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
         num_slices = event_stack.shape[2]  # B
+
+        # Validate frac_active override if provided
+        if frac_active is not None:
+            frac_active = np.asarray(frac_active, dtype=float)
+            if frac_active.shape != (num_units,):
+                raise ValueError(
+                    f"frac_active must have shape ({num_units},), "
+                    f"got {frac_active.shape}"
+                )
 
         # Early return for single slice — pairwise comparison undefined (BUG-005)
         if num_slices < 2:
@@ -377,8 +440,13 @@ class RateSliceStack:
                     all_slice_corr_scores[unit, comp_b, ref_b] = max_corr
                     all_slice_corr_scores[unit, ref_b, comp_b] = max_corr
 
-            # If less than MIN_FRAC bursts were skipped
-            if counter / num_slices <= MIN_FRAC:
+            # Check if unit is valid enough to compute an average
+            if frac_active is not None:
+                unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
+            else:
+                unit_valid = counter / num_slices <= MIN_FRAC
+
+            if unit_valid:
                 # Average results over all pairs in lower triangle. Don't want to include diagonol in mean calculation.
                 av_slice_corr_scores[unit] = np.nanmean(
                     all_slice_corr_scores[
@@ -403,7 +471,7 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                        The default is cosine similarity. These functions can be insepcted further in utils.py
+                                        The default is cosine similarity. These functions can be inspected further in utils.py
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
 
         Returns:
@@ -415,11 +483,10 @@ class RateSliceStack:
         """
         # Get dimensions
         event_stack = self.event_stack
-        num_units = event_stack.shape[0]  # N
         num_time_bins = event_stack.shape[1]  # T
-        num_slices = event_stack.shape[2]  # B
+        num_slices = event_stack.shape[2]  # S
 
-        # Early return for single slice — pairwise comparison undefined (BUG-005)
+        # Early return for single slice — pairwise comparison undefined
         if num_slices < 2:
             warnings.warn(
                 "Cannot compute slice-to-slice time correlation with fewer than "
@@ -510,7 +577,7 @@ class RateSliceStack:
         Parameters:
         -----------
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cosine similarity. These functions can be insepcted further in utils.py
+                                          The default is cosine similarity. These functions can be inspected further in utils.py
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
 
         Returns:
@@ -607,7 +674,7 @@ class RateSliceStack:
             units = {
                 i
                 for i in range(N)
-                if getattr(self.neuron_attributes[i], by, _missing) in units
+                if _get_attr(self.neuron_attributes[i], by, _missing) in units
             }
         units = sorted(units)
         neuron_attributes = None
@@ -702,4 +769,95 @@ class RateSliceStack:
             times_start_to_end=new_times,
             step_size=self.step_size,
             neuron_attributes=self.neuron_attributes,
+        )
+
+    def get_unit_timing_per_slice(self, MIN_RATE_THRESHOLD=0.1):
+        """
+        Compute the peak firing rate time bin for each unit in each slice.
+
+        Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the time bin
+        index of the peak firing rate for unit *u* in slice *s*. Units whose
+        peak rate falls below *MIN_RATE_THRESHOLD* in a slice are marked NaN.
+
+        Parameters:
+            MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a unit
+                to count as active in a slice (default: 0.1).
+
+        Returns:
+            timing_matrix (np.ndarray): Array of shape ``(U, S)`` with peak
+                time bin indices. NaN where the unit is inactive.
+
+        Notes:
+            - The returned matrix can be passed to ``rank_order_correlation``
+              to compute Spearman rank correlations between slice pairs.
+        """
+        slice_matrices = self.event_stack
+        unit_max_indices = np.argmax(slice_matrices, axis=1).astype(float)
+        unit_max_rates = np.max(slice_matrices, axis=1)
+        unit_max_indices[unit_max_rates < MIN_RATE_THRESHOLD] = np.nan
+        return unit_max_indices
+
+    def rank_order_correlation(
+        self,
+        timing_matrix=None,
+        MIN_RATE_THRESHOLD=0.1,
+        min_overlap=3,
+        min_overlap_frac=None,
+        n_shuffles=100,
+        seed=1,
+    ):
+        """
+        Compute Spearman rank-order correlation of unit timing between all slice pairs.
+
+        For each pair of slices, only units active in both slices (non-NaN in
+        both columns of the timing matrix) are included. If the overlap falls
+        below the required minimum, the pair is set to NaN.
+
+        When ``n_shuffles > 0``, the rank orders are shuffled *n_shuffles*
+        times for each pair to build a null distribution, and the raw
+        correlation is z-score normalised against it.
+
+        Parameters:
+            timing_matrix (np.ndarray or None): Array of shape ``(U, S)`` with
+                timing values per unit per slice. NaN entries mark inactive
+                units. Typically produced by ``get_unit_timing_per_slice``.
+                When ``None``, computed automatically using
+                ``MIN_RATE_THRESHOLD``.
+            MIN_RATE_THRESHOLD (float): Minimum peak firing rate threshold
+                (default: 0.1). Only used when ``timing_matrix`` is None.
+            min_overlap (int): Minimum number of units that must be active in
+                both slices (default: 3).
+            min_overlap_frac (float or None): Minimum fraction of total units
+                that must be active in both slices (default: None). When
+                provided, the effective threshold is
+                ``max(min_overlap, ceil(min_overlap_frac * U))``.
+            n_shuffles (int): Number of shuffle iterations for z-scoring
+                (default: 100). Set to 0 to return raw Spearman correlations.
+                Values between 1 and 4 are rejected (minimum 5 required for
+                a meaningful null distribution).
+            seed (int or None): Random seed for reproducibility of the shuffle
+                (default: 1).
+
+        Returns:
+            corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of
+                shape ``(S, S)``. When ``n_shuffles > 0``, values are z-scores.
+                When ``n_shuffles == 0``, values are raw Spearman correlations.
+            av_corr (float): Average correlation (or z-score) across all valid
+                lower-triangle pairs.
+            overlap_matrix (PairwiseCompMatrix): Matrix of shape ``(S, S)``
+                with fraction of units active in both slices.
+        """
+        from .utils import _rank_order_correlation_from_timing
+
+        if timing_matrix is None:
+            timing_matrix = self.get_unit_timing_per_slice(
+                MIN_RATE_THRESHOLD=MIN_RATE_THRESHOLD
+            )
+
+        return _rank_order_correlation_from_timing(
+            timing_matrix,
+            min_overlap=min_overlap,
+            min_overlap_frac=min_overlap_frac,
+            n_shuffles=n_shuffles,
+            seed=seed,
         )
