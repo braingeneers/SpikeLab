@@ -316,7 +316,7 @@
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
 
-    <span class="n">base</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">delt</span><span class="p">,</span> <span class="n">tA</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">delt</span><span class="p">,</span> <span class="n">tmax</span> <span class="o">-</span> <span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">delt</span><span class="p">,</span> <span class="n">tA</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">delt</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tmax</span> <span class="o">-</span> <span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
     <span class="k">return</span> <span class="n">base</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">tA</span><span class="p">),</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">delt</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 
 
@@ -738,7 +738,10 @@
     <span class="n">similarities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">similarities</span><span class="p">)</span>
     <span class="n">valid_lags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">valid_lags</span><span class="p">)</span>
 
-    <span class="n">max_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">similarities</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">similarities</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">0</span>
+
+    <span class="n">max_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">similarities</span><span class="p">)</span>
     <span class="n">max_sim</span> <span class="o">=</span> <span class="n">similarities</span><span class="p">[</span><span class="n">max_idx</span><span class="p">]</span>
     <span class="n">max_lag_idx</span> <span class="o">=</span> <span class="n">valid_lags</span><span class="p">[</span><span class="n">max_idx</span><span class="p">]</span>
 
