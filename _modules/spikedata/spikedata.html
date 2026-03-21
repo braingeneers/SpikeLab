@@ -297,6 +297,8 @@
 
 <span class="sd">        Notes:</span>
 <span class="sd">        - This method is a wrapper around the _train_from_i_t_list helper function.</span>
+<span class="sd">        - When ``idces`` is empty and ``N`` is None, defaults to 0 units and</span>
+<span class="sd">          ``length=0``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">idces</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -489,6 +491,14 @@
             <span class="n">length</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;length must not be NaN&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;length must be non-negative, got </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">max_spike</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="n">max_spike</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;length (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">) is shorter than the latest spike time &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">max_spike</span><span class="si">}</span><span class="s2">). Use subtime() to trim spike trains first.&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
 
         <span class="c1"># If a number of units was provided, make the list of spike</span>
@@ -1760,6 +1770,9 @@
 <span class="sd">        ----</span>
 <span class="sd">        - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SpikeData</span><span class="p">([],</span> <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+
         <span class="n">spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">spk_mat</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -1800,6 +1813,9 @@
 <span class="sd">            stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData</span>
 <span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">n_shuffles</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_shuffles must be at least 1.&quot;</span><span class="p">)</span>
+
         <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
 
         <span class="n">shuffled</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1840,7 +1856,15 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData</span>
 <span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - The stack-level ``neuron_attributes`` is ``None`` because each</span>
+<span class="sd">              subset contains a different set of units. Individual ``SpikeData``</span>
+<span class="sd">              objects within the stack carry their own subsetted attributes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">n_subsets</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_subsets must be at least 1.&quot;</span><span class="p">)</span>
+
         <span class="kn">from</span><span class="w"> </span><span class="nn">.spikeslicestack</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeSliceStack</span>
 
         <span class="k">if</span> <span class="n">units_per_subset</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
@@ -2055,6 +2079,11 @@
 <span class="sd">        Returns:</span>
 <span class="sd">        pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">gauss_sigma</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gauss_sigma must be non-negative, got </span><span class="si">{</span><span class="n">gauss_sigma</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">square_width</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;square_width must be non-negative, got </span><span class="si">{</span><span class="n">square_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
         <span class="n">t_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span>
             <span class="n">raster_bin_size_ms</span>
         <span class="p">)</span>  <span class="c1"># Shape: (neurons, time_bins)</span>
@@ -2121,6 +2150,11 @@
 <span class="sd">        delays (np.ndarray, shape (N,)): Lag (in bins) at which peak coupling occurs, relative to lag 0, within the trimmed window.</span>
 <span class="sd">        lags (np.ndarray): Array of lag values from -window_ms to +window_ms.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">window_ms</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;window_ms must be at least 1.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_spike_trig_pop_rate requires at least 2 units.&quot;</span><span class="p">)</span>
+
         <span class="c1"># Bin spike data to a spike matrix</span>
         <span class="n">spike_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
 
@@ -2205,8 +2239,8 @@
         <span class="n">burst_edge_mult_thresh</span><span class="p">,</span>
         <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
         <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-        <span class="n">acc_square_width</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-        <span class="n">acc_gauss_sigma</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">acc_square_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">acc_gauss_sigma</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
         <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
         <span class="n">peak_to_trough</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">pop_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2364,8 +2398,8 @@
         <span class="n">burst_edge_mult_thresh</span><span class="p">,</span>
         <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
         <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-        <span class="n">acc_square_width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="n">acc_gauss_sigma</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">acc_square_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">acc_gauss_sigma</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
         <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
         <span class="n">peak_to_trough</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">pop_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
