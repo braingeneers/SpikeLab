@@ -86,6 +86,8 @@ class SpikeData:
 
         Notes:
         - This method is a wrapper around the _train_from_i_t_list helper function.
+        - When ``idces`` is empty and ``N`` is None, defaults to 0 units and
+          ``length=0``.
         """
         idces = np.asarray(idces)
         if idces.size == 0:
@@ -1524,6 +1526,11 @@ class SpikeData:
         Returns:
             stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData
                 objects. All slices share the same time bounds ``(0, length)``.
+
+        Notes:
+            - The stack-level ``neuron_attributes`` is ``None`` because each
+              subset contains a different set of units. Individual ``SpikeData``
+              objects within the stack carry their own subsetted attributes.
         """
         from .spikeslicestack import SpikeSliceStack
 

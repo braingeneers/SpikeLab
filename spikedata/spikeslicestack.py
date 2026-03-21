@@ -328,7 +328,6 @@ class SpikeSliceStack:
                 shifted_train,
                 length=duration,
                 N=sd.N,
-                neuron_attributes=sd.neuron_attributes,
             )
             dense_list.append(temp_sd.sparse_raster(bin_size=bin_size).toarray())
         return np.stack(dense_list, axis=2)

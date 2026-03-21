@@ -741,7 +741,7 @@ class RateSliceStack:
 
         Parameters:
         -----------
-        - units (list or array): Slice indices to extract.
+        - slices (list or array): Slice indices to extract.
 
         Returns:
         --------
