@@ -462,18 +462,14 @@ def plot_burst_sensitivity(
             np.linspace(thresholds[0], thresholds[-1], min(n_thr, 6)),
             [
                 f"{v:.1f}"
-                for v in np.linspace(
-                    thresholds[0], thresholds[-1], min(n_thr, 6)
-                )
+                for v in np.linspace(thresholds[0], thresholds[-1], min(n_thr, 6))
             ],
         )
         yticks = (
             np.linspace(dist_values[0], dist_values[-1], min(n_dist, 6)),
             [
                 f"{v:.0f}"
-                for v in np.linspace(
-                    dist_values[0], dist_values[-1], min(n_dist, 6)
-                )
+                for v in np.linspace(dist_values[0], dist_values[-1], min(n_dist, 6))
             ],
         )
         fs = font_size or 14
@@ -496,9 +492,7 @@ def plot_burst_sensitivity(
 
         # Multiple conditions — create a subplot row
         n_cond = len(labels)
-        fig, axes_row = plt.subplots(
-            1, n_cond, figsize=(5 * n_cond, 4), squeeze=False
-        )
+        fig, axes_row = plt.subplots(1, n_cond, figsize=(5 * n_cond, 4), squeeze=False)
         axes_row = axes_row[0]
 
         # Compute shared colour range across all conditions
@@ -1091,9 +1085,7 @@ def plot_recording(
         # Create main panel axes with shared x
         main_axes = []
         for i in range(n_panels):
-            ax = fig.add_subplot(
-                gs[i, 0], sharex=main_axes[0] if main_axes else None
-            )
+            ax = fig.add_subplot(gs[i, 0], sharex=main_axes[0] if main_axes else None)
             main_axes.append(ax)
 
         # Create colorbar axes (one per row, hidden by default)

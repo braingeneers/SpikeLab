@@ -1822,9 +1822,7 @@ class SpikeData:
         if window_ms < 1:
             raise ValueError("window_ms must be at least 1.")
         if self.N < 2:
-            raise ValueError(
-                "compute_spike_trig_pop_rate requires at least 2 units."
-            )
+            raise ValueError("compute_spike_trig_pop_rate requires at least 2 units.")
 
         # Bin spike data to a spike matrix
         spike_matrix = self.sparse_raster(bin_size=bin_size).toarray()

@@ -440,9 +440,7 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     # for each possible lag and it is normalized so each value is between -1 and 1
     # Normalization: autocorrelation at zero lag for each signal
     auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[len(ref_rate) // 2]
-    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[
-        len(comp_rate) // 2
-    ]
+    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[len(comp_rate) // 2]
     denom = auto_ref * auto_comp
     if denom <= 0:
         return 0.0, 0

@@ -233,9 +233,7 @@ class SpikeSliceStack:
             kept_indices = sorted(set(int(u) for u in units))
             for u in kept_indices:
                 if u < 0 or u >= self.N:
-                    raise ValueError(
-                        f"Unit index {u} out of range for {self.N} units."
-                    )
+                    raise ValueError(f"Unit index {u} out of range for {self.N} units.")
 
         new_spike_stack = []
         for sd in self.spike_stack:
@@ -1000,14 +998,10 @@ class SpikeSliceStack:
             ) from e
 
         if unit_idx < 0 or unit_idx >= self.N:
-            raise IndexError(
-                f"unit_idx {unit_idx} out of range for {self.N} units."
-            )
+            raise IndexError(f"unit_idx {unit_idx} out of range for {self.N} units.")
 
         # Extract per-slice spike times for this unit
-        spike_times_per_slice = [
-            sd.train[unit_idx] for sd in self.spike_stack
-        ]
+        spike_times_per_slice = [sd.train[unit_idx] for sd in self.spike_stack]
 
         standalone = ax is None
         if standalone:
