@@ -86,6 +86,8 @@ class SpikeData:
 
         Notes:
         - This method is a wrapper around the _train_from_i_t_list helper function.
+        - When ``idces`` is empty and ``N`` is None, defaults to 0 units and
+          ``length=0``.
         """
         idces = np.asarray(idces)
         if idces.size == 0:
@@ -263,6 +265,14 @@ class SpikeData:
             length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
         if np.isnan(length):
             raise ValueError("length must not be NaN")
+        if length < 0:
+            raise ValueError(f"length must be non-negative, got {length}")
+        max_spike = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
+        if length < max_spike:
+            raise ValueError(
+                f"length ({length}) is shorter than the latest spike time "
+                f"({max_spike}). Use subtime() to trim spike trains first."
+            )
         self.length = length
 
         # If a number of units was provided, make the list of spike
@@ -1450,6 +1460,9 @@ class SpikeData:
         ----
         - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
+        if self.N == 0:
+            return SpikeData([], length=self.length, metadata=self.metadata)
+
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if (spk_mat > 1).any():
             warnings.warn(
@@ -1487,6 +1500,9 @@ class SpikeData:
             stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData
                 objects. All slices share the same time bounds ``(0, length)``.
         """
+        if n_shuffles < 1:
+            raise ValueError("n_shuffles must be at least 1.")
+
         from .spikeslicestack import SpikeSliceStack
 
         shuffled = []
@@ -1524,7 +1540,15 @@ class SpikeData:
         Returns:
             stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData
                 objects. All slices share the same time bounds ``(0, length)``.
+
+        Notes:
+            - The stack-level ``neuron_attributes`` is ``None`` because each
+              subset contains a different set of units. Individual ``SpikeData``
+              objects within the stack carry their own subsetted attributes.
         """
+        if n_subsets < 1:
+            raise ValueError("n_subsets must be at least 1.")
+
         from .spikeslicestack import SpikeSliceStack
 
         if units_per_subset > self.N:
@@ -1727,6 +1751,11 @@ class SpikeData:
         Returns:
         pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
         """
+        if gauss_sigma < 0:
+            raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
+        if square_width < 0:
+            raise ValueError(f"square_width must be non-negative, got {square_width}")
+
         t_spk_mat = self.sparse_raster(
             raster_bin_size_ms
         )  # Shape: (neurons, time_bins)
@@ -1790,6 +1819,11 @@ class SpikeData:
         delays (np.ndarray, shape (N,)): Lag (in bins) at which peak coupling occurs, relative to lag 0, within the trimmed window.
         lags (np.ndarray): Array of lag values from -window_ms to +window_ms.
         """
+        if window_ms < 1:
+            raise ValueError("window_ms must be at least 1.")
+        if self.N < 2:
+            raise ValueError("compute_spike_trig_pop_rate requires at least 2 units.")
+
         # Bin spike data to a spike matrix
         spike_matrix = self.sparse_raster(bin_size=bin_size).toarray()
 
@@ -1871,8 +1905,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=10,
-        acc_gauss_sigma=10,
+        acc_square_width=8,
+        acc_gauss_sigma=8,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,
@@ -2027,8 +2061,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=5,
-        acc_gauss_sigma=5,
+        acc_square_width=8,
+        acc_gauss_sigma=8,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,

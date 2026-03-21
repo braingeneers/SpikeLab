@@ -93,7 +93,9 @@ def random_spikedata(units, spikes, rate=1.0):
     )
 
 
-class TestSpikeData:
+class TestSpikeDataConstruction:
+    """Tests for SpikeData constructors: __init__, from_idces_times, from_events, from_raster, from_thresholding, from_neo_spiketrains, sd_from_counts."""
+
     @staticmethod
     def assert_spikedata_equal(sda, sdb, msg=None):
         """
@@ -104,33 +106,6 @@ class TestSpikeData:
         """
         for a, b in zip(sda.train, sdb.train):
             assert len(a) == len(b) and np.allclose(a, b), msg
-
-    @staticmethod
-    def assert_spikedata_subtime(sd, sdsub, tmin, tmax, msg=None):
-        """
-        Asserts that a subtime of a SpikeData is correct.
-
-        Tests:
-        (Test Case 1) Checks that the subtime has the correct length and that all spikes are within the expected window.
-        """
-        assert len(sd.train) == len(sdsub.train)
-        assert sdsub.length == tmax - tmin
-        for n, nsub in zip(sd.train, sdsub.train):
-            assert np.all(nsub <= tmax - tmin), msg
-            if tmin > 0:
-                assert np.all(nsub > 0), msg
-                n_in_range = np.sum((n > tmin) & (n <= tmax))
-            else:
-                assert np.all(nsub >= 0), msg
-                n_in_range = np.sum(n <= tmax)
-            assert len(nsub) == n_in_range, msg
-
-    @staticmethod
-    def assert_neuron_attributes_equal(nda, ndb, msg=None):
-        """Assert that two lists of neuron attributes are equal elementwise."""
-        assert len(nda) == len(ndb)
-        for n, m in zip(nda, ndb):
-            assert n == m
 
     def test_sd_from_counts(self):
         """
@@ -307,6 +282,695 @@ class TestSpikeData:
         with pytest.raises(ValueError):
             sd.frames(200)
 
+    @staticmethod
+    def assert_spikedata_subtime(sd, sdsub, tmin, tmax, msg=None):
+        """
+        Asserts that a subtime of a SpikeData is correct.
+
+        Tests:
+        (Test Case 1) Checks that the subtime has the correct length and that all spikes are within the expected window.
+        """
+        assert len(sd.train) == len(sdsub.train)
+        assert sdsub.length == tmax - tmin
+        for n, nsub in zip(sd.train, sdsub.train):
+            assert np.all(nsub <= tmax - tmin), msg
+            if tmin > 0:
+                assert np.all(nsub > 0), msg
+                n_in_range = np.sum((n > tmin) & (n <= tmax))
+            else:
+                assert np.all(nsub >= 0), msg
+                n_in_range = np.sum(n <= tmax)
+            assert len(nsub) == n_in_range, msg
+
+    def test_from_thresholding(self):
+        """
+        Tests from_thresholding static constructor.
+
+        Tests:
+            (Test Case 1) Detects spikes from synthetic raw data.
+            (Test Case 2) raw_data and raw_time are attached.
+            (Test Case 3) Direction 'up' only detects positive crossings.
+            (Test Case 4) Filter disabled with filter=False.
+        """
+        rng = np.random.default_rng(42)
+        fs_Hz = 10000.0
+        n_ch = 2
+        n_samples = 10000
+        raw = rng.normal(0, 1, (n_ch, n_samples))
+        # Insert large spikes
+        raw[0, 500] = 20.0
+        raw[0, 5000] = 20.0
+        raw[1, 3000] = -20.0
+
+        sd = SpikeData.from_thresholding(
+            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False
+        )
+        assert sd.N == n_ch
+        assert sd.raw_data.shape == (n_ch, n_samples)
+        assert len(sd.raw_time) == n_samples
+        # At least some spikes should be detected
+        total_spikes = sum(len(t) for t in sd.train)
+        assert total_spikes > 0
+
+        # Direction 'up' should not detect negative-only spikes on channel 1
+        sd_up = SpikeData.from_thresholding(
+            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False, direction="up"
+        )
+        # Channel 0 should have spikes, channel 1 might not (only negative spike)
+        assert len(sd_up.train[0]) > 0
+
+    def test_init_all_empty_trains_no_length(self):
+        """
+        SpikeData with all-empty trains and no explicit length defaults to duration 0.
+
+        Tests:
+            (Test Case 1) Verify that SpikeData([[], [], []], length=None) creates
+                a valid object with length=0.0 and the correct number of units.
+        """
+        sd = SpikeData([[], [], []], length=None)
+        assert sd.length == 0.0
+        assert sd.N == 3
+        assert all(len(t) == 0 for t in sd.train)
+
+    def test_init_duplicate_spike_times(self):
+        """
+        Duplicate spike times are preserved in the train.
+
+        Tests:
+        (Test Case 1) SpikeData with duplicate spike times preserves all of them.
+        """
+        sd = SpikeData([[1.0, 1.0, 2.0]], length=10.0)
+        assert sd.N == 1
+        np.testing.assert_array_equal(sd.train[0], [1.0, 1.0, 2.0])
+
+    def test_init_non_monotonic_sorted(self):
+        """
+        Non-monotonic spike times are sorted on construction.
+
+        Tests:
+        (Test Case 1) SpikeData sorts an unsorted input train.
+        """
+        sd = SpikeData([[5.0, 1.0, 3.0]], length=10.0)
+        np.testing.assert_array_equal(sd.train[0], [1.0, 3.0, 5.0])
+
+    def test_init_n_larger_than_train_pads(self):
+        """
+        SpikeData.__init__ pads train with empty arrays when N > len(train).
+
+        Tests:
+            (Test Case 1) N=5 with 2 trains produces 5 units.
+            (Test Case 2) Extra units have empty spike arrays.
+        """
+        sd = SpikeData([[10.0], [20.0]], N=5, length=30.0)
+        assert sd.N == 5
+        for i in range(2, 5):
+            assert len(sd.train[i]) == 0
+
+    def test_init_n_smaller_than_train_ignored(self):
+        """
+        SpikeData.__init__ ignores N when N < len(train).
+
+        Tests:
+            (Test Case 1) N=1 with 3 trains still produces 3 units.
+        """
+        sd = SpikeData([[10.0], [20.0], [30.0]], N=1, length=30.0)
+        assert sd.N == 3
+
+    def test_init_negative_length(self):
+        """
+        SpikeData.__init__ rejects negative length with ValueError.
+
+        Tests:
+            (Test Case 1) Negative length raises ValueError.
+        """
+        with pytest.raises(ValueError, match="non-negative"):
+            SpikeData([[]], length=-5.0)
+
+    def test_init_length_shorter_than_max_spike(self):
+        """
+        SpikeData.__init__ rejects length shorter than the latest spike time.
+
+        Tests:
+            (Test Case 1) length=10 with spikes at t=50 raises ValueError.
+        """
+        with pytest.raises(ValueError, match="shorter than the latest spike"):
+            SpikeData([[50.0]], length=10.0)
+
+    def test_from_idces_times_mismatched_lengths(self):
+        """
+        from_idces_times with idces and times of different lengths.
+
+        Tests:
+            (Test Case 1) Mismatched lengths raise IndexError from boolean indexing.
+        """
+        with pytest.raises(IndexError):
+            SpikeData.from_idces_times([0, 0, 1], [10.0, 20.0], length=30.0)
+
+    def test_from_idces_times_negative_indices(self):
+        """
+        from_idces_times with negative unit indices.
+
+        Tests:
+            (Test Case 1) Negative indices are accepted by numpy indexing.
+
+        Notes:
+            - Negative indices wrap around in numpy, which may produce
+              unexpected unit assignments.
+        """
+        sd = SpikeData.from_idces_times([-1, 0], [10.0, 20.0], N=3, length=30.0)
+        assert sd.N == 3
+
+    def test_from_events_negative_times(self):
+        """
+        from_events with negative time values.
+
+        Tests:
+            (Test Case 1) Negative times are accepted and sorted.
+        """
+        sd = SpikeData.from_events([(0, -5.0), (0, 10.0)], length=20.0)
+        assert sd.train[0][0] == -5.0
+
+    def test_from_raster_all_zeros(self):
+        """
+        from_raster with an all-zero raster.
+
+        Tests:
+        (Test Case 1) Produces a SpikeData with all empty spike trains.
+        (Test Case 2) N matches the number of rows in the raster.
+        """
+        raster = np.zeros((3, 5))
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        assert sd.N == 3
+        for train in sd.train:
+            assert len(train) == 0
+
+    def test_from_raster_single_bin(self):
+        """
+        from_raster with a single-bin raster.
+
+        Tests:
+        (Test Case 1) Length equals 1 * bin_size_ms.
+        (Test Case 2) Spike times are correctly placed within the single bin.
+        """
+        raster = np.array([[2], [0]])
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        np.testing.assert_equal(sd.length, 10.0)
+        assert sd.N == 2
+        # Unit 0 has 2 spikes evenly spaced in the bin [0, 10)
+        # linspace(0, 10, 4)[1:-1] = [2.5, 5.0, 7.5] ... wait, n_spikes=2 so
+        # linspace(0, 10, 4)[1:-1] = [10/3, 20/3] approx [3.33, 6.67]
+        assert len(sd.train[0]) == 2
+        assert len(sd.train[1]) == 0
+
+    def test_from_raster_negative_counts(self):
+        """
+        from_raster with negative values in the raster.
+
+        Tests:
+            (Test Case 1) Negative values are cast to int and treated as counts.
+
+        Notes:
+            - Negative counts produce negative spike counts per bin; nonzero()
+              still finds them. This documents current behavior.
+        """
+        raster = np.array([[-1, 0], [0, 1]])
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        assert sd.N == 2
+
+    def test_from_raster_float_counts(self):
+        """
+        from_raster with non-integer float values.
+
+        Tests:
+            (Test Case 1) Floats are cast to int via .astype(int) (truncation).
+        """
+        raster = np.array([[1.9, 0.0], [0.0, 2.5]])
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        assert len(sd.train[0]) == 1
+        assert len(sd.train[1]) == 2
+
+    def test_from_raster_large_count_per_bin(self):
+        """
+        from_raster with a large spike count in one bin.
+
+        Tests:
+            (Test Case 1) 100 spikes in one bin are spaced within the bin.
+            (Test Case 2) All spike times are within the bin boundaries.
+        """
+        raster = np.array([[100]])
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        assert len(sd.train[0]) == 100
+        assert sd.train[0][0] > 0
+        assert sd.train[0][-1] < 10.0
+
+    def test_from_thresholding_all_zero_data(self):
+        """
+        from_thresholding with flat-zero data (dead channel scenario).
+
+        Tests:
+            (Test Case 1) All-zero input produces SpikeData with zero spikes.
+        """
+        data = np.zeros((2, 1000))
+        sd = SpikeData.from_thresholding(data, fs_Hz=20000.0, filter=False)
+        total = sum(len(t) for t in sd.train)
+        assert total == 0
+
+    def test_from_thresholding_single_channel(self):
+        """
+        from_thresholding with a single channel (1, T) input.
+
+        Tests:
+            (Test Case 1) Single channel input produces valid SpikeData.
+        """
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal((1, 10000))
+        sd = SpikeData.from_thresholding(data, fs_Hz=20000.0, filter=False)
+        assert sd.N >= 0
+
+    def test_from_thresholding_1d_input(self):
+        """
+        from_thresholding with 1D input array.
+
+        Tests:
+            (Test Case 1) 1D input raises an error during processing.
+
+        Notes:
+            - The std computation with axis=1 will fail on 1D input.
+        """
+        data = np.zeros(1000)
+        with pytest.raises((ValueError, np.exceptions.AxisError, IndexError)):
+            SpikeData.from_thresholding(data, fs_Hz=20000.0, filter=False)
+
+    def test_nan_spike_times_rejected(self):
+        """
+        SpikeData constructor rejects NaN spike times with ValueError.
+
+        Tests:
+            (Test Case 1) NaN in first unit raises ValueError.
+            (Test Case 2) NaN in second unit raises ValueError with correct unit index.
+            (Test Case 3) Empty trains and trains without NaN are accepted.
+        """
+        with pytest.raises(ValueError, match="unit 0.*NaN"):
+            SpikeData([np.array([1.0, np.nan, 5.0])], length=10.0)
+
+        with pytest.raises(ValueError, match="unit 1.*NaN"):
+            SpikeData([np.array([1.0, 2.0]), np.array([3.0, np.nan])], length=10.0)
+
+        # Empty trains and clean trains are fine
+        sd = SpikeData([np.array([]), np.array([1.0, 2.0])], length=10.0)
+        assert sd.N == 2
+
+
+class TestSpikeDataSlicing:
+    """Tests for SpikeData slicing methods: subset, subtime, frames, __getitem__, append, concatenate_spike_data."""
+
+    @staticmethod
+    def assert_spikedata_equal(sda, sdb, msg=None):
+        """
+        Asserts that two SpikeData objects contain the same data.
+
+        Tests:
+        (Test Case 1) Compares the spike trains for equality in length and values (within tolerance).
+        """
+        for a, b in zip(sda.train, sdb.train):
+            assert len(a) == len(b) and np.allclose(a, b), msg
+
+    def test_append(self):
+        """
+        Tests append() concatenates two SpikeData objects in time.
+
+        Tests:
+            (Test Case 1) Result has combined length.
+            (Test Case 2) Spike times from second object are offset.
+            (Test Case 3) Same N preserved.
+            (Test Case 4) Different N raises ValueError.
+            (Test Case 5) Offset parameter works.
+        """
+        sd1 = SpikeData([[5.0, 10.0], [3.0]], length=20.0)
+        sd2 = SpikeData([[1.0, 2.0], [4.0]], length=10.0)
+
+        combined = sd1.append(sd2)
+        assert combined.N == 2
+        assert combined.length == pytest.approx(30.0)
+        # sd2 spikes shifted by sd1.length (20.0)
+        np.testing.assert_array_almost_equal(combined.train[0], [5.0, 10.0, 21.0, 22.0])
+        np.testing.assert_array_almost_equal(combined.train[1], [3.0, 24.0])
+
+        # Different N raises
+        sd3 = SpikeData([[1.0]], length=10.0)
+        with pytest.raises(ValueError, match="different N"):
+            sd1.append(sd3)
+
+        # With offset
+        combined_offset = sd1.append(sd2, offset=5.0)
+        assert combined_offset.length == pytest.approx(35.0)
+        np.testing.assert_array_almost_equal(
+            combined_offset.train[0], [5.0, 10.0, 26.0, 27.0]
+        )
+
+    def test_concatenate_spike_data(self):
+        """
+        Tests concatenate_spike_data() adds units from another SpikeData.
+
+        Tests:
+            (Test Case 1) N increases by the added units.
+            (Test Case 2) Original trains preserved.
+            (Test Case 3) New trains appended.
+            (Test Case 4) In-place mutation.
+        """
+        sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=10.0)
+        sd2 = SpikeData([[5.0, 6.0]], length=10.0)
+
+        original_n = sd1.N
+        sd1.concatenate_spike_data(sd2)
+        assert sd1.N == original_n + 1
+        assert len(sd1.train) == 3
+        np.testing.assert_array_almost_equal(sd1.train[0], [1.0, 2.0])
+        np.testing.assert_array_almost_equal(sd1.train[2], [5.0, 6.0])
+
+    def test_concatenate_spike_data_different_length(self):
+        """
+        Tests concatenate_spike_data when second SpikeData has different length.
+
+        Tests:
+            (Test Case 1) Second SpikeData is subtimed to first's length.
+        """
+        sd1 = SpikeData([[1.0, 2.0]], length=10.0)
+        sd2 = SpikeData([[5.0, 15.0]], length=20.0)
+
+        sd1.concatenate_spike_data(sd2)
+        assert sd1.N == 2
+        # sd2 subtimed to [0, 10) so spike at 15 is removed
+        assert len(sd1.train[1]) == 1
+        np.testing.assert_array_almost_equal(sd1.train[1], [5.0])
+
+    def test_frames_length_equals_recording(self):
+        """
+        frames() with window length equal to the full recording length.
+
+        Tests:
+        (Test Case 1) Verify that frames(length) returns exactly 1 SpikeSliceStack
+        containing 1 slice when length equals the recording length.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        stack = sd.frames(100.0)
+        assert isinstance(stack, SpikeSliceStack)
+        assert len(stack.spike_stack) == 1
+
+    def test_concatenate_mutates_self(self):
+        """
+        concatenate_spike_data mutates self and leaves the other unchanged.
+
+        Tests:
+        (Test Case 1) After concatenation, sd1.N equals the sum of original N values.
+        (Test Case 2) sd1 has the correct number of trains.
+        (Test Case 3) sd2 is unchanged (same N and same trains).
+        """
+        sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=100.0)
+        sd2 = SpikeData([[10.0], [20.0], [30.0]], length=100.0)
+        sd2_N_orig = sd2.N
+        sd2_trains_orig = [t.copy() for t in sd2.train]
+
+        sd1.concatenate_spike_data(sd2)
+
+        assert sd1.N == 5
+        assert len(sd1.train) == 5
+
+        # sd2 should be unchanged
+        assert sd2.N == sd2_N_orig
+        assert len(sd2.train) == len(sd2_trains_orig)
+        for orig, current in zip(sd2_trains_orig, sd2.train):
+            np.testing.assert_array_equal(orig, current)
+
+    def test_subset_empty_units(self):
+        """
+        Subset with an empty units list returns N=0.
+
+        Tests:
+        (Test Case 1) Result has N=0 and no trains.
+        (Test Case 2) Length is preserved from the original.
+        """
+        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
+        sub = sd.subset(units=[])
+        assert sub.N == 0
+        assert len(sub.train) == 0
+        np.testing.assert_equal(sub.length, 50.0)
+
+    def test_subset_duplicate_indices(self):
+        """
+        Subset deduplicates unit indices.
+
+        Tests:
+        (Test Case 1) Passing [0, 0, 1] yields N=2, not N=3, because subset treats
+        units as a set.
+        """
+        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
+        sub = sd.subset(units=[0, 0, 1])
+        assert sub.N == 2
+
+    def test_subtime_start_equals_end(self):
+        """
+        subtime raises ValueError when start equals end.
+
+        Tests:
+        (Test Case 1) subtime(10.0, 10.0) raises ValueError because the range is empty.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0]], length=50.0)
+        with pytest.raises(ValueError):
+            sd.subtime(10.0, 10.0)
+
+    def test_subtime_no_spikes_in_window(self):
+        """
+        subtime with a window containing no spikes.
+
+        Tests:
+        (Test Case 1) Returns a valid SpikeData with empty trains and correct length.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=100.0)
+        sub = sd.subtime(40.0, 50.0)
+        assert sub.N == 1
+        np.testing.assert_equal(sub.length, 10.0)
+        assert len(sub.train[0]) == 0
+
+    def test_subtime_boundary_inclusion(self):
+        """
+        subtime uses half-open interval [start, end).
+
+        Tests:
+        (Test Case 1) A spike at exactly start is included.
+        (Test Case 2) A spike at exactly end is excluded.
+
+        Notes:
+        - subtime filters with (t >= start) & (t < end), so it is half-open.
+        """
+        sd = SpikeData([[10.0, 20.0]], length=50.0)
+        sub = sd.subtime(10.0, 20.0)
+        # After shift, spike at 10.0 becomes 0.0; spike at 20.0 is excluded
+        assert len(sub.train[0]) == 1
+        np.testing.assert_almost_equal(sub.train[0][0], 0.0)
+
+    def test_subset_out_of_bounds_index(self):
+        """
+        Subset with an out-of-bounds unit index.
+
+        Tests:
+        (Test Case 1) Passing units=[99] when N=3 returns an empty SpikeData
+        because no train index matches 99.
+        """
+        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
+        sub = sd.subset(units=[99])
+        assert sub.N == 0
+        assert len(sub.train) == 0
+
+    def test_subtime_none_none_full_copy(self):
+        """
+        subtime with start=None, end=None returns a full copy.
+
+        Tests:
+            (Test Case 1) All spikes are preserved.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0]], length=30.0)
+        result = sd[:]
+        assert result.N == 2
+        total = sum(len(t) for t in result.train)
+        assert total == 3
+
+    def test_subtime_start_gt_end_raises(self):
+        """
+        subtime with start > end raises ValueError.
+
+        Tests:
+            (Test Case 1) subtime(30, 10) raises ValueError.
+        """
+        sd = SpikeData([[10.0, 20.0, 40.0]], length=50.0)
+        with pytest.raises(ValueError):
+            sd.subtime(30, 10)
+
+    def test_frames_length_not_dividing_recording(self):
+        """
+        frames with length that does not evenly divide the recording.
+
+        Tests:
+            (Test Case 1) Partial window at the end is excluded.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0, 45.0]], length=50.0)
+        stack = sd.frames(length=20.0)
+        assert len(stack.spike_stack) == 2
+
+    def test_getitem_slice_dispatches_subtime(self):
+        """
+        __getitem__ with a slice dispatches to subtime.
+
+        Tests:
+            (Test Case 1) sd[10:30] returns a SpikeData with correct time range.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0, 35.0]], length=40.0)
+        result = sd[10:30]
+        assert result.length == pytest.approx(20.0)
+        assert len(result.train[0]) == 2
+
+    def test_getitem_list_dispatches_subset(self):
+        """
+        __getitem__ with a list dispatches to subset.
+
+        Tests:
+            (Test Case 1) sd[[0, 2]] returns SpikeData with 2 units.
+        """
+        sd = SpikeData([[10.0], [20.0], [30.0]], length=40.0)
+        result = sd[[0, 2]]
+        assert result.N == 2
+
+    def test_subtime_always_shifts_to_zero(self):
+        """
+        Verify subtime shifts spike times so the new window starts at t=0.
+
+        Tests:
+            (Test Case 1) Spike times are shifted by the start offset.
+            (Test Case 2) Length equals the window size (end - start).
+        """
+        sd = SpikeData([[50, 100, 150]], length=200)
+        result = sd.subtime(50, 160)
+        # subtime uses [start, end), so 50, 100, 150 are all included
+        np.testing.assert_array_equal(result.train[0], [0, 50, 100])
+        assert result.length == 110
+
+    def test_concatenate_spike_data_preserves_raw(self):
+        """
+        Verify concatenate_spike_data does not modify raw_data or raw_time.
+
+        Tests:
+            (Test Case 1) raw_data is unchanged after concatenating units.
+            (Test Case 2) raw_time is unchanged after concatenating units.
+        """
+        raw1 = np.ones((2, 10))
+        time1 = np.arange(10, dtype=float)
+        sd1 = SpikeData([[1, 2]], length=10, raw_data=raw1, raw_time=time1)
+        sd2 = SpikeData([[3, 4]], length=10)
+        sd1.concatenate_spike_data(sd2)
+        assert sd1.raw_data.shape == (2, 10)  # unchanged
+        assert sd1.raw_time.shape == (10,)  # unchanged
+        np.testing.assert_array_equal(sd1.raw_data, raw1)
+
+    def test_append_negative_offset(self):
+        """
+        append with a negative offset.
+
+        Tests:
+        (Test Case 1) The resulting length is self.length + other.length + offset,
+        which is shorter than the sum of both lengths.
+        (Test Case 2) Spike times from the appended data are shifted by
+        self.length + offset.
+        """
+        sd1 = SpikeData([[5.0]], length=20.0)
+        sd2 = SpikeData([[3.0]], length=10.0)
+        result = sd1.append(sd2, offset=-5)
+        # length = 20 + 10 + (-5) = 25
+        np.testing.assert_equal(result.length, 25.0)
+        # Appended spike at 3.0 shifted by self.length + offset = 20 + (-5) = 15
+        expected_second_spike = 3.0 + 20.0 + (-5)
+        np.testing.assert_almost_equal(result.train[0][1], expected_second_spike)
+
+    def test_append_to_empty_spikedata(self):
+        """
+        append to a SpikeData with no spikes.
+
+        Tests:
+        (Test Case 1) Result contains the appended spikes shifted by the
+        empty SpikeData's length.
+        (Test Case 2) The resulting length equals the sum of both lengths.
+        """
+        sd_empty = SpikeData([[]], length=10.0)
+        sd_data = SpikeData([[5.0, 8.0]], length=20.0)
+        result = sd_empty.append(sd_data, offset=0)
+        # length = 10 + 20 + 0 = 30
+        np.testing.assert_equal(result.length, 30.0)
+        # Spikes shifted by sd_empty.length = 10
+        np.testing.assert_array_almost_equal(result.train[0], [15.0, 18.0])
+
+    def test_append_zero_length_spikedata(self):
+        """
+        append with a zero-length SpikeData.
+
+        Tests:
+            (Test Case 1) Appending zero-length data does not change spike count.
+        """
+        sd = SpikeData([[10.0, 20.0]], length=30.0)
+        empty = SpikeData([[]], length=0.0)
+        sd.append(empty)
+        assert len(sd.train[0]) == 2
+        assert sd.length == 30.0
+
+    def test_concatenate_with_self(self):
+        """
+        concatenate_spike_data with self doubles the unit count.
+
+        Tests:
+            (Test Case 1) N doubles after concatenation.
+            (Test Case 2) Total spikes double.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0]], length=30.0)
+        original_n = sd.N
+        original_spikes = sum(len(t) for t in sd.train)
+        sd.concatenate_spike_data(sd)
+        assert sd.N == 2 * original_n
+        assert sum(len(t) for t in sd.train) == 2 * original_spikes
+
+    def test_subtime_raw_data_shifted(self):
+        """
+        Verify subtime shifts raw_time to start at 0.
+
+        Tests:
+            (Test Case 1) raw_time is shifted so the first sample is at 0.
+        """
+        raw_time = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        raw_data = np.arange(6, dtype=float).reshape(1, 6)
+        sd = SpikeData([[2, 3, 4]], length=6, raw_data=raw_data, raw_time=raw_time)
+        result = sd.subtime(2, 5)
+        assert result.raw_time[0] == 0.0
+        np.testing.assert_array_almost_equal(result.raw_time, [0.0, 1.0, 2.0])
+
+    def test_empty_spikedata_subset(self):
+        """
+        SpikeData.subset([]) produces an N=0 SpikeData.
+
+        Tests:
+            (Test Case 1) Subsetting with empty list returns N=0.
+            (Test Case 2) The resulting SpikeData has length preserved.
+            (Test Case 3) train is an empty list.
+        """
+        sd = SpikeData(
+            [np.array([1.0, 2.0]), np.array([3.0])],
+            length=10.0,
+        )
+        sub = sd.subset([])
+        assert sub.N == 0
+        assert sub.length == 10.0
+        assert len(sub.train) == 0
+
+
+class TestSpikeDataRates:
+    """Tests for SpikeData rate and binning methods: rates, raster, sparse_raster, binned, binned_meanrate, get_pop_rate, resampled_isi, interspike_intervals."""
+
     def test_raster(self):
         """
         Tests raster and sparse_raster methods for spike count preservation and binning rules.
@@ -366,8 +1030,6 @@ class TestSpikeData:
         with pytest.raises(ValueError):
             sd.rates("bad_unit")
 
-    # Removed tests for deprecated utilities: pearson, burstiness_index
-
     def test_interspike_intervals(self):
         """
         Tests interspike_intervals() for correct ISI calculation.
@@ -395,6 +1057,377 @@ class TestSpikeData:
         spikes = SpikeData.from_idces_times(np.zeros(N, int), truth.cumsum())
         ii = spikes.interspike_intervals()
         assert np.allclose(ii[0], truth[1:])
+
+    def test_binning_doesnt_lose_spikes(self):
+        """
+        Tests that binning does not lose spikes.
+        Tests:
+        (Method 1) Generates a Poisson spike train
+        (Test Case 1) Tests that the sum of binned spikes equals the original count.
+        """
+        N = 1000
+        times = np.cumsum(stats.expon.rvs(size=N))
+        spikes = SpikeData([times])
+        assert sum(spikes.binned(5)) == N
+
+    def test_binning(self):
+        """
+        Tests binned() method for correct bin assignment.
+
+        Tests:
+        (Test Case 1) Tests that binning with size 4 produces the expected counts.
+        """
+        # Bins are left-open, right-closed: (0,4], (4,8], (8,12], (12,16], (16,20], (20,24], (24,28]
+        # t=1→0, t=2→0, t=5→1, t=15→3, t=16→3, t=20→4, t=22→5, t=25→6
+        spikes = SpikeData([[1, 2, 5, 15, 16, 20, 22, 25]])
+        assert list(spikes.binned(4)) == [2, 1, 0, 2, 1, 1, 1]
+
+    def test_isi_rate(self):
+        """
+        Tests resampled_isi and _resampled_isi for correct ISI-based rate calculation.
+
+        Tests:
+        (Test Case 1) Tests that a constant-rate neuron yields the correct rate at all times.
+        (Test Case 2) Tests correct rates for varying spike intervals.
+        """
+        spikes = np.arange(10)
+        when = np.arange(1, 9, 0.01)  # sorted, evenly spaced, within spike range
+        assert np.all(
+            np.isclose(spikedata._resampled_isi(spikes, when, sigma_ms=0.0), 1000)
+        )
+
+    def test_randomize_preserves_marginals(self):
+        """
+        Tests that spikedata.randomize preserves row and column marginals.
+
+        Tests:
+        (Test Case 1) Tests that spikedata.randomize preserves row and column marginals.
+        (Test Case 2) Tests that the output is still binary and has the same shape.
+        """
+        rng = np.random.default_rng(0)
+        N, T = 10, 50
+        raster = (rng.random((N, T)) < 0.1).astype(float)
+
+        row_sum = raster.sum(axis=1)
+        col_sum = raster.sum(axis=0)
+        total = raster.sum()
+
+        rnd = spikedata.randomize(raster, swap_per_spike=3)
+
+        assert rnd.shape == raster.shape
+        uniq = np.unique(rnd)
+        assert set(uniq.tolist()).issubset({0.0, 1.0})
+        assert np.allclose(rnd.sum(axis=1), row_sum)
+        assert np.allclose(rnd.sum(axis=0), col_sum)
+        assert np.isclose(rnd.sum(), total)
+
+    def test_get_pop_rate_square_only_matches_convolution(self):
+        """
+        Tests get_pop_rate with square window only (no Gaussian) matches direct convolution.
+
+        Tests:
+        (Method 1) Constructs a spike matrix with known spike times.
+        (Test Case 1) Tests that get_pop_rate output matches numpy convolution of summed spike train.
+        """
+
+        trains = [
+            [10, 20, 50, 70, 80],  # neuron 0
+            [15, 20, 55, 70],  # neuron 1
+            [20, 25, 60],  # neuron 2
+        ]
+
+        T, N = 100, 3
+        t_spk_mat = np.zeros((T, N))
+        # Left-open, right-closed binning: spike at time t goes to bin ceil(t/1)-1 = t-1
+        bin_idx_0 = [t - 1 for t in trains[0]]
+        bin_idx_1 = [t - 1 for t in trains[1]]
+        bin_idx_2 = [t - 1 for t in trains[2]]
+        t_spk_mat[bin_idx_0, 0] = 1
+        t_spk_mat[bin_idx_1, 1] = 1
+        t_spk_mat[bin_idx_2, 2] = 1
+
+        sd = SpikeData(trains, length=T)
+
+        SQUARE_WIDTH = 5
+        GAUSS_SIGMA = 0
+
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+        )
+        truth = np.convolve(
+            np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
+        )
+
+        assert np.allclose(pop, truth)
+
+    def test_get_pop_rate_gaussian_only_impulse(self):
+        """
+        Tests get_pop_rate with Gaussian kernel only (no square) for a single impulse.
+
+        Tests:
+        (Method 1) Places a single spike in the center of the spike matrix.
+        (Test Case 1) Tests that the output is a normalized Gaussian and is symmetric.
+        """
+        T = 101
+
+        # Create a single spike at the center (t=50.5ms)
+        trains = [[50.5]]
+        sd = SpikeData(trains, length=T)
+
+        SQUARE_WIDTH = 0
+        GAUSS_SIGMA = 2
+
+        pop = sd.get_pop_rate(
+            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+        )
+
+        assert np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3)
+        assert np.isclose(pop[50 - 1], pop[50 + 1])
+
+    def test_binned_meanrate(self):
+        """
+        Tests binned_meanrate() computes correct mean population rate.
+
+        Tests:
+            (Test Case 1) kHz output matches manual calculation.
+            (Test Case 2) Hz output is 1000x kHz output.
+            (Test Case 3) Invalid unit raises ValueError.
+        """
+        sd = SpikeData(
+            [[0.5, 1.5, 2.5], [0.5, 1.5, 2.5]],
+            length=4.0,
+        )
+        # binned(1) = [2, 2, 2, 0] (2 units each fire once per bin)
+        # meanrate kHz = [2/(2*1), 2/(2*1), 2/(2*1), 0] = [1.0, 1.0, 1.0, 0]
+        mr_khz = sd.binned_meanrate(bin_size=1, unit="kHz")
+        assert mr_khz[0] == pytest.approx(1.0)
+        assert mr_khz[3] == pytest.approx(0.0)
+
+        mr_hz = sd.binned_meanrate(bin_size=1, unit="Hz")
+        np.testing.assert_array_almost_equal(mr_hz, mr_khz * 1e3)
+
+        with pytest.raises(ValueError, match="Unknown unit"):
+            sd.binned_meanrate(bin_size=1, unit="bad")
+
+    def test_resampled_isi(self):
+        """
+        Tests resampled_isi() returns correct shape and reasonable values.
+
+        Tests:
+            (Test Case 1) Output shape is (N, len(times)).
+            (Test Case 2) Regular spike train produces approximately uniform rate.
+        """
+        # Unit with spikes at 0, 1, 2, ..., 99 (1 kHz)
+        train = [np.arange(0, 100, 1.0)]
+        sd = SpikeData(train, length=100.0)
+        times = np.arange(5, 95, 1.0)
+        rates = sd.resampled_isi(times, sigma_ms=5.0)
+        assert rates.shape == (1, len(times))
+        # Rate should be approximately 1000 Hz (1 spike per ms, ISI=1ms, rate=1/ISI=1000 Hz)
+        assert np.mean(rates[0]) == pytest.approx(1000.0, rel=0.2)
+
+    def test_interspike_intervals_single_spike(self):
+        """
+        interspike_intervals for a unit with exactly one spike and an empty train.
+
+        Tests:
+        (Test Case 1) A unit with 1 spike returns an ISI array of length 0.
+        (Test Case 2) A unit with 0 spikes returns an ISI array of length 0.
+        """
+        # Single spike
+        sd_single = SpikeData([[50.0]], length=100.0)
+        isis_single = sd_single.interspike_intervals()
+        assert len(isis_single) == 1
+        assert len(isis_single[0]) == 0
+
+        # Empty train
+        sd_empty = SpikeData([[]], length=100.0)
+        isis_empty = sd_empty.interspike_intervals()
+        assert len(isis_empty) == 1
+        assert len(isis_empty[0]) == 0
+
+    def test_binned_zero_bin_size(self):
+        """
+        binned with zero bin_size.
+
+        Tests:
+        (Test Case 1) Calling binned(0) raises an exception because division
+        by zero occurs inside sparse_raster.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=10.0)
+        with pytest.raises(Exception):
+            sd.binned(0)
+
+    def test_binned_negative_bin_size(self):
+        """
+        binned with negative bin_size.
+
+        Tests:
+        (Test Case 1) Calling binned(-1) raises an exception because negative
+        bin size produces invalid array dimensions.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=10.0)
+        with pytest.raises(Exception):
+            sd.binned(-1)
+
+    def test_binned_spikes_at_exact_bin_boundaries(self):
+        """
+        binned with spikes at exact bin boundaries.
+
+        Tests:
+        (Test Case 1) spikes=[0, 20, 40] with bin_size=20 assigns each spike
+        to the correct bin via left-open, right-closed convention.
+        (Test Case 2) Total spike count is preserved.
+        """
+        sd = SpikeData([[0, 20, 40]], length=40.0)
+        # Bins: (0,20], (20,40]. t=0 clipped to bin 0, t=20 into bin 0
+        # (right-closed), t=40 into bin 1. length=ceil(40/20)=2.
+        result = sd.binned(20)
+        assert len(result) == 2
+        assert result.sum() == 3
+        assert result[0] == 2  # spikes at t=0 and t=20
+        assert result[1] == 1  # spike at t=40
+
+    def test_raster_bin_size_larger_than_length(self):
+        """
+        raster with bin_size larger than recording length.
+
+        Tests:
+        (Test Case 1) Returns a single-bin raster containing all spikes.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        r = sd.raster(bin_size=100.0)
+        assert r.shape[1] == 1
+        assert r[0, 0] == 3
+
+    def test_raster_spike_at_t_zero(self):
+        """
+        raster captures a spike at t=0 in the first bin.
+
+        Tests:
+        (Test Case 1) A spike at exactly t=0 appears in bin index 0.
+        """
+        sd = SpikeData([[0.0, 5.0]], length=10.0)
+        r = sd.raster(bin_size=5.0)
+        assert r[0, 0] >= 1  # spike at t=0 is in first bin
+
+    def test_rates_zero_length_recording(self):
+        """
+        rates with sd.length == 0 returns zeros.
+
+        Tests:
+            (Test Case 1) rates() on a zero-length recording returns np.zeros(N).
+        """
+        sd = SpikeData([[]], length=0.0)
+        result = sd.rates()
+        np.testing.assert_array_equal(result, np.zeros(1))
+
+    def test_get_pop_rate_empty_spikedata(self):
+        """
+        get_pop_rate on a SpikeData with no spikes.
+
+        Tests:
+        (Test Case 1) Returns a valid array (all zeros or near-zero) without error.
+        """
+        sd = SpikeData([[]], length=100.0)
+        result = sd.get_pop_rate()
+        assert isinstance(result, np.ndarray)
+        assert len(result) > 0
+        np.testing.assert_array_equal(result, np.zeros_like(result))
+
+    def test_get_pop_rate_negative_sigma(self):
+        """
+        get_pop_rate rejects negative gauss_sigma with ValueError.
+
+        Tests:
+            (Test Case 1) Negative gauss_sigma raises ValueError.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0]], length=30.0)
+        with pytest.raises(ValueError, match="gauss_sigma must be non-negative"):
+            sd.get_pop_rate(gauss_sigma=-1)
+
+    def test_resampled_isi_single_spike(self):
+        """
+        resampled_isi with a train containing a single spike.
+
+        Tests:
+        (Test Case 1) Returns all zeros because ISI is undefined with fewer
+        than 2 spikes.
+        """
+        sd = SpikeData([[50.0]], length=100.0)
+        times = np.linspace(0, 100, 50)
+        result = sd.resampled_isi(times)
+        assert result.shape == (1, 50)
+        np.testing.assert_array_equal(result[0], np.zeros(50))
+
+    def test_resampled_isi_sigma_zero(self):
+        """
+        resampled_isi with sigma_ms=0.
+
+        Tests:
+        (Test Case 1) Returns a valid finite array without numerical errors
+        (Gaussian smoothing is skipped when sigma <= 0).
+        """
+        sd = SpikeData([[10.0, 30.0, 60.0]], length=100.0)
+        times = np.linspace(0, 100, 50)
+        result = sd.resampled_isi(times, sigma_ms=0.0)
+        assert result.shape == (1, 50)
+        assert np.all(np.isfinite(result))
+
+    def test_empty_spikedata_rates(self):
+        """
+        SpikeData with zero units: rates() returns empty, binned_meanrate() returns zeros.
+
+        Tests:
+            (Test Case 1) rates() returns shape (0,).
+            (Test Case 2) rates(unit='Hz') returns shape (0,).
+            (Test Case 3) binned_meanrate() returns zeros array (no division by zero).
+            (Test Case 4) binned_meanrate(unit='Hz') also returns zeros.
+        """
+        sd = SpikeData([], length=100.0)
+        assert sd.N == 0
+        r = sd.rates()
+        assert r.shape == (0,)
+        r_hz = sd.rates(unit="Hz")
+        assert r_hz.shape == (0,)
+
+        bmr = sd.binned_meanrate(bin_size=40)
+        assert bmr.shape == (int(np.ceil(100.0 / 40)),)
+        np.testing.assert_array_equal(bmr, 0.0)
+
+        bmr_hz = sd.binned_meanrate(bin_size=40, unit="Hz")
+        np.testing.assert_array_equal(bmr_hz, 0.0)
+
+    def test_binned_meanrate_single_bin(self):
+        """
+        binned_meanrate with bin_size larger than recording length.
+
+        Tests:
+            (Test Case 1) Returns a single-element array.
+        """
+        sd = SpikeData([[5.0, 15.0]], length=20.0)
+        rate = sd.binned_meanrate(bin_size=100.0)
+        assert len(rate) == 1
+
+    def test_rates_zero_length(self):
+        """
+        SpikeData with length=0.0 returns zeros from rates().
+
+        Tests:
+            (Test Case 1) rates() on a zero-length SpikeData with N=3 returns
+                          np.zeros(3) without division by zero.
+        """
+        sd = SpikeData([], N=3, length=0.0)
+        assert sd.N == 3
+        assert sd.length == 0.0
+
+        result = sd.rates()
+        assert result.shape == (3,)
+        np.testing.assert_array_equal(result, np.zeros(3))
+
+
+class TestSpikeDataCorrelation:
+    """Tests for SpikeData correlation methods: spike_time_tiling, get_pairwise_ccg, get_pairwise_latencies, spike_time_tilings, latencies, latencies_to_index."""
 
     def test_spike_time_tiling_ta(self):
         """
@@ -499,122 +1532,6 @@ class TestSpikeData:
         sttc_val = fish.spike_time_tiling(0, 1, 0.01)
         assert sttc_val == 0
 
-    def test_binning_doesnt_lose_spikes(self):
-        """
-        Tests that binning does not lose spikes.
-        Tests:
-        (Method 1) Generates a Poisson spike train
-        (Test Case 1) Tests that the sum of binned spikes equals the original count.
-        """
-        N = 1000
-        times = np.cumsum(stats.expon.rvs(size=N))
-        spikes = SpikeData([times])
-        assert sum(spikes.binned(5)) == N
-
-    def test_binning(self):
-        """
-        Tests binned() method for correct bin assignment.
-
-        Tests:
-        (Test Case 1) Tests that binning with size 4 produces the expected counts.
-        """
-        # Bins are left-open, right-closed: (0,4], (4,8], (8,12], (12,16], (16,20], (20,24], (24,28]
-        # t=1→0, t=2→0, t=5→1, t=15→3, t=16→3, t=20→4, t=22→5, t=25→6
-        spikes = SpikeData([[1, 2, 5, 15, 16, 20, 22, 25]])
-        assert list(spikes.binned(4)) == [2, 1, 0, 2, 1, 1, 1]
-
-    # Removed tests for deprecated avalanche/DCC utilities
-
-    # Removed tests for deprecated DCC utilities
-
-    def test_metadata(self):
-        """
-        Tests propagation and copying of metadata and neuron_attributes.
-
-        Tests:
-        (Test Case 1) Tests that invalid neuron_attributes raise an error.
-        (Test Case 2) Tests that subset and subtime propagate/copy metadata and neuron_attributes correctly.
-        """
-        # Make sure there's an error if the metadata is gibberish.
-        with pytest.raises(ValueError):
-            SpikeData([], N=5, length=100, neuron_attributes=[{}, {}])
-
-        # Overall propagation testing...
-        foo = SpikeData(
-            [],
-            N=5,
-            length=1000,
-            metadata=dict(name="Marvin"),
-            neuron_attributes=[MockNeuronAttributes(ξ) for ξ in np.random.rand(5)],
-        )
-
-        # Make sure subset propagates all metadata and correctly
-        # subsets the neuron_attributes.
-        subset = [1, 3]
-        assert foo.neuron_attributes is not None
-        truth = [foo.neuron_attributes[i] for i in subset]
-        bar = foo.subset(subset)
-        assert foo.metadata == bar.metadata
-        self.assert_neuron_attributes_equal(truth, bar.neuron_attributes)
-
-        # Change the metadata of foo and see that it's copied, so the
-        # change doesn't propagate.
-        foo.metadata["name"] = "Ford"
-        baz = bar.subtime(500, 1000)
-        assert bar.metadata == baz.metadata
-        assert bar.metadata is not baz.metadata
-        assert foo.metadata["name"] != bar.metadata["name"]
-        self.assert_neuron_attributes_equal(
-            bar.neuron_attributes, baz.neuron_attributes
-        )
-
-    def test_raw_data(self):
-        """
-        Tests handling of raw_data and raw_time in SpikeData.
-
-        Tests:
-        (Test Case 1) Tests that providing only one of raw_data/raw_time raises an error.
-        (Test Case 2) Tests that inconsistent lengths raise an error.
-        (Test Case 3) Tests automatic generation of time array and correct slicing with subtime.
-        """
-        # Make sure there's an error if only one of raw_data and
-        # raw_time is provided to the constructor.
-        with pytest.raises(ValueError):
-            SpikeData([], N=5, length=100, raw_data=[])
-        with pytest.raises(ValueError):
-            SpikeData([], N=5, length=100, raw_time=42)
-
-        # Make sure inconsistent lengths throw an error as well.
-        with pytest.raises(ValueError):
-            SpikeData(
-                [], N=5, length=100, raw_data=np.zeros((5, 100)), raw_time=np.arange(42)
-            )
-
-        # Check automatic generation of the time array.
-        sd = SpikeData(
-            [], N=5, length=100, raw_data=np.random.rand(5, 100), raw_time=1.0
-        )
-        assert np.all(sd.raw_time == np.arange(100))
-
-        # Make sure the raw data is sliced properly with time.
-        sd2 = sd.subtime(20, 30)
-        assert np.all(sd2.raw_time == np.arange(10))
-        assert np.all(sd2.raw_data == sd.raw_data[:, 20:30])
-
-    def test_isi_rate(self):
-        """
-        Tests resampled_isi and _resampled_isi for correct ISI-based rate calculation.
-
-        Tests:
-        (Test Case 1) Tests that a constant-rate neuron yields the correct rate at all times.
-        (Test Case 2) Tests correct rates for varying spike intervals.
-        """
-        spikes = np.arange(10)
-        when = np.arange(1, 9, 0.01)  # sorted, evenly spaced, within spike range
-        assert np.all(
-            np.isclose(spikedata._resampled_isi(spikes, when, sigma_ms=0.0), 1000)
-        )
-
     def test_latencies(self):
         """
         Tests latencies() for correct calculation of spike latencies relative to reference times.
@@ -636,95 +1553,485 @@ class TestSpikeData:
         # Can do negative
         assert a.latencies([0.1])[0][0] == pytest.approx(-0.1)
 
-    # New utilities tests: randomize, get_pop_rate, get_bursts
-
-    def test_randomize_preserves_marginals(self):
+    def test_latencies_to_index(self):
         """
-        Tests that spikedata.randomize preserves row and column marginals.
+        Tests latencies_to_index() delegates correctly to latencies().
 
         Tests:
-        (Test Case 1) Tests that spikedata.randomize preserves row and column marginals.
-        (Test Case 2) Tests that the output is still binary and has the same shape.
+            (Test Case 1) Returns latencies from unit i's spikes to all units.
+            (Test Case 2) Same result as calling latencies() directly with unit's train.
         """
-        rng = np.random.default_rng(0)
-        N, T = 10, 50
-        raster = (rng.random((N, T)) < 0.1).astype(float)
+        sd = SpikeData(
+            [[10.0, 50.0, 90.0], [15.0, 55.0, 95.0], [20.0, 60.0]],
+            length=100.0,
+        )
+        lat_to_idx = sd.latencies_to_index(0, window_ms=10.0)
+        lat_direct = sd.latencies(sd.train[0], window_ms=10.0)
 
-        row_sum = raster.sum(axis=1)
-        col_sum = raster.sum(axis=0)
-        total = raster.sum()
+        assert len(lat_to_idx) == len(lat_direct)
+        for a, b in zip(lat_to_idx, lat_direct):
+            assert len(a) == len(b)
 
-        rnd = spikedata.randomize(raster, swap_per_spike=3)
-
-        assert rnd.shape == raster.shape
-        uniq = np.unique(rnd)
-        assert set(uniq.tolist()).issubset({0.0, 1.0})
-        assert np.allclose(rnd.sum(axis=1), row_sum)
-        assert np.allclose(rnd.sum(axis=0), col_sum)
-        assert np.isclose(rnd.sum(), total)
-
-    def test_get_pop_rate_square_only_matches_convolution(self):
+    def test_sttc_both_trains_empty(self):
         """
-        Tests get_pop_rate with square window only (no Gaussian) matches direct convolution.
+        spike_time_tiling with both trains empty.
 
         Tests:
-        (Method 1) Constructs a spike matrix with known spike times.
-        (Test Case 1) Tests that get_pop_rate output matches numpy convolution of summed spike train.
+        (Test Case 1) Calling spike_time_tiling on two empty trains returns a finite
+        number (0.0) without crashing.
         """
+        sd = SpikeData([[], []], length=100.0)
+        result = sd.spike_time_tiling(0, 1, delt=5.0)
+        assert isinstance(result, float)
+        # get_sttc returns 0.0 for empty trains
+        np.testing.assert_equal(result, 0.0)
 
-        trains = [
-            [10, 20, 50, 70, 80],  # neuron 0
-            [15, 20, 55, 70],  # neuron 1
-            [20, 25, 60],  # neuron 2
-        ]
-
-        T, N = 100, 3
-        t_spk_mat = np.zeros((T, N))
-        # Left-open, right-closed binning: spike at time t goes to bin ceil(t/1)-1 = t-1
-        bin_idx_0 = [t - 1 for t in trains[0]]
-        bin_idx_1 = [t - 1 for t in trains[1]]
-        bin_idx_2 = [t - 1 for t in trains[2]]
-        t_spk_mat[bin_idx_0, 0] = 1
-        t_spk_mat[bin_idx_1, 1] = 1
-        t_spk_mat[bin_idx_2, 2] = 1
-
-        sd = SpikeData(trains, length=T)
-
-        SQUARE_WIDTH = 5
-        GAUSS_SIGMA = 0
-
-        pop = sd.get_pop_rate(
-            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
-        )
-        truth = np.convolve(
-            np.sum(t_spk_mat, axis=1), np.ones(SQUARE_WIDTH) / SQUARE_WIDTH, mode="same"
-        )
-
-        assert np.allclose(pop, truth)
-
-    def test_get_pop_rate_gaussian_only_impulse(self):
+    def test_sttc_delt_zero(self):
         """
-        Tests get_pop_rate with Gaussian kernel only (no square) for a single impulse.
+        spike_time_tiling with delt=0 raises ValueError.
 
         Tests:
-        (Method 1) Places a single spike in the center of the spike matrix.
-        (Test Case 1) Tests that the output is a normalized Gaussian and is symmetric.
+            (Test Case 1) delt=0 is rejected as non-positive.
         """
-        T = 101
+        sd = SpikeData([[1.0, 2.0, 3.0], [1.5, 2.5, 3.5]], length=10.0)
+        with pytest.raises(ValueError, match="delt must be positive"):
+            sd.spike_time_tiling(0, 1, delt=0.0)
 
-        # Create a single spike at the center (t=50.5ms)
-        trains = [[50.5]]
-        sd = SpikeData(trains, length=T)
+    def test_sttc_delt_larger_than_recording(self):
+        """
+        spike_time_tiling with delt larger than recording length.
 
-        SQUARE_WIDTH = 0
-        GAUSS_SIGMA = 2
+        Tests:
+        (Test Case 1) When delt covers the entire recording, STTC is finite
+        and within [-1, 1].
+        """
+        sd = SpikeData([[1.0, 5.0], [2.0, 6.0]], length=10.0)
+        result = sd.spike_time_tiling(0, 1, delt=1000.0)
+        assert np.isfinite(result)
+        assert -1 <= result <= 1
 
-        pop = sd.get_pop_rate(
-            square_width=SQUARE_WIDTH, gauss_sigma=GAUSS_SIGMA, raster_bin_size_ms=1.0
+    def test_sttc_out_of_range_unit_index(self):
+        """
+        spike_time_tiling with unit index beyond N.
+
+        Tests:
+            (Test Case 1) Out-of-range index raises IndexError.
+        """
+        sd = SpikeData([[10.0], [20.0], [30.0]], length=50.0)
+        with pytest.raises(IndexError):
+            sd.spike_time_tiling(i=99, j=0, delt=20.0)
+
+    def test_latencies_empty_times(self):
+        """
+        latencies with an empty times array.
+
+        Tests:
+        (Test Case 1) Passing an empty list returns an empty list immediately.
+        """
+        sd = SpikeData([[1.0, 2.0, 3.0]], length=10.0)
+        result = sd.latencies([])
+        assert result == []
+
+    def test_latencies_spike_at_exactly_query_time(self):
+        """
+        latencies when a spike occurs at exactly the query time.
+
+        Tests:
+        (Test Case 1) The latency is 0 and is included in the results.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        result = sd.latencies([10.0])
+        assert len(result) == 1
+        assert len(result[0]) == 1
+        assert result[0][0] == 0.0
+
+    # --- get_pairwise_ccg tests ---
+
+    def test_basic_shape_and_symmetry(self):
+        """
+        Tests that get_pairwise_ccg returns correctly shaped, symmetric matrices.
+
+        Tests:
+            (Test Case 1) Output shapes are (N, N) for both corr and lag matrices.
+            (Test Case 2) Correlation matrix is symmetric.
+            (Test Case 3) Lag matrix is antisymmetric (lag[i,j] == -lag[j,i]).
+            (Test Case 4) Diagonal of corr is 1, diagonal of lag is 0.
+        """
+        sd = random_spikedata(5, 5000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
+
+        assert corr.matrix.shape == (5, 5)
+        assert lag.matrix.shape == (5, 5)
+
+        # Symmetry
+        np.testing.assert_array_almost_equal(corr.matrix, corr.matrix.T)
+        # Antisymmetry of lags
+        np.testing.assert_array_almost_equal(lag.matrix, -lag.matrix.T)
+
+        # Diagonal
+        np.testing.assert_array_equal(np.diag(corr.matrix), np.ones(5))
+        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(5))
+
+    def test_returns_pairwise_comp_matrix(self):
+        """
+        Tests that both return values are PairwiseCompMatrix instances.
+
+        Tests:
+            (Test Case 1) corr is a PairwiseCompMatrix.
+            (Test Case 2) lag is a PairwiseCompMatrix.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert isinstance(lag, PairwiseCompMatrix)
+
+    def test_ccg_metadata(self):
+        """
+        Tests that metadata on returned matrices stores bin_size and max_lag.
+
+        Tests:
+            (Test Case 1) corr metadata contains bin_size and max_lag.
+            (Test Case 2) lag metadata contains bin_size and max_lag.
+        """
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=2.0, max_lag=100)
+
+        assert corr.metadata["bin_size"] == 2.0
+        assert corr.metadata["max_lag"] == 100
+        assert lag.metadata["bin_size"] == 2.0
+        assert lag.metadata["max_lag"] == 100
+
+    def test_identical_trains_perfect_correlation(self):
+        """
+        Tests that identical spike trains produce correlation of 1 and lag of 0.
+
+        Tests:
+            (Test Case 1) Two copies of the same train yield corr == 1 and lag == 0.
+        """
+        train = np.sort(np.random.uniform(0, 1000, size=200))
+        sd = SpikeData([train, train.copy()], length=1000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
+
+        assert corr.matrix[0, 1] == pytest.approx(1.0)
+        assert lag.matrix[0, 1] == 0
+
+    def test_cosine_similarity_func(self):
+        """
+        Tests that compute_cosine_similarity_with_lag works as compare_func.
+
+        Tests:
+            (Test Case 1) Output shapes are correct with cosine similarity.
+            (Test Case 2) Diagonal of corr is 1.
+            (Test Case 3) Correlation values are within [-1, 1].
+        """
+        sd = random_spikedata(4, 4000)
+        corr, lag = sd.get_pairwise_ccg(
+            compare_func=compute_cosine_similarity_with_lag,
+            bin_size=1.0,
+            max_lag=20,
         )
 
-        assert np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3)
-        assert np.isclose(pop[50 - 1], pop[50 + 1])
+        assert corr.matrix.shape == (4, 4)
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(4))
+        assert np.all(corr.matrix >= -1.0 - 1e-10)
+        assert np.all(corr.matrix <= 1.0 + 1e-10)
+
+    def test_bin_size_affects_lag_conversion(self):
+        """
+        Tests that max_lag is converted to bins using bin_size.
+
+        Tests:
+            (Test Case 1) With bin_size=5 and max_lag=50, the maximum absolute lag
+                in bins should not exceed 10 (50/5).
+        """
+        sd = random_spikedata(3, 3000)
+        corr, lag = sd.get_pairwise_ccg(bin_size=5.0, max_lag=50)
+
+        # Lag values are in bins; max should be <= 10 (50ms / 5ms)
+        assert np.all(np.abs(lag.matrix) <= 10)
+
+    def test_ccg_single_unit(self):
+        """
+        Tests get_pairwise_ccg with a single unit.
+
+        Tests:
+            (Test Case 1) Returns 1x1 matrices with corr=1 and lag=0.
+        """
+        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert corr.matrix.shape == (1, 1)
+        assert corr.matrix[0, 0] == 1.0
+        assert lag.matrix[0, 0] == 0
+
+    def test_ccg_empty_train_pair(self):
+        """
+        Tests get_pairwise_ccg when one unit has no spikes.
+
+        Tests:
+            (Test Case 1) Correlation with an empty train is 0.
+        """
+        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
+
+        assert corr.matrix[0, 1] == pytest.approx(0.0)
+
+    def test_correlation_bounded(self):
+        """
+        Tests that all correlation values stay within [-1, 1].
+
+        Tests:
+            (Test Case 1) Random spike data with various configurations stays bounded.
+        """
+        for _ in range(10):
+            n_units = np.random.randint(2, 6)
+            sd = random_spikedata(n_units, n_units * 500)
+            corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=20)
+
+            assert np.all(corr.matrix >= -1.0 - 1e-10)
+            assert np.all(corr.matrix <= 1.0 + 1e-10)
+
+    def test_pairwise_ccg_single_spike_trains(self):
+        """
+        get_pairwise_ccg with units that each have exactly one spike.
+
+        Tests:
+            (Test Case 1) Produces a PairwiseCompMatrix without error.
+            (Test Case 2) Matrix shape is (N, N).
+        """
+        sd = SpikeData([[25.0], [30.0]], length=50.0)
+        corr, lag = sd.get_pairwise_ccg(bin_size=5.0, max_lag=20.0)
+        assert corr.matrix.shape == (2, 2)
+
+    # --- get_pairwise_latencies tests ---
+
+    def test_pairwise_latencies_basic_shape(self):
+        """
+        Tests that get_pairwise_latencies returns correctly shaped matrices.
+
+        Tests:
+            (Test Case 1) Mean and std matrices are (N, N).
+            (Test Case 2) Both are PairwiseCompMatrix instances.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        sd = random_spikedata(5, 5000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix.shape == (5, 5)
+        assert std_lat.matrix.shape == (5, 5)
+        assert isinstance(mean_lat, PairwiseCompMatrix)
+        assert isinstance(std_lat, PairwiseCompMatrix)
+
+    def test_pairwise_latencies_diagonal_is_zero(self):
+        """
+        Tests that diagonal entries are zero for both mean and std.
+
+        Tests:
+            (Test Case 1) Diagonal of mean matrix is all zeros.
+            (Test Case 2) Diagonal of std matrix is all zeros.
+        """
+        sd = random_spikedata(4, 4000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        np.testing.assert_array_equal(np.diag(mean_lat.matrix), np.zeros(4))
+        np.testing.assert_array_equal(np.diag(std_lat.matrix), np.zeros(4))
+
+    def test_approximate_antisymmetry(self):
+        """
+        Tests that mean latency matrix is approximately antisymmetric.
+
+        Tests:
+            (Test Case 1) mean[i,j] is approximately -mean[j,i] for dense spike trains.
+
+        Notes:
+            - Not exact because different spike counts per train yield different
+              nearest-spike pairings in each direction.
+        """
+        # Use dense trains so the approximation is tight
+        sd = random_spikedata(3, 30000)
+        mean_lat, _ = sd.get_pairwise_latencies()
+
+        # Should be roughly antisymmetric
+        for i in range(3):
+            for j in range(i + 1, 3):
+                assert mean_lat.matrix[i, j] == pytest.approx(
+                    -mean_lat.matrix[j, i], abs=5.0
+                )
+
+    def test_std_is_non_negative(self):
+        """
+        Tests that all std values are non-negative.
+
+        Tests:
+            (Test Case 1) No negative entries in the std matrix.
+        """
+        sd = random_spikedata(4, 4000)
+        _, std_lat = sd.get_pairwise_latencies()
+
+        assert np.all(std_lat.matrix >= 0)
+
+    def test_identical_trains_zero_latency(self):
+        """
+        Tests that identical spike trains produce zero mean and zero std.
+
+        Tests:
+            (Test Case 1) Mean latency between identical trains is 0.
+            (Test Case 2) Std latency between identical trains is 0.
+        """
+        train = np.sort(np.random.uniform(0, 1000, size=200))
+        sd = SpikeData([train, train.copy()], length=1000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix[0, 1] == pytest.approx(0.0)
+        assert mean_lat.matrix[1, 0] == pytest.approx(0.0)
+        assert std_lat.matrix[0, 1] == pytest.approx(0.0)
+        assert std_lat.matrix[1, 0] == pytest.approx(0.0)
+
+    def test_known_latency(self):
+        """
+        Tests with a known offset between trains.
+
+        Tests:
+            (Test Case 1) Train B is train A shifted by +10ms. Mean latency
+                from A to B should be exactly +10.
+            (Test Case 2) Mean latency from B to A is close to -10 but not
+                exact due to boundary effects (last spike in B has no forward
+                match in A).
+            (Test Case 3) Std from A to B is 0 (all latencies identical).
+        """
+        # Offset of 5ms with 20ms spacing avoids equidistant tie-breaking
+        train_a = np.arange(20, 980, 20, dtype=float)
+        train_b = train_a + 5.0  # shifted by +5ms
+        sd = SpikeData([train_a, train_b], length=1000)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix[0, 1] == pytest.approx(5.0, abs=0.1)
+        assert mean_lat.matrix[1, 0] == pytest.approx(-5.0, abs=0.1)
+        assert std_lat.matrix[0, 1] == pytest.approx(0.0, abs=0.1)
+
+    def test_window_ms_filter(self):
+        """
+        Tests that window_ms filters out distant latencies.
+
+        Tests:
+            (Test Case 1) With a tight window, only close spikes contribute.
+            (Test Case 2) A pair with all latencies beyond the window yields
+                mean=0 and std=0.
+        """
+        # Two trains: one spike at 0, one spike at 500 — latency is 500ms
+        sd = SpikeData([[0.5], [500.5]], length=600)
+
+        # No window — latency is 500
+        mean_no_win, _ = sd.get_pairwise_latencies()
+        assert mean_no_win.matrix[0, 1] == pytest.approx(500.0)
+
+        # Window of 100ms — the 500ms latency is filtered out
+        mean_win, std_win = sd.get_pairwise_latencies(window_ms=100.0)
+        assert mean_win.matrix[0, 1] == pytest.approx(0.0)
+        assert std_win.matrix[0, 1] == pytest.approx(0.0)
+
+    def test_pairwise_latencies_metadata(self):
+        """
+        Tests that metadata stores window_ms.
+
+        Tests:
+            (Test Case 1) Metadata contains window_ms=None by default.
+            (Test Case 2) Metadata contains the specified window_ms value.
+        """
+        sd = random_spikedata(2, 2000)
+
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+        assert mean_lat.metadata["window_ms"] is None
+
+        mean_lat2, std_lat2 = sd.get_pairwise_latencies(window_ms=50.0)
+        assert mean_lat2.metadata["window_ms"] == 50.0
+
+    def test_return_distributions(self):
+        """
+        Tests that return_distributions=True returns a third element.
+
+        Tests:
+            (Test Case 1) Returns a tuple of length 3 when True.
+            (Test Case 2) The distributions array has shape (U, U).
+            (Test Case 3) Each entry is an ndarray.
+            (Test Case 4) Diagonal entries are empty arrays.
+            (Test Case 5) Number of latencies in [i,j] equals number of spikes
+                in train i (without window filtering).
+        """
+        train_a = np.sort(np.random.uniform(0, 1000, size=50))
+        train_b = np.sort(np.random.uniform(0, 1000, size=80))
+        sd = SpikeData([train_a, train_b], length=1000)
+
+        result = sd.get_pairwise_latencies(return_distributions=True)
+        assert len(result) == 3
+
+        mean_lat, std_lat, dists = result
+        assert dists.shape == (2, 2)
+        assert isinstance(dists[0, 1], np.ndarray)
+        assert len(dists[0, 0]) == 0  # diagonal
+        assert len(dists[0, 1]) == 50  # one latency per spike in train_a
+        assert len(dists[1, 0]) == 80  # one latency per spike in train_b
+
+    def test_pairwise_latencies_empty_train(self):
+        """
+        Tests get_pairwise_latencies when one unit has no spikes.
+
+        Tests:
+            (Test Case 1) Mean and std are 0 for pairs involving empty trains.
+            (Test Case 2) Distribution is empty for pairs involving empty trains.
+        """
+        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
+        mean_lat, std_lat, dists = sd.get_pairwise_latencies(return_distributions=True)
+
+        assert mean_lat.matrix[0, 1] == 0.0
+        assert mean_lat.matrix[1, 0] == 0.0
+        assert std_lat.matrix[0, 1] == 0.0
+        assert len(dists[0, 1]) == 0
+        assert len(dists[1, 0]) == 0
+
+    def test_pairwise_latencies_single_unit(self):
+        """
+        Tests get_pairwise_latencies with a single unit.
+
+        Tests:
+            (Test Case 1) Returns 1x1 matrices with zeros.
+        """
+        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
+        mean_lat, std_lat = sd.get_pairwise_latencies()
+
+        assert mean_lat.matrix.shape == (1, 1)
+        assert mean_lat.matrix[0, 0] == 0.0
+        assert std_lat.matrix[0, 0] == 0.0
+
+    def test_without_distributions_returns_two(self):
+        """
+        Tests that return_distributions=False returns only two values.
+
+        Tests:
+            (Test Case 1) Default call returns a tuple of length 2.
+        """
+        sd = random_spikedata(3, 3000)
+        result = sd.get_pairwise_latencies()
+        assert len(result) == 2
+
+    def test_pairwise_latencies_window_zero(self):
+        """
+        get_pairwise_latencies with window_ms=0.
+
+        Tests:
+            (Test Case 1) Zero window produces valid matrices.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0, 25.0]], length=30.0)
+        mean_pcm, std_pcm = sd.get_pairwise_latencies(window_ms=0.0)
+        assert mean_pcm.matrix.shape == (2, 2)
+
+
+class TestSpikeDataBursts:
+    """Tests for SpikeData burst methods: get_bursts, burst_sensitivity, get_frac_active."""
 
     def test_get_bursts_detects_simple_peaks(self):
         """
@@ -968,6 +2275,87 @@ class TestSpikeData:
         _, _, backbone_low = sd.get_frac_active(edges, min_spikes, low_threshold)
         expected_low_backbone = np.array([0, 1])
         assert np.array_equal(backbone_low, expected_low_backbone)
+
+    def test_get_bursts_no_bursts_detected(self):
+        """
+        get_bursts when no bursts are present.
+
+        Tests:
+        (Test Case 1) Returns empty arrays for tburst, edges, and peak_amp.
+        """
+        sd = SpikeData([[]], length=1000.0)
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=5.0,
+            min_burst_diff=50,
+            burst_edge_mult_thresh=0.5,
+        )
+        assert len(tburst) == 0
+        assert len(peak_amp) == 0
+
+    def test_burst_sensitivity_no_spikes(self):
+        """
+        burst_sensitivity on a SpikeData with no spikes.
+
+        Tests:
+            (Test Case 1) Returns an all-zero integer matrix of correct shape.
+        """
+        sd = SpikeData([[]], length=1000.0)
+        result = sd.burst_sensitivity(
+            thr_values=np.array([0.5, 1.0]),
+            dist_values=np.array([10, 20, 30]),
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result.shape == (2, 3)
+        assert result.dtype == int
+        np.testing.assert_array_equal(result, np.zeros((2, 3), dtype=int))
+
+    def test_get_bursts_zero_threshold(self):
+        """
+        get_bursts with thr_burst=0.
+
+        Tests:
+            (Test Case 1) Zero threshold does not raise an error.
+            (Test Case 2) Returns tuple of three arrays.
+        """
+        sd = SpikeData(
+            [[5.0, 15.0, 25.0, 35.0, 45.0], [10.0, 20.0, 30.0, 40.0]],
+            length=50.0,
+        )
+        tburst, edges, amp = sd.get_bursts(
+            thr_burst=0.0,
+            min_burst_diff=5,
+            burst_edge_mult_thresh=0.0,
+            raster_bin_size_ms=1.0,
+        )
+        assert isinstance(tburst, (list, np.ndarray))
+
+    def test_get_frac_active_empty_edges(self):
+        """
+        get_frac_active with empty burst edges array.
+
+        Tests:
+            (Test Case 1) Empty edges (0, 2) produces empty output arrays.
+        """
+        sd = SpikeData([[10.0, 20.0]], length=30.0)
+        edges = np.empty((0, 2))
+        frac_unit, frac_burst, backbone = sd.get_frac_active(edges, 1, 0.5)
+        assert len(frac_burst) == 0
+
+    def test_get_frac_active_overlapping_edges(self):
+        """
+        get_frac_active with overlapping burst edges.
+
+        Tests:
+            (Test Case 1) Overlapping edges are processed without error.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0, 20.0, 25.0]], length=30.0)
+        edges = np.array([[5.0, 15.0], [10.0, 25.0]])
+        frac_unit, frac_burst, backbone = sd.get_frac_active(edges, 1, 0.5)
+        assert len(frac_burst) == 2
+
+
+class TestSpikeDataWaveforms:
+    """Tests for SpikeData waveform methods: get_waveform_traces, channel_raster, neuron_to_channel_map, and waveform utility functions."""
 
     def test_neuron_to_channel_map(self):
         """
@@ -1476,65 +2864,6 @@ class TestSpikeData:
         assert waveforms_exp.shape == (2, 30, 1)
         assert np.array_equal(waveforms_exp[:, :, 0], raw_data[[3, 1], 40:70])
 
-    def test_set_neuron_attribute(self):
-        """
-        Tests set_neuron_attribute for single, array, and partial updates.
-
-        Tests:
-        (Test Case 1) Tests single value assignment to all neurons
-        (Test Case 2) Tests array value assignment
-        (Test Case 3) Tests partial update with neuron_indices
-        (Test Case 4) Tests length mismatch raises ValueError
-        """
-        sd = SpikeData([[] for _ in range(4)], length=100)
-
-        # Test Case 1: Single value assignment to all neurons
-        sd.set_neuron_attribute("type", "excitatory")
-        assert all(a["type"] == "excitatory" for a in sd.neuron_attributes)
-
-        # Test Case 2: Array value assignment
-        sd.set_neuron_attribute("rate", [1, 2, 3, 4])
-        assert [a["rate"] for a in sd.neuron_attributes] == [1, 2, 3, 4]
-
-        # Test Case 3: Partial update with neuron_indices
-        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
-        assert sd.neuron_attributes[0]["label"] == "A"
-        assert sd.neuron_attributes[2]["label"] == "A"
-        assert "label" not in sd.neuron_attributes[1]
-
-        # Test Case 4: Length mismatch raises ValueError
-        with pytest.raises(ValueError):
-            sd.set_neuron_attribute("x", [1, 2], [0])
-
-    def test_get_neuron_attribute(self):
-        """
-        Tests get_neuron_attribute retrieval with and without defaults.
-
-        Tests:
-        (Test Case 1) Tests retrieval when neuron_attributes is None (returns defaults)
-        (Test Case 2) Tests retrieval of existing attribute values
-        (Test Case 3) Tests default value for missing attributes
-        (Test Case 4) Tests mixed case: some neurons have attribute, some use default
-        """
-        sd = SpikeData([[] for _ in range(3)], length=100)
-
-        # Test Case 1: When neuron_attributes is None, returns default for all neurons
-        assert sd.get_neuron_attribute("x") == [None, None, None]
-        assert sd.get_neuron_attribute("x", default=-1) == [-1, -1, -1]
-
-        # Test Case 2: Retrieval of existing attribute values
-        sd.set_neuron_attribute("val", [1, 2, 3])
-        assert sd.get_neuron_attribute("val") == [1, 2, 3]
-
-        # Test Case 3: Default value for missing attributes
-        assert sd.get_neuron_attribute("missing") == [None, None, None]
-        assert sd.get_neuron_attribute("missing", default=0) == [0, 0, 0]
-
-        # Test Case 4: Mixed case - partial attribute set via neuron_indices
-        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
-        assert sd.get_neuron_attribute("label") == ["A", None, "A"]
-        assert sd.get_neuron_attribute("label", default="?") == ["A", "?", "A"]
-
     def test_get_waveform_traces(self):
         """
         Test get_waveform_traces for correct waveform extraction from raw data.
@@ -1737,81 +3066,601 @@ class TestSpikeData:
         assert subset_range_waveforms[0].shape[2] == 1
         assert subset_range_waveforms[1].shape[2] == 0
 
-    def test_align_to_events(self):
+    def test_channel_raster_duplicate_channels(self):
         """
-        Test align_to_events for event-aligned slice stack creation.
+        channel_raster with multiple neurons mapped to the same channel.
 
         Tests:
-            (Test Case 1) kind='spike' returns a SpikeSliceStack with one slice per event.
-            (Test Case 2) kind='rate' returns a RateSliceStack with one slice per event.
-            (Test Case 3) events given as a metadata key string are resolved correctly.
-            (Test Case 4) An invalid metadata key raises KeyError with the key name.
-            (Test Case 5) Events whose window exceeds recording bounds are dropped with UserWarning.
-            (Test Case 6) All events dropped after filtering raises ValueError.
-            (Test Case 7) An invalid kind value raises ValueError.
-            (Test Case 8) Each slice spans exactly pre_ms + post_ms milliseconds.
+            (Test Case 1) Spikes from both neurons aggregate on the shared channel.
         """
-        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
-        from SpikeLab.spikedata.rateslicestack import RateSliceStack
-
-        # Build a simple 3-unit recording: 200 ms, 10 spikes per unit
-        trains = [np.linspace(5, 195, 10) for _ in range(3)]
-        sd = SpikeData(trains, length=200.0)
-
-        events_ms = np.array([50.0, 100.0, 150.0])
-        pre_ms, post_ms = 20.0, 30.0
-
-        # Test Case 1: kind='spike' → SpikeSliceStack
-        spike_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
-        assert isinstance(spike_stack, SpikeSliceStack)
-        assert len(spike_stack.spike_stack) == 3
-
-        # Test Case 2: kind='rate' → RateSliceStack
-        rate_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="rate")
-        assert isinstance(rate_stack, RateSliceStack)
-        assert rate_stack.event_stack.shape[2] == 3  # 3 slices
-
-        # Test Case 3: metadata key string resolves to correct array
-        sd_with_meta = SpikeData(
-            trains,
-            length=200.0,
-            metadata={"stim_on_times": events_ms.copy()},
+        sd = SpikeData(
+            [[5.0, 15.0], [10.0, 20.0]],
+            length=30.0,
+            neuron_attributes=[{"channel": 0}, {"channel": 0}],
         )
-        spike_stack_meta = sd_with_meta.align_to_events(
-            "stim_on_times", pre_ms, post_ms, kind="spike"
+        raster = sd.channel_raster(bin_size=10.0)
+        assert raster.shape[0] == 1
+        assert raster.sum() == 4
+
+
+class TestSpikeDataShuffle:
+    """Tests for SpikeData shuffle methods: spike_shuffle, spike_shuffle_stack."""
+
+    def test_spike_shuffle_preserves_row_and_column_sums(self):
+        """
+        spike_shuffle preserves per-unit spike counts and per-bin population rates.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeData with same N and length.
+            (Test Case 2) Row sums (spikes per unit) are preserved.
+            (Test Case 3) Column sums (population rate per bin) are preserved.
+
+        Notes:
+            - Uses a SpikeData built from a binary raster to avoid multi-spike
+              bins, which spike_shuffle's internal binarization would alter.
+        """
+        rng = np.random.default_rng(42)
+        binary_raster = (rng.random((5, 100)) < 0.2).astype(int)
+        sd = SpikeData.from_raster(binary_raster, bin_size_ms=1)
+        shuffled = sd.spike_shuffle(swap_per_spike=5, seed=42, bin_size=1)
+
+        assert isinstance(shuffled, SpikeData)
+        assert shuffled.N == sd.N
+        assert shuffled.length == sd.length
+
+        orig_raster = sd.sparse_raster(bin_size=1).toarray()
+        shuf_raster = shuffled.sparse_raster(bin_size=1).toarray()
+
+        # Row sums (spikes per unit) must match
+        np.testing.assert_array_equal(orig_raster.sum(axis=1), shuf_raster.sum(axis=1))
+        # Column sums (population rate per bin) must match
+        np.testing.assert_array_equal(orig_raster.sum(axis=0), shuf_raster.sum(axis=0))
+
+    def test_spike_shuffle_seed_reproducibility(self):
+        """
+        Same seed produces the same shuffled result.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed yield identical rasters.
+            (Test Case 2) Different seeds yield different rasters.
+        """
+        np.random.seed(0)
+        sd = random_spikedata(4, 100, rate=1.0)
+
+        shuf1 = sd.spike_shuffle(seed=123, bin_size=1)
+        shuf2 = sd.spike_shuffle(seed=123, bin_size=1)
+        r1 = shuf1.sparse_raster(bin_size=1).toarray()
+        r2 = shuf2.sparse_raster(bin_size=1).toarray()
+        np.testing.assert_array_equal(r1, r2)
+
+        shuf3 = sd.spike_shuffle(seed=456, bin_size=1)
+        r3 = shuf3.sparse_raster(bin_size=1).toarray()
+        assert not np.array_equal(r1, r3)
+
+    def test_spike_shuffle_metadata_preserved(self):
+        """
+        spike_shuffle carries metadata and neuron_attributes forward.
+
+        Tests:
+            (Test Case 1) metadata dict is preserved.
+            (Test Case 2) neuron_attributes are preserved.
+        """
+        attrs = [{"region": "ctx"}, {"region": "hpc"}]
+        sd = SpikeData(
+            [np.array([1.0, 5.0, 10.0]), np.array([2.0, 8.0, 15.0])],
+            length=20.0,
+            metadata={"exp": "test"},
+            neuron_attributes=attrs,
         )
-        assert isinstance(spike_stack_meta, SpikeSliceStack)
-        assert len(spike_stack_meta.spike_stack) == 3
+        shuffled = sd.spike_shuffle(seed=0)
+        assert shuffled.metadata == {"exp": "test"}
+        assert shuffled.neuron_attributes is not None
+        assert len(shuffled.neuron_attributes) == 2
 
-        # Test Case 4: invalid metadata key raises KeyError
-        with pytest.raises(KeyError, match="missing_key"):
-            sd_with_meta.align_to_events("missing_key", pre_ms, post_ms)
+    def test_spike_shuffle_bin_size_gt_1(self):
+        """
+        spike_shuffle with bin_size > 1 binarizes multi-spike bins.
 
-        # Test Case 5: out-of-bounds events dropped with UserWarning
-        events_with_oob = np.array([10.0, 100.0, 180.0])
-        with warnings.catch_warnings(record=True) as caught:
+        Tests:
+            (Test Case 1) Shuffled raster values are 0 or 1 (binary).
+            (Test Case 2) Row sums and column sums are preserved on the binarized raster.
+        """
+        np.random.seed(99)
+        sd = random_spikedata(3, 150, rate=1.0)
+        shuffled = sd.spike_shuffle(seed=0, bin_size=5)
+
+        orig_raster = sd.sparse_raster(bin_size=5).toarray()
+        orig_binary = (orig_raster > 0).astype(int)
+        shuf_raster = shuffled.sparse_raster(bin_size=5).toarray()
+
+        # Output should be binary
+        assert set(np.unique(shuf_raster)).issubset({0, 1})
+        # Row and column sums of binarized original should be preserved
+        np.testing.assert_array_equal(orig_binary.sum(axis=1), shuf_raster.sum(axis=1))
+        np.testing.assert_array_equal(orig_binary.sum(axis=0), shuf_raster.sum(axis=0))
+
+    def test_spike_shuffle_warns_on_multi_spike_bins(self):
+        """
+        spike_shuffle warns when multi-spike bins are binarized.
+
+        Tests:
+            (Test Case 1) RuntimeWarning issued when input has multi-spike bins.
+            (Test Case 2) No warning when input is already binary.
+        """
+        # Multi-spike data: random_spikedata can produce >1 spike per 1ms bin
+        np.random.seed(99)
+        sd_dense = random_spikedata(3, 150, rate=1.0)
+        with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            spike_stack_filtered = sd.align_to_events(
-                events_with_oob, pre_ms, post_ms, kind="spike"
-            )
-        assert len(spike_stack_filtered.spike_stack) == 1
-        assert any(issubclass(w.category, UserWarning) for w in caught)
-        warning_text = str(caught[0].message)
-        assert "2" in warning_text  # 2 events dropped
+            sd_dense.spike_shuffle(seed=0, bin_size=1)
+            multi_spike_warnings = [
+                x for x in w if "Multi-spike bins" in str(x.message)
+            ]
+            assert len(multi_spike_warnings) > 0
 
-        # Test Case 6: all events out of bounds → ValueError
-        events_all_oob = np.array([5.0, 195.0])  # both outside with pre=20, post=30
+        # Binary data: no warning
+        rng = np.random.default_rng(0)
+        binary_raster = (rng.random((3, 50)) < 0.2).astype(int)
+        sd_binary = SpikeData.from_raster(binary_raster, bin_size_ms=1)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            sd_binary.spike_shuffle(seed=0, bin_size=1)
+            multi_spike_warnings = [
+                x for x in w if "Multi-spike bins" in str(x.message)
+            ]
+            assert len(multi_spike_warnings) == 0
+
+    def test_spike_shuffle_zero_units(self):
+        """
+        spike_shuffle with N=0 SpikeData returns an empty SpikeData.
+
+        Tests:
+            (Test Case 1) Returns a SpikeData with N=0 and same length.
+        """
+        sd = SpikeData([], N=0, length=10.0)
+        result = sd.spike_shuffle(seed=0)
+        assert result.N == 0
+        assert result.length == 10.0
+
+    def test_spike_shuffle_single_unit(self):
+        """
+        spike_shuffle with N=1.
+
+        Tests:
+            (Test Case 1) Single-unit shuffle produces a SpikeData with N=1.
+            (Test Case 2) Spike count is preserved.
+
+        Notes:
+            - Degree-preserving swap needs 2 rows; with 1 row the raster
+              is returned unchanged.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0]], length=30.0)
+        result = sd.spike_shuffle(seed=0)
+        assert result.N == 1
+        assert len(result.train[0]) == len(sd.train[0])
+
+    # --- spike_shuffle_stack tests ---
+
+    def test_shuffle_stack_basic_output_structure(self):
+        """
+        spike_shuffle_stack returns a SpikeSliceStack with the correct number of slices.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeSliceStack.
+            (Test Case 2) Number of slices matches n_shuffles.
+            (Test Case 3) Each slice has the same number of units as the original.
+        """
+        sd = random_spikedata(5, 100)
+        stack = sd.spike_shuffle_stack(n_shuffles=10, seed=0)
+
+        assert isinstance(stack, SpikeSliceStack)
+        assert len(stack.spike_stack) == 10
+        for s in stack.spike_stack:
+            assert s.N == sd.N
+
+    def test_shuffle_stack_times_all_zero_to_length(self):
+        """
+        All slices share the same time bounds (0, length).
+
+        Tests:
+            (Test Case 1) Every entry in times is (0.0, sd.length).
+        """
+        sd = random_spikedata(3, 50)
+        stack = sd.spike_shuffle_stack(n_shuffles=5, seed=0)
+
+        for start, end in stack.times:
+            assert start == 0.0
+            assert end == pytest.approx(sd.length)
+
+    def test_shuffle_stack_seed_reproducibility(self):
+        """
+        The same seed produces identical shuffle stacks.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed produce identical rasters.
+        """
+        sd = random_spikedata(4, 80)
+        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
+        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
+
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            r1 = s1.raster()
+            r2 = s2.raster()
+            np.testing.assert_array_equal(r1, r2)
+
+    def test_shuffle_stack_different_seeds_differ(self):
+        """
+        Different seeds produce different shuffles.
+
+        Tests:
+            (Test Case 1) At least one pair of shuffles differs across seed values.
+        """
+        sd = random_spikedata(4, 200)
+        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=0)
+        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=100)
+
+        any_differ = False
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            if not np.array_equal(s1.raster(), s2.raster()):
+                any_differ = True
+                break
+        assert any_differ
+
+    def test_shuffle_stack_neuron_attributes_propagated(self):
+        """
+        Neuron attributes from the original SpikeData are carried to the stack.
+
+        Tests:
+            (Test Case 1) Stack-level neuron_attributes matches original.
+        """
+        sd = random_spikedata(3, 60)
+        sd.neuron_attributes = [{"id": 0}, {"id": 1}, {"id": 2}]
+        stack = sd.spike_shuffle_stack(n_shuffles=2, seed=0)
+
+        assert stack.neuron_attributes is not None
+        assert len(stack.neuron_attributes) == 3
+
+    def test_spike_shuffle_stack_zero_shuffles(self):
+        """
+        spike_shuffle_stack with n_shuffles=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) Raises ValueError with descriptive message.
+        """
+        sd = SpikeData([[10.0, 20.0]], length=30.0)
+        with pytest.raises(ValueError, match="n_shuffles must be at least 1"):
+            sd.spike_shuffle_stack(n_shuffles=0, seed=0)
+
+
+class TestSpikeDataSubsetStack:
+    """Tests for SpikeData.subset_stack."""
+
+    def test_basic_output_structure(self):
+        """
+        subset_stack returns a SpikeSliceStack with the correct number of slices and units.
+
+        Tests:
+            (Test Case 1) Returned object is a SpikeSliceStack.
+            (Test Case 2) Number of slices matches n_subsets.
+            (Test Case 3) Each slice has units_per_subset units.
+        """
+        sd = random_spikedata(10, 200)
+        stack = sd.subset_stack(n_subsets=8, units_per_subset=4, seed=0)
+
+        assert isinstance(stack, SpikeSliceStack)
+        assert len(stack.spike_stack) == 8
+        for s in stack.spike_stack:
+            assert s.N == 4
+
+    def test_times_all_zero_to_length(self):
+        """
+        All slices share the same time bounds (0, length).
+
+        Tests:
+            (Test Case 1) Every entry in times is (0.0, sd.length).
+        """
+        sd = random_spikedata(6, 100)
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=2, seed=0)
+
+        for start, end in stack.times:
+            assert start == 0.0
+            assert end == pytest.approx(sd.length)
+
+    def test_seed_reproducibility(self):
+        """
+        The same seed produces identical subset stacks.
+
+        Tests:
+            (Test Case 1) Two calls with the same seed produce identical spike trains.
+        """
+        sd = random_spikedata(8, 150)
+        stack1 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
+        stack2 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
+
+        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
+            assert s1.N == s2.N
+            for t1, t2 in zip(s1.train, s2.train):
+                np.testing.assert_array_equal(t1, t2)
+
+    def test_units_per_subset_exceeds_n_raises(self):
+        """
+        Requesting more units than available raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        sd = random_spikedata(3, 50)
+        with pytest.raises(ValueError, match="exceeds"):
+            sd.subset_stack(n_subsets=2, units_per_subset=5, seed=0)
+
+    def test_full_unit_count_returns_all_units(self):
+        """
+        Setting units_per_subset equal to N includes all units in every slice.
+
+        Tests:
+            (Test Case 1) Every slice has the same number of units as the original.
+            (Test Case 2) Recording length is preserved.
+        """
+        sd = random_spikedata(4, 80)
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=4, seed=0)
+
+        for s in stack.spike_stack:
+            assert s.N == 4
+            assert s.length == pytest.approx(sd.length)
+
+    def test_neuron_attributes_per_slice(self):
+        """
+        Each subsetted SpikeData carries its own neuron_attributes from the original.
+
+        Tests:
+            (Test Case 1) Each slice's neuron_attributes has length equal to units_per_subset.
+            (Test Case 2) Attributes come from the original set.
+        """
+        sd = random_spikedata(6, 100)
+        sd.neuron_attributes = [{"id": i} for i in range(6)]
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=3, seed=0)
+
+        original_ids = {a["id"] for a in sd.neuron_attributes}
+        for s in stack.spike_stack:
+            assert s.neuron_attributes is not None
+            assert len(s.neuron_attributes) == 3
+            for attr in s.neuron_attributes:
+                assert attr["id"] in original_ids
+
+    def test_subset_stack_zero_subsets(self):
+        """
+        subset_stack with n_subsets=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) Raises ValueError with descriptive message.
+        """
+        sd = SpikeData([[10.0], [20.0], [30.0]], length=40.0)
+        with pytest.raises(ValueError, match="n_subsets must be at least 1"):
+            sd.subset_stack(n_subsets=0, units_per_subset=2, seed=0)
+
+    def test_subset_stack_zero_units_per_subset(self):
+        """
+        subset_stack with units_per_subset=0.
+
+        Tests:
+            (Test Case 1) Each slice has 0 units.
+        """
+        sd = SpikeData([[10.0], [20.0]], length=30.0)
+        stack = sd.subset_stack(n_subsets=3, units_per_subset=0, seed=0)
+        assert len(stack.spike_stack) == 3
+        for s in stack.spike_stack:
+            assert s.N == 0
+
+
+class TestSpikeDataStPR:
+    """Tests for SpikeData.compute_spike_trig_pop_rate."""
+
+    def test_compute_spike_trig_pop_rate(self):
+        """
+        Tests compute_spike_trig_pop_rate() returns correct shapes.
+
+        Tests:
+            (Test Case 1) stPR_filtered has shape (N, 2*window_ms + 1).
+            (Test Case 2) coupling_strengths_zero_lag has shape (N,).
+            (Test Case 3) coupling_strengths_max has shape (N,).
+            (Test Case 4) delays has shape (N,).
+            (Test Case 5) lags has shape (2*window_ms + 1,).
+            (Test Case 6) Silent neuron gets zero coupling.
+        """
+        sd = random_spikedata(5, 200, rate=1.0)
+        window = 20
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=window, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=5
+        )
+        assert stPR.shape == (5, 2 * window + 1)
+        assert cs_zero.shape == (5,)
+        assert cs_max.shape == (5,)
+        assert delays.shape == (5,)
+        assert lags.shape == (2 * window + 1,)
+        assert lags[0] == -window
+        assert lags[-1] == window
+
+    def test_compute_spike_trig_pop_rate_silent_neuron(self):
+        """
+        Tests compute_spike_trig_pop_rate with a silent neuron.
+
+        Tests:
+            (Test Case 1) Silent neuron's coupling curve is all zeros.
+        """
+        train = [np.array([10.0, 50.0, 90.0]), np.array([])]  # unit 1 silent
+        sd = SpikeData(train, length=100.0)
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=10
+        )
+        assert stPR.shape[0] == 2
+        # Silent neuron should have all-zero coupling
+        np.testing.assert_array_equal(stPR[1], np.zeros(21))
+
+    def test_spike_trig_pop_rate_window_zero(self):
+        """
+        compute_spike_trig_pop_rate with window_ms=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) Zero window raises ValueError with descriptive message.
+        """
+        sd = SpikeData([[10.0, 20.0], [15.0, 25.0]], length=30.0)
+        with pytest.raises(ValueError, match="window_ms must be at least 1"):
+            sd.compute_spike_trig_pop_rate(window_ms=0)
+
+    def test_spike_trig_pop_rate_single_unit(self):
+        """
+        compute_spike_trig_pop_rate with N=1 raises ValueError.
+
+        Tests:
+            (Test Case 1) Single unit raises ValueError requiring at least 2 units.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
+        with pytest.raises(ValueError, match="at least 2 units"):
+            sd.compute_spike_trig_pop_rate(window_ms=5)
+
+
+class TestSpikeDataAttributes:
+    """Tests for SpikeData attribute methods: neuron_attributes, set_neuron_attribute, get_neuron_attribute, metadata, unit_locations, electrodes, subset_by_attribute, raw_data."""
+
+    @staticmethod
+    def assert_neuron_attributes_equal(nda, ndb, msg=None):
+        """Assert that two lists of neuron attributes are equal elementwise."""
+        assert len(nda) == len(ndb)
+        for n, m in zip(nda, ndb):
+            assert n == m
+
+    def test_metadata(self):
+        """
+        Tests propagation and copying of metadata and neuron_attributes.
+
+        Tests:
+        (Test Case 1) Tests that invalid neuron_attributes raise an error.
+        (Test Case 2) Tests that subset and subtime propagate/copy metadata and neuron_attributes correctly.
+        """
+        # Make sure there's an error if the metadata is gibberish.
         with pytest.raises(ValueError):
-            sd.align_to_events(events_all_oob, pre_ms, post_ms)
+            SpikeData([], N=5, length=100, neuron_attributes=[{}, {}])
 
-        # Test Case 7: invalid kind raises ValueError
-        with pytest.raises(ValueError, match="burst"):
-            sd.align_to_events(events_ms, pre_ms, post_ms, kind="burst")
+        # Overall propagation testing...
+        foo = SpikeData(
+            [],
+            N=5,
+            length=1000,
+            metadata=dict(name="Marvin"),
+            neuron_attributes=[MockNeuronAttributes(ξ) for ξ in np.random.rand(5)],
+        )
 
-        # Test Case 8: slice duration equals pre_ms + post_ms
-        spike_stack_times = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
-        for start, end in spike_stack_times.times:
-            assert end - start == pytest.approx(pre_ms + post_ms)
+        # Make sure subset propagates all metadata and correctly
+        # subsets the neuron_attributes.
+        subset = [1, 3]
+        assert foo.neuron_attributes is not None
+        truth = [foo.neuron_attributes[i] for i in subset]
+        bar = foo.subset(subset)
+        assert foo.metadata == bar.metadata
+        self.assert_neuron_attributes_equal(truth, bar.neuron_attributes)
+
+        # Change the metadata of foo and see that it's copied, so the
+        # change doesn't propagate.
+        foo.metadata["name"] = "Ford"
+        baz = bar.subtime(500, 1000)
+        assert bar.metadata == baz.metadata
+        assert bar.metadata is not baz.metadata
+        assert foo.metadata["name"] != bar.metadata["name"]
+        self.assert_neuron_attributes_equal(
+            bar.neuron_attributes, baz.neuron_attributes
+        )
+
+    def test_raw_data(self):
+        """
+        Tests handling of raw_data and raw_time in SpikeData.
+
+        Tests:
+        (Test Case 1) Tests that providing only one of raw_data/raw_time raises an error.
+        (Test Case 2) Tests that inconsistent lengths raise an error.
+        (Test Case 3) Tests automatic generation of time array and correct slicing with subtime.
+        """
+        # Make sure there's an error if only one of raw_data and
+        # raw_time is provided to the constructor.
+        with pytest.raises(ValueError):
+            SpikeData([], N=5, length=100, raw_data=[])
+        with pytest.raises(ValueError):
+            SpikeData([], N=5, length=100, raw_time=42)
+
+        # Make sure inconsistent lengths throw an error as well.
+        with pytest.raises(ValueError):
+            SpikeData(
+                [], N=5, length=100, raw_data=np.zeros((5, 100)), raw_time=np.arange(42)
+            )
+
+        # Check automatic generation of the time array.
+        sd = SpikeData(
+            [], N=5, length=100, raw_data=np.random.rand(5, 100), raw_time=1.0
+        )
+        assert np.all(sd.raw_time == np.arange(100))
+
+        # Make sure the raw data is sliced properly with time.
+        sd2 = sd.subtime(20, 30)
+        assert np.all(sd2.raw_time == np.arange(10))
+        assert np.all(sd2.raw_data == sd.raw_data[:, 20:30])
+
+    def test_set_neuron_attribute(self):
+        """
+        Tests set_neuron_attribute for single, array, and partial updates.
+
+        Tests:
+        (Test Case 1) Tests single value assignment to all neurons
+        (Test Case 2) Tests array value assignment
+        (Test Case 3) Tests partial update with neuron_indices
+        (Test Case 4) Tests length mismatch raises ValueError
+        """
+        sd = SpikeData([[] for _ in range(4)], length=100)
+
+        # Test Case 1: Single value assignment to all neurons
+        sd.set_neuron_attribute("type", "excitatory")
+        assert all(a["type"] == "excitatory" for a in sd.neuron_attributes)
+
+        # Test Case 2: Array value assignment
+        sd.set_neuron_attribute("rate", [1, 2, 3, 4])
+        assert [a["rate"] for a in sd.neuron_attributes] == [1, 2, 3, 4]
+
+        # Test Case 3: Partial update with neuron_indices
+        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
+        assert sd.neuron_attributes[0]["label"] == "A"
+        assert sd.neuron_attributes[2]["label"] == "A"
+        assert "label" not in sd.neuron_attributes[1]
+
+        # Test Case 4: Length mismatch raises ValueError
+        with pytest.raises(ValueError):
+            sd.set_neuron_attribute("x", [1, 2], [0])
+
+    def test_get_neuron_attribute(self):
+        """
+        Tests get_neuron_attribute retrieval with and without defaults.
+
+        Tests:
+        (Test Case 1) Tests retrieval when neuron_attributes is None (returns defaults)
+        (Test Case 2) Tests retrieval of existing attribute values
+        (Test Case 3) Tests default value for missing attributes
+        (Test Case 4) Tests mixed case: some neurons have attribute, some use default
+        """
+        sd = SpikeData([[] for _ in range(3)], length=100)
+
+        # Test Case 1: When neuron_attributes is None, returns default for all neurons
+        assert sd.get_neuron_attribute("x") == [None, None, None]
+        assert sd.get_neuron_attribute("x", default=-1) == [-1, -1, -1]
+
+        # Test Case 2: Retrieval of existing attribute values
+        sd.set_neuron_attribute("val", [1, 2, 3])
+        assert sd.get_neuron_attribute("val") == [1, 2, 3]
+
+        # Test Case 3: Default value for missing attributes
+        assert sd.get_neuron_attribute("missing") == [None, None, None]
+        assert sd.get_neuron_attribute("missing", default=0) == [0, 0, 0]
+
+        # Test Case 4: Mixed case - partial attribute set via neuron_indices
+        sd.set_neuron_attribute("label", "A", neuron_indices=[0, 2])
+        assert sd.get_neuron_attribute("label") == ["A", None, "A"]
+        assert sd.get_neuron_attribute("label", default="?") == ["A", "?", "A"]
 
     def test_unit_locations(self):
         """
@@ -1944,769 +3793,6 @@ class TestSpikeData:
         np.testing.assert_array_almost_equal(sub.train[0], [1.0, 5.0])
         np.testing.assert_array_almost_equal(sub.train[1], [3.0, 7.0])
 
-    def test_binned_meanrate(self):
-        """
-        Tests binned_meanrate() computes correct mean population rate.
-
-        Tests:
-            (Test Case 1) kHz output matches manual calculation.
-            (Test Case 2) Hz output is 1000x kHz output.
-            (Test Case 3) Invalid unit raises ValueError.
-        """
-        sd = SpikeData(
-            [[0.5, 1.5, 2.5], [0.5, 1.5, 2.5]],
-            length=4.0,
-        )
-        # binned(1) = [2, 2, 2, 0] (2 units each fire once per bin)
-        # meanrate kHz = [2/(2*1), 2/(2*1), 2/(2*1), 0] = [1.0, 1.0, 1.0, 0]
-        mr_khz = sd.binned_meanrate(bin_size=1, unit="kHz")
-        assert mr_khz[0] == pytest.approx(1.0)
-        assert mr_khz[3] == pytest.approx(0.0)
-
-        mr_hz = sd.binned_meanrate(bin_size=1, unit="Hz")
-        np.testing.assert_array_almost_equal(mr_hz, mr_khz * 1e3)
-
-        with pytest.raises(ValueError, match="Unknown unit"):
-            sd.binned_meanrate(bin_size=1, unit="bad")
-
-    def test_resampled_isi(self):
-        """
-        Tests resampled_isi() returns correct shape and reasonable values.
-
-        Tests:
-            (Test Case 1) Output shape is (N, len(times)).
-            (Test Case 2) Regular spike train produces approximately uniform rate.
-        """
-        # Unit with spikes at 0, 1, 2, ..., 99 (1 kHz)
-        train = [np.arange(0, 100, 1.0)]
-        sd = SpikeData(train, length=100.0)
-        times = np.arange(5, 95, 1.0)
-        rates = sd.resampled_isi(times, sigma_ms=5.0)
-        assert rates.shape == (1, len(times))
-        # Rate should be approximately 1000 Hz (1 spike per ms, ISI=1ms, rate=1/ISI=1000 Hz)
-        assert np.mean(rates[0]) == pytest.approx(1000.0, rel=0.2)
-
-    def test_append(self):
-        """
-        Tests append() concatenates two SpikeData objects in time.
-
-        Tests:
-            (Test Case 1) Result has combined length.
-            (Test Case 2) Spike times from second object are offset.
-            (Test Case 3) Same N preserved.
-            (Test Case 4) Different N raises ValueError.
-            (Test Case 5) Offset parameter works.
-        """
-        sd1 = SpikeData([[5.0, 10.0], [3.0]], length=20.0)
-        sd2 = SpikeData([[1.0, 2.0], [4.0]], length=10.0)
-
-        combined = sd1.append(sd2)
-        assert combined.N == 2
-        assert combined.length == pytest.approx(30.0)
-        # sd2 spikes shifted by sd1.length (20.0)
-        np.testing.assert_array_almost_equal(combined.train[0], [5.0, 10.0, 21.0, 22.0])
-        np.testing.assert_array_almost_equal(combined.train[1], [3.0, 24.0])
-
-        # Different N raises
-        sd3 = SpikeData([[1.0]], length=10.0)
-        with pytest.raises(ValueError, match="different N"):
-            sd1.append(sd3)
-
-        # With offset
-        combined_offset = sd1.append(sd2, offset=5.0)
-        assert combined_offset.length == pytest.approx(35.0)
-        np.testing.assert_array_almost_equal(
-            combined_offset.train[0], [5.0, 10.0, 26.0, 27.0]
-        )
-
-    def test_concatenate_spike_data(self):
-        """
-        Tests concatenate_spike_data() adds units from another SpikeData.
-
-        Tests:
-            (Test Case 1) N increases by the added units.
-            (Test Case 2) Original trains preserved.
-            (Test Case 3) New trains appended.
-            (Test Case 4) In-place mutation.
-        """
-        sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=10.0)
-        sd2 = SpikeData([[5.0, 6.0]], length=10.0)
-
-        original_n = sd1.N
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.N == original_n + 1
-        assert len(sd1.train) == 3
-        np.testing.assert_array_almost_equal(sd1.train[0], [1.0, 2.0])
-        np.testing.assert_array_almost_equal(sd1.train[2], [5.0, 6.0])
-
-    def test_concatenate_spike_data_different_length(self):
-        """
-        Tests concatenate_spike_data when second SpikeData has different length.
-
-        Tests:
-            (Test Case 1) Second SpikeData is subtimed to first's length.
-        """
-        sd1 = SpikeData([[1.0, 2.0]], length=10.0)
-        sd2 = SpikeData([[5.0, 15.0]], length=20.0)
-
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.N == 2
-        # sd2 subtimed to [0, 10) so spike at 15 is removed
-        assert len(sd1.train[1]) == 1
-        np.testing.assert_array_almost_equal(sd1.train[1], [5.0])
-
-    def test_latencies_to_index(self):
-        """
-        Tests latencies_to_index() delegates correctly to latencies().
-
-        Tests:
-            (Test Case 1) Returns latencies from unit i's spikes to all units.
-            (Test Case 2) Same result as calling latencies() directly with unit's train.
-        """
-        sd = SpikeData(
-            [[10.0, 50.0, 90.0], [15.0, 55.0, 95.0], [20.0, 60.0]],
-            length=100.0,
-        )
-        lat_to_idx = sd.latencies_to_index(0, window_ms=10.0)
-        lat_direct = sd.latencies(sd.train[0], window_ms=10.0)
-
-        assert len(lat_to_idx) == len(lat_direct)
-        for a, b in zip(lat_to_idx, lat_direct):
-            assert len(a) == len(b)
-
-    def test_compute_spike_trig_pop_rate(self):
-        """
-        Tests compute_spike_trig_pop_rate() returns correct shapes.
-
-        Tests:
-            (Test Case 1) stPR_filtered has shape (N, 2*window_ms + 1).
-            (Test Case 2) coupling_strengths_zero_lag has shape (N,).
-            (Test Case 3) coupling_strengths_max has shape (N,).
-            (Test Case 4) delays has shape (N,).
-            (Test Case 5) lags has shape (2*window_ms + 1,).
-            (Test Case 6) Silent neuron gets zero coupling.
-        """
-        sd = random_spikedata(5, 200, rate=1.0)
-        window = 20
-        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
-            window_ms=window, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=5
-        )
-        assert stPR.shape == (5, 2 * window + 1)
-        assert cs_zero.shape == (5,)
-        assert cs_max.shape == (5,)
-        assert delays.shape == (5,)
-        assert lags.shape == (2 * window + 1,)
-        assert lags[0] == -window
-        assert lags[-1] == window
-
-    def test_compute_spike_trig_pop_rate_silent_neuron(self):
-        """
-        Tests compute_spike_trig_pop_rate with a silent neuron.
-
-        Tests:
-            (Test Case 1) Silent neuron's coupling curve is all zeros.
-        """
-        train = [np.array([10.0, 50.0, 90.0]), np.array([])]  # unit 1 silent
-        sd = SpikeData(train, length=100.0)
-        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
-            window_ms=10
-        )
-        assert stPR.shape[0] == 2
-        # Silent neuron should have all-zero coupling
-        np.testing.assert_array_equal(stPR[1], np.zeros(21))
-
-    def test_from_thresholding(self):
-        """
-        Tests from_thresholding static constructor.
-
-        Tests:
-            (Test Case 1) Detects spikes from synthetic raw data.
-            (Test Case 2) raw_data and raw_time are attached.
-            (Test Case 3) Direction 'up' only detects positive crossings.
-            (Test Case 4) Filter disabled with filter=False.
-        """
-        rng = np.random.default_rng(42)
-        fs_Hz = 10000.0
-        n_ch = 2
-        n_samples = 10000
-        raw = rng.normal(0, 1, (n_ch, n_samples))
-        # Insert large spikes
-        raw[0, 500] = 20.0
-        raw[0, 5000] = 20.0
-        raw[1, 3000] = -20.0
-
-        sd = SpikeData.from_thresholding(
-            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False
-        )
-        assert sd.N == n_ch
-        assert sd.raw_data.shape == (n_ch, n_samples)
-        assert len(sd.raw_time) == n_samples
-        # At least some spikes should be detected
-        total_spikes = sum(len(t) for t in sd.train)
-        assert total_spikes > 0
-
-        # Direction 'up' should not detect negative-only spikes on channel 1
-        sd_up = SpikeData.from_thresholding(
-            raw, fs_Hz=fs_Hz, threshold_sigma=5.0, filter=False, direction="up"
-        )
-        # Channel 0 should have spikes, channel 1 might not (only negative spike)
-        assert len(sd_up.train[0]) > 0
-
-
-class TestGetPairwiseCCG:
-    """Tests for SpikeData.get_pairwise_ccg."""
-
-    def test_basic_shape_and_symmetry(self):
-        """
-        Tests that get_pairwise_ccg returns correctly shaped, symmetric matrices.
-
-        Tests:
-            (Test Case 1) Output shapes are (N, N) for both corr and lag matrices.
-            (Test Case 2) Correlation matrix is symmetric.
-            (Test Case 3) Lag matrix is antisymmetric (lag[i,j] == -lag[j,i]).
-            (Test Case 4) Diagonal of corr is 1, diagonal of lag is 0.
-        """
-        sd = random_spikedata(5, 5000)
-        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
-
-        assert corr.matrix.shape == (5, 5)
-        assert lag.matrix.shape == (5, 5)
-
-        # Symmetry
-        np.testing.assert_array_almost_equal(corr.matrix, corr.matrix.T)
-        # Antisymmetry of lags
-        np.testing.assert_array_almost_equal(lag.matrix, -lag.matrix.T)
-
-        # Diagonal
-        np.testing.assert_array_equal(np.diag(corr.matrix), np.ones(5))
-        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(5))
-
-    def test_returns_pairwise_comp_matrix(self):
-        """
-        Tests that both return values are PairwiseCompMatrix instances.
-
-        Tests:
-            (Test Case 1) corr is a PairwiseCompMatrix.
-            (Test Case 2) lag is a PairwiseCompMatrix.
-        """
-        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
-
-        sd = random_spikedata(3, 3000)
-        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
-
-        assert isinstance(corr, PairwiseCompMatrix)
-        assert isinstance(lag, PairwiseCompMatrix)
-
-    def test_metadata(self):
-        """
-        Tests that metadata on returned matrices stores bin_size and max_lag.
-
-        Tests:
-            (Test Case 1) corr metadata contains bin_size and max_lag.
-            (Test Case 2) lag metadata contains bin_size and max_lag.
-        """
-        sd = random_spikedata(3, 3000)
-        corr, lag = sd.get_pairwise_ccg(bin_size=2.0, max_lag=100)
-
-        assert corr.metadata["bin_size"] == 2.0
-        assert corr.metadata["max_lag"] == 100
-        assert lag.metadata["bin_size"] == 2.0
-        assert lag.metadata["max_lag"] == 100
-
-    def test_identical_trains_perfect_correlation(self):
-        """
-        Tests that identical spike trains produce correlation of 1 and lag of 0.
-
-        Tests:
-            (Test Case 1) Two copies of the same train yield corr == 1 and lag == 0.
-        """
-        train = np.sort(np.random.uniform(0, 1000, size=200))
-        sd = SpikeData([train, train.copy()], length=1000)
-        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=50)
-
-        assert corr.matrix[0, 1] == pytest.approx(1.0)
-        assert lag.matrix[0, 1] == 0
-
-    def test_cosine_similarity_func(self):
-        """
-        Tests that compute_cosine_similarity_with_lag works as compare_func.
-
-        Tests:
-            (Test Case 1) Output shapes are correct with cosine similarity.
-            (Test Case 2) Diagonal of corr is 1.
-            (Test Case 3) Correlation values are within [-1, 1].
-        """
-        sd = random_spikedata(4, 4000)
-        corr, lag = sd.get_pairwise_ccg(
-            compare_func=compute_cosine_similarity_with_lag,
-            bin_size=1.0,
-            max_lag=20,
-        )
-
-        assert corr.matrix.shape == (4, 4)
-        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(4))
-        assert np.all(corr.matrix >= -1.0 - 1e-10)
-        assert np.all(corr.matrix <= 1.0 + 1e-10)
-
-    def test_bin_size_affects_lag_conversion(self):
-        """
-        Tests that max_lag is converted to bins using bin_size.
-
-        Tests:
-            (Test Case 1) With bin_size=5 and max_lag=50, the maximum absolute lag
-                in bins should not exceed 10 (50/5).
-        """
-        sd = random_spikedata(3, 3000)
-        corr, lag = sd.get_pairwise_ccg(bin_size=5.0, max_lag=50)
-
-        # Lag values are in bins; max should be <= 10 (50ms / 5ms)
-        assert np.all(np.abs(lag.matrix) <= 10)
-
-    def test_single_unit(self):
-        """
-        Tests get_pairwise_ccg with a single unit.
-
-        Tests:
-            (Test Case 1) Returns 1x1 matrices with corr=1 and lag=0.
-        """
-        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
-        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
-
-        assert corr.matrix.shape == (1, 1)
-        assert corr.matrix[0, 0] == 1.0
-        assert lag.matrix[0, 0] == 0
-
-    def test_empty_train_pair(self):
-        """
-        Tests get_pairwise_ccg when one unit has no spikes.
-
-        Tests:
-            (Test Case 1) Correlation with an empty train is 0.
-        """
-        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
-        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
-
-        assert corr.matrix[0, 1] == pytest.approx(0.0)
-
-    def test_correlation_bounded(self):
-        """
-        Tests that all correlation values stay within [-1, 1].
-
-        Tests:
-            (Test Case 1) Random spike data with various configurations stays bounded.
-        """
-        for _ in range(10):
-            n_units = np.random.randint(2, 6)
-            sd = random_spikedata(n_units, n_units * 500)
-            corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=20)
-
-            assert np.all(corr.matrix >= -1.0 - 1e-10)
-            assert np.all(corr.matrix <= 1.0 + 1e-10)
-
-
-class TestGetPairwiseLatencies:
-    """Tests for SpikeData.get_pairwise_latencies."""
-
-    def test_basic_shape(self):
-        """
-        Tests that get_pairwise_latencies returns correctly shaped matrices.
-
-        Tests:
-            (Test Case 1) Mean and std matrices are (N, N).
-            (Test Case 2) Both are PairwiseCompMatrix instances.
-        """
-        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
-
-        sd = random_spikedata(5, 5000)
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-
-        assert mean_lat.matrix.shape == (5, 5)
-        assert std_lat.matrix.shape == (5, 5)
-        assert isinstance(mean_lat, PairwiseCompMatrix)
-        assert isinstance(std_lat, PairwiseCompMatrix)
-
-    def test_diagonal_is_zero(self):
-        """
-        Tests that diagonal entries are zero for both mean and std.
-
-        Tests:
-            (Test Case 1) Diagonal of mean matrix is all zeros.
-            (Test Case 2) Diagonal of std matrix is all zeros.
-        """
-        sd = random_spikedata(4, 4000)
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-
-        np.testing.assert_array_equal(np.diag(mean_lat.matrix), np.zeros(4))
-        np.testing.assert_array_equal(np.diag(std_lat.matrix), np.zeros(4))
-
-    def test_approximate_antisymmetry(self):
-        """
-        Tests that mean latency matrix is approximately antisymmetric.
-
-        Tests:
-            (Test Case 1) mean[i,j] is approximately -mean[j,i] for dense spike trains.
-
-        Notes:
-            - Not exact because different spike counts per train yield different
-              nearest-spike pairings in each direction.
-        """
-        # Use dense trains so the approximation is tight
-        sd = random_spikedata(3, 30000)
-        mean_lat, _ = sd.get_pairwise_latencies()
-
-        # Should be roughly antisymmetric
-        for i in range(3):
-            for j in range(i + 1, 3):
-                assert mean_lat.matrix[i, j] == pytest.approx(
-                    -mean_lat.matrix[j, i], abs=5.0
-                )
-
-    def test_std_is_non_negative(self):
-        """
-        Tests that all std values are non-negative.
-
-        Tests:
-            (Test Case 1) No negative entries in the std matrix.
-        """
-        sd = random_spikedata(4, 4000)
-        _, std_lat = sd.get_pairwise_latencies()
-
-        assert np.all(std_lat.matrix >= 0)
-
-    def test_identical_trains_zero_latency(self):
-        """
-        Tests that identical spike trains produce zero mean and zero std.
-
-        Tests:
-            (Test Case 1) Mean latency between identical trains is 0.
-            (Test Case 2) Std latency between identical trains is 0.
-        """
-        train = np.sort(np.random.uniform(0, 1000, size=200))
-        sd = SpikeData([train, train.copy()], length=1000)
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-
-        assert mean_lat.matrix[0, 1] == pytest.approx(0.0)
-        assert mean_lat.matrix[1, 0] == pytest.approx(0.0)
-        assert std_lat.matrix[0, 1] == pytest.approx(0.0)
-        assert std_lat.matrix[1, 0] == pytest.approx(0.0)
-
-    def test_known_latency(self):
-        """
-        Tests with a known offset between trains.
-
-        Tests:
-            (Test Case 1) Train B is train A shifted by +10ms. Mean latency
-                from A to B should be exactly +10.
-            (Test Case 2) Mean latency from B to A is close to -10 but not
-                exact due to boundary effects (last spike in B has no forward
-                match in A).
-            (Test Case 3) Std from A to B is 0 (all latencies identical).
-        """
-        # Offset of 5ms with 20ms spacing avoids equidistant tie-breaking
-        train_a = np.arange(20, 980, 20, dtype=float)
-        train_b = train_a + 5.0  # shifted by +5ms
-        sd = SpikeData([train_a, train_b], length=1000)
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-
-        assert mean_lat.matrix[0, 1] == pytest.approx(5.0, abs=0.1)
-        assert mean_lat.matrix[1, 0] == pytest.approx(-5.0, abs=0.1)
-        assert std_lat.matrix[0, 1] == pytest.approx(0.0, abs=0.1)
-
-    def test_window_ms_filter(self):
-        """
-        Tests that window_ms filters out distant latencies.
-
-        Tests:
-            (Test Case 1) With a tight window, only close spikes contribute.
-            (Test Case 2) A pair with all latencies beyond the window yields
-                mean=0 and std=0.
-        """
-        # Two trains: one spike at 0, one spike at 500 — latency is 500ms
-        sd = SpikeData([[0.5], [500.5]], length=600)
-
-        # No window — latency is 500
-        mean_no_win, _ = sd.get_pairwise_latencies()
-        assert mean_no_win.matrix[0, 1] == pytest.approx(500.0)
-
-        # Window of 100ms — the 500ms latency is filtered out
-        mean_win, std_win = sd.get_pairwise_latencies(window_ms=100.0)
-        assert mean_win.matrix[0, 1] == pytest.approx(0.0)
-        assert std_win.matrix[0, 1] == pytest.approx(0.0)
-
-    def test_metadata(self):
-        """
-        Tests that metadata stores window_ms.
-
-        Tests:
-            (Test Case 1) Metadata contains window_ms=None by default.
-            (Test Case 2) Metadata contains the specified window_ms value.
-        """
-        sd = random_spikedata(2, 2000)
-
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-        assert mean_lat.metadata["window_ms"] is None
-
-        mean_lat2, std_lat2 = sd.get_pairwise_latencies(window_ms=50.0)
-        assert mean_lat2.metadata["window_ms"] == 50.0
-
-    def test_return_distributions(self):
-        """
-        Tests that return_distributions=True returns a third element.
-
-        Tests:
-            (Test Case 1) Returns a tuple of length 3 when True.
-            (Test Case 2) The distributions array has shape (U, U).
-            (Test Case 3) Each entry is an ndarray.
-            (Test Case 4) Diagonal entries are empty arrays.
-            (Test Case 5) Number of latencies in [i,j] equals number of spikes
-                in train i (without window filtering).
-        """
-        train_a = np.sort(np.random.uniform(0, 1000, size=50))
-        train_b = np.sort(np.random.uniform(0, 1000, size=80))
-        sd = SpikeData([train_a, train_b], length=1000)
-
-        result = sd.get_pairwise_latencies(return_distributions=True)
-        assert len(result) == 3
-
-        mean_lat, std_lat, dists = result
-        assert dists.shape == (2, 2)
-        assert isinstance(dists[0, 1], np.ndarray)
-        assert len(dists[0, 0]) == 0  # diagonal
-        assert len(dists[0, 1]) == 50  # one latency per spike in train_a
-        assert len(dists[1, 0]) == 80  # one latency per spike in train_b
-
-    def test_empty_train(self):
-        """
-        Tests get_pairwise_latencies when one unit has no spikes.
-
-        Tests:
-            (Test Case 1) Mean and std are 0 for pairs involving empty trains.
-            (Test Case 2) Distribution is empty for pairs involving empty trains.
-        """
-        sd = SpikeData([[], np.sort(np.random.uniform(0, 500, 100))], length=500)
-        mean_lat, std_lat, dists = sd.get_pairwise_latencies(return_distributions=True)
-
-        assert mean_lat.matrix[0, 1] == 0.0
-        assert mean_lat.matrix[1, 0] == 0.0
-        assert std_lat.matrix[0, 1] == 0.0
-        assert len(dists[0, 1]) == 0
-        assert len(dists[1, 0]) == 0
-
-    def test_single_unit(self):
-        """
-        Tests get_pairwise_latencies with a single unit.
-
-        Tests:
-            (Test Case 1) Returns 1x1 matrices with zeros.
-        """
-        sd = SpikeData([np.sort(np.random.uniform(0, 500, 100))], length=500)
-        mean_lat, std_lat = sd.get_pairwise_latencies()
-
-        assert mean_lat.matrix.shape == (1, 1)
-        assert mean_lat.matrix[0, 0] == 0.0
-        assert std_lat.matrix[0, 0] == 0.0
-
-    def test_without_distributions_returns_two(self):
-        """
-        Tests that return_distributions=False returns only two values.
-
-        Tests:
-            (Test Case 1) Default call returns a tuple of length 2.
-        """
-        sd = random_spikedata(3, 3000)
-        result = sd.get_pairwise_latencies()
-        assert len(result) == 2
-
-
-class TestSpikeDataEdgeCases:
-    """Edge-case tests for SpikeData boundaries (Group 3)."""
-
-    def test_init_all_empty_trains_no_length(self):
-        """
-        SpikeData with all-empty trains and no explicit length defaults to duration 0.
-
-        Tests:
-            (Test Case 1) Verify that SpikeData([[], [], []], length=None) creates
-                a valid object with length=0.0 and the correct number of units.
-        """
-        sd = SpikeData([[], [], []], length=None)
-        assert sd.length == 0.0
-        assert sd.N == 3
-        assert all(len(t) == 0 for t in sd.train)
-
-    def test_frames_length_equals_recording(self):
-        """
-        frames() with window length equal to the full recording length.
-
-        Tests:
-        (Test Case 1) Verify that frames(length) returns exactly 1 SpikeSliceStack
-        containing 1 slice when length equals the recording length.
-        """
-        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
-        stack = sd.frames(100.0)
-        assert isinstance(stack, SpikeSliceStack)
-        assert len(stack.spike_stack) == 1
-
-    def test_interspike_intervals_single_spike(self):
-        """
-        interspike_intervals for a unit with exactly one spike and an empty train.
-
-        Tests:
-        (Test Case 1) A unit with 1 spike returns an ISI array of length 0.
-        (Test Case 2) A unit with 0 spikes returns an ISI array of length 0.
-        """
-        # Single spike
-        sd_single = SpikeData([[50.0]], length=100.0)
-        isis_single = sd_single.interspike_intervals()
-        assert len(isis_single) == 1
-        assert len(isis_single[0]) == 0
-
-        # Empty train
-        sd_empty = SpikeData([[]], length=100.0)
-        isis_empty = sd_empty.interspike_intervals()
-        assert len(isis_empty) == 1
-        assert len(isis_empty[0]) == 0
-
-    def test_concatenate_mutates_self(self):
-        """
-        concatenate_spike_data mutates self and leaves the other unchanged.
-
-        Tests:
-        (Test Case 1) After concatenation, sd1.N equals the sum of original N values.
-        (Test Case 2) sd1 has the correct number of trains.
-        (Test Case 3) sd2 is unchanged (same N and same trains).
-        """
-        sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=100.0)
-        sd2 = SpikeData([[10.0], [20.0], [30.0]], length=100.0)
-        sd2_N_orig = sd2.N
-        sd2_trains_orig = [t.copy() for t in sd2.train]
-
-        sd1.concatenate_spike_data(sd2)
-
-        assert sd1.N == 5
-        assert len(sd1.train) == 5
-
-        # sd2 should be unchanged
-        assert sd2.N == sd2_N_orig
-        assert len(sd2.train) == len(sd2_trains_orig)
-        for orig, current in zip(sd2_trains_orig, sd2.train):
-            np.testing.assert_array_equal(orig, current)
-
-    def test_sttc_both_trains_empty(self):
-        """
-        spike_time_tiling with both trains empty.
-
-        Tests:
-        (Test Case 1) Calling spike_time_tiling on two empty trains returns a finite
-        number (0.0) without crashing.
-        """
-        sd = SpikeData([[], []], length=100.0)
-        result = sd.spike_time_tiling(0, 1, delt=5.0)
-        assert isinstance(result, float)
-        # get_sttc returns 0.0 for empty trains
-        np.testing.assert_equal(result, 0.0)
-
-    def test_init_duplicate_spike_times(self):
-        """
-        Duplicate spike times are preserved in the train.
-
-        Tests:
-        (Test Case 1) SpikeData with duplicate spike times preserves all of them.
-        """
-        sd = SpikeData([[1.0, 1.0, 2.0]], length=10.0)
-        assert sd.N == 1
-        np.testing.assert_array_equal(sd.train[0], [1.0, 1.0, 2.0])
-
-    def test_init_non_monotonic_sorted(self):
-        """
-        Non-monotonic spike times are sorted on construction.
-
-        Tests:
-        (Test Case 1) SpikeData sorts an unsorted input train.
-        """
-        sd = SpikeData([[5.0, 1.0, 3.0]], length=10.0)
-        np.testing.assert_array_equal(sd.train[0], [1.0, 3.0, 5.0])
-
-    def test_subset_empty_units(self):
-        """
-        Subset with an empty units list returns N=0.
-
-        Tests:
-        (Test Case 1) Result has N=0 and no trains.
-        (Test Case 2) Length is preserved from the original.
-        """
-        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
-        sub = sd.subset(units=[])
-        assert sub.N == 0
-        assert len(sub.train) == 0
-        np.testing.assert_equal(sub.length, 50.0)
-
-    def test_subset_duplicate_indices(self):
-        """
-        Subset deduplicates unit indices.
-
-        Tests:
-        (Test Case 1) Passing [0, 0, 1] yields N=2, not N=3, because subset treats
-        units as a set.
-        """
-        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
-        sub = sd.subset(units=[0, 0, 1])
-        assert sub.N == 2
-
-    def test_subtime_start_equals_end(self):
-        """
-        subtime raises ValueError when start equals end.
-
-        Tests:
-        (Test Case 1) subtime(10.0, 10.0) raises ValueError because the range is empty.
-        """
-        sd = SpikeData([[5.0, 15.0, 25.0]], length=50.0)
-        with pytest.raises(ValueError):
-            sd.subtime(10.0, 10.0)
-
-    def test_subtime_no_spikes_in_window(self):
-        """
-        subtime with a window containing no spikes.
-
-        Tests:
-        (Test Case 1) Returns a valid SpikeData with empty trains and correct length.
-        """
-        sd = SpikeData([[10.0, 20.0, 30.0]], length=100.0)
-        sub = sd.subtime(40.0, 50.0)
-        assert sub.N == 1
-        np.testing.assert_equal(sub.length, 10.0)
-        assert len(sub.train[0]) == 0
-
-    def test_subtime_boundary_inclusion(self):
-        """
-        subtime uses half-open interval [start, end).
-
-        Tests:
-        (Test Case 1) A spike at exactly start is included.
-        (Test Case 2) A spike at exactly end is excluded.
-
-        Notes:
-        - subtime filters with (t >= start) & (t < end), so it is half-open.
-        """
-        sd = SpikeData([[10.0, 20.0]], length=50.0)
-        sub = sd.subtime(10.0, 20.0)
-        # After shift, spike at 10.0 becomes 0.0; spike at 20.0 is excluded
-        assert len(sub.train[0]) == 1
-        np.testing.assert_almost_equal(sub.train[0][0], 0.0)
-
-    def test_subset_out_of_bounds_index(self):
-        """
-        Subset with an out-of-bounds unit index.
-
-        Tests:
-        (Test Case 1) Passing units=[99] when N=3 returns an empty SpikeData
-        because no train index matches 99.
-        """
-        sd = SpikeData([[1.0], [2.0], [3.0]], length=50.0)
-        sub = sd.subset(units=[99])
-        assert sub.N == 0
-        assert len(sub.train) == 0
-
     def test_subset_by_non_existent_key(self):
         """
         Subset with by= referencing a key that no neuron has.
@@ -2724,301 +3810,92 @@ class TestSpikeDataEdgeCases:
         assert sub.N == 0
         assert len(sub.train) == 0
 
-    def test_binned_zero_bin_size(self):
+    def test_metadata_default_not_shared(self):
         """
-        binned with zero bin_size.
+        Verify that default metadata dicts are independent across instances.
 
         Tests:
-        (Test Case 1) Calling binned(0) raises an exception because division
-        by zero occurs inside sparse_raster.
+            (Test Case 1) Mutating one instance's metadata does not affect another.
         """
-        sd = SpikeData([[1.0, 2.0]], length=10.0)
-        with pytest.raises(Exception):
-            sd.binned(0)
+        sd1 = SpikeData([[1]], length=5)
+        sd2 = SpikeData([[2]], length=5)
+        sd1.metadata["key"] = "value"
+        assert "key" not in sd2.metadata
 
-    def test_binned_negative_bin_size(self):
+    def test_set_neuron_attribute_initializes_none(self):
         """
-        binned with negative bin_size.
-
-        Tests:
-        (Test Case 1) Calling binned(-1) raises an exception because negative
-        bin size produces invalid array dimensions.
-        """
-        sd = SpikeData([[1.0, 2.0]], length=10.0)
-        with pytest.raises(Exception):
-            sd.binned(-1)
-
-    def test_binned_spikes_at_exact_bin_boundaries(self):
-        """
-        binned with spikes at exact bin boundaries.
+        set_neuron_attribute when neuron_attributes is None.
 
         Tests:
-        (Test Case 1) spikes=[0, 20, 40] with bin_size=20 assigns each spike
-        to the correct bin via left-open, right-closed convention.
-        (Test Case 2) Total spike count is preserved.
+            (Test Case 1) Calling set_neuron_attribute initializes neuron_attributes.
+            (Test Case 2) Attribute is set correctly on all units.
         """
-        sd = SpikeData([[0, 20, 40]], length=40.0)
-        # Bins: (0,20], (20,40]. t=0 clipped to bin 0, t=20 into bin 0
-        # (right-closed), t=40 into bin 1. length=ceil(40/20)=2.
-        result = sd.binned(20)
-        assert len(result) == 2
-        assert result.sum() == 3
-        assert result[0] == 2  # spikes at t=0 and t=20
-        assert result[1] == 1  # spike at t=40
+        sd = SpikeData([[10.0], [20.0]], length=30.0)
+        assert sd.neuron_attributes is None
+        sd.set_neuron_attribute("region", "ctx")
+        assert sd.neuron_attributes is not None
+        assert len(sd.neuron_attributes) == 2
+        assert all(a["region"] == "ctx" for a in sd.neuron_attributes)
 
-    def test_raster_bin_size_larger_than_length(self):
-        """
-        raster with bin_size larger than recording length.
 
-        Tests:
-        (Test Case 1) Returns a single-bin raster containing all spikes.
-        """
-        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
-        r = sd.raster(bin_size=100.0)
-        assert r.shape[1] == 1
-        assert r[0, 0] == 3
+class TestSpikeDataExports:
+    """Tests for SpikeData export delegation methods: to_hdf5, to_nwb, to_kilosort."""
 
-    def test_raster_spike_at_t_zero(self):
+    def test_to_hdf5_delegates_to_exporter(self):
         """
-        raster captures a spike at t=0 in the first bin.
+        SpikeData.to_hdf5 delegates to data_exporters.export_spikedata_to_hdf5.
 
         Tests:
-        (Test Case 1) A spike at exactly t=0 appears in bin index 0.
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
+            (Test Case 3) The filepath keyword is forwarded.
         """
-        sd = SpikeData([[0.0, 5.0]], length=10.0)
-        r = sd.raster(bin_size=5.0)
-        assert r[0, 0] >= 1  # spike at t=0 is in first bin
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_hdf5"
+        ) as mock_export:
+            sd.to_hdf5("/tmp/fake.h5", style="ragged")
+            mock_export.assert_called_once()
+            args, kwargs = mock_export.call_args
+            assert args[0] is sd
+            assert args[1] == "/tmp/fake.h5"
 
-    def test_rates_zero_length_recording(self):
+    def test_to_nwb_delegates_to_exporter(self):
         """
-        rates with sd.length == 0 returns zeros.
-
-        Tests:
-            (Test Case 1) rates() on a zero-length recording returns np.zeros(N).
-        """
-        sd = SpikeData([[]], length=0.0)
-        result = sd.rates()
-        np.testing.assert_array_equal(result, np.zeros(1))
-
-    def test_align_to_events_empty_events(self):
-        """
-        align_to_events with an empty events array.
+        SpikeData.to_nwb delegates to data_exporters.export_spikedata_to_nwb.
 
         Tests:
-        (Test Case 1) Passing an empty list raises ValueError because no valid
-        events remain after filtering.
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
         """
-        sd = SpikeData([[5.0, 15.0, 25.0]], length=50.0)
-        with pytest.raises(ValueError, match="No valid events remain"):
-            sd.align_to_events([], pre_ms=5.0, post_ms=5.0)
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_nwb"
+        ) as mock_export:
+            sd.to_nwb("/tmp/fake.nwb")
+            mock_export.assert_called_once()
+            args, _ = mock_export.call_args
+            assert args[0] is sd
 
-    def test_align_to_events_at_recording_boundaries(self):
+    def test_to_kilosort_delegates_to_exporter(self):
         """
-        align_to_events with events at exact recording boundaries.
-
-        Tests:
-        (Test Case 1) An event at t=0 with pre_ms>0 is dropped because the
-        window extends before the recording start.
-        (Test Case 2) An event at t=length with post_ms>0 is dropped because
-        the window extends past the recording end.
-        (Test Case 3) If all boundary events are dropped, a ValueError is raised.
-        """
-        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
-        # Both events have windows that extend outside [0, 50]
-        with pytest.raises(ValueError, match="No valid events remain"):
-            sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
-
-    def test_sttc_delt_zero(self):
-        """
-        spike_time_tiling with delt=0.
+        SpikeData.to_kilosort delegates to data_exporters.export_spikedata_to_kilosort.
 
         Tests:
-        (Test Case 1) delt=0 produces a finite result without numerical errors.
-        The result should be between -1 and 1.
+            (Test Case 1) The exporter function is called exactly once.
+            (Test Case 2) The first positional arg is the SpikeData instance.
+            (Test Case 3) fs_Hz keyword is forwarded.
         """
-        sd = SpikeData([[1.0, 2.0, 3.0], [1.5, 2.5, 3.5]], length=10.0)
-        result = sd.spike_time_tiling(0, 1, delt=0.0)
-        assert np.isfinite(result)
-        assert -1 <= result <= 1
-
-    def test_sttc_delt_larger_than_recording(self):
-        """
-        spike_time_tiling with delt larger than recording length.
-
-        Tests:
-        (Test Case 1) When delt covers the entire recording, STTC is finite
-        and within [-1, 1].
-        """
-        sd = SpikeData([[1.0, 5.0], [2.0, 6.0]], length=10.0)
-        result = sd.spike_time_tiling(0, 1, delt=1000.0)
-        assert np.isfinite(result)
-        assert -1 <= result <= 1
-
-    def test_latencies_empty_times(self):
-        """
-        latencies with an empty times array.
-
-        Tests:
-        (Test Case 1) Passing an empty list returns an empty list immediately.
-        """
-        sd = SpikeData([[1.0, 2.0, 3.0]], length=10.0)
-        result = sd.latencies([])
-        assert result == []
-
-    def test_latencies_spike_at_exactly_query_time(self):
-        """
-        latencies when a spike occurs at exactly the query time.
-
-        Tests:
-        (Test Case 1) The latency is 0 and is included in the results.
-        """
-        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
-        result = sd.latencies([10.0])
-        assert len(result) == 1
-        assert len(result[0]) == 1
-        assert result[0][0] == 0.0
-
-    def test_append_negative_offset(self):
-        """
-        append with a negative offset.
-
-        Tests:
-        (Test Case 1) The resulting length is self.length + other.length + offset,
-        which is shorter than the sum of both lengths.
-        (Test Case 2) Spike times from the appended data are shifted by
-        self.length + offset.
-        """
-        sd1 = SpikeData([[5.0]], length=20.0)
-        sd2 = SpikeData([[3.0]], length=10.0)
-        result = sd1.append(sd2, offset=-5)
-        # length = 20 + 10 + (-5) = 25
-        np.testing.assert_equal(result.length, 25.0)
-        # Appended spike at 3.0 shifted by self.length + offset = 20 + (-5) = 15
-        expected_second_spike = 3.0 + 20.0 + (-5)
-        np.testing.assert_almost_equal(result.train[0][1], expected_second_spike)
-
-    def test_append_to_empty_spikedata(self):
-        """
-        append to a SpikeData with no spikes.
-
-        Tests:
-        (Test Case 1) Result contains the appended spikes shifted by the
-        empty SpikeData's length.
-        (Test Case 2) The resulting length equals the sum of both lengths.
-        """
-        sd_empty = SpikeData([[]], length=10.0)
-        sd_data = SpikeData([[5.0, 8.0]], length=20.0)
-        result = sd_empty.append(sd_data, offset=0)
-        # length = 10 + 20 + 0 = 30
-        np.testing.assert_equal(result.length, 30.0)
-        # Spikes shifted by sd_empty.length = 10
-        np.testing.assert_array_almost_equal(result.train[0], [15.0, 18.0])
-
-    def test_from_raster_all_zeros(self):
-        """
-        from_raster with an all-zero raster.
-
-        Tests:
-        (Test Case 1) Produces a SpikeData with all empty spike trains.
-        (Test Case 2) N matches the number of rows in the raster.
-        """
-        raster = np.zeros((3, 5))
-        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
-        assert sd.N == 3
-        for train in sd.train:
-            assert len(train) == 0
-
-    def test_from_raster_single_bin(self):
-        """
-        from_raster with a single-bin raster.
-
-        Tests:
-        (Test Case 1) Length equals 1 * bin_size_ms.
-        (Test Case 2) Spike times are correctly placed within the single bin.
-        """
-        raster = np.array([[2], [0]])
-        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
-        np.testing.assert_equal(sd.length, 10.0)
-        assert sd.N == 2
-        # Unit 0 has 2 spikes evenly spaced in the bin [0, 10)
-        # linspace(0, 10, 4)[1:-1] = [2.5, 5.0, 7.5] ... wait, n_spikes=2 so
-        # linspace(0, 10, 4)[1:-1] = [10/3, 20/3] approx [3.33, 6.67]
-        assert len(sd.train[0]) == 2
-        assert len(sd.train[1]) == 0
-
-    def test_get_pop_rate_empty_spikedata(self):
-        """
-        get_pop_rate on a SpikeData with no spikes.
-
-        Tests:
-        (Test Case 1) Returns a valid array (all zeros or near-zero) without error.
-        """
-        sd = SpikeData([[]], length=100.0)
-        result = sd.get_pop_rate()
-        assert isinstance(result, np.ndarray)
-        assert len(result) > 0
-        np.testing.assert_array_equal(result, np.zeros_like(result))
-
-    def test_get_bursts_no_bursts_detected(self):
-        """
-        get_bursts when no bursts are present.
-
-        Tests:
-        (Test Case 1) Returns empty arrays for tburst, edges, and peak_amp.
-        """
-        sd = SpikeData([[]], length=1000.0)
-        tburst, edges, peak_amp = sd.get_bursts(
-            thr_burst=5.0,
-            min_burst_diff=50,
-            burst_edge_mult_thresh=0.5,
-        )
-        assert len(tburst) == 0
-        assert len(peak_amp) == 0
-
-    def test_burst_sensitivity_no_spikes(self):
-        """
-        burst_sensitivity on a SpikeData with no spikes.
-
-        Tests:
-            (Test Case 1) Returns an all-zero integer matrix of correct shape.
-        """
-        sd = SpikeData([[]], length=1000.0)
-        result = sd.burst_sensitivity(
-            thr_values=np.array([0.5, 1.0]),
-            dist_values=np.array([10, 20, 30]),
-            burst_edge_mult_thresh=0.5,
-        )
-        assert result.shape == (2, 3)
-        assert result.dtype == int
-        np.testing.assert_array_equal(result, np.zeros((2, 3), dtype=int))
-
-    def test_resampled_isi_single_spike(self):
-        """
-        resampled_isi with a train containing a single spike.
-
-        Tests:
-        (Test Case 1) Returns all zeros because ISI is undefined with fewer
-        than 2 spikes.
-        """
-        sd = SpikeData([[50.0]], length=100.0)
-        times = np.linspace(0, 100, 50)
-        result = sd.resampled_isi(times)
-        assert result.shape == (1, 50)
-        np.testing.assert_array_equal(result[0], np.zeros(50))
-
-    def test_resampled_isi_sigma_zero(self):
-        """
-        resampled_isi with sigma_ms=0.
-
-        Tests:
-        (Test Case 1) Returns a valid finite array without numerical errors
-        (Gaussian smoothing is skipped when sigma <= 0).
-        """
-        sd = SpikeData([[10.0, 30.0, 60.0]], length=100.0)
-        times = np.linspace(0, 100, 50)
-        result = sd.resampled_isi(times, sigma_ms=0.0)
-        assert result.shape == (1, 50)
-        assert np.all(np.isfinite(result))
+        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
+        with patch(
+            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_kilosort"
+        ) as mock_export:
+            mock_export.return_value = ("/tmp/st.npy", "/tmp/sc.npy")
+            sd.to_kilosort("/tmp/fake_dir", fs_Hz=30000.0)
+            mock_export.assert_called_once()
+            args, kwargs = mock_export.call_args
+            assert args[0] is sd
+            assert kwargs["fs_Hz"] == 30000.0
 
 
 # ---------------------------------------------------------------------------
@@ -3215,524 +4092,131 @@ class TestFitGplvm:
             ), f"decode_res['{key}'] is {type(val)}, expected np.ndarray or scalar"
 
 
-class TestRecentFixes:
-    """Tests for fixes applied during the 2026-03-19 code review."""
+class TestAlignToEvents:
+    """Tests for SpikeData.align_to_events."""
 
-    def test_subtime_always_shifts_to_zero(self):
+    def test_align_to_events(self):
         """
-        Verify subtime shifts spike times so the new window starts at t=0.
+        Test align_to_events for event-aligned slice stack creation.
 
         Tests:
-            (Test Case 1) Spike times are shifted by the start offset.
-            (Test Case 2) Length equals the window size (end - start).
+            (Test Case 1) kind='spike' returns a SpikeSliceStack with one slice per event.
+            (Test Case 2) kind='rate' returns a RateSliceStack with one slice per event.
+            (Test Case 3) events given as a metadata key string are resolved correctly.
+            (Test Case 4) An invalid metadata key raises KeyError with the key name.
+            (Test Case 5) Events whose window exceeds recording bounds are dropped with UserWarning.
+            (Test Case 6) All events dropped after filtering raises ValueError.
+            (Test Case 7) An invalid kind value raises ValueError.
+            (Test Case 8) Each slice spans exactly pre_ms + post_ms milliseconds.
         """
-        sd = SpikeData([[50, 100, 150]], length=200)
-        result = sd.subtime(50, 160)
-        # subtime uses [start, end), so 50, 100, 150 are all included
-        np.testing.assert_array_equal(result.train[0], [0, 50, 100])
-        assert result.length == 110
+        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+        from SpikeLab.spikedata.rateslicestack import RateSliceStack
 
-    def test_concatenate_spike_data_preserves_raw(self):
-        """
-        Verify concatenate_spike_data does not modify raw_data or raw_time.
+        # Build a simple 3-unit recording: 200 ms, 10 spikes per unit
+        trains = [np.linspace(5, 195, 10) for _ in range(3)]
+        sd = SpikeData(trains, length=200.0)
 
-        Tests:
-            (Test Case 1) raw_data is unchanged after concatenating units.
-            (Test Case 2) raw_time is unchanged after concatenating units.
-        """
-        raw1 = np.ones((2, 10))
-        time1 = np.arange(10, dtype=float)
-        sd1 = SpikeData([[1, 2]], length=10, raw_data=raw1, raw_time=time1)
-        sd2 = SpikeData([[3, 4]], length=10)
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.raw_data.shape == (2, 10)  # unchanged
-        assert sd1.raw_time.shape == (10,)  # unchanged
-        np.testing.assert_array_equal(sd1.raw_data, raw1)
+        events_ms = np.array([50.0, 100.0, 150.0])
+        pre_ms, post_ms = 20.0, 30.0
 
-    def test_metadata_default_not_shared(self):
-        """
-        Verify that default metadata dicts are independent across instances.
+        # Test Case 1: kind='spike' → SpikeSliceStack
+        spike_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
+        assert isinstance(spike_stack, SpikeSliceStack)
+        assert len(spike_stack.spike_stack) == 3
 
-        Tests:
-            (Test Case 1) Mutating one instance's metadata does not affect another.
-        """
-        sd1 = SpikeData([[1]], length=5)
-        sd2 = SpikeData([[2]], length=5)
-        sd1.metadata["key"] = "value"
-        assert "key" not in sd2.metadata
+        # Test Case 2: kind='rate' → RateSliceStack
+        rate_stack = sd.align_to_events(events_ms, pre_ms, post_ms, kind="rate")
+        assert isinstance(rate_stack, RateSliceStack)
+        assert rate_stack.event_stack.shape[2] == 3  # 3 slices
 
-    # ------------------------------------------------------------------
-    # spike_shuffle
-    # ------------------------------------------------------------------
-
-    def test_spike_shuffle_preserves_row_and_column_sums(self):
-        """
-        spike_shuffle preserves per-unit spike counts and per-bin population rates.
-
-        Tests:
-            (Test Case 1) Returned object is a SpikeData with same N and length.
-            (Test Case 2) Row sums (spikes per unit) are preserved.
-            (Test Case 3) Column sums (population rate per bin) are preserved.
-
-        Notes:
-            - Uses a SpikeData built from a binary raster to avoid multi-spike
-              bins, which spike_shuffle's internal binarization would alter.
-        """
-        rng = np.random.default_rng(42)
-        binary_raster = (rng.random((5, 100)) < 0.2).astype(int)
-        sd = SpikeData.from_raster(binary_raster, bin_size_ms=1)
-        shuffled = sd.spike_shuffle(swap_per_spike=5, seed=42, bin_size=1)
-
-        assert isinstance(shuffled, SpikeData)
-        assert shuffled.N == sd.N
-        assert shuffled.length == sd.length
-
-        orig_raster = sd.sparse_raster(bin_size=1).toarray()
-        shuf_raster = shuffled.sparse_raster(bin_size=1).toarray()
-
-        # Row sums (spikes per unit) must match
-        np.testing.assert_array_equal(orig_raster.sum(axis=1), shuf_raster.sum(axis=1))
-        # Column sums (population rate per bin) must match
-        np.testing.assert_array_equal(orig_raster.sum(axis=0), shuf_raster.sum(axis=0))
-
-    def test_spike_shuffle_seed_reproducibility(self):
-        """
-        Same seed produces the same shuffled result.
-
-        Tests:
-            (Test Case 1) Two calls with the same seed yield identical rasters.
-            (Test Case 2) Different seeds yield different rasters.
-        """
-        np.random.seed(0)
-        sd = random_spikedata(4, 100, rate=1.0)
-
-        shuf1 = sd.spike_shuffle(seed=123, bin_size=1)
-        shuf2 = sd.spike_shuffle(seed=123, bin_size=1)
-        r1 = shuf1.sparse_raster(bin_size=1).toarray()
-        r2 = shuf2.sparse_raster(bin_size=1).toarray()
-        np.testing.assert_array_equal(r1, r2)
-
-        shuf3 = sd.spike_shuffle(seed=456, bin_size=1)
-        r3 = shuf3.sparse_raster(bin_size=1).toarray()
-        assert not np.array_equal(r1, r3)
-
-    def test_spike_shuffle_metadata_preserved(self):
-        """
-        spike_shuffle carries metadata and neuron_attributes forward.
-
-        Tests:
-            (Test Case 1) metadata dict is preserved.
-            (Test Case 2) neuron_attributes are preserved.
-        """
-        attrs = [{"region": "ctx"}, {"region": "hpc"}]
-        sd = SpikeData(
-            [np.array([1.0, 5.0, 10.0]), np.array([2.0, 8.0, 15.0])],
-            length=20.0,
-            metadata={"exp": "test"},
-            neuron_attributes=attrs,
+        # Test Case 3: metadata key string resolves to correct array
+        sd_with_meta = SpikeData(
+            trains,
+            length=200.0,
+            metadata={"stim_on_times": events_ms.copy()},
         )
-        shuffled = sd.spike_shuffle(seed=0)
-        assert shuffled.metadata == {"exp": "test"}
-        assert shuffled.neuron_attributes is not None
-        assert len(shuffled.neuron_attributes) == 2
-
-    def test_spike_shuffle_bin_size_gt_1(self):
-        """
-        spike_shuffle with bin_size > 1 binarizes multi-spike bins.
-
-        Tests:
-            (Test Case 1) Shuffled raster values are 0 or 1 (binary).
-            (Test Case 2) Row sums and column sums are preserved on the binarized raster.
-        """
-        np.random.seed(99)
-        sd = random_spikedata(3, 150, rate=1.0)
-        shuffled = sd.spike_shuffle(seed=0, bin_size=5)
-
-        orig_raster = sd.sparse_raster(bin_size=5).toarray()
-        orig_binary = (orig_raster > 0).astype(int)
-        shuf_raster = shuffled.sparse_raster(bin_size=5).toarray()
-
-        # Output should be binary
-        assert set(np.unique(shuf_raster)).issubset({0, 1})
-        # Row and column sums of binarized original should be preserved
-        np.testing.assert_array_equal(orig_binary.sum(axis=1), shuf_raster.sum(axis=1))
-        np.testing.assert_array_equal(orig_binary.sum(axis=0), shuf_raster.sum(axis=0))
-
-    def test_spike_shuffle_warns_on_multi_spike_bins(self):
-        """
-        spike_shuffle warns when multi-spike bins are binarized.
-
-        Tests:
-            (Test Case 1) RuntimeWarning issued when input has multi-spike bins.
-            (Test Case 2) No warning when input is already binary.
-        """
-        # Multi-spike data: random_spikedata can produce >1 spike per 1ms bin
-        np.random.seed(99)
-        sd_dense = random_spikedata(3, 150, rate=1.0)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            sd_dense.spike_shuffle(seed=0, bin_size=1)
-            multi_spike_warnings = [
-                x for x in w if "Multi-spike bins" in str(x.message)
-            ]
-            assert len(multi_spike_warnings) > 0
-
-        # Binary data: no warning
-        rng = np.random.default_rng(0)
-        binary_raster = (rng.random((3, 50)) < 0.2).astype(int)
-        sd_binary = SpikeData.from_raster(binary_raster, bin_size_ms=1)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            sd_binary.spike_shuffle(seed=0, bin_size=1)
-            multi_spike_warnings = [
-                x for x in w if "Multi-spike bins" in str(x.message)
-            ]
-            assert len(multi_spike_warnings) == 0
-
-    # ------------------------------------------------------------------
-    # N=0 edge cases
-    # ------------------------------------------------------------------
-
-    def test_empty_spikedata_rates(self):
-        """
-        SpikeData with zero units: rates() returns empty, binned_meanrate() returns zeros.
-
-        Tests:
-            (Test Case 1) rates() returns shape (0,).
-            (Test Case 2) rates(unit='Hz') returns shape (0,).
-            (Test Case 3) binned_meanrate() returns zeros array (no division by zero).
-            (Test Case 4) binned_meanrate(unit='Hz') also returns zeros.
-        """
-        sd = SpikeData([], length=100.0)
-        assert sd.N == 0
-        r = sd.rates()
-        assert r.shape == (0,)
-        r_hz = sd.rates(unit="Hz")
-        assert r_hz.shape == (0,)
-
-        bmr = sd.binned_meanrate(bin_size=40)
-        assert bmr.shape == (int(np.ceil(100.0 / 40)),)
-        np.testing.assert_array_equal(bmr, 0.0)
-
-        bmr_hz = sd.binned_meanrate(bin_size=40, unit="Hz")
-        np.testing.assert_array_equal(bmr_hz, 0.0)
-
-    def test_empty_spikedata_subset(self):
-        """
-        SpikeData.subset([]) produces an N=0 SpikeData.
-
-        Tests:
-            (Test Case 1) Subsetting with empty list returns N=0.
-            (Test Case 2) The resulting SpikeData has length preserved.
-            (Test Case 3) train is an empty list.
-        """
-        sd = SpikeData(
-            [np.array([1.0, 2.0]), np.array([3.0])],
-            length=10.0,
+        spike_stack_meta = sd_with_meta.align_to_events(
+            "stim_on_times", pre_ms, post_ms, kind="spike"
         )
-        sub = sd.subset([])
-        assert sub.N == 0
-        assert sub.length == 10.0
-        assert len(sub.train) == 0
+        assert isinstance(spike_stack_meta, SpikeSliceStack)
+        assert len(spike_stack_meta.spike_stack) == 3
 
-    # ------------------------------------------------------------------
-    # NaN spike times
-    # ------------------------------------------------------------------
+        # Test Case 4: invalid metadata key raises KeyError
+        with pytest.raises(KeyError, match="missing_key"):
+            sd_with_meta.align_to_events("missing_key", pre_ms, post_ms)
 
-    def test_nan_spike_times_rejected(self):
+        # Test Case 5: out-of-bounds events dropped with UserWarning
+        events_with_oob = np.array([10.0, 100.0, 180.0])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            spike_stack_filtered = sd.align_to_events(
+                events_with_oob, pre_ms, post_ms, kind="spike"
+            )
+        assert len(spike_stack_filtered.spike_stack) == 1
+        assert any(issubclass(w.category, UserWarning) for w in caught)
+        warning_text = str(caught[0].message)
+        assert "2" in warning_text  # 2 events dropped
+
+        # Test Case 6: all events out of bounds → ValueError
+        events_all_oob = np.array([5.0, 195.0])  # both outside with pre=20, post=30
+        with pytest.raises(ValueError):
+            sd.align_to_events(events_all_oob, pre_ms, post_ms)
+
+        # Test Case 7: invalid kind raises ValueError
+        with pytest.raises(ValueError, match="burst"):
+            sd.align_to_events(events_ms, pre_ms, post_ms, kind="burst")
+
+        # Test Case 8: slice duration equals pre_ms + post_ms
+        spike_stack_times = sd.align_to_events(events_ms, pre_ms, post_ms, kind="spike")
+        for start, end in spike_stack_times.times:
+            assert end - start == pytest.approx(pre_ms + post_ms)
+
+    def test_align_to_events_empty_events(self):
         """
-        SpikeData constructor rejects NaN spike times with ValueError.
+        align_to_events with an empty events array.
 
         Tests:
-            (Test Case 1) NaN in first unit raises ValueError.
-            (Test Case 2) NaN in second unit raises ValueError with correct unit index.
-            (Test Case 3) Empty trains and trains without NaN are accepted.
+        (Test Case 1) Passing an empty list raises ValueError because no valid
+        events remain after filtering.
         """
-        with pytest.raises(ValueError, match="unit 0.*NaN"):
-            SpikeData([np.array([1.0, np.nan, 5.0])], length=10.0)
+        sd = SpikeData([[5.0, 15.0, 25.0]], length=50.0)
+        with pytest.raises(ValueError, match="No valid events remain"):
+            sd.align_to_events([], pre_ms=5.0, post_ms=5.0)
 
-        with pytest.raises(ValueError, match="unit 1.*NaN"):
-            SpikeData([np.array([1.0, 2.0]), np.array([3.0, np.nan])], length=10.0)
-
-        # Empty trains and clean trains are fine
-        sd = SpikeData([np.array([]), np.array([1.0, 2.0])], length=10.0)
-        assert sd.N == 2
-
-    # ------------------------------------------------------------------
-    # to_hdf5 / to_nwb / to_kilosort delegation wrappers
-    # ------------------------------------------------------------------
-
-    def test_to_hdf5_delegates_to_exporter(self):
+    def test_align_to_events_at_recording_boundaries(self):
         """
-        SpikeData.to_hdf5 delegates to data_exporters.export_spikedata_to_hdf5.
+        align_to_events with events at exact recording boundaries.
 
         Tests:
-            (Test Case 1) The exporter function is called exactly once.
-            (Test Case 2) The first positional arg is the SpikeData instance.
-            (Test Case 3) The filepath keyword is forwarded.
+        (Test Case 1) An event at t=0 with pre_ms>0 is dropped because the
+        window extends before the recording start.
+        (Test Case 2) An event at t=length with post_ms>0 is dropped because
+        the window extends past the recording end.
+        (Test Case 3) If all boundary events are dropped, a ValueError is raised.
         """
-        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
-        with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_hdf5"
-        ) as mock_export:
-            sd.to_hdf5("/tmp/fake.h5", style="ragged")
-            mock_export.assert_called_once()
-            args, kwargs = mock_export.call_args
-            assert args[0] is sd
-            assert args[1] == "/tmp/fake.h5"
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
+        # Both events have windows that extend outside [0, 50]
+        with pytest.raises(ValueError, match="No valid events remain"):
+            sd.align_to_events([0.0, 50.0], pre_ms=5.0, post_ms=5.0)
 
-    def test_to_nwb_delegates_to_exporter(self):
+    def test_align_to_events_duplicate_events(self):
         """
-        SpikeData.to_nwb delegates to data_exporters.export_spikedata_to_nwb.
+        align_to_events with identical event times.
 
         Tests:
-            (Test Case 1) The exporter function is called exactly once.
-            (Test Case 2) The first positional arg is the SpikeData instance.
+            (Test Case 1) Duplicate events produce duplicate slices.
         """
-        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
-        with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_nwb"
-        ) as mock_export:
-            sd.to_nwb("/tmp/fake.nwb")
-            mock_export.assert_called_once()
-            args, _ = mock_export.call_args
-            assert args[0] is sd
+        sd = SpikeData([[10.0, 20.0, 30.0, 40.0]], length=50.0)
+        stack = sd.align_to_events(events=[25.0, 25.0, 25.0], pre_ms=5.0, post_ms=5.0)
+        assert len(stack.spike_stack) == 3
 
-    def test_to_kilosort_delegates_to_exporter(self):
+    def test_align_to_events_unsorted(self):
         """
-        SpikeData.to_kilosort delegates to data_exporters.export_spikedata_to_kilosort.
+        align_to_events with events in non-chronological order.
 
         Tests:
-            (Test Case 1) The exporter function is called exactly once.
-            (Test Case 2) The first positional arg is the SpikeData instance.
-            (Test Case 3) fs_Hz keyword is forwarded.
+            (Test Case 1) Unsorted events still produce valid slices.
         """
-        sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
-        with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_kilosort"
-        ) as mock_export:
-            mock_export.return_value = ("/tmp/st.npy", "/tmp/sc.npy")
-            sd.to_kilosort("/tmp/fake_dir", fs_Hz=30000.0)
-            mock_export.assert_called_once()
-            args, kwargs = mock_export.call_args
-            assert args[0] is sd
-            assert kwargs["fs_Hz"] == 30000.0
-
-    def test_subtime_raw_data_shifted(self):
-        """
-        Verify subtime shifts raw_time to start at 0.
-
-        Tests:
-            (Test Case 1) raw_time is shifted so the first sample is at 0.
-        """
-        raw_time = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-        raw_data = np.arange(6, dtype=float).reshape(1, 6)
-        sd = SpikeData([[2, 3, 4]], length=6, raw_data=raw_data, raw_time=raw_time)
-        result = sd.subtime(2, 5)
-        assert result.raw_time[0] == 0.0
-        np.testing.assert_array_almost_equal(result.raw_time, [0.0, 1.0, 2.0])
-
-    def test_rates_zero_length(self):
-        """
-        SpikeData with length=0.0 returns zeros from rates().
-
-        Tests:
-            (Test Case 1) rates() on a zero-length SpikeData with N=3 returns
-                          np.zeros(3) without division by zero.
-        """
-        sd = SpikeData([], N=3, length=0.0)
-        assert sd.N == 3
-        assert sd.length == 0.0
-
-        result = sd.rates()
-        assert result.shape == (3,)
-        np.testing.assert_array_equal(result, np.zeros(3))
-
-
-# ---------------------------------------------------------------------------
-# spike_shuffle_stack
-# ---------------------------------------------------------------------------
-
-
-class TestSpikeShuffleStack:
-    """Tests for SpikeData.spike_shuffle_stack."""
-
-    def test_basic_output_structure(self):
-        """
-        spike_shuffle_stack returns a SpikeSliceStack with the correct number of slices.
-
-        Tests:
-            (Test Case 1) Returned object is a SpikeSliceStack.
-            (Test Case 2) Number of slices matches n_shuffles.
-            (Test Case 3) Each slice has the same number of units as the original.
-        """
-        sd = random_spikedata(5, 100)
-        stack = sd.spike_shuffle_stack(n_shuffles=10, seed=0)
-
-        assert isinstance(stack, SpikeSliceStack)
-        assert len(stack.spike_stack) == 10
-        for s in stack.spike_stack:
-            assert s.N == sd.N
-
-    def test_times_all_zero_to_length(self):
-        """
-        All slices share the same time bounds (0, length).
-
-        Tests:
-            (Test Case 1) Every entry in times is (0.0, sd.length).
-        """
-        sd = random_spikedata(3, 50)
-        stack = sd.spike_shuffle_stack(n_shuffles=5, seed=0)
-
-        for start, end in stack.times:
-            assert start == 0.0
-            assert end == pytest.approx(sd.length)
-
-    def test_seed_reproducibility(self):
-        """
-        The same seed produces identical shuffle stacks.
-
-        Tests:
-            (Test Case 1) Two calls with the same seed produce identical rasters.
-        """
-        sd = random_spikedata(4, 80)
-        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
-        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=42)
-
-        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
-            r1 = s1.raster()
-            r2 = s2.raster()
-            np.testing.assert_array_equal(r1, r2)
-
-    def test_different_seeds_differ(self):
-        """
-        Different seeds produce different shuffles.
-
-        Tests:
-            (Test Case 1) At least one pair of shuffles differs across seed values.
-        """
-        sd = random_spikedata(4, 200)
-        stack1 = sd.spike_shuffle_stack(n_shuffles=3, seed=0)
-        stack2 = sd.spike_shuffle_stack(n_shuffles=3, seed=100)
-
-        any_differ = False
-        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
-            if not np.array_equal(s1.raster(), s2.raster()):
-                any_differ = True
-                break
-        assert any_differ
-
-    def test_neuron_attributes_propagated(self):
-        """
-        Neuron attributes from the original SpikeData are carried to the stack.
-
-        Tests:
-            (Test Case 1) Stack-level neuron_attributes matches original.
-        """
-        sd = random_spikedata(3, 60)
-        sd.neuron_attributes = [{"id": 0}, {"id": 1}, {"id": 2}]
-        stack = sd.spike_shuffle_stack(n_shuffles=2, seed=0)
-
-        assert stack.neuron_attributes is not None
-        assert len(stack.neuron_attributes) == 3
-
-
-# ---------------------------------------------------------------------------
-# subset_stack
-# ---------------------------------------------------------------------------
-
-
-class TestSubsetStack:
-    """Tests for SpikeData.subset_stack."""
-
-    def test_basic_output_structure(self):
-        """
-        subset_stack returns a SpikeSliceStack with the correct number of slices and units.
-
-        Tests:
-            (Test Case 1) Returned object is a SpikeSliceStack.
-            (Test Case 2) Number of slices matches n_subsets.
-            (Test Case 3) Each slice has units_per_subset units.
-        """
-        sd = random_spikedata(10, 200)
-        stack = sd.subset_stack(n_subsets=8, units_per_subset=4, seed=0)
-
-        assert isinstance(stack, SpikeSliceStack)
-        assert len(stack.spike_stack) == 8
-        for s in stack.spike_stack:
-            assert s.N == 4
-
-    def test_times_all_zero_to_length(self):
-        """
-        All slices share the same time bounds (0, length).
-
-        Tests:
-            (Test Case 1) Every entry in times is (0.0, sd.length).
-        """
-        sd = random_spikedata(6, 100)
-        stack = sd.subset_stack(n_subsets=3, units_per_subset=2, seed=0)
-
-        for start, end in stack.times:
-            assert start == 0.0
-            assert end == pytest.approx(sd.length)
-
-    def test_seed_reproducibility(self):
-        """
-        The same seed produces identical subset stacks.
-
-        Tests:
-            (Test Case 1) Two calls with the same seed produce identical spike trains.
-        """
-        sd = random_spikedata(8, 150)
-        stack1 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
-        stack2 = sd.subset_stack(n_subsets=4, units_per_subset=3, seed=7)
-
-        for s1, s2 in zip(stack1.spike_stack, stack2.spike_stack):
-            assert s1.N == s2.N
-            for t1, t2 in zip(s1.train, s2.train):
-                np.testing.assert_array_equal(t1, t2)
-
-    def test_units_per_subset_exceeds_n_raises(self):
-        """
-        Requesting more units than available raises ValueError.
-
-        Tests:
-            (Test Case 1) ValueError with descriptive message.
-        """
-        sd = random_spikedata(3, 50)
-        with pytest.raises(ValueError, match="exceeds"):
-            sd.subset_stack(n_subsets=2, units_per_subset=5, seed=0)
-
-    def test_full_unit_count_returns_all_units(self):
-        """
-        Setting units_per_subset equal to N includes all units in every slice.
-
-        Tests:
-            (Test Case 1) Every slice has the same number of units as the original.
-            (Test Case 2) Recording length is preserved.
-        """
-        sd = random_spikedata(4, 80)
-        stack = sd.subset_stack(n_subsets=3, units_per_subset=4, seed=0)
-
-        for s in stack.spike_stack:
-            assert s.N == 4
-            assert s.length == pytest.approx(sd.length)
-
-    def test_neuron_attributes_per_slice(self):
-        """
-        Each subsetted SpikeData carries its own neuron_attributes from the original.
-
-        Tests:
-            (Test Case 1) Each slice's neuron_attributes has length equal to units_per_subset.
-            (Test Case 2) Attributes come from the original set.
-        """
-        sd = random_spikedata(6, 100)
-        sd.neuron_attributes = [{"id": i} for i in range(6)]
-        stack = sd.subset_stack(n_subsets=3, units_per_subset=3, seed=0)
-
-        original_ids = {a["id"] for a in sd.neuron_attributes}
-        for s in stack.spike_stack:
-            assert s.neuron_attributes is not None
-            assert len(s.neuron_attributes) == 3
-            for attr in s.neuron_attributes:
-                assert attr["id"] in original_ids
+        sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
+        stack = sd.align_to_events(events=[35.0, 15.0, 25.0], pre_ms=5.0, post_ms=5.0)
+        assert len(stack.spike_stack) == 3

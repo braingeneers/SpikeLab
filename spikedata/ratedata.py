@@ -3,7 +3,6 @@ import warnings
 import numpy as np
 
 __all__ = ["RateData"]
-from scipy import signal
 
 from .utils import (
     compute_cross_correlation_with_lag,
@@ -31,6 +30,14 @@ class RateData:
                   1 is 10 ms, and column 2 is 15 ms
     neuron_attributes: TBD
 
+    Notes:
+    ------
+    - ``times`` may contain negative values when the RateData represents an
+      event-aligned window (e.g., times from -200 to +500 ms around a stimulus).
+      This affects how ``subtime`` interprets negative ``start``/``end``
+      arguments: when ``times[0] < 0``, negative values are treated as literal
+      time coordinates rather than offsets from the end of the recording.
+
     Instance Variables:
     --------
     self.inst_Frate_data (array): 2D array of shape (U, T). Each value is the instanteous firing rate.
@@ -43,7 +50,7 @@ class RateData:
     self.N (int): Number of units in self.inst_Frate_data
     """
 
-    def __init__(self, inst_Frate_data, times, neuron_attributes=None, N=None):
+    def __init__(self, inst_Frate_data, times, neuron_attributes=None):
         if inst_Frate_data.ndim != 2:
             raise ValueError(
                 f"rates must be a 2D array, got shape {inst_Frate_data.shape}"

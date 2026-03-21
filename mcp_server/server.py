@@ -819,8 +819,8 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "square_width": {"type": "integer", "default": 20},
                         "gauss_sigma": {"type": "integer", "default": 100},
-                        "acc_square_width": {"type": "integer", "default": 5},
-                        "acc_gauss_sigma": {"type": "integer", "default": 5},
+                        "acc_square_width": {"type": "integer", "default": 8},
+                        "acc_gauss_sigma": {"type": "integer", "default": 8},
                         "raster_bin_size_ms": {"type": "number", "default": 1.0},
                         "peak_to_trough": {"type": "boolean", "default": True},
                         "pop_rms_override": {
@@ -870,8 +870,8 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "square_width": {"type": "integer", "default": 20},
                         "gauss_sigma": {"type": "integer", "default": 100},
-                        "acc_square_width": {"type": "integer", "default": 5},
-                        "acc_gauss_sigma": {"type": "integer", "default": 5},
+                        "acc_square_width": {"type": "integer", "default": 8},
+                        "acc_gauss_sigma": {"type": "integer", "default": 8},
                         "raster_bin_size_ms": {"type": "number", "default": 1.0},
                         "peak_to_trough": {"type": "boolean", "default": True},
                         "pop_rms_override": {

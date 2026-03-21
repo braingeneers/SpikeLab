@@ -2,7 +2,11 @@
 Plotting utilities for SpikeLab.
 
 Provides ``plot_recording`` for assembling multi-panel figures from SpikeData
-objects and ``plot_heatmap`` for standalone 2-D heatmaps.
+objects, ``plot_heatmap`` for standalone 2-D heatmaps, ``plot_distribution``
+for comparing per-unit metrics across conditions, ``plot_scatter`` for
+pairwise comparisons with optional regression, ``plot_burst_sensitivity``
+for threshold sensitivity curves, and ``plot_unit_raster`` for
+event-aligned single-unit raster plots.
 
 Requires ``matplotlib`` (optional dependency).
 """
@@ -44,6 +48,603 @@ def _apply_font_size(ax, font_size):
     ax.xaxis.label.set_fontsize(font_size)
     ax.yaxis.label.set_fontsize(font_size)
     ax.tick_params(axis="both", labelsize=font_size)
+
+
+# ---------------------------------------------------------------------------
+# plot_distribution
+# ---------------------------------------------------------------------------
+
+
+def plot_distribution(
+    ax,
+    metric_data,
+    labels=None,
+    colors=None,
+    ylabel="",
+    xlabel="",
+    style="violin",
+    show_median=True,
+    show_quartiles=True,
+    show_data=False,
+    data_alpha=0.3,
+    data_size=4,
+    log_scale=False,
+    font_size=None,
+):
+    """
+    Plot distributions of a per-unit metric across multiple groups/conditions.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        metric_data (dict[str, np.ndarray] or list[np.ndarray]): Condition-labelled
+            or ordered collection of per-unit value arrays. NaN values are
+            stripped automatically before plotting.
+        labels (list[str] or None): Ordered condition labels. If None, uses
+            dict keys (for dict input) or integer indices (for list input).
+        colors (list[str] or None): Per-condition colours. If None, uses
+            the default matplotlib colour cycle.
+        ylabel (str): Y-axis label.
+        xlabel (str): X-axis label.
+        style (str): ``"violin"`` (default) or ``"boxplot"``.
+        show_median (bool): Overlay a median dot on each distribution.
+        show_quartiles (bool): Overlay IQR lines (25th–75th percentile) on
+            each distribution.
+        show_data (bool): Overlay individual data points on each distribution,
+            jittered horizontally to reduce overlap.
+        data_alpha (float): Alpha transparency for overlaid data points.
+        data_size (float): Marker size for overlaid data points.
+        log_scale (bool): Use a log scale on the y-axis.
+        font_size (int or None): Font size for labels and ticks. If None,
+            uses current rcParams.
+
+    Returns:
+        parts (dict): The violin or boxplot artist dict returned by
+            matplotlib (``violinplot`` or ``boxplot``).
+
+    Notes:
+        - In violin mode, groups with fewer than 2 data points cannot produce
+          a kernel density estimate. These groups are rendered as individual
+          scatter points instead and excluded from the violin plot.
+    """
+    _import_matplotlib()
+
+    # --- Normalise input to list-of-arrays + labels -----------------------
+    if isinstance(metric_data, dict):
+        keys = list(metric_data.keys())
+        data_arrays = [np.asarray(metric_data[k]) for k in keys]
+        if labels is None:
+            labels = keys
+    else:
+        data_arrays = [np.asarray(a) for a in metric_data]
+        if labels is None:
+            labels = [str(i) for i in range(len(data_arrays))]
+
+    # Strip NaNs from each array
+    clean_data = []
+    for arr in data_arrays:
+        flat = arr.ravel()
+        clean_data.append(flat[~np.isnan(flat)])
+
+    n = len(clean_data)
+    positions = list(range(n))
+
+    # --- Resolve colours --------------------------------------------------
+    if colors is None:
+        import matplotlib.pyplot as _plt
+
+        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        colors = [cycle_colors[i % len(cycle_colors)] for i in range(n)]
+
+    # --- Draw distribution ------------------------------------------------
+    if style == "boxplot":
+        parts = ax.boxplot(
+            clean_data,
+            positions=positions,
+            widths=0.6,
+            patch_artist=True,
+            showfliers=True,
+        )
+        for i, box in enumerate(parts["boxes"]):
+            box.set_facecolor(colors[i])
+            box.set_alpha(0.8)
+    elif style == "violin":
+        # Separate groups with enough points for KDE from sparse groups
+        violin_positions = []
+        violin_data = []
+        sparse_groups = []  # (position, data, color) for groups with < 2 points
+        for i, d in enumerate(clean_data):
+            if len(d) >= 2:
+                violin_positions.append(positions[i])
+                violin_data.append(d)
+            else:
+                sparse_groups.append((positions[i], d, colors[i]))
+
+        parts = {"bodies": []}
+        if violin_data:
+            parts = ax.violinplot(
+                violin_data,
+                positions=violin_positions,
+                showmeans=False,
+                showextrema=False,
+            )
+            # Map violin bodies back to their colour by position index
+            pos_to_color = {p: colors[p] for p in violin_positions}
+            for body, pos in zip(parts["bodies"], violin_positions):
+                body.set_facecolor(pos_to_color[pos])
+                body.set_edgecolor("black")
+                body.set_linewidth(0.5)
+                body.set_alpha(0.8)
+
+        # Render sparse groups as scatter points
+        for pos, d, color in sparse_groups:
+            if len(d) > 0:
+                ax.scatter(
+                    np.full(len(d), pos),
+                    d,
+                    color=color,
+                    s=data_size * 4,
+                    zorder=3,
+                    edgecolors="black",
+                    linewidths=0.5,
+                )
+    else:
+        raise ValueError(f"Unknown style '{style}'. Use 'violin' or 'boxplot'.")
+
+    # --- Median dot + IQR lines -------------------------------------------
+    if show_median or show_quartiles:
+        for i, d in enumerate(clean_data):
+            if len(d) == 0:
+                continue
+            q25, median, q75 = np.nanpercentile(d, [25, 50, 75])
+            if show_median:
+                ax.scatter(
+                    i,
+                    median,
+                    color="white",
+                    s=15,
+                    zorder=4,
+                    edgecolors="black",
+                    linewidths=0.5,
+                )
+            if show_quartiles:
+                ax.vlines(i, q25, q75, color="black", linewidth=1.5, zorder=3)
+
+    # --- Overlay individual data points -----------------------------------
+    if show_data:
+        rng = np.random.default_rng(0)
+        for i, d in enumerate(clean_data):
+            if len(d) == 0:
+                continue
+            jitter = rng.uniform(-0.15, 0.15, size=len(d))
+            ax.scatter(
+                positions[i] + jitter,
+                d,
+                color=colors[i],
+                s=data_size,
+                alpha=data_alpha,
+                zorder=2,
+                edgecolors="none",
+            )
+
+    # --- Axes formatting --------------------------------------------------
+    ax.set_xticks(positions)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    if log_scale:
+        ax.set_yscale("log")
+
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return parts
+
+
+# ---------------------------------------------------------------------------
+# plot_scatter
+# ---------------------------------------------------------------------------
+
+
+def plot_scatter(
+    ax,
+    x,
+    y,
+    xlabel="",
+    ylabel="",
+    color_vals=None,
+    color_label="",
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    show_identity=False,
+    show_colorbar=True,
+    fit=None,
+    show_ci=False,
+    show_r2=False,
+    marker_size=8,
+    alpha=0.7,
+    font_size=None,
+):
+    """
+    Scatter plot comparing two arrays with optional color coding and regression.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        x (np.ndarray): X-axis values.
+        y (np.ndarray): Y-axis values.
+        xlabel (str): X-axis label.
+        ylabel (str): Y-axis label.
+        color_vals (np.ndarray or None): Per-point values for color mapping.
+            If None, all points are drawn in a uniform colour.
+        color_label (str): Colorbar label.
+        cmap (str): Matplotlib colormap name.
+        vmin (float or None): Colormap minimum.
+        vmax (float or None): Colormap maximum.
+        show_identity (bool): Plot the x = y identity line.
+        show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+        fit (str or None): Regression to overlay. ``"linear"`` or None.
+        show_ci (bool): Show confidence interval band on the fit.
+        show_r2 (bool): Annotate R-squared on the plot.
+        marker_size (float): Scatter marker size.
+        alpha (float): Scatter alpha.
+        font_size (int or None): Font size for labels/ticks. If None, uses
+            current rcParams.
+
+    Returns:
+        sc (PathCollection): The scatter artist (useful for shared colorbars).
+    """
+    _import_matplotlib()
+
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+
+    scatter_kw = dict(s=marker_size, alpha=alpha, edgecolors="none", zorder=2)
+    if color_vals is not None:
+        color_vals = np.asarray(color_vals, dtype=float).ravel()
+        scatter_kw.update(c=color_vals, cmap=cmap)
+        if vmin is not None:
+            scatter_kw["vmin"] = vmin
+        if vmax is not None:
+            scatter_kw["vmax"] = vmax
+    else:
+        scatter_kw["c"] = "black"
+
+    sc = ax.scatter(x, y, **scatter_kw)
+
+    # --- Identity line ----------------------------------------------------
+    if show_identity:
+        lo = min(np.nanmin(x), np.nanmin(y))
+        hi = max(np.nanmax(x), np.nanmax(y))
+        ax.plot([lo, hi], [lo, hi], ls="--", color="grey", linewidth=0.8, zorder=1)
+
+    # --- Regression fit ---------------------------------------------------
+    if fit == "linear":
+        from SpikeLab.spikedata.stat_utils import linear_regression
+
+        reg = linear_regression(x, y)
+        ax.plot(reg["x_fit"], reg["y_fit"], color="red", linewidth=1.2, zorder=3)
+        if show_ci:
+            ax.fill_between(
+                reg["x_fit"],
+                reg["ci_lower"],
+                reg["ci_upper"],
+                color="red",
+                alpha=0.15,
+                zorder=1,
+            )
+        if show_r2:
+            ax.annotate(
+                f"$R^2 = {reg['r_squared']:.3f}$",
+                xy=(0.05, 0.95),
+                xycoords="axes fraction",
+                ha="left",
+                va="top",
+                fontsize=font_size or 10,
+            )
+    elif fit is not None:
+        raise ValueError(f"Unknown fit '{fit}'. Use 'linear' or None.")
+
+    # --- Colorbar ---------------------------------------------------------
+    if color_vals is not None and show_colorbar:
+        _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+
+    # --- Axes formatting --------------------------------------------------
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return sc
+
+
+# ---------------------------------------------------------------------------
+# plot_burst_sensitivity
+# ---------------------------------------------------------------------------
+
+
+def plot_burst_sensitivity(
+    ax,
+    thresholds,
+    burst_counts,
+    dist_values=None,
+    labels=None,
+    colors=None,
+    xlabel="RMS mult.",
+    ylabel="Number of bursts",
+    show_legend=True,
+    show_colorbar=True,
+    cmap="hot",
+    font_size=None,
+):
+    """
+    Plot burst detection sensitivity as line plots or heatmaps.
+
+    Automatically selects the visualisation based on the dimensionality of the
+    burst count arrays:
+
+    - **1-D** arrays (single-parameter sweep): one line per condition on a
+      shared axes.
+    - **2-D** arrays (two-parameter sweep over thresholds x distances, as
+      returned by ``SpikeData.burst_sensitivity()``): one heatmap per
+      condition via :func:`plot_heatmap`. A single condition is plotted on
+      *ax*; multiple conditions produce a row of subplots on a new figure.
+
+    Parameters:
+        ax (matplotlib.axes.Axes or None): Target axes. Used directly for 1-D
+            line plots and single-condition 2-D heatmaps. For multi-condition
+            2-D heatmaps this parameter is ignored and a new figure is created
+            (pass None explicitly in that case).
+        thresholds (np.ndarray): 1-D array of threshold values (x-axis).
+        burst_counts (dict[str, np.ndarray] or np.ndarray): Burst counts per
+            condition. Dict mapping condition labels to arrays, or a bare
+            ``np.ndarray`` for a single unnamed condition. Arrays can be 1-D
+            (line plot) or 2-D of shape
+            ``(len(thresholds), len(dist_values))`` (heatmap).
+        dist_values (np.ndarray or None): 1-D array of distance parameter
+            values. Required when burst counts are 2-D (used as y-axis tick
+            labels on the heatmap). Ignored for 1-D line plots.
+        labels (list[str] or None): Ordered condition labels. If None, uses
+            dict keys.
+        colors (list[str] or None): Per-condition line colours (line plots
+            only). If None, uses the default matplotlib colour cycle.
+        xlabel (str): X-axis label.
+        ylabel (str): Y-axis label. For 2-D heatmaps, defaults to
+            ``"Min. burst dist. (bins)"`` when not explicitly changed from the
+            default.
+        show_legend (bool): Whether to show a legend (line plots only).
+        show_colorbar (bool): Whether to show a colorbar (heatmaps only).
+        cmap (str): Colormap for heatmaps.
+        font_size (int or None): Font size for labels/ticks. If None, uses
+            current rcParams.
+
+    Returns:
+        result: For 1-D line plots: ``list[Line2D]`` artists. For a single
+            2-D heatmap: the axes returned by :func:`plot_heatmap`. For
+            multiple 2-D heatmaps: ``(fig, axes_list)`` where *axes_list*
+            contains one axes per condition.
+    """
+    plt, _ = _import_matplotlib()
+
+    thresholds = np.asarray(thresholds).ravel()
+
+    # --- Normalise burst_counts to an ordered dict ------------------------
+    if isinstance(burst_counts, np.ndarray):
+        burst_counts = {"": burst_counts}
+    elif not isinstance(burst_counts, dict):
+        burst_counts = {"": np.asarray(burst_counts).ravel()}
+
+    if labels is None:
+        labels = list(burst_counts.keys())
+
+    first_val = np.asarray(burst_counts[labels[0]])
+    is_2d = first_val.ndim == 2
+
+    # --- 2-D heatmap path -------------------------------------------------
+    if is_2d:
+        if dist_values is None:
+            raise ValueError(
+                "dist_values is required for 2-D burst sensitivity heatmaps."
+            )
+        dist_values = np.asarray(dist_values).ravel()
+        heatmap_ylabel = (
+            "Min. burst dist. (bins)" if ylabel == "Number of bursts" else ylabel
+        )
+        n_thr = len(thresholds)
+        n_dist = len(dist_values)
+        extent = (
+            thresholds[0],
+            thresholds[-1],
+            dist_values[0],
+            dist_values[-1],
+        )
+        xticks = (
+            np.linspace(thresholds[0], thresholds[-1], min(n_thr, 6)),
+            [
+                f"{v:.1f}"
+                for v in np.linspace(thresholds[0], thresholds[-1], min(n_thr, 6))
+            ],
+        )
+        yticks = (
+            np.linspace(dist_values[0], dist_values[-1], min(n_dist, 6)),
+            [
+                f"{v:.0f}"
+                for v in np.linspace(dist_values[0], dist_values[-1], min(n_dist, 6))
+            ],
+        )
+        fs = font_size or 14
+
+        # Single condition — plot on the provided ax
+        if len(labels) == 1:
+            return plot_heatmap(
+                np.asarray(burst_counts[labels[0]]).T,
+                ax=ax,
+                cmap=cmap,
+                extent=extent,
+                xlabel=xlabel,
+                ylabel=heatmap_ylabel,
+                show_colorbar=show_colorbar,
+                colorbar_label="Burst count",
+                xticks=xticks,
+                yticks=yticks,
+                font_size=fs,
+            )
+
+        # Multiple conditions — create a subplot row
+        n_cond = len(labels)
+        fig, axes_row = plt.subplots(1, n_cond, figsize=(5 * n_cond, 4), squeeze=False)
+        axes_row = axes_row[0]
+
+        # Compute shared colour range across all conditions
+        all_arrays = [np.asarray(burst_counts[l]) for l in labels]
+        shared_vmin = min(a.min() for a in all_arrays)
+        shared_vmax = max(a.max() for a in all_arrays)
+
+        for i, label in enumerate(labels):
+            plot_heatmap(
+                all_arrays[i].T,
+                ax=axes_row[i],
+                cmap=cmap,
+                vmin=shared_vmin,
+                vmax=shared_vmax,
+                extent=extent,
+                xlabel=xlabel,
+                ylabel=heatmap_ylabel if i == 0 else "",
+                show_colorbar=show_colorbar and i == n_cond - 1,
+                colorbar_label="Burst count",
+                xticks=xticks,
+                yticks=yticks if i == 0 else (yticks[0], [""] * len(yticks[1])),
+                font_size=fs,
+            )
+            axes_row[i].set_title(label, fontsize=fs)
+
+        fig.tight_layout()
+        return fig, list(axes_row)
+
+    # --- 1-D line plot path -----------------------------------------------
+    if colors is None:
+        import matplotlib.pyplot as _plt
+
+        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        colors = [cycle_colors[i % len(cycle_colors)] for i in range(len(labels))]
+
+    lines = []
+    for i, label in enumerate(labels):
+        counts = np.asarray(burst_counts[label]).ravel()
+        (line,) = ax.plot(
+            thresholds, counts, color=colors[i], linewidth=1.5, label=label
+        )
+        lines.append(line)
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if show_legend:
+        ax.legend()
+
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# plot_unit_raster
+# ---------------------------------------------------------------------------
+
+
+def plot_unit_raster(
+    ax,
+    spike_times_per_slice,
+    color_vals=None,
+    color_label="",
+    cmap="viridis",
+    time_offset=0,
+    xlabel="Rel. time (ms)",
+    ylabel="Burst",
+    x_range=None,
+    vlines=None,
+    show_colorbar=True,
+    marker_size=20,
+    font_size=None,
+):
+    """
+    Raster plot of one unit's spike times across multiple event-aligned slices.
+
+    Each row corresponds to one slice/burst, x-axis is time relative to the
+    alignment point. Optionally colour-codes rows by a per-slice variable.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        spike_times_per_slice (list[np.ndarray]): List of 1-D arrays, one per
+            slice, containing spike times relative to the alignment point.
+        color_vals (np.ndarray or None): Per-slice colour values. If None,
+            all spikes are drawn in black.
+        color_label (str): Colorbar label.
+        cmap (str): Matplotlib colormap name.
+        time_offset (float): Value subtracted from spike times for display.
+        xlabel (str): X-axis label.
+        ylabel (str): Y-axis label.
+        x_range (tuple or None): ``(xmin, xmax)`` for the x-axis. If None,
+            auto-scales to the data.
+        vlines (list[float] or None): X positions for vertical reference
+            lines (e.g. burst onset).
+        show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+        marker_size (float): Scatter marker size.
+        font_size (int or None): Font size for labels/ticks. If None, uses
+            current rcParams.
+
+    Returns:
+        sc (PathCollection or None): The scatter artist when *color_vals* is
+            provided, otherwise None.
+    """
+    _import_matplotlib()
+
+    # Flatten spike times into (x, y, c) arrays for scatter
+    x_all = []
+    y_all = []
+    c_all = []
+    for idx, times in enumerate(spike_times_per_slice):
+        times = np.asarray(times, dtype=float).ravel()
+        shifted = times - time_offset
+        x_all.append(shifted)
+        y_all.append(np.full(len(shifted), idx))
+        if color_vals is not None:
+            c_all.append(np.full(len(shifted), color_vals[idx]))
+
+    if len(x_all) == 0:
+        return None
+
+    x_all = np.concatenate(x_all)
+    y_all = np.concatenate(y_all)
+
+    sc = None
+    if color_vals is not None and len(c_all) > 0:
+        c_all = np.concatenate(c_all)
+        sc = ax.scatter(x_all, y_all, c=c_all, cmap=cmap, s=marker_size, zorder=2)
+        if show_colorbar:
+            _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+    else:
+        ax.scatter(x_all, y_all, c="black", s=marker_size, zorder=2)
+
+    # --- Vertical reference lines -----------------------------------------
+    if vlines is not None:
+        for xv in vlines:
+            ax.axvline(x=xv, color="red", linestyle="--", linewidth=1.5, zorder=0)
+
+    # --- Axes formatting --------------------------------------------------
+    ax.set_ylim(0, len(spike_times_per_slice))
+    if x_range is not None:
+        ax.set_xlim(x_range)
+    elif len(x_all) > 0:
+        ax.set_xlim(np.min(x_all), np.max(x_all))
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return sc
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +815,7 @@ def plot_recording(
     model_states_vmin=0,
     model_states_vmax=1,
     # --- layout ---
+    axes=None,
     figsize=None,
     height_ratios=None,
     absolute_xticks=True,
@@ -285,7 +887,18 @@ def plot_recording(
         model_states_cmap (str): Colormap for the model-states panel.
         model_states_vmin (float): Colormap minimum for model states.
         model_states_vmax (float): Colormap maximum for model states.
+        axes (list or None): Pre-created axes to plot onto instead of
+            creating a new figure. Must be a list of ``(ax_panel, ax_cbar)``
+            tuples, one per enabled panel, in display order (raster,
+            pop_rate, fr_heatmap, model_states — only those that are
+            enabled). ``ax_cbar`` is used for colorbars on heatmap/imshow
+            panels; pass a hidden axes if no colorbar is needed for that
+            panel. When provided, the function skips figure creation,
+            ``tight_layout``, ``show``, and ``save_path``. ``figsize`` and
+            ``height_ratios`` are ignored. Raises ``ValueError`` if the
+            length does not match the number of enabled panels.
         figsize (tuple or None): Figure size ``(width, height)``.
+            Ignored when ``axes`` is provided.
         height_ratios (list or None): Relative panel heights. Length must
             match the number of enabled panels.
         absolute_xticks (bool): If True, x-tick labels show absolute ms from
@@ -437,39 +1050,52 @@ def plot_recording(
     # ------------------------------------------------------------------
     from matplotlib.gridspec import GridSpec
 
-    default_ratio_map = {
-        "raster": 2,
-        "pop_rate": 1,
-        "fr_heatmap": 2,
-        "model_states": 2,
-    }
-    default_ratios = [default_ratio_map[p] for p in panels]
-    default_height = sum(default_ratios) * 1.7
-    default_figsize = (12, default_height)
+    external_axes = axes is not None
 
-    fig = plt.figure(figsize=figsize or default_figsize)
-    gs = GridSpec(
-        n_panels,
-        2,
-        figure=fig,
-        height_ratios=height_ratios or default_ratios,
-        width_ratios=[1, 0.02],
-        wspace=0.03,
-    )
+    if external_axes:
+        if len(axes) != n_panels:
+            raise ValueError(
+                f"Expected {n_panels} (ax, cbar_ax) pairs for the enabled "
+                f"panels {panels}, got {len(axes)}."
+            )
+        main_axes = [pair[0] for pair in axes]
+        cbar_axes = [pair[1] for pair in axes]
+        fig = main_axes[0].figure
+    else:
+        default_ratio_map = {
+            "raster": 2,
+            "pop_rate": 1,
+            "fr_heatmap": 2,
+            "model_states": 2,
+        }
+        default_ratios = [default_ratio_map[p] for p in panels]
+        default_height = sum(default_ratios) * 1.7
+        default_figsize = (12, default_height)
 
-    # Create main panel axes with shared x
-    axes = []
-    for i in range(n_panels):
-        ax = fig.add_subplot(gs[i, 0], sharex=axes[0] if axes else None)
-        axes.append(ax)
-    panel_axes = dict(zip(panels, axes))
+        fig = plt.figure(figsize=figsize or default_figsize)
+        gs = GridSpec(
+            n_panels,
+            2,
+            figure=fig,
+            height_ratios=height_ratios or default_ratios,
+            width_ratios=[1, 0.02],
+            wspace=0.03,
+        )
 
-    # Create colorbar axes (one per row, hidden by default)
-    cbar_axes = []
-    for i in range(n_panels):
-        cax = fig.add_subplot(gs[i, 1])
-        cax.axis("off")
-        cbar_axes.append(cax)
+        # Create main panel axes with shared x
+        main_axes = []
+        for i in range(n_panels):
+            ax = fig.add_subplot(gs[i, 0], sharex=main_axes[0] if main_axes else None)
+            main_axes.append(ax)
+
+        # Create colorbar axes (one per row, hidden by default)
+        cbar_axes = []
+        for i in range(n_panels):
+            cax = fig.add_subplot(gs[i, 1])
+            cax.axis("off")
+            cbar_axes.append(cax)
+
+    panel_axes = dict(zip(panels, main_axes))
     panel_cbar = dict(zip(panels, cbar_axes))
 
     # ------------------------------------------------------------------
@@ -589,31 +1215,34 @@ def plot_recording(
     # ------------------------------------------------------------------
     # 9. X-axis formatting
     # ------------------------------------------------------------------
-    # Set x limits on the first axes (propagates via sharex)
-    axes[0].set_xlim(0, n_samples)
+    # Set x limits on all axes (sharex propagates when axes are created
+    # internally, but external axes may not be linked)
+    for ax in main_axes:
+        ax.set_xlim(0, n_samples)
 
     # Hide tick labels on all but the bottom panel
-    for ax in axes[:-1]:
+    for ax in main_axes[:-1]:
         plt.setp(ax.get_xticklabels(), visible=False)
         ax.set_xlabel("")
-    axes[-1].set_xlabel("Time (ms)")
-    _apply_font_size(axes[-1], font_size)
+    main_axes[-1].set_xlabel("Time (ms)")
+    _apply_font_size(main_axes[-1], font_size)
 
     # Shift tick labels to absolute recording time when requested
     if absolute_xticks and start > 0:
         formatter = mticker.FuncFormatter(lambda x, _: f"{int(x + start)}")
-        for ax in axes:
+        for ax in main_axes:
             ax.xaxis.set_major_formatter(formatter)
 
     # ------------------------------------------------------------------
     # 10. Output
     # ------------------------------------------------------------------
-    gs.tight_layout(fig)
+    if not external_axes:
+        gs.tight_layout(fig)
 
-    if save_path is not None:
-        fig.savefig(save_path, bbox_inches="tight")
-        plt.close(fig)
-    elif show:
-        plt.show()
+        if save_path is not None:
+            fig.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)
+        elif show:
+            plt.show()
 
     return fig

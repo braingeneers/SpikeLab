@@ -343,6 +343,125 @@ class TestHDF5Loaders:
         # should detect at least one event on channel 0
         assert len(sd.train[0]) >= 1
 
+    def test_hdf5_paired_empty_idces(self, tmp_path):
+        """
+        Loading paired-style HDF5 with empty idces/times arrays produces a valid
+        zero-unit SpikeData with duration 0.
+
+        Tests:
+            (Test Case 1) Empty idces and times arrays produce a SpikeData with
+                N=0 and length=0.0.
+        """
+        path = str(tmp_path / "empty_paired.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=np.array([], dtype=int))
+            f.create_dataset("times", data=np.array([], dtype=float))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
+        )
+        assert sd.N == 0
+        assert sd.length == 0.0
+
+    def test_trains_from_flat_index_non_monotonic(self):
+        """
+        Verify that _trains_from_flat_index handles or tolerates
+        non-monotonic end_indices by slicing according to the given indices.
+
+        Tests:
+            (Test Case 1) Non-monotonic end_indices (e.g. [3, 2, 5]) produce
+                segments based on sequential start-stop iteration. The second
+                segment will be empty because stop < start after the first
+                segment consumed indices 0..2.
+        """
+        flat_times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        # Non-monotonic: first segment uses [0:3], second tries [3:2] -> empty,
+        # third uses [2:5]
+        end_indices = np.array([3, 2, 5])
+
+        trains = loaders._trains_from_flat_index(
+            flat_times, end_indices, unit="ms", fs_Hz=None
+        )
+        assert len(trains) == 3
+        # First segment: indices 0..2 -> [10, 20, 30]
+        assert len(trains[0]) == 3
+        # Second segment: start=3, stop=2 -> empty slice
+        assert len(trains[1]) == 0
+        # Third segment: start=2, stop=5 -> [30, 40, 50]
+        assert len(trains[2]) == 3
+
+    def test_ec_dl_01_explicit_length_ms_override(self, tmp_path):
+        """
+        EC-DL-01: Verify that an explicit length_ms parameter overrides the
+        inferred length from spike times.
+
+        Tests:
+            (Test Case 1) sd.length equals the explicit value, not the max spike time.
+            (Test Case 2) Spike trains are still loaded correctly.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("0", data=np.array([0.1, 0.2]))  # max = 200 ms
+            g.create_dataset("1", data=np.array([0.05]))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="s", length_ms=5000.0
+        )
+        # Explicit length_ms should override the inferred value (200 ms)
+        assert sd.length == pytest.approx(5000.0)
+        assert np.allclose(sd.train[0], [100.0, 200.0])
+
+    def test_ec_dl_02_explicit_metadata_parameter(self, tmp_path):
+        """
+        EC-DL-02: Verify that an explicit metadata parameter is merged into
+        the loaded SpikeData's metadata (with source_file added automatically).
+
+        Tests:
+            (Test Case 1) Custom metadata keys are present.
+            (Test Case 2) source_file is still added by the loader.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("0", data=np.array([0.1]))
+
+        custom_meta = {"experiment": "test_exp", "subject": "mouse_1"}
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            group_per_unit="units",
+            group_time_unit="s",
+            metadata=custom_meta,
+        )
+        assert sd.metadata["experiment"] == "test_exp"
+        assert sd.metadata["subject"] == "mouse_1"
+        assert "source_file" in sd.metadata
+
+    def test_ec_dl_03_three_styles_simultaneously_raises(self, tmp_path):
+        """
+        EC-DL-03: Verify that specifying three or more input styles raises
+        ValueError (not just two).
+
+        Tests:
+            (Test Case 1) Specifying raster + ragged + group raises ValueError.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((2, 3)))
+            f.create_dataset("spike_times", data=np.array([0.1]))
+            f.create_dataset("spike_times_index", data=np.array([1]))
+            f.create_group("units")
+
+        with pytest.raises(ValueError, match="exactly one"):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                raster_dataset="raster",
+                raster_bin_size_ms=1.0,
+                spike_times_dataset="spike_times",
+                spike_times_index_dataset="spike_times_index",
+                group_per_unit="units",
+            )
+
 
 @skip_no_h5py
 class TestNWBLoader:
@@ -403,6 +522,23 @@ class TestNWBLoader:
         sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
         assert np.allclose(sd.train[0], [200.0])
         assert np.allclose(sd.train[1], [700.0])
+
+    def test_nwb_empty_units_group(self, tmp_path):
+        """
+        Verify that loading an NWB file whose units group has no
+        spike_times datasets raises a clear error.
+
+        Tests:
+            (Test Case 1) Raises ValueError mentioning missing spike_times.
+        """
+        path = str(tmp_path / "empty_units.nwb")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("units")
+            # Write only an id dataset but no spike_times or spike_times_index
+            grp.create_dataset("id", data=np.array([0, 1], dtype=int))
+
+        with pytest.raises(ValueError, match="spike_times"):
+            loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
 
 
 class TestKiloSortAndSpikeInterface:
@@ -709,6 +845,132 @@ class TestKiloSortAndSpikeInterface:
         assert sd.neuron_attributes[0]["unit_id"] == 50
         assert sd.neuron_attributes[1]["unit_id"] == 100
 
+    def test_kilosort_missing_files(self, tmp_path):
+        """
+        Verify load_spikedata_from_kilosort raises when required .npy files are missing.
+
+        Tests:
+            (Test Case 1) Calling with an empty directory raises FileNotFoundError (or OSError).
+        """
+        with pytest.raises((FileNotFoundError, OSError)):
+            loaders.load_spikedata_from_kilosort(str(tmp_path), fs_Hz=30000.0)
+
+    def test_kilosort_empty_spike_files(self, tmp_path):
+        """
+        Verify that loading KiloSort files with shape-(0,) arrays
+        returns an empty SpikeData with no units.
+
+        Tests:
+            (Test Case 1) Returns a valid SpikeData with N == 0.
+            (Test Case 2) No spike trains are present.
+        """
+        d = str(tmp_path / "ks_empty")
+        os.makedirs(d)
+        np.save(os.path.join(d, "spike_times.npy"), np.array([], dtype=float))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([], dtype=int))
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=30000.0)
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 0
+        assert len(sd.train) == 0
+
+    def test_spikeinterface_empty_unit_ids(self):
+        """
+        Verify that loading from a SpikeInterface sorting with an empty
+        unit_ids list returns an empty SpikeData.
+
+        Tests:
+            (Test Case 1) Returns a valid SpikeData with N == 0.
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = []
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([], dtype=float)
+
+        sd = loaders.load_spikedata_from_spikeinterface(mock_sorting, unit_ids=[])
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 0
+        assert len(sd.train) == 0
+
+    def test_spikeinterface_negative_sampling_frequency(self):
+        """
+        Verify that a negative sampling_frequency override raises ValueError.
+
+        Tests:
+            (Test Case 1) sampling_frequency=-1000 raises ValueError.
+            (Test Case 2) sampling_frequency=0 does not raise (zero is treated as
+                          falsy and falls through to the extractor's own frequency).
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([100], dtype=float)
+
+        with pytest.raises(ValueError, match="positive"):
+            loaders.load_spikedata_from_spikeinterface(
+                mock_sorting, sampling_frequency=-1000.0
+            )
+
+        # fs=0 is falsy, so the loader falls through to the extractor's frequency
+        sd = loaders.load_spikedata_from_spikeinterface(
+            mock_sorting, sampling_frequency=0
+        )
+        assert sd.N == 1
+
+    def test_ec_dl_04_mismatched_spike_times_clusters_lengths(self, tmp_path):
+        """
+        EC-DL-04: Verify that mismatched spike_times and spike_clusters array
+        lengths raise a ValueError.
+
+        Tests:
+            (Test Case 1) spike_times has 5 entries, spike_clusters has 3 -> ValueError.
+        """
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+        np.save(os.path.join(d, "spike_times.npy"), np.array([10, 20, 30, 40, 50]))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 1]))
+
+        with pytest.raises(ValueError, match="mismatch"):
+            loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+    def test_ec_dl_05_negative_spike_times(self, tmp_path):
+        """
+        EC-DL-05: Verify that negative spike times are loaded without error.
+        The loader does not validate spike time values; negative times pass
+        through and are converted to negative milliseconds.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Negative spike times are preserved (converted to ms).
+        """
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+        # Spike times in samples: -100, 0, 100
+        np.save(os.path.join(d, "spike_times.npy"), np.array([-100, 0, 100]))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 0]))
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+        assert sd.N == 1
+        # -100 samples at 1 kHz = -100 ms, 0 ms, 100 ms
+        assert np.any(sd.train[0] < 0)
+
+    def test_ec_dl_07_sampling_frequency_zero(self):
+        """
+        EC-DL-07: Verify that sampling_frequency=0 from the extractor raises
+        ValueError. Zero sampling frequency is falsy, so the loader checks
+        for a positive value.
+
+        Tests:
+            (Test Case 1) ValueError is raised mentioning "positive".
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_sampling_frequency.return_value = 0.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([100])
+
+        with pytest.raises(ValueError, match="positive"):
+            loaders.load_spikedata_from_spikeinterface(mock_sorting)
+
 
 class TestPickleLoaders:
     """
@@ -830,6 +1092,21 @@ class TestPickleLoaders:
 
         # Verify temp file was removed
         assert not os.path.exists(path)
+
+    def test_ec_dl_08_corrupted_file(self, tmp_path):
+        """
+        EC-DL-08: Verify that loading a corrupted/invalid pickle file raises
+        an appropriate exception (UnpicklingError or similar).
+
+        Tests:
+            (Test Case 1) Writing random bytes and loading raises an exception.
+        """
+        path = str(tmp_path / "corrupted.pkl")
+        with open(path, "wb") as f:
+            f.write(b"this is not a valid pickle file \x80\x00\x00")
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_pickle(path)
 
 
 @skip_no_pandas
@@ -1126,12 +1403,16 @@ class TestIBLLoader:
 
         Tests:
             (Test Case 1) sd.length equals the explicit value, not the max spike time.
+
+        Notes:
+            - length_ms must be >= the latest spike time. The mock data has
+              spikes up to 99s = 99000ms, so we use 150000ms to override.
         """
         eid, pid = "test-eid", "test-pid"
         mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(pid, eid)
-        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap, length_ms=999.0)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap, length_ms=150000.0)
 
-        assert sd.length == pytest.approx(999.0)
+        assert sd.length == pytest.approx(150000.0)
 
     def test_collection_fallback(self):
         """
@@ -1195,6 +1476,173 @@ class TestIBLLoader:
                 sys.modules["one.api"] = original
             if original_one is not None:
                 sys.modules["one"] = original_one
+
+    def test_ibl_all_collections_fail(self):
+        """
+        Verify that when all ONE API collection lookups fail, the loader
+        still returns a SpikeData with empty trains (one per good unit) rather
+        than crashing silently.
+
+        Tests:
+            (Test Case 1) Returns a SpikeData with the correct number of units.
+            (Test Case 2) All spike trains are empty arrays.
+        """
+        import pandas as pd
+
+        eid, pid = "test-eid", "test-pid"
+
+        # Build a unit_df with 2 good units
+        unit_df = pd.DataFrame(
+            [
+                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 0, "Beryl": "VISl"},
+                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 1, "Beryl": "VISl"},
+            ]
+        )
+
+        # Build a trials DataFrame
+        t = np.array([1.0, 3.0])
+        trials_df = pd.DataFrame(
+            {
+                "intervals_0": t,
+                "intervals_1": t + 1.0,
+                "stimOn_times": t + 0.1,
+                "stimOff_times": t + 0.8,
+                "goCue_times": t + 0.05,
+                "response_times": t + 0.5,
+                "feedback_times": t + 0.55,
+                "firstMovement_times": t + 0.45,
+                "choice": [-1.0, 1.0],
+                "feedbackType": [1.0, 1.0],
+                "contrastLeft": [0.5, 0.5],
+                "contrastRight": [0.5, 0.5],
+                "probabilityLeft": [0.5, 0.5],
+            }
+        )
+
+        def load_object_side_effect(eid_arg, obj_name, **kwargs):
+            if obj_name == "trials":
+                mock_trials = MagicMock()
+                mock_trials.to_df.return_value = trials_df
+                return mock_trials
+            if obj_name == "spikes":
+                raise FileNotFoundError("collection not found")
+            raise Exception(f"Unexpected: {obj_name}")
+
+        mock_one_instance = MagicMock()
+        mock_one_instance.load_object.side_effect = load_object_side_effect
+
+        mock_one_class = MagicMock()
+        mock_one_class.return_value = mock_one_instance
+
+        mock_one_api = MagicMock()
+        mock_one_api.ONE = mock_one_class
+
+        mock_brainwidemap = MagicMock()
+        mock_brainwidemap.bwm_units.return_value = unit_df
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            sd = loaders.load_spikedata_from_ibl(eid, pid)
+
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 2
+        for train in sd.train:
+            assert len(train) == 0
+
+    def test_ec_dl_09_no_good_units(self):
+        """
+        EC-DL-09: Verify behavior when the bwm_units DataFrame has no good
+        units (label==1) for the requested probe. The loader should return
+        a SpikeData with N=0 and use the default length of 10000 ms.
+
+        Tests:
+            (Test Case 1) sd.N == 0.
+            (Test Case 2) sd.length defaults to 10000.0 ms.
+        """
+        import pandas as pd
+
+        eid, pid = "test-eid", "test-pid"
+
+        # Only bad units (label=0) for this probe
+        unit_df = pd.DataFrame(
+            [
+                {
+                    "pid": pid,
+                    "eid": eid,
+                    "label": 0,
+                    "cluster_id": 0,
+                    "Beryl": "noise",
+                },
+                {
+                    "pid": pid,
+                    "eid": eid,
+                    "label": 0,
+                    "cluster_id": 1,
+                    "Beryl": "noise",
+                },
+            ]
+        )
+
+        trials_df = pd.DataFrame(
+            {
+                "intervals_0": [1.0],
+                "intervals_1": [2.0],
+                "stimOn_times": [1.1],
+                "stimOff_times": [1.8],
+                "goCue_times": [1.05],
+                "response_times": [1.5],
+                "feedback_times": [1.55],
+                "firstMovement_times": [1.45],
+                "choice": [-1.0],
+                "feedbackType": [1.0],
+                "contrastLeft": [0.5],
+                "contrastRight": [0.5],
+                "probabilityLeft": [0.5],
+            }
+        )
+
+        def load_object_side_effect(eid_arg, obj_name, **kwargs):
+            if obj_name == "trials":
+                mock_trials = MagicMock()
+                mock_trials.to_df.return_value = trials_df
+                return mock_trials
+            if obj_name == "spikes":
+                return {
+                    "clusters": np.array([], dtype=int),
+                    "times": np.array([], dtype=float),
+                }
+            raise Exception(f"Unexpected: {obj_name}")
+
+        mock_one_instance = MagicMock()
+        mock_one_instance.load_object.side_effect = load_object_side_effect
+
+        mock_one_class = MagicMock()
+        mock_one_class.return_value = mock_one_instance
+
+        mock_one_api = MagicMock()
+        mock_one_api.ONE = mock_one_class
+
+        mock_brainwidemap = MagicMock()
+        mock_brainwidemap.bwm_units.return_value = unit_df
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            sd = loaders.load_spikedata_from_ibl(eid, pid)
+
+        assert sd.N == 0
+        assert sd.length == pytest.approx(10_000.0)
 
 
 @skip_no_pandas
@@ -1544,225 +1992,6 @@ class TestIBLQuery:
                 sys.modules["one"] = original_one
 
 
-class TestDataLoadersEdgeCases:
-    def test_kilosort_missing_files(self, tmp_path):
-        """
-        Verify load_spikedata_from_kilosort raises when required .npy files are missing.
-
-        Tests:
-            (Test Case 1) Calling with an empty directory raises FileNotFoundError (or OSError).
-        """
-        with pytest.raises((FileNotFoundError, OSError)):
-            loaders.load_spikedata_from_kilosort(str(tmp_path), fs_Hz=30000.0)
-
-    @skip_no_h5py
-    def test_hdf5_paired_empty_idces(self, tmp_path):
-        """
-        Loading paired-style HDF5 with empty idces/times arrays produces a valid
-        zero-unit SpikeData with duration 0.
-
-        Tests:
-            (Test Case 1) Empty idces and times arrays produce a SpikeData with
-                N=0 and length=0.0.
-        """
-        path = str(tmp_path / "empty_paired.h5")
-        with h5py.File(path, "w") as f:
-            f.create_dataset("idces", data=np.array([], dtype=int))
-            f.create_dataset("times", data=np.array([], dtype=float))
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
-        )
-        assert sd.N == 0
-        assert sd.length == 0.0
-
-    @skip_no_pandas
-    def test_ibl_all_collections_fail(self):
-        """
-        Verify that when all ONE API collection lookups fail, the loader
-        still returns a SpikeData with empty trains (one per good unit) rather
-        than crashing silently.
-
-        Tests:
-            (Test Case 1) Returns a SpikeData with the correct number of units.
-            (Test Case 2) All spike trains are empty arrays.
-        """
-        import pandas as pd
-
-        eid, pid = "test-eid", "test-pid"
-
-        # Build a unit_df with 2 good units
-        unit_df = pd.DataFrame(
-            [
-                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 0, "Beryl": "VISl"},
-                {"pid": pid, "eid": eid, "label": 1, "cluster_id": 1, "Beryl": "VISl"},
-            ]
-        )
-
-        # Build a trials DataFrame
-        t = np.array([1.0, 3.0])
-        trials_df = pd.DataFrame(
-            {
-                "intervals_0": t,
-                "intervals_1": t + 1.0,
-                "stimOn_times": t + 0.1,
-                "stimOff_times": t + 0.8,
-                "goCue_times": t + 0.05,
-                "response_times": t + 0.5,
-                "feedback_times": t + 0.55,
-                "firstMovement_times": t + 0.45,
-                "choice": [-1.0, 1.0],
-                "feedbackType": [1.0, 1.0],
-                "contrastLeft": [0.5, 0.5],
-                "contrastRight": [0.5, 0.5],
-                "probabilityLeft": [0.5, 0.5],
-            }
-        )
-
-        def load_object_side_effect(eid_arg, obj_name, **kwargs):
-            if obj_name == "trials":
-                mock_trials = MagicMock()
-                mock_trials.to_df.return_value = trials_df
-                return mock_trials
-            if obj_name == "spikes":
-                raise FileNotFoundError("collection not found")
-            raise Exception(f"Unexpected: {obj_name}")
-
-        mock_one_instance = MagicMock()
-        mock_one_instance.load_object.side_effect = load_object_side_effect
-
-        mock_one_class = MagicMock()
-        mock_one_class.return_value = mock_one_instance
-
-        mock_one_api = MagicMock()
-        mock_one_api.ONE = mock_one_class
-
-        mock_brainwidemap = MagicMock()
-        mock_brainwidemap.bwm_units.return_value = unit_df
-
-        with patch.dict(
-            sys.modules,
-            {
-                "one": MagicMock(),
-                "one.api": mock_one_api,
-                "brainwidemap": mock_brainwidemap,
-            },
-        ):
-            sd = loaders.load_spikedata_from_ibl(eid, pid)
-
-        assert isinstance(sd, SpikeData)
-        assert sd.N == 2
-        for train in sd.train:
-            assert len(train) == 0
-
-    def test_kilosort_empty_spike_files(self, tmp_path):
-        """
-        Verify that loading KiloSort files with shape-(0,) arrays
-        returns an empty SpikeData with no units.
-
-        Tests:
-            (Test Case 1) Returns a valid SpikeData with N == 0.
-            (Test Case 2) No spike trains are present.
-        """
-        d = str(tmp_path / "ks_empty")
-        os.makedirs(d)
-        np.save(os.path.join(d, "spike_times.npy"), np.array([], dtype=float))
-        np.save(os.path.join(d, "spike_clusters.npy"), np.array([], dtype=int))
-
-        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=30000.0)
-        assert isinstance(sd, SpikeData)
-        assert sd.N == 0
-        assert len(sd.train) == 0
-
-    def test_spikeinterface_empty_unit_ids(self):
-        """
-        Verify that loading from a SpikeInterface sorting with an empty
-        unit_ids list returns an empty SpikeData.
-
-        Tests:
-            (Test Case 1) Returns a valid SpikeData with N == 0.
-        """
-        mock_sorting = MagicMock()
-        mock_sorting.get_unit_ids.return_value = []
-        mock_sorting.get_sampling_frequency.return_value = 30000.0
-        mock_sorting.get_unit_spike_train.return_value = np.array([], dtype=float)
-
-        sd = loaders.load_spikedata_from_spikeinterface(mock_sorting, unit_ids=[])
-        assert isinstance(sd, SpikeData)
-        assert sd.N == 0
-        assert len(sd.train) == 0
-
-    def test_spikeinterface_negative_sampling_frequency(self):
-        """
-        Verify that a negative sampling_frequency override raises ValueError.
-
-        Tests:
-            (Test Case 1) sampling_frequency=-1000 raises ValueError.
-            (Test Case 2) sampling_frequency=0 does not raise (zero is treated as
-                          falsy and falls through to the extractor's own frequency).
-        """
-        mock_sorting = MagicMock()
-        mock_sorting.get_unit_ids.return_value = [0]
-        mock_sorting.get_sampling_frequency.return_value = 30000.0
-        mock_sorting.get_unit_spike_train.return_value = np.array([100], dtype=float)
-
-        with pytest.raises(ValueError, match="positive"):
-            loaders.load_spikedata_from_spikeinterface(
-                mock_sorting, sampling_frequency=-1000.0
-            )
-
-        # fs=0 is falsy, so the loader falls through to the extractor's frequency
-        sd = loaders.load_spikedata_from_spikeinterface(
-            mock_sorting, sampling_frequency=0
-        )
-        assert sd.N == 1
-
-    @skip_no_h5py
-    def test_nwb_empty_units_group(self, tmp_path):
-        """
-        Verify that loading an NWB file whose units group has no
-        spike_times datasets raises a clear error.
-
-        Tests:
-            (Test Case 1) Raises ValueError mentioning missing spike_times.
-        """
-        path = str(tmp_path / "empty_units.nwb")
-        with h5py.File(path, "w") as f:
-            grp = f.create_group("units")
-            # Write only an id dataset but no spike_times or spike_times_index
-            grp.create_dataset("id", data=np.array([0, 1], dtype=int))
-
-        with pytest.raises(ValueError, match="spike_times"):
-            loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
-
-    def test_trains_from_flat_index_non_monotonic(self):
-        """
-        Verify that _trains_from_flat_index handles or tolerates
-        non-monotonic end_indices by slicing according to the given indices.
-
-        Tests:
-            (Test Case 1) Non-monotonic end_indices (e.g. [3, 2, 5]) produce
-                segments based on sequential start-stop iteration. The second
-                segment will be empty because stop < start after the first
-                segment consumed indices 0..2.
-        """
-        flat_times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
-        # Non-monotonic: first segment uses [0:3], second tries [3:2] -> empty,
-        # third uses [2:5]
-        end_indices = np.array([3, 2, 5])
-
-        trains = loaders._trains_from_flat_index(
-            flat_times, end_indices, unit="ms", fs_Hz=None
-        )
-        assert len(trains) == 3
-        # First segment: indices 0..2 -> [10, 20, 30]
-        assert len(trains[0]) == 3
-        # Second segment: start=3, stop=2 -> empty slice
-        assert len(trains[1]) == 0
-        # Third segment: start=2, stop=5 -> [30, 40, 50]
-        assert len(trains[2]) == 3
-
-
 # ---------------------------------------------------------------------------
 # s3_utils — URL parsing and ensure_local_file
 # ---------------------------------------------------------------------------
@@ -1922,6 +2151,95 @@ class TestS3Utils:
         with pytest.raises(FileNotFoundError):
             ensure_local_file(str(tmp_path / "nonexistent.txt"))
 
+    def test_ec_s3_01_empty_key_trailing_slash(self):
+        """
+        EC-S3-01: Verify parse_s3_url with an empty key (s3://bucket/).
+        The trailing slash produces an empty string as the key.
+
+        Tests:
+            (Test Case 1) bucket is "mybucket".
+            (Test Case 2) key is "" (empty string).
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://mybucket/")
+        assert bucket == "mybucket"
+        assert key == ""
+
+    def test_ec_s3_01_no_trailing_slash(self):
+        """
+        EC-S3-01 variant: Verify parse_s3_url with no key and no trailing
+        slash (s3://bucket).
+
+        Tests:
+            (Test Case 1) bucket is "mybucket".
+            (Test Case 2) key is "" (empty string).
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://mybucket")
+        assert bucket == "mybucket"
+        assert key == ""
+
+    def test_ec_s3_02_special_characters_in_key(self):
+        """
+        EC-S3-02: Verify parse_s3_url handles special characters in the key
+        (spaces encoded as %20, plus signs, unicode, etc.).
+
+        Tests:
+            (Test Case 1) Key with spaces and special chars is preserved as-is.
+            (Test Case 2) Key with nested path and dots is preserved.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://mybucket/path/with spaces/file+name.h5")
+        assert bucket == "mybucket"
+        assert key == "path/with spaces/file+name.h5"
+
+        bucket2, key2 = parse_s3_url("s3://mybucket/a/b/c/file.v2.0.tar.gz")
+        assert bucket2 == "mybucket"
+        assert key2 == "a/b/c/file.v2.0.tar.gz"
+
+    def test_ec_s3_02_percent_encoded_key(self):
+        """
+        EC-S3-02 variant: Verify percent-encoded characters pass through.
+
+        Tests:
+            (Test Case 1) %20 in key is preserved literally.
+        """
+        from SpikeLab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url("s3://mybucket/path%20with%20encoding/file.h5")
+        assert bucket == "mybucket"
+        assert key == "path%20with%20encoding/file.h5"
+
+    def test_ec_s3_03_empty_file(self, tmp_path):
+        """
+        EC-S3-03: Verify that uploading an empty (0-byte) file to S3 succeeds
+        without error. The upload function should not reject empty files.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) upload_file is called on the S3 client.
+        """
+        from unittest.mock import MagicMock
+        from SpikeLab.data_loaders.s3_utils import upload_to_s3
+
+        empty_file = str(tmp_path / "empty.txt")
+        with open(empty_file, "wb") as f:
+            pass  # 0 bytes
+        assert os.path.getsize(empty_file) == 0
+
+        mock_client = MagicMock()
+        with patch("SpikeLab.data_loaders.s3_utils.boto3") as mock_boto3:
+            mock_boto3.client.return_value = mock_client
+            result = upload_to_s3(empty_file, "s3://mybucket/empty.txt")
+
+        assert result == "s3://mybucket/empty.txt"
+        mock_client.upload_file.assert_called_once_with(
+            empty_file, "mybucket", "empty.txt"
+        )
+
 
 class TestS3UtilsErrorPaths:
     """
@@ -1990,3 +2308,33 @@ class TestS3UtilsErrorPaths:
             mock_boto3.client.return_value = mock_client
             with pytest.raises(RuntimeError, match="AWS credentials not found"):
                 download_from_s3("s3://my-bucket/data.h5")
+
+    def test_ec_s3_04_s3_url_download_path(self):
+        """
+        EC-S3-04: Verify that ensure_local_file with an S3 URL calls
+        download_from_s3 and returns (local_path, True).
+
+        Tests:
+            (Test Case 1) download_from_s3 is called with the S3 URL.
+            (Test Case 2) Returns is_temporary=True.
+            (Test Case 3) local_path matches the mock return value.
+        """
+        from SpikeLab.data_loaders.s3_utils import ensure_local_file
+
+        with patch("SpikeLab.data_loaders.s3_utils.download_from_s3") as mock_download:
+            mock_download.return_value = "/tmp/downloaded_file.h5"
+            local_path, is_temp = ensure_local_file(
+                "s3://mybucket/data/file.h5",
+                aws_access_key_id="AKID",
+                aws_secret_access_key="SECRET",
+            )
+
+        assert local_path == "/tmp/downloaded_file.h5"
+        assert is_temp is True
+        mock_download.assert_called_once_with(
+            "s3://mybucket/data/file.h5",
+            aws_access_key_id="AKID",
+            aws_secret_access_key="SECRET",
+            aws_session_token=None,
+            region_name=None,
+        )

@@ -596,6 +596,165 @@ class TestAnalysisWorkspace:
         assert "ns" in doc["index"]
         assert "arr" in doc["index"]["ns"]
 
+    # ------------------------------------------------------------------
+    # EC-WS-01: store with None value
+    # ------------------------------------------------------------------
+
+    def test_store_none_value(self):
+        """
+        EC-WS-01: store() with None as the value.
+
+        None is not a supported IAT type, but store() accepts it (the
+        summary will just contain the class name "NoneType"). get()
+        returns None, which is indistinguishable from "not found".
+
+        Tests:
+            (Test Case 1) store() does not raise when obj is None.
+            (Test Case 2) get() returns None (same as "not found" sentinel).
+            (Test Case 3) get_info() returns a valid index entry with type "NoneType".
+            (Test Case 4) The key appears in list_keys().
+        """
+        self.ws.store("ns", "none_val", None)
+
+        # get() returns None — indistinguishable from missing key
+        assert self.ws.get("ns", "none_val") is None
+
+        # But the index entry exists and records the type
+        info = self.ws.get_info("ns", "none_val")
+        assert info is not None
+        assert info["type"] == "NoneType"
+
+        # Key is present in listing
+        assert "none_val" in self.ws.list_keys("ns")
+
+    # ------------------------------------------------------------------
+    # EC-WS-02: store with empty string key
+    # ------------------------------------------------------------------
+
+    def test_store_empty_string_key(self):
+        """
+        EC-WS-02: store() with an empty string as the key.
+
+        Empty strings are valid Python dict keys, so store() accepts them.
+        The item can be retrieved via get("ns", "").
+
+        Tests:
+            (Test Case 1) store() does not raise with an empty string key.
+            (Test Case 2) get() retrieves the item using the empty string key.
+            (Test Case 3) The empty string key appears in list_keys().
+        """
+        arr = np.array([1.0, 2.0])
+        self.ws.store("ns", "", arr)
+
+        retrieved = self.ws.get("ns", "")
+        np.testing.assert_array_equal(retrieved, arr)
+
+        assert "" in self.ws.list_keys("ns")
+
+    # ------------------------------------------------------------------
+    # EC-WS-03: store with empty string namespace
+    # ------------------------------------------------------------------
+
+    def test_store_empty_string_namespace(self):
+        """
+        EC-WS-03: store() with an empty string as the namespace.
+
+        Empty strings are valid Python dict keys, so store() accepts them.
+        The item can be retrieved via get("", "key").
+
+        Tests:
+            (Test Case 1) store() does not raise with an empty string namespace.
+            (Test Case 2) get() retrieves the item using the empty string namespace.
+            (Test Case 3) The empty string namespace appears in list_namespaces().
+        """
+        arr = np.array([3.0, 4.0])
+        self.ws.store("", "key", arr)
+
+        retrieved = self.ws.get("", "key")
+        np.testing.assert_array_equal(retrieved, arr)
+
+        assert "" in self.ws.list_namespaces()
+
+    # ------------------------------------------------------------------
+    # EC-WS-04: rename to an existing key — overwrite behavior
+    # ------------------------------------------------------------------
+
+    def test_rename_to_existing_key_blocked_by_default(self):
+        """
+        rename() to a key that already exists is blocked by default.
+
+        Tests:
+            (Test Case 1) rename() returns False and emits a UserWarning.
+            (Test Case 2) Both keys remain unchanged.
+        """
+        self.ws.store("ns", "old", np.array([1.0]))
+        self.ws.store("ns", "existing", np.array([99.0]))
+
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = self.ws.rename("ns", "old", "existing")
+            assert result is False
+            assert len(w) == 1
+            assert "already exists" in str(w[0].message)
+
+        # Both keys are preserved
+        np.testing.assert_array_equal(self.ws.get("ns", "old"), [1.0])
+        np.testing.assert_array_equal(self.ws.get("ns", "existing"), [99.0])
+
+    def test_rename_to_existing_key_with_overwrite(self):
+        """
+        rename() with overwrite=True replaces the existing key.
+
+        Tests:
+            (Test Case 1) rename() returns True.
+            (Test Case 2) new_key holds the value from old_key.
+            (Test Case 3) old_key is removed.
+        """
+        self.ws.store("ns", "old", np.array([1.0]))
+        self.ws.store("ns", "existing", np.array([99.0]))
+
+        result = self.ws.rename("ns", "old", "existing", overwrite=True)
+        assert result is True
+
+        np.testing.assert_array_equal(self.ws.get("ns", "existing"), [1.0])
+        assert self.ws.get("ns", "old") is None
+        assert self.ws.list_keys("ns") == ["existing"]
+
+    # ------------------------------------------------------------------
+    # EC-WS-06: comparison_namespace with empty strings
+    # ------------------------------------------------------------------
+
+    def test_comparison_namespace_empty_strings(self):
+        """
+        EC-WS-06: comparison_namespace() with empty string arguments.
+
+        The method just concatenates strings with underscores, so empty
+        strings produce a result with leading/trailing/double underscores.
+
+        Tests:
+            (Test Case 1) Single empty string produces "C_".
+            (Test Case 2) Two empty strings produce "C__".
+            (Test Case 3) Mixed empty and non-empty produces correct result.
+        """
+        assert AnalysisWorkspace.comparison_namespace("") == "C_"
+        assert AnalysisWorkspace.comparison_namespace("", "") == "C__"
+        assert AnalysisWorkspace.comparison_namespace("", "rec1") == "C__rec1"
+        assert AnalysisWorkspace.comparison_namespace("rec1", "") == "C_rec1_"
+
+    def test_comparison_namespace_no_arguments(self):
+        """
+        EC-WS-06 (cont): comparison_namespace() with no arguments.
+
+        With zero arguments, "_".join(()) produces an empty string, so the
+        result is just "C_".
+
+        Tests:
+            (Test Case 1) Zero arguments returns "C_".
+        """
+        assert AnalysisWorkspace.comparison_namespace() == "C_"
+
 
 # ---------------------------------------------------------------------------
 # Tests: _make_summary
@@ -889,6 +1048,35 @@ class TestWorkspaceManager:
         mgr_a = get_workspace_manager()
         mgr_b = get_workspace_manager()
         assert mgr_a is mgr_b
+
+    def test_delete_workspace_while_external_reference_held(self):
+        """
+        EC-WS-07: delete_workspace while an external reference to the workspace exists.
+
+        WorkspaceManager.delete_workspace() only removes the workspace from its
+        internal registry. If the caller holds a separate Python reference to the
+        workspace object, that reference remains valid and usable — delete_workspace
+        does not destroy the workspace itself.
+
+        Tests:
+            (Test Case 1) delete_workspace returns True.
+            (Test Case 2) get_workspace returns None after deletion.
+            (Test Case 3) The external reference is still a valid AnalysisWorkspace.
+            (Test Case 4) Data stored in the workspace is still accessible via the external reference.
+        """
+        mgr = WorkspaceManager()
+        wid = mgr.create_workspace(name="held_ref")
+        ws = mgr.get_workspace(wid)
+        ws.store("ns", "arr", np.array([1.0, 2.0]))
+
+        # Hold external reference, then delete from manager
+        external_ref = ws
+        assert mgr.delete_workspace(wid) is True
+        assert mgr.get_workspace(wid) is None
+
+        # External reference still works
+        assert isinstance(external_ref, AnalysisWorkspace)
+        np.testing.assert_array_equal(external_ref.get("ns", "arr"), [1.0, 2.0])
 
 
 # ---------------------------------------------------------------------------
@@ -1669,6 +1857,148 @@ class TestHDF5IO:
         assert sorted(namespaces) == sorted(["alpha", "beta"])
         assert "gamma" not in namespaces
 
+    # ------------------------------------------------------------------
+    # EC-HDF-02: load_item with corrupted HDF5 file
+    # ------------------------------------------------------------------
+
+    def test_load_from_corrupted_hdf5_file(self, tmp_path):
+        """
+        EC-HDF-02: load_workspace_full with a corrupted HDF5 file.
+
+        Writing garbage bytes to a .h5 file means h5py cannot parse it.
+        AnalysisWorkspace.load() raises an OSError.
+
+        Tests:
+            (Test Case 1) Loading a corrupted file raises OSError.
+        """
+        base = str(tmp_path / "corrupted")
+        h5_path = f"{base}.h5"
+        json_path = f"{base}.json"
+
+        # Write garbage to the .h5 file
+        with open(h5_path, "wb") as f:
+            f.write(b"this is not a valid HDF5 file at all")
+
+        # Write a minimal .json so the path is complete
+        import json
+
+        with open(json_path, "w") as f:
+            json.dump(
+                {"workspace_id": "x", "name": "x", "created_at": 0, "index": {}}, f
+            )
+
+        with pytest.raises(OSError):
+            AnalysisWorkspace.load(base)
+
+    # ------------------------------------------------------------------
+    # EC-HDF-03: SpikeData with empty neuron_attributes dicts [{}, {}, {}]
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_spikedata_empty_neuron_attribute_dicts(self):
+        """
+        EC-HDF-03: Round-trip of SpikeData with neuron_attributes = [{}, {}, {}].
+
+        When every dict in neuron_attributes is empty, there are no attribute
+        keys to serialize. The _dump_neuron_attributes helper writes a
+        "neuron_attributes" group with zero datasets, and _load_neuron_attributes
+        returns None (because all dicts are empty). So after round-trip,
+        neuron_attributes is None rather than [{}, {}, {}].
+
+        Tests:
+            (Test Case 1) Round-trip does not raise.
+            (Test Case 2) neuron_attributes is None after reload (empty dicts
+                are indistinguishable from "no attributes").
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sd.neuron_attributes = [{}, {}, {}]
+
+        out = self._roundtrip(sd)
+        assert isinstance(out, SpikeData)
+        # Empty dicts produce no HDF5 datasets, so they round-trip as None
+        assert out.neuron_attributes is None
+
+    # ------------------------------------------------------------------
+    # EC-HDF-04: PairwiseCompMatrixStack with S=1
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_pairwise_comp_matrix_stack_single_slice(self):
+        """
+        EC-HDF-04: Round-trip of PairwiseCompMatrixStack with S=1 (single slice).
+
+        A single-slice stack is a degenerate case. The 3D array has shape
+        (N, N, 1). This should round-trip correctly.
+
+        Tests:
+            (Test Case 1) Reconstructed object is a PairwiseCompMatrixStack.
+            (Test Case 2) stack shape is (N, N, 1).
+            (Test Case 3) Values are preserved.
+            (Test Case 4) labels and times are preserved.
+        """
+        rng = np.random.default_rng(42)
+        stack_arr = rng.random((3, 3, 1))
+        times = [(0.0, 10.0)]
+        pcms = PairwiseCompMatrixStack(
+            stack=stack_arr,
+            labels=["a", "b", "c"],
+            times=times,
+            metadata={"method": "sttc"},
+        )
+        out = self._roundtrip(pcms)
+
+        assert isinstance(out, PairwiseCompMatrixStack)
+        assert out.stack.shape == (3, 3, 1)
+        np.testing.assert_array_almost_equal(out.stack, stack_arr)
+        assert out.labels == ["a", "b", "c"]
+        assert len(out.times) == 1
+        assert out.times[0][0] == pytest.approx(0.0)
+        assert out.times[0][1] == pytest.approx(10.0)
+        assert out.metadata["method"] == "sttc"
+
+    # ------------------------------------------------------------------
+    # EC-HDF-05: RateSliceStack with neuron_attributes
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_rateslicestack_with_neuron_attributes(self):
+        """
+        EC-HDF-05: Round-trip of RateSliceStack with neuron_attributes.
+
+        RateSliceStack supports neuron_attributes. After round-trip through
+        HDF5, the attributes should be preserved.
+
+        Tests:
+            (Test Case 1) Reconstructed object is a RateSliceStack.
+            (Test Case 2) neuron_attributes is not None after load.
+            (Test Case 3) Numeric attribute values are preserved.
+            (Test Case 4) event_stack shape and values are preserved.
+        """
+        rng = np.random.default_rng(7)
+        n_units, n_times, n_slices = 3, 10, 4
+        arr = rng.random((n_units, n_times, n_slices))
+        times = [(i * n_times, (i + 1) * n_times) for i in range(n_slices)]
+        neuron_attrs = [
+            {"channel": 0, "depth": 100.0},
+            {"channel": 1, "depth": 200.0},
+            {"channel": 2, "depth": 300.0},
+        ]
+        rss = RateSliceStack(
+            None,
+            event_matrix=arr,
+            times_start_to_end=times,
+            neuron_attributes=neuron_attrs,
+        )
+
+        out = self._roundtrip(rss)
+
+        assert isinstance(out, RateSliceStack)
+        assert out.event_stack.shape == (n_units, n_times, n_slices)
+        np.testing.assert_array_almost_equal(out.event_stack, arr)
+
+        assert out.neuron_attributes is not None
+        assert len(out.neuron_attributes) == n_units
+        for i in range(n_units):
+            assert out.neuron_attributes[i]["channel"] == pytest.approx(float(i))
+            assert out.neuron_attributes[i]["depth"] == pytest.approx((i + 1) * 100.0)
+
 
 # ---------------------------------------------------------------------------
 # Tests: LazyAnalysisWorkspace — dedicated coverage
@@ -2137,6 +2467,32 @@ class TestLazyAnalysisWorkspace:
         assert "repr_test" in r
         assert "temp HDF5" in r
 
+    def test_get_after_backing_file_deleted(self):
+        """
+        EC-WS-08: LazyAnalysisWorkspace.get() after the backing HDF5 file is deleted.
+
+        When the temp HDF5 file is manually removed, get() raises an OSError
+        (from h5py failing to open the missing file) rather than returning None.
+
+        Tests:
+            (Test Case 1) get() raises OSError when the backing file has been deleted.
+        """
+        import os
+
+        ws = LazyAnalysisWorkspace(name="deleted_backing")
+        ws.store("ns", "arr", np.array([1.0, 2.0]))
+
+        # Verify it works before deletion
+        result = ws.get("ns", "arr")
+        np.testing.assert_array_equal(result, [1.0, 2.0])
+
+        # Delete the backing file
+        os.unlink(ws._h5_path)
+
+        # get() should raise because h5py cannot open the missing file
+        with pytest.raises(OSError):
+            ws.get("ns", "arr")
+
 
 # ---------------------------------------------------------------------------
 # delete_item_from_file
@@ -2499,3 +2855,41 @@ class TestMergeFrom:
         np.testing.assert_array_equal(self.ws.get("rec", "ccg"), np.eye(3))
         np.testing.assert_array_equal(self.ws.get("rec", "sttc"), np.ones((3, 3)))
         np.testing.assert_array_equal(self.ws.get("rec", "gplvm"), np.zeros(5))
+
+    # ------------------------------------------------------------------
+    # Edge case: partial key overlap within shared namespace (EC-WS-05)
+    # ------------------------------------------------------------------
+
+    def test_merge_partial_key_overlap_within_shared_namespace(self):
+        """
+        EC-WS-05: merge_from with partial key overlap within a shared namespace.
+
+        Both workspaces share namespace "rec" but only some keys collide.
+        With overwrite=False, colliding keys are skipped while non-colliding
+        keys from the source are merged.
+
+        Tests:
+            (Test Case 1) Overlapping key retains target value (not overwritten).
+            (Test Case 2) Non-overlapping source key is merged into target.
+            (Test Case 3) Non-overlapping target key remains intact.
+            (Test Case 4) Result dict reports correct merged/skipped counts.
+        """
+        self.ws.store("rec", "shared_key", np.array([1.0]))
+        self.ws.store("rec", "target_only", np.array([2.0]))
+
+        other = AnalysisWorkspace(name="source")
+        other.store("rec", "shared_key", np.array([99.0]))
+        other.store("rec", "source_only", np.array([3.0]))
+
+        result = self.ws.merge_from(other, overwrite=False)
+
+        assert result["merged"] == 1
+        assert result["skipped"] == 1
+        assert ("rec", "shared_key") in result["skipped_keys"]
+
+        # Target value preserved for overlapping key
+        np.testing.assert_array_equal(self.ws.get("rec", "shared_key"), [1.0])
+        # Target-only key untouched
+        np.testing.assert_array_equal(self.ws.get("rec", "target_only"), [2.0])
+        # Source-only key merged in
+        np.testing.assert_array_equal(self.ws.get("rec", "source_only"), [3.0])

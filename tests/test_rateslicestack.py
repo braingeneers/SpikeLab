@@ -259,6 +259,66 @@ class TestRateSliceStackConstructor:
         with pytest.raises(ValueError, match="neuron_attributes"):
             RateSliceStack(event_matrix=mat, neuron_attributes=[{"region": "CA1"}])
 
+    def test_event_matrix_single_slice(self):
+        """
+        Verify RateSliceStack can be constructed with a single slice (S=1).
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) times list has exactly 1 entry.
+            (Test Case 3) event_stack shape is preserved as (3, 20, 1).
+        """
+        mat = np.random.default_rng(0).random((3, 20, 1))
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (3, 20, 1)
+        assert len(rss.times) == 1
+
+    def test_event_matrix_single_unit(self):
+        """
+        Verify RateSliceStack can be constructed with a single unit (U=1).
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) event_stack shape is preserved as (1, 20, 5).
+        """
+        mat = np.random.default_rng(0).random((1, 20, 5))
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (1, 20, 5)
+
+    def test_all_zero_event_matrix(self):
+        """
+        EC-RSS-01: Construct RateSliceStack with an all-zero event_matrix.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) event_stack is all zeros.
+            (Test Case 3) Auto-generated times have correct length.
+        """
+        mat = np.zeros((3, 20, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (3, 20, 4)
+        np.testing.assert_array_equal(rss.event_stack, 0.0)
+        assert len(rss.times) == 4
+
+    def test_all_nan_event_matrix(self):
+        """
+        EC-RSS-02: Construct RateSliceStack with an all-NaN event_matrix.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) event_stack is all NaN.
+            (Test Case 3) Auto-generated times have correct length.
+        """
+        mat = np.full((3, 20, 4), np.nan)
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (3, 20, 4)
+        assert np.all(np.isnan(rss.event_stack))
+        assert len(rss.times) == 4
+
 
 class TestValidateTimeStartToEnd:
     def test_not_list_raises(self):
@@ -329,6 +389,49 @@ class TestValidateTimeStartToEnd:
                 data_obj=rd,
                 times_start_to_end=[(0.0, 10.0), (20.0, 40.0)],
             )
+
+    def test_validate_negative_start_filtered(self):
+        """
+        Tests that _validate_time_start_to_end silently drops windows with negative start.
+
+        Tests:
+            (Test Case 1) Window with negative start is dropped without error.
+            (Test Case 2) Only valid windows appear in the result.
+        """
+        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
+
+        rss = RateSliceStack(
+            data_obj=rd,
+            time_peaks=[5.0, 50.0, 100.0],
+            time_bounds=(10.0, 10.0),
+        )
+
+        # Peak at 5 with before=10 gives (-5, 15) -> filtered
+        assert rss.event_stack.shape[2] == 2
+        for start, end in rss.times:
+            assert start >= 0
+
+    def test_validate_float_precision_accepted(self):
+        """
+        Tests that two windows with durations differing by < 1e-10 are accepted
+        when the float subtraction yields identical results.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Both slices are present in the result.
+
+        Notes:
+            _validate_time_start_to_end uses set() on durations, so windows with
+            identical computed durations (same float value) pass the check. This test
+            uses symmetric offsets so that both durations compute to the same float.
+        """
+        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
+        offset = 1e-12
+        times = [(0.0 + offset, 10.0 + offset), (20.0 + offset, 30.0 + offset)]
+
+        rss = RateSliceStack(data_obj=rd, times_start_to_end=times)
+
+        assert rss.event_stack.shape[2] == 2
 
 
 class TestOrderUnitsAcrossSlices:
@@ -414,6 +517,116 @@ class TestOrderUnitsAcrossSlices:
         assert len(order[0]) == 2
         assert reordered[0].shape == mat.shape
 
+    def test_order_units_single_unit(self):
+        """
+        Tests order_units_across_slices() with U=1.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Returned order is [0].
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((1, 20, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "median"
+        )
+
+        # With default MIN_FRAC_ACTIVE=0.0, all units are in the highly-active group
+        assert reordered[0].shape == mat.shape
+        np.testing.assert_array_equal(order[0], [0])
+
+    def test_order_units_all_below_threshold(self):
+        """
+        Tests order_units_across_slices when all units have max rates below threshold.
+
+        Tests:
+            (Test Case 1) No exception is raised (NaN peak times are handled).
+            (Test Case 2) Returned arrays have correct shapes.
+            (Test Case 3) unit_peak_times are derived from NaN scores (all-NaN columns
+                          produce NaN via nanmedian, which rounds to an integer).
+
+        Notes:
+            When every slice is below MIN_RATE_THRESHOLD for every unit, all entries
+            in the peak-index matrix become NaN. nanmedian/nanmean of all-NaN returns
+            NaN (with a RuntimeWarning), and np.round(NaN).astype(int) yields a
+            platform-dependent integer. The method must not crash.
+        """
+        mat = np.full((3, 20, 4), 0.01)
+        rss = RateSliceStack(event_matrix=mat)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+                "median", MIN_RATE_THRESHOLD=0.1
+            )
+
+        # All units below threshold, but with MIN_FRAC_ACTIVE=0.0 they still go
+        # to the highly-active group (the threshold only affects peak-time masking)
+        assert reordered[0].shape == (3, 20, 4)
+        assert len(order[0]) == 3
+        assert len(std[0]) == 3
+        assert len(peaks[0]) == 3
+
+    def test_order_units_flat_signal(self):
+        """
+        Tests order_units_across_slices with all-zero (flat) data.
+
+        Tests:
+            (Test Case 1) No exception is raised with threshold set to 0.
+            (Test Case 2) All peak times are 0 (argmax of flat signal returns index 0).
+            (Test Case 3) All standard deviations are 0 (peak time is identical across slices).
+        """
+        mat = np.zeros((3, 20, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "mean", MIN_RATE_THRESHOLD=0.0
+        )
+
+        # With MIN_FRAC_ACTIVE=0.0, all units in the highly-active group
+        assert reordered[0].shape == mat.shape
+        np.testing.assert_array_equal(peaks[0], [0, 0, 0])
+        np.testing.assert_array_equal(std[0], [0.0, 0.0, 0.0])
+
+    def test_timing_matrix_override(self):
+        """
+        EC-RSS-03: order_units_across_slices with a pre-computed timing_matrix.
+
+        Tests:
+            (Test Case 1) Ordering matches the provided timing_matrix, not the
+                internal rate-based calculation.
+            (Test Case 2) MIN_RATE_THRESHOLD is ignored when timing_matrix is provided.
+            (Test Case 3) Output shapes are correct.
+        """
+        # Unit 0 peaks at t=10 in all slices, unit 1 at t=5, unit 2 at t=15
+        mat = np.zeros((3, 20, 4))
+        for s in range(4):
+            mat[0, 10, s] = 5.0
+            mat[1, 5, s] = 5.0
+            mat[2, 15, s] = 5.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        # Override timing_matrix so unit 2 appears earliest, then 0, then 1
+        timing = np.array(
+            [
+                [8.0, 8.0, 8.0, 8.0],  # unit 0
+                [12.0, 12.0, 12.0, 12.0],  # unit 1
+                [2.0, 2.0, 2.0, 2.0],  # unit 2
+            ]
+        )
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "median", timing_matrix=timing
+        )
+
+        # Order should follow timing_matrix: unit 2 first, then 0, then 1
+        assert order[0][0] == 2
+        assert order[0][1] == 0
+        assert order[0][2] == 1
+        assert reordered[0].shape == mat.shape
+        assert len(peaks[0]) == 3
+
 
 class TestConvertToListOfRateData:
     def test_basic_conversion(self):
@@ -450,6 +663,42 @@ class TestConvertToListOfRateData:
         # First RateData times should start at 0, step by 2
         assert rd_list[0].times[0] == pytest.approx(0.0)
         assert rd_list[0].times[1] == pytest.approx(2.0)
+
+    def test_convert_to_list_single_time_bin(self):
+        """
+        Tests convert_to_list_of_RateData with T=1 per slice.
+
+        Tests:
+            (Test Case 1) Each RateData has shape (U, 1).
+            (Test Case 2) List length equals number of slices.
+        """
+        mat = np.random.default_rng(0).random((3, 1, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        rd_list = rss.convert_to_list_of_RateData()
+
+        assert len(rd_list) == 4
+        for rd in rd_list:
+            assert isinstance(rd, RateData)
+            assert rd.inst_Frate_data.shape == (3, 1)
+
+    def test_convert_to_list_single_unit(self):
+        """
+        Tests convert_to_list_of_RateData with U=1.
+
+        Tests:
+            (Test Case 1) Each RateData has shape (1, T).
+            (Test Case 2) List length equals number of slices.
+        """
+        mat = np.random.default_rng(0).random((1, 10, 3))
+        rss = RateSliceStack(event_matrix=mat)
+
+        rd_list = rss.convert_to_list_of_RateData()
+
+        assert len(rd_list) == 3
+        for rd in rd_list:
+            assert isinstance(rd, RateData)
+            assert rd.inst_Frate_data.shape == (1, 10)
 
 
 class TestSliceCorrelations:
@@ -530,203 +779,6 @@ class TestSliceCorrelations:
             diag = np.diag(corr_stack.stack[:, :, s])
             np.testing.assert_array_almost_equal(diag, np.ones(3))
 
-
-class TestSubset:
-    def test_basic_subset(self):
-        """
-        Tests subset by index.
-
-        Tests:
-            (Test Case 1) Subset extracts correct units.
-            (Test Case 2) Times and step_size preserved.
-        """
-        mat = make_event_matrix(5, 10, 3)
-        rss = RateSliceStack(event_matrix=mat, step_size=2.0)
-        sub = rss.subset([0, 3])
-        assert sub.event_stack.shape == (2, 10, 3)
-        np.testing.assert_array_equal(sub.event_stack[0], mat[0])
-        np.testing.assert_array_equal(sub.event_stack[1], mat[3])
-        assert sub.step_size == 2.0
-        assert sub.times == rss.times
-
-    def test_single_int(self):
-        """
-        Tests subset with a single integer.
-
-        Tests:
-            (Test Case 1) Single int returns single-unit stack.
-        """
-        mat = make_event_matrix(4, 10, 3)
-        rss = RateSliceStack(event_matrix=mat)
-        sub = rss.subset(2)
-        assert sub.event_stack.shape == (1, 10, 3)
-
-    def test_subset_by_attribute(self):
-        """
-        Tests subset using the by parameter with neuron_attributes.
-
-        Tests:
-            (Test Case 1) by parameter selects units matching attribute values.
-            (Test Case 2) ValueError raised when by used without neuron_attributes.
-        """
-        from dataclasses import dataclass
-
-        @dataclass
-        class MockAttr:
-            region: str
-
-        mat = make_event_matrix(3, 10, 2)
-        attrs = [MockAttr("CA1"), MockAttr("CA3"), MockAttr("CA1")]
-        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
-        sub = rss.subset(["CA1"], by="region")
-        assert sub.event_stack.shape == (2, 10, 2)
-
-        # Without neuron_attributes
-        rss_no_attrs = RateSliceStack(event_matrix=mat)
-        with pytest.raises(ValueError, match="neuron_attributes"):
-            rss_no_attrs.subset(["CA1"], by="region")
-
-    def test_subset_preserves_neuron_attributes(self):
-        """
-        Tests that subset carries over neuron_attributes for selected units.
-
-        Tests:
-            (Test Case 1) neuron_attributes length matches subset.
-            (Test Case 2) Correct attributes are retained.
-        """
-        mat = make_event_matrix(4, 10, 2)
-        attrs = [{"id": 0}, {"id": 1}, {"id": 2}, {"id": 3}]
-        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
-        sub = rss.subset([1, 3])
-        assert len(sub.neuron_attributes) == 2
-        assert sub.neuron_attributes[0] == {"id": 1}
-        assert sub.neuron_attributes[1] == {"id": 3}
-
-
-class TestSubtimeByIndex:
-    def test_basic_trim(self):
-        """
-        Tests subtime_by_index trims time axis correctly.
-
-        Tests:
-            (Test Case 1) Output shape reflects trimmed time axis.
-            (Test Case 2) Data matches original sliced region.
-            (Test Case 3) Times are adjusted.
-        """
-        mat = make_event_matrix(2, 20, 3)
-        times = [(0.0, 20.0), (30.0, 50.0), (60.0, 80.0)]
-        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
-        sub = rss.subtime_by_index(5, 15)
-        assert sub.event_stack.shape == (2, 10, 3)
-        np.testing.assert_array_equal(sub.event_stack, mat[:, 5:15, :])
-
-    def test_negative_indexing(self):
-        """
-        Tests negative index support.
-
-        Tests:
-            (Test Case 1) Negative end_idx selects from end.
-        """
-        mat = make_event_matrix(2, 20, 3)
-        rss = RateSliceStack(event_matrix=mat)
-        sub = rss.subtime_by_index(0, -5)
-        assert sub.event_stack.shape == (2, 15, 3)
-
-    def test_out_of_range_raises(self):
-        """
-        Tests that out-of-range indices raise ValueError.
-
-        Tests:
-            (Test Case 1) start_idx out of range raises ValueError.
-            (Test Case 2) end_idx out of range raises ValueError.
-            (Test Case 3) end_idx <= start_idx raises ValueError.
-        """
-        mat = make_event_matrix(2, 10, 3)
-        rss = RateSliceStack(event_matrix=mat)
-        with pytest.raises(ValueError, match="start_idx"):
-            rss.subtime_by_index(20, 25)
-        with pytest.raises(ValueError, match="end_idx"):
-            rss.subtime_by_index(0, 20)
-        with pytest.raises(ValueError, match="end_idx"):
-            rss.subtime_by_index(5, 3)
-
-    def test_preserves_metadata(self):
-        """
-        Tests that step_size and neuron_attributes are carried over.
-
-        Tests:
-            (Test Case 1) step_size preserved.
-            (Test Case 2) neuron_attributes preserved.
-        """
-        mat = make_event_matrix(3, 20, 2)
-        attrs = [{"id": 0}, {"id": 1}, {"id": 2}]
-        rss = RateSliceStack(event_matrix=mat, step_size=2.0, neuron_attributes=attrs)
-        sub = rss.subtime_by_index(2, 10)
-        assert sub.step_size == 2.0
-        assert sub.neuron_attributes == attrs
-
-
-class TestSubslice:
-    def test_basic_subslice(self):
-        """
-        Tests subslice extracts correct slices.
-
-        Tests:
-            (Test Case 1) Output shape reflects selected slices.
-            (Test Case 2) Data matches original sliced region.
-            (Test Case 3) Times are subsliced.
-        """
-        mat = make_event_matrix(2, 10, 5)
-        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
-        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
-        sub = rss.subslice([0, 2, 4])
-        assert sub.event_stack.shape == (2, 10, 3)
-        np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, 0])
-        np.testing.assert_array_equal(sub.event_stack[:, :, 1], mat[:, :, 2])
-        np.testing.assert_array_equal(sub.event_stack[:, :, 2], mat[:, :, 4])
-        assert sub.times == [times[0], times[2], times[4]]
-
-    def test_single_int(self):
-        """
-        Tests subslice with a single integer.
-
-        Tests:
-            (Test Case 1) Single int returns single-slice stack.
-        """
-        mat = make_event_matrix(2, 10, 5)
-        rss = RateSliceStack(event_matrix=mat)
-        sub = rss.subslice(3)
-        assert sub.event_stack.shape == (2, 10, 1)
-
-    def test_out_of_range_raises(self):
-        """
-        Tests that out-of-range slice index raises ValueError.
-
-        Tests:
-            (Test Case 1) Index >= S raises ValueError.
-        """
-        mat = make_event_matrix(2, 10, 3)
-        rss = RateSliceStack(event_matrix=mat)
-        with pytest.raises(ValueError, match="out of range"):
-            rss.subslice([0, 5])
-
-    def test_preserves_metadata(self):
-        """
-        Tests that step_size and neuron_attributes are carried over.
-
-        Tests:
-            (Test Case 1) step_size preserved.
-            (Test Case 2) neuron_attributes preserved.
-        """
-        mat = make_event_matrix(3, 10, 4)
-        attrs = [{"id": 0}, {"id": 1}, {"id": 2}]
-        rss = RateSliceStack(event_matrix=mat, step_size=3.0, neuron_attributes=attrs)
-        sub = rss.subslice([1, 3])
-        assert sub.step_size == 3.0
-        assert sub.neuron_attributes == attrs
-
-
-class TestRateSliceStackEdgeCases:
     def test_slice_to_slice_unit_corr_single_slice(self):
         """
         Tests get_slice_to_slice_unit_corr_from_stack() with S=1.
@@ -801,107 +853,6 @@ class TestRateSliceStackEdgeCases:
         assert np.all(np.isnan(av_corr))
         assert np.all(np.isnan(av_lag))
 
-    def test_order_units_single_unit(self):
-        """
-        Tests order_units_across_slices() with U=1.
-
-        Tests:
-            (Test Case 1) No exception is raised.
-            (Test Case 2) Returned order is [0].
-        """
-        rng = np.random.default_rng(0)
-        mat = rng.random((1, 20, 5)) + 0.5
-        rss = RateSliceStack(event_matrix=mat)
-
-        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
-            "median"
-        )
-
-        # With default MIN_FRAC_ACTIVE=0.0, all units are in the highly-active group
-        assert reordered[0].shape == mat.shape
-        np.testing.assert_array_equal(order[0], [0])
-
-    def test_event_matrix_single_slice(self):
-        """
-        Verify RateSliceStack can be constructed with a single slice (S=1).
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) times list has exactly 1 entry.
-            (Test Case 3) event_stack shape is preserved as (3, 20, 1).
-        """
-        mat = np.random.default_rng(0).random((3, 20, 1))
-        rss = RateSliceStack(event_matrix=mat)
-
-        assert rss.event_stack.shape == (3, 20, 1)
-        assert len(rss.times) == 1
-
-    def test_event_matrix_single_unit(self):
-        """
-        Verify RateSliceStack can be constructed with a single unit (U=1).
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) event_stack shape is preserved as (1, 20, 5).
-        """
-        mat = np.random.default_rng(0).random((1, 20, 5))
-        rss = RateSliceStack(event_matrix=mat)
-
-        assert rss.event_stack.shape == (1, 20, 5)
-
-    def test_order_units_all_below_threshold(self):
-        """
-        Tests order_units_across_slices when all units have max rates below threshold.
-
-        Tests:
-            (Test Case 1) No exception is raised (NaN peak times are handled).
-            (Test Case 2) Returned arrays have correct shapes.
-            (Test Case 3) unit_peak_times are derived from NaN scores (all-NaN columns
-                          produce NaN via nanmedian, which rounds to an integer).
-
-        Notes:
-            When every slice is below MIN_RATE_THRESHOLD for every unit, all entries
-            in the peak-index matrix become NaN. nanmedian/nanmean of all-NaN returns
-            NaN (with a RuntimeWarning), and np.round(NaN).astype(int) yields a
-            platform-dependent integer. The method must not crash.
-        """
-        mat = np.full((3, 20, 4), 0.01)
-        rss = RateSliceStack(event_matrix=mat)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
-                "median", MIN_RATE_THRESHOLD=0.1
-            )
-
-        # All units below threshold, but with MIN_FRAC_ACTIVE=0.0 they still go
-        # to the highly-active group (the threshold only affects peak-time masking)
-        assert reordered[0].shape == (3, 20, 4)
-        assert len(order[0]) == 3
-        assert len(std[0]) == 3
-        assert len(peaks[0]) == 3
-
-    def test_order_units_flat_signal(self):
-        """
-        Tests order_units_across_slices with all-zero (flat) data.
-
-        Tests:
-            (Test Case 1) No exception is raised with threshold set to 0.
-            (Test Case 2) All peak times are 0 (argmax of flat signal returns index 0).
-            (Test Case 3) All standard deviations are 0 (peak time is identical across slices).
-        """
-        mat = np.zeros((3, 20, 4))
-        rss = RateSliceStack(event_matrix=mat)
-
-        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
-            "mean", MIN_RATE_THRESHOLD=0.0
-        )
-
-        # With MIN_FRAC_ACTIVE=0.0, all units in the highly-active group
-        assert reordered[0].shape == mat.shape
-        np.testing.assert_array_equal(peaks[0], [0, 0, 0])
-        np.testing.assert_array_equal(std[0], [0.0, 0.0, 0.0])
-
     def test_slice_to_slice_unit_corr_identical_slices(self):
         """
         Tests get_slice_to_slice_unit_corr_from_stack with two identical slices.
@@ -942,41 +893,77 @@ class TestRateSliceStackEdgeCases:
         assert pcm.stack.shape == (4, 4, 1)
         assert av.shape == (1,)
 
-    def test_convert_to_list_single_time_bin(self):
+
+class TestSubset:
+    def test_basic_subset(self):
         """
-        Tests convert_to_list_of_RateData with T=1 per slice.
+        Tests subset by index.
 
         Tests:
-            (Test Case 1) Each RateData has shape (U, 1).
-            (Test Case 2) List length equals number of slices.
+            (Test Case 1) Subset extracts correct units.
+            (Test Case 2) Times and step_size preserved.
         """
-        mat = np.random.default_rng(0).random((3, 1, 4))
-        rss = RateSliceStack(event_matrix=mat)
+        mat = make_event_matrix(5, 10, 3)
+        rss = RateSliceStack(event_matrix=mat, step_size=2.0)
+        sub = rss.subset([0, 3])
+        assert sub.event_stack.shape == (2, 10, 3)
+        np.testing.assert_array_equal(sub.event_stack[0], mat[0])
+        np.testing.assert_array_equal(sub.event_stack[1], mat[3])
+        assert sub.step_size == 2.0
+        assert sub.times == rss.times
 
-        rd_list = rss.convert_to_list_of_RateData()
-
-        assert len(rd_list) == 4
-        for rd in rd_list:
-            assert isinstance(rd, RateData)
-            assert rd.inst_Frate_data.shape == (3, 1)
-
-    def test_convert_to_list_single_unit(self):
+    def test_single_int(self):
         """
-        Tests convert_to_list_of_RateData with U=1.
+        Tests subset with a single integer.
 
         Tests:
-            (Test Case 1) Each RateData has shape (1, T).
-            (Test Case 2) List length equals number of slices.
+            (Test Case 1) Single int returns single-unit stack.
         """
-        mat = np.random.default_rng(0).random((1, 10, 3))
+        mat = make_event_matrix(4, 10, 3)
         rss = RateSliceStack(event_matrix=mat)
+        sub = rss.subset(2)
+        assert sub.event_stack.shape == (1, 10, 3)
 
-        rd_list = rss.convert_to_list_of_RateData()
+    def test_subset_by_attribute(self):
+        """
+        Tests subset using the by parameter with neuron_attributes.
 
-        assert len(rd_list) == 3
-        for rd in rd_list:
-            assert isinstance(rd, RateData)
-            assert rd.inst_Frate_data.shape == (1, 10)
+        Tests:
+            (Test Case 1) by parameter selects units matching attribute values.
+            (Test Case 2) ValueError raised when by used without neuron_attributes.
+        """
+        from dataclasses import dataclass
+
+        @dataclass
+        class MockAttr:
+            region: str
+
+        mat = make_event_matrix(3, 10, 2)
+        attrs = [MockAttr("CA1"), MockAttr("CA3"), MockAttr("CA1")]
+        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
+        sub = rss.subset(["CA1"], by="region")
+        assert sub.event_stack.shape == (2, 10, 2)
+
+        # Without neuron_attributes
+        rss_no_attrs = RateSliceStack(event_matrix=mat)
+        with pytest.raises(ValueError, match="neuron_attributes"):
+            rss_no_attrs.subset(["CA1"], by="region")
+
+    def test_subset_preserves_neuron_attributes(self):
+        """
+        Tests that subset carries over neuron_attributes for selected units.
+
+        Tests:
+            (Test Case 1) neuron_attributes length matches subset.
+            (Test Case 2) Correct attributes are retained.
+        """
+        mat = make_event_matrix(4, 10, 2)
+        attrs = [{"id": 0}, {"id": 1}, {"id": 2}, {"id": 3}]
+        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
+        sub = rss.subset([1, 3])
+        assert len(sub.neuron_attributes) == 2
+        assert sub.neuron_attributes[0] == {"id": 1}
+        assert sub.neuron_attributes[1] == {"id": 3}
 
     def test_subset_duplicate_indices(self):
         """
@@ -1018,6 +1005,82 @@ class TestRateSliceStackEdgeCases:
 
         assert sub.event_stack.shape == (0, 10, 2)
 
+    def test_out_of_range_index(self):
+        """
+        subset with an out-of-range unit index raises ValueError.
+
+        Tests:
+            (Test Case 1) Index exceeding U raises ValueError with descriptive message.
+        """
+        mat = make_event_matrix(3, 10, 2)
+        rss = RateSliceStack(event_matrix=mat)
+
+        with pytest.raises(ValueError, match="out of range"):
+            rss.subset([0, 10])
+
+
+class TestSubtimeByIndex:
+    def test_basic_trim(self):
+        """
+        Tests subtime_by_index trims time axis correctly.
+
+        Tests:
+            (Test Case 1) Output shape reflects trimmed time axis.
+            (Test Case 2) Data matches original sliced region.
+            (Test Case 3) Times are adjusted.
+        """
+        mat = make_event_matrix(2, 20, 3)
+        times = [(0.0, 20.0), (30.0, 50.0), (60.0, 80.0)]
+        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
+        sub = rss.subtime_by_index(5, 15)
+        assert sub.event_stack.shape == (2, 10, 3)
+        np.testing.assert_array_equal(sub.event_stack, mat[:, 5:15, :])
+
+    def test_negative_indexing(self):
+        """
+        Tests negative index support.
+
+        Tests:
+            (Test Case 1) Negative end_idx selects from end.
+        """
+        mat = make_event_matrix(2, 20, 3)
+        rss = RateSliceStack(event_matrix=mat)
+        sub = rss.subtime_by_index(0, -5)
+        assert sub.event_stack.shape == (2, 15, 3)
+
+    def test_out_of_range_raises(self):
+        """
+        Tests that out-of-range indices raise ValueError.
+
+        Tests:
+            (Test Case 1) start_idx out of range raises ValueError.
+            (Test Case 2) end_idx out of range raises ValueError.
+            (Test Case 3) end_idx <= start_idx raises ValueError.
+        """
+        mat = make_event_matrix(2, 10, 3)
+        rss = RateSliceStack(event_matrix=mat)
+        with pytest.raises(ValueError, match="start_idx"):
+            rss.subtime_by_index(20, 25)
+        with pytest.raises(ValueError, match="end_idx"):
+            rss.subtime_by_index(0, 20)
+        with pytest.raises(ValueError, match="end_idx"):
+            rss.subtime_by_index(5, 3)
+
+    def test_preserves_metadata(self):
+        """
+        Tests that step_size and neuron_attributes are carried over.
+
+        Tests:
+            (Test Case 1) step_size preserved.
+            (Test Case 2) neuron_attributes preserved.
+        """
+        mat = make_event_matrix(3, 20, 2)
+        attrs = [{"id": 0}, {"id": 1}, {"id": 2}]
+        rss = RateSliceStack(event_matrix=mat, step_size=2.0, neuron_attributes=attrs)
+        sub = rss.subtime_by_index(2, 10)
+        assert sub.step_size == 2.0
+        assert sub.neuron_attributes == attrs
+
     def test_subtime_by_index_full_range(self):
         """
         Tests subtime_by_index with full range (0, T).
@@ -1050,6 +1113,86 @@ class TestRateSliceStackEdgeCases:
         assert sub.event_stack.shape == (3, 1, 4)
         np.testing.assert_array_equal(sub.event_stack[:, 0, :], mat[:, 5, :])
 
+    def test_full_range_returns_independent_copy(self):
+        """
+        subtime_by_index with full range (0, T) returns an independent copy.
+
+        Tests:
+            (Test Case 1) Output data is equal to the original.
+            (Test Case 2) Mutating the sub's event_stack does not affect
+                the original.
+        """
+        mat = np.random.default_rng(0).random((3, 20, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        sub = rss.subtime_by_index(0, 20)
+
+        np.testing.assert_array_equal(sub.event_stack, rss.event_stack)
+
+        # Mutation should NOT propagate — sub is an independent copy
+        sub.event_stack[0, 0, 0] = -999.0
+        assert rss.event_stack[0, 0, 0] != -999.0
+
+
+class TestSubslice:
+    def test_basic_subslice(self):
+        """
+        Tests subslice extracts correct slices.
+
+        Tests:
+            (Test Case 1) Output shape reflects selected slices.
+            (Test Case 2) Data matches original sliced region.
+            (Test Case 3) Times are subsliced.
+        """
+        mat = make_event_matrix(2, 10, 5)
+        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
+        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
+        sub = rss.subslice([0, 2, 4])
+        assert sub.event_stack.shape == (2, 10, 3)
+        np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, 0])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 1], mat[:, :, 2])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 2], mat[:, :, 4])
+        assert sub.times == [times[0], times[2], times[4]]
+
+    def test_single_int(self):
+        """
+        Tests subslice with a single integer.
+
+        Tests:
+            (Test Case 1) Single int returns single-slice stack.
+        """
+        mat = make_event_matrix(2, 10, 5)
+        rss = RateSliceStack(event_matrix=mat)
+        sub = rss.subslice(3)
+        assert sub.event_stack.shape == (2, 10, 1)
+
+    def test_out_of_range_raises(self):
+        """
+        Tests that out-of-range slice index raises ValueError.
+
+        Tests:
+            (Test Case 1) Index >= S raises ValueError.
+        """
+        mat = make_event_matrix(2, 10, 3)
+        rss = RateSliceStack(event_matrix=mat)
+        with pytest.raises(ValueError, match="out of range"):
+            rss.subslice([0, 5])
+
+    def test_preserves_metadata(self):
+        """
+        Tests that step_size and neuron_attributes are carried over.
+
+        Tests:
+            (Test Case 1) step_size preserved.
+            (Test Case 2) neuron_attributes preserved.
+        """
+        mat = make_event_matrix(3, 10, 4)
+        attrs = [{"id": 0}, {"id": 1}, {"id": 2}]
+        rss = RateSliceStack(event_matrix=mat, step_size=3.0, neuron_attributes=attrs)
+        sub = rss.subslice([1, 3])
+        assert sub.step_size == 3.0
+        assert sub.neuron_attributes == attrs
+
     def test_subslice_single_slice(self):
         """
         Tests subslice extracting a single slice.
@@ -1069,48 +1212,36 @@ class TestRateSliceStackEdgeCases:
         assert len(rd_list) == 1
         assert rd_list[0].inst_Frate_data.shape == (3, 10)
 
-    def test_validate_negative_start_filtered(self):
+    def test_duplicate_indices(self):
         """
-        Tests that _validate_time_start_to_end silently drops windows with negative start.
+        EC-RSS-08: subslice with duplicate slice indices.
+
+        subslice sorts its input but does not deduplicate. Duplicate indices
+        produce repeated slices in the output, and duplicated times entries.
 
         Tests:
-            (Test Case 1) Window with negative start is dropped without error.
-            (Test Case 2) Only valid windows appear in the result.
+            (Test Case 1) Output S dimension equals the number of input indices
+                (including duplicates).
+            (Test Case 2) Duplicate slices contain identical data.
+            (Test Case 3) times list has repeated entries for duplicated slices.
         """
-        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
+        mat = np.random.default_rng(0).random((3, 10, 5))
+        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
+        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
 
-        rss = RateSliceStack(
-            data_obj=rd,
-            time_peaks=[5.0, 50.0, 100.0],
-            time_bounds=(10.0, 10.0),
+        sub = rss.subslice([1, 1, 3])
+
+        # 3 entries because duplicates are not removed
+        assert sub.event_stack.shape == (3, 10, 3)
+        # First two slices should be identical (both are slice 1)
+        np.testing.assert_array_equal(
+            sub.event_stack[:, :, 0], sub.event_stack[:, :, 1]
         )
-
-        # Peak at 5 with before=10 gives (-5, 15) -> filtered
-        assert rss.event_stack.shape[2] == 2
-        for start, end in rss.times:
-            assert start >= 0
-
-    def test_validate_float_precision_accepted(self):
-        """
-        Tests that two windows with durations differing by < 1e-10 are accepted
-        when the float subtraction yields identical results.
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) Both slices are present in the result.
-
-        Notes:
-            _validate_time_start_to_end uses set() on durations, so windows with
-            identical computed durations (same float value) pass the check. This test
-            uses symmetric offsets so that both durations compute to the same float.
-        """
-        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
-        offset = 1e-12
-        times = [(0.0 + offset, 10.0 + offset), (20.0 + offset, 30.0 + offset)]
-
-        rss = RateSliceStack(data_obj=rd, times_start_to_end=times)
-
-        assert rss.event_stack.shape[2] == 2
+        np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, 1])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 2], mat[:, :, 3])
+        # times has the duplicate entry
+        assert sub.times[0] == sub.times[1] == times[1]
+        assert sub.times[2] == times[3]
 
 
 class TestOrderUnitsNanSentinel:
@@ -1491,15 +1622,6 @@ class TestRankOrderCorrelationRate:
         with pytest.raises(ValueError, match="n_shuffles"):
             rss.rank_order_correlation(n_shuffles=2)
 
-
-# ---------------------------------------------------------------------------
-# Edge case tests
-# ---------------------------------------------------------------------------
-
-
-class TestRankOrderEdgeCasesRate:
-    """Edge case tests for rank_order_correlation on RateSliceStack."""
-
     def test_single_slice(self):
         """
         Single-slice stack produces (1,1) matrix with NaN average.
@@ -1564,3 +1686,64 @@ class TestRankOrderEdgeCasesRate:
         off_diag = corr.matrix.copy()
         np.fill_diagonal(off_diag, np.nan)
         assert np.all(np.isnan(off_diag))
+
+    def test_min_overlap_frac_one(self):
+        """
+        EC-RSS-05: rank_order_correlation with min_overlap_frac=1.0.
+
+        When min_overlap_frac=1.0, the effective threshold becomes
+        ceil(1.0 * U) = U, so all U units must be active in both slices
+        for the pair to be valid.
+
+        Tests:
+            (Test Case 1) When some units are inactive in some slices,
+                pairs that lack full overlap become NaN.
+            (Test Case 2) Pairs where all units are active still get a
+                valid correlation value.
+        """
+        rng = np.random.default_rng(10)
+        mat = rng.random((6, 30, 5)) + 0.5
+        # Make unit 0 inactive in slice 0 only
+        mat[0, :, 0] = 0.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr, av, overlap = rss.rank_order_correlation(
+            min_overlap=1, min_overlap_frac=1.0, n_shuffles=0
+        )
+
+        # Pairs involving slice 0 should be NaN (unit 0 is inactive there)
+        for j in range(1, 5):
+            assert np.isnan(corr.matrix[0, j]), f"pair (0,{j}) should be NaN"
+
+        # Pairs not involving slice 0 should have valid correlations
+        for i in range(1, 5):
+            for j in range(i + 1, 5):
+                assert not np.isnan(
+                    corr.matrix[i, j]
+                ), f"pair ({i},{j}) should be valid"
+
+    def test_n_shuffles_zero_returns_raw_spearman(self):
+        """
+        EC-RSS-06: rank_order_correlation with n_shuffles=0.
+
+        When n_shuffles=0, the method returns raw Spearman correlations
+        (not z-scores). The diagonal should be 1.0 and off-diagonal
+        values should be in [-1, 1].
+
+        Tests:
+            (Test Case 1) Diagonal entries are exactly 1.0.
+            (Test Case 2) Off-diagonal valid entries are in [-1, 1].
+            (Test Case 3) Output is a PairwiseCompMatrix (not a stack).
+        """
+        rng = np.random.default_rng(20)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr, av, overlap = rss.rank_order_correlation(n_shuffles=0)
+
+        np.testing.assert_allclose(np.diag(corr.matrix), 1.0)
+        off_diag = corr.matrix[np.tril_indices(5, k=-1)]
+        valid = off_diag[~np.isnan(off_diag)]
+        assert np.all(valid >= -1.0)
+        assert np.all(valid <= 1.0)
+        assert isinstance(corr, PairwiseCompMatrix)

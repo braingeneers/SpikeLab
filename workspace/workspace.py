@@ -8,6 +8,7 @@ the full workspace.
 """
 
 import json
+import warnings
 import os
 import shutil
 import tempfile
@@ -227,7 +228,9 @@ class AnalysisWorkspace:
     # Mutation
     # ------------------------------------------------------------------
 
-    def rename(self, namespace: str, old_key: str, new_key: str) -> bool:
+    def rename(
+        self, namespace: str, old_key: str, new_key: str, overwrite: bool = False
+    ) -> bool:
         """
         Rename a key within a namespace.
 
@@ -235,12 +238,22 @@ class AnalysisWorkspace:
             namespace (str): Namespace containing the key.
             old_key (str): Existing key name.
             new_key (str): New key name.
+            overwrite (bool): If False (default) and *new_key* already exists,
+                a warning is printed and the rename is aborted. Set to True to
+                silently overwrite the existing entry.
 
         Returns:
             success (bool): True if renamed, False if namespace or
-                old_key not found.
+                old_key not found or rename was blocked by existing key.
         """
         if namespace not in self._items or old_key not in self._items[namespace]:
+            return False
+        if not overwrite and new_key in self._items[namespace]:
+            warnings.warn(
+                f"Key '{new_key}' already exists in namespace '{namespace}'. "
+                "Use overwrite=True to replace it.",
+                UserWarning,
+            )
             return False
         self._items[namespace][new_key] = self._items[namespace].pop(old_key)
         self._index[namespace][new_key] = self._index[namespace].pop(old_key)
@@ -580,7 +593,9 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
     # Mutation
     # ------------------------------------------------------------------
 
-    def rename(self, namespace: str, old_key: str, new_key: str) -> bool:
+    def rename(
+        self, namespace: str, old_key: str, new_key: str, overwrite: bool = False
+    ) -> bool:
         """
         Rename a key within a namespace.
 
@@ -588,13 +603,24 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
             namespace (str): Namespace containing the key.
             old_key (str): Existing key name.
             new_key (str): New key name.
+            overwrite (bool): If False (default) and *new_key* already exists,
+                a warning is printed and the rename is aborted. Set to True to
+                silently overwrite the existing entry.
 
         Returns:
-            success (bool): True if renamed, False if namespace or old_key not found.
+            success (bool): True if renamed, False if namespace or old_key
+                not found or rename was blocked by existing key.
         """
         from .hdf5_io import delete_item_from_file, dump_item_to_file
 
         if namespace not in self._index or old_key not in self._index[namespace]:
+            return False
+        if not overwrite and new_key in self._index[namespace]:
+            warnings.warn(
+                f"Key '{new_key}' already exists in namespace '{namespace}'. "
+                "Use overwrite=True to replace it.",
+                UserWarning,
+            )
             return False
 
         obj = self.get(namespace, old_key)

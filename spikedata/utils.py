@@ -76,6 +76,9 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
         comparison of methods and application to the study of retinal waves. Journal of
         Neuroscience 34:43, 14288–14303 (2014).
     """
+    if delt <= 0:
+        raise ValueError(f"delt must be positive, got {delt}")
+
     if len(tA) == 0 or len(tB) == 0:
         return 0.0
 
@@ -115,6 +118,9 @@ def _sttc_na(tA, tB, delt: float) -> int:
     if len(tB) == 0:
         return 0
     tA, tB = np.asarray(tA), np.asarray(tB)
+
+    if len(tB) == 1:
+        return int((np.abs(tA - tB[0]) <= delt).sum())
 
     # Find the closest spike in B after spikes in A.
     iB = np.searchsorted(tB, tA)
@@ -343,6 +349,12 @@ def randomize(ar, swap_per_spike=5, seed=None):
     rng = np.random.default_rng(seed)
 
     ar = np.array(ar, dtype=float, copy=True)
+    unique_vals = np.unique(ar)
+    if not np.all(np.isin(unique_vals, [0.0, 1.0])):
+        raise ValueError(
+            "randomize() requires a binary (0/1) raster. "
+            f"Found values: {unique_vals}"
+        )
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
     attempts = int((swap_per_spike + 1) * n_spikes)
@@ -427,16 +439,14 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     # r is the correlation between ref and comp. Each value is sum of elementwise products
     # for each possible lag and it is normalized so each value is between -1 and 1
     # Normalization: autocorrelation at zero lag for each signal
-    auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[int(len(ref_rate) / 2)]
-    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[
-        int(len(comp_rate) / 2)
-    ]
+    auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[len(ref_rate) // 2]
+    auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[len(comp_rate) // 2]
     denom = auto_ref * auto_comp
     if denom <= 0:
         return 0.0, 0
     r = signal.correlate(ref_rate, comp_rate, mode="same") / np.sqrt(denom)
 
-    center = int(len(r) / 2)
+    center = len(r) // 2
 
     # Search within max_lag window
     search_start = max(0, center - max_lag)
@@ -1269,9 +1279,15 @@ def _validate_time_start_to_end(times_start_to_end):
             raise TypeError(
                 f"Start and end times in element {i} must be numbers: {time_window}"
             )
-        if time_window[0] >= time_window[1]:
+        if time_window[0] > time_window[1]:
             raise ValueError(
-                f"Start time must be less than end time in element {i}: {time_window}"
+                f"Start time must not exceed end time in element {i}: {time_window}"
+            )
+        if time_window[0] == time_window[1]:
+            warnings.warn(
+                f"Zero-duration time window in element {i}: {time_window}. "
+                "Treating as an empty slice.",
+                UserWarning,
             )
         if time_window[0] < 0:
             continue
