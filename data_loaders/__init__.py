@@ -2,7 +2,7 @@
 Convenient imports for the data_loaders package.
 
 Allows:
-    from data_loaders import load_spikedata_from_hdf5, load_spikedata_from_nwb, ...
+    from SpikeLab.data_loaders import load_spikedata_from_hdf5, load_spikedata_from_nwb, ...
 """
 
 from .data_loaders import (
