@@ -44,10 +44,14 @@ class SpikeSliceStack:
 
     Option #2: spike_stack
         spike_stack (list): List of SpikeData objects, one per slice. All must have the same
-                            number of units.
-        times_start_to_end (list): Each entry must be a tuple (start, end). Length must equal
-                                   len(spike_stack). If None, generated automatically from
-                                   slice lengths concatenated end-to-end.
+                            number of units. **Spike times must be 0-based** (relative to
+                            each slice's start, not absolute recording times). If spike
+                            times are absolute, subtract the slice start time from each
+                            train before constructing.
+        times_start_to_end (list): Each entry must be a tuple (start, end) in absolute
+                                   recording time. Length must equal len(spike_stack).
+                                   If None, generated automatically from slice lengths
+                                   concatenated end-to-end.
         neuron_attributes (list or None): List of attribute dicts, one per unit.
 
     Instance Variables:
@@ -151,6 +155,22 @@ class SpikeSliceStack:
 
             self.spike_stack = list(spike_stack)
             self.times = times_start_to_end
+
+            # Validate that spike times are 0-based within each slice.
+            # Spike times should be relative to the slice start, not absolute
+            # recording times.
+            for i, (sd, (start, end)) in enumerate(zip(self.spike_stack, self.times)):
+                duration = end - start
+                for u, train in enumerate(sd.train):
+                    if len(train) > 0 and train[-1] > duration:
+                        raise ValueError(
+                            f"Slice {i}, unit {u}: spike time {train[-1]:.1f} ms "
+                            f"exceeds slice duration {duration:.1f} ms. "
+                            "Spike times in spike_stack must be 0-based "
+                            "(relative to slice start, not absolute recording "
+                            "times). Subtract the slice start time from each "
+                            "train before constructing SpikeSliceStack."
+                        )
 
         self.N = self.spike_stack[0].N
 
@@ -301,39 +321,52 @@ class SpikeSliceStack:
             neuron_attributes=self.neuron_attributes,
         )
 
-    def to_raster_array(self, bin_size=1.0):
+    def to_raster_array(self, bin_size=1.0, absolute_times=False):
         """
         Convert the spike stack into a 3D raster array of shape (N, T, S).
 
         Each slice is rasterized with the given bin size, producing a spike count matrix
         where entry (n, t, s) is the number of spikes unit n fired in time bin t of slice s.
-        Time bin 0 corresponds to the start of each slice (index 0 = slice start).
 
         Parameters:
         -----------
         bin_size (float): Time bin size in ms (default 1.0).
+        absolute_times (bool): If False (default), time bin 0 corresponds to the
+            start of each slice (0-based). If True, each slice's spikes are offset
+            by its absolute start time from ``self.times``, so bin indices reflect
+            the original recording position. The T dimension is sized to cover
+            the full time span from the earliest slice start to the latest slice
+            end across all slices.
 
         Returns:
         --------
         raster_stack (np.ndarray): 3D array of shape (N, T, S) with non-negative integer
-                                   spike counts.
+                                   spike counts. When ``absolute_times=True``, T covers
+                                   the full recording span and all slices share the same
+                                   time axis.
         """
-        dense_list = []
-        for sd, (start, end) in zip(self.spike_stack, self.times):
-            # Spike times are absolute so we manually shift to 0-based before
-            # rasterizing. Calling sd.subtime(start, end) would fail because
-            # sd.length == duration, not the absolute end time.
-            duration = end - start
-            shifted_train = []
-            for spikes in sd.train:
-                shifted_train.append(spikes - start)
-            temp_sd = SpikeData(
-                shifted_train,
-                length=duration,
-                N=sd.N,
-            )
-            dense_list.append(temp_sd.sparse_raster(bin_size=bin_size).toarray())
-        return np.stack(dense_list, axis=2)
+        if not absolute_times:
+            dense_list = []
+            for sd in self.spike_stack:
+                # Spike times within each slice are already 0-based (shifted by
+                # subtime during construction), so we rasterize directly.
+                dense_list.append(sd.sparse_raster(bin_size=bin_size).toarray())
+            return np.stack(dense_list, axis=2)
+
+        # Absolute times: offset each slice by its start time so bin indices
+        # reflect original recording position. All slices share the same
+        # time axis spanning [min(start), max(end)].
+        global_start = min(start for start, _ in self.times)
+        global_end = max(end for _, end in self.times)
+        total_bins = int(np.ceil((global_end - global_start) / bin_size))
+
+        raster_stack = np.zeros((self.N, total_bins, len(self.spike_stack)), dtype=int)
+        for s_idx, (sd, (start, _)) in enumerate(zip(self.spike_stack, self.times)):
+            offset = start - global_start
+            r = sd.sparse_raster(bin_size=bin_size, time_offset=offset).toarray()
+            raster_stack[:, : r.shape[1], s_idx] = r
+
+        return raster_stack
 
     def compute_frac_active(self, min_spikes=2):
         """

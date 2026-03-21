@@ -1544,7 +1544,7 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Compute slice-to-slice unit correlation across event-aligned firing "
                     "rate slices. Loads RateSliceStack from (namespace, stack_key) and "
-                    "stores the PairwiseCompMatrixStack (U, U, S) at (namespace, out_key). "
+                    "stores the PairwiseCompMatrixStack (S, S, U) at (namespace, out_key). "
                     "Prerequisite: create_rate_slice_stack or frames_rate_data."
                 ),
                 inputSchema={

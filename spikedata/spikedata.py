@@ -271,7 +271,9 @@ class SpikeData:
         if length < max_spike:
             raise ValueError(
                 f"length ({length}) is shorter than the latest spike time "
-                f"({max_spike}). Use subtime() to trim spike trains first."
+                f"({max_spike}). If spike times are absolute, subtract the "
+                f"start time from each train before constructing SpikeData. "
+                f"To trim an existing SpikeData, use subtime()."
             )
         self.length = length
 
@@ -863,13 +865,17 @@ class SpikeData:
             },  # self.metadata takes precedence on key collision
         )
 
-    def sparse_raster(self, bin_size=20.0):
+    def sparse_raster(self, bin_size=20.0, time_offset=0.0):
         """
         Bin all spike times and create a sparse array where entry (i,j) is the number of
         times unit i fired in bin j.
 
         Parameters:
         bin_size (float): Size of the time bin in milliseconds
+        time_offset (float): Value added to all spike times before binning (default 0.0).
+            Use this to place spikes at their absolute recording position, e.g.
+            ``sd.sparse_raster(bin_size=1, time_offset=start)`` to recreate
+            the raster in original recording coordinates.
 
         Returns:
         raster (sparse.csr_matrix): Sparse array where entry (i,j) is the number of
@@ -878,26 +884,27 @@ class SpikeData:
         Notes:
         - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
         - A spike at exactly t=0 is clipped into bin 0.
-        - The number of bins is always ceil(length / bin_size).
+        - The number of bins is always ceil((length + time_offset) / bin_size).
         """
-        indices = np.hstack([np.ceil(ts / bin_size) - 1 for ts in self.train]).astype(
-            int
-        )
+        indices = np.hstack(
+            [np.ceil((ts + time_offset) / bin_size) - 1 for ts in self.train]
+        ).astype(int)
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
         values = np.ones_like(indices)
-        length = int(np.ceil(self.length / bin_size))
+        length = int(np.ceil((self.length + time_offset) / bin_size))
         np.clip(indices, 0, length - 1, out=indices)
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
 
-    def raster(self, bin_size=20.0):
+    def raster(self, bin_size=20.0, time_offset=0.0):
         """
         Bin all spike times and create a dense array where entry (i,j) is the number of
         times cell i fired in bin j.
 
         Parameters:
         bin_size (float): Size of the time bin in milliseconds
+        time_offset (float): Value added to all spike times before binning (default 0.0).
 
         Returns:
         raster (numpy.ndarray): Dense array where entry (i,j) is the number of
@@ -907,7 +914,7 @@ class SpikeData:
         - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
         - A spike at exactly t=0 is clipped into bin 0.
         """
-        return self.sparse_raster(bin_size).toarray()
+        return self.sparse_raster(bin_size, time_offset=time_offset).toarray()
 
     def channel_raster(self, bin_size=20.0, channel_attr: Optional[str] = None):
         """

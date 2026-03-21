@@ -1365,6 +1365,46 @@ class TestSpikeDataRates:
         binned = np.array([list(sd.binned(10))])
         assert np.all(sd.raster(10) == binned)
 
+    def test_sparse_raster_time_offset(self):
+        """
+        sparse_raster with time_offset shifts spike positions in the raster.
+
+        Tests:
+            (Test Case 1) Offset=0 (default) produces the standard raster.
+            (Test Case 2) Offset adds leading empty bins before the spikes.
+            (Test Case 3) Raster width increases by ceil(offset / bin_size).
+            (Test Case 4) Spike count is preserved regardless of offset.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+
+        r0 = sd.sparse_raster(bin_size=10.0).toarray()
+        r_offset = sd.sparse_raster(bin_size=10.0, time_offset=100.0).toarray()
+
+        # Default: 10 bins, spikes at bins 0, 4, 8
+        assert r0.shape == (1, 10)
+        assert r0.sum() == 3
+
+        # Offset: 20 bins, spikes shifted to bins 10, 14, 18
+        assert r_offset.shape == (1, 20)
+        assert r_offset.sum() == 3
+
+        # First 10 bins should be empty (offset region)
+        assert r_offset[0, :10].sum() == 0
+        # Spike pattern in offset region matches original
+        assert np.array_equal(r_offset[0, 10:], r0[0, :])
+
+    def test_raster_time_offset_passthrough(self):
+        """
+        raster() forwards time_offset to sparse_raster.
+
+        Tests:
+            (Test Case 1) Dense raster with offset matches sparse raster with offset.
+        """
+        sd = SpikeData([[10.0, 50.0]], length=100.0)
+        dense = sd.raster(bin_size=10.0, time_offset=50.0)
+        sparse = sd.sparse_raster(bin_size=10.0, time_offset=50.0).toarray()
+        np.testing.assert_array_equal(dense, sparse)
+
     def test_rates(self):
         """
         Tests rates() method for correct spike rate calculation and unit handling.
