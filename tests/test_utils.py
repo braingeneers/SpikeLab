@@ -1217,32 +1217,14 @@ class TestRandomize:
 
     def test_non_binary_raster(self):
         """
-        EC-UT-09: randomize expects a binary (0/1) raster. When given
-        non-binary values (e.g. 2, 3), the function first copies the
-        array to float dtype, so a value of 2 becomes 2.0. Then
-        np.where(ar == 1.0) detects only positions with value 1.0 as
-        spikes. The value-2.0 cell is NOT in the swap index set, but
-        swap() can write 1.0 into that cell (making it 1). The final
-        .astype(int) converts everything to int. Row/column sums of
-        the original non-binary array are NOT preserved.
-
-        BUG: Non-binary values are silently corrupted. The value-2 cell
-        can be overwritten with 1.0 during swaps. No validation rejects
-        non-binary input.
+        randomize rejects non-binary rasters with ValueError.
 
         Tests:
-            (Test Case 1) A raster with values 0, 1, 2. The function
-                runs without error, returns int dtype, and preserves
-                shape. Only values 0 and 1 appear in the output because
-                the value-2 cell may be overwritten.
+            (Test Case 1) A raster with values 0, 1, 2 raises ValueError.
         """
         ar = np.array([[0, 1, 0, 2], [1, 0, 1, 0], [0, 0, 0, 1]])
-        result = randomize(ar, seed=42)
-        assert result.dtype == int
-        assert result.shape == ar.shape
-        # Total spike count from np.where(ar == 1.0) was 4, but the value-2
-        # cell may have been overwritten. Just verify no crash and int output.
-        assert np.all((result == 0) | (result == 1) | (result == 2))
+        with pytest.raises(ValueError, match="binary"):
+            randomize(ar, seed=42)
 
 
 class TestExtractWaveforms:
@@ -1538,23 +1520,15 @@ class TestGetSttc:
 
     def test_delt_zero(self):
         """
-        delt=0 means only exact spike-time matches count. For non-identical
-        trains with no shared spike times, PA=PB=0.
+        delt=0 is rejected as non-positive.
 
         Tests:
-            (Test Case 1) tA and tB with no shared times, delt=0.
-                No spike in A is within 0 ms of any spike in B. STTC <= 0.
-            (Test Case 2) Identical trains with delt=0. Every spike matches
-                exactly, so STTC = 1.0.
+            (Test Case 1) delt=0 raises ValueError.
         """
         tA = [10.0, 30.0, 50.0]
         tB = [15.0, 35.0, 55.0]
-        result_diff = get_sttc(tA, tB, delt=0, length=60.0)
-        assert result_diff <= 0.0
-
-        # Identical trains: exact matches exist
-        result_same = get_sttc(tA, tA, delt=0, length=60.0)
-        assert result_same == pytest.approx(1.0)
+        with pytest.raises(ValueError, match="delt must be positive"):
+            get_sttc(tA, tB, delt=0, length=60.0)
 
     def test_negative_spike_times(self):
         """
@@ -1609,22 +1583,18 @@ class TestGetSttc:
 
     def test_negative_delt(self):
         """
-        EC-UT-02: Negative delt is not validated by get_sttc. The function
-        proceeds and _sttc_ta computes a negative or zero tiled area because
-        min(delt, ...) returns the negative value. _sttc_na checks
-        abs(distance) <= delt which is always False for negative delt,
-        so PA=PB=0. The result is a finite float (no crash).
+        get_sttc rejects negative delt with ValueError.
 
         Tests:
-            (Test Case 1) delt=-5 with valid trains and explicit length.
-                No spikes are within negative delt, PA=PB=0. TA and TB
-                are negative. The function returns a finite float.
+            (Test Case 1) delt=-5 raises ValueError.
+            (Test Case 2) delt=0 raises ValueError.
         """
         tA = [10.0, 30.0, 50.0]
         tB = [15.0, 35.0, 55.0]
-        result = get_sttc(tA, tB, delt=-5.0, length=100.0)
-        assert isinstance(result, (float, np.floating))
-        assert np.isfinite(result)
+        with pytest.raises(ValueError, match="delt must be positive"):
+            get_sttc(tA, tB, delt=-5.0, length=100.0)
+        with pytest.raises(ValueError, match="delt must be positive"):
+            get_sttc(tA, tB, delt=0.0, length=100.0)
 
 
 # ---------------------------------------------------------------------------

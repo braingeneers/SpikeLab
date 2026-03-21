@@ -679,34 +679,47 @@ class TestAnalysisWorkspace:
     # EC-WS-04: rename to an existing key — overwrite behavior
     # ------------------------------------------------------------------
 
-    def test_rename_to_existing_key_overwrites(self):
+    def test_rename_to_existing_key_blocked_by_default(self):
         """
-        EC-WS-04: rename() to a key that already exists.
-
-        rename() does not check for collisions — the old_key value is
-        moved to new_key, silently overwriting whatever was stored under
-        new_key. The overwritten value is lost.
+        rename() to a key that already exists is blocked by default.
 
         Tests:
-            (Test Case 1) rename() returns True.
-            (Test Case 2) get(new_key) returns the value from old_key (the rename source).
-            (Test Case 3) get(old_key) returns None (it was removed).
-            (Test Case 4) The overwritten value is no longer retrievable.
-            (Test Case 5) Only one key remains in the namespace (the collision target).
+            (Test Case 1) rename() returns False and emits a UserWarning.
+            (Test Case 2) Both keys remain unchanged.
         """
         self.ws.store("ns", "old", np.array([1.0]))
         self.ws.store("ns", "existing", np.array([99.0]))
 
-        result = self.ws.rename("ns", "old", "existing")
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = self.ws.rename("ns", "old", "existing")
+            assert result is False
+            assert len(w) == 1
+            assert "already exists" in str(w[0].message)
+
+        # Both keys are preserved
+        np.testing.assert_array_equal(self.ws.get("ns", "old"), [1.0])
+        np.testing.assert_array_equal(self.ws.get("ns", "existing"), [99.0])
+
+    def test_rename_to_existing_key_with_overwrite(self):
+        """
+        rename() with overwrite=True replaces the existing key.
+
+        Tests:
+            (Test Case 1) rename() returns True.
+            (Test Case 2) new_key holds the value from old_key.
+            (Test Case 3) old_key is removed.
+        """
+        self.ws.store("ns", "old", np.array([1.0]))
+        self.ws.store("ns", "existing", np.array([99.0]))
+
+        result = self.ws.rename("ns", "old", "existing", overwrite=True)
         assert result is True
 
-        # new_key holds the value from old_key
         np.testing.assert_array_equal(self.ws.get("ns", "existing"), [1.0])
-
-        # old_key is gone
         assert self.ws.get("ns", "old") is None
-
-        # Only one key remains
         assert self.ws.list_keys("ns") == ["existing"]
 
     # ------------------------------------------------------------------

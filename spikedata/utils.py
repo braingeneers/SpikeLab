@@ -76,6 +76,9 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
         comparison of methods and application to the study of retinal waves. Journal of
         Neuroscience 34:43, 14288–14303 (2014).
     """
+    if delt <= 0:
+        raise ValueError(f"delt must be positive, got {delt}")
+
     if len(tA) == 0 or len(tB) == 0:
         return 0.0
 

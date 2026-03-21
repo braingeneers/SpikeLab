@@ -398,32 +398,23 @@ class TestSpikeDataConstruction:
 
     def test_init_negative_length(self):
         """
-        SpikeData.__init__ accepts negative length without error.
+        SpikeData.__init__ rejects negative length with ValueError.
 
         Tests:
-            (Test Case 1) Negative length is stored as-is.
-
-        Notes:
-            - This documents current behavior; no validation exists for negative length.
+            (Test Case 1) Negative length raises ValueError.
         """
-        sd = SpikeData([[]], length=-5.0)
-        assert sd.length == -5.0
+        with pytest.raises(ValueError, match="non-negative"):
+            SpikeData([[]], length=-5.0)
 
     def test_init_length_shorter_than_max_spike(self):
         """
-        SpikeData.__init__ allows length shorter than the latest spike time.
+        SpikeData.__init__ rejects length shorter than the latest spike time.
 
         Tests:
-            (Test Case 1) length=10 with spikes at t=50 stores length=10.
-            (Test Case 2) All spikes are preserved.
-
-        Notes:
-            - This documents current behavior; spikes beyond length are not
-              truncated or rejected.
+            (Test Case 1) length=10 with spikes at t=50 raises ValueError.
         """
-        sd = SpikeData([[50.0]], length=10.0)
-        assert sd.length == 10.0
-        assert sd.train[0][0] == 50.0
+        with pytest.raises(ValueError, match="shorter than the latest spike"):
+            SpikeData([[50.0]], length=10.0)
 
     def test_from_idces_times_mismatched_lengths(self):
         """
@@ -1346,18 +1337,14 @@ class TestSpikeDataRates:
 
     def test_get_pop_rate_negative_sigma(self):
         """
-        get_pop_rate with negative gauss_sigma.
+        get_pop_rate rejects negative gauss_sigma with ValueError.
 
         Tests:
-            (Test Case 1) Negative sigma is accepted without error.
-
-        Notes:
-            - scipy.ndimage.gaussian_filter1d silently accepts negative sigma
-              and returns the input unchanged. This documents current behavior.
+            (Test Case 1) Negative gauss_sigma raises ValueError.
         """
         sd = SpikeData([[10.0, 20.0], [15.0]], length=30.0)
-        result = sd.get_pop_rate(gauss_sigma=-1)
-        assert len(result) > 0
+        with pytest.raises(ValueError, match="gauss_sigma must be non-negative"):
+            sd.get_pop_rate(gauss_sigma=-1)
 
     def test_resampled_isi_single_spike(self):
         """
@@ -1601,16 +1588,14 @@ class TestSpikeDataCorrelation:
 
     def test_sttc_delt_zero(self):
         """
-        spike_time_tiling with delt=0.
+        spike_time_tiling with delt=0 raises ValueError.
 
         Tests:
-        (Test Case 1) delt=0 produces a finite result without numerical errors.
-        The result should be between -1 and 1.
+            (Test Case 1) delt=0 is rejected as non-positive.
         """
         sd = SpikeData([[1.0, 2.0, 3.0], [1.5, 2.5, 3.5]], length=10.0)
-        result = sd.spike_time_tiling(0, 1, delt=0.0)
-        assert np.isfinite(result)
-        assert -1 <= result <= 1
+        with pytest.raises(ValueError, match="delt must be positive"):
+            sd.spike_time_tiling(0, 1, delt=0.0)
 
     def test_sttc_delt_larger_than_recording(self):
         """
@@ -3227,17 +3212,15 @@ class TestSpikeDataShuffle:
 
     def test_spike_shuffle_zero_units(self):
         """
-        spike_shuffle with N=0 SpikeData.
+        spike_shuffle with N=0 SpikeData returns an empty SpikeData.
 
         Tests:
-            (Test Case 1) Empty SpikeData raises ValueError during sparse_raster.
-
-        Notes:
-            - sparse_raster calls np.hstack on an empty list, which fails.
+            (Test Case 1) Returns a SpikeData with N=0 and same length.
         """
         sd = SpikeData([], N=0, length=10.0)
-        with pytest.raises(ValueError):
-            sd.spike_shuffle(seed=0)
+        result = sd.spike_shuffle(seed=0)
+        assert result.N == 0
+        assert result.length == 10.0
 
     def test_spike_shuffle_single_unit(self):
         """
@@ -3339,13 +3322,13 @@ class TestSpikeDataShuffle:
 
     def test_spike_shuffle_stack_zero_shuffles(self):
         """
-        spike_shuffle_stack with n_shuffles=0.
+        spike_shuffle_stack with n_shuffles=0 raises ValueError.
 
         Tests:
-            (Test Case 1) Raises ValueError because SpikeSliceStack rejects empty lists.
+            (Test Case 1) Raises ValueError with descriptive message.
         """
         sd = SpikeData([[10.0, 20.0]], length=30.0)
-        with pytest.raises(ValueError, match="spike_stack must not be empty"):
+        with pytest.raises(ValueError, match="n_shuffles must be at least 1"):
             sd.spike_shuffle_stack(n_shuffles=0, seed=0)
 
 
@@ -3446,13 +3429,13 @@ class TestSpikeDataSubsetStack:
 
     def test_subset_stack_zero_subsets(self):
         """
-        subset_stack with n_subsets=0.
+        subset_stack with n_subsets=0 raises ValueError.
 
         Tests:
-            (Test Case 1) Raises ValueError because SpikeSliceStack rejects empty lists.
+            (Test Case 1) Raises ValueError with descriptive message.
         """
         sd = SpikeData([[10.0], [20.0], [30.0]], length=40.0)
-        with pytest.raises(ValueError, match="spike_stack must not be empty"):
+        with pytest.raises(ValueError, match="n_subsets must be at least 1"):
             sd.subset_stack(n_subsets=0, units_per_subset=2, seed=0)
 
     def test_subset_stack_zero_units_per_subset(self):
@@ -3515,35 +3498,24 @@ class TestSpikeDataStPR:
 
     def test_spike_trig_pop_rate_window_zero(self):
         """
-        compute_spike_trig_pop_rate with window_ms=0.
+        compute_spike_trig_pop_rate with window_ms=0 raises ValueError.
 
         Tests:
-            (Test Case 1) Zero window raises ValueError from scipy filtfilt
-                because the signal is too short for the filter padding.
-
-        Notes:
-            - The lag array has length 1 (just lag=0), which is shorter than
-              the filter's padlen, causing filtfilt to fail.
+            (Test Case 1) Zero window raises ValueError with descriptive message.
         """
         sd = SpikeData([[10.0, 20.0], [15.0, 25.0]], length=30.0)
-        with pytest.raises(ValueError, match="padlen"):
+        with pytest.raises(ValueError, match="window_ms must be at least 1"):
             sd.compute_spike_trig_pop_rate(window_ms=0)
 
     def test_spike_trig_pop_rate_single_unit(self):
         """
-        compute_spike_trig_pop_rate with N=1.
+        compute_spike_trig_pop_rate with N=1 raises ValueError.
 
         Tests:
-            (Test Case 1) Single unit raises ValueError because the trimmed
-                coupling curve has zero size.
-
-        Notes:
-            - Population rate minus self is all zeros; after trimming with
-              cut_outer, the array is empty, causing np.max on a zero-size
-              array to fail.
+            (Test Case 1) Single unit raises ValueError requiring at least 2 units.
         """
         sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
-        with pytest.raises(ValueError, match="zero-size"):
+        with pytest.raises(ValueError, match="at least 2 units"):
             sd.compute_spike_trig_pop_rate(window_ms=5)
 
 

@@ -1007,19 +1007,15 @@ class TestSubset:
 
     def test_out_of_range_index(self):
         """
-        EC-RSS-07: subset with an out-of-range unit index.
-
-        BUG: subset does not validate unit indices against the number of units.
-        NumPy raises IndexError when the fancy index exceeds the array bounds.
-        A dedicated ValueError guard would be more informative.
+        subset with an out-of-range unit index raises ValueError.
 
         Tests:
-            (Test Case 1) Index exceeding U raises IndexError (from NumPy).
+            (Test Case 1) Index exceeding U raises ValueError with descriptive message.
         """
         mat = make_event_matrix(3, 10, 2)
         rss = RateSliceStack(event_matrix=mat)
 
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="out of range"):
             rss.subset([0, 10])
 
 
@@ -1117,19 +1113,14 @@ class TestSubtimeByIndex:
         assert sub.event_stack.shape == (3, 1, 4)
         np.testing.assert_array_equal(sub.event_stack[:, 0, :], mat[:, 5, :])
 
-    def test_full_range_returns_shared_view(self):
+    def test_full_range_returns_independent_copy(self):
         """
-        EC-RSS-04: subtime_by_index with full range (0, T) shares memory.
-
-        BUG: subtime_by_index slices the event_stack with NumPy basic
-        slicing ([:, 0:T, :]), which returns a view rather than a copy.
-        The new RateSliceStack's event_stack shares memory with the
-        original, so mutations to one propagate to the other.
+        subtime_by_index with full range (0, T) returns an independent copy.
 
         Tests:
             (Test Case 1) Output data is equal to the original.
-            (Test Case 2) Mutating the sub's event_stack also mutates the
-                original (documents the shared-memory behavior).
+            (Test Case 2) Mutating the sub's event_stack does not affect
+                the original.
         """
         mat = np.random.default_rng(0).random((3, 20, 4))
         rss = RateSliceStack(event_matrix=mat)
@@ -1138,9 +1129,9 @@ class TestSubtimeByIndex:
 
         np.testing.assert_array_equal(sub.event_stack, rss.event_stack)
 
-        # Mutation propagates — this is the bug: the sub shares memory
+        # Mutation should NOT propagate — sub is an independent copy
         sub.event_stack[0, 0, 0] = -999.0
-        assert rss.event_stack[0, 0, 0] == -999.0
+        assert rss.event_stack[0, 0, 0] != -999.0
 
 
 class TestSubslice:

@@ -1403,12 +1403,16 @@ class TestIBLLoader:
 
         Tests:
             (Test Case 1) sd.length equals the explicit value, not the max spike time.
+
+        Notes:
+            - length_ms must be >= the latest spike time. The mock data has
+              spikes up to 99s = 99000ms, so we use 150000ms to override.
         """
         eid, pid = "test-eid", "test-pid"
         mock_one_api, mock_brainwidemap, _, _, _ = self._build_mocks(pid, eid)
-        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap, length_ms=999.0)
+        sd = self._load(eid, pid, mock_one_api, mock_brainwidemap, length_ms=150000.0)
 
-        assert sd.length == pytest.approx(999.0)
+        assert sd.length == pytest.approx(150000.0)
 
     def test_collection_fallback(self):
         """

@@ -265,6 +265,14 @@ class SpikeData:
             length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
         if np.isnan(length):
             raise ValueError("length must not be NaN")
+        if length < 0:
+            raise ValueError(f"length must be non-negative, got {length}")
+        max_spike = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
+        if length < max_spike:
+            raise ValueError(
+                f"length ({length}) is shorter than the latest spike time "
+                f"({max_spike}). Use subtime() to trim spike trains first."
+            )
         self.length = length
 
         # If a number of units was provided, make the list of spike
@@ -1743,6 +1751,11 @@ class SpikeData:
         Returns:
         pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
         """
+        if gauss_sigma < 0:
+            raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
+        if square_width < 0:
+            raise ValueError(f"square_width must be non-negative, got {square_width}")
+
         t_spk_mat = self.sparse_raster(
             raster_bin_size_ms
         )  # Shape: (neurons, time_bins)
@@ -1894,8 +1907,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=10,
-        acc_gauss_sigma=10,
+        acc_square_width=8,
+        acc_gauss_sigma=8,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,
@@ -2050,8 +2063,8 @@ class SpikeData:
         burst_edge_mult_thresh,
         square_width=20,
         gauss_sigma=100,
-        acc_square_width=5,
-        acc_gauss_sigma=5,
+        acc_square_width=8,
+        acc_gauss_sigma=8,
         raster_bin_size_ms=1.0,
         peak_to_trough=True,
         pop_rate=None,

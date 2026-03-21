@@ -802,39 +802,30 @@ class TestSubset:
 
     def test_subset_out_of_range_index_with_neuron_attributes(self):
         """
-        EC-SSS-10: subset with out-of-range unit index crashes with IndexError
-        when neuron_attributes is set, because kept_indices includes the
-        out-of-range index and neuron_attributes[i] goes out of bounds.
-
-        BUG: SpikeSliceStack.subset does not validate that unit indices are
-        within [0, N). The out-of-range index passes through to
-        neuron_attributes[i] which raises IndexError.
+        subset with out-of-range unit index raises ValueError.
 
         Tests:
-            (Test Case 1) IndexError is raised when an out-of-range index is used
-                with neuron_attributes set.
+            (Test Case 1) ValueError is raised when an out-of-range index is
+                used, regardless of whether neuron_attributes is set.
         """
         sss = self._make_stack()
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="out of range"):
             sss.subset([1, 99])
 
     def test_subset_out_of_range_index_without_neuron_attributes(self):
         """
-        EC-SSS-10 (continued): Without neuron_attributes, out-of-range indices
-        are silently ignored by SpikeData.subset (which iterates range(N) and
-        checks set membership), resulting in only valid indices being kept.
+        subset with out-of-range unit index raises ValueError even without
+        neuron_attributes.
 
         Tests:
-            (Test Case 1) No error raised.
-            (Test Case 2) Result has N=1 (only valid index 1 is kept).
+            (Test Case 1) ValueError is raised for out-of-range index.
         """
         sd = make_spikedata(n_units=3, length_ms=200.0, seed=11)
         times = [(10.0, 30.0), (50.0, 70.0)]
         sss = SpikeSliceStack(sd, times_start_to_end=times)
 
-        result = sss.subset([1, 99])
-
-        assert result.N == 1
+        with pytest.raises(ValueError, match="out of range"):
+            sss.subset([1, 99])
 
 
 class TestSubtimeByIndex:
