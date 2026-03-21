@@ -287,6 +287,38 @@ class TestRateSliceStackConstructor:
 
         assert rss.event_stack.shape == (1, 20, 5)
 
+    def test_all_zero_event_matrix(self):
+        """
+        EC-RSS-01: Construct RateSliceStack with an all-zero event_matrix.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) event_stack is all zeros.
+            (Test Case 3) Auto-generated times have correct length.
+        """
+        mat = np.zeros((3, 20, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (3, 20, 4)
+        np.testing.assert_array_equal(rss.event_stack, 0.0)
+        assert len(rss.times) == 4
+
+    def test_all_nan_event_matrix(self):
+        """
+        EC-RSS-02: Construct RateSliceStack with an all-NaN event_matrix.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) event_stack is all NaN.
+            (Test Case 3) Auto-generated times have correct length.
+        """
+        mat = np.full((3, 20, 4), np.nan)
+        rss = RateSliceStack(event_matrix=mat)
+
+        assert rss.event_stack.shape == (3, 20, 4)
+        assert np.all(np.isnan(rss.event_stack))
+        assert len(rss.times) == 4
+
 
 class TestValidateTimeStartToEnd:
     def test_not_list_raises(self):
@@ -557,6 +589,43 @@ class TestOrderUnitsAcrossSlices:
         assert reordered[0].shape == mat.shape
         np.testing.assert_array_equal(peaks[0], [0, 0, 0])
         np.testing.assert_array_equal(std[0], [0.0, 0.0, 0.0])
+
+    def test_timing_matrix_override(self):
+        """
+        EC-RSS-03: order_units_across_slices with a pre-computed timing_matrix.
+
+        Tests:
+            (Test Case 1) Ordering matches the provided timing_matrix, not the
+                internal rate-based calculation.
+            (Test Case 2) MIN_RATE_THRESHOLD is ignored when timing_matrix is provided.
+            (Test Case 3) Output shapes are correct.
+        """
+        # Unit 0 peaks at t=10 in all slices, unit 1 at t=5, unit 2 at t=15
+        mat = np.zeros((3, 20, 4))
+        for s in range(4):
+            mat[0, 10, s] = 5.0
+            mat[1, 5, s] = 5.0
+            mat[2, 15, s] = 5.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        # Override timing_matrix so unit 2 appears earliest, then 0, then 1
+        timing = np.array(
+            [
+                [8.0, 8.0, 8.0, 8.0],  # unit 0
+                [12.0, 12.0, 12.0, 12.0],  # unit 1
+                [2.0, 2.0, 2.0, 2.0],  # unit 2
+            ]
+        )
+        reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+            "median", timing_matrix=timing
+        )
+
+        # Order should follow timing_matrix: unit 2 first, then 0, then 1
+        assert order[0][0] == 2
+        assert order[0][1] == 0
+        assert order[0][2] == 1
+        assert reordered[0].shape == mat.shape
+        assert len(peaks[0]) == 3
 
 
 class TestConvertToListOfRateData:
@@ -936,6 +1005,23 @@ class TestSubset:
 
         assert sub.event_stack.shape == (0, 10, 2)
 
+    def test_out_of_range_index(self):
+        """
+        EC-RSS-07: subset with an out-of-range unit index.
+
+        BUG: subset does not validate unit indices against the number of units.
+        NumPy raises IndexError when the fancy index exceeds the array bounds.
+        A dedicated ValueError guard would be more informative.
+
+        Tests:
+            (Test Case 1) Index exceeding U raises IndexError (from NumPy).
+        """
+        mat = make_event_matrix(3, 10, 2)
+        rss = RateSliceStack(event_matrix=mat)
+
+        with pytest.raises(IndexError):
+            rss.subset([0, 10])
+
 
 class TestSubtimeByIndex:
     def test_basic_trim(self):
@@ -1031,6 +1117,31 @@ class TestSubtimeByIndex:
         assert sub.event_stack.shape == (3, 1, 4)
         np.testing.assert_array_equal(sub.event_stack[:, 0, :], mat[:, 5, :])
 
+    def test_full_range_returns_shared_view(self):
+        """
+        EC-RSS-04: subtime_by_index with full range (0, T) shares memory.
+
+        BUG: subtime_by_index slices the event_stack with NumPy basic
+        slicing ([:, 0:T, :]), which returns a view rather than a copy.
+        The new RateSliceStack's event_stack shares memory with the
+        original, so mutations to one propagate to the other.
+
+        Tests:
+            (Test Case 1) Output data is equal to the original.
+            (Test Case 2) Mutating the sub's event_stack also mutates the
+                original (documents the shared-memory behavior).
+        """
+        mat = np.random.default_rng(0).random((3, 20, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        sub = rss.subtime_by_index(0, 20)
+
+        np.testing.assert_array_equal(sub.event_stack, rss.event_stack)
+
+        # Mutation propagates — this is the bug: the sub shares memory
+        sub.event_stack[0, 0, 0] = -999.0
+        assert rss.event_stack[0, 0, 0] == -999.0
+
 
 class TestSubslice:
     def test_basic_subslice(self):
@@ -1109,6 +1220,35 @@ class TestSubslice:
         rd_list = sub.convert_to_list_of_RateData()
         assert len(rd_list) == 1
         assert rd_list[0].inst_Frate_data.shape == (3, 10)
+
+    def test_duplicate_indices(self):
+        """
+        EC-RSS-08: subslice with duplicate slice indices.
+
+        subslice sorts its input but does not deduplicate. Duplicate indices
+        produce repeated slices in the output, and duplicated times entries.
+
+        Tests:
+            (Test Case 1) Output S dimension equals the number of input indices
+                (including duplicates).
+            (Test Case 2) Duplicate slices contain identical data.
+            (Test Case 3) times list has repeated entries for duplicated slices.
+        """
+        mat = np.random.default_rng(0).random((3, 10, 5))
+        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
+        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
+
+        sub = rss.subslice([1, 1, 3])
+
+        # 3 entries because duplicates are not removed
+        assert sub.event_stack.shape == (3, 10, 3)
+        # First two slices should be identical (both are slice 1)
+        np.testing.assert_array_equal(sub.event_stack[:, :, 0], sub.event_stack[:, :, 1])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, 1])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 2], mat[:, :, 3])
+        # times has the duplicate entry
+        assert sub.times[0] == sub.times[1] == times[1]
+        assert sub.times[2] == times[3]
 
 
 class TestOrderUnitsNanSentinel:
@@ -1553,3 +1693,62 @@ class TestRankOrderCorrelationRate:
         off_diag = corr.matrix.copy()
         np.fill_diagonal(off_diag, np.nan)
         assert np.all(np.isnan(off_diag))
+
+    def test_min_overlap_frac_one(self):
+        """
+        EC-RSS-05: rank_order_correlation with min_overlap_frac=1.0.
+
+        When min_overlap_frac=1.0, the effective threshold becomes
+        ceil(1.0 * U) = U, so all U units must be active in both slices
+        for the pair to be valid.
+
+        Tests:
+            (Test Case 1) When some units are inactive in some slices,
+                pairs that lack full overlap become NaN.
+            (Test Case 2) Pairs where all units are active still get a
+                valid correlation value.
+        """
+        rng = np.random.default_rng(10)
+        mat = rng.random((6, 30, 5)) + 0.5
+        # Make unit 0 inactive in slice 0 only
+        mat[0, :, 0] = 0.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr, av, overlap = rss.rank_order_correlation(
+            min_overlap=1, min_overlap_frac=1.0, n_shuffles=0
+        )
+
+        # Pairs involving slice 0 should be NaN (unit 0 is inactive there)
+        for j in range(1, 5):
+            assert np.isnan(corr.matrix[0, j]), f"pair (0,{j}) should be NaN"
+
+        # Pairs not involving slice 0 should have valid correlations
+        for i in range(1, 5):
+            for j in range(i + 1, 5):
+                assert not np.isnan(corr.matrix[i, j]), f"pair ({i},{j}) should be valid"
+
+    def test_n_shuffles_zero_returns_raw_spearman(self):
+        """
+        EC-RSS-06: rank_order_correlation with n_shuffles=0.
+
+        When n_shuffles=0, the method returns raw Spearman correlations
+        (not z-scores). The diagonal should be 1.0 and off-diagonal
+        values should be in [-1, 1].
+
+        Tests:
+            (Test Case 1) Diagonal entries are exactly 1.0.
+            (Test Case 2) Off-diagonal valid entries are in [-1, 1].
+            (Test Case 3) Output is a PairwiseCompMatrix (not a stack).
+        """
+        rng = np.random.default_rng(20)
+        mat = rng.random((6, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr, av, overlap = rss.rank_order_correlation(n_shuffles=0)
+
+        np.testing.assert_allclose(np.diag(corr.matrix), 1.0)
+        off_diag = corr.matrix[np.tril_indices(5, k=-1)]
+        valid = off_diag[~np.isnan(off_diag)]
+        assert np.all(valid >= -1.0)
+        assert np.all(valid <= 1.0)
+        assert isinstance(corr, PairwiseCompMatrix)

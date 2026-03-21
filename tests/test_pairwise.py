@@ -60,6 +60,18 @@ class TestPairwiseCompMatrixInit:
         with pytest.raises(ValueError):
             PairwiseCompMatrix(matrix=np.random.rand(3, 3, 3))
 
+    def test_init_0x0_matrix(self):
+        """EC-PW-01: A 0x0 matrix is accepted by __post_init__.
+
+        Tests: PairwiseCompMatrix with a (0,0) ndarray should
+        construct successfully since the square check (shape[0] == shape[1])
+        passes for empty arrays.
+        """
+        matrix = np.empty((0, 0))
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        assert pcm.matrix.shape == (0, 0)
+        assert pcm.labels is None
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrix — to_networkx
@@ -126,6 +138,36 @@ class TestPairwiseCompMatrixToNetworkx:
         assert G.number_of_nodes() == 3
         assert G.number_of_edges() == 0
 
+    def test_to_networkx_negative_weights(self):
+        """EC-PW-02: Negative weights are preserved as-is in the graph.
+
+        Tests: to_networkx on a matrix with negative off-diagonal values
+        should include those edges with their original negative weight.
+        """
+        matrix = np.array([[1.0, -0.5], [-0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        G = pcm.to_networkx()
+        assert G.number_of_edges() == 1
+        assert G.edges[0, 1]["weight"] == pytest.approx(-0.5)
+
+    def test_to_networkx_invert_weights_outside_0_1(self):
+        """EC-PW-03: invert_weights with values > 1 or < 0 produces out-of-range weights.
+
+        Tests: to_networkx(invert_weights=True) computes 1 - value
+        without clamping. A weight of 1.5 becomes -0.5 and a weight of
+        -0.3 becomes 1.3. This can produce negative edge weights which
+        may break shortest-path algorithms.
+        """
+        matrix = np.array([[1.0, 1.5, -0.3], [1.5, 1.0, 0.5], [-0.3, 0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        G = pcm.to_networkx(invert_weights=True)
+        # 1 - 1.5 = -0.5
+        assert G.edges[0, 1]["weight"] == pytest.approx(-0.5)
+        # 1 - (-0.3) = 1.3
+        assert G.edges[0, 2]["weight"] == pytest.approx(1.3)
+        # 1 - 0.5 = 0.5
+        assert G.edges[1, 2]["weight"] == pytest.approx(0.5)
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrix — threshold
@@ -163,6 +205,20 @@ class TestPairwiseCompMatrixThreshold:
         pcm = PairwiseCompMatrix(matrix=matrix)
         result = pcm.threshold(0.0)
         expected = np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]])
+        np.testing.assert_array_equal(result.matrix, expected)
+
+    def test_threshold_nan_values(self):
+        """EC-PW-04: NaN values become 0 after thresholding.
+
+        Tests: threshold() uses np.abs() > threshold which evaluates
+        to False for NaN (since NaN comparisons are always False).
+        NaN entries silently become 0.0 in the binary result.
+        """
+        matrix = np.array([[1.0, np.nan, 0.5], [np.nan, 1.0, 0.2], [0.5, 0.2, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.threshold(0.3)
+        # NaN entries -> abs(NaN) > 0.3 -> False -> 0.0
+        expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 1.0]])
         np.testing.assert_array_equal(result.matrix, expected)
 
 
@@ -260,6 +316,26 @@ class TestPairwiseCompMatrixStackInit:
         mean_pcm_raw = stack_nan.mean(ignore_nan=False)
         assert np.isnan(mean_pcm_raw.matrix[0, 1])
 
+    def test_init_non_square_slices(self):
+        """EC-PW-05: Non-square slices are rejected by __post_init__.
+
+        Tests: PairwiseCompMatrixStack with shape (3, 4, 5) should
+        raise a ValueError because the first two dimensions are not equal.
+        """
+        with pytest.raises(ValueError, match="n x n x S"):
+            PairwiseCompMatrixStack(stack=np.random.rand(3, 4, 5))
+
+    def test_init_labels_length_mismatch(self):
+        """EC-PW-09: Labels length not matching N raises ValueError.
+
+        Tests: PairwiseCompMatrixStack with (3, 3, 5) stack and 2 labels
+        should raise a ValueError because labels length must match the
+        matrix dimension.
+        """
+        with pytest.raises(ValueError, match="Number of labels"):
+            PairwiseCompMatrixStack(
+                stack=np.random.rand(3, 3, 5), labels=["a", "b"]
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +544,22 @@ class TestPairwiseCompMatrixStackMean:
         result = stack.mean()
         np.testing.assert_array_almost_equal(result.matrix, known)
 
+    def test_mean_all_inf_stack(self):
+        """EC-PW-07: Mean of an all-Inf stack returns Inf (nanmean) or Inf (mean).
+
+        Tests: mean() on a stack where every element is np.inf should
+        return inf for every cell. nanmean treats inf as a valid value
+        (not NaN), so the mean of [inf, inf, ...] is inf.
+        """
+        data = np.full((3, 3, 4), np.inf)
+        stack = PairwiseCompMatrixStack(stack=data)
+        result = stack.mean(ignore_nan=True)
+        assert np.all(np.isinf(result.matrix))
+        assert np.all(result.matrix > 0)  # positive inf
+
+        result_raw = stack.mean(ignore_nan=False)
+        assert np.all(np.isinf(result_raw.matrix))
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrixStack — threshold
@@ -619,6 +711,28 @@ class TestPairwiseCompMatrixStackDimRed:
         stack = PairwiseCompMatrixStack(stack=data)
         with pytest.raises(ValueError):
             stack.dim_red_on_lower_diagonal_corr_matrix("PCA", n_components=10)
+
+    def test_extract_lower_triangle_features_nan_stack(self):
+        """EC-PW-08: extract_lower_triangle_features preserves NaN values.
+
+        Tests: extract_lower_triangle_features on a stack containing
+        NaN values should propagate NaNs into the output feature matrix
+        without raising an error.
+        """
+        data = np.ones((3, 3, 4))
+        data[1, 0, 0] = np.nan  # lower triangle position (1,0), slice 0
+        data[2, 1, 2] = np.nan  # lower triangle position (2,1), slice 2
+        stack = PairwiseCompMatrixStack(stack=data)
+        features = stack.extract_lower_triangle_features()
+        # 3x3 matrix -> 3 lower triangle features, 4 slices -> (4, 3)
+        assert features.shape == (4, 3)
+        # Slice 0 should have a NaN in the feature from position (1,0)
+        assert np.isnan(features[0, 0])  # tril_indices(3, k=-1) -> (1,0), (2,0), (2,1)
+        # Slice 2 should have a NaN in the feature from position (2,1)
+        assert np.isnan(features[2, 2])
+        # Other entries should be 1.0
+        assert features[1, 0] == 1.0
+        assert features[3, 1] == 1.0
 
 
 # ---------------------------------------------------------------------------

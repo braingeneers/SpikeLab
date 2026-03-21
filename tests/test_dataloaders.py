@@ -390,6 +390,78 @@ class TestHDF5Loaders:
         # Third segment: start=2, stop=5 -> [30, 40, 50]
         assert len(trains[2]) == 3
 
+    def test_ec_dl_01_explicit_length_ms_override(self, tmp_path):
+        """
+        EC-DL-01: Verify that an explicit length_ms parameter overrides the
+        inferred length from spike times.
+
+        Tests:
+            (Test Case 1) sd.length equals the explicit value, not the max spike time.
+            (Test Case 2) Spike trains are still loaded correctly.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("0", data=np.array([0.1, 0.2]))  # max = 200 ms
+            g.create_dataset("1", data=np.array([0.05]))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="s", length_ms=5000.0
+        )
+        # Explicit length_ms should override the inferred value (200 ms)
+        assert sd.length == pytest.approx(5000.0)
+        assert np.allclose(sd.train[0], [100.0, 200.0])
+
+    def test_ec_dl_02_explicit_metadata_parameter(self, tmp_path):
+        """
+        EC-DL-02: Verify that an explicit metadata parameter is merged into
+        the loaded SpikeData's metadata (with source_file added automatically).
+
+        Tests:
+            (Test Case 1) Custom metadata keys are present.
+            (Test Case 2) source_file is still added by the loader.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("0", data=np.array([0.1]))
+
+        custom_meta = {"experiment": "test_exp", "subject": "mouse_1"}
+        sd = loaders.load_spikedata_from_hdf5(
+            path,
+            group_per_unit="units",
+            group_time_unit="s",
+            metadata=custom_meta,
+        )
+        assert sd.metadata["experiment"] == "test_exp"
+        assert sd.metadata["subject"] == "mouse_1"
+        assert "source_file" in sd.metadata
+
+    def test_ec_dl_03_three_styles_simultaneously_raises(self, tmp_path):
+        """
+        EC-DL-03: Verify that specifying three or more input styles raises
+        ValueError (not just two).
+
+        Tests:
+            (Test Case 1) Specifying raster + ragged + group raises ValueError.
+        """
+        path = str(tmp_path / "test.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=np.zeros((2, 3)))
+            f.create_dataset("spike_times", data=np.array([0.1]))
+            f.create_dataset("spike_times_index", data=np.array([1]))
+            f.create_group("units")
+
+        with pytest.raises(ValueError, match="exactly one"):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                raster_dataset="raster",
+                raster_bin_size_ms=1.0,
+                spike_times_dataset="spike_times",
+                spike_times_index_dataset="spike_times_index",
+                group_per_unit="units",
+            )
+
 
 @skip_no_h5py
 class TestNWBLoader:
@@ -845,6 +917,60 @@ class TestKiloSortAndSpikeInterface:
         )
         assert sd.N == 1
 
+    def test_ec_dl_04_mismatched_spike_times_clusters_lengths(self, tmp_path):
+        """
+        EC-DL-04: Verify that mismatched spike_times and spike_clusters array
+        lengths raise a ValueError.
+
+        Tests:
+            (Test Case 1) spike_times has 5 entries, spike_clusters has 3 -> ValueError.
+        """
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+        np.save(os.path.join(d, "spike_times.npy"), np.array([10, 20, 30, 40, 50]))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 1]))
+
+        with pytest.raises(ValueError, match="mismatch"):
+            loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+
+    def test_ec_dl_05_negative_spike_times(self, tmp_path):
+        """
+        EC-DL-05: Verify that negative spike times are loaded without error.
+        The loader does not validate spike time values; negative times pass
+        through and are converted to negative milliseconds.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Negative spike times are preserved (converted to ms).
+        """
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+        # Spike times in samples: -100, 0, 100
+        np.save(os.path.join(d, "spike_times.npy"), np.array([-100, 0, 100]))
+        np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 0]))
+
+        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
+        assert sd.N == 1
+        # -100 samples at 1 kHz = -100 ms, 0 ms, 100 ms
+        assert np.any(sd.train[0] < 0)
+
+    def test_ec_dl_07_sampling_frequency_zero(self):
+        """
+        EC-DL-07: Verify that sampling_frequency=0 from the extractor raises
+        ValueError. Zero sampling frequency is falsy, so the loader checks
+        for a positive value.
+
+        Tests:
+            (Test Case 1) ValueError is raised mentioning "positive".
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_sampling_frequency.return_value = 0.0
+        mock_sorting.get_unit_spike_train.return_value = np.array([100])
+
+        with pytest.raises(ValueError, match="positive"):
+            loaders.load_spikedata_from_spikeinterface(mock_sorting)
+
 
 class TestPickleLoaders:
     """
@@ -966,6 +1092,21 @@ class TestPickleLoaders:
 
         # Verify temp file was removed
         assert not os.path.exists(path)
+
+    def test_ec_dl_08_corrupted_file(self, tmp_path):
+        """
+        EC-DL-08: Verify that loading a corrupted/invalid pickle file raises
+        an appropriate exception (UnpicklingError or similar).
+
+        Tests:
+            (Test Case 1) Writing random bytes and loading raises an exception.
+        """
+        path = str(tmp_path / "corrupted.pkl")
+        with open(path, "wb") as f:
+            f.write(b"this is not a valid pickle file \x80\x00\x00")
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_pickle(path)
 
 
 @skip_no_pandas
@@ -1409,6 +1550,95 @@ class TestIBLLoader:
         assert sd.N == 2
         for train in sd.train:
             assert len(train) == 0
+
+    def test_ec_dl_09_no_good_units(self):
+        """
+        EC-DL-09: Verify behavior when the bwm_units DataFrame has no good
+        units (label==1) for the requested probe. The loader should return
+        a SpikeData with N=0 and use the default length of 10000 ms.
+
+        Tests:
+            (Test Case 1) sd.N == 0.
+            (Test Case 2) sd.length defaults to 10000.0 ms.
+        """
+        import pandas as pd
+
+        eid, pid = "test-eid", "test-pid"
+
+        # Only bad units (label=0) for this probe
+        unit_df = pd.DataFrame(
+            [
+                {
+                    "pid": pid,
+                    "eid": eid,
+                    "label": 0,
+                    "cluster_id": 0,
+                    "Beryl": "noise",
+                },
+                {
+                    "pid": pid,
+                    "eid": eid,
+                    "label": 0,
+                    "cluster_id": 1,
+                    "Beryl": "noise",
+                },
+            ]
+        )
+
+        trials_df = pd.DataFrame(
+            {
+                "intervals_0": [1.0],
+                "intervals_1": [2.0],
+                "stimOn_times": [1.1],
+                "stimOff_times": [1.8],
+                "goCue_times": [1.05],
+                "response_times": [1.5],
+                "feedback_times": [1.55],
+                "firstMovement_times": [1.45],
+                "choice": [-1.0],
+                "feedbackType": [1.0],
+                "contrastLeft": [0.5],
+                "contrastRight": [0.5],
+                "probabilityLeft": [0.5],
+            }
+        )
+
+        def load_object_side_effect(eid_arg, obj_name, **kwargs):
+            if obj_name == "trials":
+                mock_trials = MagicMock()
+                mock_trials.to_df.return_value = trials_df
+                return mock_trials
+            if obj_name == "spikes":
+                return {
+                    "clusters": np.array([], dtype=int),
+                    "times": np.array([], dtype=float),
+                }
+            raise Exception(f"Unexpected: {obj_name}")
+
+        mock_one_instance = MagicMock()
+        mock_one_instance.load_object.side_effect = load_object_side_effect
+
+        mock_one_class = MagicMock()
+        mock_one_class.return_value = mock_one_instance
+
+        mock_one_api = MagicMock()
+        mock_one_api.ONE = mock_one_class
+
+        mock_brainwidemap = MagicMock()
+        mock_brainwidemap.bwm_units.return_value = unit_df
+
+        with patch.dict(
+            sys.modules,
+            {
+                "one": MagicMock(),
+                "one.api": mock_one_api,
+                "brainwidemap": mock_brainwidemap,
+            },
+        ):
+            sd = loaders.load_spikedata_from_ibl(eid, pid)
+
+        assert sd.N == 0
+        assert sd.length == pytest.approx(10_000.0)
 
 
 @skip_no_pandas

@@ -309,6 +309,66 @@ class TestHDF5Exporters:
                 sd, path, style="raster", raster_bin_size_ms=-1.0
             )
 
+    def test_ec_de_01_zero_spike_zero_unit_spikedata(self, tmp_path):
+        """
+        EC-DE-01: Verify that exporting a SpikeData with zero units
+        works correctly across all styles without crashing.
+
+        Tests:
+            (Test Case 1) Ragged style succeeds and produces empty arrays.
+            (Test Case 2) Group style succeeds and produces an empty group.
+            (Test Case 3) Paired style succeeds and produces empty arrays.
+        """
+        sd = SpikeData([], length=0.0)
+        assert sd.N == 0
+
+        # Ragged
+        path_ragged = str(tmp_path / "zero_ragged.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_ragged, style="ragged")
+        with h5py.File(path_ragged, "r") as f:
+            assert f["spike_times"].shape[0] == 0
+            assert f["spike_times_index"].shape[0] == 0
+
+        # Group
+        path_group = str(tmp_path / "zero_group.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_group, style="group")
+        with h5py.File(path_group, "r") as f:
+            assert len(f["units"].keys()) == 0
+
+        # Paired
+        path_paired = str(tmp_path / "zero_paired.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_paired, style="paired")
+        with h5py.File(path_paired, "r") as f:
+            assert f["idces"].shape[0] == 0
+            assert f["times"].shape[0] == 0
+
+    def test_ec_de_06_overwrite_existing_file(self, tmp_path):
+        """
+        EC-DE-06: Verify that exporting to an existing HDF5 file overwrites it
+        (mode="w" behavior).
+
+        Tests:
+            (Test Case 1) First export creates file with dataset A.
+            (Test Case 2) Second export overwrites; old dataset is gone, new data present.
+        """
+        sd1 = SpikeData(
+            [np.array([5.0, 10.0, 15.0])], length=20.0
+        )
+        sd2 = SpikeData(
+            [np.array([100.0, 200.0])], length=300.0
+        )
+        path = str(tmp_path / "overwrite.h5")
+
+        # First write
+        exporters.export_spikedata_to_hdf5(sd1, path, style="ragged")
+        with h5py.File(path, "r") as f:
+            assert f["spike_times_index"][0] == 3  # 3 spikes
+
+        # Overwrite with different data
+        exporters.export_spikedata_to_hdf5(sd2, path, style="ragged")
+        with h5py.File(path, "r") as f:
+            assert f["spike_times_index"][0] == 2  # 2 spikes now
+
 
 @skip_no_h5py
 class TestNWBExporters:
@@ -353,6 +413,35 @@ class TestNWBExporters:
             assert "units/electrodes" in f
             electrodes = np.asarray(f["units/electrodes"])
             np.testing.assert_array_equal(electrodes, np.array([4, 7, 2]))
+
+    def test_ec_de_04_non_serializable_neuron_attributes(self, tmp_path):
+        """
+        EC-DE-04: Verify behavior when SpikeData has neuron_attributes with
+        non-serializable values. The NWB exporter only writes electrode and
+        location info from neuron_attributes, so non-serializable extra fields
+        should not cause a crash.
+
+        Tests:
+            (Test Case 1) Export succeeds when neuron_attributes contain a
+                non-serializable object (like a lambda or set).
+            (Test Case 2) The exported file contains valid spike_times data.
+        """
+        trains = [np.array([5.0, 10.0]), np.array([15.0])]
+        # Include a non-serializable value (a set and a lambda)
+        neuron_attrs = [
+            {"electrode": 0, "custom_set": {1, 2, 3}},
+            {"electrode": 1, "custom_func": lambda x: x},
+        ]
+        sd = SpikeData(trains, length=20.0, neuron_attributes=neuron_attrs)
+
+        path = str(tmp_path / "nonserial.nwb")
+        # Should not raise - NWB exporter only uses electrode/location fields
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            assert "units/spike_times" in f
+            st = np.asarray(f["units/spike_times"])
+            assert len(st) == 3  # 2 + 1 spikes total
 
 
 class TestKiloSortExporters:
@@ -524,6 +613,29 @@ class TestKiloSortExporters:
         expected_s = np.concatenate([t for t in sd.train if len(t) > 0]) / 1e3
         np.testing.assert_allclose(times, expected_s)
 
+    def test_ec_de_03_cluster_ids_length_mismatch(self, tmp_path):
+        """
+        EC-DE-03: Verify that passing cluster_ids with a length that doesn't
+        match sd.N raises ValueError.
+
+        Tests:
+            (Test Case 1) 3 units but 2 cluster_ids -> ValueError.
+            (Test Case 2) 3 units but 4 cluster_ids -> ValueError.
+        """
+        sd = make_sd()  # 3 units
+        d = str(tmp_path / "ks")
+        os.makedirs(d)
+
+        with pytest.raises(ValueError, match="cluster_ids"):
+            exporters.export_spikedata_to_kilosort(
+                sd, d, fs_Hz=1000.0, cluster_ids=[10, 20]
+            )
+
+        with pytest.raises(ValueError, match="cluster_ids"):
+            exporters.export_spikedata_to_kilosort(
+                sd, d, fs_Hz=1000.0, cluster_ids=[10, 20, 30, 40]
+            )
+
 
 class TestPickleExporters:
     """
@@ -610,3 +722,77 @@ class TestPickleExporters:
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
+
+    def test_ec_de_01_zero_unit_pickle_roundtrip(self, tmp_path):
+        """
+        Verify that a zero-unit SpikeData can be pickled and loaded back.
+
+        Tests:
+            (Test Case 1) Export succeeds.
+            (Test Case 2) Round-trip preserves N=0.
+        """
+        import SpikeLab.data_loaders.data_loaders as loaders
+
+        sd = SpikeData([], length=0.0)
+        path = str(tmp_path / "empty.pkl")
+        exporters.export_spikedata_to_pickle(sd, path)
+        sd2 = loaders.load_spikedata_from_pickle(path)
+        assert sd2.N == 0
+        """
+        EC-DE-01: Verify that exporting a SpikeData with zero units
+        works correctly across all styles without crashing.
+
+        Tests:
+            (Test Case 1) Ragged style succeeds and produces empty arrays.
+            (Test Case 2) Group style succeeds and produces an empty group.
+            (Test Case 3) Paired style succeeds and produces empty arrays.
+        """
+        sd = SpikeData([], length=0.0)
+        assert sd.N == 0
+
+        # Ragged
+        path_ragged = str(tmp_path / "zero_ragged.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_ragged, style="ragged")
+        with h5py.File(path_ragged, "r") as f:
+            assert f["spike_times"].shape[0] == 0
+            assert f["spike_times_index"].shape[0] == 0
+
+        # Group
+        path_group = str(tmp_path / "zero_group.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_group, style="group")
+        with h5py.File(path_group, "r") as f:
+            assert len(f["units"].keys()) == 0
+
+        # Paired
+        path_paired = str(tmp_path / "zero_paired.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_paired, style="paired")
+        with h5py.File(path_paired, "r") as f:
+            assert f["idces"].shape[0] == 0
+            assert f["times"].shape[0] == 0
+
+    def test_ec_de_06_overwrite_existing_file(self, tmp_path):
+        """
+        EC-DE-06: Verify that exporting to an existing HDF5 file overwrites it
+        (mode="w" behavior).
+
+        Tests:
+            (Test Case 1) First export creates file with dataset A.
+            (Test Case 2) Second export overwrites; old dataset is gone, new data present.
+        """
+        sd1 = SpikeData(
+            [np.array([5.0, 10.0, 15.0])], length=20.0
+        )
+        sd2 = SpikeData(
+            [np.array([100.0, 200.0])], length=300.0
+        )
+        path = str(tmp_path / "overwrite.h5")
+
+        # First write
+        exporters.export_spikedata_to_hdf5(sd1, path, style="ragged")
+        with h5py.File(path, "r") as f:
+            assert f["spike_times_index"][0] == 3  # 3 spikes
+
+        # Overwrite with different data
+        exporters.export_spikedata_to_hdf5(sd2, path, style="ragged")
+        with h5py.File(path, "r") as f:
+            assert f["spike_times_index"][0] == 2  # 2 spikes now

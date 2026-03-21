@@ -940,3 +940,92 @@ class SpikeSliceStack:
             n_shuffles=n_shuffles,
             seed=seed,
         )
+
+    def plot_unit_raster(
+        self,
+        unit_idx,
+        ax=None,
+        color_vals=None,
+        color_label="",
+        cmap="viridis",
+        time_offset=0,
+        xlabel="Rel. time (ms)",
+        ylabel="Burst",
+        x_range=None,
+        vlines=None,
+        show_colorbar=True,
+        marker_size=20,
+        font_size=None,
+    ):
+        """
+        Plot a single unit's spike times across all slices as a raster.
+
+        Extracts the spike train for *unit_idx* from every slice and delegates
+        to :func:`~SpikeLab.spikedata.plot_utils.plot_unit_raster`.
+
+        Parameters:
+            unit_idx (int): Index of the unit to plot.
+            ax (matplotlib.axes.Axes or None): Target axes. If None, a new
+                figure and axes are created.
+            color_vals (np.ndarray or None): Per-slice colour values.
+            color_label (str): Colorbar label.
+            cmap (str): Matplotlib colormap name.
+            time_offset (float): Value subtracted from spike times for display.
+            xlabel (str): X-axis label.
+            ylabel (str): Y-axis label.
+            x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.
+            vlines (list[float] or None): Vertical reference line positions.
+            show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+            marker_size (float): Scatter marker size.
+            font_size (int or None): Font size for labels/ticks.
+
+        Returns:
+            result: ``(fig, ax, sc)`` when *ax* is None, otherwise just *sc*.
+                *sc* is the scatter ``PathCollection`` (or None if no colour
+                coding).
+        """
+        from .plot_utils import plot_unit_raster as _plot_unit_raster
+
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as e:
+            raise ImportError(
+                "plot_unit_raster requires 'matplotlib'. "
+                "Install with: pip install matplotlib"
+            ) from e
+
+        if unit_idx < 0 or unit_idx >= self.N:
+            raise IndexError(
+                f"unit_idx {unit_idx} out of range for {self.N} units."
+            )
+
+        # Extract per-slice spike times for this unit
+        spike_times_per_slice = [
+            sd.train[unit_idx] for sd in self.spike_stack
+        ]
+
+        standalone = ax is None
+        if standalone:
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+        sc = _plot_unit_raster(
+            ax,
+            spike_times_per_slice,
+            color_vals=color_vals,
+            color_label=color_label,
+            cmap=cmap,
+            time_offset=time_offset,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            x_range=x_range,
+            vlines=vlines,
+            show_colorbar=show_colorbar,
+            marker_size=marker_size,
+            font_size=font_size,
+        )
+
+        if standalone:
+            plt.tight_layout()
+            return fig, ax, sc
+
+        return sc

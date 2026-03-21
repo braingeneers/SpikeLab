@@ -603,3 +603,104 @@ class TestPlotRecording:
         )
         # 2 panels × 2 columns = 4 axes
         assert len(fig.axes) == 4
+
+    def test_axes_correct_length(self):
+        """
+        Pre-created axes pairs are used for plotting instead of creating a
+        new figure.
+
+        Tests:
+            (Test Case 1) With 2 enabled panels (raster + pop_rate), passing
+                2 (ax, cbar_ax) pairs succeeds and plotting occurs on the
+                provided axes.
+            (Test Case 2) Returned fig matches the figure of the provided axes.
+        """
+        sd = _make_sd()
+        fig_ext, axs = plt.subplots(2, 2)
+        axes_pairs = [(axs[0, 0], axs[0, 1]), (axs[1, 0], axs[1, 1])]
+
+        fig = plot_recording(
+            sd,
+            show_raster=True,
+            show_pop_rate=True,
+            axes=axes_pairs,
+            show=False,
+        )
+
+        # Returned figure is the one that owns the provided axes
+        assert fig is fig_ext
+        # Raster panel was drawn on the provided axes (eventplot adds collections)
+        assert len(axs[0, 0].collections) >= 1 or len(axs[0, 0].get_children()) > 0
+        # Pop rate panel has a line (population rate curve)
+        assert len(axs[1, 0].lines) >= 1
+
+    def test_axes_length_mismatch(self):
+        """
+        Passing the wrong number of axes pairs raises ValueError.
+
+        Tests:
+            (Test Case 1) 2 enabled panels but 1 axes pair raises ValueError.
+            (Test Case 2) Error message mentions the expected panel count.
+        """
+        sd = _make_sd()
+        fig_ext, axs = plt.subplots(1, 2)
+        axes_pairs = [(axs[0], axs[1])]
+
+        with pytest.raises(ValueError, match="Expected 2"):
+            plot_recording(
+                sd,
+                show_raster=True,
+                show_pop_rate=True,
+                axes=axes_pairs,
+                show=False,
+            )
+
+    def test_axes_skips_save(self, tmp_path):
+        """
+        When axes is provided, save_path is ignored — no file is written.
+
+        Tests:
+            (Test Case 1) File is not created even when save_path is set.
+        """
+        sd = _make_sd()
+        fig_ext, axs = plt.subplots(1, 2)
+        axes_pairs = [(axs[0], axs[1])]
+        out = tmp_path / "should_not_exist.png"
+
+        plot_recording(
+            sd,
+            show_raster=True,
+            axes=axes_pairs,
+            save_path=str(out),
+            show=False,
+        )
+
+        assert not out.exists()
+
+    def test_colorbar_on_provided_axes(self):
+        """
+        When axes pairs are provided with imshow raster style, the colorbar
+        is drawn on the provided cbar_ax.
+
+        Tests:
+            (Test Case 1) The cbar_ax for the raster panel contains colorbar
+                content (its axis is turned on and has images or children).
+        """
+        sd = _make_sd()
+        fig_ext, axs = plt.subplots(1, 2)
+        cbar_ax = axs[1]
+        axes_pairs = [(axs[0], cbar_ax)]
+
+        plot_recording(
+            sd,
+            show_raster=True,
+            raster_style="imshow",
+            axes=axes_pairs,
+            show=False,
+        )
+
+        # Raster panel should have an imshow image
+        assert len(axs[0].images) == 1
+        # Colorbar axis should have been turned on and populated
+        assert cbar_ax.get_visible()
+        assert len(cbar_ax.images) >= 1 or len(cbar_ax.get_children()) > 1

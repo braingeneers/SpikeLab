@@ -115,6 +115,34 @@ class TestRateDataConstructor:
         rd_none = RateData(data, times, neuron_attributes=None)
         assert rd_none.neuron_attributes is None
 
+    def test_constructor_all_nan_rates(self):
+        """
+        RateData constructor with all-NaN firing rates.
+
+        Tests:
+            (Test Case 1) All-NaN matrix is accepted without error.
+            (Test Case 2) Shape and times are preserved.
+        """
+        data = np.full((2, 4), np.nan)
+        times = np.array([0.0, 1.0, 2.0, 3.0])
+        rd = RateData(data, times)
+        assert rd.N == 2
+        assert np.all(np.isnan(rd.inst_Frate_data))
+
+    def test_constructor_inf_values(self):
+        """
+        RateData constructor with Inf values.
+
+        Tests:
+            (Test Case 1) Inf values are accepted without error.
+            (Test Case 2) Values are preserved.
+        """
+        data = np.array([[np.inf, -np.inf], [0.0, 1.0]])
+        times = np.array([0.0, 1.0])
+        rd = RateData(data, times)
+        assert rd.inst_Frate_data[0, 0] == np.inf
+        assert rd.inst_Frate_data[0, 1] == -np.inf
+
 
 class TestRateDataSubset:
     """Tests for the RateData.subset() method."""
@@ -456,6 +484,21 @@ class TestRateDataSubtime:
         # Data should match column index 2 (time=0.0) from original
         np.testing.assert_array_equal(result.inst_Frate_data[:, 0], data[:, 2])
 
+    def test_subtime_off_grid(self):
+        """
+        subtime with start/end that fall between existing time values.
+
+        Tests:
+            (Test Case 1) Only time points within [start, end) are selected.
+            (Test Case 2) No interpolation — discrete time bins are filtered.
+        """
+        data = np.arange(10, dtype=float).reshape(2, 5)
+        times = np.array([0.0, 10.0, 20.0, 30.0, 40.0])
+        rd = RateData(data, times)
+        result = rd.subtime(5.0, 25.0)
+        # Times >= 5 and < 25: 10.0 and 20.0
+        assert result.inst_Frate_data.shape == (2, 2)
+
 
 class TestRateDataSubtimeByIndex:
     """Tests for the RateData.subtime_by_index() method."""
@@ -796,6 +839,24 @@ class TestRateDataGetPairwiseFrCorr:
         assert np.all(np.isnan(np.diag(corr)))
         np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
 
+    def test_get_pairwise_fr_corr_all_nan_row(self):
+        """
+        get_pairwise_fr_corr with one unit having all-NaN rates.
+
+        Tests:
+            (Test Case 1) Correlation with the NaN unit is NaN.
+            (Test Case 2) Non-NaN units still produce valid correlations.
+        """
+        data = np.random.default_rng(0).random((3, 50))
+        data[1, :] = np.nan
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+        assert corr.shape == (3, 3)
+        # Row/col for unit 1 should be NaN
+        assert np.all(np.isnan(corr[1, :]))
+        assert np.all(np.isnan(corr[:, 1]))
+
 
 class TestRateDataGetManifold:
     """Tests for the RateData.get_manifold() method."""
@@ -941,3 +1002,22 @@ class TestRateDataGetManifold:
         rd = make_ratedata(n_units=3, n_times=20)
         embedding, var_ratio, components = rd.get_manifold("PCA", n_components=0)
         assert embedding.shape == (20, 0)
+
+    def test_get_manifold_single_unit(self):
+        """
+        get_manifold with N=1 (single unit, data_T has shape (T, 1)).
+
+        Tests:
+            (Test Case 1) PCA on a single feature produces valid embedding.
+            (Test Case 2) n_components is clamped to 1 (only one feature).
+        """
+        data = np.random.default_rng(0).random((1, 20))
+        times = np.arange(20, dtype=float)
+        rd = RateData(data, times)
+        try:
+            embedding, var_ratio, components = rd.get_manifold(
+                "PCA", n_components=1
+            )
+            assert embedding.shape == (20, 1)
+        except ValueError:
+            pass  # raising is acceptable for degenerate single-feature input

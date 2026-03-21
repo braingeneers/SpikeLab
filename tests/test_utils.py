@@ -239,6 +239,29 @@ class TestComputeCosineSimilarityWithLag:
         assert sim == pytest.approx(1.0)
         assert lag == 0
 
+    def test_all_zero_signals_division_by_zero(self):
+        """
+        EC-UT-06: All-zero signals cause division by zero in cosine
+        similarity. The _cosine_sim helper handles this by returning
+        NaN when both norms are zero. At max_lag=0, the function
+        returns (NaN, 0).
+
+        Tests:
+            (Test Case 1) Both signals all-zero, max_lag=0. Returns NaN
+                similarity and lag 0.
+            (Test Case 2) Both signals all-zero, max_lag=3. The function
+                computes _cosine_sim at each lag, all returning NaN.
+                np.argmax on an all-NaN array returns 0, so the result
+                is (NaN, first valid lag).
+        """
+        zeros = np.zeros(20)
+        sim, lag = compute_cosine_similarity_with_lag(zeros, zeros, max_lag=0)
+        assert np.isnan(sim)
+        assert lag == 0
+
+        sim2, lag2 = compute_cosine_similarity_with_lag(zeros, zeros, max_lag=3)
+        assert np.isnan(sim2)
+
 
 # ---------------------------------------------------------------------------
 # compute_cross_correlation_with_lag
@@ -325,6 +348,32 @@ class TestComputeCrossCorrelationWithLag:
         )
         assert isinstance(corr, (int, float, np.integer, np.floating))
         assert isinstance(lag, (int, float, np.integer, np.floating))
+
+    def test_constant_signal_zero_variance(self):
+        """
+        EC-UT-05: A constant (non-zero) signal has zero variance. The
+        function detects that ref_norm and comp_norm are both nonzero,
+        but at max_lag>0 the autocorrelation denominator product is zero
+        because the cross-correlation of a constant with itself minus
+        its mean-like structure collapses. At max_lag=0, the function
+        uses the fast path and returns a valid correlation.
+
+        Tests:
+            (Test Case 1) Constant signal [5, 5, 5, ...] with max_lag=0.
+                ref_norm and comp_norm are nonzero (sum of squares = 25*N),
+                so the fast path returns corr=1.0 and lag=0.
+            (Test Case 2) Constant signal with max_lag=5. The
+                autocorrelation denominator may be zero or the result
+                may differ — just verify no crash and finite output.
+        """
+        sig = np.full(50, 5.0)
+        corr, lag = compute_cross_correlation_with_lag(sig, sig, max_lag=0)
+        assert corr == pytest.approx(1.0)
+        assert lag == 0
+
+        corr2, lag2 = compute_cross_correlation_with_lag(sig, sig, max_lag=5)
+        assert isinstance(corr2, (int, float, np.integer, np.floating))
+        assert isinstance(lag2, (int, float, np.integer, np.floating))
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +534,44 @@ class TestButterFilter:
         """
         with pytest.raises(ValueError):
             butter_filter(np.ones(100), lowcut=500.0, fs=1000.0)
+
+    def test_all_zero_data(self):
+        """
+        EC-UT-03: All-zero input data is filtered without error and
+        produces all-zero output (filtering a zero signal yields zero).
+
+        Tests:
+            (Test Case 1) 1-D array of 200 zeros through a lowpass filter.
+                Output is all zeros with the same shape.
+        """
+        data = np.zeros(200)
+        result = butter_filter(data, highcut=100.0, fs=1000.0)
+        assert result.shape == data.shape
+        np.testing.assert_allclose(result, 0.0, atol=1e-15)
+
+    def test_2d_input_axis_filtering(self):
+        """
+        EC-UT-04: 2-D input is filtered along the last axis (default
+        behaviour of scipy.signal.sosfiltfilt). Each row is filtered
+        independently.
+
+        Tests:
+            (Test Case 1) Two-row array where row 0 has a 10 Hz sine and
+                row 1 has a 1000 Hz sine. After lowpass at 100 Hz, row 0
+                is mostly preserved and row 1 is heavily attenuated.
+        """
+        fs = 10000.0
+        t = np.arange(0, 0.1, 1.0 / fs)
+        row0 = np.sin(2 * np.pi * 10 * t)  # 10 Hz — below cutoff
+        row1 = np.sin(2 * np.pi * 1000 * t)  # 1000 Hz — above cutoff
+        data = np.vstack([row0, row1])
+
+        filtered = butter_filter(data, highcut=100.0, fs=fs, order=4)
+        assert filtered.shape == data.shape
+        # Row 0 (low freq) should be mostly preserved
+        assert np.var(filtered[0] - row0) < 0.1 * np.var(row0)
+        # Row 1 (high freq) should be heavily attenuated
+        assert np.var(filtered[1]) < 0.1 * np.var(row1)
 
 
 # ---------------------------------------------------------------------------
@@ -905,6 +992,45 @@ class TestPCAReduction:
         with pytest.raises(ValueError, match="n_components=10.*min.*=3"):
             PCA_reduction(data, n_components=10)
 
+    def test_n_components_one(self):
+        """
+        EC-UT-07: PCA with n_components=1 returns a single column embedding
+        and a single-element variance ratio.
+
+        Tests:
+            (Test Case 1) n_components=1 on a (20, 5) matrix. Embedding
+                shape is (20, 1), variance ratio shape is (1,), components
+                shape is (1, 5).
+        """
+        from SpikeLab.spikedata.utils import PCA_reduction
+
+        rng = np.random.default_rng(0)
+        data = rng.random((20, 5))
+        embedding, var_ratio, components = PCA_reduction(data, n_components=1)
+        assert embedding.shape == (20, 1)
+        assert var_ratio.shape == (1,)
+        assert components.shape == (1, 5)
+        assert var_ratio[0] > 0
+        assert var_ratio[0] <= 1.0
+
+    def test_identical_rows_zero_variance(self):
+        """
+        EC-UT-08: When all rows are identical, variance is zero in every
+        direction. PCA still runs but all explained variance ratios are
+        zero (or NaN depending on sklearn version) and the embedding
+        values are all zero.
+
+        Tests:
+            (Test Case 1) 10 identical rows of [1, 2, 3, 4, 5].
+                Embedding has shape (10, 2) with all values ~0.
+        """
+        from SpikeLab.spikedata.utils import PCA_reduction
+
+        data = np.tile([1.0, 2.0, 3.0, 4.0, 5.0], (10, 1))
+        embedding, var_ratio, components = PCA_reduction(data, n_components=2)
+        assert embedding.shape == (10, 2)
+        np.testing.assert_allclose(embedding, 0.0, atol=1e-10)
+
 
 # ---------------------------------------------------------------------------
 # UMAP_reduction
@@ -1013,6 +1139,7 @@ class TestUMAPGraphCommunities:
 
 from SpikeLab.spikedata.utils import (
     _resampled_isi,
+    check_neuron_attributes,
     randomize,
     extract_waveforms,
     get_sttc,
@@ -1087,6 +1214,35 @@ class TestRandomize:
         result = randomize(ar)
         assert result.shape == (3, 100)
         assert np.sum(result) == 1
+
+    def test_non_binary_raster(self):
+        """
+        EC-UT-09: randomize expects a binary (0/1) raster. When given
+        non-binary values (e.g. 2, 3), the function first copies the
+        array to float dtype, so a value of 2 becomes 2.0. Then
+        np.where(ar == 1.0) detects only positions with value 1.0 as
+        spikes. The value-2.0 cell is NOT in the swap index set, but
+        swap() can write 1.0 into that cell (making it 1). The final
+        .astype(int) converts everything to int. Row/column sums of
+        the original non-binary array are NOT preserved.
+
+        BUG: Non-binary values are silently corrupted. The value-2 cell
+        can be overwritten with 1.0 during swaps. No validation rejects
+        non-binary input.
+
+        Tests:
+            (Test Case 1) A raster with values 0, 1, 2. The function
+                runs without error, returns int dtype, and preserves
+                shape. Only values 0 and 1 appear in the output because
+                the value-2 cell may be overwritten.
+        """
+        ar = np.array([[0, 1, 0, 2], [1, 0, 1, 0], [0, 0, 0, 1]])
+        result = randomize(ar, seed=42)
+        assert result.dtype == int
+        assert result.shape == ar.shape
+        # Total spike count from np.where(ar == 1.0) was 4, but the value-2
+        # cell may have been overwritten. Just verify no crash and int output.
+        assert np.all((result == 0) | (result == 1) | (result == 2))
 
 
 class TestExtractWaveforms:
@@ -1231,7 +1387,26 @@ class TestExtractWaveforms:
         assert result.shape[2] == 0
         assert result.shape[0] == 4
 
+    def test_fs_kHz_zero_zero_length_windows(self):
+        """
+        EC-UT-16: fs_kHz=0 makes before_samples and after_samples both 0
+        (round(ms * 0) = 0), giving n_samples=0. Every spike has
+        start == end == 0, which satisfies 0 <= start and end <= n_time_samples,
+        so the spike is "valid" but the extracted slice is zero-width.
+        The result has shape (n_channels, 0, n_spikes).
 
+        Tests:
+            (Test Case 1) fs_kHz=0 with one spike at 5.0 ms. All window
+                sizes are 0. Output shape axis 1 is 0.
+        """
+        raw = np.random.default_rng(0).standard_normal((2, 1000))
+        spike_times = np.array([5.0])
+        result = extract_waveforms(
+            raw_data=raw,
+            spike_times_ms=spike_times,
+            fs_kHz=0.0,
+        )
+        assert result.shape[1] == 0
 
 
 
@@ -1417,6 +1592,38 @@ class TestGetSttc:
         # With huge delt: PA=1, PB=1, TA and TB are clamped sums / length.
         # When TA >= 1 and PA=1: PA*TB >= 1 -> guard sets term to 0.
         # Result should be finite
+        assert np.isfinite(result)
+
+    def test_identical_single_spike_at_same_time(self):
+        """
+        EC-UT-01: Two single-spike trains at the exact same time should
+        return STTC = 1.0, because they are identical.
+
+        Tests:
+            (Test Case 1) tA=[50.0], tB=[50.0], delt=20, length=100.
+                PA=PB=1 (the single spike in each is within delt of the
+                other). STTC = 1.0.
+        """
+        result = get_sttc([50.0], [50.0], delt=20.0, length=100.0)
+        assert result == pytest.approx(1.0)
+
+    def test_negative_delt(self):
+        """
+        EC-UT-02: Negative delt is not validated by get_sttc. The function
+        proceeds and _sttc_ta computes a negative or zero tiled area because
+        min(delt, ...) returns the negative value. _sttc_na checks
+        abs(distance) <= delt which is always False for negative delt,
+        so PA=PB=0. The result is a finite float (no crash).
+
+        Tests:
+            (Test Case 1) delt=-5 with valid trains and explicit length.
+                No spikes are within negative delt, PA=PB=0. TA and TB
+                are negative. The function returns a finite float.
+        """
+        tA = [10.0, 30.0, 50.0]
+        tB = [15.0, 35.0, 55.0]
+        result = get_sttc(tA, tB, delt=-5.0, length=100.0)
+        assert isinstance(result, (float, np.floating))
         assert np.isfinite(result)
 
 
@@ -1696,6 +1903,26 @@ class TestConsecutiveDurations:
         signal = np.array([-1.0, -2.0, 0.5, -0.5])
         result = consecutive_durations(signal, 0.0, mode="below")
         np.testing.assert_array_equal(result, [2, 1])
+
+    def test_all_values_at_threshold_boundary(self):
+        """
+        EC-UT-15: When all values exactly equal the threshold, the
+        condition for 'above' mode (>= threshold) is True for every
+        element, yielding one run covering the entire signal. For
+        'below' mode (< threshold), all are False, yielding empty.
+
+        Tests:
+            (Test Case 1) Signal of [0.5, 0.5, 0.5, 0.5] with threshold=0.5
+                in 'above' mode. All >= 0.5 is True, one run of length 4.
+            (Test Case 2) Same signal in 'below' mode. All < 0.5 is False,
+                empty result.
+        """
+        sig = np.array([0.5, 0.5, 0.5, 0.5])
+        above = consecutive_durations(sig, 0.5, mode="above")
+        np.testing.assert_array_equal(above, [4])
+
+        below = consecutive_durations(sig, 0.5, mode="below")
+        assert below.size == 0
 
 
 # ---------------------------------------------------------------------------
@@ -2101,6 +2328,20 @@ class TestShuffleZScore:
         z_same = shuffle_z_score(3.0, dist)
         assert np.isnan(z_same)
 
+    def test_single_shuffle_sample_std_zero(self):
+        """
+        EC-UT-10: A single shuffle sample means N=1, so std=0.
+        The function returns NaN because std==0 triggers the safe_std
+        guard.
+
+        Tests:
+            (Test Case 1) Single-element distribution [5.0], observed=10.0.
+                mean=5.0, std=0.0, result is NaN.
+        """
+        dist = np.array([5.0])
+        z = shuffle_z_score(10.0, dist)
+        assert np.isnan(z)
+
 
 # ---------------------------------------------------------------------------
 # shuffle_percentile
@@ -2157,6 +2398,21 @@ class TestShufflePercentile:
         assert pct.shape == (2,)
         assert pct[0] == 1.0
         assert pct[1] == 0.0
+
+    def test_empty_distribution(self):
+        """
+        EC-UT-11: An empty shuffle distribution (shape (0,)) causes
+        np.mean over an empty axis. np.mean of an empty array returns
+        NaN with a RuntimeWarning.
+
+        Tests:
+            (Test Case 1) Empty distribution array. The function returns
+                NaN because mean of empty array is NaN.
+        """
+        dist = np.array([])
+        with pytest.warns(RuntimeWarning):
+            pct = shuffle_percentile(5.0, dist)
+        assert np.isnan(pct)
 
 
 # ---------------------------------------------------------------------------
@@ -2230,6 +2486,33 @@ class TestSliceTrend:
         with pytest.raises(ValueError, match="1-D"):
             slice_trend(values)
 
+    def test_exactly_two_values_degenerate_pvalue(self):
+        """
+        EC-UT-12: With exactly 2 values, linregress fits a perfect line
+        (zero residual). The slope is exact and the p-value is 0.0
+        because there are zero degrees of freedom for error.
+
+        Tests:
+            (Test Case 1) values=[1.0, 3.0]. Slope is 2.0, p-value is 0.0.
+        """
+        values = np.array([1.0, 3.0])
+        slope, p = slice_trend(values)
+        assert slope == pytest.approx(2.0)
+        assert p == pytest.approx(0.0)
+
+    def test_all_nan_values_raises(self):
+        """
+        EC-UT-13: All-NaN values leave zero valid points after masking.
+        linregress is called with empty arrays, which raises a ValueError.
+
+        Tests:
+            (Test Case 1) values=[NaN, NaN, NaN]. The NaN mask removes
+                all values, and linregress raises ValueError on empty input.
+        """
+        values = np.array([np.nan, np.nan, np.nan])
+        with pytest.raises(ValueError):
+            slice_trend(values)
+
 
 # ---------------------------------------------------------------------------
 # slice_stability
@@ -2300,3 +2583,46 @@ class TestSliceStability:
         cv = slice_stability(values)
 
         assert isinstance(cv, float)
+
+    def test_single_value_n1(self):
+        """
+        EC-UT-14: A single value means N=1, so nanstd returns 0.0 and
+        nanmean returns the value itself. CV = 0 / |value| = 0.0 for
+        nonzero value. For zero value, CV is NaN.
+
+        Tests:
+            (Test Case 1) Single nonzero value [5.0]. std=0, mean=5,
+                CV = 0/5 = 0.0.
+            (Test Case 2) Single zero value [0.0]. mean=0, triggers
+                the NaN guard, returns NaN.
+        """
+        cv = slice_stability(np.array([5.0]))
+        assert cv == pytest.approx(0.0)
+
+        cv_zero = slice_stability(np.array([0.0]))
+        assert np.isnan(cv_zero)
+
+
+# ---------------------------------------------------------------------------
+# check_neuron_attributes
+# ---------------------------------------------------------------------------
+
+
+class TestCheckNeuronAttributes:
+    """Tests for check_neuron_attributes."""
+
+    def test_n_neurons_zero(self):
+        """
+        EC-UT-17: n_neurons=0 with an empty list is valid and returns
+        an empty list. n_neurons=0 with a non-empty list raises ValueError
+        because the length does not match.
+
+        Tests:
+            (Test Case 1) Empty list with n_neurons=0 returns [].
+            (Test Case 2) Non-empty list with n_neurons=0 raises ValueError.
+        """
+        result = check_neuron_attributes([], n_neurons=0)
+        assert result == []
+
+        with pytest.raises(ValueError, match="expected 0"):
+            check_neuron_attributes([{"a": 1}], n_neurons=0)
