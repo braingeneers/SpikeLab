@@ -1230,9 +1230,7 @@ class TestExportTools:
         """
         ws_id, ns = loaded_ws
         s3_path = "s3://my-bucket/exports/test.pkl"
-        with patch(
-            "SpikeLab.data_loaders.s3_utils.upload_to_s3"
-        ) as mock_upload:
+        with patch("SpikeLab.data_loaders.s3_utils.upload_to_s3") as mock_upload:
             result = await exporters.export_to_pickle(ws_id, ns, s3_path)
             assert result["file_path"] == s3_path
             mock_upload.assert_called_once()
@@ -2542,9 +2540,7 @@ class TestWaveformMCPTools:
             },
         )
         ws_id, ns = loaded_ws
-        result = await analysis.get_waveform_traces(
-            ws_id, ns, key="wf_unit0", unit=0
-        )
+        result = await analysis.get_waveform_traces(ws_id, ns, key="wf_unit0", unit=0)
         assert result["workspace_id"] == ws_id
         assert result["key"] == "wf_unit0"
         assert result["fs_kHz"] == 30.0
@@ -2569,7 +2565,9 @@ class TestGPLVMMCPTools:
         """
         n_time, n_units = 10, 3
         mock_fit.return_value = {
-            "decode_res": {"posterior_latent_marg": np.random.default_rng(0).random((n_time, 5))},
+            "decode_res": {
+                "posterior_latent_marg": np.random.default_rng(0).random((n_time, 5))
+            },
             "reorder_indices": np.array([2, 0, 1]),
             "binned_spike_counts": np.random.default_rng(0).random((n_time, n_units)),
             "log_marginal_l": np.array([-100.0, -90.0]),
@@ -2784,9 +2782,7 @@ class TestUMAPMCPTools:
         """
         ws_id, ns = loaded_ws
         with pytest.raises(ValueError, match="Item not found"):
-            await analysis.umap_reduction(
-                ws_id, ns, key="nonexistent", out_key="out"
-            )
+            await analysis.umap_reduction(ws_id, ns, key="nonexistent", out_key="out")
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -2801,9 +2797,7 @@ class TestUMAPMCPTools:
         ws = get_workspace_manager().get_workspace(ws_id)
         ws.store(ns, "arr1d", np.array([1.0, 2.0, 3.0]))
         with pytest.raises(ValueError, match="Expected 2D ndarray"):
-            await analysis.umap_reduction(
-                ws_id, ns, key="arr1d", out_key="out"
-            )
+            await analysis.umap_reduction(ws_id, ns, key="arr1d", out_key="out")
 
 
 class TestLoaderMCPToolsCoverage:
@@ -2811,7 +2805,9 @@ class TestLoaderMCPToolsCoverage:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("SpikeLab.mcp_server.tools.data_loaders.load_spikedata_from_hdf5_raw_thresholded")
+    @patch(
+        "SpikeLab.mcp_server.tools.data_loaders.load_spikedata_from_hdf5_raw_thresholded"
+    )
     @patch("SpikeLab.mcp_server.tools.data_loaders.ensure_local_file")
     async def test_load_from_hdf5_thresholded(self, mock_ensure, mock_load):
         """

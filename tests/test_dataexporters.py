@@ -351,12 +351,8 @@ class TestHDF5Exporters:
             (Test Case 1) First export creates file with dataset A.
             (Test Case 2) Second export overwrites; old dataset is gone, new data present.
         """
-        sd1 = SpikeData(
-            [np.array([5.0, 10.0, 15.0])], length=20.0
-        )
-        sd2 = SpikeData(
-            [np.array([100.0, 200.0])], length=300.0
-        )
+        sd1 = SpikeData([np.array([5.0, 10.0, 15.0])], length=20.0)
+        sd2 = SpikeData([np.array([100.0, 200.0])], length=300.0)
         path = str(tmp_path / "overwrite.h5")
 
         # First write

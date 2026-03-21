@@ -2321,9 +2321,7 @@ class TestS3UtilsErrorPaths:
         """
         from SpikeLab.data_loaders.s3_utils import ensure_local_file
 
-        with patch(
-            "SpikeLab.data_loaders.s3_utils.download_from_s3"
-        ) as mock_download:
+        with patch("SpikeLab.data_loaders.s3_utils.download_from_s3") as mock_download:
             mock_download.return_value = "/tmp/downloaded_file.h5"
             local_path, is_temp = ensure_local_file(
                 "s3://mybucket/data/file.h5",

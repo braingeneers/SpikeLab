@@ -4207,9 +4207,7 @@ class TestAlignToEvents:
             (Test Case 1) Duplicate events produce duplicate slices.
         """
         sd = SpikeData([[10.0, 20.0, 30.0, 40.0]], length=50.0)
-        stack = sd.align_to_events(
-            events=[25.0, 25.0, 25.0], pre_ms=5.0, post_ms=5.0
-        )
+        stack = sd.align_to_events(events=[25.0, 25.0, 25.0], pre_ms=5.0, post_ms=5.0)
         assert len(stack.spike_stack) == 3
 
     def test_align_to_events_unsorted(self):
@@ -4220,7 +4218,5 @@ class TestAlignToEvents:
             (Test Case 1) Unsorted events still produce valid slices.
         """
         sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
-        stack = sd.align_to_events(
-            events=[35.0, 15.0, 25.0], pre_ms=5.0, post_ms=5.0
-        )
+        stack = sd.align_to_events(events=[35.0, 15.0, 25.0], pre_ms=5.0, post_ms=5.0)
         assert len(stack.spike_stack) == 3

@@ -333,9 +333,7 @@ class TestPairwiseCompMatrixStackInit:
         matrix dimension.
         """
         with pytest.raises(ValueError, match="Number of labels"):
-            PairwiseCompMatrixStack(
-                stack=np.random.rand(3, 3, 5), labels=["a", "b"]
-            )
+            PairwiseCompMatrixStack(stack=np.random.rand(3, 3, 5), labels=["a", "b"])
 
 
 # ---------------------------------------------------------------------------

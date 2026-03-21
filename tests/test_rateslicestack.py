@@ -1234,7 +1234,9 @@ class TestSubslice:
         # 3 entries because duplicates are not removed
         assert sub.event_stack.shape == (3, 10, 3)
         # First two slices should be identical (both are slice 1)
-        np.testing.assert_array_equal(sub.event_stack[:, :, 0], sub.event_stack[:, :, 1])
+        np.testing.assert_array_equal(
+            sub.event_stack[:, :, 0], sub.event_stack[:, :, 1]
+        )
         np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, 1])
         np.testing.assert_array_equal(sub.event_stack[:, :, 2], mat[:, :, 3])
         # times has the duplicate entry
@@ -1716,7 +1718,9 @@ class TestRankOrderCorrelationRate:
         # Pairs not involving slice 0 should have valid correlations
         for i in range(1, 5):
             for j in range(i + 1, 5):
-                assert not np.isnan(corr.matrix[i, j]), f"pair ({i},{j}) should be valid"
+                assert not np.isnan(
+                    corr.matrix[i, j]
+                ), f"pair ({i},{j}) should be valid"
 
     def test_n_shuffles_zero_returns_raw_spearman(self):
         """

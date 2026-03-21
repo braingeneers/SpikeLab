@@ -1883,7 +1883,9 @@ class TestHDF5IO:
         import json
 
         with open(json_path, "w") as f:
-            json.dump({"workspace_id": "x", "name": "x", "created_at": 0, "index": {}}, f)
+            json.dump(
+                {"workspace_id": "x", "name": "x", "created_at": 0, "index": {}}, f
+            )
 
         with pytest.raises(OSError):
             AnalysisWorkspace.load(base)
@@ -1995,9 +1997,7 @@ class TestHDF5IO:
         assert len(out.neuron_attributes) == n_units
         for i in range(n_units):
             assert out.neuron_attributes[i]["channel"] == pytest.approx(float(i))
-            assert out.neuron_attributes[i]["depth"] == pytest.approx(
-                (i + 1) * 100.0
-            )
+            assert out.neuron_attributes[i]["depth"] == pytest.approx((i + 1) * 100.0)
 
 
 # ---------------------------------------------------------------------------

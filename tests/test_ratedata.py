@@ -1015,9 +1015,7 @@ class TestRateDataGetManifold:
         times = np.arange(20, dtype=float)
         rd = RateData(data, times)
         try:
-            embedding, var_ratio, components = rd.get_manifold(
-                "PCA", n_components=1
-            )
+            embedding, var_ratio, components = rd.get_manifold("PCA", n_components=1)
             assert embedding.shape == (20, 1)
         except ValueError:
             pass  # raising is acceptable for degenerate single-feature input

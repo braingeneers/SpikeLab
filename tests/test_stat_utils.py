@@ -13,7 +13,6 @@ if str(ROOT) not in sys.path:
 
 from SpikeLab.spikedata.stat_utils import linear_regression, _approx_normal_quantile
 
-
 # ---------------------------------------------------------------------------
 # linear_regression
 # ---------------------------------------------------------------------------

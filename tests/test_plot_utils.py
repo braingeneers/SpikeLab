@@ -765,7 +765,9 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         data = {"X": np.random.rand(20), "Y": np.random.rand(20)}
-        parts = plot_distribution(ax, data, style="boxplot", colors=self.DEFAULT_COLORS[:2])
+        parts = plot_distribution(
+            ax, data, style="boxplot", colors=self.DEFAULT_COLORS[:2]
+        )
         assert "boxes" in parts
         assert len(parts["boxes"]) == 2
 
@@ -779,7 +781,9 @@ class TestPlotDistribution:
         fig, ax = plt.subplots()
         with pytest.raises(ValueError, match="Unknown style"):
             plot_distribution(
-                ax, [np.array([1, 2, 3])], style="histogram",
+                ax,
+                [np.array([1, 2, 3])],
+                style="histogram",
                 colors=self.DEFAULT_COLORS[:1],
             )
 
@@ -792,7 +796,9 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         data = [np.random.rand(10), np.random.rand(10)]
-        plot_distribution(ax, data, labels=["Group 1", "Group 2"], colors=self.DEFAULT_COLORS[:2])
+        plot_distribution(
+            ax, data, labels=["Group 1", "Group 2"], colors=self.DEFAULT_COLORS[:2]
+        )
         tick_labels = [t.get_text() for t in ax.get_xticklabels()]
         assert tick_labels == ["Group 1", "Group 2"]
 
@@ -818,7 +824,10 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         plot_distribution(
-            ax, [np.array([1, 2, 3])], ylabel="Rate (Hz)", xlabel="Condition",
+            ax,
+            [np.array([1, 2, 3])],
+            ylabel="Rate (Hz)",
+            xlabel="Condition",
             colors=self.DEFAULT_COLORS[:1],
         )
         assert ax.get_ylabel() == "Rate (Hz)"
@@ -832,7 +841,9 @@ class TestPlotDistribution:
             (Test Case 1) Y-axis scale is 'log'.
         """
         fig, ax = plt.subplots()
-        plot_distribution(ax, [np.array([0.1, 1, 10])], log_scale=True, colors=self.DEFAULT_COLORS[:1])
+        plot_distribution(
+            ax, [np.array([0.1, 1, 10])], log_scale=True, colors=self.DEFAULT_COLORS[:1]
+        )
         assert ax.get_yscale() == "log"
 
     def test_nan_values_stripped(self):
@@ -858,7 +869,13 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         data = [np.random.rand(30)]
-        plot_distribution(ax, data, show_median=True, show_quartiles=True, colors=self.DEFAULT_COLORS[:1])
+        plot_distribution(
+            ax,
+            data,
+            show_median=True,
+            show_quartiles=True,
+            colors=self.DEFAULT_COLORS[:1],
+        )
         # Median dot adds a PathCollection, IQR adds a LineCollection
         assert len(ax.collections) >= 1
 
@@ -872,8 +889,20 @@ class TestPlotDistribution:
         fig, ax1 = plt.subplots()
         fig, ax2 = plt.subplots()
         data = [np.random.rand(30)]
-        plot_distribution(ax1, data, show_median=True, show_quartiles=True, colors=self.DEFAULT_COLORS[:1])
-        plot_distribution(ax2, data, show_median=False, show_quartiles=False, colors=self.DEFAULT_COLORS[:1])
+        plot_distribution(
+            ax1,
+            data,
+            show_median=True,
+            show_quartiles=True,
+            colors=self.DEFAULT_COLORS[:1],
+        )
+        plot_distribution(
+            ax2,
+            data,
+            show_median=False,
+            show_quartiles=False,
+            colors=self.DEFAULT_COLORS[:1],
+        )
         # ax2 should have fewer overlay artists
         assert len(ax2.collections) <= len(ax1.collections)
 
@@ -887,8 +916,22 @@ class TestPlotDistribution:
         fig, ax1 = plt.subplots()
         fig, ax2 = plt.subplots()
         data = [np.random.rand(20)]
-        plot_distribution(ax1, data, show_data=False, show_median=False, show_quartiles=False, colors=self.DEFAULT_COLORS[:1])
-        plot_distribution(ax2, data, show_data=True, show_median=False, show_quartiles=False, colors=self.DEFAULT_COLORS[:1])
+        plot_distribution(
+            ax1,
+            data,
+            show_data=False,
+            show_median=False,
+            show_quartiles=False,
+            colors=self.DEFAULT_COLORS[:1],
+        )
+        plot_distribution(
+            ax2,
+            data,
+            show_data=True,
+            show_median=False,
+            show_quartiles=False,
+            colors=self.DEFAULT_COLORS[:1],
+        )
         assert len(ax2.collections) > len(ax1.collections)
 
     def test_sparse_group_violin_guard(self):
@@ -901,7 +944,9 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         data = [np.array([5.0]), np.random.rand(20)]
-        parts = plot_distribution(ax, data, style="violin", colors=self.DEFAULT_COLORS[:2])
+        parts = plot_distribution(
+            ax, data, style="violin", colors=self.DEFAULT_COLORS[:2]
+        )
         # Only the group with 20 points gets a violin body
         assert len(parts["bodies"]) == 1
         # The single-point group is rendered as scatter
@@ -916,7 +961,9 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         data = [np.array([]), np.random.rand(10)]
-        parts = plot_distribution(ax, data, style="violin", colors=self.DEFAULT_COLORS[:2])
+        parts = plot_distribution(
+            ax, data, style="violin", colors=self.DEFAULT_COLORS[:2]
+        )
         # Only one violin body (for the non-empty group)
         assert len(parts["bodies"]) == 1
 
@@ -929,7 +976,9 @@ class TestPlotDistribution:
             (Test Case 2) One violin body produced.
         """
         fig, ax = plt.subplots()
-        parts = plot_distribution(ax, {"only": np.random.rand(15)}, colors=self.DEFAULT_COLORS[:1])
+        parts = plot_distribution(
+            ax, {"only": np.random.rand(15)}, colors=self.DEFAULT_COLORS[:1]
+        )
         assert len(parts["bodies"]) == 1
 
     def test_font_size_applied(self):
@@ -941,7 +990,10 @@ class TestPlotDistribution:
         """
         fig, ax = plt.subplots()
         plot_distribution(
-            ax, [np.random.rand(10)], xlabel="Test", font_size=18,
+            ax,
+            [np.random.rand(10)],
+            xlabel="Test",
+            font_size=18,
             colors=self.DEFAULT_COLORS[:1],
         )
         assert ax.xaxis.label.get_fontsize() == 18
@@ -1166,7 +1218,9 @@ class TestPlotBurstSensitivity:
         """
         fig, ax = plt.subplots()
         thr = np.array([1.0, 2.0, 3.0])
-        lines = plot_burst_sensitivity(ax, thr, np.array([5, 3, 1]), colors=self.DEFAULT_COLORS[:1])
+        lines = plot_burst_sensitivity(
+            ax, thr, np.array([5, 3, 1]), colors=self.DEFAULT_COLORS[:1]
+        )
         assert len(lines) == 1
 
     def test_1d_axis_labels(self):
@@ -1178,7 +1232,9 @@ class TestPlotBurstSensitivity:
         """
         fig, ax = plt.subplots()
         thr = np.array([1.0, 2.0])
-        plot_burst_sensitivity(ax, thr, {"A": np.array([5, 3])}, colors=self.DEFAULT_COLORS[:1])
+        plot_burst_sensitivity(
+            ax, thr, {"A": np.array([5, 3])}, colors=self.DEFAULT_COLORS[:1]
+        )
         assert ax.get_xlabel() == "RMS mult."
         assert ax.get_ylabel() == "Number of bursts"
 
@@ -1191,7 +1247,13 @@ class TestPlotBurstSensitivity:
         """
         fig, ax = plt.subplots()
         thr = np.array([1.0, 2.0])
-        plot_burst_sensitivity(ax, thr, {"A": np.array([5, 3])}, show_legend=True, colors=self.DEFAULT_COLORS[:1])
+        plot_burst_sensitivity(
+            ax,
+            thr,
+            {"A": np.array([5, 3])},
+            show_legend=True,
+            colors=self.DEFAULT_COLORS[:1],
+        )
         legend = ax.get_legend()
         assert legend is not None
 
@@ -1205,7 +1267,11 @@ class TestPlotBurstSensitivity:
         fig, ax = plt.subplots()
         thr = np.array([1.0, 2.0])
         plot_burst_sensitivity(
-            ax, thr, {"A": np.array([5, 3])}, show_legend=False, colors=self.DEFAULT_COLORS[:1],
+            ax,
+            thr,
+            {"A": np.array([5, 3])},
+            show_legend=False,
+            colors=self.DEFAULT_COLORS[:1],
         )
         assert ax.get_legend() is None
 
@@ -1220,9 +1286,7 @@ class TestPlotBurstSensitivity:
         thr = np.array([1.0, 2.0, 3.0])
         dist = np.array([10, 20, 30, 40])
         counts_2d = np.random.randint(0, 20, size=(3, 4))
-        result = plot_burst_sensitivity(
-            ax, thr, counts_2d, dist_values=dist
-        )
+        result = plot_burst_sensitivity(ax, thr, counts_2d, dist_values=dist)
         # plot_heatmap returns the axes
         assert len(ax.images) == 1
 
@@ -1274,9 +1338,7 @@ class TestPlotBurstSensitivity:
             "low": np.array([[1, 2], [3, 4], [5, 6]]),
             "high": np.array([[10, 20], [30, 40], [50, 60]]),
         }
-        fig, axes_list = plot_burst_sensitivity(
-            None, thr, counts, dist_values=dist
-        )
+        fig, axes_list = plot_burst_sensitivity(None, thr, counts, dist_values=dist)
         clims = [a.images[0].get_clim() for a in axes_list]
         # All subplots should share the same clim
         assert clims[0] == clims[1]
@@ -1297,9 +1359,7 @@ class TestPlotBurstSensitivity:
             "Ctrl": np.ones((2, 2), dtype=int),
             "Drug": np.ones((2, 2), dtype=int) * 2,
         }
-        fig, axes_list = plot_burst_sensitivity(
-            None, thr, counts, dist_values=dist
-        )
+        fig, axes_list = plot_burst_sensitivity(None, thr, counts, dist_values=dist)
         titles = [a.get_title() for a in axes_list]
         assert titles == ["Ctrl", "Drug"]
 
@@ -1542,7 +1602,5 @@ class TestSpikeSliceStackPlotUnitRaster:
             (Test Case 1) Returns a PathCollection (sc is not None).
         """
         stack = self._make_stack(n_slices=3)
-        fig, ax, sc = stack.plot_unit_raster(
-            0, color_vals=np.array([0.1, 0.5, 0.9])
-        )
+        fig, ax, sc = stack.plot_unit_raster(0, color_vals=np.array([0.1, 0.5, 0.9]))
         assert sc is not None
