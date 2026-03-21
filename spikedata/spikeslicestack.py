@@ -231,6 +231,11 @@ class SpikeSliceStack:
                     kept_indices.append(i)
         else:
             kept_indices = sorted(set(int(u) for u in units))
+            for u in kept_indices:
+                if u < 0 or u >= self.N:
+                    raise ValueError(
+                        f"Unit index {u} out of range for {self.N} units."
+                    )
 
         new_spike_stack = []
         for sd in self.spike_stack:

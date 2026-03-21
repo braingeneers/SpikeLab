@@ -110,9 +110,10 @@ def plot_distribution(
 
     # --- Normalise input to list-of-arrays + labels -----------------------
     if isinstance(metric_data, dict):
+        keys = list(metric_data.keys())
+        data_arrays = [np.asarray(metric_data[k]) for k in keys]
         if labels is None:
-            labels = list(metric_data.keys())
-        data_arrays = [np.asarray(metric_data[k]) for k in labels]
+            labels = keys
     else:
         data_arrays = [np.asarray(a) for a in metric_data]
         if labels is None:
@@ -129,8 +130,10 @@ def plot_distribution(
 
     # --- Resolve colours --------------------------------------------------
     if colors is None:
-        prop_cycle = ax._get_lines.prop_cycler
-        colors = [next(prop_cycle)["color"] for _ in range(n)]
+        import matplotlib.pyplot as _plt
+
+        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        colors = [cycle_colors[i % len(cycle_colors)] for i in range(n)]
 
     # --- Draw distribution ------------------------------------------------
     if style == "boxplot":
@@ -526,8 +529,10 @@ def plot_burst_sensitivity(
 
     # --- 1-D line plot path -----------------------------------------------
     if colors is None:
-        prop_cycle = ax._get_lines.prop_cycler
-        colors = [next(prop_cycle)["color"] for _ in range(len(labels))]
+        import matplotlib.pyplot as _plt
+
+        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        colors = [cycle_colors[i % len(cycle_colors)] for i in range(len(labels))]
 
     lines = []
     for i, label in enumerate(labels):

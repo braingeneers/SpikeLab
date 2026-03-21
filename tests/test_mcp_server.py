@@ -526,6 +526,90 @@ class TestAnalysisTools:
         with pytest.raises(ValueError, match="Workspace not found"):
             await analysis.compute_rates("nonexistent-workspace-id", "ns", "rates")
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rates_no_spikedata_stored(self):
+        """
+        EC-MCP-01: Analysis tool on workspace with no spikedata stored.
+
+        Tests:
+            (Test Case 1) compute_rates raises ValueError mentioning loader tools.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="empty_ws")
+        with pytest.raises(ValueError, match="No SpikeData found"):
+            await analysis.compute_rates(ws_id, "rec1", "rates")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_compute_rates_wrong_type_at_spikedata_key(self):
+        """
+        EC-MCP-02: Analysis tool with wrong type stored at expected key.
+
+        Tests:
+            (Test Case 1) Storing a numpy array at ('ns', 'spikedata') and calling
+                compute_rates raises ValueError because it is not a SpikeData instance.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="wrong_type_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "spikedata", np.zeros((3, 100)))
+        with pytest.raises(ValueError, match="No SpikeData found"):
+            await analysis.compute_rates(ws_id, "ns", "rates")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_subtime_negative_start_end(self, loaded_ws):
+        """
+        EC-MCP-03: subtime with negative start/end through MCP.
+
+        Negative values are interpreted as offsets from the end of the recording
+        (length=50ms). subtime(-20, -5) should produce a 15ms SpikeData.
+
+        Tests:
+            (Test Case 1) Result is stored successfully.
+            (Test Case 2) Resulting SpikeData length is approximately 15ms.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subtime(ws_id, ns, start=-20.0, end=-5.0)
+        assert result["workspace_id"] == ws_id
+        assert result["info"]["length_ms"] == pytest.approx(15.0, abs=1.0)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_subset_empty_unit_list(self, loaded_ws):
+        """
+        EC-MCP-04: subset with empty unit list through MCP.
+
+        Passing units=[] should produce a SpikeData with 0 neurons.
+
+        Tests:
+            (Test Case 1) Result is stored successfully.
+            (Test Case 2) Resulting SpikeData has 0 neurons.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subset(ws_id, ns, units=[])
+        assert result["workspace_id"] == ws_id
+        assert result["info"]["N"] == 0
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_align_to_events_all_out_of_bounds(self, loaded_ws):
+        """
+        EC-MCP-05: align_to_events with all events out of bounds through MCP.
+
+        Recording length is 50ms. Events at -100 and 200 with pre_ms=5, post_ms=5
+        are all outside [0, 50], so all are dropped and ValueError is raised.
+
+        Tests:
+            (Test Case 1) ValueError with message about no valid events remaining.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="No valid events remain"):
+            await analysis.align_to_events(
+                ws_id, ns, "slices", events=[-100.0, 200.0], pre_ms=5.0, post_ms=5.0
+            )
+
 
 # ============================================================================
 # Workspace Management Tests
@@ -835,6 +919,54 @@ class TestWorkspaceManagement:
         with pytest.raises(ValueError, match="Workspace not found"):
             await analysis.merge_workspace("nonexistent-id", path)
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_create_workspace_duplicate_name(self):
+        """
+        EC-MCP-07: create_workspace with duplicate name.
+
+        Creating two workspaces with the same name should succeed and produce
+        different workspace IDs.
+
+        Tests:
+            (Test Case 1) Both create calls succeed.
+            (Test Case 2) The two workspace IDs are different.
+            (Test Case 3) Both workspaces appear in list_workspaces.
+        """
+        result1 = await analysis.create_workspace(name="dup_name")
+        result2 = await analysis.create_workspace(name="dup_name")
+        assert result1["workspace_id"] != result2["workspace_id"]
+        assert result1["name"] == "dup_name"
+        assert result2["name"] == "dup_name"
+        listing = await analysis.list_workspaces()
+        ids = [w["workspace_id"] for w in listing["workspaces"]]
+        assert result1["workspace_id"] in ids
+        assert result2["workspace_id"] in ids
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_fetch_workspace_item_non_serializable(self):
+        """
+        EC-MCP-09: fetch_workspace_item with non-serializable object.
+
+        Storing a custom object (not ndarray or PairwiseCompMatrixStack) and
+        calling fetch_workspace_item should raise ValueError describing the
+        unsupported type.
+
+        Tests:
+            (Test Case 1) ValueError mentioning 'fetch_workspace_item supports'.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="custom_obj_ws")
+        ws = wm.get_workspace(ws_id)
+
+        class CustomObj:
+            pass
+
+        ws.store("ns", "obj", CustomObj())
+        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
+            await analysis.fetch_workspace_item(ws_id, "ns", "obj")
+
 
 # ============================================================================
 # Workspace Analysis Tools Tests
@@ -1082,6 +1214,28 @@ class TestExportTools:
             result = await exporters.export_to_kilosort(ws_id, ns, tmpdir, fs_Hz=1000.0)
             assert "folder_path" in result
             assert len(result["files"]) == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_export_to_pickle_s3_upload(self, loaded_ws):
+        """
+        EC-MCP-06: export_to_pickle with S3 upload path.
+
+        Mock the S3 upload function and verify the MCP wrapper handles it
+        correctly when given an s3:// path.
+
+        Tests:
+            (Test Case 1) Result file_path is the S3 URL.
+            (Test Case 2) upload_to_s3 was called once.
+        """
+        ws_id, ns = loaded_ws
+        s3_path = "s3://my-bucket/exports/test.pkl"
+        with patch(
+            "SpikeLab.data_loaders.s3_utils.upload_to_s3"
+        ) as mock_upload:
+            result = await exporters.export_to_pickle(ws_id, ns, s3_path)
+            assert result["file_path"] == s3_path
+            mock_upload.assert_called_once()
 
 
 # ============================================================================
@@ -2798,4 +2952,26 @@ class TestLoadWorkspaceItemMCP:
                 namespace="ns",
                 key="k",
                 workspace_id="nonexistent",
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_load_workspace_item_nonexistent_file(self):
+        """
+        EC-MCP-08: load_workspace_item with non-existent file path.
+
+        Passing a path that does not exist on disk should raise an error
+        when the underlying loader tries to open the file.
+
+        Tests:
+            (Test Case 1) Raises an exception (FileNotFoundError or OSError).
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="target_ws")
+        with pytest.raises((FileNotFoundError, OSError, KeyError)):
+            await analysis.load_workspace_item(
+                path="/tmp/nonexistent_workspace_path_abc123",
+                namespace="ns",
+                key="k",
+                workspace_id=ws_id,
             )

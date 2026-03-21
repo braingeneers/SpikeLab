@@ -346,6 +346,12 @@ def randomize(ar, swap_per_spike=5, seed=None):
     rng = np.random.default_rng(seed)
 
     ar = np.array(ar, dtype=float, copy=True)
+    unique_vals = np.unique(ar)
+    if not np.all(np.isin(unique_vals, [0.0, 1.0])):
+        raise ValueError(
+            "randomize() requires a binary (0/1) raster. "
+            f"Found values: {unique_vals}"
+        )
     idxs = np.where(ar == 1.0)
     n_spikes = int(np.sum(ar))
     attempts = int((swap_per_spike + 1) * n_spikes)
@@ -1272,9 +1278,15 @@ def _validate_time_start_to_end(times_start_to_end):
             raise TypeError(
                 f"Start and end times in element {i} must be numbers: {time_window}"
             )
-        if time_window[0] >= time_window[1]:
+        if time_window[0] > time_window[1]:
             raise ValueError(
-                f"Start time must be less than end time in element {i}: {time_window}"
+                f"Start time must not exceed end time in element {i}: {time_window}"
+            )
+        if time_window[0] == time_window[1]:
+            warnings.warn(
+                f"Zero-duration time window in element {i}: {time_window}. "
+                "Treating as an empty slice.",
+                UserWarning,
             )
         if time_window[0] < 0:
             continue

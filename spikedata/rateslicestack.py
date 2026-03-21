@@ -665,6 +665,14 @@ class RateSliceStack:
         if isinstance(units, str):
             units = [units]
         units = set(units)
+        if by is None:
+            for u in units:
+                if not isinstance(u, (int, np.integer)):
+                    raise TypeError(f"Unit index must be an integer, got {type(u)}")
+                if u < 0 or u >= N:
+                    raise ValueError(
+                        f"Unit index {u} out of range for {N} units."
+                    )
         if by is not None:
             # VALUE-BASED: Look up by neuron_attribute
             if self.neuron_attributes is None:
@@ -719,7 +727,7 @@ class RateSliceStack:
         if end_idx <= start_idx or end_idx > T:
             raise ValueError(f"end_idx {end_idx} invalid")
 
-        new_stack = self.event_stack[:, start_idx:end_idx, :]
+        new_stack = self.event_stack[:, start_idx:end_idx, :].copy()
 
         new_times = []
         for t in self.times:

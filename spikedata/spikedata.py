@@ -1452,6 +1452,9 @@ class SpikeData:
         ----
         - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
+        if self.N == 0:
+            return SpikeData([], length=self.length, metadata=self.metadata)
+
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if (spk_mat > 1).any():
             warnings.warn(
@@ -1489,6 +1492,9 @@ class SpikeData:
             stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData
                 objects. All slices share the same time bounds ``(0, length)``.
         """
+        if n_shuffles < 1:
+            raise ValueError("n_shuffles must be at least 1.")
+
         from .spikeslicestack import SpikeSliceStack
 
         shuffled = []
@@ -1532,6 +1538,9 @@ class SpikeData:
               subset contains a different set of units. Individual ``SpikeData``
               objects within the stack carry their own subsetted attributes.
         """
+        if n_subsets < 1:
+            raise ValueError("n_subsets must be at least 1.")
+
         from .spikeslicestack import SpikeSliceStack
 
         if units_per_subset > self.N:
@@ -1797,6 +1806,13 @@ class SpikeData:
         delays (np.ndarray, shape (N,)): Lag (in bins) at which peak coupling occurs, relative to lag 0, within the trimmed window.
         lags (np.ndarray): Array of lag values from -window_ms to +window_ms.
         """
+        if window_ms < 1:
+            raise ValueError("window_ms must be at least 1.")
+        if self.N < 2:
+            raise ValueError(
+                "compute_spike_trig_pop_rate requires at least 2 units."
+            )
+
         # Bin spike data to a spike matrix
         spike_matrix = self.sparse_raster(bin_size=bin_size).toarray()
 
