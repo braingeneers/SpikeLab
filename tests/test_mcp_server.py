@@ -2228,3 +2228,574 @@ class TestSliceStackCoverage:
         )
         assert result["key"] == "pca_out"
         assert result["info"]["type"] == "ndarray"
+
+
+# ============================================================================
+# Untested MCP Tool Coverage
+# ============================================================================
+
+
+class TestBurstMCPTools:
+    """Tests for burst detection and sensitivity MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.analysis.SpikeData.get_bursts")
+    async def test_get_bursts(self, mock_get_bursts, loaded_ws):
+        """
+        Test get_bursts dispatches to SpikeData.get_bursts and stores results.
+
+        Tests:
+            (Test Case 1) Three keys (tburst, edges, amp) are stored in workspace.
+            (Test Case 2) Return dict includes n_bursts count.
+        """
+        mock_get_bursts.return_value = (
+            np.array([10.0, 30.0]),
+            np.array([[8.0, 12.0], [28.0, 32.0]]),
+            np.array([1.5, 2.0]),
+        )
+        ws_id, ns = loaded_ws
+        result = await analysis.get_bursts(
+            ws_id,
+            ns,
+            key_tburst="tburst",
+            key_edges="edges",
+            key_amp="amp",
+            thr_burst=1.0,
+            min_burst_diff=10,
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["n_bursts"] == 2
+        assert result["key_tburst"] == "tburst"
+        assert result["key_edges"] == "edges"
+        assert result["key_amp"] == "amp"
+        ws = get_workspace_manager().get_workspace(ws_id)
+        assert ws.get(ns, "tburst") is not None
+        assert ws.get(ns, "edges") is not None
+        assert ws.get(ns, "amp") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.analysis.SpikeData.burst_sensitivity")
+    async def test_burst_sensitivity(self, mock_burst_sens, loaded_ws):
+        """
+        Test burst_sensitivity stores the sensitivity grid in the workspace.
+
+        Tests:
+            (Test Case 1) Result shape matches the thr x dist grid.
+            (Test Case 2) Stored item is an ndarray.
+        """
+        mock_burst_sens.return_value = np.array([[3, 5], [2, 4]])
+        ws_id, ns = loaded_ws
+        result = await analysis.burst_sensitivity(
+            ws_id,
+            ns,
+            key="burst_sens",
+            thr_values=[1.0, 2.0],
+            dist_values=[10.0, 20.0],
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["key"] == "burst_sens"
+        assert result["shape"] == [2, 2]
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.analysis.SpikeData.get_frac_active")
+    async def test_get_frac_active(self, mock_frac, loaded_ws):
+        """
+        Test get_frac_active stores frac_per_unit, frac_per_burst, and backbone.
+
+        Tests:
+            (Test Case 1) Three output keys are stored in the workspace.
+            (Test Case 2) Return dict includes all three key names.
+        """
+        mock_frac.return_value = (
+            np.array([0.8, 0.5, 0.3]),
+            np.array([0.6, 0.9]),
+            np.array([0, 1]),
+        )
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store(ns, "edges", np.array([[8.0, 12.0], [28.0, 32.0]]))
+        result = await analysis.get_frac_active(
+            ws_id,
+            ns,
+            edges_key="edges",
+            key_frac_unit="frac_unit",
+            key_frac_burst="frac_burst",
+            key_backbone="backbone",
+            min_spikes=1,
+            backbone_threshold=0.5,
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["key_frac_unit"] == "frac_unit"
+        assert result["key_frac_burst"] == "frac_burst"
+        assert result["key_backbone"] == "backbone"
+        assert ws.get(ns, "frac_unit") is not None
+        assert ws.get(ns, "frac_burst") is not None
+        assert ws.get(ns, "backbone") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_get_frac_active_missing_edges(self, loaded_ws):
+        """
+        Test get_frac_active raises ValueError when edges key is missing.
+
+        Tests:
+            (Test Case 1) ValueError mentions 'get_bursts'.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="get_bursts"):
+            await analysis.get_frac_active(
+                ws_id,
+                ns,
+                edges_key="nonexistent",
+                key_frac_unit="fu",
+                key_frac_burst="fb",
+                key_backbone="bb",
+                min_spikes=1,
+                backbone_threshold=0.5,
+            )
+
+
+class TestWaveformMCPTools:
+    """Tests for waveform trace extraction MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.analysis.SpikeData.get_waveform_traces")
+    async def test_get_waveform_traces(self, mock_waveforms, loaded_ws):
+        """
+        Test get_waveform_traces stores waveform array and returns metadata.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key.
+            (Test Case 2) Waveform array is stored in workspace.
+            (Test Case 3) avg_waveform is returned inline.
+        """
+        waveform_arr = np.random.default_rng(0).random((1, 30, 4))
+        avg_wf = np.random.default_rng(0).random((1, 30))
+        mock_waveforms.return_value = (
+            waveform_arr,
+            {
+                "channels": [[0]],
+                "spike_times_ms": [np.array([10.0, 20.0, 30.0, 40.0])],
+                "avg_waveforms": [avg_wf],
+                "fs_kHz": 30.0,
+            },
+        )
+        ws_id, ns = loaded_ws
+        result = await analysis.get_waveform_traces(
+            ws_id, ns, key="wf_unit0", unit=0
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["key"] == "wf_unit0"
+        assert result["fs_kHz"] == 30.0
+        assert result["avg_waveform"] is not None
+        ws = get_workspace_manager().get_workspace(ws_id)
+        assert ws.get(ns, "wf_unit0") is not None
+
+
+class TestGPLVMMCPTools:
+    """Tests for GPLVM fitting and metric MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.analysis.SpikeData.fit_gplvm")
+    async def test_fit_gplvm(self, mock_fit, loaded_ws):
+        """
+        Test fit_gplvm stores decode_res, reorder_indices, and binned_spike_counts.
+
+        Tests:
+            (Test Case 1) Three keys are stored in workspace.
+            (Test Case 2) Return dict includes log_marginal_l and bin_size_ms.
+        """
+        n_time, n_units = 10, 3
+        mock_fit.return_value = {
+            "decode_res": {"posterior_latent_marg": np.random.default_rng(0).random((n_time, 5))},
+            "reorder_indices": np.array([2, 0, 1]),
+            "binned_spike_counts": np.random.default_rng(0).random((n_time, n_units)),
+            "log_marginal_l": np.array([-100.0, -90.0]),
+            "bin_size_ms": 50.0,
+        }
+        ws_id, ns = loaded_ws
+        result = await analysis.fit_gplvm(
+            ws_id,
+            ns,
+            key="decode_res",
+            key_reorder="reorder",
+            key_binned="binned",
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["key"] == "decode_res"
+        assert result["key_reorder"] == "reorder"
+        assert result["key_binned"] == "binned"
+        assert result["bin_size_ms"] == 50.0
+        assert result["n_time_bins"] == n_time
+        assert result["n_units"] == n_units
+        ws = get_workspace_manager().get_workspace(ws_id)
+        assert ws.get(ns, "decode_res") is not None
+        assert ws.get(ns, "reorder") is not None
+        assert ws.get(ns, "binned") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_gplvm_state_entropy(self, loaded_ws):
+        """
+        Test compute_gplvm_state_entropy stores entropy array in workspace.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item exists in workspace.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        posterior = np.random.default_rng(0).random((20, 5))
+        posterior = posterior / posterior.sum(axis=1, keepdims=True)
+        ws.store(ns, "decode_res", {"posterior_latent_marg": posterior})
+        result = await analysis.compute_gplvm_state_entropy(
+            ws_id, ns, key="decode_res", out_key="entropy"
+        )
+        assert result["key"] == "entropy"
+        assert ws.get(ns, "entropy") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_gplvm_continuity_prob(self, loaded_ws):
+        """
+        Test compute_gplvm_continuity_prob stores continuity probability in workspace.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item exists in workspace.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        posterior = np.random.default_rng(0).random((20, 5))
+        posterior = posterior / posterior.sum(axis=1, keepdims=True)
+        dynamics = np.random.default_rng(1).random((20, 2))
+        ws.store(
+            ns,
+            "decode_res",
+            {"posterior_latent_marg": posterior, "posterior_dynamics_marg": dynamics},
+        )
+        result = await analysis.compute_gplvm_continuity_prob(
+            ws_id, ns, key="decode_res", out_key="cont_prob"
+        )
+        assert result["key"] == "cont_prob"
+        assert ws.get(ns, "cont_prob") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_gplvm_avg_state_prob(self, loaded_ws):
+        """
+        Test compute_gplvm_avg_state_prob stores average state probability.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item exists in workspace.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        posterior = np.random.default_rng(0).random((20, 5))
+        posterior = posterior / posterior.sum(axis=1, keepdims=True)
+        ws.store(ns, "decode_res", {"posterior_latent_marg": posterior})
+        result = await analysis.compute_gplvm_avg_state_prob(
+            ws_id, ns, key="decode_res", out_key="avg_prob"
+        )
+        assert result["key"] == "avg_prob"
+        assert ws.get(ns, "avg_prob") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_gplvm_consecutive_durations(self, loaded_ws):
+        """
+        Test compute_gplvm_consecutive_durations stores duration array.
+
+        Tests:
+            (Test Case 1) Result contains key and n_durations count.
+            (Test Case 2) Stored item exists in workspace.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        signal = np.array([0.1, 0.8, 0.9, 0.2, 0.7, 0.6, 0.3])
+        ws.store(ns, "cont_prob", signal)
+        result = await analysis.compute_gplvm_consecutive_durations(
+            ws_id, ns, key="cont_prob", out_key="durations", threshold=0.5
+        )
+        assert result["key"] == "durations"
+        assert result["n_durations"] > 0
+        assert ws.get(ns, "durations") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_gplvm_missing_decode_res(self, loaded_ws):
+        """
+        Test GPLVM metric tools raise ValueError when decode_res is missing.
+
+        Tests:
+            (Test Case 1) compute_gplvm_state_entropy raises ValueError mentioning fit_gplvm.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="fit_gplvm"):
+            await analysis.compute_gplvm_state_entropy(
+                ws_id, ns, key="nonexistent", out_key="entropy"
+            )
+
+
+class TestUMAPMCPTools:
+    """Tests for UMAP dimensionality reduction MCP tools."""
+
+    _umap_available = True
+    try:
+        import umap  # noqa: F401
+    except ImportError:
+        _umap_available = False
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not _umap_available, reason="umap-learn not installed")
+    async def test_umap_reduction(self, loaded_ws):
+        """
+        Test umap_reduction stores UMAP embedding in workspace.
+
+        Tests:
+            (Test Case 1) Result contains key and trustworthiness score.
+            (Test Case 2) Stored item exists in workspace.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        data = np.random.default_rng(42).random((30, 5))
+        ws.store(ns, "rates_2d", data)
+        result = await analysis.umap_reduction(
+            ws_id,
+            ns,
+            key="rates_2d",
+            out_key="umap_embed",
+            n_components=2,
+            random_state=42,
+        )
+        assert result["key"] == "umap_embed"
+        assert "trustworthiness" in result
+        assert ws.get(ns, "umap_embed") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not _umap_available, reason="umap-learn not installed")
+    async def test_umap_graph_communities(self, loaded_ws):
+        """
+        Test umap_graph_communities stores embedding and returns community labels.
+
+        Tests:
+            (Test Case 1) Result contains labels list.
+            (Test Case 2) Stored embedding exists in workspace.
+
+        Notes:
+            - Also requires networkx and python-louvain.
+        """
+        try:
+            import community  # noqa: F401
+            import networkx  # noqa: F401
+        except ImportError:
+            pytest.skip("networkx or python-louvain not installed")
+
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        data = np.random.default_rng(42).random((30, 5))
+        ws.store(ns, "rates_2d", data)
+        result = await analysis.umap_graph_communities(
+            ws_id,
+            ns,
+            key="rates_2d",
+            out_key="umap_comm",
+            n_components=2,
+            random_state=42,
+        )
+        assert result["key"] == "umap_comm"
+        assert "labels" in result
+        assert len(result["labels"]) == 30
+        assert ws.get(ns, "umap_comm") is not None
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_umap_reduction_missing_item(self, loaded_ws):
+        """
+        Test umap_reduction raises ValueError when input key is missing.
+
+        Tests:
+            (Test Case 1) ValueError raised for nonexistent key.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="Item not found"):
+            await analysis.umap_reduction(
+                ws_id, ns, key="nonexistent", out_key="out"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_umap_reduction_wrong_type(self, loaded_ws):
+        """
+        Test umap_reduction raises ValueError when input is not a 2D array.
+
+        Tests:
+            (Test Case 1) ValueError raised for 1D input.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store(ns, "arr1d", np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError, match="Expected 2D ndarray"):
+            await analysis.umap_reduction(
+                ws_id, ns, key="arr1d", out_key="out"
+            )
+
+
+class TestLoaderMCPToolsCoverage:
+    """Tests for untested loader MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.data_loaders.load_spikedata_from_hdf5_raw_thresholded")
+    @patch("SpikeLab.mcp_server.tools.data_loaders.ensure_local_file")
+    async def test_load_from_hdf5_thresholded(self, mock_ensure, mock_load):
+        """
+        Test load_from_hdf5_thresholded dispatches to the loader and stores result.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, workspace_key.
+            (Test Case 2) info.num_neurons matches the mocked SpikeData.
+        """
+        train = [[10.0, 20.0], [15.0, 25.0]]
+        sd = SpikeData(train, length=30.0)
+        mock_load.return_value = sd
+        mock_ensure.return_value = ("/tmp/fake.h5", False)
+
+        result = await data_loaders.load_from_hdf5_thresholded(
+            file_path="/tmp/fake.h5",
+            dataset="traces",
+            fs_Hz=30000.0,
+            threshold_sigma=5.0,
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["num_neurons"] == 2
+        assert "workspace_id" in result
+        assert "namespace" in result
+        mock_load.assert_called_once()
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.data_loaders.load_spikedata_from_ibl")
+    async def test_load_from_ibl(self, mock_load):
+        """
+        Test load_from_ibl dispatches to the IBL loader and stores result.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, workspace_key.
+            (Test Case 2) info.num_neurons matches the mocked SpikeData.
+        """
+        train = [[10.0, 20.0], [15.0]]
+        sd = SpikeData(train, length=30.0, metadata={"trials": "data"})
+        mock_load.return_value = sd
+
+        result = await data_loaders.load_from_ibl(
+            eid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            pid="11111111-2222-3333-4444-555555555555",
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["num_neurons"] == 2
+        assert "workspace_id" in result
+        mock_load.assert_called_once()
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch("SpikeLab.mcp_server.tools.data_loaders._query_ibl_probes")
+    async def test_query_ibl_probes(self, mock_query):
+        """
+        Test query_ibl_probes returns probe list and stats inline.
+
+        Tests:
+            (Test Case 1) Result contains probes list.
+            (Test Case 2) Result contains stats list.
+
+        Notes:
+            - This tool does not store anything in the workspace.
+        """
+        import pandas as pd
+
+        mock_query.return_value = (
+            [("eid1", "pid1"), ("eid2", "pid2")],
+            pd.DataFrame(
+                {"eid": ["eid1", "eid2"], "pid": ["pid1", "pid2"], "n_units": [50, 30]}
+            ),
+        )
+        result = await data_loaders.query_ibl_probes(
+            target_regions=["MOs"], min_units=10
+        )
+        assert "probes" in result
+        assert len(result["probes"]) == 2
+        assert "stats" in result
+        assert len(result["stats"]) == 2
+
+
+class TestLoadWorkspaceItemMCP:
+    """Tests for load_workspace_item MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_load_workspace_item(self, loaded_ws, tmp_path):
+        """
+        Test load_workspace_item loads a single item from a saved workspace file.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key, info.
+            (Test Case 2) Item is accessible in the target workspace after loading.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not available")
+
+        from SpikeLab.workspace.workspace import AnalysisWorkspace
+
+        # Save a workspace with a known item
+        source_ws = AnalysisWorkspace(name="source")
+        arr = np.array([1.0, 2.0, 3.0])
+        source_ws.store("ns1", "my_array", arr)
+        save_path = str(tmp_path / "source_ws")
+        source_ws.save(save_path)
+
+        # Load that item into the existing workspace
+        ws_id, ns = loaded_ws
+        result = await analysis.load_workspace_item(
+            path=save_path,
+            namespace="ns1",
+            key="my_array",
+            workspace_id=ws_id,
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["namespace"] == "ns1"
+        assert result["key"] == "my_array"
+        assert result["info"]["type"] == "ndarray"
+        ws = get_workspace_manager().get_workspace(ws_id)
+        loaded = ws.get("ns1", "my_array")
+        assert loaded is not None
+        np.testing.assert_array_equal(loaded, arr)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_load_workspace_item_missing_workspace(self):
+        """
+        Test load_workspace_item raises ValueError for nonexistent workspace.
+
+        Tests:
+            (Test Case 1) ValueError with 'Workspace not found'.
+        """
+        with pytest.raises(ValueError, match="Workspace not found"):
+            await analysis.load_workspace_item(
+                path="/tmp/fake",
+                namespace="ns",
+                key="k",
+                workspace_id="nonexistent",
+            )
