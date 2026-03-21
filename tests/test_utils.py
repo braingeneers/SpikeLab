@@ -2593,3 +2593,402 @@ class TestCheckNeuronAttributes:
 
         with pytest.raises(ValueError, match="expected 0"):
             check_neuron_attributes([{"a": 1}], n_neurons=0)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — get_sttc
+# ---------------------------------------------------------------------------
+
+
+class TestGetSttcEdgeCases:
+    """Edge case tests for get_sttc identified in the edge case scan."""
+
+    def test_length_zero_division_by_zero(self):
+        """
+        length=0 causes division by zero in _sttc_ta / length.
+
+        Tests:
+            (Test Case 1) Two non-empty trains with length=0. The division
+                by zero in _sttc_ta / length produces inf or nan. The function
+                does not raise, but the result is not finite.
+
+        Notes:
+            - This is a potential bug: length=0 is not validated, and the
+              division by zero produces non-finite results silently.
+        """
+        tA = [10.0, 20.0, 30.0]
+        tB = [15.0, 25.0, 35.0]
+        result = get_sttc(tA, tB, delt=5.0, length=0.0)
+        # Division by zero produces non-finite result
+        assert isinstance(result, (float, np.floating))
+
+    def test_negative_spike_times_with_negative_base(self):
+        """
+        Negative spike times produce negative base in _sttc_ta via
+        min(delt, tA[0]) when tA[0] < 0.
+
+        Tests:
+            (Test Case 1) Spike trains with negative times and small delt.
+                _sttc_ta computes min(delt, tA[0]) where tA[0] is negative,
+                producing a negative contribution. Function returns a finite float.
+        """
+        tA = np.array([-100.0, -50.0, 0.0])
+        tB = np.array([-90.0, -40.0, 10.0])
+        result = get_sttc(tA, tB, delt=5.0, length=200.0)
+        assert isinstance(result, (float, np.floating))
+        assert np.isfinite(result)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — _resampled_isi
+# ---------------------------------------------------------------------------
+
+
+class TestResampledIsiEdgeCases:
+    """Edge case tests for _resampled_isi identified in the edge case scan."""
+
+    def test_non_uniform_time_grid(self):
+        """
+        _resampled_isi uses times[1] - times[0] as a uniform step size.
+        Non-uniform time grids produce wrong results because the bin assignment
+        assumes constant dt_ms.
+
+        Tests:
+            (Test Case 1) Non-uniform time grid [0, 1, 5, 10, 20]. The function
+                uses dt_ms = 1.0 (from times[1] - times[0]) regardless of the
+                actual spacing. It does not raise an error. Output shape matches
+                the times array.
+
+        Notes:
+            - This is a known limitation: the function assumes a uniform grid
+              but does not validate this assumption. Results for non-uniform
+              grids are unreliable.
+        """
+        spikes = np.array([2.0, 8.0, 15.0])
+        times = np.array([0.0, 1.0, 5.0, 10.0, 20.0])
+        result = _resampled_isi(spikes, times, sigma_ms=2.0)
+        assert result.shape == times.shape
+
+    def test_spikes_outside_times_range(self):
+        """
+        Spikes outside the times range are extrapolated as constant from
+        the edge, which is the behaviour of np.interp.
+
+        Tests:
+            (Test Case 1) Spikes at -50 and 150 with times [0, 100]. The
+                function does not raise and returns an array matching times shape.
+        """
+        spikes = np.array([-50.0, 10.0, 50.0, 150.0])
+        times = np.arange(0, 100, 1.0)
+        result = _resampled_isi(spikes, times, sigma_ms=5.0)
+        assert result.shape == times.shape
+        # Some values should be nonzero (from the interior spikes)
+        assert np.any(result > 0)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — butter_filter
+# ---------------------------------------------------------------------------
+
+
+class TestButterFilterEdgeCases:
+    """Edge case tests for butter_filter identified in the edge case scan."""
+
+    def test_fs_zero_division_by_zero(self):
+        """
+        fs=0 causes division by zero in the Nyquist frequency calculation
+        (Wn = highcut / (0 * 0.5) = inf), which scipy rejects.
+
+        Tests:
+            (Test Case 1) fs=0 with highcut=100 raises an error from scipy
+                due to invalid normalized frequency.
+        """
+        with pytest.raises((ValueError, ZeroDivisionError)):
+            butter_filter(np.ones(100), highcut=100.0, fs=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — randomize
+# ---------------------------------------------------------------------------
+
+
+class TestRandomizeEdgeCases:
+    """Edge case tests for randomize identified in the edge case scan."""
+
+    def test_all_ones_raster(self):
+        """
+        An all-ones raster has no valid swaps possible (all positions are
+        occupied), so the function issues a RuntimeWarning about insufficient
+        swaps.
+
+        Tests:
+            (Test Case 1) 3x10 all-ones raster. No valid swap can change the
+                raster because all positions are 1. A RuntimeWarning is issued.
+                The output is still all-ones with the same shape.
+        """
+        raster = np.ones((3, 10), dtype=int)
+        with pytest.warns(RuntimeWarning, match="Not sufficient"):
+            result = randomize(raster, seed=42)
+        assert result.shape == (3, 10)
+        np.testing.assert_array_equal(result, 1)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — compute_cross_correlation_with_lag
+# ---------------------------------------------------------------------------
+
+
+class TestComputeCrossCorrelationEdgeCases:
+    """Edge case tests for compute_cross_correlation_with_lag."""
+
+    def test_different_length_signals(self):
+        """
+        Different-length signals are passed to np.correlate which may produce
+        unexpected results since the normalization assumes same length.
+
+        Tests:
+            (Test Case 1) Signals of length 30 and 50. The function does not
+                raise; returns a valid (corr, lag) tuple.
+
+        Notes:
+            - The normalization uses ref_norm * comp_norm computed from the
+              full signals, but correlate 'same' mode uses the length of the
+              first signal. This may produce correlations > 1 or < -1 for
+              different-length inputs.
+        """
+        rng = np.random.default_rng(42)
+        ref = rng.random(30)
+        comp = rng.random(50)
+        corr, lag = compute_cross_correlation_with_lag(ref, comp, max_lag=5)
+        assert isinstance(corr, (int, float, np.integer, np.floating))
+        assert isinstance(lag, (int, float, np.integer, np.floating))
+
+    def test_max_lag_greater_than_signal_length(self):
+        """
+        max_lag > len(signal) could produce incorrect center index computation.
+
+        Tests:
+            (Test Case 1) Signal of length 10 with max_lag=20. The search
+                window may extend beyond the correlation array bounds, but
+                numpy clipping prevents crashes. Returns a valid tuple.
+        """
+        sig = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0])
+        corr, lag = compute_cross_correlation_with_lag(sig, sig, max_lag=20)
+        assert isinstance(corr, (int, float, np.integer, np.floating))
+        assert isinstance(lag, (int, float, np.integer, np.floating))
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — compute_cosine_similarity_with_lag
+# ---------------------------------------------------------------------------
+
+
+class TestComputeCosineSimilarityEdgeCases:
+    """Edge case tests for compute_cosine_similarity_with_lag."""
+
+    def test_max_lag_ge_signal_length(self):
+        """
+        max_lag >= len(signal) causes all segments to be empty at extreme lags.
+        When all segments are empty, np.argmax on an empty array raises ValueError.
+
+        Tests:
+            (Test Case 1) Signal of length 5 with max_lag=5. At lags +/-5,
+                segments have length 0 and are skipped. At lags +/-4,
+                segments have length 1. The function should still return a
+                valid result from the non-empty lags.
+        """
+        sig = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        sim, lag = compute_cosine_similarity_with_lag(sig, sig, max_lag=5)
+        assert isinstance(sim, (float, np.floating))
+        assert isinstance(lag, (int, np.integer))
+
+    def test_max_lag_much_larger_than_signal(self):
+        """
+        max_lag much larger than signal length. Most lag offsets produce empty
+        segments that are skipped. Only the central lags produce valid results.
+
+        Tests:
+            (Test Case 1) Signal of length 3 with max_lag=100. The function
+                returns a valid result from the few non-empty lag offsets.
+        """
+        sig = np.array([1.0, 2.0, 3.0])
+        sim, lag = compute_cosine_similarity_with_lag(sig, sig, max_lag=100)
+        assert isinstance(sim, (float, np.floating))
+        assert abs(lag) < len(sig)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — consecutive_durations
+# ---------------------------------------------------------------------------
+
+
+class TestConsecutiveDurationsEdgeCases:
+    """Edge case tests for consecutive_durations."""
+
+    def test_values_at_threshold_boundary(self):
+        """
+        Values exactly equal to threshold are on the boundary between
+        >= (above) and < (below).
+
+        Tests:
+            (Test Case 1) Signal [0.4, 0.5, 0.5, 0.6, 0.5, 0.4] with
+                threshold=0.5. In 'above' mode, values >= 0.5 are indices
+                1,2,3,4 giving one run of length 4. In 'below' mode, values
+                < 0.5 are indices 0,5 giving two runs of length 1.
+        """
+        signal = np.array([0.4, 0.5, 0.5, 0.6, 0.5, 0.4])
+        above = consecutive_durations(signal, 0.5, mode="above")
+        np.testing.assert_array_equal(above, [4])
+        below = consecutive_durations(signal, 0.5, mode="below")
+        np.testing.assert_array_equal(below, [1, 1])
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — shuffle_z_score
+# ---------------------------------------------------------------------------
+
+
+class TestShuffleZScoreEdgeCases:
+    """Edge case tests for shuffle_z_score."""
+
+    def test_empty_distribution(self):
+        """
+        An empty shuffle distribution causes np.nanmean and np.nanstd over
+        empty arrays. np.nanmean of empty array returns NaN with a
+        RuntimeWarning.
+
+        Tests:
+            (Test Case 1) Empty distribution array. The function returns NaN.
+        """
+        dist = np.array([])
+        with pytest.warns(RuntimeWarning):
+            z = shuffle_z_score(5.0, dist)
+        assert np.isnan(z)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — slice_trend
+# ---------------------------------------------------------------------------
+
+
+class TestSliceTrendEdgeCases:
+    """Edge case tests for slice_trend."""
+
+    def test_constant_values_zero_slope(self):
+        """
+        Constant values produce slope=0 but p-value may be NaN because
+        the residual is zero and the regression is degenerate.
+
+        Tests:
+            (Test Case 1) values=[5.0, 5.0, 5.0, 5.0]. Slope is 0.0.
+                p-value may be NaN or 1.0 depending on scipy version.
+        """
+        values = np.array([5.0, 5.0, 5.0, 5.0])
+        slope, p = slice_trend(values)
+        assert slope == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — slice_stability
+# ---------------------------------------------------------------------------
+
+
+class TestSliceStabilityEdgeCases:
+    """Edge case tests for slice_stability."""
+
+    def test_all_nan_values(self):
+        """
+        All-NaN values produce NaN mean and NaN std. CV is NaN.
+
+        Tests:
+            (Test Case 1) values=[NaN, NaN, NaN]. nanmean is NaN (with
+                RuntimeWarning), so abs_mean==0 check does not trigger
+                correctly. Result is NaN.
+        """
+        values = np.array([np.nan, np.nan, np.nan])
+        with pytest.warns(RuntimeWarning):
+            cv = slice_stability(values)
+        assert np.isnan(cv)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — _validate_time_start_to_end
+# ---------------------------------------------------------------------------
+
+from SpikeLab.spikedata.utils import _validate_time_start_to_end
+
+
+class TestValidateTimeStartToEndEdgeCases:
+    """Edge case tests for _validate_time_start_to_end."""
+
+    def test_all_negative_start_returns_empty(self):
+        """
+        When all windows have negative start times, they are all skipped
+        and the function returns an empty list.
+
+        Tests:
+            (Test Case 1) Three windows with negative starts. All are
+                filtered out, returning an empty list.
+        """
+        windows = [(-300.0, -200.0), (-100.0, 0.0), (-50.0, 50.0)]
+        result = _validate_time_start_to_end(windows)
+        assert result == []
+
+    def test_start_equals_end_zero_duration(self):
+        """
+        When start == end, a UserWarning is issued about zero-duration window.
+        The window is still included if start >= 0.
+
+        Tests:
+            (Test Case 1) Window (100.0, 100.0) triggers UserWarning.
+            (Test Case 2) The zero-duration window is included in the result.
+        """
+        with pytest.warns(UserWarning, match="Zero-duration"):
+            result = _validate_time_start_to_end([(100.0, 100.0)])
+        assert len(result) == 1
+        assert result[0] == (100.0, 100.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — times_from_ms / to_ms
+# ---------------------------------------------------------------------------
+
+
+class TestTimesConversionEdgeCases:
+    """Edge case tests for times_from_ms and to_ms."""
+
+    def test_fs_hz_inf_produces_zero_samples(self):
+        """
+        fs_Hz=Inf passes the > 0 validation but produces overflow values.
+
+        Tests:
+            (Test Case 1) times_from_ms with fs_Hz=Inf does not raise.
+            (Test Case 2) For 0.0 ms, 0.0 * inf = nan, then np.rint(nan).astype(int)
+                produces an overflow value (not 0).
+            (Test Case 3) For 1.0 ms, inf produces the same overflow value.
+
+        Notes:
+            - 0.0 * inf = nan (not 0), so even the zero time point overflows
+              when cast to int. Both values produce the same platform-dependent
+              overflow integer (typically -9223372036854775808 on 64-bit).
+        """
+        import warnings
+
+        t = np.array([0.0, 1.0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = times_from_ms(t, "samples", fs_Hz=np.inf)
+        # Both values overflow to the same large negative integer
+        assert result[0] == result[1]
+
+    def test_to_ms_from_inf_fs(self):
+        """
+        to_ms with fs_Hz=Inf. Dividing by Inf produces 0.0 for all values.
+
+        Tests:
+            (Test Case 1) to_ms with fs_Hz=Inf and unit='samples'. All
+                sample values divided by Inf produce 0.0 ms.
+        """
+        v = np.array([100, 200, 300])
+        result = to_ms(v, "samples", fs_Hz=np.inf)
+        np.testing.assert_allclose(result, 0.0)

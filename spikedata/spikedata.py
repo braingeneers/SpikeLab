@@ -860,7 +860,7 @@ class SpikeData:
             metadata={
                 **spikeData.metadata,
                 **self.metadata,
-            },
+            },  # self.metadata takes precedence on key collision
         )
 
     def sparse_raster(self, bin_size=20.0):

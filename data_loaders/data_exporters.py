@@ -127,6 +127,7 @@ def export_spikedata_to_hdf5(
             raw_dataset
             and raw_time_dataset
             and getattr(sd, "raw_data", None) is not None
+            and sd.raw_data.size > 0
         ):
             f.create_dataset(raw_dataset, data=np.asarray(sd.raw_data))
             # Export raw_time converted to the requested unit
@@ -153,10 +154,7 @@ def export_spikedata_to_hdf5(
             raster = sd.raster(raster_bin_size_ms)
             f.create_dataset(raster_dataset, data=np.asarray(raster))
             # Store bin size as an attribute for provenance (readers can ignore)
-            try:
-                f[raster_dataset].attrs["bin_size_ms"] = float(raster_bin_size_ms)
-            except Exception:
-                pass
+            f[raster_dataset].attrs["bin_size_ms"] = float(raster_bin_size_ms)
             return
 
         if style == "ragged":
@@ -234,16 +232,24 @@ def export_spikedata_to_nwb(
         g.create_dataset(spike_times_index_dataset, data=index)
         g.create_dataset("id", data=np.arange(sd.N, dtype=int))
 
-        if sd.electrodes is not None:
-            g.create_dataset("electrodes", data=sd.electrodes)
+        try:
+            electrodes = sd.electrodes
+        except Exception:
+            electrodes = None
+        if electrodes is not None:
+            g.create_dataset("electrodes", data=electrodes)
             g.create_dataset("electrodes_index", data=np.arange(1, sd.N + 1, dtype=int))
 
-        if sd.unit_locations is not None:
+        try:
+            unit_locations = sd.unit_locations
+        except Exception:
+            unit_locations = None
+        if unit_locations is not None:
             elec_grp = f.create_group("general/extracellular_ephys/electrodes")
-            locations = sd.unit_locations
+            locations = unit_locations
 
             # Build electrodes table IDs to be consistent with units/electrodes.
-            if sd.electrodes is not None:
+            if electrodes is not None:
                 elec_ids = np.asarray(sd.electrodes, dtype=int)
                 # Unique electrode IDs and representative indices into unit_locations
                 unique_ids, first_indices = np.unique(elec_ids, return_index=True)

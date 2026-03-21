@@ -1747,3 +1747,266 @@ class TestRankOrderCorrelationRate:
         assert np.all(valid >= -1.0)
         assert np.all(valid <= 1.0)
         assert isinstance(corr, PairwiseCompMatrix)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
+# ---------------------------------------------------------------------------
+
+
+class TestRateSliceStackConstructorEdgeCases:
+    """Edge case tests for RateSliceStack.__init__."""
+
+    def test_spikedata_zero_length_raises(self):
+        """
+        SpikeData with zero length causes resampled_isi to raise.
+
+        When SpikeData.length is 0, np.arange(0, 0, step) produces an empty
+        times array. _resampled_isi raises ValueError for times with fewer
+        than 2 elements.
+
+        Tests:
+            (Test Case 1) ValueError is raised when constructing RateSliceStack
+                from a zero-length SpikeData.
+
+        Notes:
+            The error originates in _resampled_isi, not in RateSliceStack
+            itself. This is the expected behavior since a zero-length
+            recording has no meaningful firing rate data to slice.
+        """
+        sd = SpikeData(train=[np.array([])], length=0.0)
+        with pytest.raises((ValueError, IndexError)):
+            RateSliceStack(
+                data_obj=sd,
+                times_start_to_end=[(0.0, 10.0)],
+            )
+
+    def test_time_bounds_negative_before(self):
+        """
+        time_bounds with negative 'before' value creates forward-shifted windows.
+
+        A negative 'before' value means (peak - (-before)) = peak + before,
+        so the window starts after the peak. This is semantically confusing
+        but is not validated by the constructor.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Resulting window start is after the peak time.
+
+        Notes:
+            The constructor does not validate that 'before' in time_bounds
+            is non-negative. A negative 'before' produces a window that
+            starts after the peak, which may be unintended by the user.
+        """
+        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
+        # before = -10 means window starts at peak + 10
+        rss = RateSliceStack(
+            data_obj=rd,
+            time_peaks=[50.0],
+            time_bounds=(-10.0, 20.0),
+        )
+        # Window should be (50 - (-10), 50 + 20) = (60, 70)
+        assert len(rss.times) == 1
+        assert rss.times[0][0] == pytest.approx(60.0)
+        assert rss.times[0][1] == pytest.approx(70.0)
+
+
+class TestOrderUnitsAcrossSlicesEdgeCases:
+    """Edge case tests for RateSliceStack.order_units_across_slices."""
+
+    def test_all_units_nan_peak_times(self):
+        """
+        All units have NaN peak times when every unit is below threshold
+        in every slice.
+
+        np.argsort on all-NaN values produces an arbitrary but deterministic
+        ordering. The method should not crash.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) All peak times in the output are -1 (the NaN sentinel).
+            (Test Case 3) Returned order contains all unit indices.
+            (Test Case 4) reordered_stack has the correct shape.
+
+        Notes:
+            np.nanmedian / np.nanmean of all-NaN slices returns NaN with a
+            RuntimeWarning. np.argsort places NaN values last, so the order
+            is deterministic but arbitrary. The NaN-to-int cast produces -1
+            via the sentinel logic.
+        """
+        mat = np.full((3, 20, 4), 0.01)  # all below threshold
+        rss = RateSliceStack(event_matrix=mat)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            reordered, order, std, peaks, frac_active = rss.order_units_across_slices(
+                "median", MIN_RATE_THRESHOLD=0.1
+            )
+
+        # All units go to highly-active group (MIN_FRAC_ACTIVE=0.0 default)
+        assert set(order[0].tolist()) == {0, 1, 2}
+        assert reordered[0].shape == (3, 20, 4)
+        # All peak times should be -1 (NaN sentinel)
+        np.testing.assert_array_equal(peaks[0], [-1, -1, -1])
+
+
+class TestSliceToSliceUnitCorrEdgeCases:
+    """Edge case tests for RateSliceStack.get_slice_to_slice_unit_corr_from_stack."""
+
+    def test_all_units_below_threshold(self):
+        """
+        All units have mean firing rates below MIN_RATE_THRESHOLD in all slices.
+
+        When every slice for every unit is below threshold, no correlations
+        are computed. All entries in the correlation stack and all average
+        scores should be NaN.
+
+        Tests:
+            (Test Case 1) Output PairwiseCompMatrixStack has correct shape (S, S, U).
+            (Test Case 2) All average scores are NaN.
+            (Test Case 3) All off-diagonal entries in the correlation stack are NaN.
+        """
+        mat = np.full((3, 20, 5), 0.001)  # all below default threshold 0.1
+        rss = RateSliceStack(event_matrix=mat)
+
+        pcm_stack, av_scores = rss.get_slice_to_slice_unit_corr_from_stack(
+            MIN_RATE_THRESHOLD=0.1
+        )
+
+        assert pcm_stack.stack.shape == (5, 5, 3)
+        assert av_scores.shape == (3,)
+        assert np.all(np.isnan(av_scores))
+        # Off-diagonal should all be NaN (no correlations computed)
+        for u in range(3):
+            unit_mat = pcm_stack.stack[:, :, u]
+            off_diag_mask = ~np.eye(5, dtype=bool)
+            assert np.all(np.isnan(unit_mat[off_diag_mask]))
+
+    def test_frac_active_all_zeros(self):
+        """
+        frac_active override with all zeros makes all unit averages NaN.
+
+        When frac_active is all zeros, no unit meets the (1 - MIN_FRAC)
+        threshold, so all average scores are NaN even though individual
+        correlations may be computed.
+
+        Tests:
+            (Test Case 1) Output has correct shape.
+            (Test Case 2) All average scores are NaN.
+            (Test Case 3) Individual correlation entries may still be valid
+                (only the averaging is affected by frac_active).
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 50, 5)) + 0.5  # above threshold
+        rss = RateSliceStack(event_matrix=mat)
+
+        frac = np.zeros(3)  # all zeros
+        pcm_stack, av_scores = rss.get_slice_to_slice_unit_corr_from_stack(
+            MIN_FRAC=0.3, frac_active=frac
+        )
+
+        assert pcm_stack.stack.shape == (5, 5, 3)
+        assert av_scores.shape == (3,)
+        # All averages should be NaN because no unit meets frac threshold
+        assert np.all(np.isnan(av_scores))
+
+
+class TestSliceToSliceTimeCorrEdgeCases:
+    """Edge case tests for RateSliceStack.get_slice_to_slice_time_corr_from_stack."""
+
+    def test_all_zero_time_bins(self):
+        """
+        All-zero data produces NaN correlations for time bins.
+
+        When all values are zero, the cosine similarity (default compare_func)
+        produces NaN because the denominator (norm product) is zero.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Output shapes are correct.
+            (Test Case 3) Average scores are NaN (zero vectors have undefined
+                cosine similarity).
+        """
+        mat = np.zeros((3, 10, 4))
+        rss = RateSliceStack(event_matrix=mat)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            pcm_stack, av_scores = rss.get_slice_to_slice_time_corr_from_stack(
+                max_lag=0
+            )
+
+        assert pcm_stack.stack.shape == (4, 4, 10)
+        assert av_scores.shape == (10,)
+        # Cosine similarity of zero vectors is NaN
+        assert np.all(np.isnan(av_scores))
+
+
+class TestSubsetEdgeCases:
+    """Edge case tests for RateSliceStack.subset."""
+
+    def test_empty_units_list(self):
+        """
+        Subset with an empty units list produces a (0, T, S) stack.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) Output shape is (0, T, S).
+            (Test Case 3) Times and step_size are preserved.
+        """
+        mat = make_event_matrix(5, 10, 3)
+        rss = RateSliceStack(event_matrix=mat, step_size=2.0)
+
+        sub = rss.subset([])
+
+        assert sub.event_stack.shape == (0, 10, 3)
+        assert sub.step_size == 2.0
+        assert sub.times == rss.times
+
+
+class TestGetUnitTimingPerSliceEdgeCases:
+    """Edge case tests for RateSliceStack.get_unit_timing_per_slice."""
+
+    def test_all_nan_slice_argmax_on_nan(self):
+        """
+        All-NaN slice data produces potentially wrong results from np.argmax.
+
+        np.argmax on an all-NaN array returns 0 (the index of the first NaN),
+        which is indistinguishable from a legitimate peak at time bin 0. However,
+        get_unit_timing_per_slice uses np.max to check the threshold, and
+        np.max of all-NaN returns NaN. Since NaN < threshold is False, the unit
+        is correctly marked as NaN in the output.
+
+        Tests:
+            (Test Case 1) Units with all-NaN data in a slice get NaN timing.
+            (Test Case 2) Units with valid data in the same stack get valid timing.
+
+        Notes:
+            np.argmax on all-NaN returns 0 with no warning, but
+            get_unit_timing_per_slice correctly handles this because the
+            threshold check (np.max < MIN_RATE_THRESHOLD) catches it:
+            np.max of all-NaN is NaN, and NaN < threshold evaluates to
+            False, so the mask does not override NaN entries to NaN
+            (they remain as argmax output). However, since the actual
+            max rate is NaN, the comparison NaN < 0.1 is False, meaning
+            the threshold mask does NOT set these to NaN. The argmax
+            result (0) leaks through as a seemingly valid peak time.
+            This is a potential silent bug.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 20, 4)) + 0.5
+        # Make unit 0 all-NaN in all slices
+        mat[0, :, :] = np.nan
+        rss = RateSliceStack(event_matrix=mat)
+
+        tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.1)
+
+        assert tm.shape == (3, 4)
+        # Units 1 and 2 should have valid timing
+        assert np.all(~np.isnan(tm[1, :]))
+        assert np.all(~np.isnan(tm[2, :]))
+        # Unit 0 (all-NaN): np.max of all-NaN is NaN, and NaN < 0.1 is False,
+        # so the threshold mask does NOT set these to NaN. np.argmax returns 0.
+        # This means unit 0 gets a timing value of 0.0 instead of NaN — a silent bug.
+        # The values are argmax results (0) since NaN < threshold is False.
+        np.testing.assert_array_equal(tm[0, :], 0.0)
