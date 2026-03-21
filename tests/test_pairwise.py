@@ -25,7 +25,14 @@ except ImportError:
     UMAP_AVAILABLE = False
 
 
-class TestPairwise:
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix — __init__ / __post_init__
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixInit:
+    """Tests for PairwiseCompMatrix initialization and validation."""
+
     def test_pairwise_comp_matrix_init(self):
         # Normal init
         matrix = np.random.rand(5, 5)
@@ -40,6 +47,27 @@ class TestPairwise:
         # Label mismatch
         with pytest.raises(ValueError):
             PairwiseCompMatrix(matrix=np.random.rand(5, 5), labels=["a", "b"])
+
+    def test_post_init_wrong_ndim(self):
+        """PairwiseCompMatrix rejects non-2D arrays.
+
+        Tests: passing a 1D or 3D array to PairwiseCompMatrix
+        should raise a ValueError during __post_init__ validation.
+        """
+        with pytest.raises(ValueError):
+            PairwiseCompMatrix(matrix=np.array([1.0, 2.0, 3.0]))
+
+        with pytest.raises(ValueError):
+            PairwiseCompMatrix(matrix=np.random.rand(3, 3, 3))
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix — to_networkx
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixToNetworkx:
+    """Tests for PairwiseCompMatrix.to_networkx()."""
 
     def test_pairwise_comp_matrix_to_networkx(self):
         matrix = np.array([[1.0, 0.5, 0.1], [0.5, 1.0, 0.8], [0.1, 0.8, 1.0]])
@@ -86,6 +114,27 @@ class TestPairwise:
         )
         assert path_length == pytest.approx(0.1)
 
+    def test_to_networkx_all_nan(self):
+        """All-NaN matrix produces a graph with nodes but no edges.
+
+        Tests: to_networkx on a (3,3) all-NaN matrix should
+        return a graph with 3 nodes and 0 edges since NaN weights are skipped.
+        """
+        matrix = np.full((3, 3), np.nan)
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        G = pcm.to_networkx()
+        assert G.number_of_nodes() == 3
+        assert G.number_of_edges() == 0
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix — threshold
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixThreshold:
+    """Tests for PairwiseCompMatrix.threshold()."""
+
     def test_pairwise_comp_matrix_threshold(self):
         """Test the threshold method for creating binary matrices."""
         matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])
@@ -103,6 +152,89 @@ class TestPairwise:
         pcm_neg = PairwiseCompMatrix(matrix=matrix_neg)
         binary_neg = pcm_neg.threshold(0.4)
         np.testing.assert_array_equal(binary_neg.matrix, expected)
+
+    def test_threshold_zero(self):
+        """Thresholding at zero turns all non-zero values to 1.
+
+        Tests: threshold(0.0) should set every cell whose
+        absolute value exceeds 0 to 1 and leave exact zeros as 0.
+        """
+        matrix = np.array([[0.0, 0.5, 0.0], [0.5, 1.0, -0.3], [0.0, -0.3, 0.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.threshold(0.0)
+        expected = np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]])
+        np.testing.assert_array_equal(result.matrix, expected)
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix — extract_lower_triangle
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixExtractLowerTriangle:
+    """Tests for PairwiseCompMatrix.extract_lower_triangle()."""
+
+    def test_extract_lower_triangle_1x1(self):
+        """Lower triangle of a 1x1 matrix is empty.
+
+        Tests: a (1,1) PairwiseCompMatrix has no off-diagonal
+        elements, so extract_lower_triangle should return an empty array.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (0,)
+        assert len(result) == 0
+
+    def test_extract_lower_triangle_2x2(self):
+        """
+        Lower triangle of a 2x2 matrix contains exactly one element.
+
+        Tests:
+            (Test Case 1) Result shape is (1,) — one off-diagonal pair.
+            (Test Case 2) Value matches the (1, 0) entry.
+        """
+        matrix = np.array([[1.0, 0.3], [0.7, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (1,)
+        assert result[0] == pytest.approx(0.7)
+
+    def test_extract_lower_triangle_3x3(self):
+        """
+        Lower triangle of a 3x3 matrix contains 3 elements in column-major order.
+
+        Tests:
+            (Test Case 1) Result shape is (3,) — F = 3*(3-1)/2 = 3.
+            (Test Case 2) Values match entries (1,0), (2,0), (2,1).
+        """
+        matrix = np.array([[1.0, 0.2, 0.3], [0.4, 1.0, 0.5], [0.6, 0.7, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (3,)
+        np.testing.assert_array_almost_equal(result, [0.4, 0.6, 0.7])
+
+    def test_extract_lower_triangle_with_nan(self):
+        """
+        NaN values in the lower triangle are preserved in the output.
+
+        Tests:
+            (Test Case 1) NaN at position (1,0) appears in the extracted array.
+            (Test Case 2) Non-NaN values are preserved.
+        """
+        matrix = np.array([[1.0, 0.5], [np.nan, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix)
+        result = pcm.extract_lower_triangle()
+        assert result.shape == (1,)
+        assert np.isnan(result[0])
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — init / basic
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackInit:
+    """Tests for PairwiseCompMatrixStack initialization and basic operations."""
 
     def test_pairwise_comp_matrix_stack(self):
         # n x n x S format (5x5 matrices, 10 slices)
@@ -127,6 +259,16 @@ class TestPairwise:
 
         mean_pcm_raw = stack_nan.mean(ignore_nan=False)
         assert np.isnan(mean_pcm_raw.matrix[0, 1])
+
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — slicing / getitem / iteration
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackSlicing:
+    """Tests for PairwiseCompMatrixStack slicing, indexing, and iteration."""
 
     def test_pairwise_comp_matrix_stack_slicing_and_iter(self):
         """
@@ -159,6 +301,64 @@ class TestPairwise:
         assert isinstance(matrices[0], PairwiseCompMatrix)
         assert np.array_equal(matrices[0].matrix, stack_data[:, :, 0])
 
+    def test_getitem_negative_index(self):
+        """Negative indexing returns the last slice as a PairwiseCompMatrix.
+
+        Tests: stack[-1] should return the last slice and be
+        an instance of PairwiseCompMatrix.
+        """
+        data = np.random.rand(3, 3, 5)
+        stack = PairwiseCompMatrixStack(stack=data)
+        result = stack[-1]
+        assert isinstance(result, PairwiseCompMatrix)
+        np.testing.assert_array_equal(result.matrix, data[:, :, -1])
+
+    def test_getitem_reverse_slice(self):
+        """Reverse slicing returns slices in reversed order.
+
+        Tests: stack[::-1] should yield a new stack whose slices
+        are in reverse order compared to the original.
+        """
+        data = np.arange(3 * 3 * 5, dtype=float).reshape(3, 3, 5)
+        stack = PairwiseCompMatrixStack(stack=data)
+        result = stack[::-1]
+        assert isinstance(result, PairwiseCompMatrixStack)
+        assert len(result) == 5
+        for i in range(5):
+            np.testing.assert_array_equal(result.stack[:, :, i], data[:, :, 4 - i])
+
+    def test_getitem_empty_slice(self):
+        """An empty slice range returns a stack with S=0.
+
+        Tests: stack[5:5] on a 5-slice stack should return an
+        empty stack with zero slices.
+        """
+        data = np.random.rand(3, 3, 5)
+        stack = PairwiseCompMatrixStack(stack=data)
+        result = stack[5:5]
+        assert isinstance(result, PairwiseCompMatrixStack)
+        assert len(result) == 0
+        assert result.stack.shape == (3, 3, 0)
+
+    def test_iter_empty_stack(self):
+        """Iterating over an empty stack yields no elements.
+
+        Tests: list(stack) on a (3,3,0) stack should be an
+        empty list.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)), times=[])
+        items = list(stack)
+        assert items == []
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — subslice
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackSubslice:
+    """Tests for PairwiseCompMatrixStack.subslice()."""
+
     def test_pairwise_comp_matrix_stack_subslice(self):
         """Test the subslice method for selecting specific non-contiguous slices."""
         # n x n x S format (5x5 matrices, 10 slices)
@@ -176,6 +376,106 @@ class TestPairwise:
 
         # Times should also be subsliced
         assert sub.times == [(0, 100), (200, 300), (500, 600), (900, 1000)]
+
+    def test_subslice_empty_indices(self):
+        """Subslice with an empty index list returns a stack with S=0.
+
+        Tests: subslice([]) on a (3,3,5) stack should yield an
+        empty stack with shape (3,3,0).
+        """
+        stack = PairwiseCompMatrixStack(
+            stack=np.random.rand(3, 3, 5),
+            times=[(i, i + 1) for i in range(5)],
+        )
+        result = stack.subslice([])
+        assert result.stack.shape == (3, 3, 0)
+        assert len(result) == 0
+        assert result.times == []
+
+    def test_subslice_duplicate_indices(self):
+        """Subslice with duplicate indices keeps duplicates.
+
+        Tests: subslice([0, 0, 1]) on a (3,3,5) stack should
+        return a stack with S=3 where slices 0 and 1 are duplicated.
+        """
+        data = np.random.rand(3, 3, 5)
+        times = [(i, i + 1) for i in range(5)]
+        stack = PairwiseCompMatrixStack(stack=data, times=times)
+        result = stack.subslice([0, 0, 1])
+        assert len(result) == 3
+        np.testing.assert_array_equal(result.stack[:, :, 0], data[:, :, 0])
+        np.testing.assert_array_equal(result.stack[:, :, 1], data[:, :, 0])
+        np.testing.assert_array_equal(result.stack[:, :, 2], data[:, :, 1])
+
+    def test_subslice_out_of_bounds_index(self):
+        """Subslice with an out-of-bounds index raises IndexError.
+
+        Tests: subslice([0, 1, 10]) on a (3,3,5) stack should raise
+        an IndexError because index 10 exceeds the stack size of 5.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.random.rand(3, 3, 5))
+        with pytest.raises(IndexError):
+            stack.subslice([0, 1, 10])
+
+    def test_subslice_unsorted_indices(self):
+        """Subslice with unsorted indices preserves the given order.
+
+        Tests: subslice([2, 0, 1]) should return slices in that
+        exact order: result slice 0 = original slice 2, etc.
+        """
+        data = np.arange(3 * 3 * 5, dtype=float).reshape(3, 3, 5)
+        times = [(i, i + 1) for i in range(5)]
+        stack = PairwiseCompMatrixStack(stack=data, times=times)
+
+        result = stack.subslice([2, 0, 1])
+        assert len(result) == 3
+        np.testing.assert_array_equal(result.stack[:, :, 0], data[:, :, 2])
+        np.testing.assert_array_equal(result.stack[:, :, 1], data[:, :, 0])
+        np.testing.assert_array_equal(result.stack[:, :, 2], data[:, :, 1])
+        assert result.times == [(2, 3), (0, 1), (1, 2)]
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — mean
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackMean:
+    """Tests for PairwiseCompMatrixStack.mean()."""
+
+    def test_mean_empty_stack(self):
+        """Mean of an empty stack returns a (3,3) all-NaN matrix.
+
+        Tests: mean() on a (3,3,0) stack should produce NaN values
+        for every cell since there are no slices to average.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)), times=[])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = stack.mean()
+        assert result.matrix.shape == (3, 3)
+        assert np.all(np.isnan(result.matrix))
+
+    def test_mean_single_slice(self):
+        """Mean of a single-slice stack equals the single slice itself.
+
+        Tests: with known values in a (3,3,1) stack, the mean
+        should be identical to that single slice.
+        """
+        known = np.array([[1.0, 0.5, 0.3], [0.5, 1.0, 0.7], [0.3, 0.7, 1.0]])
+        data = known[:, :, np.newaxis]  # (3,3,1)
+        stack = PairwiseCompMatrixStack(stack=data, times=[(0, 1)])
+        result = stack.mean()
+        np.testing.assert_array_almost_equal(result.matrix, known)
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — threshold
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackThreshold:
+    """Tests for PairwiseCompMatrixStack.threshold()."""
 
     def test_pairwise_comp_matrix_stack_threshold(self):
         """Test the threshold method for PairwiseCompMatrixStack."""
@@ -202,76 +502,28 @@ class TestPairwise:
         np.testing.assert_array_equal(binary_stack.stack, expected)
         assert binary_stack.metadata["threshold"] == 0.4
 
-    def test_integration_spikedata(self):
-        # Create dummy SpikeData
-        train = [np.array([10, 20, 30]), np.array([15, 25, 35])]
-        sd = SpikeData(train, length=100)
+    def test_threshold_empty_stack(self):
+        """Threshold on an empty stack (S=0) returns an empty stack.
 
-        sttc_pcm = sd.spike_time_tilings(delt=5.0)
-        assert isinstance(sttc_pcm, PairwiseCompMatrix)
-        assert sttc_pcm.matrix.shape == (2, 2)
-        assert sttc_pcm.metadata["delt"] == 5.0
+        Tests: thresholding a (3,3,0) stack should return a new
+        stack with shape (3,3,0) and zero length.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)))
+        result = stack.threshold(0.5)
+        assert isinstance(result, PairwiseCompMatrixStack)
+        assert result.stack.shape == (3, 3, 0)
+        assert len(result) == 0
+        assert result.metadata["threshold"] == 0.5
+        assert result.metadata["binary"] is True
 
-    def test_integration_rateslicestack(self):
-        # Create dummy RateSliceStack
-        event_matrix = np.random.rand(2, 50, 5)  # U x T x S
-        rss = RateSliceStack(None, event_matrix=event_matrix)
 
-        # Test unit_to_unit_correlation - now returns U x U x S
-        corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation()
-        assert isinstance(corr_stack, PairwiseCompMatrixStack)
-        assert isinstance(lag_stack, PairwiseCompMatrixStack)
-        assert len(corr_stack) == 5  # 5 slices
-        assert corr_stack[0].matrix.shape == (2, 2)  # 2x2 unit matrix
-        assert corr_stack.stack.shape == (2, 2, 5)  # n x n x S
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack — dimensionality reduction
+# ---------------------------------------------------------------------------
 
-        # Test get_slice_to_slice_unit_corr_from_stack - returns S x S x U
-        all_slice_corr, av_slice_corr = rss.get_slice_to_slice_unit_corr_from_stack()
-        assert isinstance(all_slice_corr, PairwiseCompMatrixStack)
-        assert all_slice_corr[0].matrix.shape == (5, 5)  # S x S
-        assert all_slice_corr.stack.shape == (
-            5,
-            5,
-            2,
-        )  # n x n x S (where n=S=5, third dim=U=2)
 
-        # Test get_slice_to_slice_time_corr_from_stack - returns S x S x T
-        all_slice_time_corr, av_slice_time_corr = (
-            rss.get_slice_to_slice_time_corr_from_stack()
-        )
-        assert isinstance(all_slice_time_corr, PairwiseCompMatrixStack)
-        assert all_slice_time_corr[0].matrix.shape == (5, 5)  # S x S
-        assert len(all_slice_time_corr) == 50  # T time bins
-        assert all_slice_time_corr.stack.shape == (
-            5,
-            5,
-            50,
-        )  # n x n x S (where n=S=5, third dim=T=50)
-
-    def test_rigorous_edge_cases(self):
-        # Empty stack
-        empty_stack_data = np.zeros((5, 5, 0))  # n x n x S with S=0
-        empty_stack = PairwiseCompMatrixStack(stack=empty_stack_data)
-        assert len(empty_stack) == 0
-
-        # mean() on empty stack
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            mean_empty = empty_stack.mean()
-            assert np.all(np.isnan(mean_empty.matrix))
-
-        # Single unit matrix
-        single_matrix = np.array([[1.0]])
-        pcm_single = PairwiseCompMatrix(matrix=single_matrix)
-        G_single = pcm_single.to_networkx()
-        assert G_single.number_of_nodes() == 1
-        assert G_single.number_of_edges() == 0
-
-        # Infs
-        inf_matrix = np.array([[1.0, np.inf], [np.inf, 1.0]])
-        pcm_inf = PairwiseCompMatrix(matrix=inf_matrix)
-        G_inf = pcm_inf.to_networkx()
-        assert G_inf.edges[0, 1]["weight"] == float("inf")
+class TestPairwiseCompMatrixStackDimRed:
+    """Tests for PairwiseCompMatrixStack dimensionality reduction and feature extraction."""
 
     def test_pca_compatibility(self):
         # Create a stack of 10 matrices (5x5 units) - now n x n x S
@@ -330,55 +582,6 @@ class TestPairwise:
         assert umap_result.shape == (20, 2)
         assert isinstance(tw, float)
 
-
-class TestPairwiseEdgeCases:
-    """Edge case tests for pairwise matrix and stack operations.
-
-    Tests:
-        subslice with empty indices list
-        mean on empty stack
-        dim_red on empty stack
-        dim_red on single-slice stack
-        mean on single-slice stack
-        subslice with duplicate indices
-        negative indexing on stack
-        reverse slice on stack
-        empty slice on stack
-        iteration over empty stack
-        extract_lower_triangle on 1x1 matrix
-        threshold at zero
-        to_networkx on all-NaN matrix
-        post_init validation for wrong ndim
-    """
-
-    def test_subslice_empty_indices(self):
-        """Subslice with an empty index list returns a stack with S=0.
-
-        Tests: subslice([]) on a (3,3,5) stack should yield an
-        empty stack with shape (3,3,0).
-        """
-        stack = PairwiseCompMatrixStack(
-            stack=np.random.rand(3, 3, 5),
-            times=[(i, i + 1) for i in range(5)],
-        )
-        result = stack.subslice([])
-        assert result.stack.shape == (3, 3, 0)
-        assert len(result) == 0
-        assert result.times == []
-
-    def test_mean_empty_stack(self):
-        """Mean of an empty stack returns a (3,3) all-NaN matrix.
-
-        Tests: mean() on a (3,3,0) stack should produce NaN values
-        for every cell since there are no slices to average.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)), times=[])
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            result = stack.mean()
-        assert result.matrix.shape == (3, 3)
-        assert np.all(np.isnan(result.matrix))
-
     def test_dim_red_empty_stack(self):
         """Dimensionality reduction on an empty stack raises an error.
 
@@ -404,134 +607,73 @@ class TestPairwiseEdgeCases:
         except Exception:
             pass  # raising is also acceptable
 
-    def test_mean_single_slice(self):
-        """Mean of a single-slice stack equals the single slice itself.
+    def test_dim_red_n_components_exceeds_S(self):
+        """Dimensionality reduction with n_components > S raises ValueError.
 
-        Tests: with known values in a (3,3,1) stack, the mean
-        should be identical to that single slice.
+        Tests: requesting more PCA components than the number of
+        samples (slices) should raise a ValueError from sklearn.
         """
-        known = np.array([[1.0, 0.5, 0.3], [0.5, 1.0, 0.7], [0.3, 0.7, 1.0]])
-        data = known[:, :, np.newaxis]  # (3,3,1)
-        stack = PairwiseCompMatrixStack(stack=data, times=[(0, 1)])
-        result = stack.mean()
-        np.testing.assert_array_almost_equal(result.matrix, known)
-
-    def test_subslice_duplicate_indices(self):
-        """Subslice with duplicate indices keeps duplicates.
-
-        Tests: subslice([0, 0, 1]) on a (3,3,5) stack should
-        return a stack with S=3 where slices 0 and 1 are duplicated.
-        """
-        data = np.random.rand(3, 3, 5)
-        times = [(i, i + 1) for i in range(5)]
-        stack = PairwiseCompMatrixStack(stack=data, times=times)
-        result = stack.subslice([0, 0, 1])
-        assert len(result) == 3
-        np.testing.assert_array_equal(result.stack[:, :, 0], data[:, :, 0])
-        np.testing.assert_array_equal(result.stack[:, :, 1], data[:, :, 0])
-        np.testing.assert_array_equal(result.stack[:, :, 2], data[:, :, 1])
-
-    def test_getitem_negative_index(self):
-        """Negative indexing returns the last slice as a PairwiseCompMatrix.
-
-        Tests: stack[-1] should return the last slice and be
-        an instance of PairwiseCompMatrix.
-        """
-        data = np.random.rand(3, 3, 5)
+        data = np.random.default_rng(0).random((4, 4, 3))
+        for i in range(3):
+            data[:, :, i] = (data[:, :, i] + data[:, :, i].T) / 2
         stack = PairwiseCompMatrixStack(stack=data)
-        result = stack[-1]
-        assert isinstance(result, PairwiseCompMatrix)
-        np.testing.assert_array_equal(result.matrix, data[:, :, -1])
+        with pytest.raises(ValueError):
+            stack.dim_red_on_lower_diagonal_corr_matrix("PCA", n_components=10)
 
-    def test_getitem_reverse_slice(self):
-        """Reverse slicing returns slices in reversed order.
 
-        Tests: stack[::-1] should yield a new stack whose slices
-        are in reverse order compared to the original.
-        """
-        data = np.arange(3 * 3 * 5, dtype=float).reshape(3, 3, 5)
-        stack = PairwiseCompMatrixStack(stack=data)
-        result = stack[::-1]
-        assert isinstance(result, PairwiseCompMatrixStack)
-        assert len(result) == 5
-        for i in range(5):
-            np.testing.assert_array_equal(result.stack[:, :, i], data[:, :, 4 - i])
+# ---------------------------------------------------------------------------
+# Integration tests
+# ---------------------------------------------------------------------------
 
-    def test_getitem_empty_slice(self):
-        """An empty slice range returns a stack with S=0.
 
-        Tests: stack[5:5] on a 5-slice stack should return an
-        empty stack with zero slices.
-        """
-        data = np.random.rand(3, 3, 5)
-        stack = PairwiseCompMatrixStack(stack=data)
-        result = stack[5:5]
-        assert isinstance(result, PairwiseCompMatrixStack)
-        assert len(result) == 0
-        assert result.stack.shape == (3, 3, 0)
+class TestPairwiseIntegration:
+    """Integration tests for pairwise classes with SpikeData and RateSliceStack."""
 
-    def test_iter_empty_stack(self):
-        """Iterating over an empty stack yields no elements.
+    def test_integration_spikedata(self):
+        # Create dummy SpikeData
+        train = [np.array([10, 20, 30]), np.array([15, 25, 35])]
+        sd = SpikeData(train, length=100)
 
-        Tests: list(stack) on a (3,3,0) stack should be an
-        empty list.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)), times=[])
-        items = list(stack)
-        assert items == []
+        sttc_pcm = sd.spike_time_tilings(delt=5.0)
+        assert isinstance(sttc_pcm, PairwiseCompMatrix)
+        assert sttc_pcm.matrix.shape == (2, 2)
+        assert sttc_pcm.metadata["delt"] == 5.0
 
-    def test_extract_lower_triangle_1x1(self):
-        """Lower triangle of a 1x1 matrix is empty.
+    def test_integration_rateslicestack(self):
+        # Create dummy RateSliceStack
+        event_matrix = np.random.rand(2, 50, 5)  # U x T x S
+        rss = RateSliceStack(None, event_matrix=event_matrix)
 
-        Tests: a (1,1) PairwiseCompMatrix has no off-diagonal
-        elements, so extract_lower_triangle should return an empty array.
-        """
-        pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
-        result = pcm.extract_lower_triangle()
-        assert result.shape == (0,)
-        assert len(result) == 0
+        # Test unit_to_unit_correlation - now returns U x U x S
+        corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation()
+        assert isinstance(corr_stack, PairwiseCompMatrixStack)
+        assert isinstance(lag_stack, PairwiseCompMatrixStack)
+        assert len(corr_stack) == 5  # 5 slices
+        assert corr_stack[0].matrix.shape == (2, 2)  # 2x2 unit matrix
+        assert corr_stack.stack.shape == (2, 2, 5)  # n x n x S
 
-    def test_extract_lower_triangle_2x2(self):
-        """
-        Lower triangle of a 2x2 matrix contains exactly one element.
+        # Test get_slice_to_slice_unit_corr_from_stack - returns S x S x U
+        all_slice_corr, av_slice_corr = rss.get_slice_to_slice_unit_corr_from_stack()
+        assert isinstance(all_slice_corr, PairwiseCompMatrixStack)
+        assert all_slice_corr[0].matrix.shape == (5, 5)  # S x S
+        assert all_slice_corr.stack.shape == (
+            5,
+            5,
+            2,
+        )  # n x n x S (where n=S=5, third dim=U=2)
 
-        Tests:
-            (Test Case 1) Result shape is (1,) — one off-diagonal pair.
-            (Test Case 2) Value matches the (1, 0) entry.
-        """
-        matrix = np.array([[1.0, 0.3], [0.7, 1.0]])
-        pcm = PairwiseCompMatrix(matrix=matrix)
-        result = pcm.extract_lower_triangle()
-        assert result.shape == (1,)
-        assert result[0] == pytest.approx(0.7)
-
-    def test_extract_lower_triangle_3x3(self):
-        """
-        Lower triangle of a 3x3 matrix contains 3 elements in column-major order.
-
-        Tests:
-            (Test Case 1) Result shape is (3,) — F = 3*(3-1)/2 = 3.
-            (Test Case 2) Values match entries (1,0), (2,0), (2,1).
-        """
-        matrix = np.array([[1.0, 0.2, 0.3], [0.4, 1.0, 0.5], [0.6, 0.7, 1.0]])
-        pcm = PairwiseCompMatrix(matrix=matrix)
-        result = pcm.extract_lower_triangle()
-        assert result.shape == (3,)
-        np.testing.assert_array_almost_equal(result, [0.4, 0.6, 0.7])
-
-    def test_extract_lower_triangle_with_nan(self):
-        """
-        NaN values in the lower triangle are preserved in the output.
-
-        Tests:
-            (Test Case 1) NaN at position (1,0) appears in the extracted array.
-            (Test Case 2) Non-NaN values are preserved.
-        """
-        matrix = np.array([[1.0, 0.5], [np.nan, 1.0]])
-        pcm = PairwiseCompMatrix(matrix=matrix)
-        result = pcm.extract_lower_triangle()
-        assert result.shape == (1,)
-        assert np.isnan(result[0])
+        # Test get_slice_to_slice_time_corr_from_stack - returns S x S x T
+        all_slice_time_corr, av_slice_time_corr = (
+            rss.get_slice_to_slice_time_corr_from_stack()
+        )
+        assert isinstance(all_slice_time_corr, PairwiseCompMatrixStack)
+        assert all_slice_time_corr[0].matrix.shape == (5, 5)  # S x S
+        assert len(all_slice_time_corr) == 50  # T time bins
+        assert all_slice_time_corr.stack.shape == (
+            5,
+            5,
+            50,
+        )  # n x n x S (where n=S=5, third dim=T=50)
 
     def test_single_unit_spikedata_produces_1x1_pairwise(self):
         """
@@ -548,95 +690,30 @@ class TestPairwiseEdgeCases:
         assert sttc.matrix[0, 0] == pytest.approx(1.0)
         assert sttc.extract_lower_triangle().shape == (0,)
 
-    def test_threshold_zero(self):
-        """Thresholding at zero turns all non-zero values to 1.
+    def test_rigorous_edge_cases(self):
+        # Empty stack
+        empty_stack_data = np.zeros((5, 5, 0))  # n x n x S with S=0
+        empty_stack = PairwiseCompMatrixStack(stack=empty_stack_data)
+        assert len(empty_stack) == 0
 
-        Tests: threshold(0.0) should set every cell whose
-        absolute value exceeds 0 to 1 and leave exact zeros as 0.
-        """
-        matrix = np.array([[0.0, 0.5, 0.0], [0.5, 1.0, -0.3], [0.0, -0.3, 0.0]])
-        pcm = PairwiseCompMatrix(matrix=matrix)
-        result = pcm.threshold(0.0)
-        expected = np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]])
-        np.testing.assert_array_equal(result.matrix, expected)
+        # mean() on empty stack
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            mean_empty = empty_stack.mean()
+            assert np.all(np.isnan(mean_empty.matrix))
 
-    def test_to_networkx_all_nan(self):
-        """All-NaN matrix produces a graph with nodes but no edges.
+        # Single unit matrix
+        single_matrix = np.array([[1.0]])
+        pcm_single = PairwiseCompMatrix(matrix=single_matrix)
+        G_single = pcm_single.to_networkx()
+        assert G_single.number_of_nodes() == 1
+        assert G_single.number_of_edges() == 0
 
-        Tests: to_networkx on a (3,3) all-NaN matrix should
-        return a graph with 3 nodes and 0 edges since NaN weights are skipped.
-        """
-        matrix = np.full((3, 3), np.nan)
-        pcm = PairwiseCompMatrix(matrix=matrix)
-        G = pcm.to_networkx()
-        assert G.number_of_nodes() == 3
-        assert G.number_of_edges() == 0
-
-    def test_post_init_wrong_ndim(self):
-        """PairwiseCompMatrix rejects non-2D arrays.
-
-        Tests: passing a 1D or 3D array to PairwiseCompMatrix
-        should raise a ValueError during __post_init__ validation.
-        """
-        with pytest.raises(ValueError):
-            PairwiseCompMatrix(matrix=np.array([1.0, 2.0, 3.0]))
-
-        with pytest.raises(ValueError):
-            PairwiseCompMatrix(matrix=np.random.rand(3, 3, 3))
-
-    def test_subslice_out_of_bounds_index(self):
-        """Subslice with an out-of-bounds index raises IndexError.
-
-        Tests: subslice([0, 1, 10]) on a (3,3,5) stack should raise
-        an IndexError because index 10 exceeds the stack size of 5.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.random.rand(3, 3, 5))
-        with pytest.raises(IndexError):
-            stack.subslice([0, 1, 10])
-
-    def test_subslice_unsorted_indices(self):
-        """Subslice with unsorted indices preserves the given order.
-
-        Tests: subslice([2, 0, 1]) should return slices in that
-        exact order: result slice 0 = original slice 2, etc.
-        """
-        data = np.arange(3 * 3 * 5, dtype=float).reshape(3, 3, 5)
-        times = [(i, i + 1) for i in range(5)]
-        stack = PairwiseCompMatrixStack(stack=data, times=times)
-
-        result = stack.subslice([2, 0, 1])
-        assert len(result) == 3
-        np.testing.assert_array_equal(result.stack[:, :, 0], data[:, :, 2])
-        np.testing.assert_array_equal(result.stack[:, :, 1], data[:, :, 0])
-        np.testing.assert_array_equal(result.stack[:, :, 2], data[:, :, 1])
-        assert result.times == [(2, 3), (0, 1), (1, 2)]
-
-    def test_threshold_empty_stack(self):
-        """Threshold on an empty stack (S=0) returns an empty stack.
-
-        Tests: thresholding a (3,3,0) stack should return a new
-        stack with shape (3,3,0) and zero length.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.empty((3, 3, 0)))
-        result = stack.threshold(0.5)
-        assert isinstance(result, PairwiseCompMatrixStack)
-        assert result.stack.shape == (3, 3, 0)
-        assert len(result) == 0
-        assert result.metadata["threshold"] == 0.5
-        assert result.metadata["binary"] is True
-
-    def test_dim_red_n_components_exceeds_S(self):
-        """Dimensionality reduction with n_components > S raises ValueError.
-
-        Tests: requesting more PCA components than the number of
-        samples (slices) should raise a ValueError from sklearn.
-        """
-        data = np.random.default_rng(0).random((4, 4, 3))
-        for i in range(3):
-            data[:, :, i] = (data[:, :, i] + data[:, :, i].T) / 2
-        stack = PairwiseCompMatrixStack(stack=data)
-        with pytest.raises(ValueError):
-            stack.dim_red_on_lower_diagonal_corr_matrix("PCA", n_components=10)
+        # Infs
+        inf_matrix = np.array([[1.0, np.inf], [np.inf, 1.0]])
+        pcm_inf = PairwiseCompMatrix(matrix=inf_matrix)
+        G_inf = pcm_inf.to_networkx()
+        assert G_inf.edges[0, 1]["weight"] == float("inf")
 
 
 # ---------------------------------------------------------------------------
@@ -850,6 +927,56 @@ class TestRemoveByConditionMatrix:
         assert result.matrix[0, 1] == 0.8  # 0.8 >= 0.5
         assert result.matrix[1, 2] == 0.6  # 0.6 >= 0.5
 
+    def test_all_nan_condition_matrix(self):
+        """
+        All-NaN condition matrix removes no entries (NaN comparisons are False).
+
+        Tests:
+            (Test Case 1) Result matrix unchanged from target.
+        """
+        target = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
+        condition = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        np.testing.assert_array_equal(result.matrix, target.matrix)
+
+    def test_all_nan_target_matrix(self):
+        """
+        All-NaN target with matching condition replaces matched NaN entries with fill.
+
+        Tests:
+            (Test Case 1) Entries where condition matches are set to fill (0.0).
+            (Test Case 2) Other NaN entries remain NaN.
+        """
+        target = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
+        condition = PairwiseCompMatrix(matrix=np.array([[0.0, 1.0], [1.0, 0.0]]))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5, fill=0.0)
+        assert result.matrix[0, 0] == 0.0  # 0.0 < 0.5 → replaced
+        assert np.isnan(result.matrix[0, 1])  # 1.0 >= 0.5 → stays NaN
+
+    def test_1x1_matrix(self):
+        """
+        1x1 matrix works correctly.
+
+        Tests:
+            (Test Case 1) Single entry replaced when condition matches.
+        """
+        target = PairwiseCompMatrix(matrix=np.array([[0.9]]))
+        condition = PairwiseCompMatrix(matrix=np.array([[0.1]]))
+        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
+        assert np.isnan(result.matrix[0, 0])
+
+    def test_nan_condition_with_abs_variant(self):
+        """
+        abs_ variant on NaN condition: |NaN| is NaN, comparison returns False.
+
+        Tests:
+            (Test Case 1) No entries removed.
+        """
+        target = PairwiseCompMatrix(matrix=np.eye(3))
+        condition = PairwiseCompMatrix(matrix=np.full((3, 3), np.nan))
+        result = target.remove_by_condition(condition, op="abs_lt", threshold=10.0)
+        np.testing.assert_array_equal(result.matrix, target.matrix)
+
 
 # ---------------------------------------------------------------------------
 # remove_by_condition — PairwiseCompMatrixStack
@@ -1019,65 +1146,6 @@ class TestRemoveByConditionStack:
             "threshold": 3.0,
             "fill": 0.0,
         }
-
-
-# ---------------------------------------------------------------------------
-# Edge case tests for remove_by_condition
-# ---------------------------------------------------------------------------
-
-
-class TestRemoveByConditionEdgeCases:
-    """Edge case tests for remove_by_condition on both classes."""
-
-    def test_all_nan_condition_matrix(self):
-        """
-        All-NaN condition matrix removes no entries (NaN comparisons are False).
-
-        Tests:
-            (Test Case 1) Result matrix unchanged from target.
-        """
-        target = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
-        condition = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
-        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
-        np.testing.assert_array_equal(result.matrix, target.matrix)
-
-    def test_all_nan_target_matrix(self):
-        """
-        All-NaN target with matching condition replaces matched NaN entries with fill.
-
-        Tests:
-            (Test Case 1) Entries where condition matches are set to fill (0.0).
-            (Test Case 2) Other NaN entries remain NaN.
-        """
-        target = PairwiseCompMatrix(matrix=np.full((2, 2), np.nan))
-        condition = PairwiseCompMatrix(matrix=np.array([[0.0, 1.0], [1.0, 0.0]]))
-        result = target.remove_by_condition(condition, op="lt", threshold=0.5, fill=0.0)
-        assert result.matrix[0, 0] == 0.0  # 0.0 < 0.5 → replaced
-        assert np.isnan(result.matrix[0, 1])  # 1.0 >= 0.5 → stays NaN
-
-    def test_1x1_matrix(self):
-        """
-        1x1 matrix works correctly.
-
-        Tests:
-            (Test Case 1) Single entry replaced when condition matches.
-        """
-        target = PairwiseCompMatrix(matrix=np.array([[0.9]]))
-        condition = PairwiseCompMatrix(matrix=np.array([[0.1]]))
-        result = target.remove_by_condition(condition, op="lt", threshold=0.5)
-        assert np.isnan(result.matrix[0, 0])
-
-    def test_nan_condition_with_abs_variant(self):
-        """
-        abs_ variant on NaN condition: |NaN| is NaN, comparison returns False.
-
-        Tests:
-            (Test Case 1) No entries removed.
-        """
-        target = PairwiseCompMatrix(matrix=np.eye(3))
-        condition = PairwiseCompMatrix(matrix=np.full((3, 3), np.nan))
-        result = target.remove_by_condition(condition, op="abs_lt", threshold=10.0)
-        np.testing.assert_array_equal(result.matrix, target.matrix)
 
     def test_empty_stack_remove_by_condition(self):
         """

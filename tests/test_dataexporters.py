@@ -58,6 +58,25 @@ skip_no_h5py = pytest.mark.skipif(
 )
 
 
+def _make_sd_with_electrodes() -> SpikeData:
+    """
+    Create a SpikeData with neuron_attributes containing electrode info.
+
+    Returns a SpikeData with 3 units and electrode IDs [4, 7, 2].
+    """
+    trains = [
+        np.array([5.0, 10.0, 15.0]),
+        np.array([2.5, 20.0]),
+        np.array([8.0]),
+    ]
+    neuron_attrs = [
+        {"electrode": 4},
+        {"electrode": 7},
+        {"electrode": 2},
+    ]
+    return SpikeData(trains, length=25.0, neuron_attributes=neuron_attrs)
+
+
 @skip_no_h5py
 class TestHDF5Exporters:
     """
@@ -219,6 +238,77 @@ class TestHDF5Exporters:
         with h5py.File(path, "r") as f:  # type: ignore
             assert np.allclose(np.asarray(f["raw_time"]), sd.raw_time / 1e3)
 
+    def test_export_hdf5_all_empty_trains_ragged(self, tmp_path):
+        """
+        Verify that exporting a SpikeData where all spike trains are empty
+        works correctly with the ragged style.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Round-trip produces a SpikeData with the same number of units.
+            (Test Case 3) All spike trains remain empty after round-trip.
+        """
+        trains = [np.array([], float), np.array([], float), np.array([], float)]
+        sd = SpikeData(trains, length=100.0)
+        path = str(tmp_path / "empty_ragged.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
+
+        sd2 = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="spike_times",
+            spike_times_index_dataset="spike_times_index",
+            spike_times_unit="s",
+        )
+        assert sd2.N == 3
+        for train in sd2.train:
+            assert len(train) == 0
+
+    def test_export_hdf5_all_empty_trains_paired(self, tmp_path):
+        """
+        Verify that exporting a SpikeData where all spike trains are empty
+        works correctly with the paired style.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The resulting HDF5 contains empty idces and times arrays.
+        """
+        trains = [np.array([], float), np.array([], float)]
+        sd = SpikeData(trains, length=50.0)
+        path = str(tmp_path / "empty_paired.h5")
+
+        exporters.export_spikedata_to_hdf5(
+            sd, path, style="paired", idces_dataset="idces", times_dataset="times"
+        )
+
+        import h5py as h5
+
+        with h5.File(path, "r") as f:
+            assert f["idces"].shape[0] == 0
+            assert f["times"].shape[0] == 0
+
+    def test_export_hdf5_very_small_raster_bin_size(self, tmp_path):
+        """
+        Verify that export_spikedata_to_hdf5 with raster style raises
+        ValueError when raster_bin_size_ms is zero or negative.
+
+        Tests:
+            (Test Case 1) raster_bin_size_ms=0 raises ValueError.
+            (Test Case 2) raster_bin_size_ms=-1.0 raises ValueError.
+        """
+        sd = make_sd()
+        path = str(tmp_path / "bad_raster.h5")
+
+        with pytest.raises(ValueError, match="raster_bin_size_ms"):
+            exporters.export_spikedata_to_hdf5(
+                sd, path, style="raster", raster_bin_size_ms=0
+            )
+
+        with pytest.raises(ValueError, match="raster_bin_size_ms"):
+            exporters.export_spikedata_to_hdf5(
+                sd, path, style="raster", raster_bin_size_ms=-1.0
+            )
+
 
 @skip_no_h5py
 class TestNWBExporters:
@@ -245,6 +335,24 @@ class TestNWBExporters:
         sd2 = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
         for a, b in zip(sd.train, sd2.train):
             assert np.allclose(a, b)
+
+    def test_nwb_electrode_roundtrip(self, tmp_path):
+        """
+        Verify electrodes are preserved when exporting SpikeData with electrode info to NWB.
+
+        Tests:
+            (Test Case 1) The 'units/electrodes' dataset exists in the exported NWB file.
+            (Test Case 2) The electrode values match the original electrode IDs [4, 7, 2].
+        """
+        sd = _make_sd_with_electrodes()
+        path = str(tmp_path / "electrodes.nwb")
+
+        sd.to_nwb(path)
+
+        with h5py.File(path, "r") as f:
+            assert "units/electrodes" in f
+            electrodes = np.asarray(f["units/electrodes"])
+            np.testing.assert_array_equal(electrodes, np.array([4, 7, 2]))
 
 
 class TestKiloSortExporters:
@@ -302,6 +410,119 @@ class TestKiloSortExporters:
         clusters = np.load(os.path.join(d, "spike_clusters.npy"))
         assert (clusters == 10).sum() == 3
         assert (clusters == 5).sum() == 2
+
+    def test_export_kilosort_very_small_fs(self, tmp_path):
+        """
+        Verify that exporting to KiloSort with a very small fs_Hz
+        does not produce integer overflow. With very small fs_Hz, sample indices
+        should be very small numbers (close to 0).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Spike times in samples are finite (no overflow).
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_small_fs")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=0.001)
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        assert np.all(np.isfinite(times))
+
+    def test_export_kilosort_very_large_fs(self, tmp_path):
+        """
+        Verify that exporting to KiloSort with a very large fs_Hz
+        does not produce integer overflow. With large fs_Hz and moderate spike
+        times in ms, sample indices should remain within int64 range.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) Spike times in samples are finite (no overflow).
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_large_fs")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1e9)
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        assert np.all(np.isfinite(times))
+        # With fs_Hz=1e9 and times in ms (max 20ms), samples = 20 * 1e6 = 2e7
+        # which is well within int64 range
+        assert times.max() < np.iinfo(np.int64).max
+
+    def test_export_kilosort_duplicate_cluster_ids(self, tmp_path):
+        """
+        Verify that export_spikedata_to_kilosort accepts duplicate
+        cluster_ids (two units mapping to the same cluster ID).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The cluster array contains the duplicated ID for both units.
+        """
+        trains = [
+            np.array([5.0, 10.0]),
+            np.array([15.0, 20.0]),
+        ]
+        sd = SpikeData(trains, length=25.0)
+        d = str(tmp_path / "ks_dup")
+        os.makedirs(d)
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0, cluster_ids=[7, 7])
+        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
+        # All 4 spikes should map to cluster 7
+        assert np.all(clusters == 7)
+        assert len(clusters) == 4
+
+    def test_kilosort_channel_map_written(self, tmp_path):
+        """
+        Verify that channel_map.npy is created when SpikeData has electrode info.
+
+        Tests:
+            (Test Case 1) channel_map.npy file exists after export.
+            (Test Case 2) channel_map.npy contains the correct electrode IDs [4, 7, 2].
+        """
+        sd = _make_sd_with_electrodes()
+        d = str(tmp_path / "ks_chmap")
+
+        sd.to_kilosort(d, fs_Hz=1000.0)
+
+        channel_map_path = os.path.join(d, "channel_map.npy")
+        assert os.path.exists(channel_map_path)
+        channel_map = np.load(channel_map_path)
+        np.testing.assert_array_equal(channel_map, np.array([4, 7, 2]))
+
+    def test_kilosort_time_unit_ms(self, tmp_path):
+        """
+        Verify spike_times.npy values are in milliseconds when time_unit='ms'.
+
+        Tests:
+            (Test Case 1) Exported spike times match the original millisecond values.
+        """
+        sd = _make_sd_with_electrodes()
+        d = str(tmp_path / "ks_ms")
+
+        sd.to_kilosort(d, fs_Hz=1000.0, time_unit="ms")
+
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        # Collect all spike times in ms from the original trains, in unit order
+        expected_ms = np.concatenate([t for t in sd.train if len(t) > 0])
+        np.testing.assert_allclose(times, expected_ms)
+
+    def test_kilosort_time_unit_seconds(self, tmp_path):
+        """
+        Verify spike_times.npy values are in seconds when time_unit='s'.
+
+        Tests:
+            (Test Case 1) Exported spike times equal original ms values divided by 1000.
+        """
+        sd = _make_sd_with_electrodes()
+        d = str(tmp_path / "ks_s")
+
+        sd.to_kilosort(d, fs_Hz=1000.0, time_unit="s")
+
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        expected_s = np.concatenate([t for t in sd.train if len(t) > 0]) / 1e3
+        np.testing.assert_allclose(times, expected_s)
 
 
 class TestPickleExporters:
@@ -389,244 +610,3 @@ class TestPickleExporters:
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
-
-
-class TestDataExportersEdgeCases:
-    """Edge case tests for data export functions."""
-
-    @skip_no_h5py
-    def test_export_hdf5_all_empty_trains_ragged(self, tmp_path):
-        """
-        Verify that exporting a SpikeData where all spike trains are empty
-        works correctly with the ragged style.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) Round-trip produces a SpikeData with the same number of units.
-            (Test Case 3) All spike trains remain empty after round-trip.
-        """
-        trains = [np.array([], float), np.array([], float), np.array([], float)]
-        sd = SpikeData(trains, length=100.0)
-        path = str(tmp_path / "empty_ragged.h5")
-
-        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
-
-        sd2 = loaders.load_spikedata_from_hdf5(
-            path,
-            spike_times_dataset="spike_times",
-            spike_times_index_dataset="spike_times_index",
-            spike_times_unit="s",
-        )
-        assert sd2.N == 3
-        for train in sd2.train:
-            assert len(train) == 0
-
-    @skip_no_h5py
-    def test_export_hdf5_all_empty_trains_paired(self, tmp_path):
-        """
-        Verify that exporting a SpikeData where all spike trains are empty
-        works correctly with the paired style.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) The resulting HDF5 contains empty idces and times arrays.
-        """
-        trains = [np.array([], float), np.array([], float)]
-        sd = SpikeData(trains, length=50.0)
-        path = str(tmp_path / "empty_paired.h5")
-
-        exporters.export_spikedata_to_hdf5(
-            sd, path, style="paired", idces_dataset="idces", times_dataset="times"
-        )
-
-        import h5py as h5
-
-        with h5.File(path, "r") as f:
-            assert f["idces"].shape[0] == 0
-            assert f["times"].shape[0] == 0
-
-    @skip_no_h5py
-    def test_export_hdf5_very_small_raster_bin_size(self, tmp_path):
-        """
-        Verify that export_spikedata_to_hdf5 with raster style raises
-        ValueError when raster_bin_size_ms is zero or negative.
-
-        Tests:
-            (Test Case 1) raster_bin_size_ms=0 raises ValueError.
-            (Test Case 2) raster_bin_size_ms=-1.0 raises ValueError.
-        """
-        sd = make_sd()
-        path = str(tmp_path / "bad_raster.h5")
-
-        with pytest.raises(ValueError, match="raster_bin_size_ms"):
-            exporters.export_spikedata_to_hdf5(
-                sd, path, style="raster", raster_bin_size_ms=0
-            )
-
-        with pytest.raises(ValueError, match="raster_bin_size_ms"):
-            exporters.export_spikedata_to_hdf5(
-                sd, path, style="raster", raster_bin_size_ms=-1.0
-            )
-
-    def test_export_kilosort_very_small_fs(self, tmp_path):
-        """
-        Verify that exporting to KiloSort with a very small fs_Hz
-        does not produce integer overflow. With very small fs_Hz, sample indices
-        should be very small numbers (close to 0).
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) Spike times in samples are finite (no overflow).
-        """
-        sd = make_sd()
-        d = str(tmp_path / "ks_small_fs")
-        os.makedirs(d)
-
-        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=0.001)
-        times = np.load(os.path.join(d, "spike_times.npy"))
-        assert np.all(np.isfinite(times))
-
-    def test_export_kilosort_very_large_fs(self, tmp_path):
-        """
-        Verify that exporting to KiloSort with a very large fs_Hz
-        does not produce integer overflow. With large fs_Hz and moderate spike
-        times in ms, sample indices should remain within int64 range.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) Spike times in samples are finite (no overflow).
-        """
-        sd = make_sd()
-        d = str(tmp_path / "ks_large_fs")
-        os.makedirs(d)
-
-        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1e9)
-        times = np.load(os.path.join(d, "spike_times.npy"))
-        assert np.all(np.isfinite(times))
-        # With fs_Hz=1e9 and times in ms (max 20ms), samples = 20 * 1e6 = 2e7
-        # which is well within int64 range
-        assert times.max() < np.iinfo(np.int64).max
-
-    def test_export_kilosort_duplicate_cluster_ids(self, tmp_path):
-        """
-        Verify that export_spikedata_to_kilosort accepts duplicate
-        cluster_ids (two units mapping to the same cluster ID).
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) The cluster array contains the duplicated ID for both units.
-        """
-        trains = [
-            np.array([5.0, 10.0]),
-            np.array([15.0, 20.0]),
-        ]
-        sd = SpikeData(trains, length=25.0)
-        d = str(tmp_path / "ks_dup")
-        os.makedirs(d)
-
-        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0, cluster_ids=[7, 7])
-        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
-        # All 4 spikes should map to cluster 7
-        assert np.all(clusters == 7)
-        assert len(clusters) == 4
-
-
-def _make_sd_with_electrodes() -> SpikeData:
-    """
-    Create a SpikeData with neuron_attributes containing electrode info.
-
-    Returns a SpikeData with 3 units and electrode IDs [4, 7, 2].
-    """
-    trains = [
-        np.array([5.0, 10.0, 15.0]),
-        np.array([2.5, 20.0]),
-        np.array([8.0]),
-    ]
-    neuron_attrs = [
-        {"electrode": 4},
-        {"electrode": 7},
-        {"electrode": 2},
-    ]
-    return SpikeData(trains, length=25.0, neuron_attributes=neuron_attrs)
-
-
-class TestKiloSortExportersExtended:
-    """
-    Extended tests for KiloSort/Phy export covering channel maps and time units.
-    """
-
-    def test_kilosort_channel_map_written(self, tmp_path):
-        """
-        Verify that channel_map.npy is created when SpikeData has electrode info.
-
-        Tests:
-            (Test Case 1) channel_map.npy file exists after export.
-            (Test Case 2) channel_map.npy contains the correct electrode IDs [4, 7, 2].
-        """
-        sd = _make_sd_with_electrodes()
-        d = str(tmp_path / "ks_chmap")
-
-        sd.to_kilosort(d, fs_Hz=1000.0)
-
-        channel_map_path = os.path.join(d, "channel_map.npy")
-        assert os.path.exists(channel_map_path)
-        channel_map = np.load(channel_map_path)
-        np.testing.assert_array_equal(channel_map, np.array([4, 7, 2]))
-
-    def test_kilosort_time_unit_ms(self, tmp_path):
-        """
-        Verify spike_times.npy values are in milliseconds when time_unit='ms'.
-
-        Tests:
-            (Test Case 1) Exported spike times match the original millisecond values.
-        """
-        sd = _make_sd_with_electrodes()
-        d = str(tmp_path / "ks_ms")
-
-        sd.to_kilosort(d, fs_Hz=1000.0, time_unit="ms")
-
-        times = np.load(os.path.join(d, "spike_times.npy"))
-        # Collect all spike times in ms from the original trains, in unit order
-        expected_ms = np.concatenate([t for t in sd.train if len(t) > 0])
-        np.testing.assert_allclose(times, expected_ms)
-
-    def test_kilosort_time_unit_seconds(self, tmp_path):
-        """
-        Verify spike_times.npy values are in seconds when time_unit='s'.
-
-        Tests:
-            (Test Case 1) Exported spike times equal original ms values divided by 1000.
-        """
-        sd = _make_sd_with_electrodes()
-        d = str(tmp_path / "ks_s")
-
-        sd.to_kilosort(d, fs_Hz=1000.0, time_unit="s")
-
-        times = np.load(os.path.join(d, "spike_times.npy"))
-        expected_s = np.concatenate([t for t in sd.train if len(t) > 0]) / 1e3
-        np.testing.assert_allclose(times, expected_s)
-
-
-@skip_no_h5py
-class TestNWBExportersExtended:
-    """
-    Extended tests for NWB export covering electrode round-trips.
-    """
-
-    def test_nwb_electrode_roundtrip(self, tmp_path):
-        """
-        Verify electrodes are preserved when exporting SpikeData with electrode info to NWB.
-
-        Tests:
-            (Test Case 1) The 'units/electrodes' dataset exists in the exported NWB file.
-            (Test Case 2) The electrode values match the original electrode IDs [4, 7, 2].
-        """
-        sd = _make_sd_with_electrodes()
-        path = str(tmp_path / "electrodes.nwb")
-
-        sd.to_nwb(path)
-
-        with h5py.File(path, "r") as f:
-            assert "units/electrodes" in f
-            electrodes = np.asarray(f["units/electrodes"])
-            np.testing.assert_array_equal(electrodes, np.array([4, 7, 2]))

@@ -433,6 +433,59 @@ class TestButterFilter:
         out_2d = butter_filter(data_2d, highcut=100.0, fs=1000.0)
         assert out_2d.shape == data_2d.shape
 
+    def test_butter_filter_single_sample(self):
+        """
+        sosfiltfilt requires more than one sample; a single-sample input
+        should raise an error.
+
+        Tests:
+            (Test Case 1) Single-element array raises ValueError from
+                scipy.signal.sosfiltfilt (padlen requirement).
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.array([1.0]), highcut=100.0, fs=1000.0)
+
+    def test_highcut_equals_nyquist_raises(self):
+        """
+        When highcut equals exactly fs/2, the normalized frequency Wn = 1.0
+        which is invalid for a digital Butterworth filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) highcut = fs/2 = 500 Hz at fs=1000 Hz.
+                Wn = 500/1000*2 = 1.0. scipy.signal.iirfilter raises
+                ValueError for Wn >= 1 in digital mode.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), highcut=500.0, fs=1000.0)
+
+    def test_highcut_exceeds_nyquist_raises(self):
+        """
+        When highcut exceeds fs/2, the normalized frequency Wn > 1.0
+        which is invalid for a digital Butterworth filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) highcut = 600 Hz at fs=1000 Hz.
+                Wn = 600/1000*2 = 1.2. scipy.signal.iirfilter raises
+                ValueError for Wn > 1 in digital mode.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), highcut=600.0, fs=1000.0)
+
+    def test_lowcut_equals_nyquist_raises(self):
+        """
+        When lowcut equals fs/2 in highpass mode, the normalized frequency
+        Wn = 1.0 which is invalid for a digital filter. scipy raises
+        ValueError.
+
+        Tests:
+            (Test Case 1) lowcut = fs/2 = 500 Hz at fs=1000 Hz
+                (highpass mode). Wn = 1.0 raises ValueError.
+        """
+        with pytest.raises(ValueError):
+            butter_filter(np.ones(100), lowcut=500.0, fs=1000.0)
+
 
 # ---------------------------------------------------------------------------
 # trough_between
@@ -547,6 +600,52 @@ class TestTimesFromMs:
         with pytest.raises(ValueError, match="Unknown time unit"):
             times_from_ms(np.array([1.0]), "minutes", None)
 
+    def test_negative_times_to_samples(self):
+        """
+        Negative ms values converted to samples produce negative integers
+        via np.rint(). The function does not validate sign.
+
+        Tests:
+            (Test Case 1) Negative ms values [-1.0, -0.5, -10.0] at
+                20 kHz. np.rint(-1.0 * 20) = -20, np.rint(-0.5 * 20) = -10,
+                np.rint(-10.0 * 20) = -200. Result dtype is int.
+        """
+        t = np.array([-1.0, -0.5, -10.0])
+        result = times_from_ms(t, "samples", fs_Hz=20000.0)
+        np.testing.assert_array_equal(result, [-20, -10, -200])
+        assert result.dtype == int
+
+    def test_very_large_ms_values_to_samples(self):
+        """
+        Very large ms values may overflow when converted to int samples.
+        Values within int64 range convert correctly; values exceeding it
+        silently overflow.
+
+        Tests:
+            (Test Case 1) 1e12 ms at 20 kHz = 2e13 samples, fits in
+                int64. Verify correct conversion.
+            (Test Case 2) 1e18 ms at 20 kHz = 2e19 samples, exceeds
+                int64 max (~9.2e18). Verify result does not match the
+                expected float value (silent overflow).
+        """
+        import warnings
+
+        # Case a: large but within int64 range
+        t_ok = np.array([1e12])
+        result_ok = times_from_ms(t_ok, "samples", fs_Hz=20000.0)
+        expected_ok = int(1e12 * 20)
+        assert result_ok[0] == expected_ok
+
+        # Case b: overflow territory (2e19 > int64 max ~9.2e18)
+        # numpy may emit a RuntimeWarning on int64 overflow
+        t_overflow = np.array([1e18])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result_overflow = times_from_ms(t_overflow, "samples", fs_Hz=20000.0)
+        expected_float = 1e18 * 20.0
+        # The int64 cast silently overflows; the result will not match
+        assert result_overflow[0] != expected_float
+
 
 # ---------------------------------------------------------------------------
 # to_ms
@@ -625,6 +724,42 @@ class TestToMs:
         via_samp = times_from_ms(original, "samples", fs_Hz=20000.0)
         back_samp = to_ms(via_samp.astype(float), "samples", fs_Hz=20000.0)
         np.testing.assert_allclose(back_samp, original, atol=0.05)
+
+    def test_inf_input_propagates(self):
+        """
+        Infinite values propagate through arithmetic without raising.
+
+        Tests:
+            (Test Case 1) np.inf in seconds -> inf * 1000 = inf in ms.
+            (Test Case 2) -np.inf in seconds -> -inf in ms.
+        """
+        v = np.array([np.inf, -np.inf])
+        result = to_ms(v, "s", None)
+        assert np.isinf(result[0]) and result[0] > 0
+        assert np.isinf(result[1]) and result[1] < 0
+
+    def test_nan_input_propagates(self):
+        """
+        NaN values propagate through arithmetic without raising.
+
+        Tests:
+            (Test Case 1) np.nan in seconds -> nan * 1000 = nan in ms.
+        """
+        v = np.array([np.nan])
+        result = to_ms(v, "s", None)
+        assert np.isnan(result[0])
+
+    def test_inf_nan_ms_identity(self):
+        """
+        Inf and NaN pass through the ms identity path unchanged.
+
+        Tests:
+            (Test Case 1) to_ms with unit='ms' returns inf/nan as float.
+        """
+        v = np.array([np.inf, np.nan])
+        result = to_ms(v, "ms", None)
+        assert np.isinf(result[0])
+        assert np.isnan(result[1])
 
 
 # ---------------------------------------------------------------------------
@@ -876,10 +1011,6 @@ class TestUMAPGraphCommunities:
             UMAP_graph_communities(data)
 
 
-# ---------------------------------------------------------------------------
-# Edge-case tests for core utils (Group 2)
-# ---------------------------------------------------------------------------
-
 from SpikeLab.spikedata.utils import (
     _resampled_isi,
     randomize,
@@ -887,22 +1018,6 @@ from SpikeLab.spikedata.utils import (
     get_sttc,
     swap,
 )
-
-
-class TestButterFilterEdgeCases:
-    """Edge-case tests for butter_filter."""
-
-    def test_butter_filter_single_sample(self):
-        """
-        sosfiltfilt requires more than one sample; a single-sample input
-        should raise an error.
-
-        Tests:
-            (Test Case 1) Single-element array raises ValueError from
-                scipy.signal.sosfiltfilt (padlen requirement).
-        """
-        with pytest.raises(ValueError):
-            butter_filter(np.array([1.0]), highcut=100.0, fs=1000.0)
 
 
 class TestResampledIsi:
@@ -974,8 +1089,8 @@ class TestRandomize:
         assert np.sum(result) == 1
 
 
-class TestExtractWaveformsEdgeCases:
-    """Edge-case tests for extract_waveforms with invalid input shapes."""
+class TestExtractWaveforms:
+    """Tests for extract_waveforms."""
 
     def test_extract_waveforms_1d_raw_data(self):
         """
@@ -1117,205 +1232,13 @@ class TestExtractWaveformsEdgeCases:
         assert result.shape[0] == 4
 
 
-# ---------------------------------------------------------------------------
-# Edge-case tests for butter_filter (MED priority)
-# ---------------------------------------------------------------------------
 
 
-class TestButterFilterEdgeCasesMed:
-    """MED-priority edge-case tests for butter_filter."""
 
-    def test_highcut_equals_nyquist_raises(self):
-        """
-        When highcut equals exactly fs/2, the normalized frequency Wn = 1.0
-        which is invalid for a digital Butterworth filter. scipy raises
-        ValueError.
-
-        Tests:
-            (Test Case 1) highcut = fs/2 = 500 Hz at fs=1000 Hz.
-                Wn = 500/1000*2 = 1.0. scipy.signal.iirfilter raises
-                ValueError for Wn >= 1 in digital mode.
-        """
-        with pytest.raises(ValueError):
-            butter_filter(np.ones(100), highcut=500.0, fs=1000.0)
-
-    def test_highcut_exceeds_nyquist_raises(self):
-        """
-        When highcut exceeds fs/2, the normalized frequency Wn > 1.0
-        which is invalid for a digital Butterworth filter. scipy raises
-        ValueError.
-
-        Tests:
-            (Test Case 1) highcut = 600 Hz at fs=1000 Hz.
-                Wn = 600/1000*2 = 1.2. scipy.signal.iirfilter raises
-                ValueError for Wn > 1 in digital mode.
-        """
-        with pytest.raises(ValueError):
-            butter_filter(np.ones(100), highcut=600.0, fs=1000.0)
-
-    def test_lowcut_equals_nyquist_raises(self):
-        """
-        When lowcut equals fs/2 in highpass mode, the normalized frequency
-        Wn = 1.0 which is invalid for a digital filter. scipy raises
-        ValueError.
-
-        Tests:
-            (Test Case 1) lowcut = fs/2 = 500 Hz at fs=1000 Hz
-                (highpass mode). Wn = 1.0 raises ValueError.
-        """
-        with pytest.raises(ValueError):
-            butter_filter(np.ones(100), lowcut=500.0, fs=1000.0)
 
 
 # ---------------------------------------------------------------------------
-# Edge-case tests for times_from_ms (MED priority)
-# ---------------------------------------------------------------------------
-
-
-class TestTimesFromMsEdgeCases:
-    """MED-priority edge-case tests for times_from_ms."""
-
-    def test_negative_times_to_samples(self):
-        """
-        Negative ms values converted to samples produce negative integers
-        via np.rint(). The function does not validate sign.
-
-        Tests:
-            (Test Case 1) Negative ms values [-1.0, -0.5, -10.0] at
-                20 kHz. np.rint(-1.0 * 20) = -20, np.rint(-0.5 * 20) = -10,
-                np.rint(-10.0 * 20) = -200. Result dtype is int.
-        """
-        t = np.array([-1.0, -0.5, -10.0])
-        result = times_from_ms(t, "samples", fs_Hz=20000.0)
-        np.testing.assert_array_equal(result, [-20, -10, -200])
-        assert result.dtype == int
-
-    def test_very_large_ms_values_to_samples(self):
-        """
-        Very large ms values may overflow when converted to int samples.
-        Values within int64 range convert correctly; values exceeding it
-        silently overflow.
-
-        Tests:
-            (Test Case 1) 1e12 ms at 20 kHz = 2e13 samples, fits in
-                int64. Verify correct conversion.
-            (Test Case 2) 1e18 ms at 20 kHz = 2e19 samples, exceeds
-                int64 max (~9.2e18). Verify result does not match the
-                expected float value (silent overflow).
-        """
-        import warnings
-
-        # Case a: large but within int64 range
-        t_ok = np.array([1e12])
-        result_ok = times_from_ms(t_ok, "samples", fs_Hz=20000.0)
-        expected_ok = int(1e12 * 20)
-        assert result_ok[0] == expected_ok
-
-        # Case b: overflow territory (2e19 > int64 max ~9.2e18)
-        # numpy may emit a RuntimeWarning on int64 overflow
-        t_overflow = np.array([1e18])
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            result_overflow = times_from_ms(t_overflow, "samples", fs_Hz=20000.0)
-        expected_float = 1e18 * 20.0
-        # The int64 cast silently overflows; the result will not match
-        assert result_overflow[0] != expected_float
-
-
-# ---------------------------------------------------------------------------
-# Edge-case tests for to_ms (MED priority)
-# ---------------------------------------------------------------------------
-
-
-class TestToMsEdgeCases:
-    """MED-priority edge-case tests for to_ms."""
-
-    def test_inf_input_propagates(self):
-        """
-        Infinite values propagate through arithmetic without raising.
-
-        Tests:
-            (Test Case 1) np.inf in seconds -> inf * 1000 = inf in ms.
-            (Test Case 2) -np.inf in seconds -> -inf in ms.
-        """
-        v = np.array([np.inf, -np.inf])
-        result = to_ms(v, "s", None)
-        assert np.isinf(result[0]) and result[0] > 0
-        assert np.isinf(result[1]) and result[1] < 0
-
-    def test_nan_input_propagates(self):
-        """
-        NaN values propagate through arithmetic without raising.
-
-        Tests:
-            (Test Case 1) np.nan in seconds -> nan * 1000 = nan in ms.
-        """
-        v = np.array([np.nan])
-        result = to_ms(v, "s", None)
-        assert np.isnan(result[0])
-
-    def test_inf_nan_ms_identity(self):
-        """
-        Inf and NaN pass through the ms identity path unchanged.
-
-        Tests:
-            (Test Case 1) to_ms with unit='ms' returns inf/nan as float.
-        """
-        v = np.array([np.inf, np.nan])
-        result = to_ms(v, "ms", None)
-        assert np.isinf(result[0])
-        assert np.isnan(result[1])
-
-
-# ---------------------------------------------------------------------------
-# Edge-case tests for get_sttc (MED priority)
-# ---------------------------------------------------------------------------
-
-
-class TestGetSttcEdgeCases:
-    """MED-priority edge-case tests for get_sttc."""
-
-    def test_negative_spike_times(self):
-        """
-        Negative spike times are not validated by get_sttc. The function
-        proceeds with the arithmetic and returns a finite float. With an
-        explicit length, _sttc_ta uses min(delt, tA[0]) which can produce
-        negative base values.
-
-        Tests:
-            (Test Case 1) Spike trains with negative times and explicit
-                length. The function returns a finite float (no crash).
-        """
-        tA = [-50.0, -30.0, -10.0, 10.0, 30.0]
-        tB = [-40.0, -20.0, 0.0, 20.0, 40.0]
-        result = get_sttc(tA, tB, delt=20.0, length=100.0)
-        assert isinstance(result, (float, np.floating))
-        assert np.isfinite(result)
-
-    def test_very_large_delt_relative_to_recording(self):
-        """
-        When delt is much larger than the recording length, every spike is
-        within delt of every other spike (PA=PB=1) and the tiled area
-        covers the full recording (TA~1, TB~1). The STTC formula's
-        PA*TB = 1 guard returns 0 for that term.
-
-        Tests:
-            (Test Case 1) delt=1e6 on a 50 ms recording with 3 spikes
-                per train. PA=PB=1 and TA, TB >= 1, so both terms hit
-                the PA*TB==1 or PB*TA==1 guard. Result is 0.0.
-        """
-        tA = [10.0, 20.0, 30.0]
-        tB = [15.0, 25.0, 35.0]
-        result = get_sttc(tA, tB, delt=1e6, length=50.0)
-        assert isinstance(result, (float, np.floating))
-        # With huge delt: PA=1, PB=1, TA and TB are clamped sums / length.
-        # When TA >= 1 and PA=1: PA*TB >= 1 -> guard sets term to 0.
-        # Result should be finite
-        assert np.isfinite(result)
-
-
-# ---------------------------------------------------------------------------
-# get_sttc — standalone tests
+# get_sttc
 # ---------------------------------------------------------------------------
 
 
@@ -1457,6 +1380,44 @@ class TestGetSttc:
         # Identical trains: exact matches exist
         result_same = get_sttc(tA, tA, delt=0, length=60.0)
         assert result_same == pytest.approx(1.0)
+
+    def test_negative_spike_times(self):
+        """
+        Negative spike times are not validated by get_sttc. The function
+        proceeds with the arithmetic and returns a finite float. With an
+        explicit length, _sttc_ta uses min(delt, tA[0]) which can produce
+        negative base values.
+
+        Tests:
+            (Test Case 1) Spike trains with negative times and explicit
+                length. The function returns a finite float (no crash).
+        """
+        tA = [-50.0, -30.0, -10.0, 10.0, 30.0]
+        tB = [-40.0, -20.0, 0.0, 20.0, 40.0]
+        result = get_sttc(tA, tB, delt=20.0, length=100.0)
+        assert isinstance(result, (float, np.floating))
+        assert np.isfinite(result)
+
+    def test_very_large_delt_relative_to_recording(self):
+        """
+        When delt is much larger than the recording length, every spike is
+        within delt of every other spike (PA=PB=1) and the tiled area
+        covers the full recording (TA~1, TB~1). The STTC formula's
+        PA*TB = 1 guard returns 0 for that term.
+
+        Tests:
+            (Test Case 1) delt=1e6 on a 50 ms recording with 3 spikes
+                per train. PA=PB=1 and TA, TB >= 1, so both terms hit
+                the PA*TB==1 or PB*TA==1 guard. Result is 0.0.
+        """
+        tA = [10.0, 20.0, 30.0]
+        tB = [15.0, 25.0, 35.0]
+        result = get_sttc(tA, tB, delt=1e6, length=50.0)
+        assert isinstance(result, (float, np.floating))
+        # With huge delt: PA=1, PB=1, TA and TB are clamped sums / length.
+        # When TA >= 1 and PA=1: PA*TB >= 1 -> guard sets term to 0.
+        # Result should be finite
+        assert np.isfinite(result)
 
 
 # ---------------------------------------------------------------------------
@@ -1679,6 +1640,63 @@ class TestConsecutiveDurations:
         result = consecutive_durations([0.1, 0.9, 0.9, 0.1], 0.5, mode="above")
         np.testing.assert_array_equal(result, [2])
 
+    def test_single_element_signal(self):
+        """
+        Single-element signal produces a run of length 1.
+
+        Tests:
+            (Test Case 1) [0.6] with threshold 0.5 above → [1].
+        """
+        result = consecutive_durations(np.array([0.6]), 0.5, mode="above")
+        np.testing.assert_array_equal(result, [1])
+
+    def test_all_nan_signal(self):
+        """
+        All-NaN signal produces empty result for both modes.
+
+        Tests:
+            (Test Case 1) NaN >= threshold is False → no above runs.
+            (Test Case 2) NaN < threshold is False → no below runs.
+        """
+        sig = np.array([np.nan, np.nan, np.nan])
+        above = consecutive_durations(sig, 0.5, mode="above")
+        below = consecutive_durations(sig, 0.5, mode="below")
+        assert above.size == 0
+        assert below.size == 0
+
+    def test_min_dur_filters_all(self):
+        """
+        min_dur larger than all runs returns empty.
+
+        Tests:
+            (Test Case 1) Runs of length 1 and 2 filtered by min_dur=5.
+        """
+        signal = np.array([0.6, 0.1, 0.7, 0.8, 0.1])
+        result = consecutive_durations(signal, 0.5, mode="above", min_dur=5)
+        assert result.size == 0
+
+    def test_min_dur_zero(self):
+        """
+        min_dur=0 keeps all runs.
+
+        Tests:
+            (Test Case 1) Even length-1 runs are kept.
+        """
+        signal = np.array([0.6, 0.1, 0.7, 0.1])
+        result = consecutive_durations(signal, 0.5, mode="above", min_dur=0)
+        np.testing.assert_array_equal(result, [1, 1])
+
+    def test_negative_values(self):
+        """
+        Negative values in signal are handled correctly.
+
+        Tests:
+            (Test Case 1) Negative values below threshold=0 in 'below' mode.
+        """
+        signal = np.array([-1.0, -2.0, 0.5, -0.5])
+        result = consecutive_durations(signal, 0.0, mode="below")
+        np.testing.assert_array_equal(result, [2, 1])
+
 
 # ---------------------------------------------------------------------------
 # gplvm_state_entropy
@@ -1755,6 +1773,30 @@ class TestGplvmStateEntropy:
         result = gplvm_state_entropy(posterior)
         assert result.shape == (1,)
         np.testing.assert_allclose(result[0], np.log(4), atol=1e-12)
+
+    def test_entropy_all_zeros_row(self):
+        """
+        Row of all zeros is not a valid probability distribution; entropy is NaN.
+
+        Tests:
+            (Test Case 1) All-zero row produces NaN (not a valid distribution).
+            (Test Case 2) Valid row produces positive entropy.
+        """
+        posterior = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.0]])
+        result = gplvm_state_entropy(posterior)
+        assert np.isnan(result[0])  # Invalid distribution → NaN
+        assert result[1] > 0.0
+
+    def test_entropy_single_state(self):
+        """
+        Single state (K=1) always has entropy 0.
+
+        Tests:
+            (Test Case 1) (T, 1) posterior → all zeros.
+        """
+        posterior = np.ones((5, 1))
+        result = gplvm_state_entropy(posterior)
+        np.testing.assert_allclose(result, 0.0, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -1921,6 +1963,18 @@ class TestGplvmAverageStateProbability:
         result = gplvm_average_state_probability(posterior)
         np.testing.assert_allclose(np.sum(result), 1.0, atol=1e-12)
 
+    def test_avg_state_prob_single_state(self):
+        """
+        Single state (K=1) returns (1,) array.
+
+        Tests:
+            (Test Case 1) Shape is (1,) with value 1.0.
+        """
+        posterior = np.ones((10, 1))
+        result = gplvm_average_state_probability(posterior)
+        assert result.shape == (1,)
+        np.testing.assert_allclose(result[0], 1.0)
+
 
 # ---------------------------------------------------------------------------
 # _get_attr
@@ -1979,112 +2033,6 @@ class TestGetAttr:
             attr = "hello"
 
         assert _get_attr(Obj(), "missing", "default") == "default"
-
-
-# ---------------------------------------------------------------------------
-# Edge case tests for new utility functions
-# ---------------------------------------------------------------------------
-
-
-class TestConsecutiveDurationsEdgeCases:
-    """Edge case tests for consecutive_durations."""
-
-    def test_single_element_signal(self):
-        """
-        Single-element signal produces a run of length 1.
-
-        Tests:
-            (Test Case 1) [0.6] with threshold 0.5 above → [1].
-        """
-        result = consecutive_durations(np.array([0.6]), 0.5, mode="above")
-        np.testing.assert_array_equal(result, [1])
-
-    def test_all_nan_signal(self):
-        """
-        All-NaN signal produces empty result for both modes.
-
-        Tests:
-            (Test Case 1) NaN >= threshold is False → no above runs.
-            (Test Case 2) NaN < threshold is False → no below runs.
-        """
-        sig = np.array([np.nan, np.nan, np.nan])
-        above = consecutive_durations(sig, 0.5, mode="above")
-        below = consecutive_durations(sig, 0.5, mode="below")
-        assert above.size == 0
-        assert below.size == 0
-
-    def test_min_dur_filters_all(self):
-        """
-        min_dur larger than all runs returns empty.
-
-        Tests:
-            (Test Case 1) Runs of length 1 and 2 filtered by min_dur=5.
-        """
-        signal = np.array([0.6, 0.1, 0.7, 0.8, 0.1])
-        result = consecutive_durations(signal, 0.5, mode="above", min_dur=5)
-        assert result.size == 0
-
-    def test_min_dur_zero(self):
-        """
-        min_dur=0 keeps all runs.
-
-        Tests:
-            (Test Case 1) Even length-1 runs are kept.
-        """
-        signal = np.array([0.6, 0.1, 0.7, 0.1])
-        result = consecutive_durations(signal, 0.5, mode="above", min_dur=0)
-        np.testing.assert_array_equal(result, [1, 1])
-
-    def test_negative_values(self):
-        """
-        Negative values in signal are handled correctly.
-
-        Tests:
-            (Test Case 1) Negative values below threshold=0 in 'below' mode.
-        """
-        signal = np.array([-1.0, -2.0, 0.5, -0.5])
-        result = consecutive_durations(signal, 0.0, mode="below")
-        np.testing.assert_array_equal(result, [2, 1])
-
-
-class TestGplvmEdgeCases:
-    """Edge case tests for GPLVM utility functions."""
-
-    def test_entropy_all_zeros_row(self):
-        """
-        Row of all zeros is not a valid probability distribution; entropy is NaN.
-
-        Tests:
-            (Test Case 1) All-zero row produces NaN (not a valid distribution).
-            (Test Case 2) Valid row produces positive entropy.
-        """
-        posterior = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.0]])
-        result = gplvm_state_entropy(posterior)
-        assert np.isnan(result[0])  # Invalid distribution → NaN
-        assert result[1] > 0.0
-
-    def test_entropy_single_state(self):
-        """
-        Single state (K=1) always has entropy 0.
-
-        Tests:
-            (Test Case 1) (T, 1) posterior → all zeros.
-        """
-        posterior = np.ones((5, 1))
-        result = gplvm_state_entropy(posterior)
-        np.testing.assert_allclose(result, 0.0, atol=1e-12)
-
-    def test_avg_state_prob_single_state(self):
-        """
-        Single state (K=1) returns (1,) array.
-
-        Tests:
-            (Test Case 1) Shape is (1,) with value 1.0.
-        """
-        posterior = np.ones((10, 1))
-        result = gplvm_average_state_probability(posterior)
-        assert result.shape == (1,)
-        np.testing.assert_allclose(result[0], 1.0)
 
 
 # ---------------------------------------------------------------------------

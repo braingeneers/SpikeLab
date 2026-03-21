@@ -206,6 +206,119 @@ class TestSpikeSliceStackConstructor:
         starts = [t[0] for t in sss.times]
         assert starts == sorted(starts)
 
+    def test_single_unit_construction(self):
+        """
+        Verify SpikeSliceStack can be constructed with N=1 (single unit).
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Each slice has N=1.
+        """
+        train = [np.array([10.0, 50.0, 90.0, 130.0])]
+        sd = SpikeData(train, length=200.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 40.0), (80.0, 120.0)])
+
+        assert len(sss.spike_stack) == 2
+        for s in sss.spike_stack:
+            assert isinstance(s, SpikeData)
+            assert s.N == 1
+
+    def test_single_spike_total(self):
+        """
+        Tests SpikeSliceStack with only one spike across all units and slices.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Slices without spikes have empty spike trains.
+            (Test Case 3) The slice containing the spike has 1 spike for that unit.
+            (Test Case 4) All slices are valid SpikeData objects.
+
+        Notes:
+            Only one spike exists at 15ms, so the first slice (0-20ms) contains it
+            while the other two slices (40-60ms, 70-90ms) have zero spikes for all
+            units. This verifies that SpikeSliceStack handles near-empty data.
+        """
+        train = [
+            np.array([15.0]),
+            np.array([]),
+        ]
+        sd = SpikeData(train, length=100.0)
+        sss = SpikeSliceStack(
+            sd, times_start_to_end=[(0.0, 20.0), (40.0, 60.0), (70.0, 90.0)]
+        )
+
+        assert len(sss.spike_stack) == 3
+        for s in sss.spike_stack:
+            assert isinstance(s, SpikeData)
+            assert s.N == 2
+
+        # First slice should have 1 spike for unit 0
+        assert len(sss.spike_stack[0].train[0]) == 1
+        # Second and third slices should have 0 spikes for all units
+        for s in sss.spike_stack[1:]:
+            for u in range(s.N):
+                assert len(s.train[u]) == 0
+
+    def test_duplicate_time_windows(self):
+        """
+        Tests SpikeSliceStack with duplicate time windows.
+
+        Tests:
+            (Test Case 1) Construction succeeds with two identical windows.
+            (Test Case 2) Both slices contain identical spike data.
+            (Test Case 3) times list contains both entries.
+
+        Notes:
+            Duplicate time windows are not rejected by the validator because
+            they have the same duration. The result is two slices with identical
+            spike content.
+        """
+        train = [np.array([5.0, 15.0, 50.0, 90.0])]
+        sd = SpikeData(train, length=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 20.0), (0.0, 20.0)])
+
+        assert len(sss.spike_stack) == 2
+        assert len(sss.times) == 2
+        assert sss.times[0] == sss.times[1]
+
+        # Both slices should have the same spikes
+        spikes_0 = sss.spike_stack[0].train[0]
+        spikes_1 = sss.spike_stack[1].train[0]
+        np.testing.assert_array_equal(spikes_0, spikes_1)
+
+    def test_constructor_slices_are_zero_based(self):
+        """
+        Tests that slices from the constructor have 0-based spike times within
+        the window duration.
+
+        Tests:
+            (Test Case 1) All spikes in the slice are >= 0.
+            (Test Case 2) All spikes in the slice are < window duration (100 ms).
+            (Test Case 3) Slice length equals the window duration.
+        """
+        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
+
+        sliced = sss.spike_stack[0]
+        assert sliced.length == 100.0
+        for unit_spikes in sliced.train:
+            if len(unit_spikes) > 0:
+                assert np.all(unit_spikes >= 0)
+                assert np.all(unit_spikes < 100.0)
+
+    def test_constructor_preserves_absolute_times_in_metadata(self):
+        """
+        Tests that the absolute time window is preserved in sss.times even though
+        spike times are 0-based.
+
+        Tests:
+            (Test Case 1) sss.times[0] == (100, 200).
+        """
+        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
+
+        assert sss.times[0] == (100.0, 200.0)
+
 
 class TestToRasterArray:
     """Tests for SpikeSliceStack.to_raster_array()."""
@@ -270,8 +383,6 @@ class TestToRasterArray:
         result = sss.to_raster_array()
         assert result.shape[2] == 1
 
-
-class TestSpikeSliceStackEdgeCases:
     def test_to_raster_array_empty_slices(self):
         """
         Verify to_raster_array handles slices where one window has no spikes.
@@ -298,23 +409,6 @@ class TestSpikeSliceStackEdgeCases:
         # Second slice should be all zeros (no spikes in [80, 100])
         assert np.all(result[:, :, 1] == 0)
 
-    def test_single_unit_construction(self):
-        """
-        Verify SpikeSliceStack can be constructed with N=1 (single unit).
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) Each slice has N=1.
-        """
-        train = [np.array([10.0, 50.0, 90.0, 130.0])]
-        sd = SpikeData(train, length=200.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 40.0), (80.0, 120.0)])
-
-        assert len(sss.spike_stack) == 2
-        for s in sss.spike_stack:
-            assert isinstance(s, SpikeData)
-            assert s.N == 1
-
     def test_to_raster_array_single_unit(self):
         """
         Verify to_raster_array output shape with N=1 (single unit).
@@ -331,69 +425,6 @@ class TestSpikeSliceStackEdgeCases:
 
         assert result.shape[0] == 1  # U
         assert result.shape[2] == 2  # S
-
-    def test_single_spike_total(self):
-        """
-        Tests SpikeSliceStack with only one spike across all units and slices.
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) Slices without spikes have empty spike trains.
-            (Test Case 3) The slice containing the spike has 1 spike for that unit.
-            (Test Case 4) All slices are valid SpikeData objects.
-
-        Notes:
-            Only one spike exists at 15ms, so the first slice (0-20ms) contains it
-            while the other two slices (40-60ms, 70-90ms) have zero spikes for all
-            units. This verifies that SpikeSliceStack handles near-empty data.
-        """
-        train = [
-            np.array([15.0]),
-            np.array([]),
-        ]
-        sd = SpikeData(train, length=100.0)
-        sss = SpikeSliceStack(
-            sd, times_start_to_end=[(0.0, 20.0), (40.0, 60.0), (70.0, 90.0)]
-        )
-
-        assert len(sss.spike_stack) == 3
-        for s in sss.spike_stack:
-            assert isinstance(s, SpikeData)
-            assert s.N == 2
-
-        # First slice should have 1 spike for unit 0
-        assert len(sss.spike_stack[0].train[0]) == 1
-        # Second and third slices should have 0 spikes for all units
-        for s in sss.spike_stack[1:]:
-            for u in range(s.N):
-                assert len(s.train[u]) == 0
-
-    def test_duplicate_time_windows(self):
-        """
-        Tests SpikeSliceStack with duplicate time windows.
-
-        Tests:
-            (Test Case 1) Construction succeeds with two identical windows.
-            (Test Case 2) Both slices contain identical spike data.
-            (Test Case 3) times list contains both entries.
-
-        Notes:
-            Duplicate time windows are not rejected by the validator because
-            they have the same duration. The result is two slices with identical
-            spike content.
-        """
-        train = [np.array([5.0, 15.0, 50.0, 90.0])]
-        sd = SpikeData(train, length=100.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 20.0), (0.0, 20.0)])
-
-        assert len(sss.spike_stack) == 2
-        assert len(sss.times) == 2
-        assert sss.times[0] == sss.times[1]
-
-        # Both slices should have the same spikes
-        spikes_0 = sss.spike_stack[0].train[0]
-        spikes_1 = sss.spike_stack[1].train[0]
-        np.testing.assert_array_equal(spikes_0, spikes_1)
 
 
 class TestSpikeStackConstructor:
@@ -801,6 +832,35 @@ class TestSubtimeByIndex:
                 if len(unit_spikes) > 0:
                     assert np.all(unit_spikes >= 0)
                     assert np.all(unit_spikes < window_duration)
+
+    def test_subtime_by_index_produces_zero_based_slices(self):
+        """
+        Tests that subtime_by_index produces slices with 0-based spike times
+        and correct absolute times in metadata.
+
+        Tests:
+            (Test Case 1) All spikes in the subtimed result are >= 0.
+            (Test Case 2) All spikes in the subtimed result are < 10 (the sub-window duration).
+            (Test Case 3) Result times contain the correct absolute windows.
+        """
+        sd = SpikeData(
+            [np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0])],
+            length=200.0,
+        )
+        times = [(0.0, 100.0), (100.0, 200.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+
+        result = sss.subtime_by_index(5, 15)
+
+        for sd_slice in result.spike_stack:
+            for unit_spikes in sd_slice.train:
+                if len(unit_spikes) > 0:
+                    assert np.all(unit_spikes >= 0)
+                    assert np.all(unit_spikes < 10.0)
+
+        # Absolute times should reflect the sub-window within each original window
+        assert result.times[0] == pytest.approx((5.0, 15.0))
+        assert result.times[1] == pytest.approx((105.0, 115.0))
 
 
 class TestToRasterArrayCustomBin:
@@ -1539,6 +1599,31 @@ class TestOrderUnitsAcrossSlices:
         assert stacks[0].N == 4
         assert len(stacks[0].spike_stack) == 5
 
+    def test_timing_matrix_wrong_shape_raises(self):
+        """
+        Wrong-shaped timing_matrix in order_units_across_slices raises ValueError.
+
+        Tests:
+            (Test Case 1) Shape (3, 5) for 4-unit stack raises ValueError.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5)
+        with pytest.raises(ValueError, match="timing_matrix must have shape"):
+            sss.order_units_across_slices(timing_matrix=np.ones((3, 5)))
+
+    def test_order_units_agg_func_mean(self):
+        """
+        agg_func='mean' produces valid ordering.
+
+        Tests:
+            (Test Case 1) All 4 units in highly-active group.
+            (Test Case 2) Peak times are non-decreasing.
+        """
+        sss = _make_timed_stack(n_units=4, n_slices=5, seed=7)
+        _, ids, _, times, _ = sss.order_units_across_slices(agg_func="mean")
+        assert len(ids[0]) == 4
+        valid = times[0][~np.isnan(times[0])]
+        assert np.all(np.diff(valid) >= 0)
+
 
 # ---------------------------------------------------------------------------
 # get_slice_to_slice_unit_comparison — frac_active override
@@ -1856,81 +1941,6 @@ class TestRankOrderCorrelationSpike:
         with pytest.raises(ValueError, match="2-D"):
             sss.rank_order_correlation(timing_matrix=np.ones(10), n_shuffles=0)
 
-
-class TestZeroBasedInvariant:
-    """Tests that SpikeSliceStack slices always have 0-based spike times."""
-
-    def test_constructor_slices_are_zero_based(self):
-        """
-        Tests that slices from the constructor have 0-based spike times within
-        the window duration.
-
-        Tests:
-            (Test Case 1) All spikes in the slice are >= 0.
-            (Test Case 2) All spikes in the slice are < window duration (100 ms).
-            (Test Case 3) Slice length equals the window duration.
-        """
-        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
-
-        sliced = sss.spike_stack[0]
-        assert sliced.length == 100.0
-        for unit_spikes in sliced.train:
-            if len(unit_spikes) > 0:
-                assert np.all(unit_spikes >= 0)
-                assert np.all(unit_spikes < 100.0)
-
-    def test_constructor_preserves_absolute_times_in_metadata(self):
-        """
-        Tests that the absolute time window is preserved in sss.times even though
-        spike times are 0-based.
-
-        Tests:
-            (Test Case 1) sss.times[0] == (100, 200).
-        """
-        sd = SpikeData([np.array([50.0, 100.0, 150.0, 200.0, 250.0])], length=300.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(100.0, 200.0)])
-
-        assert sss.times[0] == (100.0, 200.0)
-
-    def test_subtime_by_index_produces_zero_based_slices(self):
-        """
-        Tests that subtime_by_index produces slices with 0-based spike times
-        and correct absolute times in metadata.
-
-        Tests:
-            (Test Case 1) All spikes in the subtimed result are >= 0.
-            (Test Case 2) All spikes in the subtimed result are < 10 (the sub-window duration).
-            (Test Case 3) Result times contain the correct absolute windows.
-        """
-        sd = SpikeData(
-            [np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0])],
-            length=200.0,
-        )
-        times = [(0.0, 100.0), (100.0, 200.0)]
-        sss = SpikeSliceStack(sd, times_start_to_end=times)
-
-        result = sss.subtime_by_index(5, 15)
-
-        for sd_slice in result.spike_stack:
-            for unit_spikes in sd_slice.train:
-                if len(unit_spikes) > 0:
-                    assert np.all(unit_spikes >= 0)
-                    assert np.all(unit_spikes < 10.0)
-
-        # Absolute times should reflect the sub-window within each original window
-        assert result.times[0] == pytest.approx((5.0, 15.0))
-        assert result.times[1] == pytest.approx((105.0, 115.0))
-
-
-# ---------------------------------------------------------------------------
-# Edge case tests
-# ---------------------------------------------------------------------------
-
-
-class TestEdgeCasesSpikeTiming:
-    """Edge case tests for timing and rank-order methods on SpikeSliceStack."""
-
     def test_rank_order_single_slice(self):
         """
         Single-slice stack produces (1,1) correlation matrix with NaN off-diagonal.
@@ -1993,31 +2003,6 @@ class TestEdgeCasesSpikeTiming:
             min_overlap=3, min_overlap_frac=0.0, n_shuffles=0
         )
         np.testing.assert_array_equal(corr1.matrix, corr2.matrix)
-
-    def test_timing_matrix_wrong_shape_raises(self):
-        """
-        Wrong-shaped timing_matrix in order_units_across_slices raises ValueError.
-
-        Tests:
-            (Test Case 1) Shape (3, 5) for 4-unit stack raises ValueError.
-        """
-        sss = _make_timed_stack(n_units=4, n_slices=5)
-        with pytest.raises(ValueError, match="timing_matrix must have shape"):
-            sss.order_units_across_slices(timing_matrix=np.ones((3, 5)))
-
-    def test_order_units_agg_func_mean(self):
-        """
-        agg_func='mean' produces valid ordering.
-
-        Tests:
-            (Test Case 1) All 4 units in highly-active group.
-            (Test Case 2) Peak times are non-decreasing.
-        """
-        sss = _make_timed_stack(n_units=4, n_slices=5, seed=7)
-        _, ids, _, times, _ = sss.order_units_across_slices(agg_func="mean")
-        assert len(ids[0]) == 4
-        valid = times[0][~np.isnan(times[0])]
-        assert np.all(np.diff(valid) >= 0)
 
 
 # ---------------------------------------------------------------------------
