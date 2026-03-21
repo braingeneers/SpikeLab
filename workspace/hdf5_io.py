@@ -98,6 +98,11 @@ def load_workspace_full(path: str):
 
     h5_path = f"{path}.h5"
     with h5py.File(h5_path, "r") as f:
+        if "__workspace_id__" not in f.attrs:
+            raise ValueError(
+                f"The HDF5 file '{h5_path}' does not appear to be a SpikeLab "
+                "workspace (missing __workspace_id__ attribute)."
+            )
         ws = AnalysisWorkspace.__new__(AnalysisWorkspace)
         ws.workspace_id = str(f.attrs["__workspace_id__"])
         name = str(f.attrs["__workspace_name__"])
@@ -352,10 +357,20 @@ def _dump_dict(grp, d: dict, created_at: float, note) -> None:
     for k, v in d.items():
         if isinstance(v, list):
             v = np.asarray(v)
+            if v.dtype == object:
+                raise TypeError(
+                    f"Cannot serialize ragged or mixed-type list for key {k!r}. "
+                    "All elements must have the same shape and type."
+                )
         if isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
             child = grp.create_group(k)
             child.attrs["__type__"] = "scalar"
-            child.attrs["__scalar_value__"] = float(v)
+            if isinstance(v, (int, np.integer)):
+                child.attrs["__scalar_value__"] = int(v)
+            elif isinstance(v, (bool, np.bool_)):
+                child.attrs["__scalar_value__"] = bool(v)
+            else:
+                child.attrs["__scalar_value__"] = float(v)
             child.attrs["__scalar_kind__"] = type(v).__name__
         elif isinstance(v, str):
             child = grp.create_group(k)
@@ -506,7 +521,7 @@ def _dump_labels(grp, labels: Optional[list]) -> None:
     """
     if labels is None:
         return
-    non_none = [l for l in labels if l is not None]
+    non_none = [lbl for lbl in labels if lbl is not None]
     if not non_none:
         return
     use_string = any(isinstance(l, str) for l in non_none)

@@ -211,26 +211,6 @@ async def compute_raster(
     }
 
 
-async def compute_sparse_raster(
-    workspace_id: str,
-    namespace: str,
-    key: str,
-    bin_size: float = 20.0,
-) -> Dict[str, Any]:
-    """Compute a sparse raster converted to dense array and store to workspace."""
-    ws = _get_workspace(workspace_id)
-    sd = _get_spikedata(ws, namespace)
-    raster = sd.sparse_raster(bin_size=bin_size).toarray()
-    ws.store(namespace, key, raster)
-    return {
-        "workspace_id": workspace_id,
-        "namespace": namespace,
-        "key": key,
-        "bin_size": bin_size,
-        "info": ws.get_info(namespace, key),
-    }
-
-
 async def compute_channel_raster(
     workspace_id: str,
     namespace: str,
@@ -332,7 +312,7 @@ async def compute_spike_time_tilings(
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
     pcm = sd.spike_time_tilings(delt=delt)
-    ws.store(namespace, key, pcm.matrix)
+    ws.store(namespace, key, pcm)
     return {
         "workspace_id": workspace_id,
         "namespace": namespace,
@@ -354,7 +334,7 @@ async def threshold_spike_time_tilings(
     sd = _get_spikedata(ws, namespace)
     pcm = sd.spike_time_tilings(delt=delt)
     binary_pcm = pcm.threshold(threshold)
-    ws.store(namespace, key, binary_pcm.matrix)
+    ws.store(namespace, key, binary_pcm)
     return {
         "workspace_id": workspace_id,
         "namespace": namespace,
@@ -627,10 +607,20 @@ async def get_data_info(
     """Return SpikeData metadata including neuron count and recording length inline."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
+    # Convert metadata values to JSON-safe types (numpy arrays/scalars → lists/floats)
+    safe_metadata = {}
+    for k, v in sd.metadata.items():
+        if isinstance(v, np.ndarray):
+            safe_metadata[k] = v.tolist()
+        elif isinstance(v, (np.integer, np.floating, np.bool_)):
+            safe_metadata[k] = v.item()
+        else:
+            safe_metadata[k] = v
+
     return {
         "num_neurons": sd.N,
         "length_ms": sd.length,
-        "metadata": sd.metadata,
+        "metadata": safe_metadata,
     }
 
 
@@ -822,16 +812,12 @@ async def compute_pairwise_ccg(
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
 
-    func_map = {
-        "cross_correlation": compute_cross_correlation_with_lag,
-        "cosine_similarity": compute_cosine_similarity_with_lag,
-    }
-    func = func_map.get(compare_func)
-    if func is None:
+    if compare_func not in _COMPARE_FUNCS:
         raise ValueError(
             f"Unknown compare_func {compare_func!r}. "
-            "Choose 'cross_correlation' or 'cosine_similarity'."
+            f"Choose one of {list(_COMPARE_FUNCS.keys())}."
         )
+    func = _COMPARE_FUNCS[compare_func]
 
     corr_matrix, lag_matrix = sd.get_pairwise_ccg(
         compare_func=func, bin_size=bin_size, max_lag=max_lag
@@ -1032,11 +1018,7 @@ async def spike_slice_to_raster(
     """
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
-    dense_list = [
-        spike_slice.sparse_raster(bin_size=bin_size).toarray()
-        for spike_slice in sss.spike_stack
-    ]
-    raster_stack = np.stack(dense_list, axis=2)
+    raster_stack = sss.to_raster_array(bin_size=bin_size)
     ws.store(namespace, key, raster_stack)
     return {
         "workspace_id": workspace_id,
@@ -1066,8 +1048,6 @@ async def align_to_events(
     SpikeSliceStack (kind='spike') or a RateSliceStack (kind='rate') at
     (namespace, key). Out-of-bounds events are dropped with a warning.
     """
-    import numpy as np
-
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
 
@@ -1625,7 +1605,7 @@ async def load_workspace(path: str) -> Dict[str, Any]:
     wm = get_workspace_manager()
     workspace_id = wm.load_workspace(path)
     ws = wm.get_workspace(workspace_id)
-    item_count = sum(len(v) for v in ws._items.values())
+    item_count = sum(len(keys) for keys in ws.list_keys().values())
     return {
         "workspace_id": workspace_id,
         "name": ws.name,
@@ -1922,6 +1902,7 @@ async def get_unit_timing_per_slice_spike(
     timing: str = "median",
     min_spikes: int = 2,
 ) -> Dict[str, Any]:
+    """Compute per-unit timing (median/mean/first spike) per slice from a SpikeSliceStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
     tm = sss.get_unit_timing_per_slice(timing=timing, min_spikes=min_spikes)
@@ -1941,6 +1922,7 @@ async def get_unit_timing_per_slice_rate(
     out_key: str,
     min_rate_threshold: float = 0.1,
 ) -> Dict[str, Any]:
+    """Compute per-unit peak timing per slice from a RateSliceStack and store to workspace."""
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
     tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=min_rate_threshold)
@@ -1967,6 +1949,7 @@ async def rank_order_correlation_spike(
     n_shuffles: int = 100,
     seed: int = 1,
 ) -> Dict[str, Any]:
+    """Compute Spearman rank-order correlation across slices from a SpikeSliceStack with optional shuffle z-scoring."""
     ws = _get_workspace(workspace_id)
     sss = _get_spikeslicestack(ws, namespace, stack_key)
     timing_matrix = None
@@ -2013,6 +1996,7 @@ async def rank_order_correlation_rate(
     n_shuffles: int = 100,
     seed: int = 1,
 ) -> Dict[str, Any]:
+    """Compute Spearman rank-order correlation across slices from a RateSliceStack with optional shuffle z-scoring."""
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
     timing_matrix = None

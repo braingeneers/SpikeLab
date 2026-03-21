@@ -48,6 +48,8 @@ def linear_regression(x, y, ci_level=0.95):
     x_mean = np.mean(x)
     y_mean = np.mean(y)
     ss_xx = np.sum((x - x_mean) ** 2)
+    if ss_xx == 0:
+        raise ValueError("All x values are identical; regression is undefined.")
     ss_xy = np.sum((x - x_mean) * (y - y_mean))
     slope = ss_xy / ss_xx
     intercept = y_mean - slope * x_mean

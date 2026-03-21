@@ -93,7 +93,6 @@ class RateSliceStack:
         # Option 1: Using data_obj
         if data_obj is not None:
             if not isinstance(data_obj, (SpikeData, RateData)):
-                # CHECK IF ISINSTANCE WORKS WITH THESE TWO CLASSES
                 raise TypeError(
                     "data_obj must either be a SpikeData object or RateData object"
                 )
@@ -543,11 +542,11 @@ class RateSliceStack:
 
     def convert_to_list_of_RateData(self):
         """
-        Creates a stack of RateData objects from the 3D self.event_matrix
+        Creates a stack of RateData objects from the 3D self.event_stack
 
         Parameters:
         -----------
-        No inputs, it just uses the underlying self.event_matrix
+        No inputs, it just uses the underlying self.event_stack
 
         Returns:
         --------

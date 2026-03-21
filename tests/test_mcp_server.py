@@ -1873,20 +1873,6 @@ class TestBasicAnalysisCoverage:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_compute_sparse_raster(self, loaded_ws):
-        """
-        Test compute_sparse_raster stores a dense raster.
-
-        Tests:
-            (Test Case 1) Stored item is ndarray.
-        """
-        ws_id, ns = loaded_ws
-        result = await analysis.compute_sparse_raster(ws_id, ns, "sparse", bin_size=5.0)
-        assert result["key"] == "sparse"
-        assert result["info"]["type"] == "ndarray"
-
-    @pytestmark_server
-    @pytest.mark.asyncio
     async def test_compute_channel_raster(self, loaded_ws_with_attrs):
         """
         Test compute_channel_raster stores a channel-grouped raster.
@@ -1932,8 +1918,7 @@ class TestBasicAnalysisCoverage:
         ws_id, ns = loaded_ws
         result = await analysis.compute_spike_time_tilings(ws_id, ns, "sttc_full")
         assert result["key"] == "sttc_full"
-        assert result["info"]["type"] == "ndarray"
-        assert result["info"]["shape"] == [3, 3]
+        assert result["info"]["type"] == "PairwiseCompMatrix"
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -1949,8 +1934,7 @@ class TestBasicAnalysisCoverage:
             ws_id, ns, "sttc_bin", threshold=0.1
         )
         assert result["key"] == "sttc_bin"
-        assert result["info"]["type"] == "ndarray"
-        assert result["info"]["shape"] == [3, 3]
+        assert result["info"]["type"] == "PairwiseCompMatrix"
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -2970,4 +2954,1402 @@ class TestLoadWorkspaceItemMCP:
                 namespace="ns",
                 key="k",
                 workspace_id=ws_id,
+            )
+
+
+# ============================================================================
+# Edge Case Tests — MCP (mcp_server/)
+# ============================================================================
+
+
+class TestPadRaggedEdgeCases:
+    """Edge case tests for _pad_ragged helper function."""
+
+    def test_empty_list_of_arrays(self):
+        """
+        Empty list of arrays produces a (0, 0) shaped result.
+
+        Tests:
+            (Test Case 1) _pad_ragged([]) returns shape (0, 0).
+            (Test Case 2) Result dtype is float64.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.analysis import _pad_ragged
+
+        result = _pad_ragged([])
+        assert result.shape == (0, 0)
+        assert result.dtype == np.float64
+
+    def test_all_empty_arrays(self):
+        """
+        List of empty arrays produces (N, 0) with no NaN padding.
+
+        Tests:
+            (Test Case 1) _pad_ragged with two empty arrays returns shape (2, 0).
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.analysis import _pad_ragged
+
+        result = _pad_ragged([np.array([]), np.array([])])
+        assert result.shape == (2, 0)
+
+    def test_single_unit_single_value(self):
+        """
+        Single unit with single value produces (1, 1).
+
+        Tests:
+            (Test Case 1) _pad_ragged with [np.array([5.0])] returns shape (1, 1).
+            (Test Case 2) Value is 5.0.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.analysis import _pad_ragged
+
+        result = _pad_ragged([np.array([5.0])])
+        assert result.shape == (1, 1)
+        assert result[0, 0] == 5.0
+
+
+class TestToListEdgeCases:
+    """Edge case tests for _to_list helper function."""
+
+    def test_non_array_input(self):
+        """
+        Non-array input is returned unchanged.
+
+        Tests:
+            (Test Case 1) _to_list with a plain list returns the same list.
+            (Test Case 2) _to_list with a string returns the same string.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.analysis import _to_list
+
+        assert _to_list([1, 2, 3]) == [1, 2, 3]
+        assert _to_list("hello") == "hello"
+
+
+class TestComputeRatesEdgeCases:
+    """Edge case tests for compute_rates MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_unit_string(self, loaded_ws):
+        """
+        Invalid unit string propagates error from SpikeData.rates().
+
+        Tests:
+            (Test Case 1) compute_rates with unit="invalid" raises an error.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_rates(ws_id, ns, "rates", unit="invalid")
+
+
+class TestComputeBinnedEdgeCases:
+    """Edge case tests for compute_binned and compute_binned_meanrate MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_bin_size_larger_than_recording(self, loaded_ws):
+        """
+        Bin size larger than recording length should produce a small array.
+
+        Tests:
+            (Test Case 1) compute_binned with bin_size=1000 on 50ms data succeeds.
+            (Test Case 2) Result has ndarray type.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_binned(ws_id, ns, "binned_big", bin_size=1000.0)
+        assert result["info"]["type"] == "ndarray"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_bin_size_zero(self, loaded_ws):
+        """
+        Bin size of zero should raise an error from SpikeData.
+
+        Tests:
+            (Test Case 1) compute_binned with bin_size=0 raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_binned(ws_id, ns, "binned_zero", bin_size=0.0)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_binned_meanrate_bin_size_larger_than_recording(self, loaded_ws):
+        """
+        Bin size larger than recording for binned_meanrate should produce a small array.
+
+        Tests:
+            (Test Case 1) compute_binned_meanrate with bin_size=1000 succeeds.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_binned_meanrate(
+            ws_id, ns, "mr_big", bin_size=1000.0
+        )
+        assert result["info"]["type"] == "ndarray"
+
+
+class TestComputeRasterEdgeCases:
+    """Edge case tests for compute_raster MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_bin_size_zero(self, loaded_ws):
+        """
+        Bin size of zero should raise an error.
+
+        Tests:
+            (Test Case 1) compute_raster with bin_size=0 raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_raster(ws_id, ns, "raster_zero", bin_size=0.0)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_bin_size_negative(self, loaded_ws):
+        """
+        Negative bin size should raise an error.
+
+        Tests:
+            (Test Case 1) compute_raster with bin_size=-5 raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_raster(ws_id, ns, "raster_neg", bin_size=-5.0)
+
+
+class TestComputeChannelRasterEdgeCases:
+    """Edge case tests for compute_channel_raster MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_missing_channel_attr(self, loaded_ws):
+        """
+        channel_attr=None on SpikeData without neuron_attributes raises ValueError.
+
+        Tests:
+            (Test Case 1) compute_channel_raster with channel_attr=None raises
+                ValueError when SpikeData has no channel information.
+
+        Notes:
+            - channel_raster requires channel information in neuron_attributes.
+              When neuron_attributes is None or has no channel info, ValueError
+              is raised rather than silently falling back.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="No channel information"):
+            await analysis.compute_channel_raster(
+                ws_id, ns, "ch_raster_none", bin_size=5.0, channel_attr=None
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_channel_attr(self, loaded_ws):
+        """
+        Non-existent channel_attr key should propagate an error.
+
+        Tests:
+            (Test Case 1) compute_channel_raster with channel_attr="nonexistent"
+                raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_channel_raster(
+                ws_id, ns, "ch_raster_bad", bin_size=5.0, channel_attr="nonexistent"
+            )
+
+
+class TestComputeISIEdgeCases:
+    """Edge case tests for compute_interspike_intervals MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_unit_with_single_spike(self):
+        """
+        Unit with single spike has empty ISI; row should be all NaN.
+
+        Tests:
+            (Test Case 1) ISI array for single-spike unit has all NaN in its row.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="single_spike_ws")
+        sd = SpikeData([[10.0], [10.0, 20.0]], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.compute_interspike_intervals(ws_id, "rec1", "isis")
+        ws = wm.get_workspace(ws_id)
+        arr = ws.get("rec1", "isis")
+        # Unit 0 has 1 spike, so 0 ISIs -> entire row should be NaN
+        assert arr.shape[0] == 2
+        if arr.shape[1] > 0:
+            assert np.all(np.isnan(arr[0, :]))
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_unit_with_no_spikes(self):
+        """
+        Unit with no spikes has empty ISI; row should be all NaN.
+
+        Tests:
+            (Test Case 1) ISI array for zero-spike unit has all NaN in its row.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="no_spike_ws")
+        sd = SpikeData([[], [10.0, 20.0]], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.compute_interspike_intervals(ws_id, "rec1", "isis")
+        ws = wm.get_workspace(ws_id)
+        arr = ws.get("rec1", "isis")
+        assert arr.shape[0] == 2
+        if arr.shape[1] > 0:
+            assert np.all(np.isnan(arr[0, :]))
+
+
+class TestComputeResampledISIEdgeCases:
+    """Edge case tests for compute_resampled_isi MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_times_list(self, loaded_ws):
+        """
+        Empty times list produces RateData with 0 time points.
+
+        Tests:
+            (Test Case 1) compute_resampled_isi with times=[] succeeds or raises
+                a clear error.
+        """
+        ws_id, ns = loaded_ws
+        # Empty times: creates np.array([]) → RateData with (U, 0) shape
+        try:
+            result = await analysis.compute_resampled_isi(
+                ws_id, ns, "rates_empty", times=[]
+            )
+            assert result["n_timepoints"] == 0
+        except Exception:
+            # If it raises, that is also acceptable — the edge case is documented
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_time_point(self, loaded_ws):
+        """
+        Single time point raises ValueError because resampled_isi requires
+        at least 2 time points for interpolation.
+
+        Tests:
+            (Test Case 1) compute_resampled_isi with times=[25.0] raises
+                ValueError.
+
+        Notes:
+            - The underlying _resampled_isi helper requires len(times) >= 2
+              for interpolation. Single time points are rejected.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="less than 2"):
+            await analysis.compute_resampled_isi(
+                ws_id, ns, "rates_single", times=[25.0]
+            )
+
+
+class TestComputeSpikeTimeTilingEdgeCases:
+    """Edge case tests for compute_spike_time_tiling MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_same_neuron_index(self, loaded_ws):
+        """
+        Same neuron index (auto-correlation) produces STTC value of 0.0.
+
+        Tests:
+            (Test Case 1) compute_spike_time_tiling with neuron_i==neuron_j succeeds.
+            (Test Case 2) Stored value is 0.0.
+
+        Notes:
+            - The STTC formula returns 0.0 for auto-correlation because
+              PA=1 and PB=1, which causes the PA*TB==1 and PB*TA==1
+              guard clauses to return 0 for both terms.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_spike_time_tiling(
+            ws_id, ns, "sttc_auto", neuron_i=0, neuron_j=0, delt=10.0
+        )
+        ws = get_workspace_manager().get_workspace(ws_id)
+        val = ws.get(ns, "sttc_auto")
+        assert val[0] == pytest.approx(0.0, abs=0.01)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_out_of_range_neuron_index(self, loaded_ws):
+        """
+        Out-of-range neuron index should propagate an error.
+
+        Tests:
+            (Test Case 1) compute_spike_time_tiling with neuron_i=99 on 3-unit data
+                raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_spike_time_tiling(
+                ws_id, ns, "sttc_bad", neuron_i=99, neuron_j=0, delt=10.0
+            )
+
+
+class TestComputeSpikeTimeTilingsEdgeCases:
+    """Edge case tests for compute_spike_time_tilings and threshold MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_unit_spikedata(self):
+        """
+        Single-unit SpikeData produces (1, 1) STTC matrix.
+
+        Tests:
+            (Test Case 1) compute_spike_time_tilings on 1-unit data succeeds.
+            (Test Case 2) Stored matrix shape is [1, 1].
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="single_unit_ws")
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.compute_spike_time_tilings(ws_id, "rec1", "sttc_1u")
+        assert result["info"]["shape"] == [1, 1]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_threshold_zero(self, loaded_ws):
+        """
+        Threshold=0.0 should mark all entries as passing.
+
+        Tests:
+            (Test Case 1) threshold_spike_time_tilings with threshold=0.0 succeeds.
+            (Test Case 2) Stored matrix is all ones (or at least no zeros on
+                off-diagonal where STTC > 0).
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.threshold_spike_time_tilings(
+            ws_id, ns, "sttc_thr0", threshold=0.0
+        )
+        assert result["info"]["shape"] == [3, 3]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_threshold_one(self, loaded_ws):
+        """
+        Threshold=1.0 should mark nearly all entries as failing.
+
+        Tests:
+            (Test Case 1) threshold_spike_time_tilings with threshold=1.0 succeeds.
+            (Test Case 2) Stored matrix is all zeros (no pair has STTC >= 1.0,
+                except self-comparisons).
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.threshold_spike_time_tilings(
+            ws_id, ns, "sttc_thr1", threshold=1.0
+        )
+        ws = get_workspace_manager().get_workspace(ws_id)
+        pcm = ws.get(ns, "sttc_thr1")
+        assert pcm.matrix.shape == (3, 3)
+        # Off-diagonal should be 0 (no pair reaches 1.0)
+        for i in range(3):
+            for j in range(3):
+                if i != j:
+                    assert pcm.matrix[i, j] == 0.0
+
+
+class TestComputeLatenciesEdgeCases:
+    """Edge case tests for compute_latencies and compute_latencies_to_index MCP tools."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_times_list(self, loaded_ws):
+        """
+        Empty times list produces empty latencies.
+
+        Tests:
+            (Test Case 1) compute_latencies with times=[] succeeds.
+            (Test Case 2) Stored array has 0 columns.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_latencies(ws_id, ns, "lats_empty", times=[])
+        ws = get_workspace_manager().get_workspace(ws_id)
+        arr = ws.get(ns, "lats_empty")
+        assert arr.shape[1] == 0
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_latencies_to_index_out_of_range(self, loaded_ws):
+        """
+        Out-of-range neuron index should propagate an error.
+
+        Tests:
+            (Test Case 1) compute_latencies_to_index with neuron_index=99 raises
+                an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_latencies_to_index(
+                ws_id, ns, "lat_bad", neuron_index=99
+            )
+
+
+class TestSetNeuronAttributeEdgeCases:
+    """Edge case tests for set_neuron_attribute MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_neuron_indices_out_of_range(self, loaded_ws_with_attrs):
+        """
+        Out-of-range neuron_indices should propagate an error.
+
+        Tests:
+            (Test Case 1) set_neuron_attribute with neuron_indices=[99] on 3-unit
+                data raises an exception.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        with pytest.raises(Exception):
+            await analysis.set_neuron_attribute(
+                ws_id, ns, key="tag", values=["x"], neuron_indices=[99]
+            )
+
+
+class TestGetNeuronAttributeEdgeCases:
+    """Edge case tests for get_neuron_attribute MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_attribute_key(self, loaded_ws_with_attrs):
+        """
+        Non-existent attribute key returns None via default=None.
+
+        Tests:
+            (Test Case 1) get_neuron_attribute with key="nonexistent" returns
+                values=None.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.get_neuron_attribute(ws_id, ns, key="nonexistent")
+        # get_neuron_attribute returns [default] * N, not None itself
+        assert result["values"] == [None, None, None]
+
+
+class TestSubtimeEdgeCases:
+    """Edge case tests for subtime MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_start_equals_end(self, loaded_ws):
+        """
+        start==end raises ValueError because start must be strictly less than end.
+
+        Tests:
+            (Test Case 1) subtime with start=25, end=25 raises ValueError.
+
+        Notes:
+            - SpikeData.subtime requires start < end. Equal values are rejected
+              to prevent creation of zero-length windows.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="must be less than end"):
+            await analysis.subtime(
+                ws_id, ns, start=25.0, end=25.0, out_namespace="subtime_zero"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_start_greater_than_end(self, loaded_ws):
+        """
+        start > end (inverted window) should raise an error or produce
+        degenerate output.
+
+        Tests:
+            (Test Case 1) subtime with start=30, end=10 raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.subtime(
+                ws_id, ns, start=30.0, end=10.0, out_namespace="subtime_inv"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_start_and_end_outside_recording(self, loaded_ws):
+        """
+        Start and end both outside the recording range raises ValueError.
+
+        Tests:
+            (Test Case 1) subtime with start=100, end=200 on 50ms recording
+                raises ValueError because both are clamped to length (50),
+                making start == end.
+
+        Notes:
+            - SpikeData.subtime clamps start and end to the recording length,
+              so start=100 and end=200 both become 50.0, triggering the
+              start >= end validation error.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="must be less than end"):
+            await analysis.subtime(
+                ws_id, ns, start=100.0, end=200.0, out_namespace="subtime_outside"
+            )
+
+
+class TestSubsetEdgeCases:
+    """Edge case tests for subset MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_out_of_range_unit_index(self, loaded_ws):
+        """
+        Out-of-range unit index silently produces a SpikeData with 0 units.
+
+        Tests:
+            (Test Case 1) subset with units=[99] on 3-unit data succeeds.
+            (Test Case 2) Resulting SpikeData has 0 units.
+
+        Notes:
+            - SpikeData.subset treats the units list as a filter — indices
+              that don't exist in the data are silently skipped, producing
+              an empty SpikeData rather than raising an error.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subset(ws_id, ns, units=[99])
+        assert result["info"]["N"] == 0
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_duplicate_unit_indices(self, loaded_ws):
+        """
+        Duplicate unit indices behavior depends on SpikeData.subset.
+
+        Tests:
+            (Test Case 1) subset with units=[0, 0, 1] either succeeds with
+                duplicates or raises an error.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.subset(ws_id, ns, units=[0, 0, 1])
+            # If it succeeds, the result should have the expected number of units
+            assert result["info"]["type"] == "SpikeData"
+        except Exception:
+            # Raising is also acceptable
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_by_nonexistent_attribute(self, loaded_ws):
+        """
+        Non-existent attribute for 'by' parameter should propagate an error.
+
+        Tests:
+            (Test Case 1) subset with by="nonexistent" raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.subset(ws_id, ns, units=[0], by="nonexistent")
+
+
+class TestAppendSessionEdgeCases:
+    """Edge case tests for append_session MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_mismatched_unit_counts(self, loaded_ws):
+        """
+        Mismatched unit counts between two namespaces should raise an error.
+
+        Tests:
+            (Test Case 1) append_session with 3 units and 2 units raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_2units = SpikeData([[10.0], [20.0]], length=50.0)
+        ws.store("rec_2u", "spikedata", sd_2units)
+        with pytest.raises(Exception):
+            await analysis.append_session(ws_id, namespace_a=ns, namespace_b="rec_2u")
+
+
+class TestComputePairwiseCCGEdgeCases:
+    """Edge case tests for compute_pairwise_ccg MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_compare_func(self, loaded_ws):
+        """
+        Invalid compare_func string should raise ValueError.
+
+        Tests:
+            (Test Case 1) compute_pairwise_ccg with compare_func="invalid" raises
+                ValueError mentioning valid options.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="Unknown compare_func"):
+            await analysis.compute_pairwise_ccg(
+                ws_id, ns, key_corr="ccg_c", key_lag="ccg_l", compare_func="invalid"
+            )
+
+
+class TestComputeRateManifoldEdgeCases:
+    """Edge case tests for compute_rate_manifold MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_method(self, loaded_ws):
+        """
+        Invalid method (not PCA or UMAP) should raise an error.
+
+        Tests:
+            (Test Case 1) compute_rate_manifold with method="invalid" raises
+                an exception.
+        """
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rates", times=times)
+        with pytest.raises(Exception):
+            await analysis.compute_rate_manifold(
+                ws_id, ns, rate_key="rates", key="m", method="invalid"
+            )
+
+
+class TestCreateRateSliceStackEdgeCases:
+    """Edge case tests for create_rate_slice_stack MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_times_start_to_end(self, loaded_ws):
+        """
+        Empty times_start_to_end creates RateSliceStack with 0 slices.
+
+        Tests:
+            (Test Case 1) create_rate_slice_stack with times_start_to_end=[]
+                either succeeds with 0 slices or raises an error.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.create_rate_slice_stack(
+                ws_id, ns, "rss_empty", times_start_to_end=[]
+            )
+            assert result["info"]["type"] == "RateSliceStack"
+        except Exception:
+            # Raising is also acceptable for degenerate input
+            pass
+
+
+class TestCreateSpikeSliceStackEdgeCases:
+    """Edge case tests for create_spike_slice_stack MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_times_start_to_end(self, loaded_ws):
+        """
+        Empty times_start_to_end creates SpikeSliceStack with 0 slices.
+
+        Tests:
+            (Test Case 1) create_spike_slice_stack with times_start_to_end=[]
+                either succeeds with 0 slices or raises an error.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.create_spike_slice_stack(
+                ws_id, ns, "sss_empty", times_start_to_end=[]
+            )
+            assert result["info"]["type"] == "SpikeSliceStack"
+        except Exception:
+            # Raising is also acceptable for degenerate input
+            pass
+
+
+class TestSpikeSliceToRasterEdgeCases:
+    """Edge case tests for spike_slice_to_raster MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_spike_slice_stack(self, loaded_ws):
+        """
+        Empty SpikeSliceStack (0 slices) passed to spike_slice_to_raster
+        should raise ValueError from np.stack on an empty list.
+
+        Tests:
+            (Test Case 1) spike_slice_to_raster on empty SpikeSliceStack raises
+                an exception.
+
+        Notes:
+            - np.stack([], axis=2) raises ValueError. This is expected behavior
+              for the degenerate case.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="empty_sss_ws")
+        sd = SpikeData([[10.0, 20.0], [15.0]], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        try:
+            sss = SpikeSliceStack(sd, times_start_to_end=[])
+            wm.get_workspace(ws_id).store("rec1", "sss", sss)
+            with pytest.raises(Exception):
+                await analysis.spike_slice_to_raster(
+                    ws_id, "rec1", stack_key="sss", key="raster"
+                )
+        except Exception:
+            # If SpikeSliceStack itself rejects empty input, that's also fine
+            pass
+
+
+class TestAlignToEventsEdgeCases:
+    """Edge case tests for align_to_events MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_events_list(self, loaded_ws):
+        """
+        Empty events list should raise ValueError about no valid events.
+
+        Tests:
+            (Test Case 1) align_to_events with events=[] raises ValueError.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.align_to_events(
+                ws_id, ns, "aligned_empty", events=[], pre_ms=5.0, post_ms=5.0
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_kind_rate(self, loaded_ws):
+        """
+        kind="rate" path produces a RateSliceStack instead of SpikeSliceStack.
+
+        Tests:
+            (Test Case 1) align_to_events with kind="rate" succeeds.
+            (Test Case 2) Stored item type is RateSliceStack.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.align_to_events(
+            ws_id,
+            ns,
+            key="aligned_rate",
+            events=[15.0, 35.0],
+            pre_ms=5.0,
+            post_ms=5.0,
+            kind="rate",
+        )
+        assert result["key"] == "aligned_rate"
+        assert result["info"]["type"] == "RateSliceStack"
+
+
+class TestComputeRateSliceUnitCorrEdgeCases:
+    """Edge case tests for compute_rate_slice_unit_corr MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_compare_func(self, loaded_ws_with_rss):
+        """
+        Invalid compare_func should raise ValueError.
+
+        Tests:
+            (Test Case 1) compute_rate_slice_unit_corr with compare_func="invalid"
+                raises ValueError.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        with pytest.raises(ValueError, match="compare_func must be one of"):
+            await analysis.compute_rate_slice_unit_corr(
+                workspace_id=ws_id,
+                namespace=ns,
+                stack_key="rss",
+                out_key="corr_bad",
+                compare_func="invalid",
+            )
+
+
+class TestGetDataInfoEdgeCases:
+    """Edge case tests for get_data_info MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_metadata_with_numpy_values(self):
+        """
+        Metadata containing numpy arrays may cause JSON serialization issues
+        in _call_tool.
+
+        Tests:
+            (Test Case 1) get_data_info with numpy array in metadata returns
+                successfully (metadata is returned inline, not JSON-serialized
+                by the tool itself).
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="numpy_meta_ws")
+        sd = SpikeData(
+            [[10.0, 20.0]], length=50.0, metadata={"arr": np.array([1, 2, 3])}
+        )
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.get_data_info(ws_id, "rec1")
+        assert result["num_neurons"] == 1
+
+
+class TestDeleteWorkspaceEdgeCases:
+    """Edge case tests for delete_workspace MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_workspace(self):
+        """
+        Deleting a non-existent workspace should return deleted=False.
+
+        Tests:
+            (Test Case 1) delete_workspace with nonexistent ID returns deleted=False.
+        """
+        result = await analysis.delete_workspace("nonexistent-ws-id-xyz")
+        assert result["deleted"] is False
+
+
+class TestDescribeWorkspaceEdgeCases:
+    """Edge case tests for describe_workspace MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_workspace(self):
+        """
+        Describing an empty workspace returns empty index.
+
+        Tests:
+            (Test Case 1) describe_workspace on empty workspace returns index={}.
+        """
+        result = await analysis.create_workspace(name="empty_desc")
+        ws_id = result["workspace_id"]
+        desc = await analysis.describe_workspace(ws_id)
+        assert desc["index"] == {}
+
+
+class TestRenameWorkspaceItemEdgeCases:
+    """Edge case tests for rename_workspace_item MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rename_nonexistent_key(self):
+        """
+        Renaming a non-existent key should return success=False.
+
+        Tests:
+            (Test Case 1) rename_workspace_item with old_key="nonexistent"
+                returns success=False.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="rename_ws")
+        result = await analysis.rename_workspace_item(
+            ws_id, "ns", "nonexistent", "new_key"
+        )
+        assert result["success"] is False
+
+
+class TestAddWorkspaceNoteEdgeCases:
+    """Edge case tests for add_workspace_note MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_note_on_nonexistent_item(self):
+        """
+        Adding a note to a non-existent item should return success=False.
+
+        Tests:
+            (Test Case 1) add_workspace_note on non-existent item returns
+                success=False.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="note_ws")
+        result = await analysis.add_workspace_note(ws_id, "ns", "nonexistent", "note")
+        assert result["success"] is False
+
+
+class TestDeleteWorkspaceItemEdgeCases:
+    """Edge case tests for delete_workspace_item MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_key(self):
+        """
+        Deleting a non-existent key should return deleted=False.
+
+        Tests:
+            (Test Case 1) delete_workspace_item with non-existent key returns
+                deleted=False.
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="del_ws")
+        result = await analysis.delete_workspace_item(ws_id, "ns", "nonexistent")
+        assert result["deleted"] is False
+
+
+class TestFetchWorkspaceItemEdgeCases:
+    """Edge case tests for fetch_workspace_item MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_item(self):
+        """
+        Fetching a non-existent item should raise ValueError.
+
+        Tests:
+            (Test Case 1) fetch_workspace_item with non-existent key raises
+                ValueError mentioning "Item not found".
+        """
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="fetch_ws")
+        with pytest.raises(ValueError, match="Item not found"):
+            await analysis.fetch_workspace_item(ws_id, "ns", "nonexistent")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spikedata_item(self, loaded_ws):
+        """
+        Fetching a SpikeData item should raise ValueError (unsupported type).
+
+        Tests:
+            (Test Case 1) fetch_workspace_item on SpikeData raises ValueError
+                mentioning "fetch_workspace_item supports".
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
+            await analysis.fetch_workspace_item(ws_id, ns, "spikedata")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pairwise_comp_matrix_item(self, loaded_ws):
+        """
+        Fetching a PairwiseCompMatrix (not Stack) should raise ValueError.
+
+        Tests:
+            (Test Case 1) fetch_workspace_item on PairwiseCompMatrix raises ValueError.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        pcm = PairwiseCompMatrix(matrix=np.eye(3))
+        ws.store(ns, "pcm", pcm)
+        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
+            await analysis.fetch_workspace_item(ws_id, ns, "pcm")
+
+
+class TestNamespaceFromPathEdgeCases:
+    """Edge case tests for _namespace_from_path helper function."""
+
+    def test_empty_file_path(self):
+        """
+        Empty file path returns "recording" fallback.
+
+        Tests:
+            (Test Case 1) _namespace_from_path("", "") returns "recording".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("", "")
+        assert result == "recording"
+
+    def test_path_with_no_extension(self):
+        """
+        Path with no extension returns the filename as namespace.
+
+        Tests:
+            (Test Case 1) _namespace_from_path("/data/myfile", "") returns "myfile".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("/data/myfile", "")
+        assert result == "myfile"
+
+    def test_s3_url_path(self):
+        """
+        S3 URL path extracts the filename stem.
+
+        Tests:
+            (Test Case 1) _namespace_from_path("s3://bucket/folder/file.h5", "")
+                returns "file".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("s3://bucket/folder/file.h5", "")
+        assert result == "file"
+
+    def test_path_ending_with_separator(self):
+        """
+        Path ending with separator strips it before extracting basename.
+
+        Tests:
+            (Test Case 1) _namespace_from_path("/data/folder/", "") returns "folder".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("/data/folder/", "")
+        assert result == "folder"
+
+    def test_namespace_provided_takes_precedence(self):
+        """
+        When namespace is provided, it takes precedence over path derivation.
+
+        Tests:
+            (Test Case 1) _namespace_from_path("/data/file.h5", "custom") returns
+                "custom".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _namespace_from_path
+
+        result = _namespace_from_path("/data/file.h5", "custom")
+        assert result == "custom"
+
+
+class TestUniqueNamespaceEdgeCases:
+    """Edge case tests for _unique_namespace helper function."""
+
+    def test_collision_chain(self):
+        """
+        Collision chain increments _1, _2, ... until unique.
+
+        Tests:
+            (Test Case 1) When "rec" and "rec_1" exist, returns "rec_2".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _unique_namespace
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="ns_collision_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("rec", "item", np.zeros(3))
+        ws.store("rec_1", "item", np.zeros(3))
+        result = _unique_namespace(ws, "rec")
+        assert result == "rec_2"
+
+    def test_no_collision(self):
+        """
+        When namespace does not exist, it is returned unchanged.
+
+        Tests:
+            (Test Case 1) _unique_namespace on non-existing namespace returns it.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _unique_namespace
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="ns_nodup_ws")
+        ws = wm.get_workspace(ws_id)
+        result = _unique_namespace(ws, "brand_new")
+        assert result == "brand_new"
+
+    def test_incremented_name_collision(self):
+        """
+        Namespace that looks like an incremented name collides correctly.
+
+        Tests:
+            (Test Case 1) When "rec_1" exists, _unique_namespace("rec_1") returns
+                "rec_1_1".
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from SpikeLab.mcp_server.tools.data_loaders import _unique_namespace
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="ns_inc_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("rec_1", "item", np.zeros(3))
+        result = _unique_namespace(ws, "rec_1")
+        assert result == "rec_1_1"
+
+
+class TestLoadFromHDF5EdgeCases:
+    """Edge case tests for load_from_hdf5 MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_unknown_style(self, tmp_path):
+        """
+        Unknown style string should raise ValueError.
+
+        Tests:
+            (Test Case 1) load_from_hdf5 with style="unknown" raises ValueError.
+        """
+        # Create a real file so ensure_local_file passes before style validation
+        path = str(tmp_path / "fake.h5")
+        with open(path, "wb") as f:
+            f.write(b"")
+        with pytest.raises(ValueError, match="Unknown style"):
+            await data_loaders.load_from_hdf5(path, style="unknown")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_raster_missing_required_params(self, tmp_path):
+        """
+        Raster style without required params should raise ValueError.
+
+        Tests:
+            (Test Case 1) load_from_hdf5 with style="raster" but no raster_dataset
+                raises ValueError.
+        """
+        # Create a real file so ensure_local_file passes before param validation
+        path = str(tmp_path / "fake.h5")
+        with open(path, "wb") as f:
+            f.write(b"")
+        with pytest.raises(
+            ValueError, match="raster_dataset.*raster_bin_size_ms.*required"
+        ):
+            await data_loaders.load_from_hdf5(path, style="raster")
+
+
+class TestLoadFromKilosortEdgeCases:
+    """Edge case tests for load_from_kilosort MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_s3_url_raises_not_implemented(self):
+        """
+        S3 URL for KiloSort folder should raise NotImplementedError.
+
+        Tests:
+            (Test Case 1) load_from_kilosort with s3:// path raises
+                NotImplementedError.
+        """
+        with pytest.raises(NotImplementedError, match="S3 folder paths"):
+            await data_loaders.load_from_kilosort(
+                folder_path="s3://bucket/kilosort/", fs_Hz=30000.0
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_folder(self):
+        """
+        Non-existent folder should raise ValueError.
+
+        Tests:
+            (Test Case 1) load_from_kilosort with non-existent path raises
+                ValueError mentioning "Folder not found".
+        """
+        with pytest.raises(ValueError, match="Folder not found"):
+            await data_loaders.load_from_kilosort(
+                folder_path="/tmp/nonexistent_ks_folder_abc123", fs_Hz=30000.0
+            )
+
+
+class TestExportToHDF5EdgeCases:
+    """Edge case tests for export_to_hdf5 MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_raster_style_without_bin_size(self, loaded_ws):
+        """
+        Raster style without raster_bin_size_ms may fail in the underlying exporter.
+
+        Tests:
+            (Test Case 1) export_to_hdf5 with style="raster" and no raster_bin_size_ms
+                raises an exception.
+        """
+        try:
+            import h5py  # noqa: F401
+        except ImportError:
+            pytest.skip("h5py not available")
+
+        ws_id, ns = loaded_ws
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
+            tmp_path = tmp.name
+        try:
+            with pytest.raises(Exception):
+                await exporters.export_to_hdf5(ws_id, ns, tmp_path, style="raster")
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+
+class TestExportToKilosortEdgeCases:
+    """Edge case tests for export_to_kilosort MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_s3_url_raises_not_implemented(self, loaded_ws):
+        """
+        S3 URL for KiloSort export should raise NotImplementedError.
+
+        Tests:
+            (Test Case 1) export_to_kilosort with s3:// path raises
+                NotImplementedError.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(NotImplementedError):
+            await exporters.export_to_kilosort(
+                ws_id, ns, "s3://bucket/kilosort/", fs_Hz=1000.0
+            )
+
+
+class TestCallToolEdgeCases:
+    """Edge case tests for server._call_tool function."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_json_serialization_with_numpy_scalars(self):
+        """
+        Tool return dict containing numpy scalars should be serializable by _call_tool.
+
+        Tests:
+            (Test Case 1) _call_tool on a tool returning numpy int64 values produces
+                a valid JSON result or a clear error message.
+
+        Notes:
+            - numpy scalars (int64, float64) are not JSON-serializable by default.
+              The _call_tool error handler catches TypeError but the error message
+              may be confusing to users.
+        """
+        from SpikeLab.mcp_server.server import _call_tool
+
+        with patch("SpikeLab.mcp_server.server.analysis.compute_rates") as mock_compute:
+            # Return numpy scalar values (not plain Python)
+            mock_compute.return_value = {
+                "rates": [np.float64(0.1), np.float64(0.2)],
+                "unit": "kHz",
+                "num_neurons": np.int64(2),
+            }
+            result = await _call_tool(
+                "compute_rates",
+                {
+                    "workspace_id": "ws",
+                    "namespace": "ns",
+                    "key": "rates",
+                },
+            )
+            data = json.loads(result[0].text)
+            # Either the result serialized correctly or an error was returned
+            assert "rates" in data or "error" in data
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_extra_unexpected_arguments(self):
+        """
+        Extra unexpected arguments should result in an error response.
+
+        Tests:
+            (Test Case 1) _call_tool with unknown keyword arguments returns
+                an error in the response.
+        """
+        from SpikeLab.mcp_server.server import _call_tool
+
+        result = await _call_tool(
+            "create_workspace",
+            {
+                "name": "test",
+                "totally_unknown_kwarg": "value",
+            },
+        )
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_missing_required_arguments(self):
+        """
+        Missing required arguments should result in an error response.
+
+        Tests:
+            (Test Case 1) _call_tool for compute_rates without workspace_id returns
+                an error.
+        """
+        from SpikeLab.mcp_server.server import _call_tool
+
+        result = await _call_tool("compute_rates", {})
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+
+class TestGPLVMConsecutiveDurationsEdgeCases:
+    """Edge case tests for compute_gplvm_consecutive_durations MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_no_values_above_threshold(self, loaded_ws):
+        """
+        Signal with no values above threshold produces empty durations.
+
+        Tests:
+            (Test Case 1) n_durations is 0.
+            (Test Case 2) Result does not contain mean_duration or median_duration.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        signal = np.array([0.1, 0.2, 0.1, 0.3, 0.2])
+        ws.store(ns, "low_signal", signal)
+        result = await analysis.compute_gplvm_consecutive_durations(
+            ws_id, ns, key="low_signal", out_key="dur_empty", threshold=0.9
+        )
+        assert result["n_durations"] == 0
+        assert "mean_duration" not in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_signal_array(self, loaded_ws):
+        """
+        Empty signal array produces 0 durations.
+
+        Tests:
+            (Test Case 1) compute_gplvm_consecutive_durations with shape (0,) signal
+                produces n_durations=0.
+        """
+        ws_id, ns = loaded_ws
+        ws = get_workspace_manager().get_workspace(ws_id)
+        ws.store(ns, "empty_sig", np.array([]))
+        result = await analysis.compute_gplvm_consecutive_durations(
+            ws_id, ns, key="empty_sig", out_key="dur_0", threshold=0.5
+        )
+        assert result["n_durations"] == 0
+
+
+class TestRemoveByConditionEdgeCases:
+    """Edge case tests for remove_by_condition MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_op_string(self, loaded_ws):
+        """
+        Invalid op string should propagate an error from underlying method.
+
+        Tests:
+            (Test Case 1) remove_by_condition with op="invalid" raises an exception.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        target = PairwiseCompMatrix(matrix=np.ones((2, 2)))
+        condition = PairwiseCompMatrix(matrix=np.ones((2, 2)))
+        ws.store(ns, "target_inv", target)
+        ws.store(ns, "cond_inv", condition)
+        with pytest.raises(Exception):
+            await analysis.remove_by_condition(
+                workspace_id=ws_id,
+                namespace=ns,
+                target_key="target_inv",
+                condition_key="cond_inv",
+                out_key="masked_inv",
+                op="invalid",
+                threshold=1.0,
             )

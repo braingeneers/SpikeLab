@@ -489,25 +489,6 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
-                name="compute_sparse_raster",
-                description=(
-                    "Generate a sparse spike raster matrix (densified). Stores a "
-                    "(U, T_bins) array at (namespace, key)."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        **_WS_PROPS,
-                        "key": {
-                            "type": "string",
-                            "description": "Output workspace key",
-                        },
-                        "bin_size": {"type": "number", "default": 20.0},
-                    },
-                    "required": ["workspace_id", "namespace", "key"],
-                },
-            ),
-            types.Tool(
                 name="compute_channel_raster",
                 description=(
                     "Generate a channel-aggregated raster matrix. Stores a (C, T_bins) "
@@ -3060,8 +3041,6 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.compute_binned_meanrate(**arguments)
         elif name == "compute_raster":
             result = await analysis.compute_raster(**arguments)
-        elif name == "compute_sparse_raster":
-            result = await analysis.compute_sparse_raster(**arguments)
         elif name == "compute_channel_raster":
             result = await analysis.compute_channel_raster(**arguments)
         elif name == "compute_interspike_intervals":
@@ -3205,7 +3184,7 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
         elif name == "delete_workspace":
             result = await analysis.delete_workspace(**arguments)
         elif name == "list_workspaces":
-            result = await analysis.list_workspaces(**arguments)
+            result = await analysis.list_workspaces()
         elif name == "describe_workspace":
             result = await analysis.describe_workspace(**arguments)
         elif name == "workspace_get_info":

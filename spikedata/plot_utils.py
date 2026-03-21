@@ -5,7 +5,7 @@ Provides ``plot_recording`` for assembling multi-panel figures from SpikeData
 objects, ``plot_heatmap`` for standalone 2-D heatmaps, ``plot_distribution``
 for comparing per-unit metrics across conditions, ``plot_scatter`` for
 pairwise comparisons with optional regression, ``plot_burst_sensitivity``
-for threshold sensitivity curves, and ``plot_unit_raster`` for
+for threshold sensitivity curves, and ``plot_aligned_slice_single_unit`` for
 event-aligned single-unit raster plots.
 
 Requires ``matplotlib`` (optional dependency).
@@ -320,7 +320,7 @@ def plot_scatter(
 
     # --- Regression fit ---------------------------------------------------
     if fit == "linear":
-        from SpikeLab.spikedata.stat_utils import linear_regression
+        from .stat_utils import linear_regression
 
         reg = linear_regression(x, y)
         ax.plot(reg["x_fit"], reg["y_fit"], color="red", linewidth=1.2, zorder=3)
@@ -549,11 +549,11 @@ def plot_burst_sensitivity(
 
 
 # ---------------------------------------------------------------------------
-# plot_unit_raster
+# plot_aligned_slice_single_unit
 # ---------------------------------------------------------------------------
 
 
-def plot_unit_raster(
+def plot_aligned_slice_single_unit(
     ax,
     spike_times_per_slice,
     color_vals=None,
@@ -567,6 +567,9 @@ def plot_unit_raster(
     show_colorbar=True,
     marker_size=20,
     font_size=None,
+    style="scatter",
+    invert_y=False,
+    linewidths=0.5,
 ):
     """
     Raster plot of one unit's spike times across multiple event-aligned slices.
@@ -590,42 +593,63 @@ def plot_unit_raster(
         vlines (list[float] or None): X positions for vertical reference
             lines (e.g. burst onset).
         show_colorbar (bool): Add a colorbar when *color_vals* is provided.
-        marker_size (float): Scatter marker size.
+        marker_size (float): Scatter marker size (only used when
+            ``style="scatter"``).
         font_size (int or None): Font size for labels/ticks. If None, uses
             current rcParams.
+        style (str): ``"scatter"`` for dot markers (default), or
+            ``"eventplot"`` for vertical line markers.
+        invert_y (bool): If True, the first slice is plotted at the top and
+            the last at the bottom. Default False (first slice at bottom).
+        linewidths (float): Line width for eventplot markers (only used when
+            ``style="eventplot"``). Default 0.5.
 
     Returns:
         sc (PathCollection or None): The scatter artist when *color_vals* is
-            provided, otherwise None.
+            provided and ``style="scatter"``, otherwise None.
     """
     _import_matplotlib()
 
-    # Flatten spike times into (x, y, c) arrays for scatter
-    x_all = []
-    y_all = []
-    c_all = []
-    for idx, times in enumerate(spike_times_per_slice):
+    n_slices = len(spike_times_per_slice)
+
+    # Shift spike times
+    shifted_per_slice = []
+    for times in spike_times_per_slice:
         times = np.asarray(times, dtype=float).ravel()
-        shifted = times - time_offset
-        x_all.append(shifted)
-        y_all.append(np.full(len(shifted), idx))
-        if color_vals is not None:
-            c_all.append(np.full(len(shifted), color_vals[idx]))
-
-    if len(x_all) == 0:
-        return None
-
-    x_all = np.concatenate(x_all)
-    y_all = np.concatenate(y_all)
+        shifted_per_slice.append(times - time_offset)
 
     sc = None
-    if color_vals is not None and len(c_all) > 0:
-        c_all = np.concatenate(c_all)
-        sc = ax.scatter(x_all, y_all, c=c_all, cmap=cmap, s=marker_size, zorder=2)
-        if show_colorbar:
-            _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+
+    if style == "eventplot":
+        ax.eventplot(
+            shifted_per_slice,
+            colors="black",
+            linewidths=linewidths,
+        )
     else:
-        ax.scatter(x_all, y_all, c="black", s=marker_size, zorder=2)
+        # Flatten spike times into (x, y, c) arrays for scatter
+        x_all = []
+        y_all = []
+        c_all = []
+        for idx, shifted in enumerate(shifted_per_slice):
+            x_all.append(shifted)
+            y_all.append(np.full(len(shifted), idx))
+            if color_vals is not None:
+                c_all.append(np.full(len(shifted), color_vals[idx]))
+
+        if len(x_all) == 0:
+            return None
+
+        x_all = np.concatenate(x_all)
+        y_all = np.concatenate(y_all)
+
+        if color_vals is not None and len(c_all) > 0:
+            c_all = np.concatenate(c_all)
+            sc = ax.scatter(x_all, y_all, c=c_all, cmap=cmap, s=marker_size, zorder=2)
+            if show_colorbar:
+                _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+        else:
+            ax.scatter(x_all, y_all, c="black", s=marker_size, zorder=2)
 
     # --- Vertical reference lines -----------------------------------------
     if vlines is not None:
@@ -633,11 +657,16 @@ def plot_unit_raster(
             ax.axvline(x=xv, color="red", linestyle="--", linewidth=1.5, zorder=0)
 
     # --- Axes formatting --------------------------------------------------
-    ax.set_ylim(0, len(spike_times_per_slice))
+    ax.set_ylim(0, n_slices)
+    if invert_y:
+        ax.invert_yaxis()
     if x_range is not None:
         ax.set_xlim(x_range)
-    elif len(x_all) > 0:
-        ax.set_xlim(np.min(x_all), np.max(x_all))
+    else:
+        non_empty = [s for s in shifted_per_slice if len(s) > 0]
+        if non_empty:
+            all_shifted = np.concatenate(non_empty)
+            ax.set_xlim(np.min(all_shifted), np.max(all_shifted))
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 

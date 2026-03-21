@@ -944,7 +944,7 @@ class SpikeSliceStack:
             seed=seed,
         )
 
-    def plot_unit_raster(
+    def plot_aligned_slice_single_unit(
         self,
         unit_idx,
         ax=None,
@@ -959,12 +959,15 @@ class SpikeSliceStack:
         show_colorbar=True,
         marker_size=20,
         font_size=None,
+        style="scatter",
+        invert_y=False,
+        linewidths=0.5,
     ):
         """
         Plot a single unit's spike times across all slices as a raster.
 
         Extracts the spike train for *unit_idx* from every slice and delegates
-        to :func:`~SpikeLab.spikedata.plot_utils.plot_unit_raster`.
+        to :func:`~SpikeLab.spikedata.plot_utils.plot_aligned_slice_single_unit`.
 
         Parameters:
             unit_idx (int): Index of the unit to plot.
@@ -981,19 +984,25 @@ class SpikeSliceStack:
             show_colorbar (bool): Add a colorbar when *color_vals* is provided.
             marker_size (float): Scatter marker size.
             font_size (int or None): Font size for labels/ticks.
+            style (str): ``"scatter"`` for dot markers, ``"eventplot"`` for
+                vertical line markers.
+            invert_y (bool): If True, first slice at top, last at bottom.
+            linewidths (float): Line width for eventplot markers.
 
         Returns:
             result: ``(fig, ax, sc)`` when *ax* is None, otherwise just *sc*.
                 *sc* is the scatter ``PathCollection`` (or None if no colour
                 coding).
         """
-        from .plot_utils import plot_unit_raster as _plot_unit_raster
+        from .plot_utils import (
+            plot_aligned_slice_single_unit as _plot_aligned_slice_single_unit,
+        )
 
         try:
             import matplotlib.pyplot as plt
         except ImportError as e:
             raise ImportError(
-                "plot_unit_raster requires 'matplotlib'. "
+                "plot_aligned_slice_single_unit requires 'matplotlib'. "
                 "Install with: pip install matplotlib"
             ) from e
 
@@ -1007,7 +1016,7 @@ class SpikeSliceStack:
         if standalone:
             fig, ax = plt.subplots(figsize=(8, 6))
 
-        sc = _plot_unit_raster(
+        sc = _plot_aligned_slice_single_unit(
             ax,
             spike_times_per_slice,
             color_vals=color_vals,
@@ -1021,6 +1030,9 @@ class SpikeSliceStack:
             show_colorbar=show_colorbar,
             marker_size=marker_size,
             font_size=font_size,
+            style=style,
+            invert_y=invert_y,
+            linewidths=linewidths,
         )
 
         if standalone:

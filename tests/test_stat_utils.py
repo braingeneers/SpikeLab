@@ -270,3 +270,119 @@ class TestApproxNormalQuantile:
             _approx_normal_quantile(0.5)
         with pytest.raises(ValueError, match="p must be > 0.5"):
             _approx_normal_quantile(0.3)
+
+    def test_p_very_close_to_1(self):
+        """
+        p very close to 1 tests the limits of the approximation accuracy.
+
+        Tests:
+            (Test Case 1) p = 0.999 should return a large positive quantile
+                (z ~ 3.09). The approximation may degrade but should still
+                be in the right ballpark.
+            (Test Case 2) p = 0.9999 should return z ~ 3.72. Verify the
+                approximation is within 0.1 of the expected value.
+        """
+        z_999 = _approx_normal_quantile(0.999)
+        assert z_999 == pytest.approx(3.09, abs=0.1)
+
+        z_9999 = _approx_normal_quantile(0.9999)
+        assert z_9999 == pytest.approx(3.72, abs=0.1)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — linear_regression
+# ---------------------------------------------------------------------------
+
+
+class TestLinearRegressionEdgeCases:
+    """Edge case tests for linear_regression identified in the edge case scan."""
+
+    def test_all_x_identical_raises(self):
+        """
+        All x values identical means ss_xx = 0, causing division by zero
+        in slope calculation. The function should raise ValueError.
+
+        Tests:
+            (Test Case 1) x = [5, 5, 5, 5] raises ValueError with message
+                about identical x values.
+        """
+        x = np.array([5.0, 5.0, 5.0, 5.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError, match="identical"):
+            linear_regression(x, y)
+
+    def test_exactly_three_points(self):
+        """
+        Exactly 3 points is the minimum allowed. The function should produce
+        valid results with no error.
+
+        Tests:
+            (Test Case 1) x = [1, 2, 3], y = [2, 4, 6]. Perfect fit with
+                slope=2, intercept=0, R^2=1.
+        """
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([2.0, 4.0, 6.0])
+        res = linear_regression(x, y)
+        assert res["slope"] == pytest.approx(2.0)
+        assert res["intercept"] == pytest.approx(0.0)
+        assert res["r_squared"] == pytest.approx(1.0)
+        assert len(res["x_fit"]) == 3
+
+    def test_ci_level_zero(self):
+        """
+        ci_level=0 produces alpha=1.0, p = 1.0 - 1.0/2 = 0.5.
+        _approx_normal_quantile(0.5) raises ValueError because p must be > 0.5.
+
+        Tests:
+            (Test Case 1) ci_level=0 raises ValueError from
+                _approx_normal_quantile(0.5).
+
+        Notes:
+            - The error is not caught by linear_regression itself; it
+              propagates from _approx_normal_quantile.
+        """
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = 2.0 * x + 1.0 + np.array([0.1, -0.1, 0.2, -0.2, 0.0])
+        with pytest.raises(ValueError, match="p must be > 0.5"):
+            linear_regression(x, y, ci_level=0)
+
+    def test_ci_level_one(self):
+        """
+        ci_level=1.0 produces alpha=0.0, p = 1.0 - 0.0/2 = 1.0.
+        _approx_normal_quantile(1.0) computes log(1 - 1.0) = log(0) = -inf,
+        which propagates through the formula producing non-finite CI values.
+
+        Tests:
+            (Test Case 1) ci_level=1.0 does not raise.
+            (Test Case 2) Slope and intercept are still valid.
+            (Test Case 3) CI values may be non-finite (Inf or NaN).
+
+        Notes:
+            - ci_level=1.0 is not validated. The resulting CI contains
+              non-finite values due to log(0) in the quantile approximation.
+        """
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = 2.0 * x + 1.0
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            res = linear_regression(x, y, ci_level=1.0)
+        assert np.isfinite(res["slope"])
+        assert np.isfinite(res["intercept"])
+
+    def test_perfect_fit_zero_residual(self):
+        """
+        A perfect fit (all points on the line) produces ss_res=0, so
+        se=0 and the CI band collapses to the fit line.
+
+        Tests:
+            (Test Case 1) y = 2x + 1 exactly. R^2 = 1.0.
+            (Test Case 2) CI bounds equal y_fit (zero-width band).
+        """
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = 2.0 * x + 1.0
+        res = linear_regression(x, y)
+        assert res["r_squared"] == pytest.approx(1.0)
+        np.testing.assert_allclose(res["ci_lower"], res["y_fit"])
+        np.testing.assert_allclose(res["ci_upper"], res["y_fit"])

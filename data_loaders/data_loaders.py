@@ -105,6 +105,7 @@ def _maybe_with_raw(
             metadata=sd.metadata,
             raw_data=raw_data,
             raw_time=raw_time,
+            neuron_attributes=sd.neuron_attributes,
         )
     return sd
 
@@ -450,6 +451,12 @@ def load_spikedata_from_nwb(
         if "electrodes" in unit_grp and "electrodes_index" in unit_grp:
             elec_flat = np.asarray(unit_grp["electrodes"])
             elec_idx = np.asarray(unit_grp["electrodes_index"])
+            if len(elec_idx) > 0 and elec_idx[-1] > len(elec_flat):
+                warnings.warn(
+                    "NWB electrodes_index exceeds electrodes array length; "
+                    "electrode data may be truncated.",
+                    UserWarning,
+                )
             electrode_indices = []
             start = 0
             for stop in elec_idx:
@@ -757,6 +764,13 @@ def load_spikedata_from_spikeinterface_recording(
     # choose the smaller dimension as channels (typical: channels << time).
     if data.ndim != 2:
         raise ValueError("recording.get_traces() must return a 2D array")
+    if data.shape[0] == data.shape[1]:
+        warnings.warn(
+            f"Ambiguous data orientation: shape is {data.shape} (square). "
+            "Assuming (channels, time). Pass data with an explicit orientation "
+            "if this is incorrect.",
+            UserWarning,
+        )
     data_ct = data if data.shape[0] <= data.shape[1] else data.T
 
     # Delegate detection to SpikeData convenience constructor

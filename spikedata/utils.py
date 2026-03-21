@@ -109,7 +109,7 @@ def _sttc_ta(tA, delt: float, tmax: float) -> float:
     if len(tA) == 0:
         return 0.0
 
-    base = min(delt, tA[0]) + min(delt, tmax - tA[-1])
+    base = min(delt, tA[0]) + min(delt, max(0, tmax - tA[-1]))
     return base + np.minimum(np.diff(tA), 2 * delt).sum()
 
 
@@ -525,7 +525,10 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     similarities = np.array(similarities)
     valid_lags = np.array(valid_lags)
 
-    max_idx = np.argmax(similarities)
+    if np.all(np.isnan(similarities)):
+        return np.nan, 0
+
+    max_idx = np.nanargmax(similarities)
     max_sim = similarities[max_idx]
     max_lag_idx = valid_lags[max_idx]
 

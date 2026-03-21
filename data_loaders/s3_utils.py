@@ -64,9 +64,14 @@ def parse_s3_url(url: str) -> Tuple[str, str]:
     if url.startswith("s3://"):
         path = url[5:]
         parts = path.split("/", 1)
-        if len(parts) == 1:
-            return parts[0], ""
-        return parts[0], parts[1]
+        bucket = parts[0]
+        key = parts[1] if len(parts) > 1 else ""
+        if not key or key == "/":
+            raise ValueError(
+                f"S3 URL '{url}' has no object key. "
+                "A bucket-only URL cannot identify a downloadable object."
+            )
+        return bucket, key
 
     if url.startswith("https://") or url.startswith("http://"):
         parsed = urlparse(url)

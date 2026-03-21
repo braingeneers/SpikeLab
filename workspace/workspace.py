@@ -298,6 +298,9 @@ class AnalysisWorkspace:
             return False
         del self._items[namespace][key]
         del self._index[namespace][key]
+        if not self._items[namespace]:
+            del self._items[namespace]
+            del self._index[namespace]
         return True
 
     def merge_from(self, other: "AnalysisWorkspace", overwrite: bool = False) -> dict:

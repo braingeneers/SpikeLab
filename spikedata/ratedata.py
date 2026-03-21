@@ -147,10 +147,11 @@ class RateData:
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
         elif start < 0 and not has_negative_times:
+            orig_start = start
             start += length
             if start < 0:
                 raise ValueError(
-                    f"start ({start - length}) is too negative. "
+                    f"start ({orig_start}) is too negative. "
                     f"Minimum allowed is -{length}"
                 )
 
@@ -158,10 +159,11 @@ class RateData:
         if end is None or end is Ellipsis:
             end = length
         elif end < 0 and not has_negative_times:
+            orig_end = end
             end += length
             if end < 0:
                 raise ValueError(
-                    f"end ({end - length}) is too negative. "
+                    f"end ({orig_end}) is too negative. "
                     f"Minimum allowed is -{length}"
                 )
 

@@ -24,7 +24,7 @@ from SpikeLab.spikedata.plot_utils import (
     plot_distribution,
     plot_scatter,
     plot_burst_sensitivity,
-    plot_unit_raster,
+    plot_aligned_slice_single_unit,
 )
 from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
 
@@ -1365,12 +1365,12 @@ class TestPlotBurstSensitivity:
 
 
 # ---------------------------------------------------------------------------
-# plot_unit_raster tests
+# plot_aligned_slice_single_unit tests
 # ---------------------------------------------------------------------------
 
 
 class TestPlotUnitRaster:
-    """Tests for the plot_unit_raster standalone function."""
+    """Tests for the plot_aligned_slice_single_unit standalone function."""
 
     def test_basic_raster(self):
         """
@@ -1382,7 +1382,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50, 90]), np.array([20, 60]), np.array([30])]
-        sc = plot_unit_raster(ax, spikes)
+        sc = plot_aligned_slice_single_unit(ax, spikes)
         assert sc is None
         assert len(ax.collections) >= 1
 
@@ -1396,7 +1396,7 @@ class TestPlotUnitRaster:
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50]), np.array([20, 60]), np.array([30])]
         color_vals = np.array([0.1, 0.5, 0.9])
-        sc = plot_unit_raster(ax, spikes, color_vals=color_vals)
+        sc = plot_aligned_slice_single_unit(ax, spikes, color_vals=color_vals)
         assert sc is not None
 
     def test_colorbar_added(self):
@@ -1408,7 +1408,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50]), np.array([20, 60])]
-        plot_unit_raster(
+        plot_aligned_slice_single_unit(
             ax, spikes, color_vals=np.array([0.0, 1.0]), show_colorbar=True
         )
         assert len(fig.axes) > 1
@@ -1422,7 +1422,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50]), np.array([20, 60])]
-        plot_unit_raster(
+        plot_aligned_slice_single_unit(
             ax, spikes, color_vals=np.array([0.0, 1.0]), show_colorbar=False
         )
         assert len(fig.axes) == 1
@@ -1436,7 +1436,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([100.0, 200.0])]
-        plot_unit_raster(ax, spikes, time_offset=100.0)
+        plot_aligned_slice_single_unit(ax, spikes, time_offset=100.0)
         offsets = ax.collections[0].get_offsets()
         np.testing.assert_allclose(offsets[:, 0], [0.0, 100.0])
 
@@ -1449,7 +1449,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50])]
-        plot_unit_raster(ax, spikes, vlines=[0.0, 25.0])
+        plot_aligned_slice_single_unit(ax, spikes, vlines=[0.0, 25.0])
         assert len(ax.lines) >= 2
 
     def test_x_range_applied(self):
@@ -1461,7 +1461,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50, 90])]
-        plot_unit_raster(ax, spikes, x_range=(-10, 100))
+        plot_aligned_slice_single_unit(ax, spikes, x_range=(-10, 100))
         xlim = ax.get_xlim()
         assert xlim == (-10, 100)
 
@@ -1474,7 +1474,7 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10]), np.array([20]), np.array([30])]
-        plot_unit_raster(ax, spikes)
+        plot_aligned_slice_single_unit(ax, spikes)
         assert ax.get_ylim() == (0, 3)
 
     def test_axis_labels(self):
@@ -1486,12 +1486,14 @@ class TestPlotUnitRaster:
             (Test Case 2) Custom labels override defaults.
         """
         fig, ax = plt.subplots()
-        plot_unit_raster(ax, [np.array([10])])
+        plot_aligned_slice_single_unit(ax, [np.array([10])])
         assert ax.get_xlabel() == "Rel. time (ms)"
         assert ax.get_ylabel() == "Burst"
 
         fig2, ax2 = plt.subplots()
-        plot_unit_raster(ax2, [np.array([10])], xlabel="Time", ylabel="Trial")
+        plot_aligned_slice_single_unit(
+            ax2, [np.array([10])], xlabel="Time", ylabel="Trial"
+        )
         assert ax2.get_xlabel() == "Time"
         assert ax2.get_ylabel() == "Trial"
 
@@ -1503,7 +1505,7 @@ class TestPlotUnitRaster:
             (Test Case 1) Returns None.
         """
         fig, ax = plt.subplots()
-        sc = plot_unit_raster(ax, [])
+        sc = plot_aligned_slice_single_unit(ax, [])
         assert sc is None
 
     def test_empty_slices_no_crash(self):
@@ -1515,18 +1517,18 @@ class TestPlotUnitRaster:
         """
         fig, ax = plt.subplots()
         spikes = [np.array([]), np.array([10, 20]), np.array([])]
-        sc = plot_unit_raster(ax, spikes)
+        sc = plot_aligned_slice_single_unit(ax, spikes)
         assert sc is None  # no color_vals
         assert len(ax.collections) >= 1
 
 
 # ---------------------------------------------------------------------------
-# SpikeSliceStack.plot_unit_raster tests
+# SpikeSliceStack.plot_aligned_slice_single_unit tests
 # ---------------------------------------------------------------------------
 
 
 class TestSpikeSliceStackPlotUnitRaster:
-    """Tests for the SpikeSliceStack.plot_unit_raster convenience wrapper."""
+    """Tests for the SpikeSliceStack.plot_aligned_slice_single_unit convenience wrapper."""
 
     @staticmethod
     def _make_stack(n_units=3, n_slices=4, slice_length=100.0):
@@ -1551,7 +1553,7 @@ class TestSpikeSliceStackPlotUnitRaster:
             (Test Case 2) fig is a Figure, ax is an Axes.
         """
         stack = self._make_stack()
-        result = stack.plot_unit_raster(0)
+        result = stack.plot_aligned_slice_single_unit(0)
         assert isinstance(result, tuple)
         assert len(result) == 3
         fig, ax, sc = result
@@ -1566,7 +1568,7 @@ class TestSpikeSliceStackPlotUnitRaster:
         """
         stack = self._make_stack()
         fig, ax = plt.subplots()
-        result = stack.plot_unit_raster(0, ax=ax)
+        result = stack.plot_aligned_slice_single_unit(0, ax=ax)
         assert not isinstance(result, tuple)
 
     def test_unit_idx_out_of_range_raises(self):
@@ -1579,9 +1581,9 @@ class TestSpikeSliceStackPlotUnitRaster:
         """
         stack = self._make_stack(n_units=3)
         with pytest.raises(IndexError, match="out of range"):
-            stack.plot_unit_raster(-1)
+            stack.plot_aligned_slice_single_unit(-1)
         with pytest.raises(IndexError, match="out of range"):
-            stack.plot_unit_raster(3)
+            stack.plot_aligned_slice_single_unit(3)
 
     def test_correct_unit_extracted(self):
         """
@@ -1591,7 +1593,7 @@ class TestSpikeSliceStackPlotUnitRaster:
             (Test Case 1) Scatter y-coordinates span the number of slices.
         """
         stack = self._make_stack(n_units=3, n_slices=5)
-        fig, ax, sc = stack.plot_unit_raster(1)
+        fig, ax, sc = stack.plot_aligned_slice_single_unit(1)
         assert ax.get_ylim() == (0, 5)
 
     def test_with_color_vals(self):
@@ -1602,5 +1604,140 @@ class TestSpikeSliceStackPlotUnitRaster:
             (Test Case 1) Returns a PathCollection (sc is not None).
         """
         stack = self._make_stack(n_slices=3)
-        fig, ax, sc = stack.plot_unit_raster(0, color_vals=np.array([0.1, 0.5, 0.9]))
+        fig, ax, sc = stack.plot_aligned_slice_single_unit(
+            0, color_vals=np.array([0.1, 0.5, 0.9])
+        )
         assert sc is not None
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — plot_distribution
+# ---------------------------------------------------------------------------
+
+
+class TestPlotDistributionEdgeCases:
+    """Edge case tests for plot_distribution identified in the edge case scan."""
+
+    DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+
+    def test_all_nan_data(self):
+        """
+        All NaN data results in 0 points after stripping. The function should
+        not crash but produce an empty or degenerate plot.
+
+        Tests:
+            (Test Case 1) Single group of all NaN values. After stripping,
+                the group has 0 valid points. In violin mode, this is treated
+                as a sparse group (< 2 points) and no violin body is produced.
+        """
+        fig, ax = plt.subplots()
+        data = [np.array([np.nan, np.nan, np.nan])]
+        parts = plot_distribution(ax, data, colors=self.DEFAULT_COLORS[:1])
+        # No violin body for an empty group
+        assert len(parts["bodies"]) == 0
+
+    def test_empty_dict_input(self):
+        """
+        Empty dict input means no groups to plot.
+
+        Tests:
+            (Test Case 1) Empty dict produces no violin bodies and no error.
+        """
+        fig, ax = plt.subplots()
+        data = {}
+        parts = plot_distribution(ax, data, colors=[])
+        assert len(parts["bodies"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — plot_scatter
+# ---------------------------------------------------------------------------
+
+
+class TestPlotScatterEdgeCases:
+    """Edge case tests for plot_scatter identified in the edge case scan."""
+
+    def test_fit_linear_with_fewer_than_3_points(self):
+        """
+        fit='linear' with < 3 points causes linear_regression to raise
+        ValueError because it requires at least 3 non-NaN data points.
+
+        Tests:
+            (Test Case 1) Two data points with fit='linear' raises ValueError
+                from linear_regression.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1.0, 2.0])
+        y = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="at least 3"):
+            plot_scatter(ax, x, y, fit="linear")
+
+    def test_all_nan_x_or_y_with_linear_fit(self):
+        """
+        All NaN x or y with fit='linear' causes linear_regression to raise
+        ValueError because all points are dropped.
+
+        Tests:
+            (Test Case 1) All NaN x values with fit='linear'. After NaN
+                dropping, 0 valid points remain, raising ValueError.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([np.nan, np.nan, np.nan, np.nan])
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError, match="at least 3"):
+            plot_scatter(ax, x, y, fit="linear")
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — plot_aligned_slice_single_unit
+# ---------------------------------------------------------------------------
+
+
+class TestPlotUnitRasterEdgeCases:
+    """Edge case tests for plot_aligned_slice_single_unit identified in the edge case scan."""
+
+    def test_all_slices_empty(self):
+        """
+        All slices have empty spike arrays, producing a blank raster.
+
+        Tests:
+            (Test Case 1) Three slices, all with empty arrays. The function
+                does not crash. Returns None (no color_vals). The scatter
+                has no points but the axes are still set up.
+        """
+        fig, ax = plt.subplots()
+        spikes = [np.array([]), np.array([]), np.array([])]
+        sc = plot_aligned_slice_single_unit(ax, spikes)
+        assert sc is None
+        # y-axis should still span the number of slices
+        assert ax.get_ylim() == (0, 3)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — plot_burst_sensitivity
+# ---------------------------------------------------------------------------
+
+
+class TestPlotBurstSensitivityEdgeCases:
+    """Edge case tests for plot_burst_sensitivity."""
+
+    DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+
+    def test_empty_burst_counts_dict(self):
+        """
+        Empty burst_counts dict means no labels are extracted, and
+        labels[0] raises IndexError.
+
+        Tests:
+            (Test Case 1) Empty dict raises IndexError because labels is
+                empty and the function attempts to access labels[0].
+
+        Notes:
+            - This is a bug: the function does not guard against an empty
+              burst_counts dict. It should either return early or raise a
+              descriptive ValueError.
+        """
+        fig, ax = plt.subplots()
+        thr = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(IndexError):
+            plot_burst_sensitivity(ax, thr, {}, colors=[])
