@@ -69,22 +69,19 @@ class TestSpikeSliceStackConstructor:
         for s in sss.spike_stack:
             assert s.length == pytest.approx(20.0)
 
-    def test_negative_windows_filtered(self):
+    def test_negative_windows_preserved(self):
         """
-        Tests that windows with negative start times are filtered out.
+        Windows with negative start times are preserved by _validate_time_start_to_end.
 
         Tests:
-            (Test Case 1) Peak near 0 with large before-bound is filtered.
-            (Test Case 2) Remaining slices are correct.
+            (Test Case 1) All windows including negative-start are kept.
         """
-        sd = make_spikedata(n_units=2, length_ms=200.0)
-        sss = SpikeSliceStack(
-            sd,
-            time_peaks=[5.0, 50.0, 100.0],
-            time_bounds=(10.0, 10.0),
-        )
-        # Peak at 5 with before=10 gives start=-5, filtered out
-        assert len(sss.spike_stack) == 2
+        from SpikeLab.spikedata.utils import _validate_time_start_to_end
+
+        windows = [(-5.0, 15.0), (40.0, 60.0), (90.0, 110.0)]
+        result = _validate_time_start_to_end(windows)
+        assert len(result) == 3
+        assert result[0][0] == pytest.approx(-5.0)
 
     def test_non_spikedata_raises(self):
         """
@@ -379,14 +376,10 @@ class TestToRasterArray:
         sss = SpikeSliceStack(sd, times_start_to_end=times)
         result = sss.to_raster_array()
 
-        for i, (slice_sd, (t0, t1)) in enumerate(zip(sss.spike_stack, sss.times)):
-            # Spike times are absolute; shift to 0-based before rasterizing to match
-            # what to_raster_array produces internally.
-            duration = t1 - t0
-            shifted_train = [ts - t0 for ts in slice_sd.train]
-            temp_sd = SpikeData(shifted_train, length=duration, N=slice_sd.N)
-            expected = temp_sd.sparse_raster(bin_size=1).toarray()
-            # Rasterization may differ by at most one bin at the edge
+        for i, slice_sd in enumerate(sss.spike_stack):
+            # Spike times within each slice are already 0-based (shifted by
+            # subtime during construction), so rasterize directly.
+            expected = slice_sd.sparse_raster(bin_size=1).toarray()
             assert abs(result.shape[1] - expected.shape[1]) <= 1
             min_t = min(result.shape[1], expected.shape[1])
             np.testing.assert_array_equal(result[:, :min_t, i], expected[:, :min_t])
@@ -428,6 +421,92 @@ class TestToRasterArray:
         assert result.shape[2] == 2  # S
         # Second slice should be all zeros (no spikes in [80, 100])
         assert np.all(result[:, :, 1] == 0)
+
+    def test_absolute_times_basic(self):
+        """
+        absolute_times=True places spikes at their original recording positions.
+
+        Tests:
+            (Test Case 1) T dimension covers the full recording span.
+            (Test Case 2) Spikes in each slice appear at their absolute positions.
+            (Test Case 3) Spike count is preserved.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0, 110.0, 150.0, 190.0]], length=200.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 100.0), (100.0, 200.0)])
+        result = sss.to_raster_array(bin_size=10.0, absolute_times=True)
+
+        # T should span the full 200ms at 10ms bins = 20 bins
+        assert result.shape == (1, 20, 2)
+        # Total spike count preserved
+        assert result.sum() == 6
+        # Slice 0: spikes at absolute 10, 50, 90 → bins 0, 4, 8
+        assert result[0, 0, 0] == 1
+        assert result[0, 4, 0] == 1
+        assert result[0, 8, 0] == 1
+        assert result[0, 10:, 0].sum() == 0  # no spikes in second half
+        # Slice 1: spikes at absolute 110, 150, 190 → bins 10, 14, 18
+        assert result[0, :10, 1].sum() == 0  # no spikes in first half
+        assert result[0, 10, 1] == 1
+        assert result[0, 14, 1] == 1
+        assert result[0, 18, 1] == 1
+
+    def test_absolute_times_false_is_default(self):
+        """
+        Default behavior (absolute_times=False) matches the standard to_raster_array.
+
+        Tests:
+            (Test Case 1) Calling without absolute_times matches calling with False.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0, seed=7)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 50.0), (60.0, 100.0)])
+        default = sss.to_raster_array(bin_size=5.0)
+        explicit = sss.to_raster_array(bin_size=5.0, absolute_times=False)
+        np.testing.assert_array_equal(default, explicit)
+
+    def test_absolute_times_nonzero_global_start(self):
+        """
+        absolute_times=True with slices that don't start at 0.
+
+        Tests:
+            (Test Case 1) T dimension covers only the span from min(start) to
+                max(end), not from 0.
+            (Test Case 2) Spikes are correctly positioned relative to global start.
+        """
+        # Construct via spike_stack (Option 2) with 0-based spike times
+        sd0 = SpikeData([[5.0, 15.0, 25.0, 35.0]], length=50.0)
+        sd1 = SpikeData([[5.0, 15.0, 25.0, 35.0]], length=50.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd0, sd1],
+            times_start_to_end=[(100.0, 150.0), (200.0, 250.0)],
+        )
+
+        result = sss.to_raster_array(bin_size=10.0, absolute_times=True)
+        # Span from 100 to 250 = 150ms → 15 bins
+        assert result.shape == (1, 15, 2)
+        # Slice 0: offset = 100 - 100 = 0, spikes at 5, 15, 25, 35 → bins 0, 1, 2, 3
+        assert result[0, 0, 0] == 1
+        assert result[0, 1, 0] == 1
+        # Slice 1: offset = 200 - 100 = 100, spikes at 105, 115, 125, 135 → bins 10, 11, 12, 13
+        assert result[0, 10, 1] == 1
+        assert result[0, 11, 1] == 1
+
+    def test_absolute_times_single_slice(self):
+        """
+        absolute_times=True with a single slice.
+
+        Tests:
+            (Test Case 1) Works without error.
+            (Test Case 2) Spike positions match the 0-based case (offset is 0
+                since there's only one slice).
+        """
+        sd = SpikeData([[10.0, 30.0]], length=50.0)
+        sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(500.0, 550.0)])
+        result = sss.to_raster_array(bin_size=10.0, absolute_times=True)
+        # Single slice starting at 500, so offset = 500 - 500 = 0
+        # Spikes at 10, 30 → bins 0, 2
+        assert result.shape == (1, 5, 1)
+        assert result[0, 0, 0] == 1
+        assert result[0, 2, 0] == 1
 
     def test_to_raster_array_single_unit(self):
         """
@@ -2391,6 +2470,34 @@ class TestSpikeSliceStackConstructorEdgeCases:
         with pytest.raises(ValueError, match="less than end"):
             SpikeSliceStack(sd, times_start_to_end=[(50.0, 50.0)])
 
+    def test_spike_stack_absolute_times_raises(self):
+        """
+        Constructing via spike_stack with absolute (non-0-based) spike times
+        raises ValueError when spike times exceed the slice duration.
+
+        Tests:
+            (Test Case 1) ValueError mentioning '0-based' is raised.
+        """
+        sd = SpikeData([[150.0, 250.0]], length=300.0)
+        with pytest.raises(ValueError, match="0-based"):
+            SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(100.0, 200.0)])
+
+    def test_spike_stack_zero_based_no_warning(self):
+        """
+        Constructing via spike_stack with correctly 0-based spike times
+        does not emit a warning.
+
+        Tests:
+            (Test Case 1) No warning when spike times are within slice duration.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 100.0)])
+        assert len(sss.spike_stack) == 1
+
 
 class TestToRasterArrayEdgeCases:
     """Edge case tests for SpikeSliceStack.to_raster_array."""
@@ -2577,26 +2684,14 @@ class TestUnitToUnitComparisonEdgeCases:
 
     def test_sttc_with_delt_zero_raises(self):
         """
-        unit_to_unit_comparison with metric='sttc' and delt=0 does not raise
-        because spike_time_tilings calls _sttc_ta/_spike_time_tiling directly,
-        bypassing the delt validation in get_sttc.
+        unit_to_unit_comparison with metric='sttc' and delt=0 raises ValueError.
 
         Tests:
-            (Test Case 1) delt=0 does not raise ValueError.
-            (Test Case 2) The result has correct stack shape.
-
-        Notes:
-            - The delt > 0 validation only exists in get_sttc(), which is used
-              by spike_time_tiling() (singular). The batch method
-              spike_time_tilings() (plural) calls the internal helpers directly
-              and does not validate delt.
+            (Test Case 1) delt=0 raises ValueError from get_sttc validation.
         """
         sss = _make_correlated_stack(n_units=3, n_slices=3)
-        corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
-            metric="sttc", delt=0
-        )
-        assert corr_stack.stack.shape == (3, 3, 3)
-        assert lag_stack is None
+        with pytest.raises(ValueError, match="delt must be positive"):
+            sss.unit_to_unit_comparison(metric="sttc", delt=0)
 
 
 class TestSliceToSliceUnitComparisonEdgeCases:

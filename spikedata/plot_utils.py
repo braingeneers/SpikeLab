@@ -904,11 +904,13 @@ def plot_recording(
             both eventplot and imshow styles).
         raster_vmax (int): Maximum spike count for colormap when
             ``raster_style='imshow'``.
-        burst_times (np.ndarray or None): Burst peak times in ms, plotted as
-            markers on the population-rate panel.
-        burst_edges (np.ndarray or None): Per-burst ``[start_ms, end_ms]``
-            boundaries, shape ``(B, 2)``. Plotted as shaded spans on the
-            population-rate panel.
+        burst_times (np.ndarray or None): Burst peak positions as raster bin
+            indices (as returned by ``get_bursts``), plotted as markers on the
+            population-rate panel. With the default ``raster_bin_size_ms=1.0``,
+            bin indices equal milliseconds.
+        burst_edges (np.ndarray or None): Per-burst ``[start_bin, end_bin]``
+            boundaries as raster bin indices, shape ``(B, 2)``. Plotted as
+            shaded spans on the population-rate panel.
         vmin_heatmap (float or None): Colormap minimum for the FR heatmap.
         vmax_heatmap (float or None): Colormap maximum for the FR heatmap.
         norm_heatmap (bool or str): Row normalisation for the FR heatmap
@@ -999,7 +1001,7 @@ def plot_recording(
 
     # Auto-compute firing rates if requested
     if show_fr_rates and fr_rates is None:
-        times_arr = np.arange(0, sd.length, 1.0)
+        times_arr = np.arange(sd.start_time, sd.start_time + sd.length, 1.0)
         fr_rates = sd.resampled_isi(times_arr, sigma_ms=fr_rate_sigma_ms)
 
     # Apply unit reordering
@@ -1019,7 +1021,12 @@ def plot_recording(
     # 3. Crop to time_range
     # ------------------------------------------------------------------
     if time_range is not None:
-        start, end = int(time_range[0]), int(time_range[1])
+        # Convert ms time_range to bin indices relative to the raster.
+        # Bin 0 corresponds to sd.start_time.
+        start = int((time_range[0] - sd.start_time) / raster_bin_size_ms)
+        end = int((time_range[1] - sd.start_time) / raster_bin_size_ms)
+        start = max(0, min(start, spk_mat.shape[1]))
+        end = max(start, min(end, spk_mat.shape[1]))
     else:
         start, end = 0, spk_mat.shape[1]
 
@@ -1257,8 +1264,13 @@ def plot_recording(
     _apply_font_size(main_axes[-1], font_size)
 
     # Shift tick labels to absolute recording time when requested
-    if absolute_xticks and start > 0:
-        formatter = mticker.FuncFormatter(lambda x, _: f"{int(x + start)}")
+    # Convert bin indices back to ms for tick labels.
+    # Bin 0 in the view corresponds to ms = sd.start_time + start * raster_bin_size_ms.
+    ms_offset = sd.start_time + start * raster_bin_size_ms
+    if absolute_xticks and ms_offset != 0:
+        formatter = mticker.FuncFormatter(
+            lambda x, _: f"{int(x * raster_bin_size_ms + ms_offset)}"
+        )
         for ax in main_axes:
             ax.xaxis.set_major_formatter(formatter)
 

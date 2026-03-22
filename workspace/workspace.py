@@ -729,7 +729,10 @@ class WorkspaceManager:
 
     def __init__(self) -> None:
         """Initialize an empty WorkspaceManager."""
+        import threading
+
         self._workspaces: Dict[str, AnalysisWorkspace] = {}
+        self._lock = threading.Lock()
 
     def create_workspace(self, name: Optional[str] = None, lazy: bool = False) -> str:
         """
@@ -750,7 +753,8 @@ class WorkspaceManager:
             ws = LazyAnalysisWorkspace(name=name)
         else:
             ws = AnalysisWorkspace(name=name)
-        self._workspaces[ws.workspace_id] = ws
+        with self._lock:
+            self._workspaces[ws.workspace_id] = ws
         return ws.workspace_id
 
     def get_workspace(self, workspace_id: str) -> Optional[AnalysisWorkspace]:
@@ -764,7 +768,8 @@ class WorkspaceManager:
             workspace (AnalysisWorkspace | None): The workspace, or None
                 if not found.
         """
-        return self._workspaces.get(workspace_id)
+        with self._lock:
+            return self._workspaces.get(workspace_id)
 
     def delete_workspace(self, workspace_id: str) -> bool:
         """
@@ -776,10 +781,11 @@ class WorkspaceManager:
         Returns:
             success (bool): True if deleted, False if not found.
         """
-        if workspace_id in self._workspaces:
-            del self._workspaces[workspace_id]
-            return True
-        return False
+        with self._lock:
+            if workspace_id in self._workspaces:
+                del self._workspaces[workspace_id]
+                return True
+            return False
 
     def list_workspaces(self) -> List[dict]:
         """
@@ -789,20 +795,21 @@ class WorkspaceManager:
             workspaces (list[dict]): Each entry contains workspace_id, name,
                 created_at, namespace_count, and item_count.
         """
-        result = []
-        for ws in self._workspaces.values():
-            index = ws._index if hasattr(ws, "_index") else ws._items
-            item_count = sum(len(v) for v in index.values())
-            result.append(
-                {
-                    "workspace_id": ws.workspace_id,
-                    "name": ws.name,
-                    "created_at": ws.created_at,
-                    "namespace_count": len(index),
-                    "item_count": item_count,
-                }
-            )
-        return result
+        with self._lock:
+            result = []
+            for ws in self._workspaces.values():
+                index = ws._index if hasattr(ws, "_index") else ws._items
+                item_count = sum(len(v) for v in index.values())
+                result.append(
+                    {
+                        "workspace_id": ws.workspace_id,
+                        "name": ws.name,
+                        "created_at": ws.created_at,
+                        "namespace_count": len(index),
+                        "item_count": item_count,
+                    }
+                )
+            return result
 
     def save_workspace(self, workspace_id: str, path: str) -> None:
         """
@@ -837,7 +844,8 @@ class WorkspaceManager:
               will be overwritten by the loaded version.
         """
         ws = AnalysisWorkspace.load(path)
-        self._workspaces[ws.workspace_id] = ws
+        with self._lock:
+            self._workspaces[ws.workspace_id] = ws
         return ws.workspace_id
 
     def load_workspace_item(
@@ -859,7 +867,8 @@ class WorkspaceManager:
             - Raises KeyError if workspace_id is not registered.
             - Raises KeyError if namespace or key is not found in the file.
         """
-        ws = self._workspaces[workspace_id]
+        with self._lock:
+            ws = self._workspaces[workspace_id]
         obj = AnalysisWorkspace.load_item(path, namespace, key)
         ws.store(namespace, key, obj)
 

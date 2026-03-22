@@ -71,20 +71,10 @@ def _unique_namespace(ws, namespace: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def load_from_hdf5(
+async def load_from_hdf5_raster(
     file_path: str,
-    style: str = "ragged",
-    raster_dataset: Optional[str] = None,
-    raster_bin_size_ms: Optional[float] = None,
-    spike_times_dataset: Optional[str] = None,
-    spike_times_index_dataset: Optional[str] = None,
-    spike_times_unit: str = "s",
-    fs_Hz: Optional[float] = None,
-    group_per_unit: Optional[str] = None,
-    group_time_unit: str = "s",
-    idces_dataset: Optional[str] = None,
-    times_dataset: Optional[str] = None,
-    times_unit: str = "s",
+    raster_dataset: str,
+    raster_bin_size_ms: float,
     raw_dataset: Optional[str] = None,
     raw_time_dataset: Optional[str] = None,
     raw_time_unit: str = "s",
@@ -96,42 +86,25 @@ async def load_from_hdf5(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Load spike data from an HDF5 file.
-
-    Supports four input styles:
-    - 'raster': 2D raster matrix (requires raster_dataset and raster_bin_size_ms)
-    - 'ragged': Flat spike times with index array (requires spike_times_dataset and spike_times_index_dataset)
-    - 'group': Group per unit (requires group_per_unit)
-    - 'paired': Paired indices and times arrays (requires idces_dataset and times_dataset)
+    """Load spike data from an HDF5 file containing a 2-D raster matrix.
 
     Args:
-        file_path: Local file path or S3 URL to HDF5 file
-        style: Input style ('raster', 'ragged', 'group', or 'paired')
-        raster_dataset: Dataset path for raster matrix (style='raster')
-        raster_bin_size_ms: Bin size in ms for raster (style='raster')
-        spike_times_dataset: Dataset path for flat spike times (style='ragged')
-        spike_times_index_dataset: Dataset path for spike times index (style='ragged')
-        spike_times_unit: Time unit for spike times ('s', 'ms', 'samples')
-        fs_Hz: Sampling frequency in Hz (required for 'samples' unit)
-        group_per_unit: Group path containing per-unit datasets (style='group')
-        group_time_unit: Time unit for group datasets
-        idces_dataset: Dataset path for unit indices (style='paired')
-        times_dataset: Dataset path for spike times (style='paired')
-        times_unit: Time unit for paired times
-        raw_dataset: Optional raw data dataset path
-        raw_time_dataset: Optional raw time dataset path
-        raw_time_unit: Time unit for raw data
-        length_ms: Optional recording length in ms
-        workspace_id: Workspace to store the SpikeData in; creates a new one if empty
-        namespace: Recording namespace within the workspace; derived from file name if empty
-        aws_access_key_id: Optional AWS access key for S3
-        aws_secret_access_key: Optional AWS secret key for S3
-        aws_session_token: Optional AWS session token for S3
-        region_name: Optional AWS region name
+        file_path: Local file path or S3 URL to HDF5 file.
+        raster_dataset: HDF5 dataset path for the raster matrix.
+        raster_bin_size_ms: Bin size of the raster in milliseconds.
+        raw_dataset: Optional raw-data dataset path.
+        raw_time_dataset: Optional raw-time dataset path.
+        raw_time_unit: Time unit for raw data ('s', 'ms', 'samples').
+        length_ms: Optional recording length in ms.
+        workspace_id: Workspace to store results; creates a new one if empty.
+        namespace: Namespace within the workspace; derived from file name if empty.
+        aws_access_key_id: Optional AWS access key for S3.
+        aws_secret_access_key: Optional AWS secret key for S3.
+        aws_session_token: Optional AWS session token for S3.
+        region_name: Optional AWS region name.
 
     Returns:
-        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
     local_path, is_temp = ensure_local_file(
         file_path,
@@ -142,44 +115,12 @@ async def load_from_hdf5(
     )
 
     try:
-        # Build kwargs based on style
-        kwargs = {
-            "spike_times_unit": spike_times_unit,
-            "fs_Hz": fs_Hz,
-            "group_time_unit": group_time_unit,
-            "times_unit": times_unit,
+        kwargs: Dict[str, Any] = {
+            "raster_dataset": raster_dataset,
+            "raster_bin_size_ms": raster_bin_size_ms,
             "raw_time_unit": raw_time_unit,
             "length_ms": length_ms,
         }
-
-        if style == "raster":
-            if raster_dataset is None or raster_bin_size_ms is None:
-                raise ValueError(
-                    "raster_dataset and raster_bin_size_ms required for raster style"
-                )
-            kwargs["raster_dataset"] = raster_dataset
-            kwargs["raster_bin_size_ms"] = raster_bin_size_ms
-        elif style == "ragged":
-            if spike_times_dataset is None or spike_times_index_dataset is None:
-                raise ValueError(
-                    "spike_times_dataset and spike_times_index_dataset required for ragged style"
-                )
-            kwargs["spike_times_dataset"] = spike_times_dataset
-            kwargs["spike_times_index_dataset"] = spike_times_index_dataset
-        elif style == "group":
-            if group_per_unit is None:
-                raise ValueError("group_per_unit required for group style")
-            kwargs["group_per_unit"] = group_per_unit
-        elif style == "paired":
-            if idces_dataset is None or times_dataset is None:
-                raise ValueError(
-                    "idces_dataset and times_dataset required for paired style"
-                )
-            kwargs["idces_dataset"] = idces_dataset
-            kwargs["times_dataset"] = times_dataset
-        else:
-            raise ValueError(f"Unknown style: {style}")
-
         if raw_dataset:
             kwargs["raw_dataset"] = raw_dataset
         if raw_time_dataset:
@@ -199,6 +140,265 @@ async def load_from_hdf5(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
+                "metadata": spikedata.metadata,
+            },
+        }
+    finally:
+        if is_temp:
+            try:
+                os.unlink(local_path)
+            except Exception:
+                pass
+
+
+async def load_from_hdf5_ragged(
+    file_path: str,
+    spike_times_dataset: str = "spike_times",
+    spike_times_index_dataset: str = "spike_times_index",
+    spike_times_unit: str = "s",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: str = "s",
+    length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Load spike data from an HDF5 file with flat spike times and an index array.
+
+    Args:
+        file_path: Local file path or S3 URL to HDF5 file.
+        spike_times_dataset: HDF5 dataset path for flat spike times.
+        spike_times_index_dataset: HDF5 dataset path for the index array.
+        spike_times_unit: Time unit ('s', 'ms', 'samples').
+        fs_Hz: Sampling frequency in Hz (required when unit is 'samples').
+        raw_dataset: Optional raw-data dataset path.
+        raw_time_dataset: Optional raw-time dataset path.
+        raw_time_unit: Time unit for raw data.
+        length_ms: Optional recording length in ms.
+        workspace_id: Workspace to store results; creates a new one if empty.
+        namespace: Namespace within the workspace; derived from file name if empty.
+        aws_access_key_id: Optional AWS access key for S3.
+        aws_secret_access_key: Optional AWS secret key for S3.
+        aws_session_token: Optional AWS session token for S3.
+        region_name: Optional AWS region name.
+
+    Returns:
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
+    """
+    local_path, is_temp = ensure_local_file(
+        file_path,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        kwargs: Dict[str, Any] = {
+            "spike_times_dataset": spike_times_dataset,
+            "spike_times_index_dataset": spike_times_index_dataset,
+            "spike_times_unit": spike_times_unit,
+            "fs_Hz": fs_Hz,
+            "raw_time_unit": raw_time_unit,
+            "length_ms": length_ms,
+        }
+        if raw_dataset:
+            kwargs["raw_dataset"] = raw_dataset
+        if raw_time_dataset:
+            kwargs["raw_time_dataset"] = raw_time_dataset
+
+        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
+
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
+        return {
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
+            "info": {
+                "num_neurons": spikedata.N,
+                "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
+                "metadata": spikedata.metadata,
+            },
+        }
+    finally:
+        if is_temp:
+            try:
+                os.unlink(local_path)
+            except Exception:
+                pass
+
+
+async def load_from_hdf5_group(
+    file_path: str,
+    group_per_unit: str = "units",
+    group_time_unit: str = "s",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: str = "s",
+    length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Load spike data from an HDF5 file with one group per unit.
+
+    Args:
+        file_path: Local file path or S3 URL to HDF5 file.
+        group_per_unit: HDF5 group path containing per-unit datasets.
+        group_time_unit: Time unit for group datasets ('s', 'ms', 'samples').
+        fs_Hz: Sampling frequency in Hz (required when unit is 'samples').
+        raw_dataset: Optional raw-data dataset path.
+        raw_time_dataset: Optional raw-time dataset path.
+        raw_time_unit: Time unit for raw data.
+        length_ms: Optional recording length in ms.
+        workspace_id: Workspace to store results; creates a new one if empty.
+        namespace: Namespace within the workspace; derived from file name if empty.
+        aws_access_key_id: Optional AWS access key for S3.
+        aws_secret_access_key: Optional AWS secret key for S3.
+        aws_session_token: Optional AWS session token for S3.
+        region_name: Optional AWS region name.
+
+    Returns:
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
+    """
+    local_path, is_temp = ensure_local_file(
+        file_path,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        kwargs: Dict[str, Any] = {
+            "group_per_unit": group_per_unit,
+            "group_time_unit": group_time_unit,
+            "fs_Hz": fs_Hz,
+            "raw_time_unit": raw_time_unit,
+            "length_ms": length_ms,
+        }
+        if raw_dataset:
+            kwargs["raw_dataset"] = raw_dataset
+        if raw_time_dataset:
+            kwargs["raw_time_dataset"] = raw_time_dataset
+
+        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
+
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
+        return {
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
+            "info": {
+                "num_neurons": spikedata.N,
+                "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
+                "metadata": spikedata.metadata,
+            },
+        }
+    finally:
+        if is_temp:
+            try:
+                os.unlink(local_path)
+            except Exception:
+                pass
+
+
+async def load_from_hdf5_paired(
+    file_path: str,
+    idces_dataset: str = "idces",
+    times_dataset: str = "times",
+    times_unit: str = "ms",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: str = "s",
+    length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Load spike data from an HDF5 file with paired index and times arrays.
+
+    Args:
+        file_path: Local file path or S3 URL to HDF5 file.
+        idces_dataset: HDF5 dataset path for unit indices.
+        times_dataset: HDF5 dataset path for spike times.
+        times_unit: Time unit for times ('s', 'ms', 'samples').
+        fs_Hz: Sampling frequency in Hz (required when unit is 'samples').
+        raw_dataset: Optional raw-data dataset path.
+        raw_time_dataset: Optional raw-time dataset path.
+        raw_time_unit: Time unit for raw data.
+        length_ms: Optional recording length in ms.
+        workspace_id: Workspace to store results; creates a new one if empty.
+        namespace: Namespace within the workspace; derived from file name if empty.
+        aws_access_key_id: Optional AWS access key for S3.
+        aws_secret_access_key: Optional AWS secret key for S3.
+        aws_session_token: Optional AWS session token for S3.
+        region_name: Optional AWS region name.
+
+    Returns:
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
+    """
+    local_path, is_temp = ensure_local_file(
+        file_path,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        region_name=region_name,
+    )
+
+    try:
+        kwargs: Dict[str, Any] = {
+            "idces_dataset": idces_dataset,
+            "times_dataset": times_dataset,
+            "times_unit": times_unit,
+            "fs_Hz": fs_Hz,
+            "raw_time_unit": raw_time_unit,
+            "length_ms": length_ms,
+        }
+        if raw_dataset:
+            kwargs["raw_dataset"] = raw_dataset
+        if raw_time_dataset:
+            kwargs["raw_time_dataset"] = raw_time_dataset
+
+        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
+
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
+        return {
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
+            "info": {
+                "num_neurons": spikedata.N,
+                "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -263,6 +463,7 @@ async def load_from_nwb(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -349,6 +550,7 @@ async def load_from_kilosort(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": spikedata.metadata,
         },
     }
@@ -401,6 +603,7 @@ async def load_from_pickle(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": spikedata.metadata,
         },
     }
@@ -473,6 +676,7 @@ async def load_from_hdf5_thresholded(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -523,6 +727,7 @@ async def load_from_ibl(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": {
                 k: v
                 for k, v in spikedata.metadata.items()

@@ -56,7 +56,9 @@ except ImportError:  # pragma: no cover
     community_louvain = None  # type: ignore
 
 
-def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
+def get_sttc(
+    tA, tB, delt=20.0, length: Optional[float] = None, start_time: float = 0.0
+):
     """
     Calculate the spike time tiling coefficient between two spike trains.
 
@@ -64,13 +66,18 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
     STTC = (PA - TB) / (1 - PA * TB) if PA * TB != 1 else 0 + (PB - TA) / (1 - PB * TA) if PB * TA != 1 else 0
 
     Parameters:
-    tA (list): List of spike times for the first spike train
-    tB (list): List of spike times for the second spike train
-    delt (float): Time window in milliseconds (default: 20.0)
-    length (float): Total duration in milliseconds (optional)
+    tA (list): List of spike times for the first spike train.
+    tB (list): List of spike times for the second spike train.
+    delt (float): Time window in milliseconds (default: 20.0).
+    length (float): Total duration in milliseconds (optional). If None,
+        inferred from the latest spike time after shifting.
+    start_time (float): Time origin of the spike trains (default 0.0).
+        Spike times are shifted by ``-start_time`` before computation so
+        that the STTC edge corrections work correctly for event-centered
+        data with negative spike times.
 
     Returns:
-    sttc (float): Spike time tiling coefficient between the two spike trains
+    sttc (float): Spike time tiling coefficient between the two spike trains.
 
     [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
         comparison of methods and application to the study of retinal waves. Journal of
@@ -81,6 +88,11 @@ def get_sttc(tA, tB, delt=20.0, length: Optional[float] = None):
 
     if len(tA) == 0 or len(tB) == 0:
         return 0.0
+
+    # Shift both trains by -start_time so they are 0-based. This ensures
+    # _sttc_ta edge corrections work correctly for event-centered data.
+    tA = np.asarray(tA, dtype=float) - start_time
+    tB = np.asarray(tB, dtype=float) - start_time
 
     if length is None:
         length = float(max(tA[-1], tB[-1]))
@@ -1248,7 +1260,9 @@ def _get_attr(obj, key, default):
     return getattr(obj, key, default)
 
 
-def _validate_time_start_to_end(times_start_to_end):
+def _validate_time_start_to_end(
+    times_start_to_end, warn_negative_start=False, recording_range=None
+):
     """
     Validates that the list of (start, end) tuples has the same duration and is in
     proper format for the object constructor.
@@ -1256,11 +1270,18 @@ def _validate_time_start_to_end(times_start_to_end):
     Parameters:
     -----------
     times_start_to_end (list): Each entry must be a tuple (start, end).
+    warn_negative_start (bool): If True, emit a warning for windows with
+        negative start times (default False). Useful when times are expected
+        to be absolute recording positions.
+    recording_range (tuple or None): If provided, a ``(rec_start, rec_end)``
+        tuple defining the valid time range. Any window that extends outside
+        this range raises ``ValueError``. If None (default), no range check
+        is performed.
 
     Returns:
     --------
-    valid_time_tuples (list): Sorted list of valid (start, end) tuples, with
-                                negative-start windows removed.
+    valid_time_tuples (list): Sorted list of valid (start, end) tuples.
+                                Negative-start windows are preserved.
     """
     if not isinstance(times_start_to_end, list):
         raise TypeError("times must be a list of tuples")
@@ -1292,8 +1313,22 @@ def _validate_time_start_to_end(times_start_to_end):
                 "Treating as an empty slice.",
                 UserWarning,
             )
-        if time_window[0] < 0:
-            continue
+        if warn_negative_start and time_window[0] < 0:
+            warnings.warn(
+                f"Time window {i} has negative start ({time_window[0]}). "
+                "If these are absolute recording times, negative values are "
+                "unexpected. For event-centered data constructed via "
+                "time_peaks + time_bounds, this is normal.",
+                UserWarning,
+            )
+        if recording_range is not None:
+            rec_start, rec_end = recording_range
+            if time_window[0] < rec_start or time_window[1] > rec_end:
+                raise ValueError(
+                    f"Time window {i} ({time_window[0]}, {time_window[1]}) "
+                    f"extends outside the recording range "
+                    f"[{rec_start}, {rec_end}]."
+                )
         time_diff_check.append(time_window[1] - time_window[0])
         valid_time_tuples.append(time_window)
         if len(set(time_diff_check)) > 1:

@@ -45,110 +45,32 @@ def _get_spikedata(ws, namespace: str):
     return sd
 
 
-async def export_to_hdf5(
-    workspace_id: str,
-    namespace: str,
+def _hdf5_export_helper(
+    spikedata,
     file_path: str,
-    style: Literal["raster", "ragged", "group", "paired"] = "ragged",
-    raster_dataset: str = "raster",
-    raster_bin_size_ms: Optional[float] = None,
-    spike_times_dataset: str = "spike_times",
-    spike_times_index_dataset: str = "spike_times_index",
-    spike_times_unit: Literal["ms", "s", "samples"] = "s",
-    fs_Hz: Optional[float] = None,
-    group_per_unit: str = "units",
-    group_time_unit: Literal["ms", "s", "samples"] = "s",
-    idces_dataset: str = "idces",
-    times_dataset: str = "times",
-    times_unit: Literal["ms", "s", "samples"] = "ms",
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
-    raw_time_unit: Literal["ms", "s", "samples"] = "ms",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
+    style: str,
+    export_kwargs: Dict[str, Any],
+    aws_access_key_id: Optional[str],
+    aws_secret_access_key: Optional[str],
+    aws_session_token: Optional[str],
+    region_name: Optional[str],
 ) -> Dict[str, Any]:
-    """
-    Export spike data to an HDF5 file.
-
-    Supports four export styles:
-    - 'raster': 2D raster matrix (requires raster_bin_size_ms)
-    - 'ragged': Flat spike times with index array (NWB-like)
-    - 'group': Group per unit
-    - 'paired': Paired indices and times arrays
-
-    Args:
-        workspace_id: Workspace ID containing the SpikeData
-        namespace: Namespace within the workspace
-        file_path: Local file path or S3 URL for output
-        style: Export style ('raster', 'ragged', 'group', 'paired')
-        raster_dataset: Dataset name for raster (style='raster')
-        raster_bin_size_ms: Bin size in ms for raster (style='raster')
-        spike_times_dataset: Dataset name for spike times (style='ragged')
-        spike_times_index_dataset: Dataset name for spike times index (style='ragged')
-        spike_times_unit: Time unit for spike times
-        fs_Hz: Sampling frequency in Hz (required for 'samples' unit)
-        group_per_unit: Group name for per-unit datasets (style='group')
-        group_time_unit: Time unit for group datasets
-        idces_dataset: Dataset name for unit indices (style='paired')
-        times_dataset: Dataset name for spike times (style='paired')
-        times_unit: Time unit for paired times
-        raw_dataset: Optional raw data dataset name
-        raw_time_dataset: Optional raw time dataset name
-        raw_time_unit: Time unit for raw data
-        aws_access_key_id: Optional AWS access key for S3
-        aws_secret_access_key: Optional AWS secret key for S3
-        aws_session_token: Optional AWS session token for S3
-        region_name: Optional AWS region name
-
-    Returns:
-        Dictionary with 'file_path' (output path) and 'style'
-    """
-    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
-
-    # Determine if output is S3 or local
+    """Shared logic for HDF5 export: S3 handling, temp file cleanup, exporter call."""
     is_s3 = is_s3_url(file_path)
     if is_s3:
-        # Create temporary local file, then upload
-        suffix = ".h5"
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".h5")
         local_path = temp_file.name
         temp_file.close()
     else:
         local_path = file_path
-        # Ensure directory exists
         os.makedirs(
             os.path.dirname(local_path) if os.path.dirname(local_path) else ".",
             exist_ok=True,
         )
 
-    # Build export kwargs
-    kwargs = {
-        "style": style,
-        "raster_dataset": raster_dataset,
-        "raster_bin_size_ms": raster_bin_size_ms,
-        "spike_times_dataset": spike_times_dataset,
-        "spike_times_index_dataset": spike_times_index_dataset,
-        "spike_times_unit": spike_times_unit,
-        "fs_Hz": fs_Hz,
-        "group_per_unit": group_per_unit,
-        "group_time_unit": group_time_unit,
-        "idces_dataset": idces_dataset,
-        "times_dataset": times_dataset,
-        "times_unit": times_unit,
-        "raw_dataset": raw_dataset,
-        "raw_time_dataset": raw_time_dataset,
-        "raw_time_unit": raw_time_unit,
-    }
-
-    # Remove None values
-    kwargs = {k: v for k, v in kwargs.items() if v is not None}
-
     try:
-        export_spikedata_to_hdf5(spikedata, local_path, **kwargs)
+        export_spikedata_to_hdf5(spikedata, local_path, style=style, **export_kwargs)
 
-        # Upload to S3 if needed
         if is_s3:
             upload_to_s3(
                 local_path,
@@ -158,7 +80,6 @@ async def export_to_hdf5(
                 aws_session_token=aws_session_token,
                 region_name=region_name,
             )
-            # Clean up temp file
             try:
                 os.unlink(local_path)
             except Exception:
@@ -167,18 +88,168 @@ async def export_to_hdf5(
         else:
             output_path = local_path
 
-        return {
-            "file_path": output_path,
-            "style": style,
-        }
-    except Exception as e:
-        # Clean up temp file on error
+        return {"file_path": output_path, "style": style}
+    except Exception:
         if is_s3:
             try:
                 os.unlink(local_path)
             except Exception:
                 pass
         raise
+
+
+async def export_to_hdf5_raster(
+    workspace_id: str,
+    namespace: str,
+    file_path: str,
+    raster_dataset: str = "raster",
+    raster_bin_size_ms: float = 1.0,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: Literal["ms", "s", "samples"] = "ms",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Export spike data to HDF5 as a 2-D binary raster matrix."""
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
+    kwargs: Dict[str, Any] = {
+        "raster_dataset": raster_dataset,
+        "raster_bin_size_ms": raster_bin_size_ms,
+        "raw_dataset": raw_dataset,
+        "raw_time_dataset": raw_time_dataset,
+        "raw_time_unit": raw_time_unit,
+    }
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    return _hdf5_export_helper(
+        spikedata,
+        file_path,
+        "raster",
+        kwargs,
+        aws_access_key_id,
+        aws_secret_access_key,
+        aws_session_token,
+        region_name,
+    )
+
+
+async def export_to_hdf5_ragged(
+    workspace_id: str,
+    namespace: str,
+    file_path: str,
+    spike_times_dataset: str = "spike_times",
+    spike_times_index_dataset: str = "spike_times_index",
+    spike_times_unit: Literal["ms", "s", "samples"] = "s",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: Literal["ms", "s", "samples"] = "ms",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Export spike data to HDF5 as flat spike-times with an index array (NWB-like)."""
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
+    kwargs: Dict[str, Any] = {
+        "spike_times_dataset": spike_times_dataset,
+        "spike_times_index_dataset": spike_times_index_dataset,
+        "spike_times_unit": spike_times_unit,
+        "fs_Hz": fs_Hz,
+        "raw_dataset": raw_dataset,
+        "raw_time_dataset": raw_time_dataset,
+        "raw_time_unit": raw_time_unit,
+    }
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    return _hdf5_export_helper(
+        spikedata,
+        file_path,
+        "ragged",
+        kwargs,
+        aws_access_key_id,
+        aws_secret_access_key,
+        aws_session_token,
+        region_name,
+    )
+
+
+async def export_to_hdf5_group(
+    workspace_id: str,
+    namespace: str,
+    file_path: str,
+    group_per_unit: str = "units",
+    group_time_unit: Literal["ms", "s", "samples"] = "s",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: Literal["ms", "s", "samples"] = "ms",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Export spike data to HDF5 with one group per unit."""
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
+    kwargs: Dict[str, Any] = {
+        "group_per_unit": group_per_unit,
+        "group_time_unit": group_time_unit,
+        "fs_Hz": fs_Hz,
+        "raw_dataset": raw_dataset,
+        "raw_time_dataset": raw_time_dataset,
+        "raw_time_unit": raw_time_unit,
+    }
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    return _hdf5_export_helper(
+        spikedata,
+        file_path,
+        "group",
+        kwargs,
+        aws_access_key_id,
+        aws_secret_access_key,
+        aws_session_token,
+        region_name,
+    )
+
+
+async def export_to_hdf5_paired(
+    workspace_id: str,
+    namespace: str,
+    file_path: str,
+    idces_dataset: str = "idces",
+    times_dataset: str = "times",
+    times_unit: Literal["ms", "s", "samples"] = "ms",
+    fs_Hz: Optional[float] = None,
+    raw_dataset: Optional[str] = None,
+    raw_time_dataset: Optional[str] = None,
+    raw_time_unit: Literal["ms", "s", "samples"] = "ms",
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    aws_session_token: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Export spike data to HDF5 as paired unit-index and spike-time arrays."""
+    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
+    kwargs: Dict[str, Any] = {
+        "idces_dataset": idces_dataset,
+        "times_dataset": times_dataset,
+        "times_unit": times_unit,
+        "fs_Hz": fs_Hz,
+        "raw_dataset": raw_dataset,
+        "raw_time_dataset": raw_time_dataset,
+        "raw_time_unit": raw_time_unit,
+    }
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    return _hdf5_export_helper(
+        spikedata,
+        file_path,
+        "paired",
+        kwargs,
+        aws_access_key_id,
+        aws_secret_access_key,
+        aws_session_token,
+        region_name,
+    )
 
 
 async def export_to_nwb(
@@ -349,7 +420,7 @@ async def export_to_pickle(
         spikedata,
         file_path,
         protocol=protocol,
-        upload_to_s3=is_s3_url(file_path),
+        s3_upload=is_s3_url(file_path),
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
         aws_session_token=aws_session_token,

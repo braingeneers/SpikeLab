@@ -365,10 +365,10 @@ def _dump_dict(grp, d: dict, created_at: float, note) -> None:
         if isinstance(v, (int, float, bool, np.integer, np.floating, np.bool_)):
             child = grp.create_group(k)
             child.attrs["__type__"] = "scalar"
-            if isinstance(v, (int, np.integer)):
-                child.attrs["__scalar_value__"] = int(v)
-            elif isinstance(v, (bool, np.bool_)):
+            if isinstance(v, (bool, np.bool_)):
                 child.attrs["__scalar_value__"] = bool(v)
+            elif isinstance(v, (int, np.integer)):
+                child.attrs["__scalar_value__"] = int(v)
             else:
                 child.attrs["__scalar_value__"] = float(v)
             child.attrs["__scalar_kind__"] = type(v).__name__
@@ -490,7 +490,8 @@ def _load_neuron_attributes(grp) -> Optional[list]:
         if raw.dtype.kind in ("S", "O"):
             for i, v in enumerate(raw):
                 decoded = v.decode("utf-8") if isinstance(v, bytes) else str(v)
-                result[i][attr_key] = decoded
+                if decoded:  # empty string is sentinel for missing
+                    result[i][attr_key] = decoded
         elif raw.ndim > 1:
             # Array-valued attribute: each row is one unit's array.
             # All-NaN rows are sentinels for missing entries.
@@ -625,6 +626,7 @@ def _dump_spikedata(grp, sd) -> None:
     grp.create_dataset("spike_times", data=flat.astype(np.float64))
     grp.create_dataset("spike_times_index", data=index)
     grp.attrs["length_ms"] = float(sd.length)
+    grp.attrs["start_time"] = float(sd.start_time)
     grp.attrs["N"] = int(sd.N)
     _dump_metadata_json(grp, sd.metadata)
     if sd.raw_data.size > 0:
@@ -641,6 +643,7 @@ def _load_spikedata(grp):
     index = np.array(grp["spike_times_index"], dtype=np.int64)
     N = int(grp.attrs["N"])
     length_ms = float(grp.attrs["length_ms"])
+    start_time = float(grp.attrs.get("start_time", 0.0))
     metadata = _load_metadata_json(grp)
 
     train = []
@@ -656,6 +659,7 @@ def _load_spikedata(grp):
     return SpikeData(
         train,
         length=length_ms,
+        start_time=start_time,
         N=N,
         metadata=metadata,
         neuron_attributes=neuron_attributes,

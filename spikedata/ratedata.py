@@ -34,9 +34,8 @@ class RateData:
     ------
     - ``times`` may contain negative values when the RateData represents an
       event-aligned window (e.g., times from -200 to +500 ms around a stimulus).
-      This affects how ``subtime`` interprets negative ``start``/``end``
-      arguments: when ``times[0] < 0``, negative values are treated as literal
-      time coordinates rather than offsets from the end of the recording.
+    - ``subtime`` always treats ``start``/``end`` as literal time values.
+      Use ``subtime_by_index`` for index-based slicing with negative indexing.
 
     Instance Variables:
     --------
@@ -123,7 +122,7 @@ class RateData:
         """
         Extract a subset of time points from the rate data using time values.
 
-        Times are always shifted so that the new RateData starts at t=0.
+        Original time values are preserved in the output.
 
         Parameters:
         start (int/float): Starting time value (inclusive)
@@ -133,39 +132,24 @@ class RateData:
         RateData: New RateData object containing only the specified time range
 
         Notes:
-        - Negative start/end values are treated as literal time coordinates when
-          the times array contains negative values (e.g., event-aligned data with
-          times from -200 to +500 ms). When times are all non-negative, negative
-          values are treated as offsets from the end (e.g., start=-20 means 20 ms
-          before the last time point).
+        - Start and end are always treated as literal time values (not offsets
+          from the end). To slice by array index with negative indexing support,
+          use ``subtime_by_index(start_idx, end_idx)``.
         """
-
-        length = self.times[-1] if len(self.times) > 0 else 0
-        has_negative_times = len(self.times) > 0 and self.times[0] < 0
 
         # Handle start
         if start is None or start is Ellipsis:
             start = self.times[0] if len(self.times) > 0 else 0
-        elif start < 0 and not has_negative_times:
-            orig_start = start
-            start += length
-            if start < 0:
-                raise ValueError(
-                    f"start ({orig_start}) is too negative. "
-                    f"Minimum allowed is -{length}"
-                )
 
-        # Handle end
+        # Handle end — use a value just past the last time point so the
+        # mask (times < end) includes the final bin.
         if end is None or end is Ellipsis:
-            end = length
-        elif end < 0 and not has_negative_times:
-            orig_end = end
-            end += length
-            if end < 0:
-                raise ValueError(
-                    f"end ({orig_end}) is too negative. "
-                    f"Minimum allowed is -{length}"
-                )
+            if len(self.times) > 1:
+                end = self.times[-1] + (self.times[1] - self.times[0])
+            elif len(self.times) == 1:
+                end = self.times[-1] + 1
+            else:
+                end = 0
 
         # Validate
         if start >= end:
@@ -181,7 +165,7 @@ class RateData:
             )
 
         output = self.inst_Frate_data[:, mask]
-        new_times = self.times[mask] - self.times[mask][0]
+        new_times = self.times[mask]
         return RateData(
             inst_Frate_data=output,
             times=new_times,
@@ -192,7 +176,7 @@ class RateData:
         """
         Extract a subset of time points from the rate data using time index values.
 
-        Times are always shifted so that the new RateData starts at t=0.
+        Original time values are preserved in the output.
 
         Parameters:
         start_idx (int): Starting time index (inclusive)
@@ -200,6 +184,11 @@ class RateData:
 
         Returns:
         RateData: New RateData object containing only the specified time range
+
+        Notes:
+        - Supports negative indexing (e.g., -5 selects 5 from the end).
+        - To slice by time values instead of array indices, use
+          ``subtime(start, end)``.
         """
         if start_idx < 0:
             start_idx += len(self.times)
@@ -213,7 +202,6 @@ class RateData:
 
         output = self.inst_Frate_data[:, start_idx:end_idx]
         new_times = self.times[start_idx:end_idx]
-        new_times = new_times - new_times[0]
 
         return RateData(
             inst_Frate_data=output,

@@ -42,116 +42,150 @@ async def _list_tools() -> list[types.Tool]:
     tools.extend(
         [
             types.Tool(
-                name="load_from_hdf5",
-                description=(
-                    "Load spike data from an HDF5 file. Supports raster, ragged, "
-                    "group-per-unit, and paired array styles. Accepts local file paths "
-                    "or S3 URLs. Stores SpikeData at (namespace, 'spikedata') in the "
-                    "workspace."
-                ),
+                name="load_from_hdf5_raster",
+                description="Load spike data from an HDF5 raster matrix. Stores SpikeData at (namespace, 'spikedata').",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "Local file path or S3 URL",
-                        },
-                        "style": {
-                            "type": "string",
-                            "enum": ["raster", "ragged", "group", "paired"],
-                            "description": "Input style",
-                            "default": "ragged",
+                            "description": "Local path or S3 URL",
                         },
                         "raster_dataset": {
                             "type": "string",
-                            "description": "Dataset path for raster (style='raster')",
+                            "description": "Dataset path for raster matrix",
                         },
                         "raster_bin_size_ms": {
                             "type": "number",
-                            "description": "Bin size in ms (style='raster')",
+                            "description": "Bin size in ms",
+                        },
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
+                            "type": "string",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
+                        },
+                        "length_ms": {"type": "number"},
+                        "workspace_id": {"type": "string", "default": ""},
+                        "namespace": {"type": "string", "default": ""},
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["file_path", "raster_dataset", "raster_bin_size_ms"],
+                },
+            ),
+            types.Tool(
+                name="load_from_hdf5_ragged",
+                description="Load spike data from HDF5 ragged spike times + index. Stores SpikeData at (namespace, 'spikedata').",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local path or S3 URL",
                         },
                         "spike_times_dataset": {
                             "type": "string",
-                            "description": "Dataset path for spike times (style='ragged')",
+                            "default": "spike_times",
                         },
                         "spike_times_index_dataset": {
                             "type": "string",
-                            "description": "Dataset path for spike times index (style='ragged')",
+                            "default": "spike_times_index",
                         },
                         "spike_times_unit": {
                             "type": "string",
                             "enum": ["s", "ms", "samples"],
                             "default": "s",
                         },
-                        "fs_Hz": {
-                            "type": "number",
-                            "description": "Sampling frequency in Hz",
-                        },
-                        "group_per_unit": {
-                            "type": "string",
-                            "description": "Group path (style='group')",
-                        },
-                        "group_time_unit": {
-                            "type": "string",
-                            "enum": ["s", "ms", "samples"],
-                            "default": "s",
-                        },
-                        "idces_dataset": {
-                            "type": "string",
-                            "description": "Dataset path for unit indices (style='paired')",
-                        },
-                        "times_dataset": {
-                            "type": "string",
-                            "description": "Dataset path for spike times (style='paired')",
-                        },
-                        "times_unit": {
-                            "type": "string",
-                            "enum": ["s", "ms", "samples"],
-                            "default": "s",
-                        },
-                        "raw_dataset": {
-                            "type": "string",
-                            "description": "Optional raw data dataset",
-                        },
-                        "raw_time_dataset": {
-                            "type": "string",
-                            "description": "Optional raw time dataset",
-                        },
+                        "fs_Hz": {"type": "number"},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
                         "raw_time_unit": {
                             "type": "string",
                             "enum": ["s", "ms", "samples"],
                             "default": "s",
                         },
-                        "length_ms": {
-                            "type": "number",
-                            "description": "Optional recording length in ms",
-                        },
-                        "workspace_id": {
+                        "length_ms": {"type": "number"},
+                        "workspace_id": {"type": "string", "default": ""},
+                        "namespace": {"type": "string", "default": ""},
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["file_path"],
+                },
+            ),
+            types.Tool(
+                name="load_from_hdf5_group",
+                description="Load spike data from HDF5 group-per-unit structure. Stores SpikeData at (namespace, 'spikedata').",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
                             "type": "string",
-                            "description": "Workspace ID to store the SpikeData in. If empty, a new workspace is created.",
-                            "default": "",
+                            "description": "Local path or S3 URL",
                         },
-                        "namespace": {
+                        "group_per_unit": {"type": "string", "default": "units"},
+                        "group_time_unit": {
                             "type": "string",
-                            "description": "Recording namespace within the workspace. If empty, derived from the file name.",
-                            "default": "",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
                         },
-                        "aws_access_key_id": {
+                        "fs_Hz": {"type": "number"},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
                             "type": "string",
-                            "description": "Optional AWS access key",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
                         },
-                        "aws_secret_access_key": {
+                        "length_ms": {"type": "number"},
+                        "workspace_id": {"type": "string", "default": ""},
+                        "namespace": {"type": "string", "default": ""},
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["file_path"],
+                },
+            ),
+            types.Tool(
+                name="load_from_hdf5_paired",
+                description="Load spike data from HDF5 paired indices + times arrays. Stores SpikeData at (namespace, 'spikedata').",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
                             "type": "string",
-                            "description": "Optional AWS secret key",
+                            "description": "Local path or S3 URL",
                         },
-                        "aws_session_token": {
+                        "idces_dataset": {"type": "string", "default": "idces"},
+                        "times_dataset": {"type": "string", "default": "times"},
+                        "times_unit": {
                             "type": "string",
-                            "description": "Optional AWS session token",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "ms",
                         },
-                        "region_name": {
+                        "fs_Hz": {"type": "number"},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
                             "type": "string",
-                            "description": "Optional AWS region",
+                            "enum": ["s", "ms", "samples"],
+                            "default": "s",
                         },
+                        "length_ms": {"type": "number"},
+                        "workspace_id": {"type": "string", "default": ""},
+                        "namespace": {"type": "string", "default": ""},
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
                     },
                     "required": ["file_path"],
                 },
@@ -1544,7 +1578,7 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Compute slice-to-slice unit correlation across event-aligned firing "
                     "rate slices. Loads RateSliceStack from (namespace, stack_key) and "
-                    "stores the PairwiseCompMatrixStack (U, U, S) at (namespace, out_key). "
+                    "stores the PairwiseCompMatrixStack (S, S, U) at (namespace, out_key). "
                     "Prerequisite: create_rate_slice_stack or frames_rate_data."
                 ),
                 inputSchema={
@@ -2849,8 +2883,10 @@ async def _list_tools() -> list[types.Tool]:
             types.Tool(
                 name="fetch_workspace_item",
                 description=(
-                    "Retrieve the data of a workspace item as a nested list. "
-                    "Supported types: ndarray and PairwiseCompMatrixStack."
+                    "Retrieve a workspace item inline. Returns full data for "
+                    "small types (ndarray, PairwiseCompMatrix, dict) and a "
+                    "type-specific summary for large types (SpikeData, "
+                    "RateData, slice stacks)."
                 ),
                 inputSchema={
                     "type": "object",
@@ -2871,24 +2907,40 @@ async def _list_tools() -> list[types.Tool]:
     tools.extend(
         [
             types.Tool(
-                name="export_to_hdf5",
-                description="Export spike data to an HDF5 file.",
+                name="export_to_hdf5_raster",
+                description="Export spike data to HDF5 as a raster matrix.",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "workspace_id": {"type": "string"},
                         "namespace": {"type": "string"},
-                        "file_path": {
+                        "file_path": {"type": "string"},
+                        "raster_dataset": {"type": "string", "default": "raster"},
+                        "raster_bin_size_ms": {"type": "number", "default": 1.0},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
                             "type": "string",
-                            "description": "Local file path or S3 URL",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "ms",
                         },
-                        "style": {
-                            "type": "string",
-                            "enum": ["raster", "ragged", "group", "paired"],
-                            "default": "ragged",
-                        },
-                        "raster_dataset": {"type": "string"},
-                        "raster_bin_size_ms": {"type": "number"},
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["workspace_id", "namespace", "file_path"],
+                },
+            ),
+            types.Tool(
+                name="export_to_hdf5_ragged",
+                description="Export spike data to HDF5 as ragged spike times + index (NWB-like).",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "file_path": {"type": "string"},
                         "spike_times_dataset": {
                             "type": "string",
                             "default": "spike_times",
@@ -2903,12 +2955,61 @@ async def _list_tools() -> list[types.Tool]:
                             "default": "s",
                         },
                         "fs_Hz": {"type": "number"},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "ms",
+                        },
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["workspace_id", "namespace", "file_path"],
+                },
+            ),
+            types.Tool(
+                name="export_to_hdf5_group",
+                description="Export spike data to HDF5 as group-per-unit structure.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "file_path": {"type": "string"},
                         "group_per_unit": {"type": "string", "default": "units"},
                         "group_time_unit": {
                             "type": "string",
                             "enum": ["ms", "s", "samples"],
                             "default": "s",
                         },
+                        "fs_Hz": {"type": "number"},
+                        "raw_dataset": {"type": "string"},
+                        "raw_time_dataset": {"type": "string"},
+                        "raw_time_unit": {
+                            "type": "string",
+                            "enum": ["ms", "s", "samples"],
+                            "default": "ms",
+                        },
+                        "aws_access_key_id": {"type": "string"},
+                        "aws_secret_access_key": {"type": "string"},
+                        "aws_session_token": {"type": "string"},
+                        "region_name": {"type": "string"},
+                    },
+                    "required": ["workspace_id", "namespace", "file_path"],
+                },
+            ),
+            types.Tool(
+                name="export_to_hdf5_paired",
+                description="Export spike data to HDF5 as paired indices + times arrays.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {"type": "string"},
+                        "namespace": {"type": "string"},
+                        "file_path": {"type": "string"},
                         "idces_dataset": {"type": "string", "default": "idces"},
                         "times_dataset": {"type": "string", "default": "times"},
                         "times_unit": {
@@ -2916,6 +3017,7 @@ async def _list_tools() -> list[types.Tool]:
                             "enum": ["ms", "s", "samples"],
                             "default": "ms",
                         },
+                        "fs_Hz": {"type": "number"},
                         "raw_dataset": {"type": "string"},
                         "raw_time_dataset": {"type": "string"},
                         "raw_time_unit": {
@@ -3017,8 +3119,14 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
     """Handle tool calls."""
     try:
         # Data loader tools
-        if name == "load_from_hdf5":
-            result = await data_loaders.load_from_hdf5(**arguments)
+        if name == "load_from_hdf5_raster":
+            result = await data_loaders.load_from_hdf5_raster(**arguments)
+        elif name == "load_from_hdf5_ragged":
+            result = await data_loaders.load_from_hdf5_ragged(**arguments)
+        elif name == "load_from_hdf5_group":
+            result = await data_loaders.load_from_hdf5_group(**arguments)
+        elif name == "load_from_hdf5_paired":
+            result = await data_loaders.load_from_hdf5_paired(**arguments)
         elif name == "load_from_nwb":
             result = await data_loaders.load_from_nwb(**arguments)
         elif name == "load_from_kilosort":
@@ -3207,8 +3315,14 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
             result = await analysis.fetch_workspace_item(**arguments)
 
         # Export tools
-        elif name == "export_to_hdf5":
-            result = await exporters.export_to_hdf5(**arguments)
+        elif name == "export_to_hdf5_raster":
+            result = await exporters.export_to_hdf5_raster(**arguments)
+        elif name == "export_to_hdf5_ragged":
+            result = await exporters.export_to_hdf5_ragged(**arguments)
+        elif name == "export_to_hdf5_group":
+            result = await exporters.export_to_hdf5_group(**arguments)
+        elif name == "export_to_hdf5_paired":
+            result = await exporters.export_to_hdf5_paired(**arguments)
         elif name == "export_to_nwb":
             result = await exporters.export_to_nwb(**arguments)
         elif name == "export_to_kilosort":

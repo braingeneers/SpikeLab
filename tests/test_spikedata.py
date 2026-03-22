@@ -408,12 +408,12 @@ class TestSpikeDataConstruction:
 
     def test_init_length_shorter_than_max_spike(self):
         """
-        SpikeData.__init__ rejects length shorter than the latest spike time.
+        SpikeData.__init__ rejects spike times outside the time window.
 
         Tests:
             (Test Case 1) length=10 with spikes at t=50 raises ValueError.
         """
-        with pytest.raises(ValueError, match="shorter than the latest spike"):
+        with pytest.raises(ValueError, match="exceeds end of time window"):
             SpikeData([[50.0]], length=10.0)
 
     def test_from_idces_times_mismatched_lengths(self):
@@ -442,13 +442,20 @@ class TestSpikeDataConstruction:
 
     def test_from_events_negative_times(self):
         """
-        from_events with negative time values.
+        from_events with negative time values requires start_time to cover them.
 
         Tests:
-            (Test Case 1) Negative times are accepted and sorted.
+            (Test Case 1) Negative times with start_time=-10 are accepted and sorted.
+            (Test Case 2) Negative times without start_time raise ValueError.
         """
-        sd = SpikeData.from_events([(0, -5.0), (0, 10.0)], length=20.0)
+        sd = SpikeData.from_events(
+            [(0, -5.0), (0, 10.0)], length=20.0, start_time=-10.0
+        )
         assert sd.train[0][0] == -5.0
+        assert sd.start_time == -10.0
+
+        with pytest.raises(ValueError, match="before start_time"):
+            SpikeData.from_events([(0, -5.0), (0, 10.0)], length=20.0)
 
     def test_from_raster_all_zeros(self):
         """
@@ -772,6 +779,84 @@ class TestSpikeDataConstruction:
         data = np.random.default_rng(42).standard_normal((2, 100))
         with pytest.raises(Exception):
             SpikeData.from_thresholding(data, fs_Hz=0.0, filter=False)
+
+    def test_init_start_time_default(self):
+        """
+        start_time defaults to 0.0 for standard SpikeData.
+
+        Tests:
+            (Test Case 1) Default start_time is 0.0.
+        """
+        sd = SpikeData([[10.0, 50.0]], length=100.0)
+        assert sd.start_time == 0.0
+
+    def test_init_start_time_negative(self):
+        """
+        SpikeData with negative start_time supports event-centered spike times.
+
+        Tests:
+            (Test Case 1) Negative spike times accepted when start_time covers them.
+            (Test Case 2) start_time stored correctly.
+            (Test Case 3) length is total span.
+        """
+        sd = SpikeData([[-50.0, -10.0, 30.0, 80.0]], start_time=-100.0, length=200.0)
+        assert sd.start_time == -100.0
+        assert sd.length == 200.0
+        assert sd.train[0][0] == -50.0
+
+    def test_init_start_time_validation_min(self):
+        """
+        Spike times before start_time are rejected.
+
+        Tests:
+            (Test Case 1) ValueError when spike at -50 with start_time=0.
+        """
+        with pytest.raises(ValueError, match="before start_time"):
+            SpikeData([[-50.0, 10.0]], length=100.0)
+
+    def test_init_start_time_validation_max(self):
+        """
+        Spike times beyond start_time + length are rejected.
+
+        Tests:
+            (Test Case 1) ValueError when spike at 50 exceeds window [-100, -50].
+        """
+        with pytest.raises(ValueError, match="exceeds end of time window"):
+            SpikeData([[50.0]], start_time=-100.0, length=50.0)
+
+    def test_init_start_time_length_inference(self):
+        """
+        When length is None, it is inferred as max_spike - start_time.
+
+        Tests:
+            (Test Case 1) length inferred correctly for 0-based data.
+            (Test Case 2) length inferred correctly for event-centered data.
+        """
+        sd1 = SpikeData([[10.0, 90.0]])
+        assert sd1.length == 90.0
+        assert sd1.start_time == 0.0
+
+        sd2 = SpikeData([[-50.0, 80.0]], start_time=-100.0)
+        assert sd2.length == 180.0  # 80 - (-100)
+        assert sd2.start_time == -100.0
+
+    def test_init_start_time_propagated_by_from_raster(self):
+        """
+        Static constructors forward start_time via **kwargs.
+
+        Tests:
+            (Test Case 1) from_raster with start_time=0 (default) works.
+            (Test Case 2) start_time is stored correctly.
+        """
+        raster = np.array([[1, 0, 1, 0]])
+        sd = SpikeData.from_raster(raster, bin_size_ms=10.0)
+        assert sd.start_time == 0.0
+
+        # With explicit start_time that covers the spike range
+        sd2 = SpikeData.from_raster(
+            raster, bin_size_ms=10.0, start_time=-50.0, length=100.0
+        )
+        assert sd2.start_time == -50.0
 
 
 class TestSpikeDataSlicing:
@@ -1231,6 +1316,87 @@ class TestSpikeDataSlicing:
         with pytest.raises(Exception):
             sd.subtime(np.nan, 30.0)
 
+    def test_subtime_shift_to_default(self):
+        """
+        subtime with default shift_to shifts to start (0-based output).
+
+        Tests:
+            (Test Case 1) Spike times are shifted so start becomes 0.
+            (Test Case 2) start_time is 0.0 in the output.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        sub = sd.subtime(20.0, 80.0)
+        assert sub.start_time == 0.0
+        assert sub.length == 60.0
+        # Spike at 50 → 30 (shifted by -20)
+        assert sub.train[0][0] == pytest.approx(30.0)
+
+    def test_subtime_shift_to_event(self):
+        """
+        subtime with shift_to=event produces event-centered spike times.
+
+        Tests:
+            (Test Case 1) Spike times run from -pre to +post around the event.
+            (Test Case 2) start_time is negative (= start - event).
+            (Test Case 3) length is the total window duration.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0, 110.0, 150.0]], length=200.0)
+        # Event at 100, window from 50 to 150
+        sub = sd.subtime(50.0, 150.0, shift_to=100.0)
+        assert sub.start_time == pytest.approx(-50.0)
+        assert sub.length == pytest.approx(100.0)
+        # Spike at 50 → -50, spike at 90 → -10, spike at 110 → +10, spike at 150 excluded
+        np.testing.assert_allclose(sub.train[0], [-50.0, -10.0, 10.0])
+
+    def test_subtime_shift_to_preserves_metadata(self):
+        """
+        subtime with shift_to propagates metadata and neuron_attributes.
+
+        Tests:
+            (Test Case 1) Metadata preserved.
+            (Test Case 2) Neuron attributes preserved.
+        """
+        sd = SpikeData(
+            [[10.0, 50.0]],
+            length=100.0,
+            metadata={"source": "test"},
+            neuron_attributes=[{"id": 1}],
+        )
+        sub = sd.subtime(0.0, 80.0, shift_to=40.0)
+        assert sub.metadata["source"] == "test"
+        assert sub.neuron_attributes[0]["id"] == 1
+
+    def test_subset_preserves_start_time(self):
+        """
+        subset propagates start_time from the original SpikeData.
+
+        Tests:
+            (Test Case 1) Event-centered SpikeData retains start_time after subset.
+        """
+        sd = SpikeData(
+            [[-50.0, 30.0], [-20.0, 80.0]],
+            start_time=-100.0,
+            length=200.0,
+        )
+        sub = sd.subset([0])
+        assert sub.start_time == -100.0
+        assert sub.length == 200.0
+        assert sub.N == 1
+
+    def test_append_preserves_start_time(self):
+        """
+        append preserves self.start_time in the combined SpikeData.
+
+        Tests:
+            (Test Case 1) Combined SpikeData has self's start_time.
+            (Test Case 2) Length covers both recordings.
+        """
+        sd1 = SpikeData([[10.0]], length=100.0)
+        sd2 = SpikeData([[5.0]], length=50.0)
+        combined = sd1.append(sd2)
+        assert combined.start_time == 0.0
+        assert combined.length == 150.0
+
     def test_append_metadata_key_collision(self):
         """
         append with overlapping metadata keys.
@@ -1364,6 +1530,71 @@ class TestSpikeDataRates:
         # Also verify that binning rules are consistent with binned() method
         binned = np.array([list(sd.binned(10))])
         assert np.all(sd.raster(10) == binned)
+
+    def test_sparse_raster_time_offset(self):
+        """
+        sparse_raster with time_offset shifts spike positions in the raster.
+
+        Tests:
+            (Test Case 1) Offset=0 (default) produces the standard raster.
+            (Test Case 2) Offset adds leading empty bins before the spikes.
+            (Test Case 3) Raster width increases by ceil(offset / bin_size).
+            (Test Case 4) Spike count is preserved regardless of offset.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+
+        r0 = sd.sparse_raster(bin_size=10.0).toarray()
+        r_offset = sd.sparse_raster(bin_size=10.0, time_offset=100.0).toarray()
+
+        # Default: 10 bins, spikes at bins 0, 4, 8
+        assert r0.shape == (1, 10)
+        assert r0.sum() == 3
+
+        # Offset: 20 bins, spikes shifted to bins 10, 14, 18
+        assert r_offset.shape == (1, 20)
+        assert r_offset.sum() == 3
+
+        # First 10 bins should be empty (offset region)
+        assert r_offset[0, :10].sum() == 0
+        # Spike pattern in offset region matches original
+        assert np.array_equal(r_offset[0, 10:], r0[0, :])
+
+    def test_raster_time_offset_passthrough(self):
+        """
+        raster() forwards time_offset to sparse_raster.
+
+        Tests:
+            (Test Case 1) Dense raster with offset matches sparse raster with offset.
+        """
+        sd = SpikeData([[10.0, 50.0]], length=100.0)
+        dense = sd.raster(bin_size=10.0, time_offset=50.0)
+        sparse = sd.sparse_raster(bin_size=10.0, time_offset=50.0).toarray()
+        np.testing.assert_array_equal(dense, sparse)
+
+    def test_sparse_raster_negative_start_time(self):
+        """
+        sparse_raster on event-centered SpikeData with negative start_time.
+
+        Tests:
+            (Test Case 1) Pre-event spikes (negative times) occupy early bins.
+            (Test Case 2) Post-event spikes (positive times) occupy later bins.
+            (Test Case 3) Total bin count matches ceil(length / bin_size).
+            (Test Case 4) Spike count is preserved.
+        """
+        # Event-centered: times from -20 to +20, length=40
+        sd = SpikeData([[-15.0, -5.0, 5.0, 15.0]], start_time=-20.0, length=40.0)
+        raster = sd.sparse_raster(bin_size=10.0).toarray()
+
+        assert raster.shape == (1, 4)  # 40ms / 10ms = 4 bins
+        assert raster.sum() == 4
+        # Bin 0: [-20, -10) → spike at -15
+        assert raster[0, 0] == 1
+        # Bin 1: [-10, 0) → spike at -5
+        assert raster[0, 1] == 1
+        # Bin 2: [0, 10) → spike at 5
+        assert raster[0, 2] == 1
+        # Bin 3: [10, 20) → spike at 15
+        assert raster[0, 3] == 1
 
     def test_rates(self):
         """
@@ -2516,20 +2747,15 @@ class TestSpikeDataCorrelation:
 
     def test_sttc_zero_length_recording(self):
         """
-        spike_time_tilings with a zero-length recording.
+        spike_time_tilings with a zero-length recording and empty trains.
 
         Tests:
-            (Test Case 1) Division by zero in `_sttc_ta(ts, delt, T) / T`
-                where T=0 causes an error or produces NaN/Inf.
-
-        Notes:
-            - This documents a bug: when self.length == 0, the computation
-              `_sttc_ta(ts, delt, T) / T` divides by zero.
+            (Test Case 1) Returns a 1x1 identity matrix (single unit, self-STTC=1).
         """
         sd = SpikeData([[]], length=0.0)
-        # T=0 causes division by zero in spike_time_tilings
-        with pytest.raises(Exception):
-            sd.spike_time_tilings(delt=5.0)
+        result = sd.spike_time_tilings(delt=5.0)
+        assert result.matrix.shape == (1, 1)
+        assert result.matrix[0, 0] == 1.0
 
 
 class TestSpikeDataBursts:
@@ -4884,3 +5110,51 @@ class TestAlignToEvents:
         sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
         with pytest.raises((ValueError, Exception)):
             sd.align_to_events([25.0], pre_ms=0.0, post_ms=0.0)
+
+    def test_align_to_events_event_centered_spike_times(self):
+        """
+        align_to_events with kind='spike' produces event-centered spike times.
+
+        Tests:
+            (Test Case 1) Spike times run from -pre_ms to +post_ms.
+            (Test Case 2) Each slice's start_time is -pre_ms.
+            (Test Case 3) t=0 in each slice corresponds to the event time.
+        """
+        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+
+        trains = [np.array([10.0, 30.0, 50.0, 70.0, 90.0])]
+        sd = SpikeData(trains, length=100.0)
+
+        stack = sd.align_to_events([50.0], pre_ms=20.0, post_ms=20.0, kind="spike")
+        assert isinstance(stack, SpikeSliceStack)
+
+        slice_sd = stack.spike_stack[0]
+        assert slice_sd.start_time == pytest.approx(-20.0)
+        assert slice_sd.length == pytest.approx(40.0)
+
+        # Spike at 30 → -20, spike at 50 → 0, spike at 70 excluded (t < end)
+        # Actually subtime uses [start, end), so spike at 30 is at 30-50=-20,
+        # spike at 50 is at 0
+        assert any(t == pytest.approx(0.0) for t in slice_sd.train[0])
+        assert any(t < 0 for t in slice_sd.train[0])
+
+    def test_align_to_events_raster_with_negative_times(self):
+        """
+        Event-centered SpikeSliceStack produces correct rasters via sparse_raster.
+
+        Tests:
+            (Test Case 1) sparse_raster on an event-centered slice places pre-event
+                spikes in early bins and post-event spikes in later bins.
+            (Test Case 2) Bin count equals ceil(length / bin_size).
+        """
+        trains = [np.array([40.0, 45.0, 50.0, 55.0, 60.0])]
+        sd = SpikeData(trains, length=100.0)
+
+        stack = sd.align_to_events([50.0], pre_ms=10.0, post_ms=10.0, kind="spike")
+        slice_sd = stack.spike_stack[0]
+
+        raster = slice_sd.sparse_raster(bin_size=5.0).toarray()
+        # Window is -10 to +10 → 20ms → 4 bins at 5ms each
+        assert raster.shape == (1, 4)
+        # Total spikes in window: 40→-10, 45→-5, 50→0, 55→+5 (60 excluded)
+        assert raster.sum() == 4

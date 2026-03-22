@@ -640,7 +640,7 @@ class TestPickleExporters:
     Pickle is a Python-native serialization format. These tests validate:
     - Round-trip integrity through export and load
     - Protocol parameter handling for Python version compatibility
-    - S3 upload flow when upload_to_s3=True
+    - S3 upload flow when s3_upload=True
     - Temporary file cleanup after S3 upload
     """
 
@@ -679,7 +679,7 @@ class TestPickleExporters:
     @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_s3_upload(self, mock_upload):
         """
-        Tests S3 upload flow when upload_to_s3=True.
+        Tests S3 upload flow when s3_upload=True.
 
         Tests:
         (Test Case 1) Returns S3 URL on success.
@@ -688,7 +688,7 @@ class TestPickleExporters:
         sd = make_sd()
         s3_url = "s3://mybucket/path/output.pkl"
 
-        result = exporters.export_spikedata_to_pickle(sd, s3_url, upload_to_s3=True)
+        result = exporters.export_spikedata_to_pickle(sd, s3_url, s3_upload=True)
 
         assert result == s3_url
         mock_upload.assert_called_once()
@@ -712,9 +712,7 @@ class TestPickleExporters:
 
         mock_upload.side_effect = capture_temp
 
-        exporters.export_spikedata_to_pickle(
-            sd, "s3://bucket/key.pkl", upload_to_s3=True
-        )
+        exporters.export_spikedata_to_pickle(sd, "s3://bucket/key.pkl", s3_upload=True)
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
@@ -738,22 +736,22 @@ class TestPickleExporters:
     def test_s3_upload_with_non_s3_url(self):
         """
         Verify that export_spikedata_to_pickle raises ValueError when
-        upload_to_s3=True but filepath is not an S3 URL.
+        s3_upload=True but filepath is not an S3 URL.
 
         Tests:
-            (Test Case 1) A local path with upload_to_s3=True raises ValueError.
-            (Test Case 2) An HTTP URL (not S3) with upload_to_s3=True raises ValueError.
+            (Test Case 1) A local path with s3_upload=True raises ValueError.
+            (Test Case 2) An HTTP URL (not S3) with s3_upload=True raises ValueError.
         """
         sd = make_sd()
 
         with pytest.raises(ValueError, match="S3 URL"):
             exporters.export_spikedata_to_pickle(
-                sd, "/tmp/local_file.pkl", upload_to_s3=True
+                sd, "/tmp/local_file.pkl", s3_upload=True
             )
 
         with pytest.raises(ValueError, match="S3 URL"):
             exporters.export_spikedata_to_pickle(
-                sd, "https://example.com/file.pkl", upload_to_s3=True
+                sd, "https://example.com/file.pkl", s3_upload=True
             )
 
     def test_pickle_export_to_nested_nonexistent_directory(self, tmp_path):
@@ -797,7 +795,7 @@ class TestPickleExporters:
 
         with pytest.raises(RuntimeError, match="Simulated S3 upload failure"):
             exporters.export_spikedata_to_pickle(
-                sd, "s3://bucket/key.pkl", upload_to_s3=True
+                sd, "s3://bucket/key.pkl", s3_upload=True
             )
 
         assert len(temp_paths) == 1

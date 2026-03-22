@@ -116,13 +116,32 @@ class RateSliceStack:
                 times_start_to_end = [(t - before, t + after) for t in time_peaks]
 
             # Now that everything is times_start_to_end format, checking if inputs are correct types
-            times_start_to_end = _validate_time_start_to_end(times_start_to_end)
+            # Determine recording range for validation.
+            if isinstance(data_obj, SpikeData):
+                rec_range = (
+                    data_obj.start_time,
+                    data_obj.start_time + data_obj.length,
+                )
+            elif len(data_obj.times) > 1:
+                step = data_obj.times[1] - data_obj.times[0]
+                rec_range = (data_obj.times[0], data_obj.times[-1] + step)
+            elif len(data_obj.times) == 1:
+                rec_range = (data_obj.times[0], data_obj.times[0] + 1)
+            else:
+                rec_range = None
+            times_start_to_end = _validate_time_start_to_end(
+                times_start_to_end, recording_range=rec_range
+            )
 
             # Actual constructor
 
             if isinstance(data_obj, SpikeData):
                 resolution = step_size if step_size is not None else 1.0
-                all_times = np.arange(0, data_obj.length, resolution)
+                all_times = np.arange(
+                    data_obj.start_time,
+                    data_obj.start_time + data_obj.length,
+                    resolution,
+                )
                 inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
                 data_obj = RateData(inst_Frate_matrix, all_times)
 
