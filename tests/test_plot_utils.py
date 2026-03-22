@@ -22,7 +22,9 @@ from SpikeLab.spikedata.plot_utils import (
     plot_heatmap,
     plot_recording,
     plot_distribution,
+    plot_pvalue_matrix,
     plot_scatter,
+    plot_lines,
     plot_burst_sensitivity,
     plot_aligned_slice_single_unit,
 )
@@ -1741,3 +1743,722 @@ class TestPlotBurstSensitivityEdgeCases:
         thr = np.array([1.0, 2.0, 3.0])
         with pytest.raises(IndexError):
             plot_burst_sensitivity(ax, thr, {}, colors=[])
+
+
+# ---------------------------------------------------------------------------
+# plot_lines tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotLines:
+    """Tests for the plot_lines multi-trace line plot function."""
+
+    def test_dict_input_basic(self):
+        """
+        Dict input draws one line per key with keys as labels.
+
+        Tests:
+            (Test Case 1) Returns a list of 2 Line2D artists.
+            (Test Case 2) Line labels match dict keys.
+        """
+        fig, ax = plt.subplots()
+        traces = {"A": np.array([1, 2, 3]), "B": np.array([3, 2, 1])}
+        lines = plot_lines(ax, traces)
+        assert len(lines) == 2
+        assert lines[0].get_label() == "A"
+        assert lines[1].get_label() == "B"
+
+    def test_list_input_with_labels(self):
+        """
+        List input uses explicitly provided labels.
+
+        Tests:
+            (Test Case 1) Line labels match provided labels list.
+        """
+        fig, ax = plt.subplots()
+        traces = [np.array([1, 2, 3]), np.array([3, 2, 1])]
+        lines = plot_lines(ax, traces, labels=["X", "Y"])
+        assert lines[0].get_label() == "X"
+        assert lines[1].get_label() == "Y"
+
+    def test_list_input_default_labels(self):
+        """
+        List input without labels uses integer indices as labels.
+
+        Tests:
+            (Test Case 1) Labels are "0" and "1".
+        """
+        fig, ax = plt.subplots()
+        lines = plot_lines(ax, [np.array([1, 2]), np.array([3, 4])])
+        assert lines[0].get_label() == "0"
+        assert lines[1].get_label() == "1"
+
+    def test_custom_x_axis(self):
+        """
+        Custom x-axis values are applied to line data.
+
+        Tests:
+            (Test Case 1) Line x-data matches the provided x array.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([10, 20, 30])
+        lines = plot_lines(ax, {"A": np.array([1, 2, 3])}, x=x)
+        np.testing.assert_array_equal(lines[0].get_xdata(), x)
+
+    def test_default_x_axis_is_integer_indices(self):
+        """
+        Without x, integer indices are used.
+
+        Tests:
+            (Test Case 1) Line x-data is [0, 1, 2].
+        """
+        fig, ax = plt.subplots()
+        lines = plot_lines(ax, {"A": np.array([5, 6, 7])})
+        np.testing.assert_array_equal(lines[0].get_xdata(), [0, 1, 2])
+
+    def test_dict_colors(self):
+        """
+        Colors can be provided as a dict keyed by trace label.
+
+        Tests:
+            (Test Case 1) Each line uses the specified color.
+        """
+        fig, ax = plt.subplots()
+        lines = plot_lines(
+            ax,
+            {"A": np.array([1, 2]), "B": np.array([3, 4])},
+            colors={"A": "red", "B": "blue"},
+        )
+        assert lines[0].get_color() == "red"
+        assert lines[1].get_color() == "blue"
+
+    def test_list_colors(self):
+        """
+        Colors can be provided as a list.
+
+        Tests:
+            (Test Case 1) Each line uses the specified color.
+        """
+        fig, ax = plt.subplots()
+        lines = plot_lines(
+            ax,
+            {"A": np.array([1, 2]), "B": np.array([3, 4])},
+            colors=["green", "orange"],
+        )
+        assert lines[0].get_color() == "green"
+        assert lines[1].get_color() == "orange"
+
+    def test_legend_for_single_trace(self):
+        """
+        A single trace with show_legend=True still shows a legend.
+
+        Tests:
+            (Test Case 1) Legend is present with one entry.
+        """
+        fig, ax = plt.subplots()
+        plot_lines(ax, {"only": np.array([1, 2, 3])}, show_legend=True)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) == 1
+
+    def test_legend_shown_for_multiple_traces(self):
+        """
+        Multiple traces with show_legend=True adds a legend.
+
+        Tests:
+            (Test Case 1) Legend is present with 2 entries.
+        """
+        fig, ax = plt.subplots()
+        plot_lines(ax, {"A": np.array([1, 2]), "B": np.array([3, 4])})
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) == 2
+
+    def test_axis_labels(self):
+        """
+        xlabel and ylabel are applied.
+
+        Tests:
+            (Test Case 1) Labels match provided strings.
+        """
+        fig, ax = plt.subplots()
+        plot_lines(ax, {"A": np.array([1, 2])}, xlabel="Time", ylabel="Rate")
+        assert ax.get_xlabel() == "Time"
+        assert ax.get_ylabel() == "Rate"
+
+    def test_linewidth(self):
+        """
+        Custom linewidth is applied to all lines.
+
+        Tests:
+            (Test Case 1) Both lines have linewidth 3.0.
+        """
+        fig, ax = plt.subplots()
+        lines = plot_lines(
+            ax,
+            {"A": np.array([1, 2]), "B": np.array([3, 4])},
+            linewidth=3.0,
+        )
+        assert lines[0].get_linewidth() == 3.0
+        assert lines[1].get_linewidth() == 3.0
+
+
+# ---------------------------------------------------------------------------
+# plot_scatter — group mode tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotScatterGroups:
+    """Tests for the discrete group coloring mode of plot_scatter."""
+
+    def test_groups_returns_list(self):
+        """
+        Group mode returns a list of PathCollections.
+
+        Tests:
+            (Test Case 1) Returns a list with one entry per unique group.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        groups = np.array([0, 0, 1, 1])
+        sc = plot_scatter(ax, x, y, groups=groups)
+        assert isinstance(sc, list)
+        assert len(sc) == 2
+
+    def test_group_labels(self):
+        """
+        Custom group_labels appear in the legend.
+
+        Tests:
+            (Test Case 1) Legend entries match provided labels.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        plot_scatter(
+            ax,
+            x,
+            y,
+            groups=np.array([0, 0, 1, 1]),
+            group_labels=["Ctrl", "Drug"],
+        )
+        legend = ax.get_legend()
+        texts = [t.get_text() for t in legend.get_texts()]
+        assert texts == ["Ctrl", "Drug"]
+
+    def test_default_group_labels_from_values(self):
+        """
+        Without group_labels, unique group values are used as labels.
+
+        Tests:
+            (Test Case 1) Legend entries are "0" and "1".
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        plot_scatter(ax, x, y, groups=np.array([0, 0, 1, 1]))
+        legend = ax.get_legend()
+        texts = [t.get_text() for t in legend.get_texts()]
+        assert texts == ["0", "1"]
+
+    def test_group_colors(self):
+        """
+        Custom group_colors are applied to each group's scatter.
+
+        Tests:
+            (Test Case 1) First group scatter is red, second is blue.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        sc = plot_scatter(
+            ax,
+            x,
+            y,
+            groups=np.array([0, 0, 1, 1]),
+            group_colors=["red", "blue"],
+        )
+        # Each PathCollection's facecolor should match
+        assert np.allclose(sc[0].get_facecolor()[0][:3], [1, 0, 0])  # red
+        assert np.allclose(sc[1].get_facecolor()[0][:3], [0, 0, 1])  # blue
+
+    def test_groups_ignores_colorbar(self):
+        """
+        Group mode does not add a colorbar even if color_vals is passed.
+
+        Tests:
+            (Test Case 1) Figure has only one axes (no colorbar).
+        """
+        fig, ax = plt.subplots()
+        x = np.arange(4, dtype=float)
+        plot_scatter(
+            ax,
+            x,
+            x,
+            groups=np.array([0, 0, 1, 1]),
+            color_vals=x,
+            show_colorbar=True,
+        )
+        assert len(fig.axes) == 1
+
+    def test_groups_with_identity_line(self):
+        """
+        Identity line works in group mode.
+
+        Tests:
+            (Test Case 1) At least one Line2D is drawn (the identity line).
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        plot_scatter(
+            ax,
+            x,
+            y,
+            groups=np.array([0, 0, 1, 1]),
+            show_identity=True,
+        )
+        assert len(ax.lines) >= 1
+
+    def test_groups_no_legend_when_disabled(self):
+        """
+        show_legend=False suppresses the legend in group mode.
+
+        Tests:
+            (Test Case 1) Legend is None.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4], dtype=float)
+        y = np.array([1, 2, 3, 4], dtype=float)
+        plot_scatter(
+            ax,
+            x,
+            y,
+            groups=np.array([0, 0, 1, 1]),
+            show_legend=False,
+        )
+        assert ax.get_legend() is None
+
+    def test_groups_correct_point_count(self):
+        """
+        Each group scatter contains the correct number of points.
+
+        Tests:
+            (Test Case 1) Group 0 has 3 points, group 1 has 2 points.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1, 2, 3, 4, 5], dtype=float)
+        y = np.array([1, 2, 3, 4, 5], dtype=float)
+        sc = plot_scatter(
+            ax,
+            x,
+            y,
+            groups=np.array([0, 0, 0, 1, 1]),
+        )
+        assert len(sc[0].get_offsets()) == 3
+        assert len(sc[1].get_offsets()) == 2
+
+
+# ---------------------------------------------------------------------------
+# plot_pvalue_matrix tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotPvalueMatrix:
+    """Tests for the plot_pvalue_matrix function."""
+
+    @staticmethod
+    def _make_pval_matrix():
+        """Create a simple 3x3 p-value matrix for testing."""
+        pval = np.full((3, 3), np.nan)
+        pval[0, 1] = pval[1, 0] = 0.001
+        pval[0, 2] = pval[2, 0] = 0.20
+        pval[1, 2] = pval[2, 1] = 0.04
+        return pval
+
+    def test_standalone_mode(self):
+        """
+        Standalone mode plots directly on the provided axes.
+
+        Tests:
+            (Test Case 1) The returned axes is the same as the input.
+            (Test Case 2) An image is drawn on the axes.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        result_ax = plot_pvalue_matrix(pval, ax=ax)
+        assert result_ax is ax
+        assert len(ax.images) == 1
+
+    def test_inset_mode(self):
+        """
+        Inset mode creates a new axes on the parent.
+
+        Tests:
+            (Test Case 1) The returned axes is not the parent.
+            (Test Case 2) An image is drawn on the inset axes.
+        """
+        fig, parent_ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        inset_ax = plot_pvalue_matrix(pval, parent_ax=parent_ax)
+        assert inset_ax is not parent_ax
+        assert len(inset_ax.images) == 1
+
+    def test_both_ax_and_parent_raises(self):
+        """
+        Providing both ax and parent_ax raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        with pytest.raises(ValueError, match="not both"):
+            plot_pvalue_matrix(pval, ax=ax, parent_ax=ax)
+
+    def test_neither_ax_nor_parent_raises(self):
+        """
+        Providing neither ax nor parent_ax raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        pval = self._make_pval_matrix()
+        with pytest.raises(ValueError, match="either"):
+            plot_pvalue_matrix(pval)
+
+    def test_sig_matrix_auto_computed(self):
+        """
+        When sig_matrix is None, significance is computed as p < 0.05.
+
+        Tests:
+            (Test Case 1) Significant cells (p=0.001, p=0.04) get red markers.
+            (Test Case 2) Non-significant cell (p=0.20) gets no marker.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        plot_pvalue_matrix(pval, ax=ax, show_colorbar=False)
+        # Count red marker lines (each sig cell draws a marker via plot())
+        marker_lines = [
+            l
+            for l in ax.lines
+            if hasattr(l, "get_color")
+            and np.allclose(
+                plt.cm.colors.to_rgba("red")[:3],
+                plt.cm.colors.to_rgba(l.get_color())[:3],
+            )
+        ]
+        # (0,1),(1,0),(1,2),(2,1) = 4 significant pairs
+        assert len(marker_lines) == 4
+
+    def test_custom_labels(self):
+        """
+        Custom labels are applied to tick marks.
+
+        Tests:
+            (Test Case 1) x and y tick labels match provided labels.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        plot_pvalue_matrix(pval, labels=["A", "B", "C"], ax=ax, show_colorbar=False)
+        xt = [t.get_text() for t in ax.get_xticklabels()]
+        yt = [t.get_text() for t in ax.get_yticklabels()]
+        assert xt == ["A", "B", "C"]
+        assert yt == ["A", "B", "C"]
+
+    def test_default_integer_labels(self):
+        """
+        Without labels, integer indices are used.
+
+        Tests:
+            (Test Case 1) Tick labels are "0", "1", "2".
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        plot_pvalue_matrix(pval, ax=ax, show_colorbar=False)
+        xt = [t.get_text() for t in ax.get_xticklabels()]
+        assert xt == ["0", "1", "2"]
+
+    def test_colorbar_shown(self):
+        """
+        show_colorbar=True adds a colorbar axes.
+
+        Tests:
+            (Test Case 1) More axes in the figure than just the main one.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        plot_pvalue_matrix(pval, ax=ax, show_colorbar=True)
+        assert len(fig.axes) > 1
+
+    def test_diagonal_is_nan(self):
+        """
+        Diagonal entries are set to NaN in the displayed image.
+
+        Tests:
+            (Test Case 1) Diagonal values in the image data are NaN.
+        """
+        fig, ax = plt.subplots()
+        pval = self._make_pval_matrix()
+        plot_pvalue_matrix(pval, ax=ax, show_colorbar=False)
+        im_data = ax.images[0].get_array()
+        for i in range(3):
+            # imshow may return a masked array where NaN cells are masked
+            val = im_data[i, i]
+            assert np.ma.is_masked(val) or np.isnan(val)
+
+
+# ---------------------------------------------------------------------------
+# SpikeData.plot_aligned_pop_rate tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotAlignedPopRate:
+    """Tests for the SpikeData.plot_aligned_pop_rate method."""
+
+    @staticmethod
+    def _make_sd_with_events():
+        """Create a SpikeData with known pop rate and event times."""
+        rng = np.random.default_rng(0)
+        length = 2000.0
+        trains = [sorted(rng.uniform(0, length, size=80).tolist()) for _ in range(5)]
+        sd = SpikeData(trains, N=5, length=length)
+        events = np.array([500.0, 1000.0, 1500.0])
+        return sd, events
+
+    def test_returns_avg_rate(self):
+        """
+        Returns a 1-D array of the expected length.
+
+        Tests:
+            (Test Case 1) avg_rate length equals pre_ms + post_ms.
+            (Test Case 2) avg_rate is a 1-D numpy array.
+        """
+        sd, events = self._make_sd_with_events()
+        avg = sd.plot_aligned_pop_rate(events, pre_ms=100, post_ms=200)
+        assert isinstance(avg, np.ndarray)
+        assert avg.ndim == 1
+        assert len(avg) == 300  # 100 + 200
+
+    def test_creates_figure_when_no_ax(self):
+        """
+        When ax=None, a new figure is created.
+
+        Tests:
+            (Test Case 1) A figure with at least one axes exists after the call.
+        """
+        sd, events = self._make_sd_with_events()
+        sd.plot_aligned_pop_rate(events, pre_ms=100, post_ms=200)
+        fig = plt.gcf()
+        assert len(fig.axes) >= 1
+
+    def test_plots_on_given_ax(self):
+        """
+        When ax is provided, the trace is drawn on it.
+
+        Tests:
+            (Test Case 1) The given axes has at least one line after the call.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        sd.plot_aligned_pop_rate(events, pre_ms=100, post_ms=200, ax=ax)
+        assert len(ax.lines) >= 1
+
+    def test_custom_color_and_label(self):
+        """
+        Custom color and label are applied to the mean trace.
+
+        Tests:
+            (Test Case 1) Mean line has the specified color.
+            (Test Case 2) Mean line has the specified label.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        sd.plot_aligned_pop_rate(
+            events,
+            pre_ms=100,
+            post_ms=200,
+            ax=ax,
+            color="red",
+            label="D0",
+        )
+        line = ax.lines[-1]
+        assert line.get_color() == "red"
+        assert line.get_label() == "D0"
+
+    def test_multi_condition_overlay(self):
+        """
+        Multiple calls on the same axes overlay traces.
+
+        Tests:
+            (Test Case 1) After two calls, axes has at least 2 lines.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        sd.plot_aligned_pop_rate(
+            events, pre_ms=100, post_ms=200, ax=ax, color="blue", label="C1"
+        )
+        sd.plot_aligned_pop_rate(
+            events, pre_ms=100, post_ms=200, ax=ax, color="red", label="C2"
+        )
+        assert len(ax.lines) >= 2
+
+    def test_show_individual_traces(self):
+        """
+        show_individual=True draws extra lines for each event.
+
+        Tests:
+            (Test Case 1) More lines are drawn than just the mean trace.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        sd.plot_aligned_pop_rate(
+            events,
+            pre_ms=100,
+            post_ms=200,
+            ax=ax,
+            show_individual=True,
+        )
+        # At least 1 mean + some individual traces
+        assert len(ax.lines) > 1
+
+    def test_precomputed_pop_rate(self):
+        """
+        Pre-computed pop_rate is used instead of auto-computing.
+
+        Tests:
+            (Test Case 1) avg_rate is computed from the provided pop_rate.
+        """
+        sd, events = self._make_sd_with_events()
+        # Create a constant pop rate
+        pop_rate = np.ones(int(sd.length))
+        avg = sd.plot_aligned_pop_rate(
+            events,
+            pre_ms=100,
+            post_ms=200,
+            pop_rate=pop_rate,
+        )
+        np.testing.assert_allclose(avg, 1.0)
+
+    def test_burst_edges_with_percentile(self):
+        """
+        Burst edges + edge_percentile draws vertical markers.
+
+        Tests:
+            (Test Case 1) Two vertical lines (start and end markers) are added.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        burst_edges = np.column_stack([events - 80, events + 150])
+        sd.plot_aligned_pop_rate(
+            events,
+            pre_ms=100,
+            post_ms=200,
+            ax=ax,
+            burst_edges=burst_edges,
+            edge_percentile=100,
+        )
+        # Mean line + 2 axvline calls
+        assert len(ax.lines) >= 3
+
+    def test_edge_percentile_without_edges_user_events_raises(self):
+        """
+        Setting edge_percentile with user-provided events but no burst_edges
+        raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="burst_edges is required"):
+            sd.plot_aligned_pop_rate(
+                events,
+                pre_ms=100,
+                post_ms=200,
+                ax=ax,
+                edge_percentile=50,
+            )
+
+    def test_no_valid_windows_raises(self):
+        """
+        Events that produce no valid windows raise ValueError.
+
+        Tests:
+            (Test Case 1) Events at recording edges with large window raises.
+        """
+        sd, _ = self._make_sd_with_events()
+        # Events at the very start — pre_ms extends before 0
+        events = np.array([10.0])
+        with pytest.raises(ValueError, match="No valid event windows"):
+            sd.plot_aligned_pop_rate(events, pre_ms=500, post_ms=500)
+
+    def test_xlim_matches_window(self):
+        """
+        X-axis limits span from -pre_ms to +post_ms.
+
+        Tests:
+            (Test Case 1) xlim is (-100, 199) for pre=100, post=200.
+        """
+        sd, events = self._make_sd_with_events()
+        fig, ax = plt.subplots()
+        sd.plot_aligned_pop_rate(events, pre_ms=100, post_ms=200, ax=ax)
+        xlim = ax.get_xlim()
+        assert xlim[0] == -100
+        assert xlim[1] == 199  # arange(300) - 100 → last value is 199
+
+    def test_auto_detect_bursts(self):
+        """
+        When events=None, burst peaks are auto-detected via get_bursts.
+
+        Tests:
+            (Test Case 1) Method runs without error.
+            (Test Case 2) Returns a 1-D avg_rate array.
+
+        Notes:
+            - Uses a SpikeData with dense, synchronized spiking to ensure
+              burst detection produces at least one burst.
+        """
+        # Create a SpikeData with a clear burst around t=500
+        rng = np.random.default_rng(99)
+        n_units = 20
+        length = 3000.0
+        trains = []
+        for _ in range(n_units):
+            # Background: sparse spikes
+            bg = rng.uniform(0, length, size=5).tolist()
+            # Burst: dense cluster around t=500
+            burst = rng.normal(500, 5, size=30).clip(0, length).tolist()
+            # Burst: dense cluster around t=2000
+            burst2 = rng.normal(2000, 5, size=30).clip(0, length).tolist()
+            trains.append(sorted(bg + burst + burst2))
+        sd = SpikeData(trains, N=n_units, length=length)
+        fig, ax = plt.subplots()
+        avg = sd.plot_aligned_pop_rate(ax=ax)
+        assert isinstance(avg, np.ndarray)
+        assert avg.ndim == 1
+
+    def test_auto_detect_with_edge_percentile(self):
+        """
+        When events=None and edge_percentile is set, burst edges are
+        auto-detected and edge markers are drawn.
+
+        Tests:
+            (Test Case 1) Method runs without error and draws edge lines.
+        """
+        rng = np.random.default_rng(99)
+        n_units = 20
+        length = 3000.0
+        trains = []
+        for _ in range(n_units):
+            bg = rng.uniform(0, length, size=5).tolist()
+            burst = rng.normal(500, 5, size=30).clip(0, length).tolist()
+            burst2 = rng.normal(2000, 5, size=30).clip(0, length).tolist()
+            trains.append(sorted(bg + burst + burst2))
+        sd = SpikeData(trains, N=n_units, length=length)
+        fig, ax = plt.subplots()
+        avg = sd.plot_aligned_pop_rate(ax=ax, edge_percentile=100)
+        assert isinstance(avg, np.ndarray)
+        # Mean line + 2 edge markers
+        assert len(ax.lines) >= 3

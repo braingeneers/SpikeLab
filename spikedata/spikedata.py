@@ -2398,3 +2398,193 @@ class SpikeData:
         from .plot_utils import plot_recording
 
         return plot_recording(self, **kwargs)
+
+    def plot_aligned_pop_rate(
+        self,
+        events=None,
+        pre_ms=250,
+        post_ms=500,
+        ax=None,
+        pop_rate=None,
+        pop_rate_params=None,
+        color=None,
+        label=None,
+        linewidth=1.5,
+        show_individual=False,
+        individual_alpha=0.15,
+        individual_linewidth=0.5,
+        burst_edges=None,
+        edge_percentile=None,
+        xlabel="Time from event (ms)",
+        ylabel="Pop. rate",
+        font_size=None,
+    ):
+        """
+        Plot the average population rate aligned to events.
+
+        Cuts the population rate around each event and plots the mean trace.
+        Optionally overlays individual event traces and/or vertical markers
+        showing event edge positions at a chosen percentile.
+
+        When ``events`` is None, burst peaks and edges are auto-detected via
+        ``self.get_bursts(thr_burst=2.5, min_burst_diff=1000,
+        burst_edge_mult_thresh=0.2)``. For non-burst events (e.g. task cues,
+        stimulus onsets), pass ``events`` explicitly.
+
+        Parameters:
+            events (array-like or None): Event times in ms. If None, burst
+                peaks are auto-detected via ``self.get_bursts()``.
+            pre_ms (float): Window duration before each event in ms.
+            post_ms (float): Window duration after each event in ms.
+            ax (matplotlib.axes.Axes or None): Target axes. If None, a new
+                figure is created.
+            pop_rate (np.ndarray or None): Pre-computed population rate (1-ms
+                bins, full recording). If None, computed via
+                ``self.get_pop_rate()``.
+            pop_rate_params (dict or None): Keyword arguments forwarded to
+                ``self.get_pop_rate()`` when ``pop_rate`` is None. Defaults:
+                ``square_width=5, gauss_sigma=5``.
+            color (str or None): Colour for the mean trace (and edge markers).
+                If None, uses the first colour from the default colour cycle.
+            label (str or None): Legend label for the mean trace.
+            linewidth (float): Line width for the mean trace.
+            show_individual (bool): If True, plot each individual event's
+                pop-rate trace as a thin line behind the average.
+            individual_alpha (float): Alpha for individual traces.
+            individual_linewidth (float): Line width for individual traces.
+            burst_edges (np.ndarray or None): Per-event ``[start_ms, end_ms]``
+                boundaries, shape ``(B, 2)``. When ``events`` is None and
+                ``edge_percentile`` is set, burst edges are auto-detected
+                alongside burst peaks.
+            edge_percentile (float or None): Percentile (0–100) controlling
+                how conservatively the edge markers are placed.
+                100 = most conservative (smallest window — all events fit),
+                0 = most liberal (widest window). When set, vertical dashed
+                lines are drawn at the resulting start and end positions.
+            xlabel (str): X-axis label.
+            ylabel (str): Y-axis label.
+            font_size (int or None): Font size for labels and ticks. If None,
+                uses current rcParams.
+
+        Returns:
+            avg_rate (np.ndarray): The mean population rate across events,
+                shape ``(pre_ms + post_ms,)``.
+
+        Notes:
+            - To compare multiple conditions, call this method once per
+              condition on the same ``ax``. Each call draws its own trace
+              with its own ``color`` and ``label``; add ``ax.legend()``
+              after the last call to show the legend.
+        """
+        from .plot_utils import _import_matplotlib, _apply_font_size
+
+        plt, _ = _import_matplotlib()
+
+        # --- Auto-detect bursts if events not provided --------------------
+        if events is None:
+            tburst, auto_edges, _ = self.get_bursts(
+                thr_burst=2.5,
+                min_burst_diff=1000,
+                burst_edge_mult_thresh=0.2,
+            )
+            events = tburst.astype(float)
+            if edge_percentile is not None and burst_edges is None:
+                burst_edges = auto_edges.astype(float)
+        else:
+            events = np.asarray(events, dtype=float).ravel()
+
+        # --- Compute or validate pop_rate ---------------------------------
+        if pop_rate is None:
+            params = {"square_width": 5, "gauss_sigma": 5}
+            if pop_rate_params is not None:
+                params.update(pop_rate_params)
+            pop_rate = self.get_pop_rate(**params)
+        pop_rate = np.asarray(pop_rate, dtype=float).ravel()
+
+        # --- Cut windows and collect slices --------------------------------
+        window_len = int(pre_ms) + int(post_ms)
+        slices = []
+        for t in events:
+            t0 = int(t) - int(pre_ms)
+            t1 = int(t) + int(post_ms)
+            if t0 >= 0 and t1 <= len(pop_rate):
+                slices.append(pop_rate[t0:t1])
+
+        if len(slices) == 0:
+            raise ValueError(
+                "No valid event windows found. Check that events fall within "
+                "the recording and the window does not extend past boundaries."
+            )
+
+        slices = np.array(slices)  # (n_valid_events, window_len)
+        avg_rate = np.mean(slices, axis=0)
+
+        # --- Create axes if needed ----------------------------------------
+        standalone = ax is None
+        if standalone:
+            fig, ax = plt.subplots()
+
+        t_axis = np.arange(window_len) - int(pre_ms)
+
+        # --- Resolve colour -----------------------------------------------
+        if color is None:
+            cycle_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+            color = cycle_colors[0]
+
+        # --- Individual traces --------------------------------------------
+        if show_individual:
+            for s in slices:
+                ax.plot(
+                    t_axis,
+                    s,
+                    color=color,
+                    alpha=individual_alpha,
+                    linewidth=individual_linewidth,
+                    zorder=1,
+                )
+
+        # --- Mean trace ---------------------------------------------------
+        ax.plot(
+            t_axis,
+            avg_rate,
+            color=color,
+            linewidth=linewidth,
+            label=label,
+            zorder=2,
+        )
+
+        # --- Edge markers -------------------------------------------------
+        if edge_percentile is not None:
+            if burst_edges is None:
+                raise ValueError(
+                    "burst_edges is required when events are user-provided "
+                    "and edge_percentile is not None."
+                )
+            burst_edges = np.asarray(burst_edges, dtype=float)
+            starts_rel = burst_edges[:, 0] - events[: len(burst_edges)]
+            ends_rel = burst_edges[:, 1] - events[: len(burst_edges)]
+            start_marker = np.percentile(starts_rel, edge_percentile)
+            end_marker = np.percentile(ends_rel, 100 - edge_percentile)
+            ax.axvline(
+                start_marker,
+                color=color,
+                linewidth=0.7,
+                linestyle=":",
+                alpha=0.7,
+            )
+            ax.axvline(
+                end_marker,
+                color=color,
+                linewidth=0.7,
+                linestyle=":",
+                alpha=0.7,
+            )
+
+        # --- Axes formatting ----------------------------------------------
+        ax.set_xlim(t_axis[0], t_axis[-1])
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        if font_size is not None:
+            _apply_font_size(ax, font_size)
+
+        return avg_rate

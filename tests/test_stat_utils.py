@@ -11,7 +11,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.stat_utils import linear_regression, _approx_normal_quantile
+from SpikeLab.spikedata.stat_utils import (
+    linear_regression,
+    _approx_normal_quantile,
+    pairwise_tests,
+)
 
 # ---------------------------------------------------------------------------
 # linear_regression
@@ -386,3 +390,233 @@ class TestLinearRegressionEdgeCases:
         assert res["r_squared"] == pytest.approx(1.0)
         np.testing.assert_allclose(res["ci_lower"], res["y_fit"])
         np.testing.assert_allclose(res["ci_upper"], res["y_fit"])
+
+
+# ---------------------------------------------------------------------------
+# pairwise_tests
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseTests:
+    """Tests for the pairwise_tests function."""
+
+    @staticmethod
+    def _make_groups():
+        """Create three clearly separated groups for testing."""
+        rng = np.random.default_rng(42)
+        return {
+            "A": rng.normal(0, 1, 50),
+            "B": rng.normal(5, 1, 50),
+            "C": rng.normal(0, 1, 50),
+        }
+
+    def test_output_keys(self):
+        """
+        The result dict contains all expected keys.
+
+        Tests:
+            (Test Case 1) All 4 keys present.
+        """
+        res = pairwise_tests(self._make_groups())
+        assert set(res.keys()) == {
+            "pval_matrix",
+            "sig_matrix",
+            "n_comparisons",
+            "labels",
+        }
+
+    def test_matrix_shape(self):
+        """
+        Output matrices are (K, K) where K is the number of groups.
+
+        Tests:
+            (Test Case 1) pval_matrix is (3, 3).
+            (Test Case 2) sig_matrix is (3, 3).
+        """
+        res = pairwise_tests(self._make_groups())
+        assert res["pval_matrix"].shape == (3, 3)
+        assert res["sig_matrix"].shape == (3, 3)
+
+    def test_diagonal_is_nan(self):
+        """
+        Diagonal entries of the p-value matrix are NaN.
+
+        Tests:
+            (Test Case 1) All diagonal values are NaN.
+        """
+        res = pairwise_tests(self._make_groups())
+        for i in range(3):
+            assert np.isnan(res["pval_matrix"][i, i])
+
+    def test_symmetric(self):
+        """
+        The p-value matrix is symmetric.
+
+        Tests:
+            (Test Case 1) pval_matrix[i,j] == pval_matrix[j,i] for all i,j.
+        """
+        res = pairwise_tests(self._make_groups())
+        pv = res["pval_matrix"]
+        for i in range(3):
+            for j in range(i + 1, 3):
+                assert pv[i, j] == pv[j, i]
+
+    def test_n_comparisons(self):
+        """
+        Number of pairwise comparisons is K*(K-1)/2.
+
+        Tests:
+            (Test Case 1) 3 groups → 3 comparisons.
+        """
+        res = pairwise_tests(self._make_groups())
+        assert res["n_comparisons"] == 3
+
+    def test_labels_from_dict_keys(self):
+        """
+        Dict input uses keys as labels.
+
+        Tests:
+            (Test Case 1) Labels are ["A", "B", "C"].
+        """
+        res = pairwise_tests(self._make_groups())
+        assert res["labels"] == ["A", "B", "C"]
+
+    def test_separated_groups_significant(self):
+        """
+        Clearly separated groups (A vs B) are detected as significant.
+
+        Tests:
+            (Test Case 1) A vs B is significant (p < 0.05 after Bonferroni).
+        """
+        res = pairwise_tests(self._make_groups())
+        assert res["sig_matrix"][0, 1] is np.True_
+
+    def test_similar_groups_not_significant(self):
+        """
+        Groups with the same distribution (A vs C) are not significant.
+
+        Tests:
+            (Test Case 1) A vs C is not significant.
+        """
+        res = pairwise_tests(self._make_groups())
+        assert res["sig_matrix"][0, 2] is np.False_
+
+    def test_list_input_with_labels(self):
+        """
+        List input with explicit labels works correctly.
+
+        Tests:
+            (Test Case 1) Labels match the provided list.
+            (Test Case 2) Matrix shape matches number of groups.
+        """
+        groups = self._make_groups()
+        data = [groups["A"], groups["B"], groups["C"]]
+        res = pairwise_tests(data, labels=["X", "Y", "Z"])
+        assert res["labels"] == ["X", "Y", "Z"]
+        assert res["pval_matrix"].shape == (3, 3)
+
+    def test_no_correction(self):
+        """
+        correction=None returns uncorrected p-values.
+
+        Tests:
+            (Test Case 1) Uncorrected p-values are smaller than or equal to
+                Bonferroni-corrected ones.
+        """
+        groups = self._make_groups()
+        res_bonf = pairwise_tests(groups, correction="bonferroni")
+        res_none = pairwise_tests(groups, correction=None)
+        # Uncorrected p <= corrected p (Bonferroni multiplies by n_comp)
+        for i in range(3):
+            for j in range(i + 1, 3):
+                assert res_none["pval_matrix"][i, j] <= res_bonf["pval_matrix"][i, j]
+
+    def test_mann_whitney(self):
+        """
+        Mann-Whitney U test produces valid results.
+
+        Tests:
+            (Test Case 1) Output has correct shape and keys.
+            (Test Case 2) Separated groups are still significant.
+        """
+        res = pairwise_tests(self._make_groups(), test="mann_whitney")
+        assert res["pval_matrix"].shape == (3, 3)
+        assert res["sig_matrix"][0, 1] is np.True_
+
+    def test_student_t(self):
+        """
+        Student's equal-variance t-test produces valid results.
+
+        Tests:
+            (Test Case 1) Output has correct shape.
+            (Test Case 2) Separated groups are significant.
+        """
+        res = pairwise_tests(self._make_groups(), test="student_t")
+        assert res["pval_matrix"].shape == (3, 3)
+        assert res["sig_matrix"][0, 1] is np.True_
+
+    def test_unknown_test_raises(self):
+        """
+        Unknown test name raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="Unknown test"):
+            pairwise_tests(self._make_groups(), test="kolmogorov")
+
+    def test_unknown_correction_raises(self):
+        """
+        Unknown correction name raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="Unknown correction"):
+            pairwise_tests(self._make_groups(), correction="holm")
+
+    def test_nan_values_stripped(self):
+        """
+        NaN values in group data are stripped before testing.
+
+        Tests:
+            (Test Case 1) Result is computed without errors when NaN present.
+            (Test Case 2) Significance result is the same as without NaN.
+        """
+        groups = self._make_groups()
+        groups_nan = {
+            k: np.concatenate([v, [np.nan, np.nan]]) for k, v in groups.items()
+        }
+        res_clean = pairwise_tests(groups)
+        res_nan = pairwise_tests(groups_nan)
+        np.testing.assert_allclose(
+            res_nan["pval_matrix"], res_clean["pval_matrix"], rtol=1e-10
+        )
+
+    def test_custom_alpha(self):
+        """
+        Custom alpha threshold affects significance determination.
+
+        Tests:
+            (Test Case 1) With alpha=0.001, a marginally significant
+                comparison (A vs C) remains non-significant.
+            (Test Case 2) Strongly significant comparison (A vs B)
+                remains significant even at stricter alpha.
+        """
+        res = pairwise_tests(self._make_groups(), alpha=0.001)
+        # A vs B should still be significant at alpha=0.001
+        assert res["sig_matrix"][0, 1] is np.True_
+
+    def test_two_groups(self):
+        """
+        Works correctly with only 2 groups.
+
+        Tests:
+            (Test Case 1) Matrix is (2, 2).
+            (Test Case 2) n_comparisons is 1.
+        """
+        rng = np.random.default_rng(0)
+        groups = {"X": rng.normal(0, 1, 30), "Y": rng.normal(5, 1, 30)}
+        res = pairwise_tests(groups)
+        assert res["pval_matrix"].shape == (2, 2)
+        assert res["n_comparisons"] == 1
