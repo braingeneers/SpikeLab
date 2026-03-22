@@ -1827,6 +1827,12 @@ class SpikeData:
 
         Returns:
         pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
+
+        Notes:
+        - The returned array index corresponds to raster bin index. For
+          event-centered data (start_time < 0), bin 0 corresponds to start_time,
+          not t=0. To find the bin for t=0 (the event), use
+          ``event_bin = int(-start_time / raster_bin_size_ms)``.
         """
         if gauss_sigma < 0:
             raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
@@ -2013,10 +2019,14 @@ class SpikeData:
         edges (np.ndarray[float64]): Time bin indices of burst edges (Shape = (N,2))
         peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indices
 
-        Note:
-        - Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas
-        - Using the peak-to-zero calculations may result in several bursts being detected at one peak
-        - In the case that duplicate bursts are detected, prints an error with potential fixes
+        Notes:
+        - Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas.
+        - Using the peak-to-zero calculations may result in several bursts being detected at one peak.
+        - In the case that duplicate bursts are detected, prints an error with potential fixes.
+        - Returned time bin indices are relative to bin 0 of the raster. For standard
+          (start_time=0) data, bin index = time in ms / raster_bin_size_ms. For event-centered
+          data (start_time < 0), add start_time to convert bin indices to event-relative times:
+          ``event_relative_ms = tburst * raster_bin_size_ms + start_time``.
         """
         # Get pop rates and rms
         if pop_rate is None:
