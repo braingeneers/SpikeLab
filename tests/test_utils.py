@@ -1485,14 +1485,16 @@ class TestGetSttc:
 
     def test_length_none_auto_calculated(self):
         """
-        When length=None, get_sttc auto-calculates length as max(tA[-1], tB[-1]).
+        When length=None, get_sttc auto-calculates length from the spike data.
 
         Tests:
-            (Test Case 1) Compare auto-calculated length vs explicit length
-                equal to max(tA[-1], tB[-1]). Results should match.
+            (Test Case 1) For non-negative spike times, length = max(last spikes).
+            (Test Case 2) For negative spike times, trains are shifted to 0-based
+                first, then length = max(shifted last spikes).
         """
         tA = [10.0, 30.0, 50.0]
         tB = [15.0, 35.0, 60.0]
+        # Non-negative: length = max(50, 60) = 60
         auto_length = max(tA[-1], tB[-1])
 
         result_auto = get_sttc(tA, tB, delt=20.0, length=None)
@@ -2921,18 +2923,18 @@ from SpikeLab.spikedata.utils import _validate_time_start_to_end
 class TestValidateTimeStartToEndEdgeCases:
     """Edge case tests for _validate_time_start_to_end."""
 
-    def test_all_negative_start_returns_empty(self):
+    def test_all_negative_start_preserved(self):
         """
-        When all windows have negative start times, they are all skipped
-        and the function returns an empty list.
+        Windows with negative start times are preserved (not filtered).
 
         Tests:
-            (Test Case 1) Three windows with negative starts. All are
-                filtered out, returning an empty list.
+            (Test Case 1) Three windows with negative starts are all kept.
+            (Test Case 2) Windows are sorted by start time.
         """
         windows = [(-300.0, -200.0), (-100.0, 0.0), (-50.0, 50.0)]
         result = _validate_time_start_to_end(windows)
-        assert result == []
+        assert len(result) == 3
+        assert result[0] == (-300.0, -200.0)
 
     def test_start_equals_end_zero_duration(self):
         """

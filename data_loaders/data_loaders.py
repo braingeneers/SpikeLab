@@ -102,6 +102,7 @@ def _maybe_with_raw(
         return _build_spikedata(
             sd.train,
             length_ms=sd.length,
+            start_time=sd.start_time,
             metadata=sd.metadata,
             raw_data=raw_data,
             raw_time=raw_time,
@@ -114,6 +115,7 @@ def _build_spikedata(
     trains_ms: List[np.ndarray],
     *,
     length_ms: Optional[float] = None,
+    start_time: float = 0.0,
     metadata: Optional[Mapping[str, object]] = None,
     raw_data: Optional[np.ndarray] = None,
     raw_time: Optional[Union[np.ndarray, float]] = None,
@@ -122,10 +124,11 @@ def _build_spikedata(
     """Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided."""
     if length_ms is None:
         last = [t[-1] for t in trains_ms if len(t) > 0]
-        length_ms = float(max(last)) if last else 0.0
+        length_ms = float(max(last)) - start_time if last else 0.0
     return SpikeData(
         trains_ms,
         length=length_ms,
+        start_time=start_time,
         metadata=dict(metadata) if metadata else {},
         raw_data=raw_data,
         raw_time=raw_time,
@@ -226,6 +229,9 @@ def load_spikedata_from_hdf5(
     meta.setdefault("source_file", os.path.abspath(filepath))
 
     with h5py.File(filepath, "r") as f:  # type: ignore
+        # Read start_time if stored (backward compatible default 0.0)
+        file_start_time = float(f.attrs.get("start_time", 0.0))
+
         # Optionally read raw arrays and a time vector
         raw_data, raw_time = _read_raw_arrays(
             f,
@@ -250,7 +256,9 @@ def load_spikedata_from_hdf5(
                 length_ms = max(total_time - np.spacing(total_time), 0.0)
             else:
                 length_ms = 0.0
-            sd = SpikeData.from_raster(raster, raster_bin_size_ms, length=length_ms)
+            sd = SpikeData.from_raster(
+                raster, raster_bin_size_ms, length=length_ms, start_time=file_start_time
+            )
             sd.metadata.update(meta)
             return _maybe_with_raw(sd, raw_data, raw_time)
 
@@ -264,6 +272,7 @@ def load_spikedata_from_hdf5(
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
+                start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
                 raw_time=raw_time,
@@ -277,6 +286,7 @@ def load_spikedata_from_hdf5(
             return _build_spikedata(
                 trains,
                 length_ms=length_ms,
+                start_time=file_start_time,
                 metadata=meta,
                 raw_data=raw_data,
                 raw_time=raw_time,
@@ -286,7 +296,9 @@ def load_spikedata_from_hdf5(
         idces = np.asarray(f[idces_dataset])  # type: ignore
         times = to_ms(np.asarray(f[times_dataset]), times_unit, fs_Hz)  # type: ignore
         N = int(idces.max()) + 1 if idces.size else 0
-        sd = SpikeData.from_idces_times(idces, times, N=N, length=length_ms)
+        sd = SpikeData.from_idces_times(
+            idces, times, N=N, length=length_ms, start_time=file_start_time
+        )
         sd.metadata.update(meta)
         return _maybe_with_raw(sd, raw_data, raw_time)
 

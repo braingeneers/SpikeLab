@@ -162,18 +162,16 @@ class TestRateSliceStackConstructor:
 
         Tests:
             (Test Case 1) Peaks and bounds are converted to start/end tuples.
-            (Test Case 2) Windows with negative start are filtered out.
+            (Test Case 2) All windows are preserved.
         """
         rd = make_ratedata(n_units=2, n_times=200, step=1.0)
-        # Peak at 5 with bounds (10,10) gives (-5, 15) which has negative start -> filtered
-        # Peak at 50 gives (40, 60), peak at 100 gives (90, 110)
+        # All peaks have enough margin for bounds (10, 10)
         rss = RateSliceStack(
             data_obj=rd,
-            time_peaks=[5.0, 50.0, 100.0],
+            time_peaks=[20.0, 50.0, 100.0],
             time_bounds=(10.0, 10.0),
         )
-        # Peak at 5 should be filtered (negative start)
-        assert rss.event_stack.shape[2] == 2
+        assert rss.event_stack.shape[2] == 3
 
     def test_no_input_raises(self):
         """
@@ -390,26 +388,19 @@ class TestValidateTimeStartToEnd:
                 times_start_to_end=[(0.0, 10.0), (20.0, 40.0)],
             )
 
-    def test_validate_negative_start_filtered(self):
+    def test_validate_negative_start_preserved(self):
         """
-        Tests that _validate_time_start_to_end silently drops windows with negative start.
+        _validate_time_start_to_end preserves windows with negative start times.
 
         Tests:
-            (Test Case 1) Window with negative start is dropped without error.
-            (Test Case 2) Only valid windows appear in the result.
+            (Test Case 1) A window with negative start is included in the result.
         """
-        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
+        from SpikeLab.spikedata.utils import _validate_time_start_to_end
 
-        rss = RateSliceStack(
-            data_obj=rd,
-            time_peaks=[5.0, 50.0, 100.0],
-            time_bounds=(10.0, 10.0),
-        )
-
-        # Peak at 5 with before=10 gives (-5, 15) -> filtered
-        assert rss.event_stack.shape[2] == 2
-        for start, end in rss.times:
-            assert start >= 0
+        windows = [(-5.0, 15.0), (40.0, 60.0), (90.0, 110.0)]
+        result = _validate_time_start_to_end(windows)
+        assert len(result) == 3
+        assert result[0][0] == pytest.approx(-5.0)
 
     def test_validate_float_precision_accepted(self):
         """

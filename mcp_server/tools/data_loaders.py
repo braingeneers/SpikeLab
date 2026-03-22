@@ -199,6 +199,7 @@ async def load_from_hdf5(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -263,6 +264,7 @@ async def load_from_nwb(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -349,6 +351,7 @@ async def load_from_kilosort(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": spikedata.metadata,
         },
     }
@@ -401,6 +404,7 @@ async def load_from_pickle(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": spikedata.metadata,
         },
     }
@@ -473,6 +477,7 @@ async def load_from_hdf5_thresholded(
             "info": {
                 "num_neurons": spikedata.N,
                 "length_ms": spikedata.length,
+                "start_time": spikedata.start_time,
                 "metadata": spikedata.metadata,
             },
         }
@@ -523,6 +528,7 @@ async def load_from_ibl(
         "info": {
             "num_neurons": spikedata.N,
             "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
             "metadata": {
                 k: v
                 for k, v in spikedata.metadata.items()

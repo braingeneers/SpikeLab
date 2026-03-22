@@ -44,10 +44,11 @@ class SpikeSliceStack:
 
     Option #2: spike_stack
         spike_stack (list): List of SpikeData objects, one per slice. All must have the same
-                            number of units. **Spike times must be 0-based** (relative to
-                            each slice's start, not absolute recording times). If spike
-                            times are absolute, subtract the slice start time from each
-                            train before constructing.
+                            number of units. Spike times must be **relative to the slice**
+                            (0-based or event-centered via ``start_time``), not absolute
+                            recording times. Each SpikeData's ``start_time`` defines the
+                            time origin. If spike times are absolute, subtract the slice
+                            start time from each train before constructing.
         times_start_to_end (list): Each entry must be a tuple (start, end) in absolute
                                    recording time. Length must equal len(spike_stack).
                                    If None, generated automatically from slice lengths
@@ -117,7 +118,13 @@ class SpikeSliceStack:
                 for t in time_peaks:
                     times_start_to_end.append((t - before, t + after))
 
-            times_start_to_end = _validate_time_start_to_end(times_start_to_end)
+            rec_range = (
+                data_obj.start_time,
+                data_obj.start_time + data_obj.length,
+            )
+            times_start_to_end = _validate_time_start_to_end(
+                times_start_to_end, recording_range=rec_range
+            )
 
             self.times = times_start_to_end
             self.spike_stack = []
@@ -157,7 +164,10 @@ class SpikeSliceStack:
                     times_start_to_end.append((t, t + s.length))
                     t += s.length
             else:
-                times_start_to_end = _validate_time_start_to_end(times_start_to_end)
+                warn_neg = spike_stack[0].start_time >= 0
+                times_start_to_end = _validate_time_start_to_end(
+                    times_start_to_end, warn_negative_start=warn_neg
+                )
                 if len(times_start_to_end) != len(spike_stack):
                     raise ValueError(
                         "times_start_to_end must have the same length as spike_stack"
@@ -324,7 +334,11 @@ class SpikeSliceStack:
         new_spike_stack = []
         new_times = []
         for sd, t in zip(self.spike_stack, self.times):
-            new_spike_stack.append(sd.subtime(float(start_idx), float(end_idx)))
+            new_spike_stack.append(
+                sd.subtime(
+                    sd.start_time + float(start_idx), sd.start_time + float(end_idx)
+                )
+            )
             abs_start = t[0] + float(start_idx)
             abs_end = t[0] + float(end_idx)
             new_times.append((abs_start, abs_end))
@@ -362,8 +376,8 @@ class SpikeSliceStack:
         if not absolute_times:
             dense_list = []
             for sd in self.spike_stack:
-                # Spike times within each slice are already 0-based (shifted by
-                # subtime during construction), so we rasterize directly.
+                # Spike times are relative to each slice (0-based or event-centered).
+                # sparse_raster handles start_time internally.
                 dense_list.append(sd.sparse_raster(bin_size=bin_size).toarray())
             return np.stack(dense_list, axis=2)
 
@@ -414,7 +428,10 @@ class SpikeSliceStack:
         for sd, (start, end) in zip(self.spike_stack, self.times):
             for u in range(num_units):
                 spikes = np.asarray(sd.train[u])
-                n_valid = np.sum((spikes >= 0) & (spikes <= (end - start)))
+                n_valid = np.sum(
+                    (spikes >= sd.start_time)
+                    & (spikes <= sd.start_time + (end - start))
+                )
                 if n_valid >= min_spikes:
                     active_count[u] += 1
 
@@ -433,7 +450,7 @@ class SpikeSliceStack:
         Reorder units by their typical spike timing across slices.
 
         For each unit in each slice, computes a representative spike time
-        (median, mean, or first spike) relative to the slice start. These
+        (median, mean, or first spike) relative to the slice's time origin. These
         per-slice values are aggregated across slices to obtain a single
         typical timing per unit. Units are then sorted by this value from
         earliest to latest and optionally split into a highly-active group
@@ -738,8 +755,8 @@ class SpikeSliceStack:
         Notes:
             - Analogous to ``RateSliceStack.get_slice_to_slice_unit_corr_from_stack``
               but operates on raw spike trains.
-            - Spike times within each slice are shifted to start at 0 before
-              comparison so that temporal patterns are aligned across slices.
+            - Spike times within each slice are relative to the slice time
+              origin (0-based or event-centered) for aligned comparison.
         """
         if metric not in ("sttc", "ccg"):
             raise ValueError(f"metric must be 'sttc' or 'ccg', got {metric!r}")
@@ -766,7 +783,7 @@ class SpikeSliceStack:
                 av_corr.copy() if metric == "ccg" else None,
             )
 
-        # Pre-compute shifted spike trains (shifted to 0-based per slice)
+        # Pre-compute spike trains per slice (relative to slice time origin)
         # and per-slice rasters for CCG
         shifted_trains = []  # list of S lists, each containing U spike arrays
         slice_durations = []
@@ -782,7 +799,9 @@ class SpikeSliceStack:
 
             if metric == "ccg":
                 # Build shifted SpikeData for raster computation
-                temp_sd = SpikeData(trains, length=duration, N=num_units)
+                temp_sd = SpikeData(
+                    trains, length=duration, start_time=sd.start_time, N=num_units
+                )
                 slice_rasters.append(temp_sd.raster(bin_size))
 
         max_lag_bins = int(round(max_lag / bin_size)) if metric == "ccg" else 0
@@ -826,7 +845,11 @@ class SpikeSliceStack:
                     if metric == "sttc":
                         length = max(slice_durations[ref_s], slice_durations[comp_s])
                         score = get_sttc(
-                            ref_train, comp_train, delt=delt, length=length
+                            ref_train,
+                            comp_train,
+                            delt=delt,
+                            length=length,
+                            start_time=self.spike_stack[ref_s].start_time,
                         )
                         all_corr_scores[unit, ref_s, comp_s] = score
                         all_corr_scores[unit, comp_s, ref_s] = score
@@ -877,9 +900,9 @@ class SpikeSliceStack:
         Compute a representative spike time for each unit in each slice.
 
         Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the timing
-        value (in milliseconds relative to slice start) for unit *u* in
-        slice *s*. Units with fewer than *min_spikes* spikes in a slice
-        are marked NaN.
+        value (in milliseconds relative to the slice's time origin) for unit *u*
+        in slice *s*. For event-centered slices, t=0 is the event. Units with
+        fewer than *min_spikes* spikes in a slice are marked NaN.
 
         Parameters:
             timing (str): Which spike time to extract per unit per slice.
@@ -910,7 +933,10 @@ class SpikeSliceStack:
         for s_idx, (sd, (start, end)) in enumerate(zip(self.spike_stack, self.times)):
             for u in range(num_units):
                 spikes = np.asarray(sd.train[u])
-                spikes = spikes[(spikes >= 0) & (spikes <= (end - start))]
+                duration = end - start
+                spikes = spikes[
+                    (spikes >= sd.start_time) & (spikes <= sd.start_time + duration)
+                ]
                 if len(spikes) < min_spikes:
                     continue
                 if timing == "median":

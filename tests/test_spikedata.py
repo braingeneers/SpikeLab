@@ -2747,20 +2747,15 @@ class TestSpikeDataCorrelation:
 
     def test_sttc_zero_length_recording(self):
         """
-        spike_time_tilings with a zero-length recording.
+        spike_time_tilings with a zero-length recording and empty trains.
 
         Tests:
-            (Test Case 1) Division by zero in `_sttc_ta(ts, delt, T) / T`
-                where T=0 causes an error or produces NaN/Inf.
-
-        Notes:
-            - This documents a bug: when self.length == 0, the computation
-              `_sttc_ta(ts, delt, T) / T` divides by zero.
+            (Test Case 1) Returns a 1x1 identity matrix (single unit, self-STTC=1).
         """
         sd = SpikeData([[]], length=0.0)
-        # T=0 causes division by zero in spike_time_tilings
-        with pytest.raises(Exception):
-            sd.spike_time_tilings(delt=5.0)
+        result = sd.spike_time_tilings(delt=5.0)
+        assert result.matrix.shape == (1, 1)
+        assert result.matrix[0, 0] == 1.0
 
 
 class TestSpikeDataBursts:

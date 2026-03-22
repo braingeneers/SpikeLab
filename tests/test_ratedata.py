@@ -321,11 +321,11 @@ class TestRateDataSubtime:
 
     def test_subtime(self):
         """
-        Tests that subtime() slices correctly, always shifting times to start at 0.
+        Tests that subtime() slices correctly, preserving original time values.
 
         Tests:
             (Test Case 1) Basic slice extracts correct time range.
-            (Test Case 2) Times always start from 0.
+            (Test Case 2) Times preserve original values.
             (Test Case 3) No time points in range raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times: 0..99
@@ -333,8 +333,8 @@ class TestRateDataSubtime:
         sub = rd.subtime(20.0, 40.0)
         # times in [20, 40) -> 20 bins
         assert sub.inst_Frate_data.shape[1] == 20
-        # Times always start at 0
-        assert float(sub.times[0]) == pytest.approx(0.0)
+        # Times preserve original values
+        assert float(sub.times[0]) == pytest.approx(20.0)
 
         # Data matches the original slice.
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 20:40])
@@ -358,26 +358,26 @@ class TestRateDataSubtime:
         assert sub_start_none.inst_Frate_data.shape[1] == 25
 
         sub_end_none = rd.subtime(25.0, None)
-        assert float(sub_end_none.times[0]) == pytest.approx(0.0)
-        assert sub_end_none.inst_Frate_data.shape[1] == 24  # times [25, 49) = 24 bins
+        assert float(sub_end_none.times[0]) == pytest.approx(25.0)
+        assert sub_end_none.inst_Frate_data.shape[1] == 25  # times [25, 49] = 25 bins
 
         sub_ellipsis = rd.subtime(..., 25.0)
         assert sub_ellipsis.inst_Frate_data.shape[1] == 25
 
-    def test_subtime_negative_indices(self):
+    def test_subtime_negative_values_are_literal(self):
         """
-        Tests subtime() with negative start/end values.
+        Negative start/end in subtime() are treated as literal time values.
 
         Tests:
-            (Test Case 1) Negative start counts from end.
-            (Test Case 2) Negative end counts from end.
+            (Test Case 1) Negative start on non-negative times selects all points
+                (since all times >= -20).
+            (Test Case 2) For backward-counting from the end, use subtime_by_index().
         """
-        rd = make_ratedata(n_units=2, n_times=100, step=1.0)
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times: 0..99
 
+        # -20 is literal: times >= -20 matches all 100 points
         sub = rd.subtime(-20.0, None)
-        # -20 from end (99) = 79; times always shifted to 0
-        assert float(sub.times[0]) == pytest.approx(0.0)
-        assert sub.inst_Frate_data.shape[1] == 20  # times [79, 99) = 20 bins
+        assert sub.inst_Frate_data.shape[1] == 100
 
     def test_subtime_single_time_point(self):
         """
@@ -407,34 +407,31 @@ class TestRateDataSubtime:
 
     def test_subtime_negative_boundary(self):
         """
-        Verify that subtime with a large negative start resolves correctly or raises.
+        Large negative start on non-negative times selects all data.
 
         Tests:
-            (Test Case 1) Start of -100 on a recording with times[-1]=99 resolves
-                          to -1 after adjustment, which raises ValueError because
-                          the adjusted value is still negative.
+            (Test Case 1) start=-100 is literal; all times >= -100, so all data returned.
         """
         rd = make_ratedata(n_units=2, n_times=100, step=1.0)  # times 0..99
 
-        # length = times[-1] = 99; start = -100 + 99 = -1 < 0 -> ValueError
-        with pytest.raises(ValueError):
-            rd.subtime(-100.0, None)
+        sub = rd.subtime(-100.0, None)
+        assert sub.inst_Frate_data.shape[1] == 100
 
-    def test_subtime_always_shifts_to_zero(self):
+    def test_subtime_preserves_original_times(self):
         """
-        Tests that subtime() shifts times to start at 0 even when the slice starts mid-recording.
+        Tests that subtime() preserves original time values.
 
         Tests:
-            (Test Case 1) Result times start at 0.0.
-            (Test Case 2) Result times end at 20.0 (shifted from 40).
+            (Test Case 1) Result times start at the original start value.
+            (Test Case 2) Result times end at the original end value.
         """
         times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
         data = np.ones((2, 5))
         rd = RateData(data, times)
 
         result = rd.subtime(20.0, 50.0)
-        assert result.times[0] == 0.0
-        assert result.times[-1] == 20.0
+        assert result.times[0] == 20.0
+        assert result.times[-1] == 40.0
 
     def test_subtime_negative_times_literal(self):
         """
@@ -442,7 +439,7 @@ class TestRateDataSubtime:
 
         Tests:
             (Test Case 1) subtime(-200, 0) selects the first 2 bins (times -200 and -100).
-            (Test Case 2) Result times are shifted to start at 0.
+            (Test Case 2) Result times preserve original values.
 
         Notes:
             When times contain negative values (event-aligned data), negative
@@ -455,8 +452,8 @@ class TestRateDataSubtime:
 
         result = rd.subtime(-200.0, 0.0)
         assert result.inst_Frate_data.shape == (2, 2)
-        assert float(result.times[0]) == pytest.approx(0.0)
-        assert float(result.times[1]) == pytest.approx(100.0)
+        assert float(result.times[0]) == pytest.approx(-200.0)
+        assert float(result.times[1]) == pytest.approx(-100.0)
 
     def test_subtime_negative_times_no_backward_offset(self):
         """
@@ -505,11 +502,11 @@ class TestRateDataSubtimeByIndex:
 
     def test_subtime_by_index(self):
         """
-        Tests that subtime_by_index() slices by column index, always shifting to 0.
+        Tests that subtime_by_index() slices by column index, preserving original times.
 
         Tests:
             (Test Case 1) Correct data and shape returned for valid indices.
-            (Test Case 2) Times always start from 0.
+            (Test Case 2) Times preserve original values.
             (Test Case 3) Invalid start or end index raises ValueError.
         """
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)  # times: 0,2,4,...,118
@@ -517,7 +514,7 @@ class TestRateDataSubtimeByIndex:
         sub = rd.subtime_by_index(10, 30)
         assert sub.inst_Frate_data.shape == (2, 20)
         np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data[:, 10:30])
-        assert float(sub.times[0]) == pytest.approx(0.0)
+        assert float(sub.times[0]) == pytest.approx(20.0)  # index 10 * step 2.0
 
         # Out-of-bounds indices raise ValueError.
         with pytest.raises(ValueError):
@@ -545,31 +542,33 @@ class TestRateDataSubtimeByIndex:
         except (ValueError, IndexError):
             pass  # acceptable: method rejects empty slice
 
-    def test_subtime_by_index_shift_time_single_bin(self):
-        """subtime_by_index with shift_time=True on a single bin yields times=[0.0].
+    def test_subtime_by_index_single_bin_preserves_time(self):
+        """
+        subtime_by_index on a single bin preserves the original time value.
 
-        Tests: Extracting one time bin with shift_time=True should
-        produce a times array containing only 0.0.
+        Tests:
+            (Test Case 1) Extracting one time bin preserves its original time.
         """
         rd = make_ratedata(n_units=2, n_times=10, step=5.0, t0=100.0)
         result = rd.subtime_by_index(3, 4)
         assert result.inst_Frate_data.shape == (2, 1)
         assert len(result.times) == 1
-        assert float(result.times[0]) == pytest.approx(0.0)
+        assert float(result.times[0]) == pytest.approx(115.0)  # t0 + 3 * step
 
-    def test_subtime_by_index_always_shifts_to_zero(self):
+    def test_subtime_by_index_preserves_original_times(self):
         """
-        Tests that subtime_by_index() shifts times to start at 0.
+        Tests that subtime_by_index() preserves original time values.
 
         Tests:
-            (Test Case 1) Result times start at 0.0 after slicing indices 1 through 4.
+            (Test Case 1) Result times start at the original value for that index.
         """
         times = np.array([100.0, 200.0, 300.0, 400.0, 500.0])
         data = np.ones((2, 5))
         rd = RateData(data, times)
 
         result = rd.subtime_by_index(1, 4)
-        assert result.times[0] == 0.0
+        assert result.times[0] == 200.0
+        assert result.times[-1] == 400.0
 
     def test_subtime_by_index_equal_start_end(self):
         """
@@ -1147,22 +1146,15 @@ class TestRateDataSubtimeEdgeCases:
 
     def test_subtime_both_none(self):
         """
-        subtime(None, None) selects the full time range.
+        subtime(None, None) selects all data.
 
         Tests:
-            (Test Case 1) Result has the same number of time bins as the original.
-            (Test Case 2) Times are shifted to start at 0.
-            (Test Case 3) Data matches the original.
-
-        Notes:
-            When both start and end are None, start resolves to times[0] and
-            end resolves to times[-1]. Because subtime uses `times < end`
-            (exclusive), the last time bin is excluded, resulting in T-1 bins.
+            (Test Case 1) Result has all time bins.
+            (Test Case 2) Times preserve original values.
         """
         rd = make_ratedata(n_units=2, n_times=50, step=1.0)
         result = rd.subtime(None, None)
-        # end resolves to times[-1] = 49.0; mask is times < 49 -> 49 bins
-        assert result.inst_Frate_data.shape[1] == 49
+        assert result.inst_Frate_data.shape[1] == 50
         assert float(result.times[0]) == pytest.approx(0.0)
 
 
@@ -1186,7 +1178,7 @@ class TestRateDataSubtimeByIndexEdgeCases:
         np.testing.assert_array_equal(
             result.inst_Frate_data, rd.inst_Frate_data[:, 5:8]
         )
-        assert float(result.times[0]) == pytest.approx(0.0)
+        assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
 
 
 class TestRateDataFramesEdgeCases:

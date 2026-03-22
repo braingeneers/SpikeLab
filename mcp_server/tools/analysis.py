@@ -620,6 +620,7 @@ async def get_data_info(
     return {
         "num_neurons": sd.N,
         "length_ms": sd.length,
+        "start_time": sd.start_time,
         "metadata": safe_metadata,
     }
 

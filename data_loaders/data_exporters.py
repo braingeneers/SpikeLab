@@ -122,6 +122,9 @@ def export_spikedata_to_hdf5(
 
     # Create or overwrite the HDF5 file
     with h5py.File(filepath, "w") as f:  # type: ignore
+        # Store start_time for event-centered data round-trips
+        f.attrs["start_time"] = float(sd.start_time)
+
         # Optionally write raw arrays if destinations are provided and data exist
         if (
             raw_dataset
@@ -222,6 +225,13 @@ def export_spikedata_to_nwb(
           prefer_pynwb=False.
     """
     ensure_h5py()
+    if sd.start_time != 0:
+        warnings.warn(
+            f"Exporting event-centered SpikeData (start_time={sd.start_time}) "
+            "to NWB. The NWB format does not store start_time, so spike times "
+            "are written as-is. On reload, start_time will default to 0.",
+            UserWarning,
+        )
     counts = [len(t) for t in sd.train]
     flat_ms = np.concatenate(sd.train) if sum(counts) else np.array([], float)
     flat_s = times_from_ms(flat_ms, "s", fs_Hz=None)
@@ -315,6 +325,13 @@ def export_spikedata_to_kilosort(
     """
     if not fs_Hz or fs_Hz <= 0:
         raise ValueError("A positive fs_Hz is required for KiloSort export")
+    if sd.start_time != 0:
+        warnings.warn(
+            f"Exporting event-centered SpikeData (start_time={sd.start_time}) "
+            "to KiloSort. The format does not store start_time, so spike times "
+            "are written as-is. On reload, start_time will default to 0.",
+            UserWarning,
+        )
     os.makedirs(folder, exist_ok=True)
 
     # Build flat arrays

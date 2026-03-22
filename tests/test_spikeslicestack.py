@@ -69,22 +69,19 @@ class TestSpikeSliceStackConstructor:
         for s in sss.spike_stack:
             assert s.length == pytest.approx(20.0)
 
-    def test_negative_windows_filtered(self):
+    def test_negative_windows_preserved(self):
         """
-        Tests that windows with negative start times are filtered out.
+        Windows with negative start times are preserved by _validate_time_start_to_end.
 
         Tests:
-            (Test Case 1) Peak near 0 with large before-bound is filtered.
-            (Test Case 2) Remaining slices are correct.
+            (Test Case 1) All windows including negative-start are kept.
         """
-        sd = make_spikedata(n_units=2, length_ms=200.0)
-        sss = SpikeSliceStack(
-            sd,
-            time_peaks=[5.0, 50.0, 100.0],
-            time_bounds=(10.0, 10.0),
-        )
-        # Peak at 5 with before=10 gives start=-5, filtered out
-        assert len(sss.spike_stack) == 2
+        from SpikeLab.spikedata.utils import _validate_time_start_to_end
+
+        windows = [(-5.0, 15.0), (40.0, 60.0), (90.0, 110.0)]
+        result = _validate_time_start_to_end(windows)
+        assert len(result) == 3
+        assert result[0][0] == pytest.approx(-5.0)
 
     def test_non_spikedata_raises(self):
         """
@@ -2687,26 +2684,14 @@ class TestUnitToUnitComparisonEdgeCases:
 
     def test_sttc_with_delt_zero_raises(self):
         """
-        unit_to_unit_comparison with metric='sttc' and delt=0 does not raise
-        because spike_time_tilings calls _sttc_ta/_spike_time_tiling directly,
-        bypassing the delt validation in get_sttc.
+        unit_to_unit_comparison with metric='sttc' and delt=0 raises ValueError.
 
         Tests:
-            (Test Case 1) delt=0 does not raise ValueError.
-            (Test Case 2) The result has correct stack shape.
-
-        Notes:
-            - The delt > 0 validation only exists in get_sttc(), which is used
-              by spike_time_tiling() (singular). The batch method
-              spike_time_tilings() (plural) calls the internal helpers directly
-              and does not validate delt.
+            (Test Case 1) delt=0 raises ValueError from get_sttc validation.
         """
         sss = _make_correlated_stack(n_units=3, n_slices=3)
-        corr_stack, lag_stack, av_corr, av_lag = sss.unit_to_unit_comparison(
-            metric="sttc", delt=0
-        )
-        assert corr_stack.stack.shape == (3, 3, 3)
-        assert lag_stack is None
+        with pytest.raises(ValueError, match="delt must be positive"):
+            sss.unit_to_unit_comparison(metric="sttc", delt=0)
 
 
 class TestSliceToSliceUnitComparisonEdgeCases:

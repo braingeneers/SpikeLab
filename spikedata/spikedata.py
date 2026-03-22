@@ -55,7 +55,11 @@ class SpikeData:
 
     N: The number of neurons in the dataset.
 
-    length: The length of the spike train, defaults to the time of the last spike.
+    length: The total duration of the time window in milliseconds.
+
+    start_time: The time origin in milliseconds (default 0.0). For event-centered
+      data, this is typically -pre_ms. Spike times fall within
+      [start_time, start_time + length].
 
     neuron_attributes: A list of dictionaries containing information on each neuron.
 
@@ -112,13 +116,23 @@ class SpikeData:
         - The generated spike times are evenly spaced within each time bin. For example, if a unit fires
             3 times in a 10 ms time bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.
         - All metadata parameters of the regular constructor are accepted.
+        - For event-centered rasters (where bin 0 corresponds to ``start_time``,
+          not t=0), pass ``start_time`` in kwargs so that spike times are
+          correctly offset. Without it, bin 0 maps to t=0.
         """
         raster = raster.astype(int)
         N, T = raster.shape
+        # Offset generated spike times by start_time so bin 0 maps to
+        # start_time (not 0) when reconstructing event-centered data.
+        t_offset = kwargs.get("start_time", 0.0)
         train = [[] for _ in range(N)]
         for i, t in zip(*raster.nonzero()):
             n_spikes = raster[i, t]
-            times = t * bin_size_ms + np.linspace(0, bin_size_ms, n_spikes + 2)[1:-1]
+            times = (
+                t_offset
+                + t * bin_size_ms
+                + np.linspace(0, bin_size_ms, n_spikes + 2)[1:-1]
+            )
             train[i].extend(times)
 
         kwargs.setdefault("length", T * bin_size_ms)
@@ -455,9 +469,10 @@ class SpikeData:
         step = length - overlap
         if step <= 0:
             raise ValueError("overlap must be less than length")
+        end_time = self.start_time + self.length
         times = [
             (float(start), float(start) + length)
-            for start in np.arange(0, self.length - length + 1e-9, step)
+            for start in np.arange(self.start_time, end_time - length + 1e-9, step)
         ]
         if not times:
             raise ValueError(
@@ -493,7 +508,7 @@ class SpikeData:
         Returns:
             stack (SpikeSliceStack or RateSliceStack): Event-aligned slice stack with
                 one slice per event. Events whose window extends outside
-                ``[0, self.length]`` are dropped with a warning.
+                ``[start_time, start_time + length]`` are dropped with a warning.
 
         Notes:
             - When ``events`` is a metadata key, the corresponding array must already
@@ -558,8 +573,9 @@ class SpikeData:
     def binned(self, bin_size=40.0):
         """
         Quantize time into intervals of bin_size and count the number of events in
-        each bin. Bins are left-open, right-closed intervals: (0, bin_size],
-        (bin_size, 2*bin_size], ... A spike at exactly t=0 is included in bin 0.
+        each bin. Bins are relative to ``start_time``: ``(start_time, start_time + bin_size]``,
+        ``(start_time + bin_size, start_time + 2*bin_size]``, etc. A spike at exactly
+        ``start_time`` is included in bin 0.
 
         Parameters:
         bin_size (float): Size of the time bin in milliseconds
@@ -790,10 +806,11 @@ class SpikeData:
         SpikeData: New SpikeData object containing only the specified time range.
 
         Notes:
-        - Start and end can be negative, in which case they are counted backwards from the
-          end.
-        - They can also be None or Ellipsis, in which case that end of the data is
-          not truncated.
+        - For standard data (``start_time >= 0``), negative start/end values are
+          counted backwards from the end of the recording. For event-centered data
+          (``start_time < 0``), negative values are treated as literal times.
+        - Start and end can also be None or Ellipsis, in which case that end of
+          the data is not truncated.
         - All metadata and neuron data are propagated.
         - The output SpikeData has ``start_time = start - shift_to`` and
           ``length = end - start``.
@@ -883,18 +900,21 @@ class SpikeData:
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
+        # Shift appended spikes from their own time base to follow self's time range.
+        # Subtract spikeData.start_time to normalize to 0-based, then add the
+        # concatenation point (self's end time + gap).
+        concat_point = self.start_time + self.length + offset
+        shift = concat_point - spikeData.start_time
         train = [
-            np.hstack([tr1, tr2 + self.length + offset])
+            np.hstack([tr1, tr2 + shift])
             for tr1, tr2 in zip(self.train, spikeData.train)
         ]
         if self.raw_data.size > 0 and spikeData.raw_data.size > 0:
             raw_data = np.concatenate((self.raw_data, spikeData.raw_data), axis=1)
-            raw_time = np.concatenate(
-                (self.raw_time, spikeData.raw_time + self.length + offset)
-            )
+            raw_time = np.concatenate((self.raw_time, spikeData.raw_time + shift))
         elif spikeData.raw_data.size > 0:
             raw_data = spikeData.raw_data.copy()
-            raw_time = spikeData.raw_time + self.length + offset
+            raw_time = spikeData.raw_time + shift
         else:
             raw_data = self.raw_data
             raw_time = self.raw_time
@@ -1227,16 +1247,15 @@ class SpikeData:
             comparison of methods and application to the study of retinal waves. Journal of
             Neuroscience 34:43, 14288–14303 (2014).
         """
-        # Shift to 0-based for STTC computation (see spike_time_tiling).
-        shifted = [t - self.start_time for t in self.train]
-        T = self.length
-        ts = [_sttc_ta(s, delt, T) / T for s in shifted]
-
         ret = np.diag(np.ones(self.N))
         for i in range(self.N):
             for j in range(i + 1, self.N):
-                ret[i, j] = ret[j, i] = _spike_time_tiling(
-                    shifted[i], shifted[j], ts[i], ts[j], delt
+                ret[i, j] = ret[j, i] = get_sttc(
+                    self.train[i],
+                    self.train[j],
+                    delt,
+                    self.length,
+                    start_time=self.start_time,
                 )
         return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
@@ -1256,12 +1275,13 @@ class SpikeData:
             comparison of methods and application to the study of retinal waves. Journal of
             Neuroscience 34:43, 14288–14303 (2014).
         """
-        # Shift spike times to 0-based for STTC computation, which
-        # assumes times in [0, length]. For event-centered data this
-        # converts [-pre, +post] to [0, pre+post].
-        tA = self.train[i] - self.start_time
-        tB = self.train[j] - self.start_time
-        return get_sttc(tA, tB, delt, self.length)
+        return get_sttc(
+            self.train[i],
+            self.train[j],
+            delt,
+            self.length,
+            start_time=self.start_time,
+        )
 
     def get_pairwise_ccg(
         self,
@@ -1575,7 +1595,7 @@ class SpikeData:
 
         Returns:
             stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData
-                objects. All slices share the same time bounds ``(0, length)``.
+                objects. All slices share the same time bounds ``(start_time, start_time + length)``.
         """
         if n_shuffles < 1:
             raise ValueError("n_shuffles must be at least 1.")
@@ -1591,7 +1611,7 @@ class SpikeData:
                 )
             )
 
-        times = [(0.0, self.length)] * n_shuffles
+        times = [(self.start_time, self.start_time + self.length)] * n_shuffles
         return SpikeSliceStack(
             spike_stack=shuffled,
             times_start_to_end=times,
@@ -1616,7 +1636,7 @@ class SpikeData:
 
         Returns:
             stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData
-                objects. All slices share the same time bounds ``(0, length)``.
+                objects. All slices share the same time bounds ``(start_time, start_time + length)``.
 
         Notes:
             - The stack-level ``neuron_attributes`` is ``None`` because each
@@ -1640,7 +1660,7 @@ class SpikeData:
             indices = sorted(rng.choice(self.N, size=units_per_subset, replace=False))
             subsets.append(self.subset(indices))
 
-        times = [(0.0, self.length)] * n_subsets
+        times = [(self.start_time, self.start_time + self.length)] * n_subsets
         return SpikeSliceStack(
             spike_stack=subsets,
             times_start_to_end=times,
