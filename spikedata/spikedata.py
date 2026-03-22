@@ -802,7 +802,9 @@ class SpikeData:
 
         if start is None or start is Ellipsis:
             start = self.start_time
-        elif start < 0:
+        elif start < 0 and self.start_time >= 0:
+            # Backward-counting from end (only for standard 0-based data;
+            # for event-centered data negative values are literal times).
             start += end_time
             if start < self.start_time:
                 raise ValueError(
@@ -814,7 +816,7 @@ class SpikeData:
 
         if end is None or end is Ellipsis:
             end = end_time
-        elif end < 0:
+        elif end < 0 and self.start_time >= 0:
             end += end_time
         elif end > end_time:
             end = end_time
@@ -1225,14 +1227,16 @@ class SpikeData:
             comparison of methods and application to the study of retinal waves. Journal of
             Neuroscience 34:43, 14288–14303 (2014).
         """
+        # Shift to 0-based for STTC computation (see spike_time_tiling).
+        shifted = [t - self.start_time for t in self.train]
         T = self.length
-        ts = [_sttc_ta(ts, delt, T) / T for ts in self.train]
+        ts = [_sttc_ta(s, delt, T) / T for s in shifted]
 
         ret = np.diag(np.ones(self.N))
         for i in range(self.N):
             for j in range(i + 1, self.N):
                 ret[i, j] = ret[j, i] = _spike_time_tiling(
-                    self.train[i], self.train[j], ts[i], ts[j], delt
+                    shifted[i], shifted[j], ts[i], ts[j], delt
                 )
         return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
@@ -1252,7 +1256,12 @@ class SpikeData:
             comparison of methods and application to the study of retinal waves. Journal of
             Neuroscience 34:43, 14288–14303 (2014).
         """
-        return get_sttc(self.train[i], self.train[j], delt, self.length)
+        # Shift spike times to 0-based for STTC computation, which
+        # assumes times in [0, length]. For event-centered data this
+        # converts [-pre, +post] to [0, pre+post].
+        tA = self.train[i] - self.start_time
+        tB = self.train[j] - self.start_time
+        return get_sttc(tA, tB, delt, self.length)
 
     def get_pairwise_ccg(
         self,
