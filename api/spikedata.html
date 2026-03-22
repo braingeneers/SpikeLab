@@ -214,7 +214,7 @@
 <h2>SpikeData Class<a class="headerlink" href="#spikedata-class" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="spikedata.SpikeData">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">SpikeData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikedata.</span></span><span class="sig-name descname"><span class="pre">SpikeData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Class for handling and manipulating neuronal spike data with functionality
 for loading, processing, and analyzing spike data from different sources.</p>
@@ -224,7 +224,12 @@ for loading, processing, and analyzing spike data from different sources.</p>
 </dd>
 </dl>
 <p>N: The number of neurons in the dataset.</p>
-<p>length: The length of the spike train, defaults to the time of the last spike.</p>
+<p>length: The total duration of the time window in milliseconds.</p>
+<dl class="simple">
+<dt>start_time: The time origin in milliseconds (default 0.0). For event-centered</dt><dd><p>data, this is typically -pre_ms. Spike times fall within
+[start_time, start_time + length].</p>
+</dd>
+</dl>
 <p>neuron_attributes: A list of dictionaries containing information on each neuron.</p>
 <dl class="simple">
 <dt>metadata: A dictionary containing any additional information or metadata about the</dt><dd><p>spike data.</p>
@@ -272,6 +277,9 @@ sd (SpikeData): Object with the given spike raster.</p>
 </div></blockquote>
 <ul class="simple">
 <li><p>All metadata parameters of the regular constructor are accepted.</p></li>
+<li><p>For event-centered rasters (where bin 0 corresponds to <code class="docutils literal notranslate"><span class="pre">start_time</span></code>,
+not t=0), pass <code class="docutils literal notranslate"><span class="pre">start_time</span></code> in kwargs so that spike times are
+correctly offset. Without it, bin 0 maps to t=0.</p></li>
 </ul>
 </dd></dl>
 
@@ -324,22 +332,42 @@ sd (SpikeData): Object with the given raw data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.__init__" title="Link to this definition"></a></dt>
 <dd><p>Initialize a SpikeData object using a list of spike trains, each a
 list of spike times in milliseconds.</p>
 <p>Parameters:
-train (list): List of spike trains, each a list of spike times in milliseconds
-N (int): Number of units (optional)
-length (float): Length of the spike train in milliseconds (optional)
-neuron_attributes (list): List of neuron attributes (optional)
-metadata (dict): Dictionary of metadata (optional)
-raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional)
-raw_time (numpy.ndarray or float): Raw time vector with shape (time) or sample rate in kHz (optional)</p>
+train (list): List of spike trains, each a list of spike times in milliseconds.</p>
+<blockquote>
+<div><p>Spike times can be negative for event-centered data (e.g. -200 to +300
+around a stimulus event).</p>
+</div></blockquote>
+<p>N (int): Number of units (optional).
+length (float): Total duration of the time window in milliseconds (optional).</p>
+<blockquote>
+<div><p>For event-centered data with times from -200 to +300, length is 500.
+Defaults to the span from start_time to the latest spike time.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>start_time (float): Time of the first bin in milliseconds (default 0.0).</dt><dd><p>For event-centered data, this is typically <code class="docutils literal notranslate"><span class="pre">-pre_ms</span></code> (e.g. -200.0).
+Spike times must fall within <code class="docutils literal notranslate"><span class="pre">[start_time,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">length]</span></code>.</p>
+</dd>
+</dl>
+<p>neuron_attributes (list): List of neuron attributes (optional).
+metadata (dict): Dictionary of metadata (optional).
+raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional).
+raw_time (numpy.ndarray or float): Raw time vector with shape (time) or</p>
+<blockquote>
+<div><p>sample rate in kHz (optional).</p>
+</div></blockquote>
 <p>Notes:
-- Arbitrary raw timeseries data, not associated with particular units,
-can be passed in as <cite>raw_data</cite> (an array with shape (channels, time)).
-- The <cite>raw_time</cite> argument can also be a sample rate in kHz, in which case it is generated
-assuming that the start of the raw data corresponds with t=0.</p>
+- Arbitrary raw timeseries data, not associated with particular units,</p>
+<blockquote>
+<div><p>can be passed in as <cite>raw_data</cite> (an array with shape (channels, time)).</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>The <cite>raw_time</cite> argument can also be a sample rate in kHz, in which case
+it is generated assuming that the start of the raw data corresponds with t=0.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py property">
@@ -433,7 +461,7 @@ firing rate estimation. Only used when <code class="docutils literal notranslate
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Event-aligned slice stack with</dt><dd><p>one slice per event. Events whose window extends outside
-<code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">self.length]</span></code> are dropped with a warning.</p>
+<code class="docutils literal notranslate"><span class="pre">[start_time,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">length]</span></code> are dropped with a warning.</p>
 </dd>
 </dl>
 </p>
@@ -453,8 +481,9 @@ be in milliseconds (as stored by <code class="docutils literal notranslate"><spa
 <dt class="sig sig-object py" id="spikedata.SpikeData.binned">
 <span class="sig-name descname"><span class="pre">binned</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.binned"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.binned" title="Link to this definition"></a></dt>
 <dd><p>Quantize time into intervals of bin_size and count the number of events in
-each bin. Bins are left-open, right-closed intervals: (0, bin_size],
-(bin_size, 2*bin_size], … A spike at exactly t=0 is included in bin 0.</p>
+each bin. Bins are relative to <code class="docutils literal notranslate"><span class="pre">start_time</span></code>: <code class="docutils literal notranslate"><span class="pre">(start_time,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">bin_size]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">(start_time</span> <span class="pre">+</span> <span class="pre">bin_size,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">2*bin_size]</span></code>, etc. A spike at exactly
+<code class="docutils literal notranslate"><span class="pre">start_time</span></code> is included in bin 0.</p>
 <p>Parameters:
 bin_size (float): Size of the time bin in milliseconds</p>
 <p>Returns:
@@ -567,21 +596,36 @@ or if the specified channel_attr doesn’t exist for all neurons, a ValueError i
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.subtime">
-<span class="sig-name descname"><span class="pre">subtime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subtime" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subtime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shift_to</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.subtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.subtime" title="Link to this definition"></a></dt>
 <dd><p>Extract a subset of time points from spikedata using time values.</p>
-<p>Spike times are always shifted so that the new SpikeData starts at t=0.
-For example, subtime(100, 200) produces spikes in the range [0, 100).</p>
+<p>Spike times are shifted so that <code class="docutils literal notranslate"><span class="pre">shift_to</span></code> becomes t=0 in the new
+SpikeData. By default <code class="docutils literal notranslate"><span class="pre">shift_to=start</span></code>, so subtime(100, 200) produces
+spikes in the range [0, 100). For event-centered slicing, pass
+<code class="docutils literal notranslate"><span class="pre">shift_to=event_time</span></code> to produce spikes from <code class="docutils literal notranslate"><span class="pre">-(event</span> <span class="pre">-</span> <span class="pre">start)</span></code> to
+<code class="docutils literal notranslate"><span class="pre">+(end</span> <span class="pre">-</span> <span class="pre">event)</span></code>.</p>
 <p>Parameters:
-start (int/float): Starting time value (inclusive)
-end (int/float): Ending time value (exclusive)</p>
+start (int/float): Starting time value (inclusive).
+end (int/float): Ending time value (exclusive).
+shift_to (float or None): The time value that becomes t=0 in the output.</p>
+<blockquote>
+<div><p>Defaults to <code class="docutils literal notranslate"><span class="pre">start</span></code> (standard behavior). For event-centered output,
+pass the event time so that t=0 corresponds to the event.</p>
+</div></blockquote>
 <p>Returns:
-SpikeData: New SpikeData object containing only the specified time range</p>
+SpikeData: New SpikeData object containing only the specified time range.</p>
 <p>Notes:
-- Start and end can be negative, in which case they are counted backwards from the
-end.
-- They can also be None or Ellipsis, in which case that end of the data is
-not truncated.
-- All metadata and neuron data are propagated</p>
+- For standard data (<code class="docutils literal notranslate"><span class="pre">start_time</span> <span class="pre">&gt;=</span> <span class="pre">0</span></code>), negative start/end values are</p>
+<blockquote>
+<div><p>counted backwards from the end of the recording. For event-centered data
+(<code class="docutils literal notranslate"><span class="pre">start_time</span> <span class="pre">&lt;</span> <span class="pre">0</span></code>), negative values are treated as literal times.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Start and end can also be None or Ellipsis, in which case that end of
+the data is not truncated.</p></li>
+<li><p>All metadata and neuron data are propagated.</p></li>
+<li><p>The output SpikeData has <code class="docutils literal notranslate"><span class="pre">start_time</span> <span class="pre">=</span> <span class="pre">start</span> <span class="pre">-</span> <span class="pre">shift_to</span></code> and
+<code class="docutils literal notranslate"><span class="pre">length</span> <span class="pre">=</span> <span class="pre">end</span> <span class="pre">-</span> <span class="pre">start</span></code>.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py method">
@@ -612,33 +656,47 @@ sd (SpikeData): New SpikeData object with the appended data.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.sparse_raster">
-<span class="sig-name descname"><span class="pre">sparse_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.sparse_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.sparse_raster" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sparse_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.sparse_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.sparse_raster" title="Link to this definition"></a></dt>
 <dd><p>Bin all spike times and create a sparse array where entry (i,j) is the number of
 times unit i fired in bin j.</p>
+<p>Spike times are shifted by <code class="docutils literal notranslate"><span class="pre">-start_time</span></code> before binning so that bin 0
+corresponds to <code class="docutils literal notranslate"><span class="pre">start_time</span></code>. For standard (0-based) SpikeData this has
+no effect. For event-centered SpikeData with negative <code class="docutils literal notranslate"><span class="pre">start_time</span></code>,
+pre-event spikes occupy the first bins.</p>
 <p>Parameters:
-bin_size (float): Size of the time bin in milliseconds</p>
+bin_size (float): Size of the time bin in milliseconds.
+time_offset (float): Additional offset added to all spike times before</p>
+<blockquote>
+<div><p>binning (default 0.0). Use this to place spikes at their absolute
+recording position, e.g. <code class="docutils literal notranslate"><span class="pre">time_offset=500</span></code> to shift all spikes
+by 500 ms in the raster.</p>
+</div></blockquote>
 <p>Returns:
 raster (sparse.csr_matrix): Sparse array where entry (i,j) is the number of
 times unit i fired in bin j.</p>
 <p>Notes:
-- Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], …
-- A spike at exactly t=0 is clipped into bin 0.
-- The number of bins is always ceil(length / bin_size).</p>
+- Bins are left-open, right-closed intervals relative to start_time.
+- A spike at exactly start_time is clipped into bin 0.
+- The number of bins is always ceil((length + time_offset) / bin_size).</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.raster">
-<span class="sig-name descname"><span class="pre">raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.raster" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.raster" title="Link to this definition"></a></dt>
 <dd><p>Bin all spike times and create a dense array where entry (i,j) is the number of
 times cell i fired in bin j.</p>
 <p>Parameters:
-bin_size (float): Size of the time bin in milliseconds</p>
+bin_size (float): Size of the time bin in milliseconds.
+time_offset (float): Additional offset added to spike times before binning</p>
+<blockquote>
+<div><p>(default 0.0).</p>
+</div></blockquote>
 <p>Returns:
 raster (numpy.ndarray): Dense array where entry (i,j) is the number of
 times unit i fired in bin j.</p>
 <p>Notes:
-- Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], …
-- A spike at exactly t=0 is clipped into bin 0.</p>
+- Bins are left-open, right-closed intervals relative to start_time.
+- A spike at exactly start_time is clipped into bin 0.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -865,17 +923,36 @@ latencies (list): 2d list, each row is a list of latencies per neuron</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="spikedata.SpikeData.get_frac_active">
-<span class="sig-name descname"><span class="pre">get_frac_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_SPIKES</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backbone_threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.get_frac_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.get_frac_active" title="Link to this definition"></a></dt>
-<dd><p>Computes fraction of total units active in per burst, fraction of bursts
-in which each unit is active and assigns backbone identity based on fraction of active bursts</p>
+<span class="sig-name descname"><span class="pre">get_frac_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_SPIKES</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backbone_threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.get_frac_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.get_frac_active" title="Link to this definition"></a></dt>
+<dd><p>Computes fraction of total units active per burst, fraction of bursts
+in which each unit is active, and assigns backbone identity based on
+fraction of active bursts.</p>
 <p>Parameters:
-edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst
-MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst
-backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit</p>
+edges (numpy.ndarray): Array of shape (B, 2) containing [start, end]</p>
+<blockquote>
+<div><p>indices for each burst. Indices are in raster bin coordinates
+(bin index = time_ms / bin_size).</p>
+</div></blockquote>
+<dl class="simple">
+<dt>MIN_SPIKES (int): Minimum number of spikes required for a unit to be</dt><dd><p>considered active in a burst.</p>
+</dd>
+<dt>backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit</dt><dd><p>must be active in to be considered a backbone unit.</p>
+</dd>
+<dt>bin_size (float): Raster bin size in milliseconds (default 1.0). Must</dt><dd><p>match the bin size used to compute <code class="docutils literal notranslate"><span class="pre">edges</span></code> (e.g., from
+<code class="docutils literal notranslate"><span class="pre">get_bursts(raster_bin_size_ms=...)</span></code>).</p>
+</dd>
+</dl>
 <p>Returns:
-frac_per_unit (numpy.ndarray): 1D array where each value represents a neuron and the fraction of bursts in which the neuron was active
-frac_per_burst (numpy.ndarray): 1D array where each value represents a burst and the fraction of neurons that are active in that burst.
-backbone_units (numpy.ndarray): 1D array of the neuron/unit indices that are backbone units.</p>
+frac_per_unit (numpy.ndarray): 1D array where each value represents a</p>
+<blockquote>
+<div><p>neuron and the fraction of bursts in which the neuron was active.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>frac_per_burst (numpy.ndarray): 1D array where each value represents a</dt><dd><p>burst and the fraction of neurons that are active in that burst.</p>
+</dd>
+<dt>backbone_units (numpy.ndarray): 1D array of the neuron/unit indices</dt><dd><p>that are backbone units.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -935,7 +1012,7 @@ distributions for statistical testing.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>Stack of <em>n_shuffles</em> shuffled SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">length)</span></code>.</p>
+<dt>Stack of <em>n_shuffles</em> shuffled SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(start_time,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">length)</span></code>.</p>
 </dd>
 </dl>
 </p>
@@ -966,7 +1043,7 @@ count or composition.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
-<dt>Stack of <em>n_subsets</em> subsetted SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">length)</span></code>.</p>
+<dt>Stack of <em>n_subsets</em> subsetted SpikeData</dt><dd><p>objects. All slices share the same time bounds <code class="docutils literal notranslate"><span class="pre">(start_time,</span> <span class="pre">start_time</span> <span class="pre">+</span> <span class="pre">length)</span></code>.</p>
 </dd>
 </dl>
 </p>
@@ -1080,6 +1157,13 @@ gauss_sigma (int): Sigma of Guassian smoothing window in bins
 raster_bin_size_ms (float): Size of raster bins in ms</p>
 <p>Returns:
 pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin</p>
+<p>Notes:
+- The returned array index corresponds to raster bin index. For</p>
+<blockquote>
+<div><p>event-centered data (start_time &lt; 0), bin 0 corresponds to start_time,
+not t=0. To find the bin for t=0 (the event), use
+<code class="docutils literal notranslate"><span class="pre">event_bin</span> <span class="pre">=</span> <span class="pre">int(-start_time</span> <span class="pre">/</span> <span class="pre">raster_bin_size_ms)</span></code>.</p>
+</div></blockquote>
 </dd></dl>
 
 <dl class="py method">
@@ -1137,10 +1221,16 @@ pop_rms_override (float, optional): RMS to override burst threshold baseline for
 tburst (np.ndarray[float64]): Time bin indices of detected bursts
 edges (np.ndarray[float64]): Time bin indices of burst edges (Shape = (N,2))
 peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indices</p>
-<p>Note:
-- Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas
-- Using the peak-to-zero calculations may result in several bursts being detected at one peak
-- In the case that duplicate bursts are detected, prints an error with potential fixes</p>
+<p>Notes:
+- Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas.
+- Using the peak-to-zero calculations may result in several bursts being detected at one peak.
+- In the case that duplicate bursts are detected, prints an error with potential fixes.
+- Returned time bin indices are relative to bin 0 of the raster. For standard</p>
+<blockquote>
+<div><p>(start_time=0) data, bin index = time in ms / raster_bin_size_ms. For event-centered
+data (start_time &lt; 0), add start_time to convert bin indices to event-relative times:
+<code class="docutils literal notranslate"><span class="pre">event_relative_ms</span> <span class="pre">=</span> <span class="pre">tburst</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span> <span class="pre">start_time</span></code>.</p>
+</div></blockquote>
 </dd></dl>
 
 <dl class="py method">

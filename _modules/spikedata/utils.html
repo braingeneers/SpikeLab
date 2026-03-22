@@ -263,7 +263,9 @@
     <span class="n">community_louvain</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">get_sttc</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_sttc</span><span class="p">(</span>
+    <span class="n">tA</span><span class="p">,</span> <span class="n">tB</span><span class="p">,</span> <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the spike time tiling coefficient between two spike trains.</span>
 
@@ -271,13 +273,18 @@
 <span class="sd">    STTC = (PA - TB) / (1 - PA * TB) if PA * TB != 1 else 0 + (PB - TA) / (1 - PB * TA) if PB * TA != 1 else 0</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">    tA (list): List of spike times for the first spike train</span>
-<span class="sd">    tB (list): List of spike times for the second spike train</span>
-<span class="sd">    delt (float): Time window in milliseconds (default: 20.0)</span>
-<span class="sd">    length (float): Total duration in milliseconds (optional)</span>
+<span class="sd">    tA (list): List of spike times for the first spike train.</span>
+<span class="sd">    tB (list): List of spike times for the second spike train.</span>
+<span class="sd">    delt (float): Time window in milliseconds (default: 20.0).</span>
+<span class="sd">    length (float): Total duration in milliseconds (optional). If None,</span>
+<span class="sd">        inferred from the latest spike time after shifting.</span>
+<span class="sd">    start_time (float): Time origin of the spike trains (default 0.0).</span>
+<span class="sd">        Spike times are shifted by ``-start_time`` before computation so</span>
+<span class="sd">        that the STTC edge corrections work correctly for event-centered</span>
+<span class="sd">        data with negative spike times.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">    sttc (float): Spike time tiling coefficient between the two spike trains</span>
+<span class="sd">    sttc (float): Spike time tiling coefficient between the two spike trains.</span>
 
 <span class="sd">    [1] Cutts &amp; Eglen. Detecting pairwise correlations in spike trains: An objective</span>
 <span class="sd">        comparison of methods and application to the study of retinal waves. Journal of</span>
@@ -288,6 +295,11 @@
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">tB</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.0</span>
+
+    <span class="c1"># Shift both trains by -start_time so they are 0-based. This ensures</span>
+    <span class="c1"># _sttc_ta edge corrections work correctly for event-centered data.</span>
+    <span class="n">tA</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tA</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="n">start_time</span>
+    <span class="n">tB</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tB</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="n">start_time</span>
 
     <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">tA</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tB</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
@@ -1461,7 +1473,9 @@
     <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_validate_time_start_to_end</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_time_start_to_end</span><span class="p">(</span>
+    <span class="n">times_start_to_end</span><span class="p">,</span> <span class="n">warn_negative_start</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">recording_range</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Validates that the list of (start, end) tuples has the same duration and is in</span>
 <span class="sd">    proper format for the object constructor.</span>
@@ -1469,11 +1483,18 @@
 <span class="sd">    Parameters:</span>
 <span class="sd">    -----------</span>
 <span class="sd">    times_start_to_end (list): Each entry must be a tuple (start, end).</span>
+<span class="sd">    warn_negative_start (bool): If True, emit a warning for windows with</span>
+<span class="sd">        negative start times (default False). Useful when times are expected</span>
+<span class="sd">        to be absolute recording positions.</span>
+<span class="sd">    recording_range (tuple or None): If provided, a ``(rec_start, rec_end)``</span>
+<span class="sd">        tuple defining the valid time range. Any window that extends outside</span>
+<span class="sd">        this range raises ``ValueError``. If None (default), no range check</span>
+<span class="sd">        is performed.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">    --------</span>
-<span class="sd">    valid_time_tuples (list): Sorted list of valid (start, end) tuples, with</span>
-<span class="sd">                                negative-start windows removed.</span>
+<span class="sd">    valid_time_tuples (list): Sorted list of valid (start, end) tuples.</span>
+<span class="sd">                                Negative-start windows are preserved.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;times must be a list of tuples&quot;</span><span class="p">)</span>
@@ -1505,8 +1526,22 @@
                 <span class="s2">&quot;Treating as an empty slice.&quot;</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">warn_negative_start</span> <span class="ow">and</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Time window </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> has negative start (</span><span class="si">{</span><span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">). &quot;</span>
+                <span class="s2">&quot;If these are absolute recording times, negative values are &quot;</span>
+                <span class="s2">&quot;unexpected. For event-centered data constructed via &quot;</span>
+                <span class="s2">&quot;time_peaks + time_bounds, this is normal.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">recording_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rec_start</span><span class="p">,</span> <span class="n">rec_end</span> <span class="o">=</span> <span class="n">recording_range</span>
+            <span class="k">if</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">rec_start</span> <span class="ow">or</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">rec_end</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Time window </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">) &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;extends outside the recording range &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">rec_start</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">rec_end</span><span class="si">}</span><span class="s2">].&quot;</span>
+                <span class="p">)</span>
         <span class="n">time_diff_check</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">time_window</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">valid_time_tuples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_window</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">time_diff_check</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>

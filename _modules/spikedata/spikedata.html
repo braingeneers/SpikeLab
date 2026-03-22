@@ -264,7 +264,11 @@
 
 <span class="sd">    N: The number of neurons in the dataset.</span>
 
-<span class="sd">    length: The length of the spike train, defaults to the time of the last spike.</span>
+<span class="sd">    length: The total duration of the time window in milliseconds.</span>
+
+<span class="sd">    start_time: The time origin in milliseconds (default 0.0). For event-centered</span>
+<span class="sd">      data, this is typically -pre_ms. Spike times fall within</span>
+<span class="sd">      [start_time, start_time + length].</span>
 
 <span class="sd">    neuron_attributes: A list of dictionaries containing information on each neuron.</span>
 
@@ -326,13 +330,23 @@
 <span class="sd">        - The generated spike times are evenly spaced within each time bin. For example, if a unit fires</span>
 <span class="sd">            3 times in a 10 ms time bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.</span>
 <span class="sd">        - All metadata parameters of the regular constructor are accepted.</span>
+<span class="sd">        - For event-centered rasters (where bin 0 corresponds to ``start_time``,</span>
+<span class="sd">          not t=0), pass ``start_time`` in kwargs so that spike times are</span>
+<span class="sd">          correctly offset. Without it, bin 0 maps to t=0.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">N</span><span class="p">,</span> <span class="n">T</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># Offset generated spike times by start_time so bin 0 maps to</span>
+        <span class="c1"># start_time (not 0) when reconstructing event-centered data.</span>
+        <span class="n">t_offset</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
         <span class="n">train</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">raster</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()):</span>
             <span class="n">n_spikes</span> <span class="o">=</span> <span class="n">raster</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span>
-            <span class="n">times</span> <span class="o">=</span> <span class="n">t</span> <span class="o">*</span> <span class="n">bin_size_ms</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_size_ms</span><span class="p">,</span> <span class="n">n_spikes</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">t_offset</span>
+                <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="n">bin_size_ms</span>
+                <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">bin_size_ms</span><span class="p">,</span> <span class="n">n_spikes</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
             <span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
 
         <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="n">T</span> <span class="o">*</span> <span class="n">bin_size_ms</span><span class="p">)</span>
@@ -449,6 +463,7 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
         <span class="n">neuron_attributes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">raw_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -458,22 +473,28 @@
 <span class="sd">        Initialize a SpikeData object using a list of spike trains, each a</span>
 <span class="sd">        list of spike times in milliseconds.</span>
 
-
 <span class="sd">        Parameters:</span>
-<span class="sd">        train (list): List of spike trains, each a list of spike times in milliseconds</span>
-<span class="sd">        N (int): Number of units (optional)</span>
-<span class="sd">        length (float): Length of the spike train in milliseconds (optional)</span>
-<span class="sd">        neuron_attributes (list): List of neuron attributes (optional)</span>
-<span class="sd">        metadata (dict): Dictionary of metadata (optional)</span>
-<span class="sd">        raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional)</span>
-<span class="sd">        raw_time (numpy.ndarray or float): Raw time vector with shape (time) or sample rate in kHz (optional)</span>
-
+<span class="sd">        train (list): List of spike trains, each a list of spike times in milliseconds.</span>
+<span class="sd">            Spike times can be negative for event-centered data (e.g. -200 to +300</span>
+<span class="sd">            around a stimulus event).</span>
+<span class="sd">        N (int): Number of units (optional).</span>
+<span class="sd">        length (float): Total duration of the time window in milliseconds (optional).</span>
+<span class="sd">            For event-centered data with times from -200 to +300, length is 500.</span>
+<span class="sd">            Defaults to the span from start_time to the latest spike time.</span>
+<span class="sd">        start_time (float): Time of the first bin in milliseconds (default 0.0).</span>
+<span class="sd">            For event-centered data, this is typically ``-pre_ms`` (e.g. -200.0).</span>
+<span class="sd">            Spike times must fall within ``[start_time, start_time + length]``.</span>
+<span class="sd">        neuron_attributes (list): List of neuron attributes (optional).</span>
+<span class="sd">        metadata (dict): Dictionary of metadata (optional).</span>
+<span class="sd">        raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional).</span>
+<span class="sd">        raw_time (numpy.ndarray or float): Raw time vector with shape (time) or</span>
+<span class="sd">            sample rate in kHz (optional).</span>
 
 <span class="sd">        Notes:</span>
 <span class="sd">        - Arbitrary raw timeseries data, not associated with particular units,</span>
-<span class="sd">        can be passed in as `raw_data` (an array with shape (channels, time)).</span>
-<span class="sd">        - The `raw_time` argument can also be a sample rate in kHz, in which case it is generated</span>
-<span class="sd">        assuming that the start of the raw data corresponds with t=0.</span>
+<span class="sd">          can be passed in as `raw_data` (an array with shape (channels, time)).</span>
+<span class="sd">        - The `raw_time` argument can also be a sample rate in kHz, in which case</span>
+<span class="sd">          it is generated assuming that the start of the raw data corresponds with t=0.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Make sure each individual spike train is sorted. As a side effect,</span>
         <span class="c1"># also copy each array to avoid aliasing.</span>
@@ -485,21 +506,42 @@
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;spike times for unit </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> contain NaN values&quot;</span><span class="p">)</span>
 
-        <span class="c1"># The length of the spike train defaults to the last spike</span>
-        <span class="c1"># time it contains.</span>
+        <span class="c1"># Store the time origin.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">start_time</span><span class="p">)</span>
+
+        <span class="c1"># The length of the spike train defaults to the span from</span>
+        <span class="c1"># start_time to the latest spike time.</span>
         <span class="k">if</span> <span class="n">length</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">length</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">max_spike</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="n">max_spike</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;length must not be NaN&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;length must be non-negative, got </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">max_spike</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="n">max_spike</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;length (</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2">) is shorter than the latest spike time &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">max_spike</span><span class="si">}</span><span class="s2">). Use subtime() to trim spike trains first.&quot;</span>
-            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+
+        <span class="c1"># Validate that all spike times fall within [start_time, start_time + length].</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unit </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: spike time </span><span class="si">{</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> ms is before start_time &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">). Spike times must fall within &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">].&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unit </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: spike time </span><span class="si">{</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> ms exceeds end of time &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;window (</span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">). If spike times are absolute, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;subtract the start time from each train before &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;constructing SpikeData. To trim an existing SpikeData, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;use subtime().&quot;</span>
+                <span class="p">)</span>
 
         <span class="c1"># If a number of units was provided, make the list of spike</span>
         <span class="c1"># trains consistent with that number.</span>
@@ -659,9 +701,10 @@
         <span class="n">step</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">overlap</span>
         <span class="k">if</span> <span class="n">step</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overlap must be less than length&quot;</span><span class="p">)</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
         <span class="n">times</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">-</span> <span class="n">length</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span> <span class="o">-</span> <span class="n">length</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
         <span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">times</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -700,7 +743,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack or RateSliceStack): Event-aligned slice stack with</span>
 <span class="sd">                one slice per event. Events whose window extends outside</span>
-<span class="sd">                ``[0, self.length]`` are dropped with a warning.</span>
+<span class="sd">                ``[start_time, start_time + length]`` are dropped with a warning.</span>
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - When ``events`` is a metadata key, the corresponding array must already</span>
@@ -725,16 +768,18 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">event_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
-        <span class="c1"># Drop events whose window would extend outside [0, self.length].</span>
-        <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">event_times</span> <span class="o">-</span> <span class="n">pre_ms</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
-            <span class="n">event_times</span> <span class="o">+</span> <span class="n">post_ms</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="c1"># Drop events whose window would extend outside [start_time, start_time + length].</span>
+        <span class="n">rec_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span>
+        <span class="n">rec_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">event_times</span> <span class="o">-</span> <span class="n">pre_ms</span> <span class="o">&gt;=</span> <span class="n">rec_start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
+            <span class="n">event_times</span> <span class="o">+</span> <span class="n">post_ms</span> <span class="o">&lt;=</span> <span class="n">rec_end</span>
         <span class="p">)</span>
         <span class="n">n_dropped</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">valid_mask</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">n_dropped</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">n_dropped</span><span class="si">}</span><span class="s2"> event(s) dropped because their &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="o">-</span><span class="n">pre_ms</span><span class="si">}</span><span class="s2">, +</span><span class="si">{</span><span class="n">post_ms</span><span class="si">}</span><span class="s2">] ms window extends outside the recording &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;bounds [0, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;bounds [</span><span class="si">{</span><span class="n">rec_start</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">rec_end</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms.&quot;</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
@@ -766,8 +811,9 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">binned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">40.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Quantize time into intervals of bin_size and count the number of events in</span>
-<span class="sd">        each bin. Bins are left-open, right-closed intervals: (0, bin_size],</span>
-<span class="sd">        (bin_size, 2*bin_size], ... A spike at exactly t=0 is included in bin 0.</span>
+<span class="sd">        each bin. Bins are relative to ``start_time``: ``(start_time, start_time + bin_size]``,</span>
+<span class="sd">        ``(start_time + bin_size, start_time + 2*bin_size]``, etc. A spike at exactly</span>
+<span class="sd">        ``start_time`` is included in bin 0.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">        bin_size (float): Size of the time bin in milliseconds</span>
@@ -943,6 +989,7 @@
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
             <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">),</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
@@ -1000,45 +1047,58 @@
 
 <div class="viewcode-block" id="SpikeData.subtime">
 <a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.subtime">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">subtime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subtime</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">shift_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extract a subset of time points from spikedata using time values.</span>
 
-<span class="sd">        Spike times are always shifted so that the new SpikeData starts at t=0.</span>
-<span class="sd">        For example, subtime(100, 200) produces spikes in the range [0, 100).</span>
+<span class="sd">        Spike times are shifted so that ``shift_to`` becomes t=0 in the new</span>
+<span class="sd">        SpikeData. By default ``shift_to=start``, so subtime(100, 200) produces</span>
+<span class="sd">        spikes in the range [0, 100). For event-centered slicing, pass</span>
+<span class="sd">        ``shift_to=event_time`` to produce spikes from ``-(event - start)`` to</span>
+<span class="sd">        ``+(end - event)``.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">        start (int/float): Starting time value (inclusive)</span>
-<span class="sd">        end (int/float): Ending time value (exclusive)</span>
+<span class="sd">        start (int/float): Starting time value (inclusive).</span>
+<span class="sd">        end (int/float): Ending time value (exclusive).</span>
+<span class="sd">        shift_to (float or None): The time value that becomes t=0 in the output.</span>
+<span class="sd">            Defaults to ``start`` (standard behavior). For event-centered output,</span>
+<span class="sd">            pass the event time so that t=0 corresponds to the event.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">        SpikeData: New SpikeData object containing only the specified time range</span>
+<span class="sd">        SpikeData: New SpikeData object containing only the specified time range.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">        - Start and end can be negative, in which case they are counted backwards from the</span>
-<span class="sd">        end.</span>
-<span class="sd">        - They can also be None or Ellipsis, in which case that end of the data is</span>
-<span class="sd">        not truncated.</span>
-<span class="sd">        - All metadata and neuron data are propagated</span>
+<span class="sd">        - For standard data (``start_time &gt;= 0``), negative start/end values are</span>
+<span class="sd">          counted backwards from the end of the recording. For event-centered data</span>
+<span class="sd">          (``start_time &lt; 0``), negative values are treated as literal times.</span>
+<span class="sd">        - Start and end can also be None or Ellipsis, in which case that end of</span>
+<span class="sd">          the data is not truncated.</span>
+<span class="sd">        - All metadata and neuron data are propagated.</span>
+<span class="sd">        - The output SpikeData has ``start_time = start - shift_to`` and</span>
+<span class="sd">          ``length = end - start``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+
         <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">start</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">elif</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-            <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span>
+        <span class="k">elif</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Backward-counting from end (only for standard 0-based data;</span>
+            <span class="c1"># for event-centered data negative values are literal times).</span>
+            <span class="n">start</span> <span class="o">+=</span> <span class="n">end_time</span>
+            <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;start (</span><span class="si">{</span><span class="n">start</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2">) is too negative. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;start (</span><span class="si">{</span><span class="n">start</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">end_time</span><span class="si">}</span><span class="s2">) is too negative. &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;Minimum allowed is -</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">}</span><span class="s2"> (recording length)&quot;</span>
                 <span class="p">)</span>
-        <span class="k">elif</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+        <span class="k">elif</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">end_time</span>
 
         <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="bp">Ellipsis</span><span class="p">:</span>
-            <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-        <span class="k">elif</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">end</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-        <span class="k">elif</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
-            <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">end_time</span>
+        <span class="k">elif</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">+=</span> <span class="n">end_time</span>
+        <span class="k">elif</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">end_time</span>
 
         <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;=</span> <span class="n">end</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1046,8 +1106,13 @@
                 <span class="sa">f</span><span class="s2">&quot;Cannot create subtime with invalid range.&quot;</span>
             <span class="p">)</span>
 
-        <span class="c1"># Subset the spike train by time, shifting to start at 0</span>
-        <span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)]</span> <span class="o">-</span> <span class="n">start</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
+        <span class="c1"># Default shift_to is start (standard 0-based behavior)</span>
+        <span class="k">if</span> <span class="n">shift_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">shift_to</span> <span class="o">=</span> <span class="n">start</span>
+
+        <span class="c1"># Subset the spike train by time, shifting by shift_to</span>
+        <span class="n">train</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)]</span> <span class="o">-</span> <span class="n">shift_to</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
+        <span class="n">new_start_time</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">shift_to</span>
 
         <span class="c1"># Subset and propagate the raw data</span>
         <span class="n">rawmask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">)</span>
@@ -1055,10 +1120,11 @@
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">new_start_time</span><span class="p">,</span>
             <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
-            <span class="n">raw_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">[</span><span class="n">rawmask</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">[</span><span class="n">rawmask</span><span class="p">]</span> <span class="o">-</span> <span class="n">shift_to</span><span class="p">,</span>
             <span class="n">raw_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">rawmask</span><span class="p">],</span>
         <span class="p">)</span></div>
 
@@ -1102,18 +1168,21 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot concatenate SpikeData with different N&quot;</span><span class="p">)</span>
+        <span class="c1"># Shift appended spikes from their own time base to follow self&#39;s time range.</span>
+        <span class="c1"># Subtract spikeData.start_time to normalize to 0-based, then add the</span>
+        <span class="c1"># concatenation point (self&#39;s end time + gap).</span>
+        <span class="n">concat_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">concat_point</span> <span class="o">-</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">start_time</span>
         <span class="n">train</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">tr1</span><span class="p">,</span> <span class="n">tr2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span><span class="p">])</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">tr1</span><span class="p">,</span> <span class="n">tr2</span> <span class="o">+</span> <span class="n">shift</span><span class="p">])</span>
             <span class="k">for</span> <span class="n">tr1</span><span class="p">,</span> <span class="n">tr2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">train</span><span class="p">)</span>
         <span class="p">]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">raw_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_data</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
-                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="n">raw_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span><span class="p">,</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">+</span> <span class="n">shift</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">raw_data</span> <span class="o">=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">raw_time</span> <span class="o">=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">offset</span>
+            <span class="n">raw_time</span> <span class="o">=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">raw_time</span> <span class="o">+</span> <span class="n">shift</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">raw_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span>
             <span class="n">raw_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_time</span>
@@ -1121,6 +1190,7 @@
         <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
             <span class="n">train</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
             <span class="n">N</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
             <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
@@ -1134,30 +1204,41 @@
 
 <div class="viewcode-block" id="SpikeData.sparse_raster">
 <a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.sparse_raster">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">sparse_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sparse_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Bin all spike times and create a sparse array where entry (i,j) is the number of</span>
 <span class="sd">        times unit i fired in bin j.</span>
 
+<span class="sd">        Spike times are shifted by ``-start_time`` before binning so that bin 0</span>
+<span class="sd">        corresponds to ``start_time``. For standard (0-based) SpikeData this has</span>
+<span class="sd">        no effect. For event-centered SpikeData with negative ``start_time``,</span>
+<span class="sd">        pre-event spikes occupy the first bins.</span>
+
 <span class="sd">        Parameters:</span>
-<span class="sd">        bin_size (float): Size of the time bin in milliseconds</span>
+<span class="sd">        bin_size (float): Size of the time bin in milliseconds.</span>
+<span class="sd">        time_offset (float): Additional offset added to all spike times before</span>
+<span class="sd">            binning (default 0.0). Use this to place spikes at their absolute</span>
+<span class="sd">            recording position, e.g. ``time_offset=500`` to shift all spikes</span>
+<span class="sd">            by 500 ms in the raster.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">        raster (sparse.csr_matrix): Sparse array where entry (i,j) is the number of</span>
 <span class="sd">        times unit i fired in bin j.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...</span>
-<span class="sd">        - A spike at exactly t=0 is clipped into bin 0.</span>
-<span class="sd">        - The number of bins is always ceil(length / bin_size).</span>
+<span class="sd">        - Bins are left-open, right-closed intervals relative to start_time.</span>
+<span class="sd">        - A spike at exactly start_time is clipped into bin 0.</span>
+<span class="sd">        - The number of bins is always ceil((length + time_offset) / bin_size).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ts</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-            <span class="nb">int</span>
-        <span class="p">)</span>
+        <span class="c1"># Shift spike times so start_time → 0 before binning</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">time_offset</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">ts</span> <span class="o">+</span> <span class="n">shift</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">])</span>
         <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">time_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
         <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">indices</span><span class="p">)</span>
         <span class="c1"># Use csr_matrix for SciPy &lt; 1.8 compatibility (csr_array not available)</span>
         <span class="k">return</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">values</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span></div>
@@ -1165,23 +1246,25 @@
 
 <div class="viewcode-block" id="SpikeData.raster">
 <a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.raster">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Bin all spike times and create a dense array where entry (i,j) is the number of</span>
 <span class="sd">        times cell i fired in bin j.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">        bin_size (float): Size of the time bin in milliseconds</span>
+<span class="sd">        bin_size (float): Size of the time bin in milliseconds.</span>
+<span class="sd">        time_offset (float): Additional offset added to spike times before binning</span>
+<span class="sd">            (default 0.0).</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">        raster (numpy.ndarray): Dense array where entry (i,j) is the number of</span>
 <span class="sd">        times unit i fired in bin j.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...</span>
-<span class="sd">        - A spike at exactly t=0 is clipped into bin 0.</span>
+<span class="sd">        - Bins are left-open, right-closed intervals relative to start_time.</span>
+<span class="sd">        - A spike at exactly start_time is clipped into bin 0.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="n">time_offset</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.channel_raster">
@@ -1420,9 +1503,10 @@
 <span class="sd">        - raw_data and raw_time are not modified — they persist from the original object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="c1"># Subtime the second SpikeData object to the length of the first</span>
-        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
-            <span class="n">sd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+        <span class="c1"># Subtime the second SpikeData object to the time range of the first</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="ow">or</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">:</span>
+            <span class="n">end_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">+=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
         <span class="c1"># raw_data/raw_time are not modified — they persist from the original object.</span>
@@ -1452,14 +1536,15 @@
 <span class="sd">            comparison of methods and application to the study of retinal waves. Journal of</span>
 <span class="sd">            Neuroscience 34:43, 14288–14303 (2014).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-        <span class="n">ts</span> <span class="o">=</span> <span class="p">[</span><span class="n">_sttc_ta</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">delt</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="n">T</span> <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">]</span>
-
         <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
-                <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_spike_time_tiling</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">delt</span>
+                <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ret</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_sttc</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                    <span class="n">delt</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+                    <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span><span class="n">matrix</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;delt&quot;</span><span class="p">:</span> <span class="n">delt</span><span class="p">})</span></div>
 
@@ -1482,7 +1567,13 @@
 <span class="sd">            comparison of methods and application to the study of retinal waves. Journal of</span>
 <span class="sd">            Neuroscience 34:43, 14288–14303 (2014).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">get_sttc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">delt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">get_sttc</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+            <span class="n">delt</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.get_pairwise_ccg">
@@ -1688,22 +1779,43 @@
 
 <div class="viewcode-block" id="SpikeData.get_frac_active">
 <a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.get_frac_active">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_frac_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">MIN_SPIKES</span><span class="p">,</span> <span class="n">backbone_threshold</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_frac_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">MIN_SPIKES</span><span class="p">,</span> <span class="n">backbone_threshold</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Computes fraction of total units active in per burst, fraction of bursts</span>
-<span class="sd">        in which each unit is active and assigns backbone identity based on fraction of active bursts</span>
+<span class="sd">        Computes fraction of total units active per burst, fraction of bursts</span>
+<span class="sd">        in which each unit is active, and assigns backbone identity based on</span>
+<span class="sd">        fraction of active bursts.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst</span>
-<span class="sd">        MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst</span>
-<span class="sd">        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit</span>
+<span class="sd">        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end]</span>
+<span class="sd">            indices for each burst. Indices are in raster bin coordinates</span>
+<span class="sd">            (bin index = time_ms / bin_size).</span>
+<span class="sd">        MIN_SPIKES (int): Minimum number of spikes required for a unit to be</span>
+<span class="sd">            considered active in a burst.</span>
+<span class="sd">        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit</span>
+<span class="sd">            must be active in to be considered a backbone unit.</span>
+<span class="sd">        bin_size (float): Raster bin size in milliseconds (default 1.0). Must</span>
+<span class="sd">            match the bin size used to compute ``edges`` (e.g., from</span>
+<span class="sd">            ``get_bursts(raster_bin_size_ms=...)``).</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">        frac_per_unit (numpy.ndarray): 1D array where each value represents a neuron and the fraction of bursts in which the neuron was active</span>
-<span class="sd">        frac_per_burst (numpy.ndarray): 1D array where each value represents a burst and the fraction of neurons that are active in that burst.</span>
-<span class="sd">        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices that are backbone units.</span>
+<span class="sd">        frac_per_unit (numpy.ndarray): 1D array where each value represents a</span>
+<span class="sd">            neuron and the fraction of bursts in which the neuron was active.</span>
+<span class="sd">        frac_per_burst (numpy.ndarray): 1D array where each value represents a</span>
+<span class="sd">            burst and the fraction of neurons that are active in that burst.</span>
+<span class="sd">        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices</span>
+<span class="sd">            that are backbone units.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">t_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+        <span class="n">t_spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+
+        <span class="c1"># Sanity check: edges must fit within the raster dimensions</span>
+        <span class="n">raster_bins</span> <span class="o">=</span> <span class="n">t_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">edges</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">raster_bins</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Edge index </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">edges</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="si">}</span><span class="s2"> exceeds raster size &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">raster_bins</span><span class="si">}</span><span class="s2"> bins at bin_size=</span><span class="si">{</span><span class="n">bin_size</span><span class="si">}</span><span class="s2"> ms). Ensure &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;bin_size matches the value used in &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;get_bursts(raster_bin_size_ms=...).&quot;</span>
+            <span class="p">)</span>
 
         <span class="c1"># initiate result array</span>
         <span class="n">spikes_per_burst</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">t_spk_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
@@ -1771,7 +1883,12 @@
 <span class="sd">        - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">SpikeData</span><span class="p">([],</span> <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
+                <span class="p">[],</span>
+                <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="n">spk_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">spk_mat</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
@@ -1786,6 +1903,7 @@
             <span class="n">shuffled_mat</span><span class="p">,</span>
             <span class="n">bin_size</span><span class="p">,</span>
             <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1811,7 +1929,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData</span>
-<span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
+<span class="sd">                objects. All slices share the same time bounds ``(start_time, start_time + length)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">n_shuffles</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_shuffles must be at least 1.&quot;</span><span class="p">)</span>
@@ -1827,7 +1945,7 @@
                 <span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_shuffles</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_shuffles</span>
         <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
             <span class="n">spike_stack</span><span class="o">=</span><span class="n">shuffled</span><span class="p">,</span>
             <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
@@ -1855,7 +1973,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData</span>
-<span class="sd">                objects. All slices share the same time bounds ``(0, length)``.</span>
+<span class="sd">                objects. All slices share the same time bounds ``(start_time, start_time + length)``.</span>
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - The stack-level ``neuron_attributes`` is ``None`` because each</span>
@@ -1879,7 +1997,7 @@
             <span class="n">indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">units_per_subset</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
             <span class="n">subsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">indices</span><span class="p">))</span>
 
-        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_subsets</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n_subsets</span>
         <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
             <span class="n">spike_stack</span><span class="o">=</span><span class="n">subsets</span><span class="p">,</span>
             <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
@@ -2078,6 +2196,12 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">        pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">        - The returned array index corresponds to raster bin index. For</span>
+<span class="sd">          event-centered data (start_time &lt; 0), bin 0 corresponds to start_time,</span>
+<span class="sd">          not t=0. To find the bin for t=0 (the event), use</span>
+<span class="sd">          ``event_bin = int(-start_time / raster_bin_size_ms)``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">gauss_sigma</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gauss_sigma must be non-negative, got </span><span class="si">{</span><span class="n">gauss_sigma</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -2205,11 +2329,12 @@
             <span class="c1"># c_{i,τ} = 100 × Σ[P(t) − μ_i] / ||f_i||</span>
             <span class="n">stPR</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">sum_deviations</span> <span class="o">/</span> <span class="n">total_spikes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 
-        <span class="c1"># Low-pass filter coupling curves with 20 Hz cutoff</span>
-        <span class="n">nyquist</span> <span class="o">=</span> <span class="n">fs</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">cutoff_hz</span> <span class="o">/</span> <span class="n">nyquist</span><span class="p">,</span> <span class="n">btype</span><span class="o">=</span><span class="s2">&quot;low&quot;</span><span class="p">)</span>
+        <span class="c1"># Low-pass filter coupling curves</span>
         <span class="n">stPR_filtered</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">signal</span><span class="o">.</span><span class="n">filtfilt</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">stPR</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_neurons</span><span class="p">)]</span>
+            <span class="p">[</span>
+                <span class="n">butter_filter</span><span class="p">(</span><span class="n">stPR</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">highcut</span><span class="o">=</span><span class="n">cutoff_hz</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_neurons</span><span class="p">)</span>
+            <span class="p">]</span>
         <span class="p">)</span>
 
         <span class="c1"># Coupling strength = c_{i,0} (lag 0) for chorister/soloist classification</span>
@@ -2270,10 +2395,14 @@
 <span class="sd">        edges (np.ndarray[float64]): Time bin indices of burst edges (Shape = (N,2))</span>
 <span class="sd">        peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indices</span>
 
-<span class="sd">        Note:</span>
-<span class="sd">        - Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas</span>
-<span class="sd">        - Using the peak-to-zero calculations may result in several bursts being detected at one peak</span>
-<span class="sd">        - In the case that duplicate bursts are detected, prints an error with potential fixes</span>
+<span class="sd">        Notes:</span>
+<span class="sd">        - Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas.</span>
+<span class="sd">        - Using the peak-to-zero calculations may result in several bursts being detected at one peak.</span>
+<span class="sd">        - In the case that duplicate bursts are detected, prints an error with potential fixes.</span>
+<span class="sd">        - Returned time bin indices are relative to bin 0 of the raster. For standard</span>
+<span class="sd">          (start_time=0) data, bin index = time in ms / raster_bin_size_ms. For event-centered</span>
+<span class="sd">          data (start_time &lt; 0), add start_time to convert bin indices to event-relative times:</span>
+<span class="sd">          ``event_relative_ms = tburst * raster_bin_size_ms + start_time``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get pop rates and rms</span>
         <span class="k">if</span> <span class="n">pop_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
