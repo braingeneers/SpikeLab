@@ -2741,6 +2741,199 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_recording</span>
 
         <span class="k">return</span> <span class="n">plot_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.plot_aligned_pop_rate">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.plot_aligned_pop_rate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_aligned_pop_rate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">events</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>
+        <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+        <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pop_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pop_rate_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+        <span class="n">show_individual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">individual_alpha</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>
+        <span class="n">individual_linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">burst_edges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">edge_percentile</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from event (ms)&quot;</span><span class="p">,</span>
+        <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Pop. rate&quot;</span><span class="p">,</span>
+        <span class="n">font_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the average population rate aligned to events.</span>
+
+<span class="sd">        Cuts the population rate around each event and plots the mean trace.</span>
+<span class="sd">        Optionally overlays individual event traces and/or vertical markers</span>
+<span class="sd">        showing event edge positions at a chosen percentile.</span>
+
+<span class="sd">        When ``events`` is None, burst peaks and edges are auto-detected via</span>
+<span class="sd">        ``self.get_bursts(thr_burst=2.5, min_burst_diff=1000,</span>
+<span class="sd">        burst_edge_mult_thresh=0.2)``. For non-burst events (e.g. task cues,</span>
+<span class="sd">        stimulus onsets), pass ``events`` explicitly.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            events (array-like or None): Event times in ms. If None, burst</span>
+<span class="sd">                peaks are auto-detected via ``self.get_bursts()``.</span>
+<span class="sd">            pre_ms (float): Window duration before each event in ms.</span>
+<span class="sd">            post_ms (float): Window duration after each event in ms.</span>
+<span class="sd">            ax (matplotlib.axes.Axes or None): Target axes. If None, a new</span>
+<span class="sd">                figure is created.</span>
+<span class="sd">            pop_rate (np.ndarray or None): Pre-computed population rate (1-ms</span>
+<span class="sd">                bins, full recording). If None, computed via</span>
+<span class="sd">                ``self.get_pop_rate()``.</span>
+<span class="sd">            pop_rate_params (dict or None): Keyword arguments forwarded to</span>
+<span class="sd">                ``self.get_pop_rate()`` when ``pop_rate`` is None. Defaults:</span>
+<span class="sd">                ``square_width=5, gauss_sigma=5``.</span>
+<span class="sd">            color (str or None): Colour for the mean trace (and edge markers).</span>
+<span class="sd">                If None, uses the first colour from the default colour cycle.</span>
+<span class="sd">            label (str or None): Legend label for the mean trace.</span>
+<span class="sd">            linewidth (float): Line width for the mean trace.</span>
+<span class="sd">            show_individual (bool): If True, plot each individual event&#39;s</span>
+<span class="sd">                pop-rate trace as a thin line behind the average.</span>
+<span class="sd">            individual_alpha (float): Alpha for individual traces.</span>
+<span class="sd">            individual_linewidth (float): Line width for individual traces.</span>
+<span class="sd">            burst_edges (np.ndarray or None): Per-event ``[start_ms, end_ms]``</span>
+<span class="sd">                boundaries, shape ``(B, 2)``. When ``events`` is None and</span>
+<span class="sd">                ``edge_percentile`` is set, burst edges are auto-detected</span>
+<span class="sd">                alongside burst peaks.</span>
+<span class="sd">            edge_percentile (float or None): Percentile (0–100) controlling</span>
+<span class="sd">                how conservatively the edge markers are placed.</span>
+<span class="sd">                100 = most conservative (smallest window — all events fit),</span>
+<span class="sd">                0 = most liberal (widest window). When set, vertical dashed</span>
+<span class="sd">                lines are drawn at the resulting start and end positions.</span>
+<span class="sd">            xlabel (str): X-axis label.</span>
+<span class="sd">            ylabel (str): Y-axis label.</span>
+<span class="sd">            font_size (int or None): Font size for labels and ticks. If None,</span>
+<span class="sd">                uses current rcParams.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            avg_rate (np.ndarray): The mean population rate across events,</span>
+<span class="sd">                shape ``(pre_ms + post_ms,)``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - To compare multiple conditions, call this method once per</span>
+<span class="sd">              condition on the same ``ax``. Each call draws its own trace</span>
+<span class="sd">              with its own ``color`` and ``label``; add ``ax.legend()``</span>
+<span class="sd">              after the last call to show the legend.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_import_matplotlib</span><span class="p">,</span> <span class="n">_apply_font_size</span>
+
+        <span class="n">plt</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_import_matplotlib</span><span class="p">()</span>
+
+        <span class="c1"># --- Auto-detect bursts if events not provided --------------------</span>
+        <span class="k">if</span> <span class="n">events</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tburst</span><span class="p">,</span> <span class="n">auto_edges</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bursts</span><span class="p">(</span>
+                <span class="n">thr_burst</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+                <span class="n">min_burst_diff</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">events</span> <span class="o">=</span> <span class="n">tburst</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">edge_percentile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">burst_edges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">burst_edges</span> <span class="o">=</span> <span class="n">auto_edges</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">events</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">events</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="c1"># --- Compute or validate pop_rate ---------------------------------</span>
+        <span class="k">if</span> <span class="n">pop_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;square_width&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;gauss_sigma&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">pop_rate_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pop_rate_params</span><span class="p">)</span>
+            <span class="n">pop_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pop_rate</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">pop_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pop_rate</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+        <span class="c1"># --- Cut windows and collect slices --------------------------------</span>
+        <span class="n">window_len</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pre_ms</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">post_ms</span><span class="p">)</span>
+        <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+            <span class="n">t0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">pre_ms</span><span class="p">)</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">post_ms</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t0</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">t1</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pop_rate</span><span class="p">):</span>
+                <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pop_rate</span><span class="p">[</span><span class="n">t0</span><span class="p">:</span><span class="n">t1</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No valid event windows found. Check that events fall within &quot;</span>
+                <span class="s2">&quot;the recording and the window does not extend past boundaries.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">slices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span>  <span class="c1"># (n_valid_events, window_len)</span>
+        <span class="n">avg_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># --- Create axes if needed ----------------------------------------</span>
+        <span class="n">standalone</span> <span class="o">=</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">standalone</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+
+        <span class="n">t_axis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">window_len</span><span class="p">)</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">pre_ms</span><span class="p">)</span>
+
+        <span class="c1"># --- Resolve colour -----------------------------------------------</span>
+        <span class="k">if</span> <span class="n">color</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cycle_colors</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.prop_cycle&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">by_key</span><span class="p">()[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="n">cycle_colors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># --- Individual traces --------------------------------------------</span>
+        <span class="k">if</span> <span class="n">show_individual</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                    <span class="n">t_axis</span><span class="p">,</span>
+                    <span class="n">s</span><span class="p">,</span>
+                    <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="n">individual_alpha</span><span class="p">,</span>
+                    <span class="n">linewidth</span><span class="o">=</span><span class="n">individual_linewidth</span><span class="p">,</span>
+                    <span class="n">zorder</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># --- Mean trace ---------------------------------------------------</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="n">t_axis</span><span class="p">,</span>
+            <span class="n">avg_rate</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+            <span class="n">linewidth</span><span class="o">=</span><span class="n">linewidth</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span>
+            <span class="n">zorder</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># --- Edge markers -------------------------------------------------</span>
+        <span class="k">if</span> <span class="n">edge_percentile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">burst_edges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;burst_edges is required when events are user-provided &quot;</span>
+                    <span class="s2">&quot;and edge_percentile is not None.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">burst_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">burst_edges</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">starts_rel</span> <span class="o">=</span> <span class="n">burst_edges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">events</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">burst_edges</span><span class="p">)]</span>
+            <span class="n">ends_rel</span> <span class="o">=</span> <span class="n">burst_edges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">events</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">burst_edges</span><span class="p">)]</span>
+            <span class="n">start_marker</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">starts_rel</span><span class="p">,</span> <span class="n">edge_percentile</span><span class="p">)</span>
+            <span class="n">end_marker</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">ends_rel</span><span class="p">,</span> <span class="mi">100</span> <span class="o">-</span> <span class="n">edge_percentile</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
+                <span class="n">start_marker</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+                <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">,</span>
+                <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
+                <span class="n">end_marker</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+                <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">,</span>
+                <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># --- Axes formatting ----------------------------------------------</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">t_axis</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_axis</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">ylabel</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">font_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">avg_rate</span></div>
 </div>
 
 </pre></div>

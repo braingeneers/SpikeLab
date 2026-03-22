@@ -1365,6 +1365,75 @@ See <code class="docutils literal notranslate"><span class="pre">plot_recording<
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.plot_aligned_pop_rate">
+<span class="sig-name descname"><span class="pre">plot_aligned_pop_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">250</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">post_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_individual</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">individual_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">individual_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_percentile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Time</span> <span class="pre">from</span> <span class="pre">event</span> <span class="pre">(ms)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Pop.</span> <span class="pre">rate'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.plot_aligned_pop_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.plot_aligned_pop_rate" title="Link to this definition"></a></dt>
+<dd><p>Plot the average population rate aligned to events.</p>
+<p>Cuts the population rate around each event and plots the mean trace.
+Optionally overlays individual event traces and/or vertical markers
+showing event edge positions at a chosen percentile.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">events</span></code> is None, burst peaks and edges are auto-detected via
+<code class="docutils literal notranslate"><span class="pre">self.get_bursts(thr_burst=2.5,</span> <span class="pre">min_burst_diff=1000,</span>
+<span class="pre">burst_edge_mult_thresh=0.2)</span></code>. For non-burst events (e.g. task cues,
+stimulus onsets), pass <code class="docutils literal notranslate"><span class="pre">events</span></code> explicitly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>events</strong> (<em>array-like</em><em> or </em><em>None</em>) – Event times in ms. If None, burst
+peaks are auto-detected via <code class="docutils literal notranslate"><span class="pre">self.get_bursts()</span></code>.</p></li>
+<li><p><strong>pre_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window duration before each event in ms.</p></li>
+<li><p><strong>post_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Window duration after each event in ms.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None, a new
+figure is created.</p></li>
+<li><p><strong>pop_rate</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Pre-computed population rate (1-ms
+bins, full recording). If None, computed via
+<code class="docutils literal notranslate"><span class="pre">self.get_pop_rate()</span></code>.</p></li>
+<li><p><strong>pop_rate_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Keyword arguments forwarded to
+<code class="docutils literal notranslate"><span class="pre">self.get_pop_rate()</span></code> when <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> is None. Defaults:
+<code class="docutils literal notranslate"><span class="pre">square_width=5,</span> <span class="pre">gauss_sigma=5</span></code>.</p></li>
+<li><p><strong>color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Colour for the mean trace (and edge markers).
+If None, uses the first colour from the default colour cycle.</p></li>
+<li><p><strong>label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Legend label for the mean trace.</p></li>
+<li><p><strong>linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for the mean trace.</p></li>
+<li><p><strong>show_individual</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, plot each individual event’s
+pop-rate trace as a thin line behind the average.</p></li>
+<li><p><strong>individual_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for individual traces.</p></li>
+<li><p><strong>individual_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for individual traces.</p></li>
+<li><p><strong>burst_edges</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-event <code class="docutils literal notranslate"><span class="pre">[start_ms,</span> <span class="pre">end_ms]</span></code>
+boundaries, shape <code class="docutils literal notranslate"><span class="pre">(B,</span> <span class="pre">2)</span></code>. When <code class="docutils literal notranslate"><span class="pre">events</span></code> is None and
+<code class="docutils literal notranslate"><span class="pre">edge_percentile</span></code> is set, burst edges are auto-detected
+alongside burst peaks.</p></li>
+<li><p><strong>edge_percentile</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Percentile (0–100) controlling
+how conservatively the edge markers are placed.
+100 = most conservative (smallest window — all events fit),
+0 = most liberal (widest window). When set, vertical dashed
+lines are drawn at the resulting start and end positions.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The mean population rate across events,</dt><dd><p>shape <code class="docutils literal notranslate"><span class="pre">(pre_ms</span> <span class="pre">+</span> <span class="pre">post_ms,)</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>avg_rate (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>To compare multiple conditions, call this method once per
+condition on the same <code class="docutils literal notranslate"><span class="pre">ax</span></code>. Each call draws its own trace
+with its own <code class="docutils literal notranslate"><span class="pre">color</span></code> and <code class="docutils literal notranslate"><span class="pre">label</span></code>; add <code class="docutils literal notranslate"><span class="pre">ax.legend()</span></code>
+after the last call to show the legend.</p></li>
+</ul>
+</dd></dl>
+
 </dd></dl>
 
 </section>
