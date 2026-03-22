@@ -56,13 +56,17 @@ class SpikeSliceStack:
 
     Instance Variables:
     --------
-    self.spike_stack (list): List of SpikeData objects, one per slice. Spike times within each
-                             slice are shifted to start at 0 (relative to the slice window).
+    self.spike_stack (list): List of SpikeData objects, one per slice. Spike times
+                             are relative to the slice window. For 0-based slices
+                             (constructed via times_start_to_end), times run from
+                             0 to duration. For event-centered slices (constructed
+                             via time_peaks + time_bounds), times run from -pre_ms
+                             to +post_ms with t=0 at the event.
                              Use self.times for absolute recording time positions.
-                             Example)
-                                spike_stack[0].train[neuron_0] = [10, 150, 400, 680]   # 0-based ms within slice
-                                spike_stack[1].train[neuron_0] = [0, 100, 300, 650]    # 0-based ms within slice
-                                spike_stack[2].train[neuron_0] = [50, 300, 550]        # 0-based ms within slice
+                             Example (0-based):
+                                spike_stack[0].train[neuron_0] = [10, 150, 400]
+                             Example (event-centered):
+                                spike_stack[0].train[neuron_0] = [-90, -10, 50, 180]
     self.times (list of tuples): List of (start, end) time bounds for each slice in absolute
                                  recording time, sorted chronologically. Length equals S.
                                  Example: [(100, 350), (500, 750), (1000, 1250)]
@@ -117,8 +121,14 @@ class SpikeSliceStack:
 
             self.times = times_start_to_end
             self.spike_stack = []
-            for start, end in times_start_to_end:
-                self.spike_stack.append(data_obj.subtime(start, end))
+            if time_peaks is not None:
+                # Event-centered: shift_to=peak so t=0 is the event
+                for peak, (start, end) in zip(time_peaks, times_start_to_end):
+                    self.spike_stack.append(data_obj.subtime(start, end, shift_to=peak))
+            else:
+                # Standard: shift_to=start so t=0 is the window start
+                for start, end in times_start_to_end:
+                    self.spike_stack.append(data_obj.subtime(start, end))
 
             if neuron_attributes is None:
                 neuron_attributes = data_obj.neuron_attributes
@@ -156,20 +166,24 @@ class SpikeSliceStack:
             self.spike_stack = list(spike_stack)
             self.times = times_start_to_end
 
-            # Validate that spike times are 0-based within each slice.
-            # Spike times should be relative to the slice start, not absolute
-            # recording times.
+            # Validate that spike times are consistent with the slice
+            # duration. Spike times must be relative to the slice (0-based
+            # or event-centered), not absolute recording times.
             for i, (sd, (start, end)) in enumerate(zip(self.spike_stack, self.times)):
                 duration = end - start
+                expected_start = sd.start_time
+                expected_end = sd.start_time + duration
                 for u, train in enumerate(sd.train):
-                    if len(train) > 0 and train[-1] > duration:
+                    if len(train) == 0:
+                        continue
+                    if train[0] < expected_start or train[-1] > expected_end:
                         raise ValueError(
-                            f"Slice {i}, unit {u}: spike time {train[-1]:.1f} ms "
-                            f"exceeds slice duration {duration:.1f} ms. "
-                            "Spike times in spike_stack must be 0-based "
-                            "(relative to slice start, not absolute recording "
-                            "times). Subtract the slice start time from each "
-                            "train before constructing SpikeSliceStack."
+                            f"Slice {i}, unit {u}: spike times "
+                            f"[{train[0]:.1f}, {train[-1]:.1f}] ms fall outside "
+                            f"expected range [{expected_start:.1f}, "
+                            f"{expected_end:.1f}] ms. "
+                            "Spike times must be relative to the slice (0-based "
+                            "or event-centered), not absolute recording times."
                         )
 
         self.N = self.spike_stack[0].N

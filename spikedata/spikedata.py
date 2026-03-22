@@ -223,6 +223,7 @@ class SpikeData:
         *,
         N=None,
         length=None,
+        start_time=0.0,
         neuron_attributes=None,
         metadata=None,
         raw_data=None,
@@ -232,22 +233,28 @@ class SpikeData:
         Initialize a SpikeData object using a list of spike trains, each a
         list of spike times in milliseconds.
 
-
         Parameters:
-        train (list): List of spike trains, each a list of spike times in milliseconds
-        N (int): Number of units (optional)
-        length (float): Length of the spike train in milliseconds (optional)
-        neuron_attributes (list): List of neuron attributes (optional)
-        metadata (dict): Dictionary of metadata (optional)
-        raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional)
-        raw_time (numpy.ndarray or float): Raw time vector with shape (time) or sample rate in kHz (optional)
-
+        train (list): List of spike trains, each a list of spike times in milliseconds.
+            Spike times can be negative for event-centered data (e.g. -200 to +300
+            around a stimulus event).
+        N (int): Number of units (optional).
+        length (float): Total duration of the time window in milliseconds (optional).
+            For event-centered data with times from -200 to +300, length is 500.
+            Defaults to the span from start_time to the latest spike time.
+        start_time (float): Time of the first bin in milliseconds (default 0.0).
+            For event-centered data, this is typically ``-pre_ms`` (e.g. -200.0).
+            Spike times must fall within ``[start_time, start_time + length]``.
+        neuron_attributes (list): List of neuron attributes (optional).
+        metadata (dict): Dictionary of metadata (optional).
+        raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional).
+        raw_time (numpy.ndarray or float): Raw time vector with shape (time) or
+            sample rate in kHz (optional).
 
         Notes:
         - Arbitrary raw timeseries data, not associated with particular units,
-        can be passed in as `raw_data` (an array with shape (channels, time)).
-        - The `raw_time` argument can also be a sample rate in kHz, in which case it is generated
-        assuming that the start of the raw data corresponds with t=0.
+          can be passed in as `raw_data` (an array with shape (channels, time)).
+        - The `raw_time` argument can also be a sample rate in kHz, in which case
+          it is generated assuming that the start of the raw data corresponds with t=0.
         """
         # Make sure each individual spike train is sorted. As a side effect,
         # also copy each array to avoid aliasing.
@@ -259,23 +266,42 @@ class SpikeData:
             if len(t) > 0 and np.isnan(t).any():
                 raise ValueError(f"spike times for unit {i} contain NaN values")
 
-        # The length of the spike train defaults to the last spike
-        # time it contains.
+        # Store the time origin.
+        self.start_time = float(start_time)
+
+        # The length of the spike train defaults to the span from
+        # start_time to the latest spike time.
         if length is None:
-            length = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
+            max_spike = max(
+                (t[-1] for t in self.train if len(t) > 0),
+                default=self.start_time,
+            )
+            length = max_spike - self.start_time
         if np.isnan(length):
             raise ValueError("length must not be NaN")
         if length < 0:
             raise ValueError(f"length must be non-negative, got {length}")
-        max_spike = max((t[-1] for t in self.train if len(t) > 0), default=0.0)
-        if length < max_spike:
-            raise ValueError(
-                f"length ({length}) is shorter than the latest spike time "
-                f"({max_spike}). If spike times are absolute, subtract the "
-                f"start time from each train before constructing SpikeData. "
-                f"To trim an existing SpikeData, use subtime()."
-            )
         self.length = length
+
+        # Validate that all spike times fall within [start_time, start_time + length].
+        end_time = self.start_time + self.length
+        for i, t in enumerate(self.train):
+            if len(t) == 0:
+                continue
+            if t[0] < self.start_time:
+                raise ValueError(
+                    f"Unit {i}: spike time {t[0]:.4f} ms is before start_time "
+                    f"({self.start_time}). Spike times must fall within "
+                    f"[{self.start_time}, {end_time}]."
+                )
+            if t[-1] > end_time:
+                raise ValueError(
+                    f"Unit {i}: spike time {t[-1]:.4f} ms exceeds end of time "
+                    f"window ({end_time}). If spike times are absolute, "
+                    f"subtract the start time from each train before "
+                    f"constructing SpikeData. To trim an existing SpikeData, "
+                    f"use subtime()."
+                )
 
         # If a number of units was provided, make the list of spike
         # trains consistent with that number.
@@ -492,16 +518,18 @@ class SpikeData:
         else:
             event_times = np.asarray(events, dtype=float)
 
-        # Drop events whose window would extend outside [0, self.length].
-        valid_mask = (event_times - pre_ms >= 0) & (
-            event_times + post_ms <= self.length
+        # Drop events whose window would extend outside [start_time, start_time + length].
+        rec_start = self.start_time
+        rec_end = self.start_time + self.length
+        valid_mask = (event_times - pre_ms >= rec_start) & (
+            event_times + post_ms <= rec_end
         )
         n_dropped = int(np.sum(~valid_mask))
         if n_dropped > 0:
             warnings.warn(
                 f"{n_dropped} event(s) dropped because their "
                 f"[{-pre_ms}, +{post_ms}] ms window extends outside the recording "
-                f"bounds [0, {self.length:.1f}] ms.",
+                f"bounds [{rec_start:.1f}, {rec_end:.1f}] ms.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -689,6 +717,7 @@ class SpikeData:
         return SpikeData(
             train,
             length=self.length,
+            start_time=self.start_time,
             N=len(train),
             neuron_attributes=neuron_attributes or None,
             metadata=self.metadata,
@@ -740,45 +769,55 @@ class SpikeData:
 
         return mapping
 
-    def subtime(self, start, end):
+    def subtime(self, start, end, shift_to=None):
         """
         Extract a subset of time points from spikedata using time values.
 
-        Spike times are always shifted so that the new SpikeData starts at t=0.
-        For example, subtime(100, 200) produces spikes in the range [0, 100).
+        Spike times are shifted so that ``shift_to`` becomes t=0 in the new
+        SpikeData. By default ``shift_to=start``, so subtime(100, 200) produces
+        spikes in the range [0, 100). For event-centered slicing, pass
+        ``shift_to=event_time`` to produce spikes from ``-(event - start)`` to
+        ``+(end - event)``.
 
         Parameters:
-        start (int/float): Starting time value (inclusive)
-        end (int/float): Ending time value (exclusive)
+        start (int/float): Starting time value (inclusive).
+        end (int/float): Ending time value (exclusive).
+        shift_to (float or None): The time value that becomes t=0 in the output.
+            Defaults to ``start`` (standard behavior). For event-centered output,
+            pass the event time so that t=0 corresponds to the event.
 
         Returns:
-        SpikeData: New SpikeData object containing only the specified time range
+        SpikeData: New SpikeData object containing only the specified time range.
 
         Notes:
         - Start and end can be negative, in which case they are counted backwards from the
-        end.
+          end.
         - They can also be None or Ellipsis, in which case that end of the data is
-        not truncated.
-        - All metadata and neuron data are propagated
+          not truncated.
+        - All metadata and neuron data are propagated.
+        - The output SpikeData has ``start_time = start - shift_to`` and
+          ``length = end - start``.
         """
+        end_time = self.start_time + self.length
+
         if start is None or start is Ellipsis:
-            start = 0
+            start = self.start_time
         elif start < 0:
-            start += self.length
-            if start < 0:
+            start += end_time
+            if start < self.start_time:
                 raise ValueError(
-                    f"start ({start - self.length}) is too negative. "
+                    f"start ({start - end_time}) is too negative. "
                     f"Minimum allowed is -{self.length} (recording length)"
                 )
-        elif start > self.length:
-            start = self.length
+        elif start > end_time:
+            start = end_time
 
         if end is None or end is Ellipsis:
-            end = self.length
+            end = end_time
         elif end < 0:
-            end += self.length
-        elif end > self.length:
-            end = self.length
+            end += end_time
+        elif end > end_time:
+            end = end_time
 
         if start >= end:
             raise ValueError(
@@ -786,8 +825,13 @@ class SpikeData:
                 f"Cannot create subtime with invalid range."
             )
 
-        # Subset the spike train by time, shifting to start at 0
-        train = [t[(t >= start) & (t < end)] - start for t in self.train]
+        # Default shift_to is start (standard 0-based behavior)
+        if shift_to is None:
+            shift_to = start
+
+        # Subset the spike train by time, shifting by shift_to
+        train = [t[(t >= start) & (t < end)] - shift_to for t in self.train]
+        new_start_time = start - shift_to
 
         # Subset and propagate the raw data
         rawmask = (self.raw_time >= start) & (self.raw_time < end)
@@ -795,10 +839,11 @@ class SpikeData:
         return SpikeData(
             train,
             length=end - start,
+            start_time=new_start_time,
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             metadata=self.metadata,
-            raw_time=self.raw_time[rawmask] - start,
+            raw_time=self.raw_time[rawmask] - shift_to,
             raw_data=self.raw_data[..., rawmask],
         )
 
@@ -855,6 +900,7 @@ class SpikeData:
         return SpikeData(
             train,
             length=length,
+            start_time=self.start_time,
             N=self.N,
             neuron_attributes=self.neuron_attributes,
             raw_time=raw_time,
@@ -870,24 +916,31 @@ class SpikeData:
         Bin all spike times and create a sparse array where entry (i,j) is the number of
         times unit i fired in bin j.
 
+        Spike times are shifted by ``-start_time`` before binning so that bin 0
+        corresponds to ``start_time``. For standard (0-based) SpikeData this has
+        no effect. For event-centered SpikeData with negative ``start_time``,
+        pre-event spikes occupy the first bins.
+
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds
-        time_offset (float): Value added to all spike times before binning (default 0.0).
-            Use this to place spikes at their absolute recording position, e.g.
-            ``sd.sparse_raster(bin_size=1, time_offset=start)`` to recreate
-            the raster in original recording coordinates.
+        bin_size (float): Size of the time bin in milliseconds.
+        time_offset (float): Additional offset added to all spike times before
+            binning (default 0.0). Use this to place spikes at their absolute
+            recording position, e.g. ``time_offset=500`` to shift all spikes
+            by 500 ms in the raster.
 
         Returns:
         raster (sparse.csr_matrix): Sparse array where entry (i,j) is the number of
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
-        - A spike at exactly t=0 is clipped into bin 0.
+        - Bins are left-open, right-closed intervals relative to start_time.
+        - A spike at exactly start_time is clipped into bin 0.
         - The number of bins is always ceil((length + time_offset) / bin_size).
         """
+        # Shift spike times so start_time → 0 before binning
+        shift = -self.start_time + time_offset
         indices = np.hstack(
-            [np.ceil((ts + time_offset) / bin_size) - 1 for ts in self.train]
+            [np.ceil((ts + shift) / bin_size) - 1 for ts in self.train]
         ).astype(int)
         units = np.hstack([0] + [len(ts) for ts in self.train])
         indptr = np.cumsum(units)
@@ -903,16 +956,17 @@ class SpikeData:
         times cell i fired in bin j.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds
-        time_offset (float): Value added to all spike times before binning (default 0.0).
+        bin_size (float): Size of the time bin in milliseconds.
+        time_offset (float): Additional offset added to spike times before binning
+            (default 0.0).
 
         Returns:
         raster (numpy.ndarray): Dense array where entry (i,j) is the number of
         times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open, right-closed intervals: (0, bin_size], (bin_size, 2*bin_size], ...
-        - A spike at exactly t=0 is clipped into bin 0.
+        - Bins are left-open, right-closed intervals relative to start_time.
+        - A spike at exactly start_time is clipped into bin 0.
         """
         return self.sparse_raster(bin_size, time_offset=time_offset).toarray()
 
@@ -1141,9 +1195,10 @@ class SpikeData:
         - raw_data and raw_time are not modified — they persist from the original object.
         """
 
-        # Subtime the second SpikeData object to the length of the first
-        if sd.length != self.length:
-            sd = sd.subtime(0, self.length)
+        # Subtime the second SpikeData object to the time range of the first
+        if sd.length != self.length or sd.start_time != self.start_time:
+            end_time = self.start_time + self.length
+            sd = sd.subtime(self.start_time, end_time)
         self.train += sd.train
         self.N += sd.N
         # raw_data/raw_time are not modified — they persist from the original object.
@@ -1468,7 +1523,12 @@ class SpikeData:
         - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
         """
         if self.N == 0:
-            return SpikeData([], length=self.length, metadata=self.metadata)
+            return SpikeData(
+                [],
+                length=self.length,
+                start_time=self.start_time,
+                metadata=self.metadata,
+            )
 
         spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
         if (spk_mat > 1).any():
@@ -1483,6 +1543,7 @@ class SpikeData:
             shuffled_mat,
             bin_size,
             length=self.length,
+            start_time=self.start_time,
             metadata=self.metadata,
             neuron_attributes=self.neuron_attributes,
         )

@@ -626,6 +626,7 @@ def _dump_spikedata(grp, sd) -> None:
     grp.create_dataset("spike_times", data=flat.astype(np.float64))
     grp.create_dataset("spike_times_index", data=index)
     grp.attrs["length_ms"] = float(sd.length)
+    grp.attrs["start_time"] = float(sd.start_time)
     grp.attrs["N"] = int(sd.N)
     _dump_metadata_json(grp, sd.metadata)
     if sd.raw_data.size > 0:
@@ -642,6 +643,7 @@ def _load_spikedata(grp):
     index = np.array(grp["spike_times_index"], dtype=np.int64)
     N = int(grp.attrs["N"])
     length_ms = float(grp.attrs["length_ms"])
+    start_time = float(grp.attrs.get("start_time", 0.0))
     metadata = _load_metadata_json(grp)
 
     train = []
@@ -657,6 +659,7 @@ def _load_spikedata(grp):
     return SpikeData(
         train,
         length=length_ms,
+        start_time=start_time,
         N=N,
         metadata=metadata,
         neuron_attributes=neuron_attributes,

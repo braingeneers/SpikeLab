@@ -935,13 +935,11 @@ class TestKiloSortAndSpikeInterface:
 
     def test_ec_dl_05_negative_spike_times(self, tmp_path):
         """
-        EC-DL-05: Verify that negative spike times are loaded without error.
-        The loader does not validate spike time values; negative times pass
-        through and are converted to negative milliseconds.
+        Negative spike times from KiloSort are rejected by SpikeData validation.
 
         Tests:
-            (Test Case 1) No exception is raised.
-            (Test Case 2) Negative spike times are preserved (converted to ms).
+            (Test Case 1) ValueError is raised because negative spike times
+                fall before start_time (0.0).
         """
         d = str(tmp_path / "ks")
         os.makedirs(d)
@@ -949,10 +947,8 @@ class TestKiloSortAndSpikeInterface:
         np.save(os.path.join(d, "spike_times.npy"), np.array([-100, 0, 100]))
         np.save(os.path.join(d, "spike_clusters.npy"), np.array([0, 0, 0]))
 
-        sd = loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
-        assert sd.N == 1
-        # -100 samples at 1 kHz = -100 ms, 0 ms, 100 ms
-        assert np.any(sd.train[0] < 0)
+        with pytest.raises(ValueError, match="before start_time"):
+            loaders.load_spikedata_from_kilosort(d, fs_Hz=1000.0)
 
     def test_ec_dl_07_sampling_frequency_zero(self):
         """
