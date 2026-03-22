@@ -3,10 +3,11 @@ Plotting utilities for SpikeLab.
 
 Provides ``plot_recording`` for assembling multi-panel figures from SpikeData
 objects, ``plot_heatmap`` for standalone 2-D heatmaps, ``plot_distribution``
-for comparing per-unit metrics across conditions, ``plot_scatter`` for
-pairwise comparisons with optional regression, ``plot_burst_sensitivity``
-for threshold sensitivity curves, and ``plot_aligned_slice_single_unit`` for
-event-aligned single-unit raster plots.
+for comparing per-unit metrics across conditions, ``plot_pvalue_matrix`` for
+significance heatmaps (standalone or as inset), ``plot_scatter`` for pairwise
+comparisons with optional regression, ``plot_lines`` for multi-trace line
+plots, ``plot_burst_sensitivity`` for threshold sensitivity curves, and
+``plot_aligned_slice_single_unit`` for event-aligned single-unit raster plots.
 
 Requires ``matplotlib`` (optional dependency).
 """
@@ -242,6 +243,168 @@ def plot_distribution(
 
 
 # ---------------------------------------------------------------------------
+# plot_pvalue_matrix
+# ---------------------------------------------------------------------------
+
+
+def plot_pvalue_matrix(
+    pval_matrix,
+    sig_matrix=None,
+    labels=None,
+    ax=None,
+    parent_ax=None,
+    inset_loc="upper left",
+    inset_size="30%",
+    inset_offset=0.08,
+    cmap="viridis",
+    sig_marker_color="red",
+    sig_marker_size=2.5,
+    show_colorbar=True,
+    font_size=None,
+):
+    """
+    Display a pairwise p-value matrix as a ``-log10(p)`` heatmap.
+
+    Supports two rendering modes (mutually exclusive):
+
+    - **Standalone**: pass ``ax`` to plot directly on existing axes.
+    - **Inset**: pass ``parent_ax`` to create a small inset axes on a parent
+      plot (e.g. a violin or distribution plot).
+
+    Exactly one of ``ax`` or ``parent_ax`` must be provided.
+
+    Parameters:
+        pval_matrix (np.ndarray): (K, K) p-value matrix. Diagonal entries
+            should be NaN (they are rendered in black).
+        sig_matrix (np.ndarray or None): (K, K) boolean — True where the
+            comparison is significant. If None, computed as
+            ``pval_matrix < 0.05``.
+        labels (list[str] or None): Tick labels for each group. If None,
+            integer indices are used.
+        ax (matplotlib.axes.Axes or None): Target axes for standalone mode.
+        parent_ax (matplotlib.axes.Axes or None): Parent axes on which to
+            create an inset.
+        inset_loc (str): Location string for ``inset_axes`` (e.g.
+            ``"upper left"``, ``"lower left"``). Only used in inset mode.
+        inset_size (str): Width and height of the inset as a percentage of
+            the parent (e.g. ``"30%"``). Only used in inset mode.
+        inset_offset (float): Horizontal offset of the inset bounding box
+            from the parent axes edge. Only used in inset mode.
+        cmap (str): Matplotlib colormap name.
+        sig_marker_color (str): Colour for significance markers.
+        sig_marker_size (float): Marker size for significance dots.
+        show_colorbar (bool): Show a ``-log10(P)`` colorbar.
+        font_size (int or None): Font size for labels and ticks. If None,
+            uses current rcParams.
+
+    Returns:
+        target_ax (matplotlib.axes.Axes): The axes the matrix was drawn on
+            (either ``ax`` or the newly created inset axes).
+    """
+    plt, _ = _import_matplotlib()
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+    pval_matrix = np.asarray(pval_matrix, dtype=float)
+    K = pval_matrix.shape[0]
+
+    if sig_matrix is None:
+        sig_matrix = pval_matrix < 0.05
+    sig_matrix = np.asarray(sig_matrix, dtype=bool)
+
+    if labels is None:
+        labels = [str(i) for i in range(K)]
+
+    # --- Resolve target axes ----------------------------------------------
+    if ax is not None and parent_ax is not None:
+        raise ValueError("Provide either 'ax' or 'parent_ax', not both.")
+    if ax is None and parent_ax is None:
+        raise ValueError("Provide either 'ax' (standalone) or 'parent_ax' (inset).")
+
+    if parent_ax is not None:
+        target_ax = inset_axes(
+            parent_ax,
+            width=inset_size,
+            height=inset_size,
+            loc=inset_loc,
+            bbox_to_anchor=(inset_offset, 0, 1, 1),
+            bbox_transform=parent_ax.transAxes,
+            borderpad=1.0,
+        )
+    else:
+        target_ax = ax
+
+    # --- Compute -log10(p) ------------------------------------------------
+    neg_log_p = -np.log10(pval_matrix)
+
+    # Cap infinite values for display
+    finite_vals = neg_log_p[np.isfinite(neg_log_p) & ~np.isnan(neg_log_p)]
+    vmax = np.max(finite_vals) if len(finite_vals) > 0 else 1
+    neg_log_p = np.where(np.isfinite(neg_log_p), neg_log_p, vmax)
+
+    # Diagonal → NaN (rendered as black via set_bad)
+    np.fill_diagonal(neg_log_p, np.nan)
+
+    colormap = plt.colormaps.get_cmap(cmap).copy()
+    colormap.set_bad(color="black")
+
+    im = target_ax.imshow(
+        neg_log_p,
+        cmap=colormap,
+        aspect="equal",
+        interpolation="none",
+        vmin=0,
+        vmax=vmax,
+    )
+
+    # --- Significance markers ---------------------------------------------
+    for i in range(K):
+        for j in range(K):
+            if i != j and sig_matrix[i, j]:
+                target_ax.plot(
+                    j,
+                    i,
+                    "o",
+                    color=sig_marker_color,
+                    markersize=sig_marker_size,
+                    markeredgewidth=0,
+                )
+
+    # --- Tick labels ------------------------------------------------------
+    fs = font_size
+    if fs is None:
+        fs = plt.rcParams.get("xtick.labelsize", 10)
+        if not isinstance(fs, (int, float)):
+            fs = 10
+    tick_fs = fs - 1 if parent_ax is not None else fs
+    target_ax.set_xticks(range(K))
+    target_ax.set_xticklabels(labels, fontsize=tick_fs)
+    target_ax.set_yticks(range(K))
+    target_ax.set_yticklabels(labels, fontsize=tick_fs)
+
+    for spine in target_ax.spines.values():
+        spine.set_linewidth(0.5)
+
+    # --- Colorbar ---------------------------------------------------------
+    if show_colorbar:
+        cbar_ax = inset_axes(
+            target_ax,
+            width="8%",
+            height="100%",
+            loc="center right",
+            bbox_to_anchor=(0.18, 0, 1, 1),
+            bbox_transform=target_ax.transAxes,
+            borderpad=0,
+        )
+        cbar = target_ax.figure.colorbar(im, cax=cbar_ax)
+        cbar.outline.set_linewidth(0.5)
+        cbar.ax.tick_params(labelsize=tick_fs, width=0.5, length=1.5)
+        cbar_label_fs = tick_fs if parent_ax is not None else fs
+        cbar.set_label(r"$-\log_{10}(\mathrm{P})$", fontsize=cbar_label_fs)
+
+    return target_ax
+
+
+# ---------------------------------------------------------------------------
 # plot_scatter
 # ---------------------------------------------------------------------------
 
@@ -264,10 +427,24 @@ def plot_scatter(
     show_r2=False,
     marker_size=8,
     alpha=0.7,
+    groups=None,
+    group_labels=None,
+    group_colors=None,
+    show_legend=True,
     font_size=None,
 ):
     """
     Scatter plot comparing two arrays with optional color coding and regression.
+
+    Supports two colouring modes (mutually exclusive):
+
+    - **Continuous**: pass ``color_vals`` for a colormap-based colour scale
+      with an optional colorbar.
+    - **Discrete groups**: pass ``groups`` (integer index per point) to colour
+      each group separately with its own legend entry.
+
+    When ``groups`` is provided, ``color_vals``, ``cmap``, ``vmin``, ``vmax``,
+    ``color_label``, and ``show_colorbar`` are ignored.
 
     Parameters:
         ax (matplotlib.axes.Axes): Target axes (caller creates).
@@ -275,42 +452,95 @@ def plot_scatter(
         y (np.ndarray): Y-axis values.
         xlabel (str): X-axis label.
         ylabel (str): Y-axis label.
-        color_vals (np.ndarray or None): Per-point values for color mapping.
-            If None, all points are drawn in a uniform colour.
-        color_label (str): Colorbar label.
-        cmap (str): Matplotlib colormap name.
-        vmin (float or None): Colormap minimum.
-        vmax (float or None): Colormap maximum.
+        color_vals (np.ndarray or None): Per-point values for continuous color
+            mapping. If None and ``groups`` is also None, all points are drawn
+            in a uniform colour.
+        color_label (str): Colorbar label (continuous mode only).
+        cmap (str): Matplotlib colormap name (continuous mode only).
+        vmin (float or None): Colormap minimum (continuous mode only).
+        vmax (float or None): Colormap maximum (continuous mode only).
         show_identity (bool): Plot the x = y identity line.
-        show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+        show_colorbar (bool): Add a colorbar when *color_vals* is provided
+            (continuous mode only).
         fit (str or None): Regression to overlay. ``"linear"`` or None.
         show_ci (bool): Show confidence interval band on the fit.
         show_r2 (bool): Annotate R-squared on the plot.
         marker_size (float): Scatter marker size.
         alpha (float): Scatter alpha.
+        groups (array-like or None): Per-point integer group index for discrete
+            colouring. Each unique value is rendered as a separate scatter
+            series with its own colour and legend entry.
+        group_labels (list[str] or None): Label for each unique group value,
+            ordered by ``np.unique(groups)``. If None, the group values are
+            used as labels.
+        group_colors (list[str] or None): Colour for each unique group value,
+            ordered by ``np.unique(groups)``. If None, uses the default
+            matplotlib colour cycle.
+        show_legend (bool): Show legend when ``groups`` is provided. Default
+            True.
         font_size (int or None): Font size for labels/ticks. If None, uses
             current rcParams.
 
     Returns:
-        sc (PathCollection): The scatter artist (useful for shared colorbars).
+        sc (PathCollection or list[PathCollection]): In continuous mode, the
+            single scatter artist (useful for shared colorbars). In group
+            mode, a list of scatter artists (one per group).
     """
     _import_matplotlib()
 
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
 
-    scatter_kw = dict(s=marker_size, alpha=alpha, edgecolors="none", zorder=2)
-    if color_vals is not None:
-        color_vals = np.asarray(color_vals, dtype=float).ravel()
-        scatter_kw.update(c=color_vals, cmap=cmap)
-        if vmin is not None:
-            scatter_kw["vmin"] = vmin
-        if vmax is not None:
-            scatter_kw["vmax"] = vmax
-    else:
-        scatter_kw["c"] = "black"
+    sc = None
 
-    sc = ax.scatter(x, y, **scatter_kw)
+    if groups is not None:
+        # --- Discrete group colouring -------------------------------------
+        groups = np.asarray(groups).ravel()
+        unique_groups = np.unique(groups)
+        n_groups = len(unique_groups)
+
+        if group_colors is None:
+            import matplotlib.pyplot as _plt
+
+            cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+            group_colors = [
+                cycle_colors[i % len(cycle_colors)] for i in range(n_groups)
+            ]
+
+        if group_labels is None:
+            group_labels = [str(g) for g in unique_groups]
+
+        sc = []
+        for i, g in enumerate(unique_groups):
+            mask = groups == g
+            s = ax.scatter(
+                x[mask],
+                y[mask],
+                c=group_colors[i],
+                s=marker_size,
+                alpha=alpha,
+                edgecolors="none",
+                label=group_labels[i],
+                zorder=2,
+            )
+            sc.append(s)
+
+        if show_legend:
+            ax.legend()
+    else:
+        # --- Continuous / uniform colouring -------------------------------
+        scatter_kw = dict(s=marker_size, alpha=alpha, edgecolors="none", zorder=2)
+        if color_vals is not None:
+            color_vals = np.asarray(color_vals, dtype=float).ravel()
+            scatter_kw.update(c=color_vals, cmap=cmap)
+            if vmin is not None:
+                scatter_kw["vmin"] = vmin
+            if vmax is not None:
+                scatter_kw["vmax"] = vmax
+        else:
+            scatter_kw["c"] = "black"
+
+        sc = ax.scatter(x, y, **scatter_kw)
 
     # --- Identity line ----------------------------------------------------
     if show_identity:
@@ -346,7 +576,7 @@ def plot_scatter(
         raise ValueError(f"Unknown fit '{fit}'. Use 'linear' or None.")
 
     # --- Colorbar ---------------------------------------------------------
-    if color_vals is not None and show_colorbar:
+    if groups is None and color_vals is not None and show_colorbar:
         _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
 
     # --- Axes formatting --------------------------------------------------
@@ -356,6 +586,106 @@ def plot_scatter(
         _apply_font_size(ax, font_size)
 
     return sc
+
+
+# ---------------------------------------------------------------------------
+# plot_lines
+# ---------------------------------------------------------------------------
+
+
+def plot_lines(
+    ax,
+    traces,
+    x=None,
+    labels=None,
+    colors=None,
+    xlabel="",
+    ylabel="",
+    linewidth=1.5,
+    show_legend=True,
+    font_size=None,
+):
+    """
+    Plot one or more 1-D traces on a shared x-axis.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        traces (dict[str, np.ndarray] or list[np.ndarray]): Line data. Dict
+            keys are used as labels; for list input, supply ``labels``
+            separately.
+        x (np.ndarray or None): Shared x-axis values. If None, integer
+            indices (``0 … len-1``) are used.
+        labels (list[str] or None): Per-trace labels. Required for list
+            input; ignored for dict input (keys are used instead).
+        colors (list[str] or dict[str, str] or None): Per-trace colours.
+            For dict ``traces``, may be a dict keyed by the same labels or a
+            list in the same order.  If None, uses the default matplotlib
+            colour cycle.
+        xlabel (str): X-axis label.
+        ylabel (str): Y-axis label.
+        linewidth (float): Line width for all traces.
+        show_legend (bool): Show legend. Default True.
+        font_size (int or None): Font size for labels and ticks. If None,
+            uses current rcParams.
+
+    Returns:
+        lines (list[Line2D]): The line artists.
+    """
+    _import_matplotlib()
+
+    # --- Normalise input to ordered (label, array) pairs ------------------
+    if isinstance(traces, dict):
+        ordered_labels = list(traces.keys())
+        ordered_data = [np.asarray(traces[k]).ravel() for k in ordered_labels]
+    else:
+        ordered_data = [np.asarray(a).ravel() for a in traces]
+        if labels is not None:
+            ordered_labels = list(labels)
+        else:
+            ordered_labels = [str(i) for i in range(len(ordered_data))]
+
+    n = len(ordered_data)
+
+    # --- Resolve x-axis ---------------------------------------------------
+    if x is None:
+        x = np.arange(len(ordered_data[0]))
+    else:
+        x = np.asarray(x).ravel()
+
+    # --- Resolve colours --------------------------------------------------
+    if colors is None:
+        import matplotlib.pyplot as _plt
+
+        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        resolved_colors = [cycle_colors[i % len(cycle_colors)] for i in range(n)]
+    elif isinstance(colors, dict):
+        resolved_colors = [colors[lbl] for lbl in ordered_labels]
+    else:
+        resolved_colors = list(colors)
+
+    # --- Draw lines -------------------------------------------------------
+    lines = []
+    for i in range(n):
+        (line,) = ax.plot(
+            x,
+            ordered_data[i],
+            color=resolved_colors[i],
+            linewidth=linewidth,
+            label=ordered_labels[i],
+        )
+        lines.append(line)
+
+    # --- Axes formatting --------------------------------------------------
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if show_legend:
+        ax.legend()
+
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -522,30 +852,17 @@ def plot_burst_sensitivity(
         return fig, list(axes_row)
 
     # --- 1-D line plot path -----------------------------------------------
-    if colors is None:
-        import matplotlib.pyplot as _plt
-
-        cycle_colors = _plt.rcParams["axes.prop_cycle"].by_key()["color"]
-        colors = [cycle_colors[i % len(cycle_colors)] for i in range(len(labels))]
-
-    lines = []
-    for i, label in enumerate(labels):
-        counts = np.asarray(burst_counts[label]).ravel()
-        (line,) = ax.plot(
-            thresholds, counts, color=colors[i], linewidth=1.5, label=label
-        )
-        lines.append(line)
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-
-    if show_legend:
-        ax.legend()
-
-    if font_size is not None:
-        _apply_font_size(ax, font_size)
-
-    return lines
+    traces = {label: np.asarray(burst_counts[label]).ravel() for label in labels}
+    return plot_lines(
+        ax,
+        traces,
+        x=thresholds,
+        colors=colors,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        show_legend=show_legend,
+        font_size=font_size,
+    )
 
 
 # ---------------------------------------------------------------------------
