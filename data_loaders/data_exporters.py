@@ -377,7 +377,7 @@ def export_spikedata_to_pickle(
     filepath: str,
     *,
     protocol: Optional[int] = None,
-    upload_to_s3: bool = False,
+    s3_upload: bool = False,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
     aws_session_token: Optional[str] = None,
@@ -389,11 +389,11 @@ def export_spikedata_to_pickle(
     Parameters:
         sd (SpikeData): The SpikeData object to export.
         filepath (str): Path where the pickle file will be created (overwrites existing).
-                       If upload_to_s3=True, this should be an S3 URL (s3://bucket/key).
+                       If s3_upload=True, this should be an S3 URL (s3://bucket/key).
         protocol (Optional[int]): Pickle protocol version. If None, uses the highest
                                  protocol available. Lower protocols (e.g., 2, 3) may
                                  be needed for compatibility with older Python versions.
-        upload_to_s3 (bool): If True, upload to S3 URL specified in filepath.
+        s3_upload (bool): If True, upload to S3 URL specified in filepath.
         aws_access_key_id (Optional[str]): AWS access key ID for S3 uploads.
         aws_secret_access_key (Optional[str]): AWS secret access key for S3 uploads.
         aws_session_token (Optional[str]): AWS session token for temporary credentials.
@@ -406,10 +406,10 @@ def export_spikedata_to_pickle(
 
     from .s3_utils import is_s3_url, upload_to_s3 as _upload_to_s3
 
-    if upload_to_s3:
+    if s3_upload:
         if not is_s3_url(filepath):
             raise ValueError(
-                f"filepath must be an S3 URL when upload_to_s3=True (got '{filepath}')"
+                f"filepath must be an S3 URL when s3_upload=True (got '{filepath}')"
             )
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as tmp:
             temp_path = tmp.name

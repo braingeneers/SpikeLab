@@ -405,9 +405,8 @@ class TestDataLoaders:
 
         try:
             mock_ensure.return_value = (local_path, False)
-            result = await data_loaders.load_from_hdf5(
+            result = await data_loaders.load_from_hdf5_ragged(
                 "s3://bucket/data.h5",
-                style="ragged",
                 spike_times_dataset="spike_times",
                 spike_times_index_dataset="spike_times_index",
                 spike_times_unit="s",
@@ -964,8 +963,10 @@ class TestWorkspaceManagement:
             pass
 
         ws.store("ns", "obj", CustomObj())
-        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
-            await analysis.fetch_workspace_item(ws_id, "ns", "obj")
+        result = await analysis.fetch_workspace_item(ws_id, "ns", "obj")
+        # Unknown types get a repr fallback
+        assert result["type"] == "CustomObj"
+        assert "repr" in result
 
 
 # ============================================================================
@@ -1163,8 +1164,8 @@ class TestExportTools:
             tmp_path = tmp.name
 
         try:
-            result = await exporters.export_to_hdf5(
-                ws_id, ns, tmp_path, style="ragged", spike_times_unit="s"
+            result = await exporters.export_to_hdf5_ragged(
+                ws_id, ns, tmp_path, spike_times_unit="s"
             )
             assert "file_path" in result
             assert os.path.exists(tmp_path)
@@ -1257,7 +1258,7 @@ class TestServerIntegration:
         tool_names = [tool.name for tool in tools]
         assert "load_from_nwb" in tool_names
         assert "compute_rates" in tool_names
-        assert "export_to_hdf5" in tool_names
+        assert "export_to_hdf5_ragged" in tool_names
 
     @pytestmark_server
     @pytest.mark.asyncio
@@ -3915,24 +3916,29 @@ class TestFetchWorkspaceItemEdgeCases:
     @pytest.mark.asyncio
     async def test_spikedata_item(self, loaded_ws):
         """
-        Fetching a SpikeData item should raise ValueError (unsupported type).
+        Fetching a SpikeData item returns a summary (not full data).
 
         Tests:
-            (Test Case 1) fetch_workspace_item on SpikeData raises ValueError
-                mentioning "fetch_workspace_item supports".
+            (Test Case 1) Result contains type, num_neurons, length_ms, start_time.
+            (Test Case 2) No 'data' key (summary only).
         """
         ws_id, ns = loaded_ws
-        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
-            await analysis.fetch_workspace_item(ws_id, ns, "spikedata")
+        result = await analysis.fetch_workspace_item(ws_id, ns, "spikedata")
+        assert result["type"] == "SpikeData"
+        assert "num_neurons" in result
+        assert "length_ms" in result
+        assert "start_time" in result
+        assert "data" not in result
 
     @pytestmark_server
     @pytest.mark.asyncio
     async def test_pairwise_comp_matrix_item(self, loaded_ws):
         """
-        Fetching a PairwiseCompMatrix (not Stack) should raise ValueError.
+        Fetching a PairwiseCompMatrix returns full data inline.
 
         Tests:
-            (Test Case 1) fetch_workspace_item on PairwiseCompMatrix raises ValueError.
+            (Test Case 1) Result contains data as nested list.
+            (Test Case 2) Shape matches the matrix.
         """
         from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
 
@@ -3941,8 +3947,10 @@ class TestFetchWorkspaceItemEdgeCases:
         ws = wm.get_workspace(ws_id)
         pcm = PairwiseCompMatrix(matrix=np.eye(3))
         ws.store(ns, "pcm", pcm)
-        with pytest.raises(ValueError, match="fetch_workspace_item supports"):
-            await analysis.fetch_workspace_item(ws_id, ns, "pcm")
+        result = await analysis.fetch_workspace_item(ws_id, ns, "pcm")
+        assert result["type"] == "PairwiseCompMatrix"
+        assert "data" in result
+        assert result["shape"] == [3, 3]
 
 
 class TestNamespaceFromPathEdgeCases:
@@ -4085,38 +4093,28 @@ class TestLoadFromHDF5EdgeCases:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_unknown_style(self, tmp_path):
+    async def test_raster_loader_creates_workspace(self, tmp_path):
         """
-        Unknown style string should raise ValueError.
+        load_from_hdf5_raster creates a workspace and stores SpikeData.
 
         Tests:
-            (Test Case 1) load_from_hdf5 with style="unknown" raises ValueError.
+            (Test Case 1) Result contains workspace_id and namespace.
         """
-        # Create a real file so ensure_local_file passes before style validation
-        path = str(tmp_path / "fake.h5")
-        with open(path, "wb") as f:
-            f.write(b"")
-        with pytest.raises(ValueError, match="Unknown style"):
-            await data_loaders.load_from_hdf5(path, style="unknown")
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_raster_missing_required_params(self, tmp_path):
-        """
-        Raster style without required params should raise ValueError.
-
-        Tests:
-            (Test Case 1) load_from_hdf5 with style="raster" but no raster_dataset
-                raises ValueError.
-        """
-        # Create a real file so ensure_local_file passes before param validation
-        path = str(tmp_path / "fake.h5")
-        with open(path, "wb") as f:
-            f.write(b"")
-        with pytest.raises(
-            ValueError, match="raster_dataset.*raster_bin_size_ms.*required"
-        ):
-            await data_loaders.load_from_hdf5(path, style="raster")
+        try:
+            import h5py
+        except ImportError:
+            pytest.skip("h5py not available")
+        path = str(tmp_path / "test.h5")
+        sd = SpikeData([[10.0, 20.0], [15.0, 25.0]], length=30.0)
+        with h5py.File(path, "w") as f:
+            raster = sd.raster(bin_size=1.0)
+            f.create_dataset("raster", data=raster)
+            f.attrs["start_time"] = 0.0
+        result = await data_loaders.load_from_hdf5_raster(
+            path, raster_dataset="raster", raster_bin_size_ms=1.0
+        )
+        assert "workspace_id" in result
+        assert result["workspace_key"] == "spikedata"
 
 
 class TestLoadFromKilosortEdgeCases:
@@ -4154,17 +4152,16 @@ class TestLoadFromKilosortEdgeCases:
 
 
 class TestExportToHDF5EdgeCases:
-    """Edge case tests for export_to_hdf5 MCP tool."""
+    """Edge case tests for export_to_hdf5_* MCP tools."""
 
     @pytestmark_server
     @pytest.mark.asyncio
-    async def test_raster_style_without_bin_size(self, loaded_ws):
+    async def test_raster_export_default_bin_size(self, loaded_ws):
         """
-        Raster style without raster_bin_size_ms may fail in the underlying exporter.
+        export_to_hdf5_raster uses default bin_size=1.0 when not specified.
 
         Tests:
-            (Test Case 1) export_to_hdf5 with style="raster" and no raster_bin_size_ms
-                raises an exception.
+            (Test Case 1) Export succeeds with default bin size.
         """
         try:
             import h5py  # noqa: F401
@@ -4175,8 +4172,8 @@ class TestExportToHDF5EdgeCases:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
             tmp_path = tmp.name
         try:
-            with pytest.raises(Exception):
-                await exporters.export_to_hdf5(ws_id, ns, tmp_path, style="raster")
+            result = await exporters.export_to_hdf5_raster(ws_id, ns, tmp_path)
+            assert "file_path" in result
         finally:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)

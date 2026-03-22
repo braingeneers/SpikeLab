@@ -1472,22 +1472,43 @@ class SpikeData:
         """
         return self.latencies(self.train[i], window_ms)
 
-    def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold):
+    def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold, bin_size=1.0):
         """
-        Computes fraction of total units active in per burst, fraction of bursts
-        in which each unit is active and assigns backbone identity based on fraction of active bursts
+        Computes fraction of total units active per burst, fraction of bursts
+        in which each unit is active, and assigns backbone identity based on
+        fraction of active bursts.
 
         Parameters:
-        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end] indices for each burst
-        MIN_SPIKES (int): Minimum number of spikes required for a unit to be considered active in a burst
-        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit must be active in to be considered a backbone unit
+        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end]
+            indices for each burst. Indices are in raster bin coordinates
+            (bin index = time_ms / bin_size).
+        MIN_SPIKES (int): Minimum number of spikes required for a unit to be
+            considered active in a burst.
+        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit
+            must be active in to be considered a backbone unit.
+        bin_size (float): Raster bin size in milliseconds (default 1.0). Must
+            match the bin size used to compute ``edges`` (e.g., from
+            ``get_bursts(raster_bin_size_ms=...)``).
 
         Returns:
-        frac_per_unit (numpy.ndarray): 1D array where each value represents a neuron and the fraction of bursts in which the neuron was active
-        frac_per_burst (numpy.ndarray): 1D array where each value represents a burst and the fraction of neurons that are active in that burst.
-        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices that are backbone units.
+        frac_per_unit (numpy.ndarray): 1D array where each value represents a
+            neuron and the fraction of bursts in which the neuron was active.
+        frac_per_burst (numpy.ndarray): 1D array where each value represents a
+            burst and the fraction of neurons that are active in that burst.
+        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices
+            that are backbone units.
         """
-        t_spk_mat = self.sparse_raster(bin_size=1).toarray()
+        t_spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
+
+        # Sanity check: edges must fit within the raster dimensions
+        raster_bins = t_spk_mat.shape[1]
+        if edges.size > 0 and int(edges.max()) > raster_bins:
+            raise ValueError(
+                f"Edge index {int(edges.max())} exceeds raster size "
+                f"({raster_bins} bins at bin_size={bin_size} ms). Ensure "
+                f"bin_size matches the value used in "
+                f"get_bursts(raster_bin_size_ms=...)."
+            )
 
         # initiate result array
         spikes_per_burst = np.zeros((t_spk_mat.shape[0], edges.shape[0]))
@@ -1977,11 +1998,12 @@ class SpikeData:
             # c_{i,τ} = 100 × Σ[P(t) − μ_i] / ||f_i||
             stPR[i] = 100 * sum_deviations / total_spikes[i]
 
-        # Low-pass filter coupling curves with 20 Hz cutoff
-        nyquist = fs / 2
-        b, a = signal.butter(2, cutoff_hz / nyquist, btype="low")
+        # Low-pass filter coupling curves
         stPR_filtered = np.array(
-            [signal.filtfilt(b, a, stPR[i]) for i in range(num_neurons)]
+            [
+                butter_filter(stPR[i], highcut=cutoff_hz, fs=fs, order=2)
+                for i in range(num_neurons)
+            ]
         )
 
         # Coupling strength = c_{i,0} (lag 0) for chorister/soloist classification

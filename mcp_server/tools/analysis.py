@@ -1660,32 +1660,90 @@ async def fetch_workspace_item(
     namespace: str,
     key: str,
 ) -> Dict[str, Any]:
-    """Fetch the raw data of a workspace item and return it inline as a list."""
+    """Fetch a workspace item and return it inline.
+
+    For small types (ndarray, PairwiseCompMatrix), returns the full data as
+    nested lists. For large or complex types (SpikeData, slice stacks),
+    returns a type-specific summary instead.
+    """
     ws = _get_workspace(workspace_id)
     obj = ws.get(namespace, key)
     if obj is None:
         raise ValueError(f"Item not found: ({namespace!r}, {key!r})")
     info = ws.get_info(namespace, key)
+
+    base = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "type": type(obj).__name__,
+        "info": info,
+    }
+
+    # --- Data types: return full data inline ---
+
     if isinstance(obj, np.ndarray):
-        return {
-            "workspace_id": workspace_id,
-            "namespace": namespace,
-            "key": key,
-            "data": obj.tolist(),
-            "info": info,
-        }
+        base["data"] = obj.tolist()
+        base["shape"] = list(obj.shape)
+        base["dtype"] = str(obj.dtype)
+        return base
+
+    if isinstance(obj, PairwiseCompMatrix):
+        base["data"] = obj.matrix.tolist()
+        base["shape"] = list(obj.matrix.shape)
+        base["labels"] = obj.labels
+        return base
+
     if isinstance(obj, PairwiseCompMatrixStack):
-        return {
-            "workspace_id": workspace_id,
-            "namespace": namespace,
-            "key": key,
-            "data": obj.stack.tolist(),
-            "info": info,
+        base["data"] = obj.stack.tolist()
+        base["shape"] = list(obj.stack.shape)
+        return base
+
+    if isinstance(obj, dict):
+        safe = {}
+        for k, v in obj.items():
+            if isinstance(v, np.ndarray):
+                safe[k] = v.tolist()
+            elif isinstance(v, (np.integer, np.floating, np.bool_)):
+                safe[k] = v.item()
+            else:
+                safe[k] = v
+        base["data"] = safe
+        base["keys"] = list(obj.keys())
+        return base
+
+    # --- Summary types: return metadata, not full data ---
+
+    if isinstance(obj, SpikeData):
+        base["num_neurons"] = obj.N
+        base["length_ms"] = obj.length
+        base["start_time"] = obj.start_time
+        base["metadata"] = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v
+            for k, v in obj.metadata.items()
         }
-    raise ValueError(
-        f"fetch_workspace_item supports ndarray and PairwiseCompMatrixStack; "
-        f"got {type(obj).__name__}. Use type-specific tools for other object types."
-    )
+        return base
+
+    if isinstance(obj, RateData):
+        base["shape"] = list(obj.inst_Frate_data.shape)
+        base["time_range"] = [float(obj.times[0]), float(obj.times[-1])]
+        return base
+
+    if isinstance(obj, RateSliceStack):
+        base["shape"] = list(obj.event_stack.shape)
+        base["times"] = obj.times
+        base["step_size"] = obj.step_size
+        return base
+
+    if isinstance(obj, SpikeSliceStack):
+        base["num_neurons"] = obj.N
+        base["num_slices"] = len(obj.spike_stack)
+        base["times"] = obj.times
+        return base
+
+    # Fallback for unknown types
+    base["repr"] = repr(obj)
+    return base
 
 
 # ---------------------------------------------------------------------------
