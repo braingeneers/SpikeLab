@@ -41,7 +41,7 @@ If you prefer a conda environment with all dependencies pre-configured:
 git clone https://github.com/braingeneers/SpikeLab.git
 cd SpikeLab
 conda env create -f environment.yml
-conda activate integrated-analysis-tools
+conda activate spike-lab
 pip install -e .
 ```
 
