@@ -962,7 +962,7 @@ async def _list_tools() -> list[types.Tool]:
                 name="get_data_info",
                 description=(
                     "Get information about the SpikeData stored at "
-                    "(namespace, 'spikedata'): num_neurons, length_ms, metadata."
+                    "(namespace, 'spikedata'): num_neurons, length_ms, start_time, metadata."
                 ),
                 inputSchema={
                     "type": "object",
