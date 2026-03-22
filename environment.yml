@@ -1,4 +1,4 @@
-name: integrated-analysis-tools
+name: spike-lab
 channels:
   - conda-forge
   - defaults
