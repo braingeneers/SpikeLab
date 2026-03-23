@@ -1,3 +1,4 @@
+import math
 import warnings
 from typing import Optional, List, Literal, Union, Dict, Any
 
@@ -588,6 +589,17 @@ def PCA_reduction(matrix_2d, n_components=2):
     return embedding, pca.explained_variance_ratio_, pca.components_
 
 
+def _clamp_umap_n_neighbors(n_samples: int, n_neighbors: int) -> int:
+    """
+    umap-learn requires n_neighbors strictly less than n_samples / 2.
+    Clamp user/default values so small datasets do not raise at fit time.
+    """
+    if n_samples < 2:
+        return 1
+    max_nn = max(1, int(math.ceil(n_samples / 2)) - 1)
+    return min(max(int(n_neighbors), 2), max_nn)
+
+
 def UMAP_reduction(
     matrix_2d,
     n_components: int = 2,
@@ -638,6 +650,9 @@ def UMAP_reduction(
             "UMAP_reduction requires the optional dependency 'umap-learn'. "
             "Install it with `pip install umap-learn`."
         )
+
+    matrix_2d = np.asarray(matrix_2d)
+    n_neighbors = _clamp_umap_n_neighbors(matrix_2d.shape[0], n_neighbors)
 
     reducer = umap.UMAP(
         n_components=n_components,
@@ -720,6 +735,9 @@ def UMAP_graph_communities(
             "UMAP_graph_communities requires the optional dependency "
             "'python-louvain'. Install it with `pip install python-louvain`."
         )
+
+    matrix_2d = np.asarray(matrix_2d)
+    n_neighbors = _clamp_umap_n_neighbors(matrix_2d.shape[0], n_neighbors)
 
     mapper = umap.UMAP(
         n_components=n_components,
@@ -1537,6 +1555,12 @@ def slice_trend(values, times=None):
         times = np.asarray(times, dtype=float)
 
     mask = ~np.isnan(values) & ~np.isnan(times)
+    n_valid = int(np.sum(mask))
+    if n_valid < 2:
+        raise ValueError(
+            "slice_trend requires at least 2 non-NaN (value, time) pairs; "
+            f"got {n_valid} after omitting NaNs."
+        )
     result = linregress(times[mask], values[mask])
     return result.slope, result.pvalue
 
