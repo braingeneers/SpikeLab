@@ -157,6 +157,15 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/data_loaders.html">data_loaders module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../api/data_loaders.html#loader-functions">Loader Functions</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#hdf5-loaders">HDF5 Loaders</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../api/data_loaders.html#nwb-loader">NWB Loader</a></li>
@@ -167,6 +176,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/data_exporters.html">data_exporters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../api/data_exporters.html#exporter-functions">Exporter Functions</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../api/data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../api/data_exporters.html#nwb-exporter">NWB Exporter</a></li>
@@ -205,7 +218,8 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikedata.utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -801,6 +815,17 @@
     <span class="k">return</span> <span class="n">embedding</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">components_</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_clamp_umap_n_neighbors</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    umap-learn requires n_neighbors strictly less than n_samples / 2.</span>
+<span class="sd">    Clamp user/default values so small datasets do not raise at fit time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">n_samples</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="n">max_nn</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_samples</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_neighbors</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="n">max_nn</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">UMAP_reduction</span><span class="p">(</span>
     <span class="n">matrix_2d</span><span class="p">,</span>
     <span class="n">n_components</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
@@ -851,6 +876,9 @@
             <span class="s2">&quot;UMAP_reduction requires the optional dependency &#39;umap-learn&#39;. &quot;</span>
             <span class="s2">&quot;Install it with `pip install umap-learn`.&quot;</span>
         <span class="p">)</span>
+
+    <span class="n">matrix_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">)</span>
+    <span class="n">n_neighbors</span> <span class="o">=</span> <span class="n">_clamp_umap_n_neighbors</span><span class="p">(</span><span class="n">matrix_2d</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_neighbors</span><span class="p">)</span>
 
     <span class="n">reducer</span> <span class="o">=</span> <span class="n">umap</span><span class="o">.</span><span class="n">UMAP</span><span class="p">(</span>
         <span class="n">n_components</span><span class="o">=</span><span class="n">n_components</span><span class="p">,</span>
@@ -933,6 +961,9 @@
             <span class="s2">&quot;UMAP_graph_communities requires the optional dependency &quot;</span>
             <span class="s2">&quot;&#39;python-louvain&#39;. Install it with `pip install python-louvain`.&quot;</span>
         <span class="p">)</span>
+
+    <span class="n">matrix_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">matrix_2d</span><span class="p">)</span>
+    <span class="n">n_neighbors</span> <span class="o">=</span> <span class="n">_clamp_umap_n_neighbors</span><span class="p">(</span><span class="n">matrix_2d</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_neighbors</span><span class="p">)</span>
 
     <span class="n">mapper</span> <span class="o">=</span> <span class="n">umap</span><span class="o">.</span><span class="n">UMAP</span><span class="p">(</span>
         <span class="n">n_components</span><span class="o">=</span><span class="n">n_components</span><span class="p">,</span>
@@ -1750,6 +1781,12 @@
         <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
     <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+    <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">n_valid</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;slice_trend requires at least 2 non-NaN (value, time) pairs; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">n_valid</span><span class="si">}</span><span class="s2"> after omitting NaNs.&quot;</span>
+        <span class="p">)</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">linregress</span><span class="p">(</span><span class="n">times</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">values</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">slope</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">pvalue</span>
 
