@@ -15,9 +15,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
-from SpikeLab.spikedata.spikedata import SpikeData
-from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+from spikedata.spikedata import SpikeData
+from spikedata.spikeslicestack import SpikeSliceStack
 
 
 def make_spikedata(n_units=3, length_ms=200.0, seed=0):
@@ -76,7 +76,7 @@ class TestSpikeSliceStackConstructor:
         Tests:
             (Test Case 1) All windows including negative-start are kept.
         """
-        from SpikeLab.spikedata.utils import _validate_time_start_to_end
+        from spikedata.utils import _validate_time_start_to_end
 
         windows = [(-5.0, 15.0), (40.0, 60.0), (90.0, 110.0)]
         result = _validate_time_start_to_end(windows)

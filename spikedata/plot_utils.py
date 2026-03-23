@@ -344,7 +344,13 @@ def plot_pvalue_matrix(
     # Diagonal → NaN (rendered as black via set_bad)
     np.fill_diagonal(neg_log_p, np.nan)
 
-    colormap = plt.colormaps.get_cmap(cmap).copy()
+    import matplotlib as mpl
+
+    try:
+        colormap = mpl.colormaps[cmap].copy()
+    except (AttributeError, TypeError, KeyError, ValueError):
+        # Matplotlib < 3.7 / older registry API
+        colormap = mpl.cm.get_cmap(cmap).copy()
     colormap.set_bad(color="black")
 
     im = target_ax.imshow(

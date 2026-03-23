@@ -17,8 +17,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata import SpikeData
-from SpikeLab.spikedata.plot_utils import (
+from spikedata import SpikeData
+from spikedata.plot_utils import (
     plot_heatmap,
     plot_recording,
     plot_distribution,
@@ -28,7 +28,7 @@ from SpikeLab.spikedata.plot_utils import (
     plot_burst_sensitivity,
     plot_aligned_slice_single_unit,
 )
-from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.spikeslicestack import SpikeSliceStack
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -139,7 +139,7 @@ class TestPlotHeatmap:
         data = np.random.rand(5, 20)
         ext = (0, 100, 0, 5)
         fig, ax = plot_heatmap(data, extent=ext)
-        assert ax.images[0].get_extent() == list(ext)
+        assert ax.images[0].get_extent() == ext
 
     def test_vlines_and_hlines(self):
         """

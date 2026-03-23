@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.stat_utils import (
+from spikedata.stat_utils import (
     linear_regression,
     _approx_normal_quantile,
     pairwise_tests,

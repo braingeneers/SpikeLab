@@ -59,7 +59,11 @@ exclude = '(\.git|\.venv|build|dist)'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-pythonpath = [".."]
+pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: async test (requires pytest-asyncio)",
+]
 filterwarnings = [
     "ignore::DeprecationWarning:quantities",
     "ignore:numpy.core is deprecated:DeprecationWarning",
