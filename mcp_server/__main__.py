@@ -1,7 +1,7 @@
 """
 CLI entry point for the MCP server.
 
-Run with: python -m SpikeLab.mcp_server
+Run with: python -m mcp_server (from repo root, or after pip install -e .)
 """
 
 import asyncio
