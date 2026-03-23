@@ -16,8 +16,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.ratedata import RateData
-from SpikeLab.spikedata.rateslicestack import RateSliceStack
+from spikedata.ratedata import RateData
+from spikedata.rateslicestack import RateSliceStack
 
 try:
     import umap  # noqa: F401

@@ -30,10 +30,10 @@ skip_no_pmgplvm = pytest.mark.skipif(
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-import SpikeLab.spikedata.spikedata as spikedata
-from SpikeLab.spikedata import SpikeData
-from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
-from SpikeLab.spikedata.utils import (
+import spikedata.spikedata as spikedata
+from spikedata import SpikeData
+from spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.utils import (
     check_neuron_attributes,
     compute_avg_waveform,
     compute_cross_correlation_with_lag,
@@ -2335,7 +2335,7 @@ class TestSpikeDataCorrelation:
             (Test Case 1) corr is a PairwiseCompMatrix.
             (Test Case 2) lag is a PairwiseCompMatrix.
         """
-        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+        from spikedata.pairwise import PairwiseCompMatrix
 
         sd = random_spikedata(3, 3000)
         corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=10)
@@ -2471,7 +2471,7 @@ class TestSpikeDataCorrelation:
             (Test Case 1) Mean and std matrices are (N, N).
             (Test Case 2) Both are PairwiseCompMatrix instances.
         """
-        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+        from spikedata.pairwise import PairwiseCompMatrix
 
         sd = random_spikedata(5, 5000)
         mean_lat, std_lat = sd.get_pairwise_latencies()
@@ -4677,7 +4677,7 @@ class TestSpikeDataExports:
         """
         sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
         with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_hdf5"
+            "data_loaders.data_exporters.export_spikedata_to_hdf5"
         ) as mock_export:
             sd.to_hdf5("/tmp/fake.h5", style="ragged")
             mock_export.assert_called_once()
@@ -4695,7 +4695,7 @@ class TestSpikeDataExports:
         """
         sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
         with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_nwb"
+            "data_loaders.data_exporters.export_spikedata_to_nwb"
         ) as mock_export:
             sd.to_nwb("/tmp/fake.nwb")
             mock_export.assert_called_once()
@@ -4713,7 +4713,7 @@ class TestSpikeDataExports:
         """
         sd = SpikeData([np.array([1.0, 2.0])], length=5.0)
         with patch(
-            "SpikeLab.data_loaders.data_exporters.export_spikedata_to_kilosort"
+            "data_loaders.data_exporters.export_spikedata_to_kilosort"
         ) as mock_export:
             mock_export.return_value = ("/tmp/st.npy", "/tmp/sc.npy")
             sd.to_kilosort("/tmp/fake_dir", fs_Hz=30000.0)
@@ -4934,8 +4934,8 @@ class TestAlignToEvents:
             (Test Case 7) An invalid kind value raises ValueError.
             (Test Case 8) Each slice spans exactly pre_ms + post_ms milliseconds.
         """
-        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
-        from SpikeLab.spikedata.rateslicestack import RateSliceStack
+        from spikedata.spikeslicestack import SpikeSliceStack
+        from spikedata.rateslicestack import RateSliceStack
 
         # Build a simple 3-unit recording: 200 ms, 10 spikes per unit
         trains = [np.linspace(5, 195, 10) for _ in range(3)]
@@ -5120,7 +5120,7 @@ class TestAlignToEvents:
             (Test Case 2) Each slice's start_time is -pre_ms.
             (Test Case 3) t=0 in each slice corresponds to the event time.
         """
-        from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+        from spikedata.spikeslicestack import SpikeSliceStack
 
         trains = [np.array([10.0, 30.0, 50.0, 70.0, 90.0])]
         sd = SpikeData(trains, length=100.0)

@@ -1756,7 +1756,7 @@ class SpikeData:
         - When using 'samples' unit, fs_Hz must be provided for proper conversion.
         """
         # Import locally to avoid import cycles at module import time
-        from ..data_loaders.data_exporters import export_spikedata_to_hdf5
+        from data_loaders.data_exporters import export_spikedata_to_hdf5
 
         # Delegate to the standalone exporter function with all parameters
         export_spikedata_to_hdf5(
@@ -1802,7 +1802,7 @@ class SpikeData:
         - Compatible with both pynwb and h5py-based NWB readers
         """
         # Import locally to avoid circular imports
-        from ..data_loaders.data_exporters import export_spikedata_to_nwb
+        from data_loaders.data_exporters import export_spikedata_to_nwb
 
         # Delegate to the standalone NWB exporter
         export_spikedata_to_nwb(
@@ -1843,7 +1843,7 @@ class SpikeData:
         - The 'samples' time unit is most common for KiloSort workflows
         """
         # Import locally to avoid circular imports
-        from ..data_loaders.data_exporters import export_spikedata_to_kilosort
+        from data_loaders.data_exporters import export_spikedata_to_kilosort
 
         # Delegate to the standalone KiloSort exporter and return file paths
         return export_spikedata_to_kilosort(

@@ -34,9 +34,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata import SpikeData
-import SpikeLab.data_loaders.data_loaders as loaders
-import SpikeLab.data_loaders.data_exporters as exporters
+from spikedata import SpikeData
+import data_loaders.data_loaders as loaders
+import data_loaders.data_exporters as exporters
 
 
 def make_sd() -> SpikeData:
@@ -676,7 +676,7 @@ class TestPickleExporters:
         for a, b in zip(sd.train, sd2.train):
             assert np.allclose(a, b)
 
-    @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
+    @patch("data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_s3_upload(self, mock_upload):
         """
         Tests S3 upload flow when s3_upload=True.
@@ -696,7 +696,7 @@ class TestPickleExporters:
         assert call_args[0][1] == s3_url
         assert call_args[0][0].endswith(".pkl")
 
-    @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
+    @patch("data_loaders.s3_utils.upload_to_s3")
     def test_export_pickle_temp_cleanup(self, mock_upload):
         """
         Tests temporary file is removed after S3 upload.
@@ -725,7 +725,7 @@ class TestPickleExporters:
             (Test Case 1) Export succeeds.
             (Test Case 2) Round-trip preserves N=0.
         """
-        import SpikeLab.data_loaders.data_loaders as loaders
+        import data_loaders.data_loaders as loaders
 
         sd = SpikeData([], length=0.0)
         path = str(tmp_path / "empty.pkl")
@@ -774,7 +774,7 @@ class TestPickleExporters:
         sd2 = loaders.load_spikedata_from_pickle(nested_path)
         assert sd2.N == sd.N
 
-    @patch("SpikeLab.data_loaders.s3_utils.upload_to_s3")
+    @patch("data_loaders.s3_utils.upload_to_s3")
     def test_s3_upload_failure_cleanup(self, mock_upload):
         """
         Verify that the temporary file is cleaned up even when the S3 upload

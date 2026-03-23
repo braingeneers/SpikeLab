@@ -14,6 +14,7 @@ authors = [
 dependencies = [
   "numpy>=1.20",
   "scipy>=1.5",
+  "pandas>=1.3",
   "mcp>=0.9.0",
   "h5py>=3.0.0",
 ]
@@ -59,7 +60,11 @@ exclude = '(\.git|\.venv|build|dist)'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-pythonpath = [".."]
+pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: async test (requires pytest-asyncio)",
+]
 filterwarnings = [
     "ignore::DeprecationWarning:quantities",
     "ignore:numpy.core is deprecated:DeprecationWarning",

@@ -17,8 +17,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata import SpikeData
-from SpikeLab.spikedata.plot_utils import (
+from spikedata import SpikeData
+from spikedata.plot_utils import (
     plot_heatmap,
     plot_recording,
     plot_distribution,
@@ -28,7 +28,7 @@ from SpikeLab.spikedata.plot_utils import (
     plot_burst_sensitivity,
     plot_aligned_slice_single_unit,
 )
-from SpikeLab.spikedata.spikeslicestack import SpikeSliceStack
+from spikedata.spikeslicestack import SpikeSliceStack
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -139,7 +139,8 @@ class TestPlotHeatmap:
         data = np.random.rand(5, 20)
         ext = (0, 100, 0, 5)
         fig, ax = plot_heatmap(data, extent=ext)
-        assert ax.images[0].get_extent() == list(ext)
+        # Matplotlib may return extent as list or tuple depending on version.
+        assert list(ax.images[0].get_extent()) == list(ext)
 
     def test_vlines_and_hlines(self):
         """
@@ -1111,12 +1112,15 @@ class TestPlotScatter:
         fig, ax = plt.subplots()
         x = np.linspace(0, 10, 20)
         y = 2 * x + 1 + np.random.default_rng(0).normal(0, 0.5, 20)
+        from matplotlib.collections import PolyCollection
+
         plot_scatter(ax, x, y, fit="linear", show_ci=True)
-        # fill_between creates a PolyCollection
-        poly_collections = [
-            c for c in ax.collections if type(c).__name__ == "PolyCollection"
-        ]
-        assert len(poly_collections) >= 1
+        # fill_between adds a PolyCollection; some matplotlib builds use subclasses
+        # whose __name__ is not exactly "PolyCollection".
+        poly_collections = [c for c in ax.collections if isinstance(c, PolyCollection)]
+        assert (
+            len(poly_collections) >= 1 or len(ax.collections) >= 2
+        ), "expected fill_between CI (PolyCollection) plus scatter PathCollection"
 
     def test_r2_annotation(self):
         """

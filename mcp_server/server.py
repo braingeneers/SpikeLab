@@ -3342,6 +3342,12 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
 
 async def main():
     """Run the MCP server with stdio transport."""
+    # Stdout is reserved for MCP JSON-RPC; user-visible status must use stderr.
+    print(
+        "MCP Server running at stdio://integrated-analysis-tools",
+        file=sys.stderr,
+        flush=True,
+    )
     async with stdio_server() as streams:
         await server.run(streams[0], streams[1], server.create_initialization_options())
 

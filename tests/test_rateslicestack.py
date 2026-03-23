@@ -18,10 +18,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from SpikeLab.spikedata.ratedata import RateData
-from SpikeLab.spikedata.rateslicestack import RateSliceStack
-from SpikeLab.spikedata.spikedata import SpikeData
-from SpikeLab.spikedata.pairwise import PairwiseCompMatrixStack
+from spikedata.ratedata import RateData
+from spikedata.rateslicestack import RateSliceStack
+from spikedata.spikedata import SpikeData
+from spikedata.pairwise import PairwiseCompMatrixStack
 
 
 def make_event_matrix(n_units=3, n_times=20, n_slices=4, seed=0):
@@ -395,7 +395,7 @@ class TestValidateTimeStartToEnd:
         Tests:
             (Test Case 1) A window with negative start is included in the result.
         """
-        from SpikeLab.spikedata.utils import _validate_time_start_to_end
+        from spikedata.utils import _validate_time_start_to_end
 
         windows = [(-5.0, 15.0), (40.0, 60.0), (90.0, 110.0)]
         result = _validate_time_start_to_end(windows)
@@ -1422,7 +1422,7 @@ class TestSliceToSliceUnitCorrOverrideFracActive:
 # get_unit_timing_per_slice + rank_order_correlation (RateSliceStack)
 # ---------------------------------------------------------------------------
 
-from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+from spikedata.pairwise import PairwiseCompMatrix
 
 
 class TestGetUnitTimingPerSliceRate:
