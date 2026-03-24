@@ -1662,7 +1662,8 @@ class SpikeData:
         Notes:
             - The stack-level ``neuron_attributes`` is ``None`` because each
               subset contains a different set of units. Individual ``SpikeData``
-              objects within the stack carry their own subsetted attributes.
+              objects within the stack carry their own subsetted attributes
+              (constructed with ``drop_slice_attributes=False``).
         """
         if n_subsets < 1:
             raise ValueError("n_subsets must be at least 1.")
@@ -1685,6 +1686,7 @@ class SpikeData:
         return SpikeSliceStack(
             spike_stack=subsets,
             times_start_to_end=times,
+            drop_slice_attributes=False,
         )
 
     # ----------------------------
@@ -2398,6 +2400,77 @@ class SpikeData:
         from .plot_utils import plot_recording
 
         return plot_recording(self, **kwargs)
+
+    def plot_spatial_network(
+        self,
+        ax,
+        matrix,
+        edge_threshold=None,
+        top_pct=None,
+        node_size_range=(2, 20),
+        node_cmap="viridis",
+        node_linewidth=0.2,
+        edge_color="red",
+        edge_linewidth=0.6,
+        edge_alpha_range=(0.15, 1.0),
+        scale_bar_um=500,
+        font_size=None,
+    ):
+        """
+        Plot units at their MEA positions with pairwise edges.
+
+        Unit positions are extracted from ``neuron_attributes`` (requires
+        ``'x'`` and ``'y'`` keys).  The pairwise edge strengths must be
+        supplied as *matrix* — obtain one from e.g.
+        ``PairwiseCompMatrix.matrix`` (returned by ``spike_time_tilings``,
+        ``get_pairwise_ccg``, ``RateData.get_pairwise_fr_corr``, etc.).
+
+        Thin wrapper around ``plot_utils.plot_spatial_network``.
+
+        Parameters:
+            ax (matplotlib.axes.Axes): Target axes.
+            matrix (np.ndarray): Symmetric ``(N, N)`` pairwise matrix (e.g.
+                correlation).  Diagonal values are ignored.
+            edge_threshold (float or None): Minimum matrix value to draw an
+                edge.
+            top_pct (float or None): Percentage of top edges to draw.
+            node_size_range (tuple): ``(min_size, max_size)`` in points² for
+                scatter markers.
+            node_cmap (str): Matplotlib colourmap for node colour.
+            node_linewidth (float): Outline width of node markers.
+            edge_color (str): Colour for network edges.
+            edge_linewidth (float): Line width for network edges.
+            edge_alpha_range (tuple): ``(min_alpha, max_alpha)`` for edge
+                transparency.
+            scale_bar_um (float): Scale bar length in micrometres (0 to omit).
+            font_size (int or None): Font size for scale bar label.
+
+        Returns:
+            scatter (matplotlib.collections.PathCollection): The scatter
+                artist, useful for adding a colorbar.
+        """
+        from .plot_utils import plot_spatial_network
+
+        if self.neuron_attributes is None:
+            raise ValueError(
+                "neuron_attributes is None — cannot extract unit positions."
+            )
+        positions = np.array([[na["x"], na["y"]] for na in self.neuron_attributes])
+        return plot_spatial_network(
+            ax,
+            positions,
+            matrix,
+            edge_threshold=edge_threshold,
+            top_pct=top_pct,
+            node_size_range=node_size_range,
+            node_cmap=node_cmap,
+            node_linewidth=node_linewidth,
+            edge_color=edge_color,
+            edge_linewidth=edge_linewidth,
+            edge_alpha_range=edge_alpha_range,
+            scale_bar_um=scale_bar_um,
+            font_size=font_size,
+        )
 
     def plot_aligned_pop_rate(
         self,

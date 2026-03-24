@@ -229,6 +229,70 @@ class PairwiseCompMatrix:
         lower_tri_idx = np.tril_indices(n, k=-1)
         return self.matrix[lower_tri_idx[0], lower_tri_idx[1]]
 
+    def plot_spatial_network(
+        self,
+        ax,
+        positions,
+        edge_threshold=None,
+        top_pct=None,
+        node_size_range=(2, 20),
+        node_cmap="viridis",
+        node_linewidth=0.2,
+        edge_color="red",
+        edge_linewidth=0.6,
+        edge_alpha_range=(0.15, 1.0),
+        scale_bar_um=500,
+        font_size=None,
+    ):
+        """
+        Plot this pairwise matrix as a spatial network on MEA positions.
+
+        Unit positions must be supplied as *positions* — extract them from
+        ``SpikeData.neuron_attributes`` (e.g.
+        ``np.array([[na['x'], na['y']] for na in sd.neuron_attributes])``).
+
+        Thin wrapper around ``plot_utils.plot_spatial_network``.
+
+        Parameters:
+            ax (matplotlib.axes.Axes): Target axes.
+            positions (np.ndarray): Unit positions, shape ``(N, 2)`` with
+                columns ``[x, y]`` in micrometres.
+            edge_threshold (float or None): Minimum matrix value to draw an
+                edge.
+            top_pct (float or None): Percentage of top edges to draw.
+            node_size_range (tuple): ``(min_size, max_size)`` in points² for
+                scatter markers.
+            node_cmap (str): Matplotlib colourmap for node colour.
+            node_linewidth (float): Outline width of node markers.
+            edge_color (str): Colour for network edges.
+            edge_linewidth (float): Line width for network edges.
+            edge_alpha_range (tuple): ``(min_alpha, max_alpha)`` for edge
+                transparency.
+            scale_bar_um (float): Scale bar length in micrometres (0 to omit).
+            font_size (int or None): Font size for scale bar label.
+
+        Returns:
+            scatter (matplotlib.collections.PathCollection): The scatter
+                artist, useful for adding a colorbar.
+        """
+        from .plot_utils import plot_spatial_network
+
+        return plot_spatial_network(
+            ax,
+            positions,
+            self.matrix,
+            edge_threshold=edge_threshold,
+            top_pct=top_pct,
+            node_size_range=node_size_range,
+            node_cmap=node_cmap,
+            node_linewidth=node_linewidth,
+            edge_color=edge_color,
+            edge_linewidth=edge_linewidth,
+            edge_alpha_range=edge_alpha_range,
+            scale_bar_um=scale_bar_um,
+            font_size=font_size,
+        )
+
 
 @dataclass
 class PairwiseCompMatrixStack:
