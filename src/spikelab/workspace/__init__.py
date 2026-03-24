@@ -1,3 +1,13 @@
-from .workspace import AnalysisWorkspace, WorkspaceManager, get_workspace_manager
+from .workspace import (
+    AnalysisWorkspace,
+    LazyAnalysisWorkspace,
+    WorkspaceManager,
+    get_workspace_manager,
+)
 
-__all__ = ["AnalysisWorkspace", "WorkspaceManager", "get_workspace_manager"]
+__all__ = [
+    "AnalysisWorkspace",
+    "LazyAnalysisWorkspace",
+    "WorkspaceManager",
+    "get_workspace_manager",
+]

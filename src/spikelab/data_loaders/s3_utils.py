@@ -85,12 +85,22 @@ def parse_s3_url(url: str) -> Tuple[str, str]:
                 raise ValueError(f"Invalid S3 URL format: {url}")
             bucket = parts[0]
             key = parts[1] if len(parts) > 1 else ""
+            if not key or key == "/":
+                raise ValueError(
+                    f"S3 URL '{url}' has no object key. "
+                    "A bucket-only URL cannot identify a downloadable object."
+                )
             return bucket, key
 
         # Virtual-hosted-style: https://bucket.s3.../key
         if ".s3" in host and "amazonaws.com" in host:
             bucket = host.split(".s3", 1)[0]
             key = path
+            if not key or key == "/":
+                raise ValueError(
+                    f"S3 URL '{url}' has no object key. "
+                    "A bucket-only URL cannot identify a downloadable object."
+                )
             return bucket, key
 
         raise ValueError(f"Invalid S3 URL format: {url}")
@@ -135,10 +145,9 @@ def download_from_s3(
         local_path = temp_file.name
         temp_file.close()
 
-    os.makedirs(
-        os.path.dirname(local_path) if os.path.dirname(local_path) else ".",
-        exist_ok=True,
-    )
+    dirpath = os.path.dirname(local_path)
+    if dirpath:
+        os.makedirs(dirpath, exist_ok=True)
 
     try:
         s3_client.download_file(bucket, key, local_path)

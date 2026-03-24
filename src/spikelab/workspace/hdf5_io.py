@@ -390,7 +390,7 @@ def _load_dict(grp) -> dict:
         if type_tag == "scalar":
             kind = str(child.attrs.get("__scalar_kind__", "float"))
             val = child.attrs["__scalar_value__"]
-            if kind in ("int", "int64", "int32"):
+            if "int" in kind or kind.startswith("uint"):
                 val = int(val)
             elif kind in ("bool", "bool_"):
                 val = bool(val)

@@ -944,7 +944,10 @@ def load_spikedata_from_ibl(
     good_units = unit_df[(unit_df["pid"] == pid) & (unit_df["label"] == 1)]
 
     # Build the ordered list of collections to try, with the probe-specific
-    # one first when the PID suffix unambiguously identifies the probe.
+    # one first when the PID suffix hints at the probe number. This is a
+    # best-effort heuristic for ordering (PIDs are UUIDs, so the last two
+    # hex chars can coincidentally match "00"/"01"). All candidates are
+    # tried regardless, so correctness is not affected — only the order.
     collections = []
     if pid.endswith("00") or pid.endswith("01"):
         collections.append(f"alf/probe{pid[-2:]}/pykilosort")
@@ -1027,7 +1030,7 @@ def query_ibl_probes(
     *,
     min_units: int = 0,
     min_fraction_in_target: float = 0.0,
-):
+) -> "tuple[list[tuple[str, str]], pd.DataFrame]":
     """
     Search the IBL Brain-Wide Map database for probes matching given criteria.
 

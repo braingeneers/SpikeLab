@@ -30,7 +30,7 @@ def _import_matplotlib():
         ) from e
 
 
-def _add_colorbar(im, ax, label="", font_size=14):
+def _add_colorbar(im, ax, label="", font_size=14, size="3%", pad=0.05):
     """Add a colorbar on a dedicated axes so the parent axes width is unchanged.
 
     Uses ``make_axes_locatable`` to append a thin axes to the right of *ax*.
@@ -39,8 +39,11 @@ def _add_colorbar(im, ax, label="", font_size=14):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cax = divider.append_axes("right", size=size, pad=pad)
     cb = ax.figure.colorbar(im, cax=cax)
+    # Render colorbar at full opacity even when the mappable has alpha < 1
+    if cb.solids is not None:
+        cb.solids.set_alpha(1.0)
     cb.set_label(label, fontsize=font_size)
     cb.ax.tick_params(labelsize=font_size)
     return cb
@@ -633,6 +636,7 @@ def plot_scatter_with_marginals(
     y,
     xlabel="",
     ylabel="",
+    title=None,
     marginal_bins=60,
     marginal_color="0.4",
     show_zero_lines=False,
@@ -647,6 +651,10 @@ def plot_scatter_with_marginals(
     bottom-left: scatter, bottom-right: y histogram, top-right: empty).
     All scatter options are forwarded to :func:`plot_scatter`.
 
+    When a colorbar is shown (continuous ``color_vals`` with
+    ``show_colorbar=True``), it is placed to the right of the right marginal
+    histogram rather than on the scatter axes.
+
     Parameters:
         gs_slot: A GridSpec slot (e.g. ``gs[0]``) to place the sub-layout in.
         fig (matplotlib.Figure): Parent figure.
@@ -654,6 +662,7 @@ def plot_scatter_with_marginals(
         y (np.ndarray): Y-axis values.
         xlabel (str): X-axis label for the scatter.
         ylabel (str): Y-axis label for the scatter.
+        title (str or None): Title placed above the top marginal histogram.
         marginal_bins (int): Number of histogram bins.
         marginal_color (str): Histogram bar colour.
         show_zero_lines (bool): Draw vertical/horizontal zero reference lines
@@ -679,6 +688,11 @@ def plot_scatter_with_marginals(
         height_ratios = [1, 4]
     if width_ratios is None:
         width_ratios = [4, 1]
+
+    # Intercept show_colorbar so we can place it on the right marginal axis
+    # instead of on the scatter axes.
+    wants_colorbar = scatter_kwargs.pop("show_colorbar", True)
+    scatter_kwargs["show_colorbar"] = False
 
     inner = GridSpecFromSubplotSpec(
         2,
@@ -730,6 +744,26 @@ def plot_scatter_with_marginals(
     if show_zero_lines:
         ax_histx.axvline(0, ls=":", color="red", lw=1.5)
         ax_histy.axhline(0, ls=":", color="red", lw=1.5)
+
+    # Title above the top marginal histogram
+    if title is not None:
+        font_size = scatter_kwargs.get("font_size")
+        ax_histx.set_title(title, fontsize=font_size)
+
+    # Colorbar on the right marginal axis (outside the histograms)
+    color_vals = scatter_kwargs.get("color_vals")
+    groups = scatter_kwargs.get("groups")
+    if wants_colorbar and groups is None and color_vals is not None:
+        font_size = scatter_kwargs.get("font_size")
+        color_label = scatter_kwargs.get("color_label", "")
+        _add_colorbar(
+            sc,
+            ax_histy,
+            label=color_label,
+            font_size=font_size or 14,
+            size="5%",
+            pad=0.08,
+        )
 
     return ax_scatter, ax_histx, ax_histy, sc
 
@@ -1626,7 +1660,9 @@ def plot_heatmap(
             )
 
     if show_colorbar:
-        _add_colorbar(im, ax, label=colorbar_label, font_size=font_size)
+        _add_colorbar(
+            im, ax, label=colorbar_label, font_size=font_size, size="10%", pad=0.08
+        )
 
     _apply_font_size(ax, font_size)
 
@@ -1671,6 +1707,7 @@ def plot_recording(
     # --- heatmap options ---
     vmin_heatmap=None,
     vmax_heatmap=None,
+    heatmap_clip_pct=80,
     norm_heatmap=False,
     model_states_cmap="viridis",
     model_states_vmin=0,
@@ -1745,6 +1782,10 @@ def plot_recording(
             shaded spans on the population-rate panel.
         vmin_heatmap (float or None): Colormap minimum for the FR heatmap.
         vmax_heatmap (float or None): Colormap maximum for the FR heatmap.
+            When None, clipped to ``heatmap_clip_pct`` percentile of the data.
+        heatmap_clip_pct (float or None): Percentile of the firing-rate data
+            used as the colormap maximum when ``vmax_heatmap`` is None.
+            Default 80. Set to None to use the absolute maximum.
         norm_heatmap (bool or str): Row normalisation for the FR heatmap
             (``False`` or ``'row'``).
         model_states_cmap (str): Colormap for the model-states panel.
@@ -1978,7 +2019,7 @@ def plot_recording(
                 cmap="Greys",
                 vmin=0,
                 vmax=raster_vmax,
-                origin="lower",
+                origin="upper",
             )
             cax = panel_cbar["raster"]
             cax.axis("on")
@@ -2037,13 +2078,17 @@ def plot_recording(
         fr_extent = None
         if fr_rates_view.shape[1] != n_samples:
             fr_extent = (0, n_samples, 0, fr_rates_view.shape[0])
+        # Auto-clip vmax to percentile when not explicitly set
+        vmax_fr = vmax_heatmap
+        if vmax_fr is None and heatmap_clip_pct is not None:
+            vmax_fr = np.percentile(fr_rates_view, heatmap_clip_pct)
         plot_heatmap(
             fr_rates_view,
             ax=ax,
             norm=norm_heatmap,
             vmin=vmin_heatmap,
-            vmax=vmax_heatmap,
-            origin="lower",
+            vmax=vmax_fr,
+            origin="upper",
             extent=fr_extent,
             xlabel="Time (ms)",
             ylabel="Unit",

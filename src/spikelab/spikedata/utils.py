@@ -145,6 +145,9 @@ def _sttc_na(tA, tB, delt: float) -> int:
     dt_right = np.abs(tB[iB - 1] - tA)
 
     # Return how many of those spikes are actually within delt.
+    # Uses inclusive <= (common implementation practice) rather than strict <
+    # from Cutts & Eglen (2014). For continuous spike times the difference is
+    # negligible; for binned data it may slightly increase coincidence counts.
     return (np.minimum(dt_left, dt_right) <= delt).sum()
 
 

@@ -932,9 +932,15 @@ class SpikeSliceStack:
 
         Returns:
             timing_matrix (np.ndarray): Array of shape ``(U, S)`` with timing
-                values in milliseconds. NaN where the unit is inactive.
+                values in **milliseconds** relative to each slice's time origin.
+                NaN where the unit is inactive.
 
         Notes:
+            - Values are in milliseconds, not bin indices. This differs from
+              ``RateSliceStack.get_unit_timing_per_slice`` which returns bin
+              indices (suitable for direct indexing into the event stack).
+              Both representations preserve rank order, so
+              ``rank_order_correlation`` produces identical results either way.
             - The returned matrix can be passed to ``rank_order_correlation``
               to compute Spearman rank correlations between slice pairs, or
               used as input to ``order_units_across_slices`` for manual

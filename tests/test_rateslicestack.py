@@ -1995,3 +1995,186 @@ class TestGetUnitTimingPerSliceEdgeCases:
         # This means unit 0 gets a timing value of 0.0 instead of NaN — a silent bug.
         # The values are argmax results (0) since NaN < threshold is False.
         np.testing.assert_array_equal(tm[0, :], 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestRateSliceStackConstructorEdgeCases2:
+    """Additional edge case tests for RateSliceStack.__init__."""
+
+    def test_zero_unit_event_matrix(self):
+        """
+        Constructor with 0-unit event_matrix (shape (0, 10, 5)).
+
+        Tests:
+            (Test Case 1) A (0, T, S) event matrix is accepted.
+        """
+        mat = np.empty((0, 10, 5))
+        rss = RateSliceStack(event_matrix=mat)
+        assert rss.event_stack.shape[0] == 0
+        assert rss.event_stack.shape == (0, 10, 5)
+
+
+class TestOrderUnitsAcrossSlicesEdgeCases2:
+    """Additional edge case tests for RateSliceStack.order_units_across_slices."""
+
+    def test_impossible_min_frac_threshold(self):
+        """
+        order_units_across_slices with MIN_FRAC_ACTIVE > 1.0.
+
+        Tests:
+            (Test Case 1) Impossible threshold puts all units in the low-activity
+                group and returns None for the high-activity stack.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 20, 4)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        frac = np.ones(3) * 0.5
+        result = rss.order_units_across_slices(
+            agg_func="median", frac_active=frac, MIN_FRAC_ACTIVE=2.0
+        )
+        # Returns 5-tuple: (reordered_matrices, unit_ids, unit_std, unit_peak_times, unit_frac_active)
+        reordered, ids, stds, peaks, fracs = result
+        # All units below threshold → all in low-activity group (second element of each tuple)
+        assert reordered[0].shape[0] == 0  # HA stack has 0 units
+        assert len(ids[1]) == 3  # all 3 units in LA group
+
+
+class TestSliceToSliceUnitCorrEdgeCases2:
+    """Additional edge case tests for RateSliceStack.get_slice_to_slice_unit_corr_from_stack."""
+
+    def test_exact_min_rate_threshold_boundary(self):
+        """
+        Units with mean rate exactly equal to MIN_RATE_THRESHOLD are included.
+
+        Tests:
+            (Test Case 1) Unit with exactly threshold rate is NOT excluded
+                since check is < not <=.
+        """
+        # Create a stack where one unit has mean rate exactly at threshold
+        mat = np.zeros((2, 20, 3))
+        mat[0, :, :] = 0.1  # unit 0 has mean rate 0.1
+        mat[1, :, :] = 1.0  # unit 1 has high rate
+        rss = RateSliceStack(event_matrix=mat)
+        corr_stack, av = rss.get_slice_to_slice_unit_corr_from_stack(
+            MIN_RATE_THRESHOLD=0.1
+        )
+        # Shape should be (S, S, U) = (3, 3, 2)
+        assert corr_stack.stack.shape[0] == 3  # S x S pairwise
+        assert corr_stack.stack.shape[1] == 3
+
+
+class TestSliceToSliceTimeCorrEdgeCases2:
+    """Additional edge case tests for RateSliceStack.get_slice_to_slice_time_corr_from_stack."""
+
+    def test_all_zero_units_at_some_time_bins(self):
+        """
+        Time correlation with all-zero units: compare_func receives zero-norm vectors.
+
+        Tests:
+            (Test Case 1) All-zero slices produce NaN correlations.
+        """
+        mat = np.zeros((3, 10, 2))
+        # One slice has non-zero data, other is all zero
+        mat[:, :, 0] = 1.0
+        rss = RateSliceStack(event_matrix=mat)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            corr_stack, av = rss.get_slice_to_slice_time_corr_from_stack()
+        # Returns (PairwiseCompMatrixStack(S, S, T), array(T,))
+        assert corr_stack.stack.shape == (2, 2, 10)
+
+
+class TestUnitToUnitCorrelationEdgeCases:
+    """Additional edge case tests for RateSliceStack.unit_to_unit_correlation."""
+
+    def test_two_units_minimum(self):
+        """
+        unit_to_unit_correlation with 2 units: single lower triangle element.
+
+        Tests:
+            (Test Case 1) 2 units produce a (2, 2, S) result with a single
+                off-diagonal pair.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((2, 20, 3)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation()
+        assert corr_stack.stack.shape == (2, 2, 3)
+
+
+class TestConvertToListOfRateDataEdgeCases:
+    """Additional edge case tests for RateSliceStack.convert_to_list_of_RateData."""
+
+    def test_single_time_bin_stack(self):
+        """
+        convert_to_list_of_RateData on a stack with a single time bin.
+
+        Tests:
+            (Test Case 1) Single time bin produces RateData with 1 time point each.
+        """
+        mat = np.ones((3, 1, 2))
+        rss = RateSliceStack(
+            event_matrix=mat,
+            times_start_to_end=[(0.0, 1.0), (1.0, 2.0)],
+        )
+        result = rss.convert_to_list_of_RateData()
+        assert len(result) == 2
+        assert result[0].inst_Frate_data.shape == (3, 1)
+
+
+class TestRSSSubsetEdgeCases2:
+    """Additional edge case tests for RateSliceStack.subset."""
+
+    def test_subset_by_duplicate_attribute_values(self):
+        """
+        subset with by parameter when neuron_attributes contain duplicate values.
+
+        Tests:
+            (Test Case 1) Multiple units matching the same attribute are all selected.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 10, 2))
+        attrs = [{"region": "CA1"}, {"region": "CA1"}, {"region": "CA3"}]
+        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
+        result = rss.subset("CA1", by="region")
+        assert result.event_stack.shape[0] == 2
+
+
+class TestRSSSubsliceEdgeCases:
+    """Additional edge case tests for RateSliceStack.subslice."""
+
+    def test_subslice_negative_indices(self):
+        """
+        subslice with negative indices wraps around correctly.
+
+        Tests:
+            (Test Case 1) Negative indices select from the end of the stack.
+        """
+        rng = np.random.default_rng(0)
+        mat = rng.random((3, 10, 4))
+        rss = RateSliceStack(event_matrix=mat)
+        result = rss.subslice([-1, 0])
+        assert result.event_stack.shape[2] == 2
+
+
+class TestGetUnitTimingPerSliceEdgeCases2:
+    """Additional edge case tests for RateSliceStack.get_unit_timing_per_slice."""
+
+    def test_negative_firing_rates(self):
+        """
+        get_unit_timing_per_slice with negative firing rates.
+
+        Tests:
+            (Test Case 1) np.argmax finds the least negative value,
+                and np.max compares against threshold.
+        """
+        mat = np.full((2, 10, 2), -0.5)
+        mat[0, 5, :] = -0.1  # least negative for unit 0
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.0)
+        # All units have max rate < 0 which is < 0.0, so all should be NaN
+        assert np.all(np.isnan(tm))

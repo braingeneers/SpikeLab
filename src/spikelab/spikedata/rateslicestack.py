@@ -196,6 +196,9 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
+        if neuron_attributes is None and data_obj is not None:
+            neuron_attributes = getattr(data_obj, "neuron_attributes", None)
+
         self.neuron_attributes = None
         if neuron_attributes is not None:
             self.neuron_attributes = neuron_attributes.copy()
@@ -573,9 +576,9 @@ class RateSliceStack:
         """
         output = []
         # U x T x S
-        for slice in range(self.event_stack.shape[2]):
-            matrix = self.event_stack[:, :, slice]
-            start, end = self.times[slice]
+        for s_idx in range(self.event_stack.shape[2]):
+            matrix = self.event_stack[:, :, s_idx]
+            start, end = self.times[s_idx]
             time = start + np.arange(matrix.shape[1]) * self.step_size
             if time[-1] > end:
                 # Extremely rare edge case with floating point calculation. Should never happen but just in case
@@ -636,8 +639,8 @@ class RateSliceStack:
             max_corr_matrix, lag_corr_matrix = rate_data.get_pairwise_fr_corr(
                 compare_func, max_lag
             )
-            max_corr_stack.append(max_corr_matrix)
-            max_corr_lag_stack.append(lag_corr_matrix)
+            max_corr_stack.append(max_corr_matrix.matrix)
+            max_corr_lag_stack.append(lag_corr_matrix.matrix)
         # Make the list of correlation matrices into a 3d matrix (S x U x U)
         max_corr_array = np.stack(max_corr_stack, axis=0)
         max_corr_lag_array = np.stack(max_corr_lag_stack, axis=0)
@@ -809,9 +812,15 @@ class RateSliceStack:
 
         Returns:
             timing_matrix (np.ndarray): Array of shape ``(U, S)`` with peak
-                time bin indices. NaN where the unit is inactive.
+                time **bin indices** (integers cast to float for NaN support).
+                These can be used to index directly into the ``(U, T, S)``
+                event stack. NaN where the unit is inactive.
 
         Notes:
+            - Values are bin indices, not milliseconds. This differs from
+              ``SpikeSliceStack.get_unit_timing_per_slice`` which returns
+              milliseconds. Both representations preserve rank order, so
+              ``rank_order_correlation`` produces identical results either way.
             - The returned matrix can be passed to ``rank_order_correlation``
               to compute Spearman rank correlations between slice pairs.
         """

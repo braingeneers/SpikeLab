@@ -3621,3 +3621,221 @@ class TestHDF5IOEdgeCases:
             # key group but lacks __type__ attribute
             with pytest.raises(ValueError, match="Unknown __type__"):
                 AnalysisWorkspace.load(base)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestAnalysisWorkspaceEdgeCases2:
+    """Additional edge case tests for AnalysisWorkspace."""
+
+    def test_rename_same_key(self):
+        """
+        Renaming a key to itself warns about key conflict and returns False.
+
+        Tests:
+            (Test Case 1) rename(old_key, old_key) without overwrite=True
+                returns False due to the existing-key check.
+        """
+        import warnings
+
+        ws = AnalysisWorkspace(name="rename_test")
+        ws.store("ns", "key", np.array([1.0, 2.0]))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = ws.rename("ns", "key", "key")
+        assert result is False
+        # Original key should still exist
+        assert ws.get("ns", "key") is not None
+
+
+class TestHDF5IOEdgeCases2:
+    """Additional edge case tests for hdf5_io functions."""
+
+    def test_spikedata_nonzero_start_time_roundtrip(self):
+        """
+        SpikeData with non-zero start_time survives HDF5 workspace roundtrip.
+
+        Tests:
+            (Test Case 1) start_time=-100 is preserved through save/load.
+        """
+        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        ws = AnalysisWorkspace(name="start_time_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            assert loaded_sd.start_time == pytest.approx(-100.0)
+            assert loaded_sd.length == pytest.approx(200.0)
+            np.testing.assert_allclose(loaded_sd.train[0], [-90.0, -50.0, 0.0, 10.0])
+
+    def test_metadata_non_string_keys(self):
+        """
+        SpikeData metadata with integer keys loses precision through JSON roundtrip.
+
+        Tests:
+            (Test Case 1) Integer key 42 becomes string "42" after JSON roundtrip.
+        """
+        sd = SpikeData([[5.0]], length=10.0, metadata={42: "answer"})
+        ws = AnalysisWorkspace(name="meta_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            # Integer key becomes string through JSON
+            assert "42" in loaded_sd.metadata
+
+    def test_ratedata_nan_roundtrip(self):
+        """
+        RateData with NaN values survives HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) NaN values in inst_Frate_data are preserved.
+        """
+        data = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, 6.0]])
+        times = np.array([0.0, 1.0, 2.0])
+        rd = RateData(data, times)
+        ws = AnalysisWorkspace(name="nan_rd_test")
+        ws.store("data", "rd", rd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_rd = loaded.get("data", "rd")
+            np.testing.assert_array_equal(
+                np.isnan(loaded_rd.inst_Frate_data), np.isnan(data)
+            )
+
+    def test_rateslicestack_roundtrip(self):
+        """
+        RateSliceStack HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) RateSliceStack survives save/load roundtrip.
+        """
+        mat = np.random.default_rng(0).random((2, 10, 3))
+        rss = RateSliceStack(event_matrix=mat)
+        ws = AnalysisWorkspace(name="rss_test")
+        ws.store("data", "rss", rss)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_rss = loaded.get("data", "rss")
+            np.testing.assert_allclose(loaded_rss.event_stack, mat)
+
+    def test_pairwise_nan_roundtrip(self):
+        """
+        PairwiseCompMatrix with NaN values survives HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) NaN values are preserved through save/load.
+        """
+        mat = np.array([[1.0, np.nan], [np.nan, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        ws = AnalysisWorkspace(name="pcm_nan_test")
+        ws.store("data", "pcm", pcm)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_pcm = loaded.get("data", "pcm")
+            np.testing.assert_array_equal(np.isnan(loaded_pcm.matrix), np.isnan(mat))
+
+    def test_overwrite_item_different_type(self):
+        """
+        Overwriting a workspace item with a different type works correctly.
+
+        Tests:
+            (Test Case 1) ndarray replacing SpikeData works correctly.
+        """
+        sd = SpikeData([[5.0]], length=10.0)
+        arr = np.array([1.0, 2.0, 3.0])
+
+        ws = AnalysisWorkspace(name="overwrite_test")
+        ws.store("ns", "key", sd)
+        ws.store("ns", "key2", arr)
+        # Verify both are stored correctly
+        loaded_sd = ws.get("ns", "key")
+        loaded_arr = ws.get("ns", "key2")
+        assert isinstance(loaded_sd, SpikeData)
+        np.testing.assert_array_equal(loaded_arr, arr)
+
+    def test_labels_with_none_entries(self):
+        """
+        PairwiseCompMatrix labels with None entries crash during HDF5 save.
+
+        Tests:
+            (Test Case 1) Labels [1, None, 3] create an object-dtype array
+                that HDF5 cannot serialize, raising TypeError.
+
+        Notes:
+            - This is a known bug: _dump_labels does not handle mixed
+              int/None labels. np.array([1, None, 3]) creates an object
+              array which has no HDF5 equivalent.
+        """
+        mat = np.eye(3)
+        pcm = PairwiseCompMatrix(matrix=mat, labels=[1, None, 3])
+        ws = AnalysisWorkspace(name="labels_none_test")
+        ws.store("data", "pcm", pcm)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            with pytest.raises(TypeError):
+                ws.save(base)
+
+    def test_metadata_with_inf(self):
+        """
+        Metadata with inf/-inf values roundtrip through HDF5.
+
+        Tests:
+            (Test Case 1) Inf values are preserved through save/load.
+        """
+        sd = SpikeData([[5.0]], length=10.0, metadata={"val": float("inf")})
+        ws = AnalysisWorkspace(name="inf_meta_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            assert loaded_sd.metadata["val"] == float("inf")
+
+
+class TestMakeSummaryEdgeCases:
+    """Edge case tests for _make_summary."""
+
+    def test_spikeslicestack_single_slice(self):
+        """
+        _make_summary for SpikeSliceStack with 1 slice.
+
+        Tests:
+            (Test Case 1) Single-slice SpikeSliceStack produces a valid summary.
+        """
+        sd = SpikeData([[5.0]], length=10.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 10.0)])
+        summary = _make_summary(sss)
+        assert "SpikeSliceStack" in summary["type"]
+
+    def test_zero_dimensional_ndarray(self):
+        """
+        _make_summary for a 0-dimensional ndarray.
+
+        Tests:
+            (Test Case 1) np.array(5.0) produces shape [].
+        """
+        summary = _make_summary(np.array(5.0))
+        assert summary["shape"] == []

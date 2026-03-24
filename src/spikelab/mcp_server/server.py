@@ -3114,224 +3114,131 @@ async def _list_tools() -> list[types.Tool]:
     return tools
 
 
+_TOOL_DISPATCH: dict[str, Any] = {
+    # Data loader tools
+    "load_from_hdf5_raster": data_loaders.load_from_hdf5_raster,
+    "load_from_hdf5_ragged": data_loaders.load_from_hdf5_ragged,
+    "load_from_hdf5_group": data_loaders.load_from_hdf5_group,
+    "load_from_hdf5_paired": data_loaders.load_from_hdf5_paired,
+    "load_from_nwb": data_loaders.load_from_nwb,
+    "load_from_kilosort": data_loaders.load_from_kilosort,
+    "load_from_hdf5_thresholded": data_loaders.load_from_hdf5_thresholded,
+    "load_from_pickle": data_loaders.load_from_pickle,
+    "load_from_ibl": data_loaders.load_from_ibl,
+    "query_ibl_probes": data_loaders.query_ibl_probes,
+    # Basic analysis tools
+    "compute_rates": analysis.compute_rates,
+    "compute_binned": analysis.compute_binned,
+    "compute_binned_meanrate": analysis.compute_binned_meanrate,
+    "compute_raster": analysis.compute_raster,
+    "compute_channel_raster": analysis.compute_channel_raster,
+    "compute_interspike_intervals": analysis.compute_interspike_intervals,
+    "compute_resampled_isi": analysis.compute_resampled_isi,
+    "compute_spike_time_tiling": analysis.compute_spike_time_tiling,
+    "compute_spike_time_tilings": analysis.compute_spike_time_tilings,
+    "threshold_spike_time_tilings": analysis.threshold_spike_time_tilings,
+    "compute_latencies": analysis.compute_latencies,
+    "compute_latencies_to_index": analysis.compute_latencies_to_index,
+    "get_pop_rate": analysis.get_pop_rate,
+    "compute_spike_trig_pop_rate": analysis.compute_spike_trig_pop_rate,
+    "get_bursts": analysis.get_bursts,
+    "burst_sensitivity": analysis.burst_sensitivity,
+    "get_frac_active": analysis.get_frac_active,
+    # Metadata query tools
+    "get_data_info": analysis.get_data_info,
+    "list_neurons": analysis.list_neurons,
+    "get_neuron_attribute": analysis.get_neuron_attribute,
+    "set_neuron_attribute": analysis.set_neuron_attribute,
+    "get_neuron_to_channel_map": analysis.get_neuron_to_channel_map,
+    # SpikeData transform tools
+    "subtime": analysis.subtime,
+    "subset": analysis.subset,
+    "append_session": analysis.append_session,
+    "concatenate_units": analysis.concatenate_units,
+    # RateData-based analysis tools
+    "compute_pairwise_fr_corr": analysis.compute_pairwise_fr_corr,
+    "compute_pairwise_ccg": analysis.compute_pairwise_ccg,
+    "compute_pairwise_latencies": analysis.compute_pairwise_latencies,
+    "compute_rate_manifold": analysis.compute_rate_manifold,
+    "frames_rate_data": analysis.frames_rate_data,
+    # Slice stack creation tools
+    "create_rate_slice_stack": analysis.create_rate_slice_stack,
+    "frames_spike_data": analysis.frames_spike_data,
+    "create_spike_slice_stack": analysis.create_spike_slice_stack,
+    "spike_slice_to_raster": analysis.spike_slice_to_raster,
+    "align_to_events": analysis.align_to_events,
+    # RateSliceStack analysis tools
+    "compute_rate_slice_unit_corr": analysis.compute_rate_slice_unit_corr,
+    "compute_rate_slice_time_corr": analysis.compute_rate_slice_time_corr,
+    "compute_unit_to_unit_slice_corr": analysis.compute_unit_to_unit_slice_corr,
+    "compute_rate_slice_unit_order": analysis.compute_rate_slice_unit_order,
+    # Pairwise matrix conditioning tools
+    "remove_by_condition": analysis.remove_by_condition,
+    # SpikeSliceStack analysis tools
+    "spike_unit_to_unit_comparison": analysis.spike_unit_to_unit_comparison,
+    "spike_slice_to_slice_unit_comparison": analysis.spike_slice_to_slice_unit_comparison,
+    "compute_frac_active": analysis.compute_frac_active,
+    "spike_order_units_across_slices": analysis.spike_order_units_across_slices,
+    # Unit timing and rank-order correlation tools
+    "get_unit_timing_per_slice_spike": analysis.get_unit_timing_per_slice_spike,
+    "get_unit_timing_per_slice_rate": analysis.get_unit_timing_per_slice_rate,
+    "rank_order_correlation_spike": analysis.rank_order_correlation_spike,
+    "rank_order_correlation_rate": analysis.rank_order_correlation_rate,
+    # Other workspace-based tools
+    "get_idces_times": analysis.get_idces_times,
+    "get_waveform_traces": analysis.get_waveform_traces,
+    # Dimensionality reduction pipeline
+    "extract_lower_triangle_features": analysis.extract_lower_triangle_features,
+    "pca_on_lower_triangle": analysis.pca_on_lower_triangle,
+    "pca_on_workspace_item": analysis.pca_on_workspace_item,
+    "umap_reduction": analysis.umap_reduction,
+    "umap_graph_communities": analysis.umap_graph_communities,
+    # GPLVM tools
+    "fit_gplvm": analysis.fit_gplvm,
+    "compute_gplvm_state_entropy": analysis.compute_gplvm_state_entropy,
+    "compute_gplvm_continuity_prob": analysis.compute_gplvm_continuity_prob,
+    "compute_gplvm_avg_state_prob": analysis.compute_gplvm_avg_state_prob,
+    "compute_gplvm_consecutive_durations": analysis.compute_gplvm_consecutive_durations,
+    # Workspace management tools
+    "create_workspace": analysis.create_workspace,
+    "delete_workspace": analysis.delete_workspace,
+    "list_workspaces": analysis.list_workspaces,
+    "describe_workspace": analysis.describe_workspace,
+    "workspace_get_info": analysis.workspace_get_info,
+    "rename_workspace_item": analysis.rename_workspace_item,
+    "add_workspace_note": analysis.add_workspace_note,
+    "delete_workspace_item": analysis.delete_workspace_item,
+    "save_workspace": analysis.save_workspace,
+    "load_workspace": analysis.load_workspace,
+    "load_workspace_item": analysis.load_workspace_item,
+    "merge_workspace": analysis.merge_workspace,
+    "fetch_workspace_item": analysis.fetch_workspace_item,
+    # Export tools
+    "export_to_hdf5_raster": exporters.export_to_hdf5_raster,
+    "export_to_hdf5_ragged": exporters.export_to_hdf5_ragged,
+    "export_to_hdf5_group": exporters.export_to_hdf5_group,
+    "export_to_hdf5_paired": exporters.export_to_hdf5_paired,
+    "export_to_nwb": exporters.export_to_nwb,
+    "export_to_kilosort": exporters.export_to_kilosort,
+    "export_to_pickle": exporters.export_to_pickle,
+}
+
+# Tools that take no arguments (called without **arguments)
+_NO_ARGS_TOOLS = {"list_workspaces"}
+
+
 @server.call_tool()
 async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
     """Handle tool calls."""
     try:
-        # Data loader tools
-        if name == "load_from_hdf5_raster":
-            result = await data_loaders.load_from_hdf5_raster(**arguments)
-        elif name == "load_from_hdf5_ragged":
-            result = await data_loaders.load_from_hdf5_ragged(**arguments)
-        elif name == "load_from_hdf5_group":
-            result = await data_loaders.load_from_hdf5_group(**arguments)
-        elif name == "load_from_hdf5_paired":
-            result = await data_loaders.load_from_hdf5_paired(**arguments)
-        elif name == "load_from_nwb":
-            result = await data_loaders.load_from_nwb(**arguments)
-        elif name == "load_from_kilosort":
-            result = await data_loaders.load_from_kilosort(**arguments)
-        elif name == "load_from_hdf5_thresholded":
-            result = await data_loaders.load_from_hdf5_thresholded(**arguments)
-        elif name == "load_from_pickle":
-            result = await data_loaders.load_from_pickle(**arguments)
-        elif name == "load_from_ibl":
-            result = await data_loaders.load_from_ibl(**arguments)
-        elif name == "query_ibl_probes":
-            result = await data_loaders.query_ibl_probes(**arguments)
-
-        # Basic analysis tools
-        elif name == "compute_rates":
-            result = await analysis.compute_rates(**arguments)
-        elif name == "compute_binned":
-            result = await analysis.compute_binned(**arguments)
-        elif name == "compute_binned_meanrate":
-            result = await analysis.compute_binned_meanrate(**arguments)
-        elif name == "compute_raster":
-            result = await analysis.compute_raster(**arguments)
-        elif name == "compute_channel_raster":
-            result = await analysis.compute_channel_raster(**arguments)
-        elif name == "compute_interspike_intervals":
-            result = await analysis.compute_interspike_intervals(**arguments)
-        elif name == "compute_resampled_isi":
-            result = await analysis.compute_resampled_isi(**arguments)
-        elif name == "compute_spike_time_tiling":
-            result = await analysis.compute_spike_time_tiling(**arguments)
-        elif name == "compute_spike_time_tilings":
-            result = await analysis.compute_spike_time_tilings(**arguments)
-        elif name == "threshold_spike_time_tilings":
-            result = await analysis.threshold_spike_time_tilings(**arguments)
-        elif name == "compute_latencies":
-            result = await analysis.compute_latencies(**arguments)
-        elif name == "compute_latencies_to_index":
-            result = await analysis.compute_latencies_to_index(**arguments)
-        elif name == "get_pop_rate":
-            result = await analysis.get_pop_rate(**arguments)
-        elif name == "compute_spike_trig_pop_rate":
-            result = await analysis.compute_spike_trig_pop_rate(**arguments)
-        elif name == "get_bursts":
-            result = await analysis.get_bursts(**arguments)
-        elif name == "burst_sensitivity":
-            result = await analysis.burst_sensitivity(**arguments)
-        elif name == "get_frac_active":
-            result = await analysis.get_frac_active(**arguments)
-
-        # Metadata query tools
-        elif name == "get_data_info":
-            result = await analysis.get_data_info(**arguments)
-        elif name == "list_neurons":
-            result = await analysis.list_neurons(**arguments)
-        elif name == "get_neuron_attribute":
-            result = await analysis.get_neuron_attribute(**arguments)
-        elif name == "set_neuron_attribute":
-            result = await analysis.set_neuron_attribute(**arguments)
-        elif name == "get_neuron_to_channel_map":
-            result = await analysis.get_neuron_to_channel_map(**arguments)
-
-        # SpikeData transform tools
-        elif name == "subtime":
-            result = await analysis.subtime(**arguments)
-        elif name == "subset":
-            result = await analysis.subset(**arguments)
-        elif name == "append_session":
-            result = await analysis.append_session(**arguments)
-        elif name == "concatenate_units":
-            result = await analysis.concatenate_units(**arguments)
-
-        # RateData-based analysis tools
-        elif name == "compute_pairwise_fr_corr":
-            result = await analysis.compute_pairwise_fr_corr(**arguments)
-        elif name == "compute_pairwise_ccg":
-            result = await analysis.compute_pairwise_ccg(**arguments)
-        elif name == "compute_pairwise_latencies":
-            result = await analysis.compute_pairwise_latencies(**arguments)
-        elif name == "compute_rate_manifold":
-            result = await analysis.compute_rate_manifold(**arguments)
-        elif name == "frames_rate_data":
-            result = await analysis.frames_rate_data(**arguments)
-
-        # Slice stack creation tools
-        elif name == "create_rate_slice_stack":
-            result = await analysis.create_rate_slice_stack(**arguments)
-        elif name == "frames_spike_data":
-            result = await analysis.frames_spike_data(**arguments)
-        elif name == "create_spike_slice_stack":
-            result = await analysis.create_spike_slice_stack(**arguments)
-        elif name == "spike_slice_to_raster":
-            result = await analysis.spike_slice_to_raster(**arguments)
-        elif name == "align_to_events":
-            result = await analysis.align_to_events(**arguments)
-
-        # RateSliceStack analysis tools
-        elif name == "compute_rate_slice_unit_corr":
-            result = await analysis.compute_rate_slice_unit_corr(**arguments)
-        elif name == "compute_rate_slice_time_corr":
-            result = await analysis.compute_rate_slice_time_corr(**arguments)
-        elif name == "compute_unit_to_unit_slice_corr":
-            result = await analysis.compute_unit_to_unit_slice_corr(**arguments)
-        elif name == "compute_rate_slice_unit_order":
-            result = await analysis.compute_rate_slice_unit_order(**arguments)
-
-        # Pairwise matrix conditioning tools
-        elif name == "remove_by_condition":
-            result = await analysis.remove_by_condition(**arguments)
-
-        # SpikeSliceStack analysis tools
-        elif name == "spike_unit_to_unit_comparison":
-            result = await analysis.spike_unit_to_unit_comparison(**arguments)
-        elif name == "spike_slice_to_slice_unit_comparison":
-            result = await analysis.spike_slice_to_slice_unit_comparison(**arguments)
-        elif name == "compute_frac_active":
-            result = await analysis.compute_frac_active(**arguments)
-        elif name == "spike_order_units_across_slices":
-            result = await analysis.spike_order_units_across_slices(**arguments)
-
-        # Unit timing and rank-order correlation tools
-        elif name == "get_unit_timing_per_slice_spike":
-            result = await analysis.get_unit_timing_per_slice_spike(**arguments)
-        elif name == "get_unit_timing_per_slice_rate":
-            result = await analysis.get_unit_timing_per_slice_rate(**arguments)
-        elif name == "rank_order_correlation_spike":
-            result = await analysis.rank_order_correlation_spike(**arguments)
-        elif name == "rank_order_correlation_rate":
-            result = await analysis.rank_order_correlation_rate(**arguments)
-
-        # Other workspace-based tools
-        elif name == "get_idces_times":
-            result = await analysis.get_idces_times(**arguments)
-        elif name == "get_waveform_traces":
-            result = await analysis.get_waveform_traces(**arguments)
-
-        # Dimensionality reduction pipeline
-        elif name == "extract_lower_triangle_features":
-            result = await analysis.extract_lower_triangle_features(**arguments)
-        elif name == "pca_on_lower_triangle":
-            result = await analysis.pca_on_lower_triangle(**arguments)
-        elif name == "pca_on_workspace_item":
-            result = await analysis.pca_on_workspace_item(**arguments)
-        elif name == "umap_reduction":
-            result = await analysis.umap_reduction(**arguments)
-        elif name == "umap_graph_communities":
-            result = await analysis.umap_graph_communities(**arguments)
-
-        # GPLVM tools
-        elif name == "fit_gplvm":
-            result = await analysis.fit_gplvm(**arguments)
-        elif name == "compute_gplvm_state_entropy":
-            result = await analysis.compute_gplvm_state_entropy(**arguments)
-        elif name == "compute_gplvm_continuity_prob":
-            result = await analysis.compute_gplvm_continuity_prob(**arguments)
-        elif name == "compute_gplvm_avg_state_prob":
-            result = await analysis.compute_gplvm_avg_state_prob(**arguments)
-        elif name == "compute_gplvm_consecutive_durations":
-            result = await analysis.compute_gplvm_consecutive_durations(**arguments)
-
-        # Workspace management tools
-        elif name == "create_workspace":
-            result = await analysis.create_workspace(**arguments)
-        elif name == "delete_workspace":
-            result = await analysis.delete_workspace(**arguments)
-        elif name == "list_workspaces":
-            result = await analysis.list_workspaces()
-        elif name == "describe_workspace":
-            result = await analysis.describe_workspace(**arguments)
-        elif name == "workspace_get_info":
-            result = await analysis.workspace_get_info(**arguments)
-        elif name == "rename_workspace_item":
-            result = await analysis.rename_workspace_item(**arguments)
-        elif name == "add_workspace_note":
-            result = await analysis.add_workspace_note(**arguments)
-        elif name == "delete_workspace_item":
-            result = await analysis.delete_workspace_item(**arguments)
-        elif name == "save_workspace":
-            result = await analysis.save_workspace(**arguments)
-        elif name == "load_workspace":
-            result = await analysis.load_workspace(**arguments)
-        elif name == "load_workspace_item":
-            result = await analysis.load_workspace_item(**arguments)
-        elif name == "merge_workspace":
-            result = await analysis.merge_workspace(**arguments)
-        elif name == "fetch_workspace_item":
-            result = await analysis.fetch_workspace_item(**arguments)
-
-        # Export tools
-        elif name == "export_to_hdf5_raster":
-            result = await exporters.export_to_hdf5_raster(**arguments)
-        elif name == "export_to_hdf5_ragged":
-            result = await exporters.export_to_hdf5_ragged(**arguments)
-        elif name == "export_to_hdf5_group":
-            result = await exporters.export_to_hdf5_group(**arguments)
-        elif name == "export_to_hdf5_paired":
-            result = await exporters.export_to_hdf5_paired(**arguments)
-        elif name == "export_to_nwb":
-            result = await exporters.export_to_nwb(**arguments)
-        elif name == "export_to_kilosort":
-            result = await exporters.export_to_kilosort(**arguments)
-        elif name == "export_to_pickle":
-            result = await exporters.export_to_pickle(**arguments)
-
-        else:
+        handler = _TOOL_DISPATCH.get(name)
+        if handler is None:
             raise ValueError(f"Unknown tool: {name}")
+
+        if name in _NO_ARGS_TOOLS:
+            result = await handler()
+        else:
+            result = await handler(**arguments)
 
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 

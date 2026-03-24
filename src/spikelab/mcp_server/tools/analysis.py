@@ -761,9 +761,8 @@ async def concatenate_units(
     ws = _get_workspace(workspace_id)
     sd_a = _get_spikedata(ws, namespace_a)
     sd_b = _get_spikedata(ws, namespace_b)
-    sd_a.concatenate_spike_data(sd_b)
-    # Re-store to refresh the workspace index summary
-    ws.store(namespace_a, _SPIKEDATA_KEY, sd_a)
+    sd_combined = sd_a.concatenate_spike_data(sd_b)
+    ws.store(namespace_a, _SPIKEDATA_KEY, sd_combined)
     return {
         "workspace_id": workspace_id,
         "namespace": namespace_a,
@@ -1611,7 +1610,7 @@ async def load_workspace(path: str) -> Dict[str, Any]:
     return {
         "workspace_id": workspace_id,
         "name": ws.name,
-        "namespace_count": len(ws._items),
+        "namespace_count": len(ws.list_namespaces()),
         "item_count": item_count,
     }
 

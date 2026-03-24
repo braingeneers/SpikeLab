@@ -614,7 +614,7 @@ async def load_from_hdf5_thresholded(
     dataset: str,
     fs_Hz: float,
     threshold_sigma: float = 5.0,
-    filter: bool = True,
+    filter: bool = True,  # noqa: A002 — shadows built-in; kept for API consistency with core loader
     hysteresis: bool = True,
     direction: str = "both",
     workspace_id: str = "",

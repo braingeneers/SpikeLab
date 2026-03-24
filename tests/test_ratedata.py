@@ -702,20 +702,20 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        assert corr.shape == (n_units, n_units)
-        assert lag.shape == (n_units, n_units)
+        assert corr.matrix.shape == (n_units, n_units)
+        assert lag.matrix.shape == (n_units, n_units)
 
         # Diagonal must be 1.
-        np.testing.assert_array_almost_equal(np.diag(corr), np.ones(n_units))
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(n_units))
         # Diagonal lag must be 0.
-        np.testing.assert_array_equal(np.diag(lag), np.zeros(n_units))
+        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(n_units))
 
         # Identical rows -> perfect correlation and zero lag.
-        assert corr[0, 1] == pytest.approx(1.0, abs=1e-5)
-        assert lag[0, 1] == pytest.approx(0.0, abs=1e-5)
+        assert corr.matrix[0, 1] == pytest.approx(1.0, abs=1e-5)
+        assert lag.matrix[0, 1] == pytest.approx(0.0, abs=1e-5)
 
         # Both matrices are symmetric.
-        np.testing.assert_array_almost_equal(corr, corr.T)
+        np.testing.assert_array_almost_equal(corr.matrix, corr.matrix.T)
 
     def test_get_pairwise_fr_corr_single_unit(self):
         """
@@ -732,9 +732,9 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        assert corr.shape == (1, 1)
-        assert lag.shape == (1, 1)
-        assert not np.isnan(corr[0, 0]), "Diagonal correlation must not be NaN"
+        assert corr.matrix.shape == (1, 1)
+        assert lag.matrix.shape == (1, 1)
+        assert not np.isnan(corr.matrix[0, 0]), "Diagonal correlation must not be NaN"
 
     def test_get_pairwise_fr_corr_single_time_bin(self):
         """
@@ -754,8 +754,8 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
 
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
 
     def test_get_pairwise_fr_corr_constant_rate(self):
         """
@@ -775,8 +775,8 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
 
     def test_get_pairwise_fr_corr_max_lag_zero(self):
         """
@@ -791,10 +791,10 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
 
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
-        np.testing.assert_array_almost_equal(np.diag(corr), np.ones(3))
-        np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(3))
+        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(3))
 
     def test_get_pairwise_fr_corr_max_lag_exceeds_T(self):
         """max_lag larger than T should not crash.
@@ -805,10 +805,10 @@ class TestRateDataGetPairwiseFrCorr:
         data = np.random.default_rng(0).random((3, 5))
         rd = RateData(data, np.arange(5, dtype=float))
         corr, lag = rd.get_pairwise_fr_corr(max_lag=100)
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
         # Diagonal should still be valid
-        np.testing.assert_array_almost_equal(np.diag(corr), np.ones(3))
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(3))
 
     def test_get_pairwise_fr_corr_all_zero(self):
         """
@@ -827,10 +827,10 @@ class TestRateDataGetPairwiseFrCorr:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
-        assert np.all(np.isnan(np.diag(corr)))
-        np.testing.assert_array_equal(np.diag(lag), np.zeros(3))
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+        assert np.all(np.isnan(np.diag(corr.matrix)))
+        np.testing.assert_array_equal(np.diag(lag.matrix), np.zeros(3))
 
     def test_get_pairwise_fr_corr_all_nan_row(self):
         """
@@ -845,10 +845,10 @@ class TestRateDataGetPairwiseFrCorr:
         times = np.arange(50, dtype=float)
         rd = RateData(data, times)
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
-        assert corr.shape == (3, 3)
+        assert corr.matrix.shape == (3, 3)
         # Row/col for unit 1 should be NaN
-        assert np.all(np.isnan(corr[1, :]))
-        assert np.all(np.isnan(corr[:, 1]))
+        assert np.all(np.isnan(corr.matrix[1, :]))
+        assert np.all(np.isnan(corr.matrix[:, 1]))
 
 
 class TestRateDataGetManifold:
@@ -1024,26 +1024,16 @@ class TestRateDataConstructorEdgeCases:
 
     def test_empty_neuron_attributes_list(self):
         """
-        Empty list [] for neuron_attributes is silently dropped due to truthiness check.
+        Empty list [] for neuron_attributes is preserved for N=0 data.
 
         Tests:
             (Test Case 1) RateData with N=0 and neuron_attributes=[] should store
-                          the empty list, but the constructor uses `if neuron_attributes:`
-                          which is False for [], so it silently becomes None.
-
-        Notes:
-            This documents a bug: `if neuron_attributes:` is False for `[]`,
-            so a valid empty list for N=0 data is silently dropped. The constructor
-            should use `if neuron_attributes is not None:` instead.
+                          the empty list (not silently drop it to None).
         """
         data = np.zeros((0, 5))
         times = np.arange(5, dtype=float)
         rd = RateData(data, times, neuron_attributes=[])
-        # BUG: neuron_attributes=[] is silently dropped to None
-        # because `if neuron_attributes:` is False for empty list.
-        # Expected: rd.neuron_attributes == []
-        # Actual: rd.neuron_attributes is None
-        assert rd.neuron_attributes is None  # documents current (buggy) behavior
+        assert rd.neuron_attributes == []
 
     def test_zero_time_bins(self):
         """
@@ -1241,9 +1231,9 @@ class TestRateDataGetPairwiseFrCorrEdgeCases:
 
         corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
 
-        assert corr.shape == (3, 3)
-        assert lag.shape == (3, 3)
-        assert np.all(np.isnan(corr))
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+        assert np.all(np.isnan(corr.matrix))
 
 
 class TestRateDataGetManifoldEdgeCases:
@@ -1287,3 +1277,220 @@ class TestRateDataGetManifoldEdgeCases:
         assert embedding.shape == (40, 1)
         assert var_ratio.shape == (1,)
         assert components.shape == (1, 5)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestRateDataConstructorEdgeCases2:
+    """Additional edge case tests for RateData.__init__."""
+
+    def test_empty_neuron_attributes_list_preserved(self):
+        """
+        Empty neuron_attributes=[] is correctly preserved for 0-unit RateData.
+
+        Tests:
+            (Test Case 1) Passing neuron_attributes=[] for a (0, T) array
+                stores [] (not None).
+
+        Notes:
+            - The constructor now uses `if neuron_attributes is not None:` so
+              empty list [] is correctly preserved.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.empty((0, 3))
+        rd = RateData(data, times, neuron_attributes=[])
+        assert rd.neuron_attributes is not None
+        assert rd.neuron_attributes == []
+
+    def test_all_nan_rates_with_neuron_attributes(self):
+        """
+        All-NaN rates with neuron_attributes set.
+
+        Tests:
+            (Test Case 1) Construction succeeds with all-NaN data and valid
+                neuron_attributes.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.full((2, 3), np.nan)
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        assert rd.neuron_attributes is not None
+        assert np.all(np.isnan(rd.inst_Frate_data))
+
+    def test_times_as_string_array(self):
+        """
+        times as string values create a string dtype array.
+
+        Tests:
+            (Test Case 1) String times are accepted by the constructor (no
+                numeric validation on times).
+        """
+        data = np.ones((2, 2))
+        times = ["a", "b"]
+        rd = RateData(data, times)
+        assert rd.times.dtype.kind in ("U", "O")
+
+
+class TestRateDataSubsetEdgeCases2:
+    """Additional edge case tests for RateData.subset."""
+
+    def test_subset_by_multiple_match(self):
+        """
+        subset with by parameter where multiple units share the same attribute value.
+
+        Tests:
+            (Test Case 1) Two units matching the same region are both selected.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.ones((3, 3))
+        attrs = [{"region": "CA1"}, {"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        result = rd.subset("CA1", by="region")
+        assert result.N == 2
+
+    def test_subset_single_numpy_int(self):
+        """
+        subset with a single numpy integer (np.int64).
+
+        Tests:
+            (Test Case 1) np.int64 is not caught by isinstance(units, int),
+                so it falls through to set() which wraps it. The result
+                should contain one unit.
+
+        Notes:
+            - np.int64 is not a Python int, so isinstance(units, int) is False
+              on some platforms. The code tries set(np.int64(2)) which raises
+              TypeError since numpy integers are not iterable.
+        """
+        rd = make_ratedata(n_units=3, n_times=10)
+        with pytest.raises(TypeError):
+            rd.subset(np.int64(2))
+
+
+class TestRateDataSubtimeEdgeCases2:
+    """Additional edge case tests for RateData.subtime."""
+
+    def test_subtime_single_time_point_both_none(self):
+        """
+        subtime on a RateData with a single time point where start=None, end=None.
+
+        Tests:
+            (Test Case 1) Single-time-point RateData with default bounds returns
+                the single point since end = times[-1] + 1 includes it.
+        """
+        data = np.ones((2, 1))
+        times = np.array([5.0])
+        rd = RateData(data, times)
+        result = rd.subtime(None, None)
+        assert result.inst_Frate_data.shape == (2, 1)
+        np.testing.assert_array_equal(result.times, [5.0])
+
+    def test_subtime_non_uniform_times(self):
+        """
+        subtime with non-uniform time spacing.
+
+        Tests:
+            (Test Case 1) Non-uniform times with mask correctly selects
+                points in the range.
+        """
+        data = np.arange(8).reshape(2, 4).astype(float)
+        times = np.array([0.0, 1.0, 5.0, 10.0])
+        rd = RateData(data, times)
+        result = rd.subtime(0.5, 6.0)
+        assert result.inst_Frate_data.shape[1] == 2  # times 1.0, 5.0
+        np.testing.assert_array_equal(result.times, [1.0, 5.0])
+
+    def test_subtime_nan_start(self):
+        """
+        subtime with start=NaN produces empty mask and raises ValueError.
+
+        Tests:
+            (Test Case 1) NaN comparison with >= is always False, so mask is
+                all-False, triggering "No time points found" error.
+        """
+        rd = make_ratedata(n_units=2, n_times=10)
+        with pytest.raises(ValueError, match="No time points found"):
+            rd.subtime(float("nan"), 5.0)
+
+
+class TestRateDataSubtimeByIndexEdgeCases2:
+    """Additional edge case tests for RateData.subtime_by_index."""
+
+    def test_subtime_by_index_zero_column(self):
+        """
+        subtime_by_index on zero-column RateData raises ValueError.
+
+        Tests:
+            (Test Case 1) (U, 0) shape means len(times)=0, so any start_idx
+                is out of range.
+        """
+        data = np.empty((2, 0))
+        times = np.array([])
+        rd = RateData(data, times)
+        with pytest.raises(ValueError, match="start_idx .* out of range"):
+            rd.subtime_by_index(0, 1)
+
+
+class TestRateDataFramesEdgeCases2:
+    """Additional edge case tests for RateData.frames."""
+
+    def test_frames_length_zero(self):
+        """
+        frames with length=0 raises ValueError because step = 0 - 0 = 0.
+
+        Tests:
+            (Test Case 1) length=0 with overlap=0 triggers step <= 0 check.
+        """
+        rd = make_ratedata(n_units=2, n_times=10)
+        with pytest.raises(ValueError, match="overlap must be less than length"):
+            rd.frames(length=0, overlap=0)
+
+
+class TestRateDataGetPairwiseFrCorrEdgeCases2:
+    """Additional edge case tests for RateData.get_pairwise_fr_corr."""
+
+    def test_return_type_is_pairwise_comp_matrix(self):
+        """
+        get_pairwise_fr_corr returns PairwiseCompMatrix, not raw ndarray.
+
+        Tests:
+            (Test Case 1) Both returned values are PairwiseCompMatrix instances.
+            (Test Case 2) The .matrix attribute contains the actual numpy array.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        rd = make_ratedata(n_units=3, n_times=50)
+        corr, lag = rd.get_pairwise_fr_corr()
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert isinstance(lag, PairwiseCompMatrix)
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+
+    def test_max_lag_none(self):
+        """
+        get_pairwise_fr_corr with max_lag=None uses lag=0 internally.
+
+        Tests:
+            (Test Case 1) max_lag=None does not raise and all lags are 0.
+        """
+        rd = make_ratedata(n_units=2, n_times=50)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=None)
+        np.testing.assert_array_equal(lag.matrix, 0)
+
+
+class TestRateDataGetManifoldEdgeCases2:
+    """Additional edge case tests for RateData.get_manifold."""
+
+    def test_mixed_case_method(self):
+        """
+        get_manifold with mixed-case method string like "Pca" works.
+
+        Tests:
+            (Test Case 1) method="Pca" is uppercased to "PCA" and works.
+        """
+        rd = make_ratedata(n_units=3, n_times=50)
+        embedding, var_ratio, components = rd.get_manifold("Pca", n_components=2)
+        assert embedding.shape == (50, 2)
