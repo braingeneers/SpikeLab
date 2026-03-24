@@ -24,9 +24,13 @@ from spikedata.plot_utils import (
     plot_distribution,
     plot_pvalue_matrix,
     plot_scatter,
+    plot_scatter_with_marginals,
     plot_lines,
+    plot_percentile_bands,
     plot_burst_sensitivity,
     plot_aligned_slice_single_unit,
+    plot_manifold,
+    plot_spatial_network,
 )
 from spikedata.spikeslicestack import SpikeSliceStack
 
@@ -1908,6 +1912,420 @@ class TestPlotLines:
 
 
 # ---------------------------------------------------------------------------
+# plot_percentile_bands
+# ---------------------------------------------------------------------------
+
+
+class TestPlotPercentileBands:
+    """Tests for the plot_percentile_bands function."""
+
+    @staticmethod
+    def _make_data():
+        """Three groups with 20 units each, deterministic."""
+        rng = np.random.default_rng(99)
+        return {
+            "A": rng.uniform(1, 5, size=20),
+            "B": rng.uniform(2, 6, size=20),
+            "C": rng.uniform(0.5, 4, size=20),
+        }
+
+    def test_bands_style_returns_bands_and_summary(self):
+        """
+        Default bands style returns band and summary artists.
+
+        Tests:
+            (Test Case 1) Result dict contains 'bands' key with 3 entries.
+            (Test Case 2) Result dict contains 'summary' Line2D artist.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(ax, self._make_data())
+        assert "bands" in artists
+        assert len(artists["bands"]) == 3
+        assert artists["summary"].get_label() == "Mean"
+
+    def test_lines_style_returns_lines_and_summary(self):
+        """
+        Lines style draws one line per unit plus a summary line.
+
+        Tests:
+            (Test Case 1) Result dict contains 'lines' key with 20 entries.
+            (Test Case 2) Result dict contains 'summary' key.
+            (Test Case 3) 'bands' key is absent.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(ax, self._make_data(), style="lines")
+        assert "lines" in artists
+        assert len(artists["lines"]) == 20
+        assert "summary" in artists
+        assert "bands" not in artists
+
+    def test_invalid_style_raises(self):
+        """
+        An unknown style raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError raised with descriptive message.
+        """
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="style"):
+            plot_percentile_bands(ax, self._make_data(), style="histogram")
+
+    def test_invalid_summary_raises(self):
+        """
+        An unknown summary type raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError raised with descriptive message.
+        """
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="summary"):
+            plot_percentile_bands(ax, self._make_data(), summary="mode")
+
+    def test_dict_input_labels(self):
+        """
+        Dict input uses dict keys as x-tick labels.
+
+        Tests:
+            (Test Case 1) X-tick labels match dict keys.
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data())
+        tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+        assert tick_labels == ["A", "B", "C"]
+
+    def test_list_input_with_labels(self):
+        """
+        List input uses provided labels for x-ticks.
+
+        Tests:
+            (Test Case 1) X-tick labels match provided labels.
+        """
+        fig, ax = plt.subplots()
+        data = [np.array([1, 2, 3]), np.array([4, 5, 6])]
+        plot_percentile_bands(ax, data, labels=["X", "Y"])
+        tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+        assert tick_labels == ["X", "Y"]
+
+    def test_list_input_default_labels(self):
+        """
+        List input without labels uses integer indices.
+
+        Tests:
+            (Test Case 1) X-tick labels are '0', '1', '2'.
+        """
+        fig, ax = plt.subplots()
+        data = [np.array([1, 2]), np.array([3, 4]), np.array([5, 6])]
+        plot_percentile_bands(ax, data)
+        tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+        assert tick_labels == ["0", "1", "2"]
+
+    def test_normalize_excludes_invalid_baseline(self):
+        """
+        Normalization excludes units with zero or negative baseline values.
+
+        Tests:
+            (Test Case 1) Units with zero baseline are excluded (3 units
+                from 5 survive).
+            (Test Case 2) Summary line has 3 x-values matching 3 groups.
+        """
+        fig, ax = plt.subplots()
+        data = {
+            "D0": np.array([0.0, -1.0, 2.0, 3.0, 4.0]),
+            "D1": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+            "D2": np.array([2.0, 3.0, 4.0, 5.0, 6.0]),
+        }
+        artists = plot_percentile_bands(ax, data, normalize=True)
+        # Summary line should have 3 x-points
+        assert len(artists["summary"].get_ydata()) == 3
+
+    def test_normalize_values_are_symmetric(self):
+        """
+        Normalized values are bounded in [-1, 1] for non-negative inputs.
+
+        Tests:
+            (Test Case 1) Summary y-values are within [-1, 1].
+        """
+        fig, ax = plt.subplots()
+        rng = np.random.default_rng(42)
+        data = {
+            "D0": rng.uniform(1, 10, size=50),
+            "D1": rng.uniform(0, 20, size=50),
+        }
+        artists = plot_percentile_bands(ax, data, normalize=True)
+        y = artists["summary"].get_ydata()
+        assert np.all(y >= -1) and np.all(y <= 1)
+
+    def test_normalize_baseline_is_zero(self):
+        """
+        The first group's normalized value is always zero.
+
+        Tests:
+            (Test Case 1) Summary y-value at x=0 is 0.0.
+        """
+        fig, ax = plt.subplots()
+        data = {
+            "D0": np.array([2.0, 4.0, 6.0]),
+            "D1": np.array([4.0, 8.0, 12.0]),
+        }
+        artists = plot_percentile_bands(ax, data, normalize=True)
+        y = artists["summary"].get_ydata()
+        assert y[0] == pytest.approx(0.0)
+
+    def test_zero_line_shown_when_normalized(self):
+        """
+        A dashed zero reference line is drawn when normalize=True.
+
+        Tests:
+            (Test Case 1) At least one horizontal dashed line at y=0.
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), normalize=True)
+        hlines = [
+            l
+            for l in ax.get_lines()
+            if hasattr(l, "get_ydata")
+            and len(l.get_ydata()) == 2
+            and np.all(np.array(l.get_ydata()) == 0)
+        ]
+        assert len(hlines) >= 1
+
+    def test_zero_line_not_shown_without_normalize(self):
+        """
+        No zero reference line without normalization.
+
+        Tests:
+            (Test Case 1) No horizontal lines at y=0 (besides data lines).
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), normalize=False)
+        hlines = [
+            l
+            for l in ax.get_lines()
+            if hasattr(l, "get_ydata")
+            and len(l.get_ydata()) == 2
+            and np.all(np.array(l.get_ydata()) == 0)
+        ]
+        assert len(hlines) == 0
+
+    def test_median_summary(self):
+        """
+        Median summary line is labelled 'Median'.
+
+        Tests:
+            (Test Case 1) Summary line label is 'Median'.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(ax, self._make_data(), summary="median")
+        assert artists["summary"].get_label() == "Median"
+
+    def test_axis_labels(self):
+        """
+        xlabel and ylabel are applied.
+
+        Tests:
+            (Test Case 1) Axis labels match provided strings.
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), xlabel="Condition", ylabel="Value")
+        assert ax.get_xlabel() == "Condition"
+        assert ax.get_ylabel() == "Value"
+
+    def test_ylim_range_symmetric(self):
+        """
+        ylim_range sets symmetric y-axis limits.
+
+        Tests:
+            (Test Case 1) y-limits are (-0.5, 0.5).
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), normalize=True, ylim_range=0.5)
+        assert ax.get_ylim() == pytest.approx((-0.5, 0.5))
+
+    def test_custom_bands(self):
+        """
+        Custom band definitions produce the correct number of fills.
+
+        Tests:
+            (Test Case 1) Two bands when bands=[(10, 90), (25, 75)].
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(
+            ax, self._make_data(), bands=[(10, 90), (25, 75)]
+        )
+        assert len(artists["bands"]) == 2
+
+    def test_custom_band_alphas(self):
+        """
+        Custom band_alphas are applied to fill artists.
+
+        Tests:
+            (Test Case 1) Fill alphas match provided values.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(
+            ax,
+            self._make_data(),
+            bands=[(5, 95), (25, 75)],
+            band_alphas=[0.1, 0.5],
+        )
+        assert artists["bands"][0].get_alpha() == pytest.approx(0.1)
+        assert artists["bands"][1].get_alpha() == pytest.approx(0.5)
+
+    def test_show_legend_bands(self):
+        """
+        Legend is shown in bands mode with band labels and summary.
+
+        Tests:
+            (Test Case 1) Legend has 4 entries (1 summary + 3 bands).
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), show_legend=True)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) == 4
+
+    def test_show_legend_lines(self):
+        """
+        Legend in lines mode shows only the summary line.
+
+        Tests:
+            (Test Case 1) Legend has 1 entry.
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), style="lines", show_legend=True)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.get_texts()) == 1
+
+    def test_lines_style_line_properties(self):
+        """
+        Line style respects line_color, line_alpha, and line_width.
+
+        Tests:
+            (Test Case 1) Line color, alpha, and width match provided values.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(
+            ax,
+            self._make_data(),
+            style="lines",
+            line_color="red",
+            line_alpha=0.5,
+            line_width=2.0,
+        )
+        ln = artists["lines"][0]
+        assert ln.get_color() == "red"
+        assert ln.get_alpha() == pytest.approx(0.5)
+        assert ln.get_linewidth() == pytest.approx(2.0)
+
+    def test_summary_line_properties(self):
+        """
+        Summary line respects summary_color and summary_linewidth.
+
+        Tests:
+            (Test Case 1) Summary color and linewidth match provided values.
+        """
+        fig, ax = plt.subplots()
+        artists = plot_percentile_bands(
+            ax,
+            self._make_data(),
+            summary_color="blue",
+            summary_linewidth=3.0,
+        )
+        assert artists["summary"].get_color() == "blue"
+        assert artists["summary"].get_linewidth() == pytest.approx(3.0)
+
+    def test_nan_values_excluded(self):
+        """
+        NaN values are excluded across all groups.
+
+        Tests:
+            (Test Case 1) Unit with NaN in any group is excluded; summary
+                line reflects 2 surviving units.
+        """
+        fig, ax = plt.subplots()
+        data = {
+            "A": np.array([1.0, np.nan, 3.0]),
+            "B": np.array([2.0, 4.0, 5.0]),
+        }
+        artists = plot_percentile_bands(ax, data)
+        # 2 valid units → summary computed from 2 values
+        y = artists["summary"].get_ydata()
+        assert len(y) == 2
+        # Mean of valid units at group A: (1+3)/2 = 2.0
+        assert y[0] == pytest.approx(2.0)
+
+    def test_font_size_applied(self):
+        """
+        Custom font_size is applied to tick labels.
+
+        Tests:
+            (Test Case 1) X-tick label font sizes match provided value.
+        """
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, self._make_data(), font_size=14)
+        for label in ax.get_xticklabels():
+            assert label.get_fontsize() == pytest.approx(14)
+
+
+class TestPlotPercentileBandsEdgeCases:
+    """Edge case tests for plot_percentile_bands."""
+
+    def test_single_unit(self):
+        """
+        Single unit produces bands with zero width and a flat summary.
+
+        Tests:
+            (Test Case 1) No error raised.
+            (Test Case 2) Summary line has correct length.
+        """
+        fig, ax = plt.subplots()
+        data = {"A": np.array([2.0]), "B": np.array([4.0])}
+        artists = plot_percentile_bands(ax, data)
+        assert len(artists["summary"].get_ydata()) == 2
+
+    def test_all_nan_group(self):
+        """
+        All NaN in one group excludes all units; summary is empty.
+
+        Tests:
+            (Test Case 1) Summary line has 2 x-values but values are NaN
+                (0 valid units → nanmean of empty is NaN).
+        """
+        fig, ax = plt.subplots()
+        data = {"A": np.array([np.nan, np.nan]), "B": np.array([1.0, 2.0])}
+        artists = plot_percentile_bands(ax, data)
+        # 0 valid units
+        assert len(artists["summary"].get_ydata()) == 2
+
+    def test_normalize_all_zero_baseline(self):
+        """
+        Normalization with all-zero baseline excludes all units.
+
+        Tests:
+            (Test Case 1) No error; summary has correct number of points.
+        """
+        fig, ax = plt.subplots()
+        data = {"D0": np.array([0.0, 0.0]), "D1": np.array([1.0, 2.0])}
+        artists = plot_percentile_bands(ax, data, normalize=True)
+        assert len(artists["summary"].get_ydata()) == 2
+
+    def test_two_groups(self):
+        """
+        Minimum useful case: two groups.
+
+        Tests:
+            (Test Case 1) Summary has 2 points.
+            (Test Case 2) X-limits are (0, 1).
+        """
+        fig, ax = plt.subplots()
+        data = {"Pre": np.array([1, 2, 3.0]), "Post": np.array([4, 5, 6.0])}
+        artists = plot_percentile_bands(ax, data)
+        assert len(artists["summary"].get_ydata()) == 2
+        assert ax.get_xlim() == pytest.approx((0, 1))
+
+
+# ---------------------------------------------------------------------------
 # plot_scatter — group mode tests
 # ---------------------------------------------------------------------------
 
@@ -2062,6 +2480,378 @@ class TestPlotScatterGroups:
         )
         assert len(sc[0].get_offsets()) == 3
         assert len(sc[1].get_offsets()) == 2
+
+
+# ---------------------------------------------------------------------------
+# plot_scatter density mode tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotScatterDensity:
+    """Tests for the color_vals='density' mode of plot_scatter."""
+
+    def test_density_creates_scatter(self):
+        """
+        color_vals='density' produces a scatter plot colored by KDE density.
+
+        Tests:
+            (Test Case 1) Returns a PathCollection.
+            (Test Case 2) Scatter has the correct number of points.
+        """
+        fig, ax = plt.subplots()
+        rng = np.random.default_rng(42)
+        x = rng.normal(size=100)
+        y = rng.normal(size=100)
+        sc = plot_scatter(ax, x, y, color_vals="density")
+        assert len(sc.get_offsets()) == 100
+
+    def test_density_with_nan_values(self):
+        """
+        NaN values are excluded when using density coloring.
+
+        Tests:
+            (Test Case 1) Points with NaN x or y are removed from the scatter.
+        """
+        fig, ax = plt.subplots()
+        rng = np.random.default_rng(42)
+        x = np.concatenate([rng.normal(size=50), [np.nan, np.nan]])
+        y = np.concatenate([rng.normal(size=50), [np.nan, np.nan]])
+        # Also add a NaN in the middle
+        x[10] = np.nan
+        sc = plot_scatter(ax, x, y, color_vals="density")
+        n_valid = np.sum(np.isfinite(x) & np.isfinite(y))
+        assert len(sc.get_offsets()) == n_valid
+
+    def test_density_sorts_by_density(self):
+        """
+        Points are sorted by density so dense regions render on top.
+
+        Tests:
+            (Test Case 1) Color array is monotonically non-decreasing.
+        """
+        fig, ax = plt.subplots()
+        rng = np.random.default_rng(42)
+        x = rng.normal(size=200)
+        y = rng.normal(size=200)
+        sc = plot_scatter(ax, x, y, color_vals="density", show_colorbar=False)
+        colors = sc.get_array()
+        assert np.all(np.diff(colors) >= 0)
+
+
+# ---------------------------------------------------------------------------
+# plot_scatter_with_marginals tests
+# ---------------------------------------------------------------------------
+
+
+class TestPlotScatterWithMarginals:
+    """Tests for the plot_scatter_with_marginals function."""
+
+    def test_creates_four_axes(self):
+        """
+        Creates scatter, histx, histy axes and a hidden corner axes.
+
+        Tests:
+            (Test Case 1) Returns 4 objects (ax_scatter, ax_histx, ax_histy, sc).
+            (Test Case 2) Figure has at least 4 axes.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        result = plot_scatter_with_marginals(gs[0], fig, [1, 2, 3], [1, 2, 3])
+        assert len(result) == 4
+        ax_scatter, ax_histx, ax_histy, sc = result
+        assert len(fig.axes) >= 4
+
+    def test_marginals_share_axes(self):
+        """
+        Marginal histograms share axes with the scatter.
+
+        Tests:
+            (Test Case 1) histx shares x-axis with scatter.
+            (Test Case 2) histy shares y-axis with scatter.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        ax_scatter, ax_histx, ax_histy, _ = plot_scatter_with_marginals(
+            gs[0], fig, [1, 2, 3], [1, 2, 3]
+        )
+        assert ax_histx.get_xlim() == ax_scatter.get_xlim()
+        assert ax_histy.get_ylim() == ax_scatter.get_ylim()
+
+    def test_show_zero_lines(self):
+        """
+        show_zero_lines=True draws reference lines on marginal axes.
+
+        Tests:
+            (Test Case 1) histx has a vertical line at x=0.
+            (Test Case 2) histy has a horizontal line at y=0.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        _, ax_histx, ax_histy, _ = plot_scatter_with_marginals(
+            gs[0], fig, [-1, 0, 1], [-1, 0, 1], show_zero_lines=True
+        )
+        # Check for vertical line on histx
+        assert any(line.get_xdata()[0] == 0 for line in ax_histx.get_lines())
+        # Check for horizontal line on histy
+        assert any(line.get_ydata()[0] == 0 for line in ax_histy.get_lines())
+
+    def test_forwards_kwargs_to_scatter(self):
+        """
+        Keyword arguments are forwarded to plot_scatter.
+
+        Tests:
+            (Test Case 1) show_identity=True draws an identity line on scatter.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        ax_scatter, _, _, _ = plot_scatter_with_marginals(
+            gs[0], fig, [1, 2, 3], [1, 2, 3], show_identity=True
+        )
+        assert len(ax_scatter.lines) >= 1
+
+    def test_density_with_marginals(self):
+        """
+        color_vals='density' works inside plot_scatter_with_marginals.
+
+        Tests:
+            (Test Case 1) Scatter is created with density coloring.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        rng = np.random.default_rng(42)
+        x = rng.normal(size=50)
+        y = rng.normal(size=50)
+        ax_scatter, _, _, sc = plot_scatter_with_marginals(
+            gs[0], fig, x, y, color_vals="density", show_colorbar=False
+        )
+        assert len(sc.get_offsets()) == 50
+
+    def test_custom_bins_and_color(self):
+        """
+        marginal_bins and marginal_color are applied.
+
+        Tests:
+            (Test Case 1) Histograms use the specified number of bins.
+        """
+        import matplotlib.gridspec as gridspec
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        _, ax_histx, _, _ = plot_scatter_with_marginals(
+            gs[0],
+            fig,
+            np.arange(100, dtype=float),
+            np.arange(100, dtype=float),
+            marginal_bins=20,
+            marginal_color="red",
+        )
+        # Check histx has patches (histogram bars)
+        assert len(ax_histx.patches) > 0
+
+
+# ---------------------------------------------------------------------------
+# plot_manifold
+# ---------------------------------------------------------------------------
+
+
+class TestPlotManifold:
+    """Tests for the plot_manifold function."""
+
+    @staticmethod
+    def _make_embedding(n=100, d=3):
+        rng = np.random.default_rng(42)
+        return rng.standard_normal((n, d))
+
+    def test_uniform_coloring_returns_pathcollection(self):
+        """
+        Default call with no color_vals or groups returns a single PathCollection.
+
+        Tests:
+            (Test Case 1) Return is a PathCollection (not a list).
+            (Test Case 2) Scatter has correct number of points.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        sc = plot_manifold(ax, emb, show_colorbar=False)
+        assert hasattr(sc, "get_offsets")
+        assert len(sc.get_offsets()) == 100
+
+    def test_continuous_color_vals(self):
+        """
+        Continuous color_vals produces a colormap-scaled scatter.
+
+        Tests:
+            (Test Case 1) Returns a single PathCollection.
+            (Test Case 2) Scatter array matches provided values.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        vals = np.arange(100, dtype=float)
+        sc = plot_manifold(ax, emb, color_vals=vals, show_colorbar=False)
+        assert hasattr(sc, "get_offsets")
+        assert len(sc.get_offsets()) == 100
+
+    def test_group_coloring(self):
+        """
+        Discrete group coloring returns a list of PathCollections.
+
+        Tests:
+            (Test Case 1) Returns a list with one entry per unique group.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        groups = np.array([0] * 50 + [1] * 50)
+        sc = plot_manifold(
+            ax,
+            emb,
+            groups=groups,
+            group_labels=["A", "B"],
+            group_colors=["red", "blue"],
+        )
+        assert isinstance(sc, list)
+        assert len(sc) == 2
+
+    def test_bg_mask_splits_points(self):
+        """
+        Background mask renders background and foreground points separately.
+
+        Tests:
+            (Test Case 1) Foreground scatter has 60 points (40 masked as bg).
+            (Test Case 2) Axes has at least 2 collections (bg + fg).
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        bg = np.array([True] * 40 + [False] * 60)
+        sc = plot_manifold(ax, emb, bg_mask=bg, show_colorbar=False)
+        assert len(sc.get_offsets()) == 60
+        assert len(ax.collections) >= 2
+
+    def test_bg_mask_with_groups(self):
+        """
+        Background mask works with group coloring on foreground points.
+
+        Tests:
+            (Test Case 1) Returns list of scatter artists for foreground groups.
+            (Test Case 2) Total foreground points matches non-bg count.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        bg = np.array([True] * 30 + [False] * 70)
+        groups = np.array([0] * 50 + [1] * 50)
+        sc = plot_manifold(
+            ax,
+            emb,
+            bg_mask=bg,
+            groups=groups,
+            group_labels=["X", "Y"],
+            group_colors=["red", "blue"],
+        )
+        assert isinstance(sc, list)
+        total_fg = sum(len(s.get_offsets()) for s in sc)
+        assert total_fg == 70
+
+    def test_bg_mask_with_color_vals(self):
+        """
+        Background mask works with continuous color values on foreground.
+
+        Tests:
+            (Test Case 1) Foreground scatter has correct number of points.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        bg = np.array([True] * 20 + [False] * 80)
+        vals = np.arange(100, dtype=float)
+        sc = plot_manifold(ax, emb, bg_mask=bg, color_vals=vals, show_colorbar=False)
+        assert len(sc.get_offsets()) == 80
+
+    def test_var_explained_auto_labels(self):
+        """
+        var_explained generates automatic PC axis labels.
+
+        Tests:
+            (Test Case 1) X-label contains "PC1" and a percentage.
+            (Test Case 2) Y-label contains "PC2" and a percentage.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        var = np.array([0.45, 0.25, 0.10])
+        plot_manifold(ax, emb, var_explained=var, show_colorbar=False)
+        assert "PC1" in ax.get_xlabel()
+        assert "45" in ax.get_xlabel()
+        assert "PC2" in ax.get_ylabel()
+        assert "25" in ax.get_ylabel()
+
+    def test_explicit_labels_override_var_explained(self):
+        """
+        Explicit xlabel/ylabel override auto-labels from var_explained.
+
+        Tests:
+            (Test Case 1) Labels match explicitly provided strings.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding()
+        var = np.array([0.45, 0.25, 0.10])
+        plot_manifold(
+            ax,
+            emb,
+            var_explained=var,
+            xlabel="Custom X",
+            ylabel="Custom Y",
+            show_colorbar=False,
+        )
+        assert ax.get_xlabel() == "Custom X"
+        assert ax.get_ylabel() == "Custom Y"
+
+    def test_pc_x_pc_y_selects_columns(self):
+        """
+        pc_x and pc_y select which embedding columns to plot.
+
+        Tests:
+            (Test Case 1) Scatter x-data matches column 2 of embedding.
+            (Test Case 2) Scatter y-data matches column 0 of embedding.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding(n=10, d=3)
+        sc = plot_manifold(ax, emb, pc_x=2, pc_y=0, show_colorbar=False)
+        offsets = sc.get_offsets()
+        np.testing.assert_array_almost_equal(offsets[:, 0], emb[:, 2])
+        np.testing.assert_array_almost_equal(offsets[:, 1], emb[:, 0])
+
+    def test_no_bg_mask_all_foreground(self):
+        """
+        Without bg_mask, all points are foreground.
+
+        Tests:
+            (Test Case 1) Only one collection in axes (foreground scatter).
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding(n=20)
+        sc = plot_manifold(ax, emb, show_colorbar=False)
+        assert len(sc.get_offsets()) == 20
+
+    def test_all_background_empty_foreground(self):
+        """
+        When all points are background, foreground scatter is empty.
+
+        Tests:
+            (Test Case 1) No error raised.
+            (Test Case 2) Foreground scatter has 0 points.
+        """
+        fig, ax = plt.subplots()
+        emb = self._make_embedding(n=10)
+        bg = np.ones(10, dtype=bool)
+        sc = plot_manifold(ax, emb, bg_mask=bg, show_colorbar=False)
+        assert len(sc.get_offsets()) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -2466,3 +3256,276 @@ class TestPlotAlignedPopRate:
         assert isinstance(avg, np.ndarray)
         # Mean line + 2 edge markers
         assert len(ax.lines) >= 3
+
+
+# ---------------------------------------------------------------------------
+# plot_spatial_network tests
+# ---------------------------------------------------------------------------
+
+
+def _make_positions_and_matrix(n=10, seed=42):
+    """Create test positions and correlation matrix."""
+    rng = np.random.default_rng(seed)
+    positions = rng.uniform(0, 4000, size=(n, 2))
+    mat = rng.uniform(0, 1, size=(n, n))
+    mat = (mat + mat.T) / 2
+    np.fill_diagonal(mat, 1.0)
+    return positions, mat
+
+
+class TestPlotSpatialNetwork:
+    """Tests for the plot_spatial_network standalone function."""
+
+    def test_returns_scatter(self):
+        """
+        Basic call returns a scatter artist.
+
+        Tests:
+            (Test Case 1) Return type is PathCollection.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        sc = plot_spatial_network(ax, positions, mat, edge_threshold=0.5)
+        assert sc is not None
+
+    def test_edge_threshold_mode(self):
+        """
+        Edges are drawn for pairs above the threshold.
+
+        Tests:
+            (Test Case 1) Lines are present on the axes when threshold is met.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, edge_threshold=0.3)
+        assert len(ax.lines) > 0
+
+    def test_top_pct_mode(self):
+        """
+        Edges are drawn for the top percentage of pairs.
+
+        Tests:
+            (Test Case 1) Lines are present with top_pct=10.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, top_pct=10.0)
+        assert len(ax.lines) > 0
+
+    def test_high_threshold_no_edges(self):
+        """
+        A threshold above all values produces no edge lines.
+
+        Tests:
+            (Test Case 1) No lines drawn (only scale bar).
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, edge_threshold=2.0, scale_bar_um=0)
+        assert len(ax.lines) == 0
+
+    def test_both_threshold_and_pct_raises(self):
+        """
+        Providing both edge_threshold and top_pct raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError on conflicting parameters.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="only one"):
+            plot_spatial_network(ax, positions, mat, edge_threshold=0.5, top_pct=1.0)
+
+    def test_neither_threshold_nor_pct_raises(self):
+        """
+        Providing neither edge_threshold nor top_pct raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError when no edge selection is specified.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="either"):
+            plot_spatial_network(ax, positions, mat)
+
+    def test_shape_mismatch_raises(self):
+        """
+        Mismatched positions and matrix dimensions raise ValueError.
+
+        Tests:
+            (Test Case 1) ValueError on shape mismatch.
+        """
+        positions = np.zeros((5, 2))
+        mat = np.zeros((10, 10))
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="does not match"):
+            plot_spatial_network(ax, positions, mat, edge_threshold=0.5)
+
+    def test_scale_bar_drawn(self):
+        """
+        Scale bar is drawn when scale_bar_um is set.
+
+        Tests:
+            (Test Case 1) A line is present for the scale bar.
+            (Test Case 2) A text annotation is present.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, edge_threshold=2.0, scale_bar_um=500)
+        # Scale bar line
+        assert len(ax.lines) == 1
+        # Scale bar text
+        assert any("500" in t.get_text() for t in ax.texts)
+
+    def test_no_scale_bar(self):
+        """
+        No scale bar when scale_bar_um is 0.
+
+        Tests:
+            (Test Case 1) No lines or texts when scale bar disabled and no edges.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, edge_threshold=2.0, scale_bar_um=0)
+        assert len(ax.lines) == 0
+        assert len(ax.texts) == 0
+
+    def test_node_size_range(self):
+        """
+        Custom node_size_range affects scatter marker sizes.
+
+        Tests:
+            (Test Case 1) Scatter sizes fall within the specified range.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        sc = plot_spatial_network(
+            ax,
+            positions,
+            mat,
+            edge_threshold=2.0,
+            node_size_range=(10, 100),
+        )
+        sizes = sc.get_sizes()
+        assert sizes.min() >= 10
+        assert sizes.max() <= 100
+
+    def test_nan_in_matrix(self):
+        """
+        NaN values in the matrix are handled gracefully.
+
+        Tests:
+            (Test Case 1) No crash when matrix contains NaN.
+        """
+        positions, mat = _make_positions_and_matrix()
+        mat[0, 1] = np.nan
+        mat[1, 0] = np.nan
+        fig, ax = plt.subplots()
+        sc = plot_spatial_network(ax, positions, mat, edge_threshold=0.5)
+        assert sc is not None
+
+    def test_equal_aspect(self):
+        """
+        Axes have equal aspect ratio.
+
+        Tests:
+            (Test Case 1) Aspect ratio is 'equal'.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(ax, positions, mat, edge_threshold=0.5)
+        assert ax.get_aspect() in ("equal", 1.0)
+
+    def test_custom_edge_color_and_linewidth(self):
+        """
+        Custom edge_color and edge_linewidth are applied.
+
+        Tests:
+            (Test Case 1) Edge lines use the specified color and width.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        plot_spatial_network(
+            ax,
+            positions,
+            mat,
+            edge_threshold=0.3,
+            edge_color="blue",
+            edge_linewidth=2.0,
+            scale_bar_um=0,
+        )
+        for line in ax.lines:
+            assert line.get_color() == "blue"
+            assert line.get_linewidth() == 2.0
+
+    def test_node_outline_matches_fill(self):
+        """
+        Node marker outline colour matches the fill colour.
+
+        Tests:
+            (Test Case 1) Edge colors equal face colors for all markers.
+        """
+        positions, mat = _make_positions_and_matrix()
+        fig, ax = plt.subplots()
+        sc = plot_spatial_network(ax, positions, mat, edge_threshold=2.0)
+        face = sc.get_facecolors()
+        edge = sc.get_edgecolors()
+        np.testing.assert_array_equal(face, edge)
+
+
+class TestPlotSpatialNetworkWrappers:
+    """Tests for SpikeData and PairwiseCompMatrix wrappers."""
+
+    def test_spikedata_wrapper(self):
+        """
+        SpikeData.plot_spatial_network extracts positions and plots.
+
+        Tests:
+            (Test Case 1) Returns scatter when neuron_attributes has x/y.
+        """
+        sd = _make_sd(n_units=5)
+        sd.neuron_attributes = [
+            {"x": float(i * 100), "y": float(i * 50)} for i in range(5)
+        ]
+        mat = np.eye(5) + np.random.default_rng(42).uniform(0, 0.5, (5, 5))
+        mat = (mat + mat.T) / 2
+        fig, ax = plt.subplots()
+        sc = sd.plot_spatial_network(ax, mat, edge_threshold=0.3)
+        assert sc is not None
+
+    def test_spikedata_no_neuron_attributes_raises(self):
+        """
+        SpikeData.plot_spatial_network raises when neuron_attributes is None.
+
+        Tests:
+            (Test Case 1) ValueError with clear message.
+        """
+        sd = _make_sd(n_units=5)
+        sd.neuron_attributes = None
+        mat = np.eye(5)
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="neuron_attributes"):
+            sd.plot_spatial_network(ax, mat, edge_threshold=0.5)
+
+    def test_pairwise_wrapper(self):
+        """
+        PairwiseCompMatrix.plot_spatial_network uses self.matrix.
+
+        Tests:
+            (Test Case 1) Returns scatter.
+        """
+        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+
+        positions = np.array([[0, 0], [100, 0], [0, 100], [100, 100]], dtype=float)
+        mat = np.array(
+            [
+                [1.0, 0.8, 0.3, 0.2],
+                [0.8, 1.0, 0.4, 0.1],
+                [0.3, 0.4, 1.0, 0.9],
+                [0.2, 0.1, 0.9, 1.0],
+            ]
+        )
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        sc = pcm.plot_spatial_network(ax, positions, edge_threshold=0.7)
+        assert sc is not None

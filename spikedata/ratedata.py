@@ -320,6 +320,12 @@ class RateData:
             (T, n_components) and a trustworthiness score (float, 0 to 1).
         (embedding, labels, trustworthiness) (tuple): If method="UMAP", use_graph_communities=True,
             and return_labels=True, returns embedding, community labels, and trustworthiness.
+
+        Notes:
+            - To visualise the resulting embedding, use
+              :func:`~SpikeLab.spikedata.plot_utils.plot_manifold`. It
+              accepts the embedding array directly and supports background
+              masks, continuous colour values, and discrete group colouring.
         """
         # Shape is (U, T); treat each time bin as a sample.
         data_T = self.inst_Frate_data.T  # (T, U)

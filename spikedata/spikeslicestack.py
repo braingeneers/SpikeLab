@@ -55,6 +55,15 @@ class SpikeSliceStack:
                                    concatenated end-to-end.
         neuron_attributes (list or None): List of attribute dicts, one per unit.
 
+    Shared parameter:
+        drop_slice_attributes (bool): If True (default), neuron_attributes are removed
+            from individual SpikeData slices after construction. The shared copy is
+            stored at ``self.neuron_attributes``. This avoids duplicating large
+            per-unit data (e.g. waveform templates) across every slice, which can
+            cause massive memory and disk usage. Set to False to keep per-slice
+            attributes, but beware that this can result in very large file sizes
+            when saving to HDF5 (attributes are serialized once per slice).
+
     Instance Variables:
     --------
     self.spike_stack (list): List of SpikeData objects, one per slice. Spike times
@@ -73,7 +82,10 @@ class SpikeSliceStack:
                                  Example: [(100, 350), (500, 750), (1000, 1250)]
     self.N (int): Number of units.
     self.neuron_attributes (list or None): List of attribute dicts, one per unit. None if not
-                                           provided.
+                                           provided. When ``drop_slice_attributes=True``
+                                           (default), this is the only copy — individual
+                                           slices in ``spike_stack`` will have
+                                           ``neuron_attributes = None``.
     """
 
     def __init__(
@@ -84,6 +96,7 @@ class SpikeSliceStack:
         time_bounds=None,
         spike_stack=None,
         neuron_attributes=None,
+        drop_slice_attributes=True,
     ):
         if data_obj is None and spike_stack is None:
             raise TypeError(
@@ -206,6 +219,12 @@ class SpikeSliceStack:
                     f"neuron_attributes has {len(self.neuron_attributes)} items "
                     f"but spike_stack has {self.N} units"
                 )
+
+        # Strip per-slice neuron_attributes to avoid duplicating large data
+        # (e.g. waveform templates) across every slice.
+        if drop_slice_attributes:
+            for sd in self.spike_stack:
+                sd.neuron_attributes = None
 
     def subslice(self, slices):
         """

@@ -6,8 +6,10 @@ objects, ``plot_heatmap`` for standalone 2-D heatmaps, ``plot_distribution``
 for comparing per-unit metrics across conditions, ``plot_pvalue_matrix`` for
 significance heatmaps (standalone or as inset), ``plot_scatter`` for pairwise
 comparisons with optional regression, ``plot_lines`` for multi-trace line
-plots, ``plot_burst_sensitivity`` for threshold sensitivity curves, and
-``plot_aligned_slice_single_unit`` for event-aligned single-unit raster plots.
+plots, ``plot_burst_sensitivity`` for threshold sensitivity curves,
+``plot_scatter_with_marginals`` for scatter plots with marginal histograms,
+``plot_aligned_slice_single_unit`` for event-aligned single-unit raster plots,
+and ``plot_spatial_network`` for MEA spatial network visualisation.
 
 Requires ``matplotlib`` (optional dependency).
 """
@@ -458,8 +460,10 @@ def plot_scatter(
         y (np.ndarray): Y-axis values.
         xlabel (str): X-axis label.
         ylabel (str): Y-axis label.
-        color_vals (np.ndarray or None): Per-point values for continuous color
-            mapping. If None and ``groups`` is also None, all points are drawn
+        color_vals (np.ndarray or str or None): Per-point values for continuous
+            color mapping. Pass the string ``"density"`` to auto-compute KDE
+            density and sort points so dense regions render on top (requires
+            scipy). If None and ``groups`` is also None, all points are drawn
             in a uniform colour.
         color_label (str): Colorbar label (continuous mode only).
         cmap (str): Matplotlib colormap name (continuous mode only).
@@ -537,7 +541,24 @@ def plot_scatter(
         # --- Continuous / uniform colouring -------------------------------
         scatter_kw = dict(s=marker_size, alpha=alpha, edgecolors="none", zorder=2)
         if color_vals is not None:
-            color_vals = np.asarray(color_vals, dtype=float).ravel()
+            if isinstance(color_vals, str) and color_vals == "density":
+                try:
+                    from scipy.stats import gaussian_kde
+                except ImportError as e:
+                    raise ImportError(
+                        "color_vals='density' requires scipy. "
+                        "Install with: pip install scipy"
+                    ) from e
+                valid = np.isfinite(x) & np.isfinite(y)
+                xy = np.vstack([x[valid], y[valid]])
+                kde = gaussian_kde(xy)
+                density = kde(xy)
+                sort_idx = density.argsort()
+                x = x[valid][sort_idx]
+                y = y[valid][sort_idx]
+                color_vals = density[sort_idx]
+            else:
+                color_vals = np.asarray(color_vals, dtype=float).ravel()
             scatter_kw.update(c=color_vals, cmap=cmap)
             if vmin is not None:
                 scatter_kw["vmin"] = vmin
@@ -588,6 +609,274 @@ def plot_scatter(
     # --- Axes formatting --------------------------------------------------
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return sc
+
+
+# ---------------------------------------------------------------------------
+# plot_scatter_with_marginals
+# ---------------------------------------------------------------------------
+
+
+def plot_scatter_with_marginals(
+    gs_slot,
+    fig,
+    x,
+    y,
+    xlabel="",
+    ylabel="",
+    marginal_bins=60,
+    marginal_color="0.4",
+    show_zero_lines=False,
+    height_ratios=None,
+    width_ratios=None,
+    **scatter_kwargs,
+):
+    """
+    Scatter plot with marginal histograms on the top and right edges.
+
+    Creates a 2x2 sub-GridSpec inside *gs_slot* (top-left: x histogram,
+    bottom-left: scatter, bottom-right: y histogram, top-right: empty).
+    All scatter options are forwarded to :func:`plot_scatter`.
+
+    Parameters:
+        gs_slot: A GridSpec slot (e.g. ``gs[0]``) to place the sub-layout in.
+        fig (matplotlib.Figure): Parent figure.
+        x (np.ndarray): X-axis values.
+        y (np.ndarray): Y-axis values.
+        xlabel (str): X-axis label for the scatter.
+        ylabel (str): Y-axis label for the scatter.
+        marginal_bins (int): Number of histogram bins.
+        marginal_color (str): Histogram bar colour.
+        show_zero_lines (bool): Draw vertical/horizontal zero reference lines
+            on the marginal histograms.
+        height_ratios (list or None): ``[hist, scatter]`` height ratios.
+            Default ``[1, 4]``.
+        width_ratios (list or None): ``[scatter, hist]`` width ratios.
+            Default ``[4, 1]``.
+        **scatter_kwargs: Additional keyword arguments forwarded to
+            :func:`plot_scatter` (e.g. ``color_vals``, ``show_identity``,
+            ``marker_size``, ``cmap``).
+
+    Returns:
+        ax_scatter (matplotlib.axes.Axes): The main scatter axes.
+        ax_histx (matplotlib.axes.Axes): Top marginal histogram axes.
+        ax_histy (matplotlib.axes.Axes): Right marginal histogram axes.
+        sc: Return value from :func:`plot_scatter`.
+    """
+    plt, _ = _import_matplotlib()
+    from matplotlib.gridspec import GridSpecFromSubplotSpec
+
+    if height_ratios is None:
+        height_ratios = [1, 4]
+    if width_ratios is None:
+        width_ratios = [4, 1]
+
+    inner = GridSpecFromSubplotSpec(
+        2,
+        2,
+        subplot_spec=gs_slot,
+        height_ratios=height_ratios,
+        width_ratios=width_ratios,
+        hspace=0.05,
+        wspace=0.05,
+    )
+    ax_scatter = fig.add_subplot(inner[1, 0])
+    ax_histx = fig.add_subplot(inner[0, 0], sharex=ax_scatter)
+    ax_histy = fig.add_subplot(inner[1, 1], sharey=ax_scatter)
+    ax_corner = fig.add_subplot(inner[0, 1])
+    ax_corner.axis("off")
+
+    # Plot scatter
+    sc = plot_scatter(ax_scatter, x, y, xlabel=xlabel, ylabel=ylabel, **scatter_kwargs)
+
+    # Determine axis range from scatter
+    xlim = ax_scatter.get_xlim()
+    ylim = ax_scatter.get_ylim()
+
+    # Marginal histograms
+    x_arr = np.asarray(x, dtype=float).ravel()
+    y_arr = np.asarray(y, dtype=float).ravel()
+    valid = np.isfinite(x_arr) & np.isfinite(y_arr)
+    bins_x = np.linspace(xlim[0], xlim[1], marginal_bins)
+    bins_y = np.linspace(ylim[0], ylim[1], marginal_bins)
+    ax_histx.hist(x_arr[valid], bins=bins_x, color=marginal_color, edgecolor="none")
+    ax_histy.hist(
+        y_arr[valid],
+        bins=bins_y,
+        color=marginal_color,
+        edgecolor="none",
+        orientation="horizontal",
+    )
+
+    # Style marginal axes
+    ax_histx.set_yticks([])
+    ax_histy.set_xticks([])
+    ax_histx.tick_params(labelbottom=False, bottom=False)
+    ax_histy.tick_params(labelleft=False, left=False)
+    for spine in ["top", "right", "left"]:
+        ax_histx.spines[spine].set_visible(False)
+    for spine in ["top", "right", "bottom"]:
+        ax_histy.spines[spine].set_visible(False)
+
+    if show_zero_lines:
+        ax_histx.axvline(0, ls=":", color="red", lw=1.5)
+        ax_histy.axhline(0, ls=":", color="red", lw=1.5)
+
+    return ax_scatter, ax_histx, ax_histy, sc
+
+
+# ---------------------------------------------------------------------------
+# plot_manifold
+# ---------------------------------------------------------------------------
+
+
+def plot_manifold(
+    ax,
+    embedding,
+    pc_x=0,
+    pc_y=1,
+    var_explained=None,
+    bg_mask=None,
+    bg_color="0.85",
+    bg_alpha=0.05,
+    bg_size=0.3,
+    color_vals=None,
+    color_label="",
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    groups=None,
+    group_labels=None,
+    group_colors=None,
+    marker_size=0.8,
+    alpha=0.5,
+    show_colorbar=True,
+    show_legend=True,
+    xlabel=None,
+    ylabel=None,
+    font_size=None,
+):
+    """
+    Plot a 2-D embedding (PCA, UMAP, etc.) with flexible point coloring.
+
+    Supports three foreground coloring modes (same as :func:`plot_scatter`):
+
+    - **Continuous**: pass ``color_vals`` for colormap-scaled values.
+    - **Discrete groups**: pass ``groups`` for per-group colours.
+    - **Uniform**: neither provided — all foreground points drawn in black.
+
+    An optional **background mask** renders selected points in a faint colour
+    before the foreground, useful for separating non-event from event points
+    (e.g. non-burst vs burst time bins).
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        embedding (np.ndarray): Shape ``(T, >=2)`` embedding coordinates.
+        pc_x (int): Column index for the x-axis. Default 0.
+        pc_y (int): Column index for the y-axis. Default 1.
+        var_explained (np.ndarray or None): Explained variance ratio per
+            component. When provided, axis labels are auto-generated as
+            ``"PC{n} (X.X%)"``; overridden by explicit ``xlabel``/``ylabel``.
+        bg_mask (np.ndarray or None): Boolean mask, shape ``(T,)``. True for
+            background points. These are drawn first in ``bg_color``.
+        bg_color (str): Colour for background points.
+        bg_alpha (float): Alpha for background points.
+        bg_size (float): Marker size for background points.
+        color_vals (np.ndarray or str or None): Per-point values for
+            continuous colour mapping (foreground only). Pass ``"density"``
+            for KDE-based density colouring.
+        color_label (str): Colorbar label (continuous mode).
+        cmap (str): Matplotlib colourmap name (continuous mode).
+        vmin (float or None): Colourmap minimum.
+        vmax (float or None): Colourmap maximum.
+        groups (array-like or None): Per-point integer group index for
+            discrete colouring (foreground only).
+        group_labels (list[str] or None): Labels per unique group value.
+        group_colors (list[str] or None): Colours per unique group value.
+        marker_size (float): Marker size for foreground points.
+        alpha (float): Alpha for foreground points.
+        show_colorbar (bool): Add a colorbar (continuous mode only).
+        show_legend (bool): Show a legend (group mode only).
+        xlabel (str or None): X-axis label. Overrides auto-label from
+            ``var_explained``.
+        ylabel (str or None): Y-axis label. Overrides auto-label from
+            ``var_explained``.
+        font_size (int or None): Font size for labels and ticks. If None,
+            uses current rcParams.
+
+    Returns:
+        sc: The foreground scatter artist(s) — a single ``PathCollection``
+            (continuous/uniform) or a ``list[PathCollection]`` (group mode).
+            Useful for adding shared colorbars or custom legends.
+    """
+    _import_matplotlib()
+
+    embedding = np.asarray(embedding)
+    x = embedding[:, pc_x]
+    y = embedding[:, pc_y]
+
+    # --- Background points ------------------------------------------------
+    if bg_mask is not None:
+        bg_mask = np.asarray(bg_mask, dtype=bool)
+        ax.scatter(
+            x[bg_mask],
+            y[bg_mask],
+            s=bg_size,
+            c=bg_color,
+            alpha=bg_alpha,
+            rasterized=True,
+            edgecolors="none",
+            zorder=1,
+        )
+        fg_mask = ~bg_mask
+    else:
+        fg_mask = np.ones(len(x), dtype=bool)
+
+    # --- Foreground: delegate to plot_scatter -----------------------------
+    fg_x = x[fg_mask]
+    fg_y = y[fg_mask]
+
+    scatter_kw = dict(
+        marker_size=marker_size,
+        alpha=alpha,
+        show_colorbar=show_colorbar,
+        show_legend=show_legend,
+        font_size=font_size,
+    )
+
+    if color_vals is not None:
+        if not isinstance(color_vals, str):
+            color_vals = np.asarray(color_vals).ravel()[fg_mask]
+        scatter_kw.update(
+            color_vals=color_vals,
+            color_label=color_label,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+    elif groups is not None:
+        groups = np.asarray(groups).ravel()[fg_mask]
+        scatter_kw.update(
+            groups=groups,
+            group_labels=group_labels,
+            group_colors=group_colors,
+        )
+
+    sc = plot_scatter(ax, fg_x, fg_y, **scatter_kw)
+
+    # --- Axis labels ------------------------------------------------------
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    elif var_explained is not None:
+        ax.set_xlabel(f"PC{pc_x + 1} ({var_explained[pc_x]:.1%})")
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+    elif var_explained is not None:
+        ax.set_ylabel(f"PC{pc_y + 1} ({var_explained[pc_y]:.1%})")
+
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -692,6 +981,212 @@ def plot_lines(
         _apply_font_size(ax, font_size)
 
     return lines
+
+
+# ---------------------------------------------------------------------------
+# plot_percentile_bands
+# ---------------------------------------------------------------------------
+
+
+def plot_percentile_bands(
+    ax,
+    metric_data,
+    labels=None,
+    normalize=False,
+    summary="mean",
+    bands=None,
+    band_color="0.3",
+    band_alphas=None,
+    style="bands",
+    line_color="0.5",
+    line_alpha=0.3,
+    line_width=0.5,
+    summary_color="black",
+    summary_linewidth=1.5,
+    show_zero_line=True,
+    xlabel="",
+    ylabel="",
+    ylim_range=None,
+    show_legend=False,
+    font_size=None,
+):
+    """
+    Plot percentile bands or individual lines across ordered groups/conditions.
+
+    For each unit a value is computed per condition. Optionally, values are
+    normalized relative to the first group using symmetric normalization:
+    ``N = (x' - d0') / (x' + d0')`` where ``x' = max(x, 0)``.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes (caller creates).
+        metric_data (dict[str, np.ndarray] or list[np.ndarray]): Per-condition
+            1-D arrays of per-unit values. Dict keys or ``labels`` define the
+            x-axis order.
+        labels (list[str] or None): Ordered condition labels. If None, uses
+            dict keys (for dict input) or integer indices (for list input).
+        normalize (bool): Apply symmetric normalization to the first group.
+            Units with non-positive or NaN baseline values are excluded.
+        summary (str): Summary line type: ``"mean"`` (default) or ``"median"``.
+        bands (list[tuple[int, int]] or None): Percentile band definitions as
+            ``(lo, hi)`` pairs, ordered from widest to narrowest. Default is
+            ``[(5, 95), (10, 90), (25, 75)]``.
+        band_color (str): Fill colour for all bands.
+        band_alphas (list[float] or None): Alpha transparency per band. Must
+            match length of ``bands``. Default is linearly increasing from
+            0.15 to 0.40.
+        style (str): ``"bands"`` (default) draws shaded percentile regions;
+            ``"lines"`` draws one line per unit.
+        line_color (str): Line colour when ``style="lines"``.
+        line_alpha (float): Line alpha when ``style="lines"``.
+        line_width (float): Line width when ``style="lines"``.
+        summary_color (str): Colour for the summary line.
+        summary_linewidth (float): Line width for the summary line.
+        show_zero_line (bool): Draw a dashed horizontal line at y=0 when
+            ``normalize=True``.
+        xlabel (str): X-axis label.
+        ylabel (str): Y-axis label.
+        ylim_range (float or None): Symmetric y-axis limits ``(-val, val)``.
+            If None and ``normalize=True``, derived from the 5th/95th
+            percentile of the data.
+        show_legend (bool): Show legend.
+        font_size (int or None): Font size for labels and ticks. If None,
+            uses current rcParams.
+
+    Returns:
+        artists (dict): Keys ``"summary"`` (Line2D), and either ``"bands"``
+            (list of PolyCollection) or ``"lines"`` (list of Line2D).
+    """
+    _import_matplotlib()
+
+    # --- Normalise input to list-of-arrays + labels -----------------------
+    if isinstance(metric_data, dict):
+        keys = list(metric_data.keys())
+        data_arrays = [np.asarray(metric_data[k]).ravel() for k in keys]
+        if labels is None:
+            labels = keys
+    else:
+        data_arrays = [np.asarray(a).ravel() for a in metric_data]
+        if labels is None:
+            labels = [str(i) for i in range(len(data_arrays))]
+
+    n_groups = len(data_arrays)
+    x = np.arange(n_groups)
+
+    # --- Build (n_units, n_groups) matrix, optionally normalized ----------
+    if normalize:
+        d0 = np.maximum(data_arrays[0], 0)
+        valid = (d0 > 0) & ~np.isnan(data_arrays[0])
+        for arr in data_arrays[1:]:
+            valid &= ~np.isnan(arr)
+
+        n_units = int(np.sum(valid))
+        mat = np.zeros((n_units, n_groups))
+        for j, arr in enumerate(data_arrays):
+            vals = np.maximum(arr[valid], 0)
+            mat[:, j] = (vals - d0[valid]) / (vals + d0[valid])
+    else:
+        # Keep all non-NaN across every group
+        valid = np.ones(len(data_arrays[0]), dtype=bool)
+        for arr in data_arrays:
+            valid &= ~np.isnan(arr)
+
+        n_units = int(np.sum(valid))
+        mat = np.column_stack([arr[valid] for arr in data_arrays])
+
+    # --- Plot bands or individual lines -----------------------------------
+    artists = {}
+
+    if style == "bands":
+        if bands is None:
+            bands = [(5, 95), (10, 90), (25, 75)]
+        if band_alphas is None:
+            n_bands = len(bands)
+            band_alphas = [
+                0.15 + (0.40 - 0.15) * i / max(n_bands - 1, 1) for i in range(n_bands)
+            ]
+
+        band_artists = []
+        for (lo_pct, hi_pct), alpha in zip(bands, band_alphas):
+            lo_vals = np.nanpercentile(mat, lo_pct, axis=0)
+            hi_vals = np.nanpercentile(mat, hi_pct, axis=0)
+            label = f"{lo_pct}\u2013{hi_pct}th"
+            fill = ax.fill_between(
+                x,
+                lo_vals,
+                hi_vals,
+                color=band_color,
+                alpha=alpha,
+                zorder=1,
+                label=label,
+            )
+            band_artists.append(fill)
+        artists["bands"] = band_artists
+
+    elif style == "lines":
+        line_artists = []
+        for i in range(n_units):
+            (ln,) = ax.plot(
+                x,
+                mat[i, :],
+                color=line_color,
+                alpha=line_alpha,
+                linewidth=line_width,
+                zorder=1,
+            )
+            line_artists.append(ln)
+        artists["lines"] = line_artists
+
+    else:
+        raise ValueError(f"style must be 'bands' or 'lines', got {style!r}")
+
+    # --- Summary line -----------------------------------------------------
+    if summary == "mean":
+        summary_vals = np.nanmean(mat, axis=0)
+    elif summary == "median":
+        summary_vals = np.nanmedian(mat, axis=0)
+    else:
+        raise ValueError(f"summary must be 'mean' or 'median', got {summary!r}")
+
+    (summary_line,) = ax.plot(
+        x,
+        summary_vals,
+        color=summary_color,
+        linewidth=summary_linewidth,
+        zorder=3,
+        label=summary.capitalize(),
+    )
+    artists["summary"] = summary_line
+
+    # --- Zero reference line ----------------------------------------------
+    if show_zero_line and normalize:
+        ax.axhline(0, color="0.4", linewidth=0.5, linestyle="--", zorder=0)
+
+    # --- Axes formatting --------------------------------------------------
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_xlim(x[0], x[-1])
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if ylim_range is not None:
+        ax.set_ylim(-ylim_range, ylim_range)
+    elif normalize and mat.size > 0:
+        p5 = np.nanpercentile(mat, 5, axis=0)
+        p95 = np.nanpercentile(mat, 95, axis=0)
+        ylim = max(abs(p5.min()), abs(p95.max())) * 1.15
+        if np.isfinite(ylim) and ylim > 0:
+            ax.set_ylim(-ylim, ylim)
+
+    if show_legend:
+        handles = [summary_line]
+        if style == "bands":
+            handles += artists["bands"]
+        ax.legend(handles=handles, loc="upper left")
+
+    if font_size is not None:
+        _apply_font_size(ax, font_size)
+
+    return artists
 
 
 # ---------------------------------------------------------------------------
@@ -816,6 +1311,7 @@ def plot_burst_sensitivity(
                 np.asarray(burst_counts[labels[0]]).T,
                 ax=ax,
                 cmap=cmap,
+                origin="lower",
                 extent=extent,
                 xlabel=xlabel,
                 ylabel=heatmap_ylabel,
@@ -841,6 +1337,7 @@ def plot_burst_sensitivity(
                 all_arrays[i].T,
                 ax=axes_row[i],
                 cmap=cmap,
+                origin="lower",
                 vmin=shared_vmin,
                 vmax=shared_vmax,
                 extent=extent,
@@ -1011,6 +1508,8 @@ def plot_heatmap(
     vmin=None,
     vmax=None,
     cmap="hot",
+    aspect="auto",
+    origin="upper",
     extent=None,
     xlabel="Time (ms)",
     ylabel="Unit",
@@ -1035,6 +1534,10 @@ def plot_heatmap(
         vmin (float or None): Colormap minimum.
         vmax (float or None): Colormap maximum.
         cmap (str): Matplotlib colormap name.
+        aspect (str): Aspect ratio passed to ``imshow``. ``"auto"`` stretches
+            to fill the axes, ``"equal"`` preserves square pixels.
+        origin (str): Origin for ``imshow``. ``"upper"`` places row 0 at the
+            top (default), ``"lower"`` places row 0 at the bottom.
         extent (tuple or None): ``(left, right, bottom, top)`` passed to
             ``imshow``. If None, pixel indices are used.
         xlabel (str): X-axis label.
@@ -1074,7 +1577,7 @@ def plot_heatmap(
         if vmax is None:
             vmax = 1.0
 
-    im_kwargs = dict(cmap=cmap, aspect="auto", origin="lower")
+    im_kwargs = dict(cmap=cmap, aspect=aspect, origin=origin, interpolation="none")
     if extent is not None:
         im_kwargs["extent"] = extent
     if vmin is not None:
@@ -1534,6 +2037,7 @@ def plot_recording(
             norm=norm_heatmap,
             vmin=vmin_heatmap,
             vmax=vmax_heatmap,
+            origin="lower",
             extent=fr_extent,
             xlabel="Time (ms)",
             ylabel="Unit",
@@ -1560,6 +2064,7 @@ def plot_recording(
             cmap=model_states_cmap,
             vmin=model_states_vmin,
             vmax=model_states_vmax,
+            origin="lower",
             extent=ms_extent,
             xlabel="Time (ms)",
             ylabel="State",
@@ -1610,3 +2115,169 @@ def plot_recording(
             plt.show()
 
     return fig
+
+
+def plot_spatial_network(
+    ax,
+    positions,
+    matrix,
+    edge_threshold=None,
+    top_pct=None,
+    node_size_range=(2, 20),
+    node_cmap="viridis",
+    node_linewidth=0.2,
+    edge_color="red",
+    edge_linewidth=0.6,
+    edge_alpha_range=(0.15, 1.0),
+    scale_bar_um=500,
+    font_size=None,
+):
+    """
+    Plot a spatial network of units on their MEA positions.
+
+    Units are drawn as scatter markers sized by their mean pairwise value
+    (row mean excluding diagonal) and coloured by the same metric.  Edges
+    are drawn between unit pairs whose matrix value exceeds a threshold or
+    falls in the top percentile, with alpha proportional to edge strength.
+
+    Exactly one of *edge_threshold* or *top_pct* must be provided.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes.
+        positions (np.ndarray): Unit positions, shape ``(N, 2)`` with columns
+            ``[x, y]`` in micrometres.
+        matrix (np.ndarray): Symmetric ``(N, N)`` pairwise matrix (e.g.
+            correlation, STTC).  Diagonal values are ignored.
+        edge_threshold (float or None): Minimum matrix value to draw an edge.
+        top_pct (float or None): Percentage of top edges to draw (e.g.
+            ``1.0`` draws the top 1 %).
+        node_size_range (tuple): ``(min_size, max_size)`` in points² for the
+            scatter markers.
+        node_cmap (str): Matplotlib colourmap for node colour.
+        node_linewidth (float): Outline width of node markers.
+        edge_color (str): Colour for network edges.
+        edge_linewidth (float): Line width for network edges.
+        edge_alpha_range (tuple): ``(min_alpha, max_alpha)`` for edge
+            transparency, scaled by edge strength.
+        scale_bar_um (float): Length of the spatial scale bar in micrometres.
+            Set to 0 or None to omit.
+        font_size (int or None): Font size for scale bar label.  If None,
+            uses the current rcParams default.
+
+    Returns:
+        scatter (matplotlib.collections.PathCollection): The scatter artist,
+            useful for adding a colorbar.
+    """
+    _import_matplotlib()
+
+    if edge_threshold is None and top_pct is None:
+        raise ValueError("Provide either edge_threshold or top_pct.")
+    if edge_threshold is not None and top_pct is not None:
+        raise ValueError("Provide only one of edge_threshold or top_pct.")
+
+    positions = np.asarray(positions)
+    matrix = np.asarray(matrix, dtype=float)
+    n = len(positions)
+
+    if matrix.shape != (n, n):
+        raise ValueError(
+            f"matrix shape {matrix.shape} does not match " f"positions length {n}."
+        )
+
+    x, y = positions[:, 0], positions[:, 1]
+
+    # Mean value per unit (excluding diagonal)
+    mat = matrix.copy()
+    np.fill_diagonal(mat, np.nan)
+    mean_val = np.nanmean(mat, axis=1)
+
+    # Upper-triangle values for edge selection
+    triu_i, triu_j = np.triu_indices(n, k=1)
+    vals = mat[triu_i, triu_j]
+    valid = np.isfinite(vals)
+    triu_i, triu_j, vals = triu_i[valid], triu_j[valid], vals[valid]
+
+    # Determine threshold
+    if top_pct is not None:
+        threshold = np.percentile(vals, 100 - top_pct)
+    else:
+        threshold = edge_threshold
+
+    edge_mask = vals >= threshold
+    edge_vals = vals[edge_mask]
+    edge_i = triu_i[edge_mask]
+    edge_j = triu_j[edge_mask]
+
+    # Draw edges with alpha proportional to strength
+    alpha_lo, alpha_hi = edge_alpha_range
+    if len(edge_vals) > 0:
+        e_min, e_max = threshold, np.max(edge_vals)
+        if e_max > e_min:
+            edge_alpha = alpha_lo + (alpha_hi - alpha_lo) * (edge_vals - e_min) / (
+                e_max - e_min
+            )
+        else:
+            edge_alpha = np.full_like(edge_vals, (alpha_lo + alpha_hi) / 2)
+        edge_alpha = np.clip(edge_alpha, alpha_lo, alpha_hi)
+
+        for idx in range(len(edge_i)):
+            i, j = edge_i[idx], edge_j[idx]
+            ax.plot(
+                [x[i], x[j]],
+                [y[i], y[j]],
+                color=edge_color,
+                linewidth=edge_linewidth,
+                alpha=edge_alpha[idx],
+                zorder=2,
+            )
+
+    # Draw nodes sized by mean value
+    size_min, size_max = node_size_range
+    mc_min, mc_max = np.nanmin(mean_val), np.nanmax(mean_val)
+    if mc_max > mc_min:
+        sizes = size_min + (size_max - size_min) * (mean_val - mc_min) / (
+            mc_max - mc_min
+        )
+    else:
+        sizes = np.full_like(mean_val, (size_min + size_max) / 2)
+
+    sc = ax.scatter(
+        x,
+        y,
+        s=sizes,
+        c=mean_val,
+        cmap=node_cmap,
+        edgecolors="face",
+        linewidths=node_linewidth,
+        zorder=1,
+    )
+
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    # Scale bar
+    if scale_bar_um:
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        bar_x_end = xlim[1] - (xlim[1] - xlim[0]) * 0.02
+        bar_x_start = bar_x_end - scale_bar_um
+        bar_y = ylim[0] + (ylim[1] - ylim[0]) * 0.02
+        ax.plot(
+            [bar_x_start, bar_x_end],
+            [bar_y, bar_y],
+            color="black",
+            linewidth=2.0,
+            clip_on=False,
+            solid_capstyle="butt",
+        )
+        fs = font_size or 8
+        ax.text(
+            (bar_x_start + bar_x_end) / 2,
+            bar_y - (ylim[1] - ylim[0]) * 0.03,
+            f"{scale_bar_um}\u00b5m",
+            ha="center",
+            va="top",
+            fontsize=fs,
+        )
+
+    return sc

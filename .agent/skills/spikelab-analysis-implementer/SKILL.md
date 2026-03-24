@@ -20,7 +20,7 @@ You are acting as the **Analysis Implementer** for the SpikeLab library. Your re
 
 At the start of a session, ask the user to specify or confirm an **analysis directory** — a directory where all analysis scripts and results will be stored (e.g., `./analysis/`). Create it if it does not exist.
 
-**You are only authorized to create or edit files inside the analysis directory and the repo map files (`REPO_MAP.md` and `REPO_MAP_DETAILED.md` in `.claude/skills/spikelab-analysis-implementer/`). You must never create or modify files inside `SpikeLab/` (the library source) or any other repository files.**
+**You are only authorized to create or edit files inside the analysis directory and the repo map files (`REPO_MAP.md` and `REPO_MAP_DETAILED.md` in `.agent/skills/spikelab-analysis-implementer/`). You must never create or modify files inside `SpikeLab/` (the library source) or any other repository files.**
 
 If a task seems to require changes to library code, stop and tell the user.
 
@@ -33,7 +33,7 @@ If a task seems to require changes to library code, stop and tell the user.
 - Read `REPO_MAP.md` for a broad overview of available classes and methods.
 - Read the relevant sections of `REPO_MAP_DETAILED.md` to understand the exact API — signatures, parameters, return types — for any method you plan to use. Do not guess at method signatures; always verify against this file.
 
-Both files are located alongside this skill file in `.claude/skills/spikelab-analysis-implementer/`.
+Both files are located alongside this skill file in `.agent/skills/spikelab-analysis-implementer/`.
 
 ### Step 2: Inspect the data
 
@@ -135,6 +135,28 @@ Use the workspace for:
 - Save figures in a `figures/` subdirectory within the project directory (e.g., `analysis/<project>/figures/`). Create the subdirectory if it does not exist.
 - Use `matplotlib.use("Agg")` at the top of every script that imports matplotlib, before any other matplotlib imports, to ensure no GUI backend is used.
 
+### Use SpikeLab plotting functions
+Where possible, use plotting functions from `SpikeLab.spikedata.plot_utils` instead of writing custom matplotlib code. These functions ensure consistent styling, handle edge cases, and reduce code duplication. Available functions include:
+
+| Function | Use for |
+|---|---|
+| `plot_recording` | Multi-panel recording figures (raster, pop rate, FR heatmap, model states) |
+| `plot_distribution` | Violin/boxplot distributions across conditions |
+| `plot_scatter` | Scatter plots with color coding, identity lines, regression, or discrete groups |
+| `plot_scatter_with_marginals` | Scatter with marginal histograms (supports `color_vals="density"` for KDE) |
+| `plot_manifold` | Low-dimensional embeddings (PCA, UMAP) with background masks and group/continuous coloring |
+| `plot_lines` | Multi-trace line plots across conditions |
+| `plot_percentile_bands` | Percentile bands or per-unit lines with optional normalization to baseline |
+| `plot_heatmap` | 2-D matrix heatmaps with optional row normalization, reference lines |
+| `plot_burst_sensitivity` | Burst detection parameter sweeps (1-D lines or 2-D heatmaps) |
+| `plot_pvalue_matrix` | P-value matrices as `-log10(p)` heatmaps, standalone or as insets |
+| `plot_spatial_network` | Spatial network graphs on MEA positions |
+| `plot_aligned_slice_single_unit` | Single-unit raster across event-aligned slices |
+
+Also available as methods on data classes: `SpikeData.plot()`, `SpikeData.plot_aligned_pop_rate()`, `SpikeData.plot_spatial_network()`, `SpikeSliceStack.plot_aligned_slice_single_unit()`.
+
+When a library function does not exactly match the desired output, use it as the base and apply post-adjustments (e.g., changing line styles, adding annotations, adjusting tick labels) rather than reimplementing from scratch.
+
 ### Analysis parameters
 
 When a method requires parameters (thresholds, window sizes, smoothing constants, etc.), follow this hierarchy strictly:
@@ -179,7 +201,7 @@ Two markdown files alongside this skill document the SpikeLab library:
 | `REPO_MAP.md` | Condensed quick reference: directory tree, core classes, key methods, relationships |
 | `REPO_MAP_DETAILED.md` | Full API reference: every class, method, signature, parameter, return type |
 
-Both are located in `.claude/skills/spikelab-analysis-implementer/` alongside this skill file. These files do not ship with the repository — if they are not present, generate them using the procedure below before proceeding with any analysis.
+Both are located in `.agent/skills/spikelab-analysis-implementer/` alongside this skill file. These files do not ship with the repository — if they are not present, generate them using the procedure below before proceeding with any analysis.
 
 When the user asks to update the repo maps, or when the files need to be generated for the first time, follow this procedure:
 
