@@ -1,8 +1,5 @@
 """Tests for spikedata/plot_utils.py — all plotting functions."""
 
-import pathlib
-import sys
-
 import numpy as np
 import pytest
 
@@ -12,13 +9,8 @@ matplotlib.use("Agg")  # non-interactive backend for CI
 import matplotlib.pyplot as plt
 import matplotlib.figure
 
-# Ensure project root is on sys.path
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata import SpikeData
-from spikedata.plot_utils import (
+from spikelab.spikedata import SpikeData
+from spikelab.spikedata.plot_utils import (
     plot_heatmap,
     plot_recording,
     plot_distribution,
@@ -32,7 +24,7 @@ from spikedata.plot_utils import (
     plot_manifold,
     plot_spatial_network,
 )
-from spikedata.spikeslicestack import SpikeSliceStack
+from spikelab.spikedata.spikeslicestack import SpikeSliceStack
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -3514,7 +3506,7 @@ class TestPlotSpatialNetworkWrappers:
         Tests:
             (Test Case 1) Returns scatter.
         """
-        from SpikeLab.spikedata.pairwise import PairwiseCompMatrix
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
         positions = np.array([[0, 0], [100, 0], [0, 100], [100, 100]], dtype=float)
         mat = np.array(

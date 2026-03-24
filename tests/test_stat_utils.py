@@ -1,17 +1,9 @@
 """Tests for spikedata/stat_utils.py — linear_regression and helpers."""
 
-import pathlib
-import sys
-
 import numpy as np
 import pytest
 
-# Ensure project root is on sys.path
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata.stat_utils import (
+from spikelab.spikedata.stat_utils import (
     linear_regression,
     _approx_normal_quantile,
     pairwise_tests,

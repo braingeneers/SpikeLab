@@ -1,21 +1,15 @@
-import pathlib
-import sys
 import warnings
 
 import numpy as np
 import networkx as nx
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata.pairwise import (
+from spikelab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
 )
-from spikedata import SpikeData
-from spikedata.rateslicestack import RateSliceStack
+from spikelab.spikedata import SpikeData
+from spikelab.spikedata.rateslicestack import RateSliceStack
 
 try:
     import umap  # noqa: F401

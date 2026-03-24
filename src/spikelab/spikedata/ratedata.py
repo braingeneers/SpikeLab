@@ -323,7 +323,7 @@ class RateData:
 
         Notes:
             - To visualise the resulting embedding, use
-              :func:`~SpikeLab.spikedata.plot_utils.plot_manifold`. It
+              :func:`~spikelab.spikedata.plot_utils.plot_manifold`. It
               accepts the embedding array directly and supports background
               masks, continuous colour values, and discrete group colouring.
         """

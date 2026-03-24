@@ -41,7 +41,7 @@ If you prefer a conda environment with all dependencies pre-configured:
 git clone https://github.com/braingeneers/SpikeLab.git
 cd SpikeLab
 conda env create -f environment.yml
-conda activate integrated-analysis-tools
+conda activate spikelab
 pip install -e .
 ```
 
@@ -50,7 +50,7 @@ pip install -e .
 Open a Python prompt and run:
 
 ```python
-from SpikeLab.spikedata.spikedata import SpikeData
+from spikelab import SpikeData
 print("SpikeLab is installed correctly!")
 ```
 
@@ -71,24 +71,24 @@ Some features require additional packages that are not installed by default:
 ## Quick start
 
 ```python
-from SpikeLab.spikedata.spikedata import SpikeData
-from SpikeLab.data_loaders.data_loaders import load_spikedata_from_nwb
+from spikelab import SpikeData
+from spikelab.data_loaders import load_spikedata_from_nwb
 
 # Load spike data from an NWB file
 sd = load_spikedata_from_nwb("recording.nwb")
 
 # Basic properties
-print(f"Units: {sd.num_units}")
-print(f"Duration: {sd.duration} ms")
+print(f"Units: {sd.N}")
+print(f"Duration: {sd.length} ms")
 
 # Compute instantaneous firing rates (100 ms bins)
 rates = sd.rates(bin_size=100.0)
 
 # Get a binary spike raster (1 ms bins)
-raster = sd.raster(bin_size=1.0)
+raster = sd.raster(bin_size_ms=1.0)
 
 # Compute pairwise spike time tiling coefficients
-sttc_matrix = sd.sttc()
+sttc_matrix = sd.spike_time_tilings(delt=20.0)
 
 # Export to KiloSort format
 sd.to_kilosort("ks_output/", fs_Hz=20000.0)
@@ -130,26 +130,28 @@ Claude will use the skill's instructions to orient itself with the library, load
 
 ```
 SpikeLab/
-├── spikedata/          # Core data structures and analysis
-│   ├── spikedata.py        # SpikeData class
-│   ├── ratedata.py         # RateData class
-│   ├── spikeslicestack.py  # SpikeSliceStack class
-│   ├── rateslicestack.py   # RateSliceStack class
-│   ├── pairwise.py         # PairwiseCompMatrix and PairwiseCompMatrixStack
-│   ├── utils.py            # Shared utility functions
-│   └── plot_utils.py       # Visualization helpers
-├── data_loaders/       # File I/O
-│   ├── data_loaders.py     # Load from HDF5, NWB, KiloSort, SpikeInterface
-│   ├── data_exporters.py   # Export to KiloSort, NWB, and other formats
-│   └── s3_utils.py         # Amazon S3 upload/download utilities
-├── workspace/          # Analysis workspace for storing intermediate results
-│   ├── workspace.py        # AnalysisWorkspace class
-│   └── hdf5_io.py          # HDF5 serialization for workspace objects
-├── mcp_server/         # MCP protocol server for programmatic access
-│   ├── server.py           # MCP server implementation
-│   └── tools/              # MCP tool definitions
+├── src/
+│   └── spikelab/           # Installable Python package
+│       ├── spikedata/          # Core data structures and analysis
+│       │   ├── spikedata.py        # SpikeData class
+│       │   ├── ratedata.py         # RateData class
+│       │   ├── spikeslicestack.py  # SpikeSliceStack class
+│       │   ├── rateslicestack.py   # RateSliceStack class
+│       │   ├── pairwise.py         # PairwiseCompMatrix and PairwiseCompMatrixStack
+│       │   ├── utils.py            # Shared utility functions
+│       │   └── plot_utils.py       # Visualization helpers
+│       ├── data_loaders/       # File I/O
+│       │   ├── data_loaders.py     # Load from HDF5, NWB, KiloSort, SpikeInterface
+│       │   ├── data_exporters.py   # Export to KiloSort, NWB, and other formats
+│       │   └── s3_utils.py         # Amazon S3 upload/download utilities
+│       ├── workspace/          # Analysis workspace for storing intermediate results
+│       │   ├── workspace.py        # AnalysisWorkspace class
+│       │   └── hdf5_io.py          # HDF5 serialization for workspace objects
+│       └── mcp_server/         # MCP protocol server for programmatic access
+│           ├── server.py           # MCP server implementation
+│           └── tools/              # MCP tool definitions
 ├── tests/              # Test suite (pytest)
-├── .claude/            # Claude Code skill for AI-assisted analysis
+├── .agent/             # Claude Code skill for AI-assisted analysis
 ├── environment.yml     # Conda environment specification
 └── pyproject.toml      # Package configuration
 ```

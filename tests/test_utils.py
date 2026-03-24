@@ -7,17 +7,10 @@ times_from_ms, to_ms, ensure_h5py, _train_from_i_t_list,
 PCA_reduction, UMAP_reduction, UMAP_graph_communities.
 """
 
-import pathlib
-import sys
-
 import numpy as np
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata.utils import (
+from spikelab.spikedata.utils import (
     _cosine_sim,
     _train_from_i_t_list,
     butter_filter,
@@ -873,7 +866,7 @@ class TestEnsureH5py:
         Tests:
             (Test Case 1) Patching h5py to None triggers ImportError.
         """
-        import spikedata.utils as utils_mod
+        import spikelab.spikedata.utils as utils_mod
 
         monkeypatch.setattr(utils_mod, "h5py", None)
         with pytest.raises(ImportError, match="h5py"):
@@ -946,7 +939,7 @@ class TestPCAReduction:
             (Test Case 1) Default n_components=2.
             (Test Case 2) n_components=3.
         """
-        from spikedata.utils import PCA_reduction
+        from spikelab.spikedata.utils import PCA_reduction
 
         rng = np.random.default_rng(0)
         data = rng.random((20, 10))
@@ -968,7 +961,7 @@ class TestPCAReduction:
             (Test Case 1) Variance ratio is monotonically decreasing.
             (Test Case 2) All variance ratios are positive and sum to <= 1.
         """
-        from spikedata.utils import PCA_reduction
+        from spikelab.spikedata.utils import PCA_reduction
 
         rng = np.random.default_rng(42)
         data = rng.random((50, 10))
@@ -985,7 +978,7 @@ class TestPCAReduction:
             (Test Case 1) n_components=10 on a (20, 3) matrix raises ValueError.
             (Test Case 2) Error message includes the offending values.
         """
-        from spikedata.utils import PCA_reduction
+        from spikelab.spikedata.utils import PCA_reduction
 
         rng = np.random.default_rng(0)
         data = rng.random((20, 3))
@@ -1002,7 +995,7 @@ class TestPCAReduction:
                 shape is (20, 1), variance ratio shape is (1,), components
                 shape is (1, 5).
         """
-        from spikedata.utils import PCA_reduction
+        from spikelab.spikedata.utils import PCA_reduction
 
         rng = np.random.default_rng(0)
         data = rng.random((20, 5))
@@ -1024,7 +1017,7 @@ class TestPCAReduction:
             (Test Case 1) 10 identical rows of [1, 2, 3, 4, 5].
                 Embedding has shape (10, 2) with all values ~0.
         """
-        from spikedata.utils import PCA_reduction
+        from spikelab.spikedata.utils import PCA_reduction
 
         data = np.tile([1.0, 2.0, 3.0, 4.0, 5.0], (10, 1))
         embedding, var_ratio, components = PCA_reduction(data, n_components=2)
@@ -1048,7 +1041,7 @@ class TestUMAPReduction:
         Tests:
             (Test Case 1) n_components=2 on small dataset.
         """
-        from spikedata.utils import UMAP_reduction
+        from spikelab.spikedata.utils import UMAP_reduction
 
         rng = np.random.default_rng(0)
         data = rng.random((30, 5))
@@ -1064,8 +1057,8 @@ class TestUMAPReduction:
         Tests:
             (Test Case 1) Monkeypatching umap to None triggers ImportError.
         """
-        import spikedata.utils as utils_mod
-        from spikedata.utils import UMAP_reduction
+        import spikelab.spikedata.utils as utils_mod
+        from spikelab.spikedata.utils import UMAP_reduction
 
         monkeypatch.setattr(utils_mod, "umap", None)
         with pytest.raises(ImportError, match="umap-learn"):
@@ -1092,7 +1085,7 @@ class TestUMAPGraphCommunities:
             (Test Case 1) Embedding shape is (n_samples, n_components).
             (Test Case 2) Labels shape is (n_samples,) with integer dtype.
         """
-        from spikedata.utils import UMAP_graph_communities
+        from spikelab.spikedata.utils import UMAP_graph_communities
 
         rng = np.random.default_rng(0)
         data = rng.random((30, 5))
@@ -1114,8 +1107,8 @@ class TestUMAPGraphCommunities:
             (Test Case 2) nx=None raises ImportError.
             (Test Case 3) community_louvain=None raises ImportError.
         """
-        import spikedata.utils as utils_mod
-        from spikedata.utils import UMAP_graph_communities
+        import spikelab.spikedata.utils as utils_mod
+        from spikelab.spikedata.utils import UMAP_graph_communities
 
         data = np.ones((10, 3))
 
@@ -1137,7 +1130,7 @@ class TestUMAPGraphCommunities:
             UMAP_graph_communities(data)
 
 
-from spikedata.utils import (
+from spikelab.spikedata.utils import (
     _resampled_isi,
     check_neuron_attributes,
     randomize,
@@ -2187,7 +2180,7 @@ class TestGetAttr:
         Tests:
             (Test Case 1) Existing key returns the correct value.
         """
-        from spikedata.utils import _get_attr
+        from spikelab.spikedata.utils import _get_attr
 
         assert _get_attr({"key": "value"}, "key", None) == "value"
 
@@ -2198,7 +2191,7 @@ class TestGetAttr:
         Tests:
             (Test Case 1) Missing key returns the provided default.
         """
-        from spikedata.utils import _get_attr
+        from spikelab.spikedata.utils import _get_attr
 
         assert _get_attr({"key": "value"}, "other", "default") == "default"
 
@@ -2209,7 +2202,7 @@ class TestGetAttr:
         Tests:
             (Test Case 1) Existing attribute returns the correct value.
         """
-        from spikedata.utils import _get_attr
+        from spikelab.spikedata.utils import _get_attr
 
         class Obj:
             attr = "hello"
@@ -2223,7 +2216,7 @@ class TestGetAttr:
         Tests:
             (Test Case 1) Missing attribute returns the provided default.
         """
-        from spikedata.utils import _get_attr
+        from spikelab.spikedata.utils import _get_attr
 
         class Obj:
             attr = "hello"
@@ -2917,7 +2910,7 @@ class TestSliceStabilityEdgeCases:
 # Edge Case Tests — _validate_time_start_to_end
 # ---------------------------------------------------------------------------
 
-from spikedata.utils import _validate_time_start_to_end
+from spikelab.spikedata.utils import _validate_time_start_to_end
 
 
 class TestValidateTimeStartToEndEdgeCases:

@@ -44,10 +44,10 @@ Both files are located alongside this skill file in `.agent/skills/spikelab-anal
   with open(load_path, "rb") as f:
       sd = pickle.load(f)
   # Verify the loaded object is a SpikeData instance
-  from SpikeLab.spikedata.spikedata import SpikeData
+  from spikelab.spikedata.spikedata import SpikeData
   assert isinstance(sd, SpikeData), f"Expected SpikeData, got {type(sd)}"
   ```
-- **Other data formats:** If the data is in a different format (e.g., `.h5`, `.nwb`, `.csv`), use the appropriate loader function from `SpikeLab.data_loaders` to load it into `SpikeData` objects. Confirm the file format with the user if ambiguous. Use `REPO_MAP_DETAILED.md` to identify the correct loader for different formats. After loading, save the resulting `SpikeData` objects as `spikedata.pkl` files for future use:
+- **Other data formats:** If the data is in a different format (e.g., `.h5`, `.nwb`, `.csv`), use the appropriate loader function from `spikelab.data_loaders` to load it into `SpikeData` objects. Confirm the file format with the user if ambiguous. Use `REPO_MAP_DETAILED.md` to identify the correct loader for different formats. After loading, save the resulting `SpikeData` objects as `spikedata.pkl` files for future use:
   ```python
   import pickle
   with open("spikedata.pkl", "wb") as f:
@@ -77,13 +77,13 @@ After loading data and setting up the workspace, present a brief summary to the 
 
 ### Script structure
 
-- Import from `SpikeLab` at the top of the script.
+- Import from `spikelab` at the top of the script.
 - Load data, run analysis, print or save results — keep scripts self-contained and runnable.
-- Ensure `SpikeLab` is importable in your environment. If the library was installed with `pip install -e`, standard imports work directly. Otherwise, add the repository root to `sys.path`:
+- Ensure `spikelab` is importable in your environment. If the library was installed with `pip install -e .`, standard imports work directly. Otherwise, add the `src/` directory to `sys.path`:
   ```python
   import os, sys
-  repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-  sys.path.insert(0, repo_root)
+  src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src"))
+  sys.path.insert(0, src_dir)
   ```
 
 ### Using the workspace
@@ -92,7 +92,7 @@ The `AnalysisWorkspace` is the recommended way to store and organize intermediat
 
 **Basic usage:**
 ```python
-from SpikeLab.workspace.workspace import AnalysisWorkspace
+from spikelab.workspace.workspace import AnalysisWorkspace
 
 ws = AnalysisWorkspace(name="my_analysis")
 ws.store("recording_a", "sttc_matrix", sttc_result)
@@ -136,7 +136,7 @@ Use the workspace for:
 - Use `matplotlib.use("Agg")` at the top of every script that imports matplotlib, before any other matplotlib imports, to ensure no GUI backend is used.
 
 ### Use SpikeLab plotting functions
-Where possible, use plotting functions from `SpikeLab.spikedata.plot_utils` instead of writing custom matplotlib code. These functions ensure consistent styling, handle edge cases, and reduce code duplication. Available functions include:
+Where possible, use plotting functions from `spikelab.spikedata.plot_utils` instead of writing custom matplotlib code. These functions ensure consistent styling, handle edge cases, and reduce code duplication. Available functions include:
 
 | Function | Use for |
 |---|---|

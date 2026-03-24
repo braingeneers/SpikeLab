@@ -1,4 +1,9 @@
 __pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
 .DS_Store
 .env
 .env.local
@@ -8,9 +13,4 @@ __pycache__/
 .env.development
 .env.test
 .env.production
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 .pytest_cache/
-integrated_analysis_tools.egg-info/

@@ -9,7 +9,6 @@ and the get_workspace_manager singleton.
 
 import json
 import pathlib
-import sys
 import tempfile
 
 import numpy as np
@@ -22,19 +21,15 @@ try:
 except ImportError:
     H5PY_AVAILABLE = False
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata.spikedata import SpikeData
-from spikedata.ratedata import RateData
-from spikedata.rateslicestack import RateSliceStack
-from spikedata.spikeslicestack import SpikeSliceStack
-from spikedata.pairwise import (
+from spikelab.spikedata.spikedata import SpikeData
+from spikelab.spikedata.ratedata import RateData
+from spikelab.spikedata.rateslicestack import RateSliceStack
+from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+from spikelab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
 )
-from workspace.workspace import (
+from spikelab.workspace.workspace import (
     AnalysisWorkspace,
     LazyAnalysisWorkspace,
     WorkspaceManager,
@@ -2511,7 +2506,7 @@ class TestDeleteItemFromFile:
             (Test Case 1) The deleted item raises KeyError on load.
             (Test Case 2) The other item in a different namespace still loads correctly.
         """
-        from workspace.hdf5_io import (
+        from spikelab.workspace.hdf5_io import (
             dump_item_to_file,
             load_item_from_file,
             delete_item_from_file,
@@ -2542,7 +2537,7 @@ class TestDeleteItemFromFile:
                 an existing namespace.
             (Test Case 3) Existing items remain accessible after the no-op delete.
         """
-        from workspace.hdf5_io import (
+        from spikelab.workspace.hdf5_io import (
             dump_item_to_file,
             load_item_from_file,
             delete_item_from_file,
@@ -2569,7 +2564,7 @@ class TestDeleteItemFromFile:
             (Test Case 1) All items in the deleted namespace are gone.
             (Test Case 2) Items in other namespaces are unaffected.
         """
-        from workspace.hdf5_io import (
+        from spikelab.workspace.hdf5_io import (
             dump_item_to_file,
             load_item_from_file,
             delete_item_from_file,
@@ -3106,7 +3101,7 @@ class TestLazyAnalysisWorkspaceEdgeCases:
         Tests:
             (Test Case 1) ImportError is raised with a descriptive message.
         """
-        import workspace.hdf5_io as hdf5_io
+        import spikelab.workspace.hdf5_io as hdf5_io
 
         monkeypatch.setattr(hdf5_io, "_H5PY_AVAILABLE", False)
 
@@ -3148,7 +3143,7 @@ class TestLazyAnalysisWorkspaceEdgeCases:
         ws.store("ns", "key", np.array([1.0]))
 
         # Manually corrupt the _index to reference a key that doesn't exist in HDF5
-        from workspace.hdf5_io import delete_item_from_file
+        from spikelab.workspace.hdf5_io import delete_item_from_file
 
         delete_item_from_file(ws._h5_path, "ns", "key")
         # _index still has the entry, but get() will return None
@@ -3518,7 +3513,7 @@ class TestHDF5IOEdgeCases:
               This is a potential bug depending on how the stack class handles it.
         """
         import h5py as h5
-        from workspace.hdf5_io import _dump_times_tuples, _load_times_tuples
+        from spikelab.workspace.hdf5_io import _dump_times_tuples, _load_times_tuples
 
         with tempfile.TemporaryDirectory() as tmp:
             h5_path = str(pathlib.Path(tmp) / "test.h5")
@@ -3582,7 +3577,7 @@ class TestHDF5IOEdgeCases:
             (Test Case 1) After overwrite, load_item_from_file returns the new value.
             (Test Case 2) The old value is no longer present.
         """
-        from workspace.hdf5_io import dump_item_to_file, load_item_from_file
+        from spikelab.workspace.hdf5_io import dump_item_to_file, load_item_from_file
 
         with tempfile.TemporaryDirectory() as tmp:
             h5_path = str(pathlib.Path(tmp) / "test.h5")
