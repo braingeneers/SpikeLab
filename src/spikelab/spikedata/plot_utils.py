@@ -757,8 +757,12 @@ def plot_scatter_with_marginals(
         font_size = scatter_kwargs.get("font_size")
         color_label = scatter_kwargs.get("color_label", "")
         _add_colorbar(
-            sc, ax_histy, label=color_label, font_size=font_size or 14,
-            size="5%", pad=0.08,
+            sc,
+            ax_histy,
+            label=color_label,
+            font_size=font_size or 14,
+            size="5%",
+            pad=0.08,
         )
 
     return ax_scatter, ax_histx, ax_histy, sc
@@ -1656,8 +1660,9 @@ def plot_heatmap(
             )
 
     if show_colorbar:
-        _add_colorbar(im, ax, label=colorbar_label, font_size=font_size,
-                       size="10%", pad=0.08)
+        _add_colorbar(
+            im, ax, label=colorbar_label, font_size=font_size, size="10%", pad=0.08
+        )
 
     _apply_font_size(ax, font_size)
 
