@@ -8,7 +8,7 @@ Handles both local files and S3 URLs.
 import os
 from typing import Any, Dict, Optional
 
-from data_loaders.data_loaders import (
+from ...data_loaders.data_loaders import (
     load_spikedata_from_hdf5,
     load_spikedata_from_hdf5_raw_thresholded,
     load_spikedata_from_ibl,
@@ -18,8 +18,8 @@ from data_loaders.data_loaders import (
     query_ibl_probes as _query_ibl_probes,
 )
 
-from data_loaders.s3_utils import ensure_local_file, is_s3_url
-from workspace.workspace import get_workspace_manager
+from ...data_loaders.s3_utils import ensure_local_file, is_s3_url
+from ...workspace.workspace import get_workspace_manager
 
 # ---------------------------------------------------------------------------
 # Workspace helpers

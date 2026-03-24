@@ -14,19 +14,12 @@ Tests cover:
 
 import json
 import os
-import pathlib
-import sys
 import tempfile
 import time
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
-# Ensure project root is on sys.path (tests/ → repo root)
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 # Check for MCP dependencies - import in stages
 MCP_IMPORT_ERROR = None
@@ -35,14 +28,14 @@ MCP_SERVER_AVAILABLE = False
 
 # Basic imports (no mcp dependency)
 try:
-    from data_loaders.s3_utils import (
+    from spikelab.data_loaders.s3_utils import (
         download_from_s3,
         ensure_local_file,
         is_s3_url,
         parse_s3_url,
         upload_to_s3,
     )
-    from spikedata import SpikeData
+    from spikelab.spikedata import SpikeData
 
     MCP_AVAILABLE = True
 except ImportError as e:
@@ -51,13 +44,13 @@ except ImportError as e:
 # Server imports (requires mcp package)
 if MCP_AVAILABLE:
     try:
-        from mcp_server.server import server
-        from mcp_server.tools import (
+        from spikelab.mcp_server.server import server
+        from spikelab.mcp_server.tools import (
             analysis,
             data_loaders,
             exporters,
         )
-        from workspace.workspace import get_workspace_manager
+        from spikelab.workspace.workspace import get_workspace_manager
 
         MCP_SERVER_AVAILABLE = True
     except ImportError as e:
@@ -165,7 +158,7 @@ class TestS3Utils:
         assert key == "path/to/file.h5"
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("spikelab.data_loaders.s3_utils.boto3")
     def test_download_from_s3(self, mock_boto3):
         """Test S3 download."""
         mock_client = MagicMock()
@@ -196,7 +189,7 @@ class TestS3Utils:
             os.unlink(tmp_path)
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("spikelab.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_success(self, mock_boto3):
         """
         Test successful upload to S3.
@@ -264,7 +257,7 @@ class TestS3Utils:
             os.unlink(tmp_path)
 
     @pytestmark_infra
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("spikelab.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_bucket_not_found(self, mock_boto3):
         """
         Test that upload_to_s3 raises ValueError when S3 bucket does not exist.
@@ -307,7 +300,7 @@ class TestS3Utils:
         not __import__("importlib").util.find_spec("botocore"),
         reason="botocore not installed",
     )
-    @patch("data_loaders.s3_utils.boto3")
+    @patch("spikelab.data_loaders.s3_utils.boto3")
     def test_upload_to_s3_credential_error(self, mock_boto3):
         """
         Test that upload_to_s3 raises RuntimeError when AWS credentials are missing.
@@ -380,7 +373,7 @@ class TestDataLoaders:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders.ensure_local_file")
+    @patch("spikelab.mcp_server.tools.data_loaders.ensure_local_file")
     async def test_load_from_hdf5_s3(self, mock_ensure):
         """
         Test loading HDF5 spike data from an S3 URL.
@@ -1231,7 +1224,7 @@ class TestExportTools:
         """
         ws_id, ns = loaded_ws
         s3_path = "s3://my-bucket/exports/test.pkl"
-        with patch("data_loaders.s3_utils.upload_to_s3") as mock_upload:
+        with patch("spikelab.data_loaders.s3_utils.upload_to_s3") as mock_upload:
             result = await exporters.export_to_pickle(ws_id, ns, s3_path)
             assert result["file_path"] == s3_path
             mock_upload.assert_called_once()
@@ -1249,7 +1242,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_list_tools(self):
         """Test that tools are registered."""
-        from mcp_server.server import _list_tools
+        from spikelab.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         assert isinstance(tools, list)
@@ -1272,7 +1265,7 @@ class TestServerIntegration:
             (Test Case 3) fetch_workspace_item is registered.
             (Test Case 4) _from_workspace analysis tools are registered.
         """
-        from mcp_server.server import _list_tools
+        from spikelab.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         tool_names = [tool.name for tool in tools]
@@ -1312,7 +1305,7 @@ class TestServerIntegration:
             (Test Case 3) list_results is not registered.
             (Test Case 4) _from_stack tools are not registered.
         """
-        from mcp_server.server import _list_tools
+        from spikelab.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         tool_names = [tool.name for tool in tools]
@@ -1327,7 +1320,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_tool_schemas(self):
         """Test tool schemas are valid."""
-        from mcp_server.server import _list_tools
+        from spikelab.mcp_server.server import _list_tools
 
         tools = await _list_tools()
         for tool in tools:
@@ -1338,10 +1331,10 @@ class TestServerIntegration:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.server.analysis.compute_rates")
+    @patch("spikelab.mcp_server.server.analysis.compute_rates")
     async def test_call_tool(self, mock_compute):
         """Test calling a tool through the server."""
-        from mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool
 
         mock_compute.return_value = {
             "rates": [0.1, 0.2, 0.3],
@@ -1368,7 +1361,7 @@ class TestServerIntegration:
     @pytest.mark.asyncio
     async def test_call_tool_unknown(self):
         """Test error handling for unknown tool."""
-        from mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool
 
         result = await _call_tool("unknown_tool", {})
         data = json.loads(result[0].text)
@@ -1388,7 +1381,7 @@ def loaded_ws_with_sss(sample_spikedata):
     """
     if not MCP_SERVER_AVAILABLE:
         pytest.skip("MCP server not available")
-    from spikedata.spikeslicestack import SpikeSliceStack
+    from spikelab.spikedata.spikeslicestack import SpikeSliceStack
 
     wm = get_workspace_manager()
     ws_id = wm.create_workspace(name="test_ws_sss")
@@ -1410,7 +1403,7 @@ def loaded_ws_with_rss(sample_spikedata):
     """
     if not MCP_SERVER_AVAILABLE:
         pytest.skip("MCP server not available")
-    from spikedata.rateslicestack import RateSliceStack
+    from spikelab.spikedata.rateslicestack import RateSliceStack
 
     wm = get_workspace_manager()
     ws_id = wm.create_workspace(name="test_ws_rss")
@@ -1755,7 +1748,7 @@ class TestPairwiseConditioningMCPTools:
             (Test Case 1) Returns key.
             (Test Case 2) Stored item is PairwiseCompMatrix.
         """
-        from spikedata.pairwise import PairwiseCompMatrix
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
         ws_id, ns = loaded_ws
         wm = get_workspace_manager()
@@ -1786,7 +1779,7 @@ class TestPairwiseConditioningMCPTools:
         Tests:
             (Test Case 1) Stored item is PairwiseCompMatrixStack.
         """
-        from spikedata.pairwise import PairwiseCompMatrixStack
+        from spikelab.spikedata.pairwise import PairwiseCompMatrixStack
 
         ws_id, ns = loaded_ws
         wm = get_workspace_manager()
@@ -2377,7 +2370,7 @@ class TestBurstMCPTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.analysis.SpikeData.get_bursts")
+    @patch("spikelab.mcp_server.tools.analysis.SpikeData.get_bursts")
     async def test_get_bursts(self, mock_get_bursts, loaded_ws):
         """
         Test get_bursts dispatches to SpikeData.get_bursts and stores results.
@@ -2414,7 +2407,7 @@ class TestBurstMCPTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.analysis.SpikeData.burst_sensitivity")
+    @patch("spikelab.mcp_server.tools.analysis.SpikeData.burst_sensitivity")
     async def test_burst_sensitivity(self, mock_burst_sens, loaded_ws):
         """
         Test burst_sensitivity stores the sensitivity grid in the workspace.
@@ -2440,7 +2433,7 @@ class TestBurstMCPTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.analysis.SpikeData.get_frac_active")
+    @patch("spikelab.mcp_server.tools.analysis.SpikeData.get_frac_active")
     async def test_get_frac_active(self, mock_frac, loaded_ws):
         """
         Test get_frac_active stores frac_per_unit, frac_per_burst, and backbone.
@@ -2503,7 +2496,7 @@ class TestWaveformMCPTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.analysis.SpikeData.get_waveform_traces")
+    @patch("spikelab.mcp_server.tools.analysis.SpikeData.get_waveform_traces")
     async def test_get_waveform_traces(self, mock_waveforms, loaded_ws):
         """
         Test get_waveform_traces stores waveform array and returns metadata.
@@ -2539,7 +2532,7 @@ class TestGPLVMMCPTools:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.analysis.SpikeData.fit_gplvm")
+    @patch("spikelab.mcp_server.tools.analysis.SpikeData.fit_gplvm")
     async def test_fit_gplvm(self, mock_fit, loaded_ws):
         """
         Test fit_gplvm stores decode_res, reorder_indices, and binned_spike_counts.
@@ -2790,8 +2783,10 @@ class TestLoaderMCPToolsCoverage:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders.load_spikedata_from_hdf5_raw_thresholded")
-    @patch("mcp_server.tools.data_loaders.ensure_local_file")
+    @patch(
+        "spikelab.mcp_server.tools.data_loaders.load_spikedata_from_hdf5_raw_thresholded"
+    )
+    @patch("spikelab.mcp_server.tools.data_loaders.ensure_local_file")
     async def test_load_from_hdf5_thresholded(self, mock_ensure, mock_load):
         """
         Test load_from_hdf5_thresholded dispatches to the loader and stores result.
@@ -2819,7 +2814,7 @@ class TestLoaderMCPToolsCoverage:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders.load_spikedata_from_ibl")
+    @patch("spikelab.mcp_server.tools.data_loaders.load_spikedata_from_ibl")
     async def test_load_from_ibl(self, mock_load):
         """
         Test load_from_ibl dispatches to the IBL loader and stores result.
@@ -2843,7 +2838,7 @@ class TestLoaderMCPToolsCoverage:
 
     @pytestmark_server
     @pytest.mark.asyncio
-    @patch("mcp_server.tools.data_loaders._query_ibl_probes")
+    @patch("spikelab.mcp_server.tools.data_loaders._query_ibl_probes")
     async def test_query_ibl_probes(self, mock_query):
         """
         Test query_ibl_probes returns probe list and stats inline.
@@ -2890,7 +2885,7 @@ class TestLoadWorkspaceItemMCP:
         except ImportError:
             pytest.skip("h5py not available")
 
-        from workspace.workspace import AnalysisWorkspace
+        from spikelab.workspace.workspace import AnalysisWorkspace
 
         # Save a workspace with a known item
         source_ws = AnalysisWorkspace(name="source")
@@ -2974,7 +2969,7 @@ class TestPadRaggedEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.analysis import _pad_ragged
+        from spikelab.mcp_server.tools.analysis import _pad_ragged
 
         result = _pad_ragged([])
         assert result.shape == (0, 0)
@@ -2989,7 +2984,7 @@ class TestPadRaggedEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.analysis import _pad_ragged
+        from spikelab.mcp_server.tools.analysis import _pad_ragged
 
         result = _pad_ragged([np.array([]), np.array([])])
         assert result.shape == (2, 0)
@@ -3004,7 +2999,7 @@ class TestPadRaggedEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.analysis import _pad_ragged
+        from spikelab.mcp_server.tools.analysis import _pad_ragged
 
         result = _pad_ragged([np.array([5.0])])
         assert result.shape == (1, 1)
@@ -3024,7 +3019,7 @@ class TestToListEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.analysis import _to_list
+        from spikelab.mcp_server.tools.analysis import _to_list
 
         assert _to_list([1, 2, 3]) == [1, 2, 3]
         assert _to_list("hello") == "hello"
@@ -3688,7 +3683,7 @@ class TestSpikeSliceToRasterEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from spikedata.spikeslicestack import SpikeSliceStack
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
 
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="empty_sss_ws")
@@ -3938,7 +3933,7 @@ class TestFetchWorkspaceItemEdgeCases:
             (Test Case 1) Result contains data as nested list.
             (Test Case 2) Shape matches the matrix.
         """
-        from spikedata.pairwise import PairwiseCompMatrix
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
         ws_id, ns = loaded_ws
         wm = get_workspace_manager()
@@ -3963,7 +3958,7 @@ class TestNamespaceFromPathEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _namespace_from_path
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
 
         result = _namespace_from_path("", "")
         assert result == "recording"
@@ -3977,7 +3972,7 @@ class TestNamespaceFromPathEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _namespace_from_path
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
 
         result = _namespace_from_path("/data/myfile", "")
         assert result == "myfile"
@@ -3992,7 +3987,7 @@ class TestNamespaceFromPathEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _namespace_from_path
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
 
         result = _namespace_from_path("s3://bucket/folder/file.h5", "")
         assert result == "file"
@@ -4006,7 +4001,7 @@ class TestNamespaceFromPathEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _namespace_from_path
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
 
         result = _namespace_from_path("/data/folder/", "")
         assert result == "folder"
@@ -4021,7 +4016,7 @@ class TestNamespaceFromPathEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _namespace_from_path
+        from spikelab.mcp_server.tools.data_loaders import _namespace_from_path
 
         result = _namespace_from_path("/data/file.h5", "custom")
         assert result == "custom"
@@ -4039,7 +4034,7 @@ class TestUniqueNamespaceEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _unique_namespace
+        from spikelab.mcp_server.tools.data_loaders import _unique_namespace
 
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="ns_collision_ws")
@@ -4058,7 +4053,7 @@ class TestUniqueNamespaceEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _unique_namespace
+        from spikelab.mcp_server.tools.data_loaders import _unique_namespace
 
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="ns_nodup_ws")
@@ -4076,7 +4071,7 @@ class TestUniqueNamespaceEdgeCases:
         """
         if not MCP_SERVER_AVAILABLE:
             pytest.skip("MCP server not available")
-        from mcp_server.tools.data_loaders import _unique_namespace
+        from spikelab.mcp_server.tools.data_loaders import _unique_namespace
 
         wm = get_workspace_manager()
         ws_id = wm.create_workspace(name="ns_inc_ws")
@@ -4215,9 +4210,9 @@ class TestCallToolEdgeCases:
               The _call_tool error handler catches TypeError but the error message
               may be confusing to users.
         """
-        from mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool
 
-        with patch("mcp_server.server.analysis.compute_rates") as mock_compute:
+        with patch("spikelab.mcp_server.server.analysis.compute_rates") as mock_compute:
             # Return numpy scalar values (not plain Python)
             mock_compute.return_value = {
                 "rates": [np.float64(0.1), np.float64(0.2)],
@@ -4246,7 +4241,7 @@ class TestCallToolEdgeCases:
             (Test Case 1) _call_tool with unknown keyword arguments returns
                 an error in the response.
         """
-        from mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool
 
         result = await _call_tool(
             "create_workspace",
@@ -4268,7 +4263,7 @@ class TestCallToolEdgeCases:
             (Test Case 1) _call_tool for compute_rates without workspace_id returns
                 an error.
         """
-        from mcp_server.server import _call_tool
+        from spikelab.mcp_server.server import _call_tool
 
         result = await _call_tool("compute_rates", {})
         data = json.loads(result[0].text)
@@ -4329,7 +4324,7 @@ class TestRemoveByConditionEdgeCases:
         Tests:
             (Test Case 1) remove_by_condition with op="invalid" raises an exception.
         """
-        from spikedata.pairwise import PairwiseCompMatrix
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
 
         ws_id, ns = loaded_ws
         wm = get_workspace_manager()

@@ -495,6 +495,12 @@ def plot_scatter(
         sc (PathCollection or list[PathCollection]): In continuous mode, the
             single scatter artist (useful for shared colorbars). In group
             mode, a list of scatter artists (one per group).
+
+    Notes:
+        - When ``color_vals="density"``, non-finite values in *x* and *y* are
+          removed before computing the KDE. Any regression overlay
+          (``fit="linear"``) and the identity line are therefore computed on
+          this filtered subset, not the original arrays.
     """
     _import_matplotlib()
 
@@ -2220,16 +2226,21 @@ def plot_spatial_network(
             edge_alpha = np.full_like(edge_vals, (alpha_lo + alpha_hi) / 2)
         edge_alpha = np.clip(edge_alpha, alpha_lo, alpha_hi)
 
-        for idx in range(len(edge_i)):
-            i, j = edge_i[idx], edge_j[idx]
-            ax.plot(
-                [x[i], x[j]],
-                [y[i], y[j]],
-                color=edge_color,
-                linewidth=edge_linewidth,
-                alpha=edge_alpha[idx],
-                zorder=2,
-            )
+        from matplotlib.collections import LineCollection
+
+        segments = np.array(
+            [
+                [[x[edge_i[k]], y[edge_i[k]]], [x[edge_j[k]], y[edge_j[k]]]]
+                for k in range(len(edge_i))
+            ]
+        )
+        from matplotlib.colors import to_rgb
+
+        colors = [(*to_rgb(edge_color), a) for a in edge_alpha]
+        lc = LineCollection(
+            segments, colors=colors, linewidths=edge_linewidth, zorder=2
+        )
+        ax.add_collection(lc)
 
     # Draw nodes sized by mean value
     size_min, size_max = node_size_range

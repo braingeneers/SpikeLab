@@ -5,19 +5,13 @@ Covers: constructor validation, subset, subtime, subtime_by_index,
 frames, get_pairwise_fr_corr, and get_manifold.
 """
 
-import pathlib
-import sys
 import warnings
 
 import numpy as np
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from spikedata.ratedata import RateData
-from spikedata.rateslicestack import RateSliceStack
+from spikelab.spikedata.ratedata import RateData
+from spikelab.spikedata.rateslicestack import RateSliceStack
 
 try:
     import umap  # noqa: F401

@@ -16,7 +16,7 @@ from mcp.server.stdio import stdio_server
 from .tools import analysis, data_loaders, exporters
 
 # Create the MCP server instance
-server = Server("integrated-analysis-tools")
+server = Server("spikelab")
 
 # Shared workspace parameter schema properties used in multiple tools.
 _WS_PROPS = {
@@ -3344,7 +3344,7 @@ async def main():
     """Run the MCP server with stdio transport."""
     # Stdout is reserved for MCP JSON-RPC; user-visible status must use stderr.
     print(
-        "MCP Server running at stdio://integrated-analysis-tools",
+        "MCP Server running at stdio://spikelab",
         file=sys.stderr,
         flush=True,
     )
