@@ -2767,3 +2767,204 @@ class TestPlotUnitRasterEdgeCases:
             sss.plot_aligned_slice_single_unit(unit_idx=3)
         with pytest.raises(IndexError, match="out of range"):
             sss.plot_aligned_slice_single_unit(unit_idx=-1)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestSpikeSliceStackConstructorEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.__init__."""
+
+    def test_spike_stack_zero_length_slices(self):
+        """
+        spike_stack with all slices having length=0.
+
+        Tests:
+            (Test Case 1) Zero-length SpikeData slices produce auto-generated
+                times of (0, 0) for each.
+        """
+        sd1 = SpikeData([], length=0.0)
+        sd2 = SpikeData([], length=0.0)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
+        assert len(sss.spike_stack) == 2
+        for start, end in sss.times:
+            assert end - start == 0.0
+
+    def test_drop_slice_attributes_false(self):
+        """
+        spike_stack with drop_slice_attributes=False preserves per-slice neuron_attributes.
+
+        Tests:
+            (Test Case 1) neuron_attributes from individual slices are preserved
+                when drop_slice_attributes=False.
+        """
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        sd1 = SpikeData([[1.0], [2.0]], length=10.0, neuron_attributes=attrs)
+        sd2 = SpikeData([[3.0], [4.0]], length=10.0, neuron_attributes=attrs)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2], drop_slice_attributes=False)
+        # Per-slice attributes should be preserved
+        assert sss.spike_stack[0].neuron_attributes is not None
+
+
+class TestToRasterArrayEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.to_raster_array."""
+
+    def test_absolute_times_with_event_centered_slices(self):
+        """
+        to_raster_array(absolute_times=True) with negative start_time slices.
+
+        Tests:
+            (Test Case 1) Event-centered slices with negative start_time produce
+                a valid raster with absolute_times=True.
+        """
+        trains = [np.array([-5.0, 0.0, 5.0])]
+        sd = SpikeData(trains, length=20.0, start_time=-10.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(-10.0, 0.0), (0.0, 10.0)],
+        )
+        raster = sss.to_raster_array(bin_size=5.0, absolute_times=True)
+        assert raster.shape[0] == 1  # N=1 unit
+        assert raster.shape[2] == 2  # S=2 slices
+
+
+class TestSSSSubsetEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.subset."""
+
+    def test_subset_empty_unit_list(self):
+        """
+        subset with empty unit list [] produces a 0-unit stack.
+
+        Tests:
+            (Test Case 1) Empty unit list creates a stack where each slice
+                has N=0.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+        result = sss.subset([])
+        assert result.N == 0
+
+
+class TestSSSSubtimeByIndexEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.subtime_by_index."""
+
+    def test_non_integer_slice_duration(self):
+        """
+        subtime_by_index with non-integer slice_duration_ms (e.g. 100.5).
+
+        Tests:
+            (Test Case 1) Non-integer durations are handled by int(round(...))
+                and produce a valid result.
+        """
+        sd = make_spikedata(n_units=2, length_ms=201.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(0.0, 100.5), (100.5, 201.0)],
+        )
+        # Select first 50 indices
+        result = sss.subtime_by_index(0, 50)
+        assert len(result.spike_stack) == 2
+
+
+class TestComputeFracActiveEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.compute_frac_active."""
+
+    def test_negative_min_spikes(self):
+        """
+        compute_frac_active with negative min_spikes: all units active.
+
+        Tests:
+            (Test Case 1) Negative min_spikes means n_valid >= -1 is always True.
+                Same effect as min_spikes=0.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+        frac = sss.compute_frac_active(min_spikes=-1)
+        # All units should be active since -1 spikes threshold always passes
+        assert frac.shape == (3,)
+        assert np.all(frac >= 0.0)
+
+
+class TestSSSOrderUnitsEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.order_units_across_slices."""
+
+    def test_constant_timing_first_mode(self):
+        """
+        order_units_across_slices with timing='first' and constant spike times.
+
+        Tests:
+            (Test Case 1) Units that always spike at the same time produce
+                consistent ordering. Returns a tuple.
+        """
+        # 2 units, each with spikes at the same time in each slice
+        sd1 = SpikeData([[5.0, 10.0], [1.0, 2.0]], length=20.0)
+        sd2 = SpikeData([[5.0, 10.0], [1.0, 2.0]], length=20.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd1, sd2],
+            times_start_to_end=[(0.0, 20.0), (0.0, 20.0)],
+        )
+        result = sss.order_units_across_slices(timing="first", agg_func="median")
+        # Returns a tuple of tuples
+        assert isinstance(result, tuple)
+        assert len(result) >= 4
+
+
+class TestSSSApplyEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.apply."""
+
+    def test_apply_inconsistent_shapes_raises(self):
+        """
+        apply with a function that returns inconsistent shapes across slices.
+
+        Tests:
+            (Test Case 1) np.stack raises ValueError when shapes differ.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+
+        def bad_func(sd):
+            # Returns different shapes based on slice content
+            return np.zeros(len(sd.train[0]))
+
+        with pytest.raises(ValueError):
+            sss.apply(bad_func)
+
+
+class TestSSSUnitToUnitCompEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.unit_to_unit_comparison."""
+
+    def test_sttc_all_empty_trains(self):
+        """
+        unit_to_unit_comparison with metric='sttc' and all-empty trains.
+
+        Tests:
+            (Test Case 1) All-empty trains produce zero STTC values.
+        """
+        sd = SpikeData([[], [], []], length=100.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd, sd],
+            times_start_to_end=[(0.0, 100.0), (0.0, 100.0)],
+        )
+        corr, lag, av_corr, av_lag = sss.unit_to_unit_comparison(metric="sttc")
+        assert corr.stack.shape == (3, 3, 2)
+
+
+class TestSSSSliceToSliceCompEdgeCases2:
+    """Additional edge case tests for SpikeSliceStack.get_slice_to_slice_unit_comparison."""
+
+    def test_sttc_large_delt(self):
+        """
+        get_slice_to_slice_unit_comparison with delt larger than slice duration.
+
+        Tests:
+            (Test Case 1) delt=10000 with 50ms slices does not raise.
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+        corr, lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+            metric="sttc", delt=10000.0
+        )
+        assert corr.stack.shape[0] == 2
+        assert corr.stack.shape[1] == 2

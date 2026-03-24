@@ -1168,3 +1168,172 @@ class TestKiloSortExportersEdgeCases:
         assert not os.path.exists(os.path.join(d, "channel_map.npy"))
         assert os.path.exists(os.path.join(d, "spike_times.npy"))
         assert os.path.exists(os.path.join(d, "spike_clusters.npy"))
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+@skip_no_h5py
+class TestHDF5ExportersEdgeCases2:
+    """Additional edge case tests for export_spikedata_to_hdf5."""
+
+    def test_nonzero_start_time_roundtrip_ragged(self, tmp_path):
+        """
+        Non-zero start_time is preserved through a ragged-style export/load round-trip.
+
+        Tests:
+            (Test Case 1) start_time=-100 survives export and reimport.
+        """
+        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        path = str(tmp_path / "start_time_ragged.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
+        loaded = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="spike_times",
+            spike_times_index_dataset="spike_times_index",
+        )
+        assert loaded.start_time == pytest.approx(-100.0)
+        # Length is inferred from max spike time - start_time
+        # max(10.0) - (-100.0) = 110.0
+        assert loaded.length == pytest.approx(110.0)
+
+    def test_nonzero_start_time_roundtrip_paired(self, tmp_path):
+        """
+        Non-zero start_time is preserved through a paired-style export/load round-trip.
+
+        Tests:
+            (Test Case 1) start_time=-50 survives export and reimport in paired style.
+        """
+        trains = [np.array([-40.0, -20.0]), np.array([-10.0, 0.0])]
+        sd = SpikeData(trains, length=100.0, start_time=-50.0)
+        path = str(tmp_path / "start_time_paired.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="paired")
+        loaded = loaders.load_spikedata_from_hdf5(
+            path,
+            idces_dataset="idces",
+            times_dataset="times",
+            times_unit="ms",
+        )
+        assert loaded.start_time == pytest.approx(-50.0)
+
+    def test_raster_export_all_empty_trains(self, tmp_path):
+        """
+        Raster export with all-empty-train SpikeData.
+
+        Tests:
+            (Test Case 1) All-empty trains produce an all-zero raster that
+                can be exported and loaded back.
+        """
+        sd = SpikeData([[], [], []], length=25.0)
+        path = str(tmp_path / "raster_empty.h5")
+
+        exporters.export_spikedata_to_hdf5(
+            sd, path, style="raster", raster_bin_size_ms=5.0
+        )
+        loaded = loaders.load_spikedata_from_hdf5(
+            path, raster_dataset="raster", raster_bin_size_ms=5.0
+        )
+        assert loaded.N == 3
+        for t in loaded.train:
+            assert len(t) == 0
+
+    def test_group_style_more_than_9_units(self, tmp_path):
+        """
+        Group style with >9 units: lexicographic sort mismatch.
+
+        Tests:
+            (Test Case 1) Export 12 units, then load. Verify unit count matches.
+        """
+        trains = [np.array([float(i + 1)]) for i in range(12)]
+        sd = SpikeData(trains, length=20.0)
+        path = str(tmp_path / "group_12.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="group")
+        loaded = loaders.load_spikedata_from_hdf5(path, group_per_unit="units")
+        assert loaded.N == 12
+
+
+@skip_no_h5py
+class TestNWBExportersEdgeCases2:
+    """Additional edge case tests for export_spikedata_to_nwb."""
+
+    def test_nonzero_start_time_warning(self, tmp_path):
+        """
+        NWB export with non-zero start_time issues a UserWarning.
+
+        Tests:
+            (Test Case 1) start_time=-100 triggers a UserWarning about
+                NWB not preserving start_time.
+        """
+        import warnings
+
+        trains = [np.array([-50.0, 0.0, 50.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        path = str(tmp_path / "nwb_start_time.nwb")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            exporters.export_spikedata_to_nwb(sd, path)
+            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
+            assert any("start_time" in str(x.message) for x in user_warnings)
+
+    def test_z_coordinates_roundtrip(self, tmp_path):
+        """
+        NWB export with 3D (x, y, z) locations.
+
+        Tests:
+            (Test Case 1) 3D locations are exported and loaded back.
+        """
+        trains = [np.array([5.0]), np.array([10.0])]
+        attrs = [
+            {"electrode_id": 0, "x": 1.0, "y": 2.0, "z": 3.0},
+            {"electrode_id": 1, "x": 4.0, "y": 5.0, "z": 6.0},
+        ]
+        sd = SpikeData(trains, length=20.0, neuron_attributes=attrs)
+        path = str(tmp_path / "nwb_3d.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+        loaded = loaders.load_spikedata_from_nwb(path)
+        assert loaded.N == 2
+
+
+class TestKiloSortExportersEdgeCases2:
+    """Additional edge case tests for export_spikedata_to_kilosort."""
+
+    def test_nonzero_start_time_warning(self, tmp_path):
+        """
+        KiloSort export with non-zero start_time issues a UserWarning.
+
+        Tests:
+            (Test Case 1) start_time=-50 triggers a UserWarning.
+        """
+        import warnings
+
+        trains = [np.array([-30.0, -10.0, 0.0])]
+        sd = SpikeData(trains, length=100.0, start_time=-50.0)
+        path = str(tmp_path / "ks_start_time")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
+            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
+            assert any("start_time" in str(x.message) for x in user_warnings)
+
+    def test_all_empty_trains_kilosort(self, tmp_path):
+        """
+        KiloSort export with N>0 but all trains empty.
+
+        Tests:
+            (Test Case 1) Export succeeds with empty spike_times and spike_clusters.
+        """
+        sd = SpikeData([[], [], []], length=25.0)
+        path = str(tmp_path / "ks_empty")
+
+        exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
+        times = np.load(os.path.join(path, "spike_times.npy"))
+        assert len(times) == 0

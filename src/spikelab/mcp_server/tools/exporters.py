@@ -327,7 +327,7 @@ async def export_to_nwb(
         return {
             "file_path": output_path,
         }
-    except Exception as e:
+    except Exception:
         if is_s3:
             try:
                 os.unlink(local_path)

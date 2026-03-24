@@ -4,6 +4,7 @@ import numpy as np
 
 __all__ = ["RateData"]
 
+from .pairwise import PairwiseCompMatrix
 from .utils import (
     compute_cross_correlation_with_lag,
     PCA_reduction,
@@ -67,13 +68,18 @@ class RateData:
 
         self.N = inst_Frate_data.shape[0]
         self.neuron_attributes = None
-        if neuron_attributes:
+        if neuron_attributes is not None:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:
                 raise ValueError(
                     f"neuron_attributes has {len(neuron_attributes)} items "
                     f"but inst_Frate_data has {self.N} rows"
                 )
+
+    def __repr__(self) -> str:
+        t0 = float(self.times[0]) if len(self.times) > 0 else 0.0
+        t1 = float(self.times[-1]) if len(self.times) > 0 else 0.0
+        return f"RateData(shape={self.inst_Frate_data.shape}, time_range=[{t0:.1f}, {t1:.1f}])"
 
     def subset(self, units, by=None):
         """
@@ -261,14 +267,15 @@ class RateData:
 
 
         Returns:
-        corr_matrix_this_event (array): Matrix of maximum correlation coefficients between all unit/neuron pairs.
-                                          matrix[i, j] is the max correlation between unit i and unit j.
-                                          Values range from -1 to 1. Diagonal is always 1 (self-correlation).
-        lag_matrix_this_event (array): Matrix of time lags (in time bins) at which maximum correlation occurs.
-                                         lag_matrix[i, j] is the lag where correlation between i and j is maximal.
-                                         Positive lag means unit j leads unit i (j fires earlier).
-                                         Negative lag means unit i leads unit j (i fires earlier).
-                                         Diagonal is always 0 (self-correlation is perfectly aligned, so max corr at 0 lag.)
+        tuple[PairwiseCompMatrix, PairwiseCompMatrix]:
+            corr_matrix: PairwiseCompMatrix of maximum correlation coefficients between all unit/neuron pairs.
+                         matrix[i, j] is the max correlation between unit i and unit j.
+                         Values range from -1 to 1. Diagonal is always 1 (self-correlation).
+            lag_matrix: PairwiseCompMatrix of time lags (in time bins) at which maximum correlation occurs.
+                        lag_matrix[i, j] is the lag where correlation between i and j is maximal.
+                        Positive lag means unit j leads unit i (j fires earlier).
+                        Negative lag means unit i leads unit j (i fires earlier).
+                        Diagonal is always 0 (self-correlation is perfectly aligned, so max corr at 0 lag.)
         """
 
         rate_matrix = self.inst_Frate_data
@@ -292,8 +299,12 @@ class RateData:
                 corr_matrix_this_event[n2, n1] = max_corr
                 lag_matrix_this_event[n2, n1] = -max_lag_idx
 
-        # Output is UxU
-        return corr_matrix_this_event, lag_matrix_this_event
+        # Output is UxU, wrapped in PairwiseCompMatrix for API consistency
+        meta = {"compare_func": compare_func.__name__, "max_lag": max_lag}
+        return (
+            PairwiseCompMatrix(matrix=corr_matrix_this_event, metadata=meta),
+            PairwiseCompMatrix(matrix=lag_matrix_this_event, metadata=meta),
+        )
 
     def get_manifold(
         self,

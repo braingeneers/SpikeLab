@@ -54,7 +54,7 @@ s3 = [
   "boto3>=1.28.0",
 ]
 gplvm = [
-  "poor-man-gplvm>=0.1.0",
+  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
   "jax>=0.4.26",
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",
@@ -62,7 +62,7 @@ gplvm = [
 ]
 all = [
   "boto3>=1.28.0",
-  "poor-man-gplvm>=0.1.0",
+  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
   "jax>=0.4.26",
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",

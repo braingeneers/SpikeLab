@@ -110,6 +110,9 @@ def export_spikedata_to_hdf5(
           provided and the SpikeData contains raw_data and raw_time attributes.
         - For raster style, the bin size is stored as an attribute for provenance.
         - Parameters mirror the corresponding loader function to ease round-tripping.
+        - ``neuron_attributes`` and ``metadata`` are **not** persisted in the
+          generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace HDF5)
+          or ``export_spikedata_to_pickle`` for full-fidelity round-trips.
     """
     ensure_h5py()
 
@@ -158,7 +161,7 @@ def export_spikedata_to_hdf5(
             f.create_dataset(raster_dataset, data=np.asarray(raster))
             # Store bin size as an attribute for provenance (readers can ignore)
             f[raster_dataset].attrs["bin_size_ms"] = float(raster_bin_size_ms)
-            return
+            return  # file-level attrs (start_time, N) already written above
 
         if style == "ragged":
             # Flatten all trains and write cumulative end indices
@@ -242,18 +245,12 @@ def export_spikedata_to_nwb(
         g.create_dataset(spike_times_index_dataset, data=index)
         g.create_dataset("id", data=np.arange(sd.N, dtype=int))
 
-        try:
-            electrodes = sd.electrodes
-        except Exception:
-            electrodes = None
+        electrodes = sd.electrodes
         if electrodes is not None:
             g.create_dataset("electrodes", data=electrodes)
             g.create_dataset("electrodes_index", data=np.arange(1, sd.N + 1, dtype=int))
 
-        try:
-            unit_locations = sd.unit_locations
-        except Exception:
-            unit_locations = None
+        unit_locations = sd.unit_locations
         if unit_locations is not None:
             elec_grp = f.create_group("general/extracellular_ephys/electrodes")
             locations = unit_locations

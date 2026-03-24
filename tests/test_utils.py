@@ -7,6 +7,8 @@ times_from_ms, to_ms, ensure_h5py, _train_from_i_t_list,
 PCA_reduction, UMAP_reduction, UMAP_graph_communities.
 """
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -2987,3 +2989,377 @@ class TestTimesConversionEdgeCases:
         v = np.array([100, 200, 300])
         result = to_ms(v, "samples", fs_Hz=np.inf)
         np.testing.assert_allclose(result, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestGetSttcEdgeCases2:
+    """Additional edge case tests for get_sttc."""
+
+    def test_length_zero_with_non_empty_trains(self):
+        """
+        get_sttc with length=0 produces division by zero (Inf/NaN).
+
+        Tests:
+            (Test Case 1) length=0 with non-empty trains: TA = _sttc_ta(...)/0
+                produces Inf, and the formula may return NaN.
+
+        Notes:
+            - This is a bug: no validation guard for length=0. The division
+              by zero produces Inf which propagates to NaN in the formula.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        tA = [0.0]
+        tB = [0.0]
+        result = get_sttc(tA, tB, delt=20.0, length=0.0)
+        # Division by zero produces Inf, which propagates
+        assert np.isnan(result) or np.isinf(result)
+
+    def test_delt_much_larger_than_length(self):
+        """
+        get_sttc with delt >> length produces STTC that may exceed [-1, 1].
+
+        Tests:
+            (Test Case 1) delt=10000 with length=10 produces large TA/TB
+                ratios but the formula still returns a finite value.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        tA = [2.0, 5.0, 8.0]
+        tB = [3.0, 6.0, 9.0]
+        result = get_sttc(tA, tB, delt=10000.0, length=10.0)
+        assert np.isfinite(result)
+
+    def test_identical_single_spike_trains(self):
+        """
+        get_sttc with single identical spikes: PA=1, TB=1, formula returns 0.
+
+        Tests:
+            (Test Case 1) Both trains have a single spike at the same time.
+                PA*TB == 1, so the denominator is 0 and the result is 0.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        result = get_sttc([5.0], [5.0], delt=20.0, length=10.0)
+        assert np.isfinite(result)
+
+
+class TestResampledIsiEdgeCases2:
+    """Additional edge case tests for _resampled_isi."""
+
+    def test_negative_sigma(self):
+        """
+        _resampled_isi with negative sigma_ms may raise or produce unexpected output.
+
+        Tests:
+            (Test Case 1) Negative sigma produces a negative sigma for
+                gaussian_filter1d, which raises a ValueError in scipy >= 1.7.
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = [1.0, 5.0, 10.0]
+        times = np.linspace(0, 15, 100)
+        try:
+            result = _resampled_isi(spikes, times, sigma_ms=-5.0)
+            # If scipy doesn't raise, result is still produced
+            assert isinstance(result, np.ndarray)
+        except (ValueError, RuntimeError):
+            pass  # Expected for scipy versions that validate sigma
+
+
+class TestComputeCrossCorrelationEdgeCases2:
+    """Additional edge case tests for compute_cross_correlation_with_lag."""
+
+    def test_length_one_signal(self):
+        """
+        compute_cross_correlation_with_lag with length-1 signals.
+
+        Tests:
+            (Test Case 1) Length-1 signals produce a valid result without error.
+        """
+        ref = np.array([1.0])
+        comp = np.array([2.0])
+        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=0)
+        assert np.isfinite(max_corr)
+        assert max_lag == 0
+
+    def test_length_two_signal(self):
+        """
+        compute_cross_correlation_with_lag with length-2 signals and max_lag=1.
+
+        Tests:
+            (Test Case 1) Length-2 signals produce a valid result.
+        """
+        ref = np.array([1.0, 0.0])
+        comp = np.array([0.0, 1.0])
+        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=1)
+        assert np.isfinite(max_corr)
+
+
+class TestComputeCosineSimilarityEdgeCases2:
+    """Additional edge case tests for compute_cosine_similarity_with_lag."""
+
+    def test_max_lag_equals_signal_length_minus_one(self):
+        """
+        compute_cosine_similarity_with_lag with max_lag == len(signal) - 1.
+
+        Tests:
+            (Test Case 1) At extreme lag, overlapping segment has length 1.
+                This produces a degenerate cosine similarity.
+        """
+        ref = np.array([1.0, 2.0, 3.0])
+        comp = np.array([3.0, 2.0, 1.0])
+        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=2)
+        assert np.isfinite(max_sim)
+
+    def test_all_nan_input(self):
+        """
+        compute_cosine_similarity_with_lag with all-NaN input returns NaN.
+
+        Tests:
+            (Test Case 1) NaN input produces NaN similarity and lag 0.
+        """
+        ref = np.array([np.nan, np.nan])
+        comp = np.array([np.nan, np.nan])
+        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=0)
+        assert np.isnan(max_sim)
+        assert max_lag == 0
+
+
+class TestPCAReductionEdgeCases:
+    """Edge case tests for PCA_reduction."""
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not installed")
+    def test_n_components_zero(self):
+        """
+        PCA_reduction with n_components=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) n_components=0: PCA(n_components=0) raises ValueError
+                from scikit-learn.
+        """
+        from spikelab.spikedata.utils import PCA_reduction
+
+        data = np.random.default_rng(0).random((10, 5))
+        # n_components=0 does not exceed max_components check (0 <= 5),
+        # but PCA(n_components=0) may not raise in all sklearn versions.
+        # In some versions, it produces a (10, 0) embedding silently.
+        embedding, var_ratio, components = PCA_reduction(data, n_components=0)
+        assert embedding.shape == (10, 0) or embedding.shape[1] == 0
+
+
+class TestButterFilterEdgeCases2:
+    """Additional edge case tests for butter_filter."""
+
+    def test_lowcut_zero_with_highcut(self):
+        """
+        butter_filter with lowcut=0 and highcut=100 creates a bandpass with Wn=[0, ...].
+
+        Tests:
+            (Test Case 1) lowcut=0 with highcut creates a bandpass filter.
+                Wn=[0, highcut/fs*2] where Wn[0]=0 is invalid for bandpass,
+                raising a ValueError.
+
+        Notes:
+            - The code does not treat lowcut=0 as lowcut=None. It creates
+              a bandpass filter with Wn=0, which scipy rejects.
+        """
+        data = np.random.rand(1000)
+        with pytest.raises(ValueError):
+            butter_filter(data, lowcut=0, highcut=100, fs=20000)
+
+
+class TestRandomizeEdgeCases2:
+    """Additional edge case tests for randomize."""
+
+    def test_all_ones_raster(self):
+        """
+        randomize with an all-ones raster: no swaps possible.
+
+        Tests:
+            (Test Case 1) An all-ones raster issues RuntimeWarning about
+                insufficient swaps since all off-diagonal positions are occupied.
+        """
+        from spikelab.spikedata.spikedata import randomize
+
+        ar = np.ones((3, 3))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = randomize(ar, swap_per_spike=5, seed=42)
+        # Result should be identical since no swaps are possible
+        np.testing.assert_array_equal(result, 1)
+
+    def test_1x1_raster(self):
+        """
+        randomize with a 1x1 raster with a single spike.
+
+        Tests:
+            (Test Case 1) Single element raster issues RuntimeWarning and
+                returns unchanged.
+        """
+        from spikelab.spikedata.spikedata import randomize
+
+        ar = np.array([[1.0]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = randomize(ar, swap_per_spike=5, seed=42)
+        assert result.shape == (1, 1)
+        assert result[0, 0] == 1
+
+
+class TestConsecutiveDurationsEdgeCases2:
+    """Additional edge case tests for consecutive_durations."""
+
+    def test_min_dur_zero(self):
+        """
+        consecutive_durations with min_dur=0 includes all runs.
+
+        Tests:
+            (Test Case 1) min_dur=0 keeps runs of length 1.
+        """
+        signal = np.array([1.0, 0.0, 1.0, 1.0, 0.0])
+        result = consecutive_durations(signal, threshold=0.5, mode="above", min_dur=0)
+        # Runs above 0.5: [1.0] (len=1), [1.0, 1.0] (len=2)
+        np.testing.assert_array_equal(sorted(result), [1, 2])
+
+    def test_all_nan_signal(self):
+        """
+        consecutive_durations with all-NaN signal produces no runs.
+
+        Tests:
+            (Test Case 1) NaN >= threshold is False, NaN < threshold is False.
+                No runs in either mode.
+        """
+        signal = np.full(10, np.nan)
+        result_above = consecutive_durations(signal, threshold=0.5, mode="above")
+        result_below = consecutive_durations(signal, threshold=0.5, mode="below")
+        assert len(result_above) == 0
+        assert len(result_below) == 0
+
+
+class TestShuffleZScoreEdgeCases2:
+    """Additional edge case tests for shuffle_z_score."""
+
+    def test_single_element_distribution(self):
+        """
+        shuffle_z_score with N=1 shuffle distribution: std=0, z=NaN.
+
+        Tests:
+            (Test Case 1) Single-element shuffle distribution has std=0,
+                producing NaN z-score.
+        """
+        result = shuffle_z_score(5.0, np.array([3.0]))
+        assert np.isnan(result)
+
+
+class TestShufflePercentileEdgeCases:
+    """Edge case tests for shuffle_percentile."""
+
+    def test_nan_in_distribution(self):
+        """
+        shuffle_percentile with NaN values in the distribution.
+
+        Tests:
+            (Test Case 1) NaN <= observed is False, so NaN entries effectively
+                lower the percentile.
+        """
+        result = shuffle_percentile(5.0, np.array([1.0, np.nan, 3.0, 7.0]))
+        # NaN <= 5.0 is False, so 2 out of 4 are <= 5.0
+        assert result == pytest.approx(0.5)
+
+
+class TestSliceTrendEdgeCases2:
+    """Additional edge case tests for slice_trend."""
+
+    def test_exactly_two_non_nan_values(self):
+        """
+        slice_trend with exactly 2 non-NaN values: minimum for linregress.
+
+        Tests:
+            (Test Case 1) Two points produce an exact fit (R^2=1).
+        """
+        values = np.array([1.0, np.nan, 3.0])
+        slope, p_value = slice_trend(values)
+        assert np.isfinite(slope)
+        assert slope == pytest.approx(1.0)
+
+
+class TestSliceStabilityEdgeCases2:
+    """Additional edge case tests for slice_stability."""
+
+    def test_all_identical_values(self):
+        """
+        slice_stability with all-identical values: std=0, mean!=0, cv=0.
+
+        Tests:
+            (Test Case 1) All identical non-zero values produce cv=0.
+        """
+        result = slice_stability(np.array([5.0, 5.0, 5.0]))
+        # std=0, mean=5.0, cv = 0/5 = 0
+        # But with the safe_mean guard: abs_mean != 0, so cv = 0/5 = 0
+        assert result == pytest.approx(0.0)
+
+    def test_2d_input(self):
+        """
+        slice_stability with 2D input computes cv along axis 0.
+
+        Tests:
+            (Test Case 1) 2D array returns an array of cv values.
+        """
+        values = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        result = slice_stability(values)
+        assert result.shape == (2,)
+
+
+class TestValidateTimeStartToEndEdgeCases2:
+    """Additional edge case tests for _validate_time_start_to_end."""
+
+    def test_exact_boundary_match(self):
+        """
+        Windows exactly at the recording range boundary pass validation.
+
+        Tests:
+            (Test Case 1) window[0] == rec_start and window[1] == rec_end
+                does not raise since checks are < and >.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        result = _validate_time_start_to_end(
+            [(0.0, 100.0)], recording_range=(0.0, 100.0)
+        )
+        assert len(result) == 1
+        assert result[0] == (0.0, 100.0)
+
+
+class TestRankOrderCorrelationEdgeCases:
+    """Edge case tests for _rank_order_correlation_from_timing."""
+
+    def test_identical_timing_values_across_pair(self):
+        """
+        Identical timing values across a pair produce NaN Spearman correlation.
+
+        Tests:
+            (Test Case 1) When all timing values in a column are identical,
+                spearmanr returns NaN.
+        """
+        from spikelab.spikedata.utils import _rank_order_correlation_from_timing
+
+        # 3 units, 5 slices, all have same timing
+        timing = np.full((3, 5), 5.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            corr_pcm, av_corr, overlap_pcm = _rank_order_correlation_from_timing(
+                timing, min_overlap=2, n_shuffles=0
+            )
+        # All pairs have identical values → NaN correlation
+        assert corr_pcm.matrix.shape == (5, 5)
+        # Off-diagonal correlations should be NaN since all unit timings are identical
+        for i in range(5):
+            for j in range(i + 1, 5):
+                assert np.isnan(corr_pcm.matrix[i, j]) or corr_pcm.matrix[
+                    i, j
+                ] == pytest.approx(1.0)

@@ -69,8 +69,10 @@ def _make_summary(obj: Any) -> dict:
         return {"type": "RateSliceStack", "shape": list(obj.event_stack.shape)}
 
     if SpikeSliceStack is not None and isinstance(obj, SpikeSliceStack):
-        length_ms = float(obj.times[0][1] - obj.times[0][0]) if obj.times else None
-        n_units = obj.spike_stack[0].N if obj.spike_stack else 0
+        length_ms = (
+            float(obj.times[0][1] - obj.times[0][0]) if len(obj.times) > 0 else None
+        )
+        n_units = obj.spike_stack[0].N if len(obj.spike_stack) > 0 else 0
         return {
             "type": "SpikeSliceStack",
             "N_slices": len(obj.spike_stack),
@@ -875,6 +877,17 @@ class WorkspaceManager:
 
 # Module-level singleton
 _workspace_manager: Optional[WorkspaceManager] = None
+_workspace_manager_lock: "threading.Lock | None" = None
+
+
+def _get_singleton_lock():
+    """Lazily create the module-level lock (avoids top-level threading import)."""
+    global _workspace_manager_lock
+    if _workspace_manager_lock is None:
+        import threading
+
+        _workspace_manager_lock = threading.Lock()
+    return _workspace_manager_lock
 
 
 def get_workspace_manager() -> WorkspaceManager:
@@ -886,5 +899,7 @@ def get_workspace_manager() -> WorkspaceManager:
     """
     global _workspace_manager
     if _workspace_manager is None:
-        _workspace_manager = WorkspaceManager()
+        with _get_singleton_lock():
+            if _workspace_manager is None:
+                _workspace_manager = WorkspaceManager()
     return _workspace_manager

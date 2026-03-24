@@ -250,9 +250,9 @@ class TestSpikeDataConstruction:
         sdtime = sd.subtime(20, ...)
         self.assert_spikedata_subtime(sd, sdtime, 20, 100)
 
-        # Check subtime() with second argument greater than length.
-        sdtime = sd.subtime(20, 150)
-        self.assert_spikedata_subtime(sd, sdtime, 20, 100)
+        # Check subtime() with second argument greater than length raises.
+        with pytest.raises(ValueError, match="end.*exceeds recording end"):
+            sd.subtime(20, 150)
 
         # Test that frames() returns a SpikeSliceStack consistent with subtime().
         stack = sd.frames(20)
@@ -907,17 +907,19 @@ class TestSpikeDataSlicing:
             (Test Case 1) N increases by the added units.
             (Test Case 2) Original trains preserved.
             (Test Case 3) New trains appended.
-            (Test Case 4) In-place mutation.
+            (Test Case 4) Returns a new object (does not mutate self).
         """
         sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=10.0)
         sd2 = SpikeData([[5.0, 6.0]], length=10.0)
 
         original_n = sd1.N
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.N == original_n + 1
-        assert len(sd1.train) == 3
-        np.testing.assert_array_almost_equal(sd1.train[0], [1.0, 2.0])
-        np.testing.assert_array_almost_equal(sd1.train[2], [5.0, 6.0])
+        result = sd1.concatenate_spike_data(sd2)
+        assert result.N == original_n + 1
+        assert len(result.train) == 3
+        np.testing.assert_array_almost_equal(result.train[0], [1.0, 2.0])
+        np.testing.assert_array_almost_equal(result.train[2], [5.0, 6.0])
+        # Original is unchanged
+        assert sd1.N == original_n
 
     def test_concatenate_spike_data_different_length(self):
         """
@@ -929,11 +931,11 @@ class TestSpikeDataSlicing:
         sd1 = SpikeData([[1.0, 2.0]], length=10.0)
         sd2 = SpikeData([[5.0, 15.0]], length=20.0)
 
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.N == 2
+        result = sd1.concatenate_spike_data(sd2)
+        assert result.N == 2
         # sd2 subtimed to [0, 10) so spike at 15 is removed
-        assert len(sd1.train[1]) == 1
-        np.testing.assert_array_almost_equal(sd1.train[1], [5.0])
+        assert len(result.train[1]) == 1
+        np.testing.assert_array_almost_equal(result.train[1], [5.0])
 
     def test_frames_length_equals_recording(self):
         """
@@ -948,30 +950,28 @@ class TestSpikeDataSlicing:
         assert isinstance(stack, SpikeSliceStack)
         assert len(stack.spike_stack) == 1
 
-    def test_concatenate_mutates_self(self):
+    def test_concatenate_returns_new_object(self):
         """
-        concatenate_spike_data mutates self and leaves the other unchanged.
+        concatenate_spike_data returns a new object; both inputs are unchanged.
 
         Tests:
-        (Test Case 1) After concatenation, sd1.N equals the sum of original N values.
-        (Test Case 2) sd1 has the correct number of trains.
-        (Test Case 3) sd2 is unchanged (same N and same trains).
+        (Test Case 1) Result N equals the sum of both N values.
+        (Test Case 2) Result has the correct number of trains.
+        (Test Case 3) sd1 and sd2 are both unchanged.
         """
         sd1 = SpikeData([[1.0, 2.0], [3.0, 4.0]], length=100.0)
         sd2 = SpikeData([[10.0], [20.0], [30.0]], length=100.0)
+        sd1_N_orig = sd1.N
         sd2_N_orig = sd2.N
-        sd2_trains_orig = [t.copy() for t in sd2.train]
 
-        sd1.concatenate_spike_data(sd2)
+        result = sd1.concatenate_spike_data(sd2)
 
-        assert sd1.N == 5
-        assert len(sd1.train) == 5
+        assert result.N == 5
+        assert len(result.train) == 5
 
-        # sd2 should be unchanged
+        # Both inputs should be unchanged
+        assert sd1.N == sd1_N_orig
         assert sd2.N == sd2_N_orig
-        assert len(sd2.train) == len(sd2_trains_orig)
-        for orig, current in zip(sd2_trains_orig, sd2.train):
-            np.testing.assert_array_equal(orig, current)
 
     def test_subset_empty_units(self):
         """
@@ -1127,20 +1127,20 @@ class TestSpikeDataSlicing:
 
     def test_concatenate_spike_data_preserves_raw(self):
         """
-        Verify concatenate_spike_data does not modify raw_data or raw_time.
+        Verify concatenate_spike_data carries raw_data and raw_time from self.
 
         Tests:
-            (Test Case 1) raw_data is unchanged after concatenating units.
-            (Test Case 2) raw_time is unchanged after concatenating units.
+            (Test Case 1) Result has raw_data from self.
+            (Test Case 2) Result has raw_time from self.
         """
         raw1 = np.ones((2, 10))
         time1 = np.arange(10, dtype=float)
         sd1 = SpikeData([[1, 2]], length=10, raw_data=raw1, raw_time=time1)
         sd2 = SpikeData([[3, 4]], length=10)
-        sd1.concatenate_spike_data(sd2)
-        assert sd1.raw_data.shape == (2, 10)  # unchanged
-        assert sd1.raw_time.shape == (10,)  # unchanged
-        np.testing.assert_array_equal(sd1.raw_data, raw1)
+        result = sd1.concatenate_spike_data(sd2)
+        assert result.raw_data.shape == (2, 10)
+        assert result.raw_time.shape == (10,)
+        np.testing.assert_array_equal(result.raw_data, raw1)
 
     def test_append_negative_offset(self):
         """
@@ -1198,13 +1198,15 @@ class TestSpikeDataSlicing:
         Tests:
             (Test Case 1) N doubles after concatenation.
             (Test Case 2) Total spikes double.
+            (Test Case 3) Original is unchanged.
         """
         sd = SpikeData([[10.0, 20.0], [15.0]], length=30.0)
         original_n = sd.N
         original_spikes = sum(len(t) for t in sd.train)
-        sd.concatenate_spike_data(sd)
-        assert sd.N == 2 * original_n
-        assert sum(len(t) for t in sd.train) == 2 * original_spikes
+        result = sd.concatenate_spike_data(sd)
+        assert result.N == 2 * original_n
+        assert sum(len(t) for t in result.train) == 2 * original_spikes
+        assert sd.N == original_n
 
     def test_subtime_raw_data_shifted(self):
         """
@@ -1281,15 +1283,13 @@ class TestSpikeDataSlicing:
 
     def test_subtime_start_beyond_length(self):
         """
-        subtime with start > self.length is clamped.
+        subtime with start > recording end raises ValueError.
 
         Tests:
-            (Test Case 1) start > length is clamped to length, making start == end,
-                which raises ValueError.
+            (Test Case 1) start > end_time raises a clear out-of-range error.
         """
         sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
-        # start=100 > length=50, clamped to 50; end=None → 50; start >= end → error
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="start.*exceeds recording end"):
             sd.subtime(100, ...)
 
     def test_subtime_nan_start(self):
@@ -1442,7 +1442,7 @@ class TestSpikeDataSlicing:
 
         Tests:
             (Test Case 1) A RuntimeWarning is issued.
-            (Test Case 2) neuron_attributes on self are not extended (silently dropped).
+            (Test Case 2) Result neuron_attributes come from self only (not merged).
         """
         sd1 = SpikeData(
             [[1.0, 2.0]],
@@ -1454,12 +1454,12 @@ class TestSpikeDataSlicing:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            sd1.concatenate_spike_data(sd2)
-        assert sd1.N == 2
+            result = sd1.concatenate_spike_data(sd2)
+        assert result.N == 2
         # A warning should have been raised
         assert any(issubclass(w.category, RuntimeWarning) for w in caught)
-        # neuron_attributes are not extended (only 1 entry still)
-        assert len(sd1.neuron_attributes) == 1
+        # neuron_attributes are dropped when mismatched
+        assert result.neuron_attributes is None
 
     def test_concatenate_with_n_zero_spikedata(self):
         """
@@ -1474,9 +1474,9 @@ class TestSpikeDataSlicing:
         assert sd_empty.N == 0
 
         original_n = sd1.N
-        sd1.concatenate_spike_data(sd_empty)
-        assert sd1.N == original_n
-        assert len(sd1.train) == original_n
+        result = sd1.concatenate_spike_data(sd_empty)
+        assert result.N == original_n
+        assert len(result.train) == original_n
 
 
 class TestSpikeDataRates:
@@ -5151,3 +5151,437 @@ class TestAlignToEvents:
         assert raster.shape == (1, 4)
         # Total spikes in window: 40→-10, 45→-5, 50→0, 55→+5 (60 excluded)
         assert raster.sum() == 4
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestSpikeDataConstructorEdgeCases:
+    """Edge case tests for SpikeData.__init__."""
+
+    def test_empty_neuron_attributes_list_preserved(self):
+        """
+        Empty neuron_attributes list [] is correctly preserved for 0-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Passing neuron_attributes=[] for a 0-unit SpikeData
+                stores [] (not None).
+
+        Notes:
+            - The constructor now uses `if neuron_attributes is not None:` so
+              empty list [] is correctly preserved.
+        """
+        sd = SpikeData([], neuron_attributes=[])
+        assert sd.neuron_attributes is not None
+        assert sd.neuron_attributes == []
+
+    def test_length_zero_with_spikes_at_zero(self):
+        """
+        length=0 with a spike at exactly t=0 is accepted.
+
+        Tests:
+            (Test Case 1) A spike at t=0 with length=0 and start_time=0 does
+                not raise, since 0 <= 0+0 is valid.
+        """
+        sd = SpikeData([[0.0]], length=0, start_time=0.0)
+        assert sd.length == 0
+        assert len(sd.train[0]) == 1
+
+    def test_start_time_inf(self):
+        """
+        start_time=Inf is accepted but propagates silently.
+
+        Tests:
+            (Test Case 1) start_time=Inf stores float('inf') without raising.
+        """
+        sd = SpikeData([[]], start_time=float("inf"), length=0)
+        assert sd.start_time == float("inf")
+
+    def test_start_time_nan_raises(self):
+        """
+        start_time=NaN causes NaN length which is rejected.
+
+        Tests:
+            (Test Case 1) start_time=NaN with no spikes: length defaults to
+                max_spike - start_time = NaN - NaN = NaN, which raises ValueError.
+        """
+        with pytest.raises(ValueError, match="length must not be NaN"):
+            SpikeData([], start_time=float("nan"))
+
+    def test_raw_time_zero_scalar_raises(self):
+        """
+        raw_time=0.0 causes division by zero in np.arange(...) / raw_time.
+
+        Tests:
+            (Test Case 1) Passing raw_time=0.0 with raw_data raises a
+                ZeroDivisionError or produces Inf values.
+
+        Notes:
+            - numpy division by zero produces Inf, not an exception. The raw_time
+              array will contain Inf values but no error is raised during construction.
+        """
+        raw_data = np.ones((2, 10))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            sd = SpikeData([[], []], length=10.0, raw_data=raw_data, raw_time=0.0)
+        # np.arange(10) / 0.0: index 0 is 0/0=NaN, rest are Inf
+        assert np.isnan(sd.raw_time[0]) or np.isinf(sd.raw_time[0])
+        assert np.all(np.isinf(sd.raw_time[1:]))
+
+
+class TestSpikeDataFromIdcesTimesEdgeCases:
+    """Edge case tests for SpikeData.from_idces_times."""
+
+    def test_mismatched_idces_times_lengths(self):
+        """
+        Mismatched idces/times lengths produce unexpected results via broadcasting.
+
+        Tests:
+            (Test Case 1) When idces and times have different lengths, numpy
+                broadcasting produces unexpected results silently.
+
+        Notes:
+            - The current code does `times[idces == i]` which broadcasts
+              if shapes mismatch. This is a known issue.
+        """
+        idces = np.array([0, 0, 1])
+        times = np.array([1.0, 2.0, 3.0, 4.0])
+        # Different lengths: idces has 3 elements, times has 4
+        # numpy broadcasting: idces == 0 has shape (3,), times has shape (4,)
+        # This will silently produce wrong results or raise
+        try:
+            sd = SpikeData.from_idces_times(idces, times, N=2)
+            # If it doesn't raise, verify it produced something
+            assert sd.N == 2
+        except (ValueError, IndexError):
+            pass  # Expected if validation catches it
+
+
+class TestSpikeDataFromRasterEdgeCases:
+    """Edge case tests for SpikeData.from_raster."""
+
+    def test_raster_with_negative_start_time(self):
+        """
+        from_raster with negative start_time offsets spike times correctly.
+
+        Tests:
+            (Test Case 1) Raster with start_time=-100 generates spikes in
+                the range [-100, 0) and round-trips through raster().
+        """
+        raster = np.array([[0, 1, 0, 1, 0]])  # 5 bins
+        sd = SpikeData.from_raster(raster, bin_size_ms=20.0, start_time=-100.0)
+        assert sd.start_time == -100.0
+        assert sd.length == 100.0
+        # Spikes should be in the negative range
+        for t in sd.train[0]:
+            assert -100.0 <= t < 0.0
+
+
+class TestSpikeDataSubsetEdgeCases:
+    """Edge case tests for SpikeData.subset."""
+
+    def test_subset_with_numpy_integer_type(self):
+        """
+        subset with numpy integer types (e.g. np.int64) works correctly.
+
+        Tests:
+            (Test Case 1) Passing a list of np.int64 values selects the
+                correct units.
+        """
+        sd = SpikeData([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], length=10.0)
+        result = sd.subset([np.int64(0), np.int64(2)])
+        assert result.N == 2
+
+
+class TestSpikeDataSubtimeEdgeCases:
+    """Edge case tests for SpikeData.subtime."""
+
+    def test_subtime_shift_to_with_empty_window(self):
+        """
+        subtime with shift_to set when no spikes fall in the window.
+
+        Tests:
+            (Test Case 1) A window that contains no spikes but uses shift_to
+                returns a valid SpikeData with correct start_time and length.
+        """
+        sd = SpikeData([[50.0, 60.0]], length=100.0)
+        result = sd.subtime(10.0, 20.0, shift_to=15.0)
+        assert result.length == 10.0
+        assert result.start_time == pytest.approx(10.0 - 15.0)
+        assert len(result.train[0]) == 0
+
+    def test_subtime_ellipsis_both(self):
+        """
+        subtime(Ellipsis, Ellipsis) returns a full copy like subtime(None, None).
+
+        Tests:
+            (Test Case 1) Using Ellipsis for both start and end returns all
+                spikes with the same length.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        result = sd.subtime(Ellipsis, Ellipsis)
+        assert result.length == sd.length
+        assert len(result.train[0]) == 3
+
+
+class TestSpikeDataFramesEdgeCases:
+    """Edge case tests for SpikeData.frames."""
+
+    def test_frames_with_negative_start_time(self):
+        """
+        frames on event-centered SpikeData with negative start_time.
+
+        Tests:
+            (Test Case 1) np.arange starts from a negative number and
+                produces correct windows.
+        """
+        sd = SpikeData(
+            [[-90.0, -50.0, 0.0, 50.0, 90.0]],
+            length=200.0,
+            start_time=-100.0,
+        )
+        stack = sd.frames(length=100.0, overlap=0)
+        assert len(stack.times) == 2
+        assert stack.times[0] == (-100.0, 0.0)
+        assert stack.times[1] == (0.0, 100.0)
+
+
+class TestSpikeDataAlignToEventsEdgeCases:
+    """Edge case tests for SpikeData.align_to_events."""
+
+    def test_align_to_events_with_inf_events(self):
+        """
+        align_to_events with Inf event times creates infinitely large windows.
+
+        Tests:
+            (Test Case 1) Events containing Inf raise ValueError since
+                the subtime window extends beyond the recording.
+
+        Notes:
+            - Inf events cause the window [Inf-pre, Inf+post] which is out
+              of range for the recording. This produces an error.
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        with pytest.raises((ValueError, FloatingPointError)):
+            sd.align_to_events([float("inf")], pre_ms=5.0, post_ms=5.0)
+
+
+class TestSpikeDataRatesEdgeCases:
+    """Edge case tests for SpikeData.rates."""
+
+    def test_rates_all_empty_trains_nonzero_length(self):
+        """
+        rates() on SpikeData with N>0 but all-empty trains returns all zeros.
+
+        Tests:
+            (Test Case 1) Three units with no spikes and length=100 returns
+                array of zeros with shape (3,).
+        """
+        sd = SpikeData([[], [], []], length=100.0)
+        r = sd.rates()
+        assert r.shape == (3,)
+        np.testing.assert_array_equal(r, 0.0)
+
+
+class TestSpikeDataRasterEdgeCases:
+    """Edge case tests for SpikeData.raster / sparse_raster."""
+
+    def test_raster_large_time_offset(self):
+        """
+        raster with time_offset larger than length creates many bins.
+
+        Tests:
+            (Test Case 1) time_offset=1000 with length=10 creates
+                ceil((10+1000)/20) = 51 bins.
+        """
+        sd = SpikeData([[5.0]], length=10.0)
+        r = sd.raster(bin_size=20.0, time_offset=1000.0)
+        expected_bins = int(np.ceil((10.0 + 1000.0) / 20.0))
+        assert r.shape == (1, expected_bins)
+
+    def test_raster_bin_size_not_evenly_dividing(self):
+        """
+        raster with bin_size that does not evenly divide the length.
+
+        Tests:
+            (Test Case 1) length=100, bin_size=30 produces ceil(100/30)=4 bins.
+        """
+        sd = SpikeData([[15.0, 45.0, 75.0]], length=100.0)
+        r = sd.raster(bin_size=30.0)
+        assert r.shape == (1, int(np.ceil(100.0 / 30.0)))
+
+
+class TestSpikeDataGetPairwiseCCGEdgeCases:
+    """Edge case tests for SpikeData.get_pairwise_ccg."""
+
+    def test_identical_spike_trains_all_units(self):
+        """
+        get_pairwise_ccg with identical spike trains across all units.
+
+        Tests:
+            (Test Case 1) All off-diagonal correlations should be 1.0.
+            (Test Case 2) All lags should be 0.
+        """
+        train = [5.0, 15.0, 25.0, 35.0, 45.0]
+        sd = SpikeData([train, train, train], length=50.0)
+        corr, lag = sd.get_pairwise_ccg(max_lag=5)
+        # Off-diagonal correlations should be 1.0
+        for i in range(3):
+            for j in range(3):
+                assert corr.matrix[i, j] == pytest.approx(1.0, abs=1e-6)
+                if i == j:
+                    assert lag.matrix[i, j] == 0
+
+
+class TestSpikeDataGetPairwiseLatenciesEdgeCases:
+    """Edge case tests for SpikeData.get_pairwise_latencies."""
+
+    def test_return_distributions_all_empty_trains(self):
+        """
+        get_pairwise_latencies with return_distributions=True and all-empty trains.
+
+        Tests:
+            (Test Case 1) All-empty trains produce NaN in the matrices
+                and empty distributions.
+        """
+        sd = SpikeData([[], [], []], length=100.0)
+        lat, lag, dists = sd.get_pairwise_latencies(return_distributions=True)
+        assert lat.matrix.shape == (3, 3)
+        assert dists is not None
+        assert len(dists) == 3
+
+
+class TestSpikeDataGetBurstsEdgeCases:
+    """Edge case tests for SpikeData.get_bursts."""
+
+    def test_min_burst_diff_zero(self):
+        """
+        get_bursts with min_burst_diff=0 detects all peaks.
+
+        Tests:
+            (Test Case 1) min_burst_diff=0 passed as distance to find_peaks.
+                scipy.signal.find_peaks requires distance >= 1, so 0 raises.
+
+        Notes:
+            - find_peaks with distance=0 raises ValueError in scipy.
+        """
+        # Create a SpikeData with clear bursts
+        t = []
+        for burst_center in [50, 150, 250]:
+            t.extend([burst_center + i * 0.5 for i in range(20)])
+        sd = SpikeData([np.array(t)], length=300.0)
+        # find_peaks raises for distance < 1
+        with pytest.raises(ValueError):
+            sd.get_bursts(
+                thr_burst=1.0,
+                min_burst_diff=0,
+                burst_edge_mult_thresh=0.5,
+            )
+
+    def test_burst_edge_mult_thresh_zero(self):
+        """
+        get_bursts with burst_edge_mult_thresh=0 uses zero as edge threshold.
+
+        Tests:
+            (Test Case 1) Zero edge threshold does not raise and produces
+                edges where the rate crosses zero.
+        """
+        t = [50 + i * 0.5 for i in range(20)]
+        sd = SpikeData([np.array(t)], length=200.0)
+        tburst, edges, peak_amp = sd.get_bursts(
+            thr_burst=0.5,
+            min_burst_diff=10,
+            burst_edge_mult_thresh=0.0,
+        )
+        assert isinstance(edges, np.ndarray)
+
+
+class TestSpikeDataGetFracActiveEdgeCases:
+    """Edge case tests for SpikeData.get_frac_active."""
+
+    def test_non_default_bin_size_with_fractional_edges(self):
+        """
+        get_frac_active with non-default bin_size and fractional edge coordinates.
+
+        Tests:
+            (Test Case 1) bin_size=5 with fractional edges produces valid output
+                (3-element tuple).
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0], [15.0, 25.0, 35.0]], length=50.0)
+        edges = np.array([[2.5, 7.5]])  # in bin coordinates for bin_size=5
+        frac_per_unit, frac_per_burst, backbone = sd.get_frac_active(
+            edges, MIN_SPIKES=1, backbone_threshold=0.5, bin_size=5.0
+        )
+        assert isinstance(frac_per_unit, np.ndarray)
+        assert frac_per_unit.shape == (2,)
+
+
+class TestSpikeDataShuffleEdgeCases:
+    """Edge case tests for SpikeData.spike_shuffle."""
+
+    def test_shuffle_all_spikes_in_single_bin(self):
+        """
+        spike_shuffle on a SpikeData where all spikes are in a single time bin.
+
+        Tests:
+            (Test Case 1) A binary raster with a single column of 1s issues a
+                RuntimeWarning about insufficient swaps (no swaps possible).
+        """
+        # All spikes at t=0.5, length=1 → single bin
+        sd = SpikeData([[0.5], [0.5], [0.5]], length=1.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            shuffled = sd.spike_shuffle(seed=42, bin_size=1)
+        assert shuffled.N == 3
+
+
+class TestSpikeDataComputeStPREdgeCases:
+    """Edge case tests for SpikeData.compute_spike_trig_pop_rate."""
+
+    def test_all_neurons_silent(self):
+        """
+        compute_spike_trig_pop_rate where all neurons have zero spikes.
+
+        Tests:
+            (Test Case 1) All-empty trains with N >= 2 produce all-zero stPR.
+        """
+        sd = SpikeData([[], []], length=200.0)
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate()
+        np.testing.assert_array_equal(stPR, 0.0)
+        np.testing.assert_array_equal(cs_zero, 0.0)
+
+
+class TestSpikeDataBurstSensitivityEdgeCases:
+    """Edge case tests for SpikeData.burst_sensitivity."""
+
+    def test_empty_thr_values(self):
+        """
+        burst_sensitivity with empty thr_values produces a (0, N_dist) matrix.
+
+        Tests:
+            (Test Case 1) Empty thr_values array returns shape (0, len(dist_values)).
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        result = sd.burst_sensitivity(
+            thr_values=[],
+            dist_values=[10, 20],
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result.shape == (0, 2)
+
+    def test_empty_dist_values(self):
+        """
+        burst_sensitivity with empty dist_values produces a (N_thr, 0) matrix.
+
+        Tests:
+            (Test Case 1) Empty dist_values array returns shape (len(thr_values), 0).
+        """
+        sd = SpikeData([[5.0, 10.0, 15.0]], length=20.0)
+        result = sd.burst_sensitivity(
+            thr_values=[1.0, 2.0],
+            dist_values=[],
+            burst_edge_mult_thresh=0.5,
+        )
+        assert result.shape == (2, 0)

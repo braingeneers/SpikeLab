@@ -37,8 +37,6 @@ from .utils import (
 __all__ = [
     "SpikeData",
     "get_sttc",
-    "swap",
-    "randomize",
 ]
 
 
@@ -349,7 +347,7 @@ class SpikeData:
             metadata = {}
         self.metadata = metadata.copy()
         self.neuron_attributes = None
-        if neuron_attributes:
+        if neuron_attributes is not None:
             self.neuron_attributes = neuron_attributes.copy()
             if len(neuron_attributes) != self.N:
                 raise ValueError(
@@ -829,14 +827,20 @@ class SpikeData:
                     f"Minimum allowed is -{self.length} (recording length)"
                 )
         elif start > end_time:
-            start = end_time
+            raise ValueError(
+                f"start ({start}) exceeds recording end ({end_time}). "
+                f"Recording range is [{self.start_time}, {end_time}]."
+            )
 
         if end is None or end is Ellipsis:
             end = end_time
         elif end < 0 and self.start_time >= 0:
             end += end_time
         elif end > end_time:
-            end = end_time
+            raise ValueError(
+                f"end ({end}) exceeds recording end ({end_time}). "
+                f"Recording range is [{self.start_time}, {end_time}]."
+            )
 
         if start >= end:
             raise ValueError(
@@ -1205,33 +1209,50 @@ class SpikeData:
 
     def concatenate_spike_data(self, sd):
         """
-        Add the units from another SpikeData object to this one, in place.
+        Combine the units from another SpikeData object with this one.
+
+        Returns a new SpikeData with the units of both objects. If the other
+        SpikeData has a different time range, it is subtimed to match this one.
 
         Parameters:
         sd (SpikeData): SpikeData object whose units will be added.
 
+        Returns:
+        SpikeData: New SpikeData with units from both objects.
+
         Notes:
-        - Modifies self in place. Does not return a new object.
-        - New units are assigned indices starting from the end of the current data.
-        - If the new units have a longer spike train, it is truncated to the length of the current data.
-        - raw_data and raw_time are not modified — they persist from the original object.
+        - raw_data and raw_time are carried over from self only.
+        - If only one object has neuron_attributes, a RuntimeWarning is issued
+          and the attributes from both are not merged.
         """
 
         # Subtime the second SpikeData object to the time range of the first
         if sd.length != self.length or sd.start_time != self.start_time:
             end_time = self.start_time + self.length
             sd = sd.subtime(self.start_time, end_time)
-        self.train += sd.train
-        self.N += sd.N
-        # raw_data/raw_time are not modified — they persist from the original object.
-        self.metadata.update(sd.metadata)
-        if self.neuron_attributes and sd.neuron_attributes:
-            self.neuron_attributes += sd.neuron_attributes
-        elif self.neuron_attributes or sd.neuron_attributes:
+
+        new_train = [t.copy() for t in self.train] + [t.copy() for t in sd.train]
+        merged_metadata = {**self.metadata, **sd.metadata}
+
+        new_attrs = None
+        if self.neuron_attributes is not None and sd.neuron_attributes is not None:
+            new_attrs = self.neuron_attributes + sd.neuron_attributes
+        elif self.neuron_attributes is not None or sd.neuron_attributes is not None:
             warnings.warn(
-                "Concatenating SpikeData where one has no neuron_attributes.",
+                "Concatenating SpikeData where one has no neuron_attributes. "
+                "Dropping attributes from the result.",
                 RuntimeWarning,
             )
+
+        return SpikeData(
+            new_train,
+            length=self.length,
+            start_time=self.start_time,
+            neuron_attributes=new_attrs,
+            metadata=merged_metadata,
+            raw_data=self.raw_data,
+            raw_time=self.raw_time,
+        )
 
     def spike_time_tilings(self, delt=20.0):
         """
@@ -1864,14 +1885,17 @@ class SpikeData:
         a moving-average (square) window, then a Gaussian smoothing window.
 
         Parameters:
-        square_width (int): Width of square smoothing window in bins
-        gauss_sigma (int): Sigma of Guassian smoothing window in bins
-        raster_bin_size_ms (float): Size of raster bins in ms
+        square_width (float): Width of square smoothing window in milliseconds.
+        gauss_sigma (float): Sigma of Gaussian smoothing window in milliseconds.
+        raster_bin_size_ms (float): Size of raster bins in ms.
 
         Returns:
         pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
 
         Notes:
+        - ``square_width`` and ``gauss_sigma`` are specified in milliseconds and
+          converted to bin counts internally using ``raster_bin_size_ms``. With the
+          default ``raster_bin_size_ms=1.0``, 1 ms = 1 bin.
         - The returned array index corresponds to raster bin index. For
           event-centered data (start_time < 0), bin 0 corresponds to start_time,
           not t=0. To find the bin for t=0 (the event), use
@@ -1882,6 +1906,25 @@ class SpikeData:
         if square_width < 0:
             raise ValueError(f"square_width must be non-negative, got {square_width}")
 
+        # Convert ms to bins
+        square_width_bins = max(0, int(round(square_width / raster_bin_size_ms)))
+        gauss_sigma_bins = gauss_sigma / raster_bin_size_ms
+
+        if square_width > 0 and square_width_bins < 1:
+            warnings.warn(
+                f"square_width ({square_width} ms) is smaller than "
+                f"raster_bin_size_ms ({raster_bin_size_ms} ms) — "
+                f"square smoothing will have no effect.",
+                UserWarning,
+            )
+        if gauss_sigma > 0 and gauss_sigma_bins < 1:
+            warnings.warn(
+                f"gauss_sigma ({gauss_sigma} ms) is smaller than "
+                f"raster_bin_size_ms ({raster_bin_size_ms} ms) — "
+                f"Gaussian smoothing will have minimal effect.",
+                UserWarning,
+            )
+
         t_spk_mat = self.sparse_raster(
             raster_bin_size_ms
         )  # Shape: (neurons, time_bins)
@@ -1890,19 +1933,21 @@ class SpikeData:
         ).flatten()  # Sum once across neurons dimension
 
         # Pass square window
-        if square_width > 0:
+        if square_width_bins > 0:
             square_smooth_summed_spike = np.convolve(
                 summed_spikes,
-                np.ones(square_width) / square_width,
+                np.ones(square_width_bins) / square_width_bins,
                 mode="same",
             )
         else:
             square_smooth_summed_spike = summed_spikes
 
         # Pass gaussian window
-        if gauss_sigma > 0:
+        if gauss_sigma_bins > 0:
             gauss_window = norm.pdf(
-                np.arange(-3 * gauss_sigma, 3 * gauss_sigma + 1), 0, gauss_sigma
+                np.arange(-3 * gauss_sigma_bins, 3 * gauss_sigma_bins + 1),
+                0,
+                gauss_sigma_bins,
             )
             pop_rate = np.convolve(
                 square_smooth_summed_spike,
