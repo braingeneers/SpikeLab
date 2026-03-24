@@ -135,6 +135,16 @@ Use the workspace for:
 - Save figures in a `figures/` subdirectory within the project directory (e.g., `analysis/<project>/figures/`). Create the subdirectory if it does not exist.
 - Use `matplotlib.use("Agg")` at the top of every script that imports matplotlib, before any other matplotlib imports, to ensure no GUI backend is used.
 
+### Axes styling defaults
+
+- **Spines:** Remove top and right spines. Keep left and bottom spines. For heatmaps, re-enable all four spines at **0.5 pt** linewidth.
+- **Ticks:** Tick marks face outward.
+- **Labels:** Every axis must have a label with units (e.g., "Time (s)", "Firing rate (Hz)"). Use sentence case.
+- **Colorbars:** Every heatmap must include a colorbar with a label and units (e.g., "Firing rate (Hz)", "Correlation coefficient").
+- **Colormaps:** Use `"hot"` for firing rates and similar non-negative data. Use diverging colormaps (`"RdBu_r"`) for data centered on zero (e.g., correlations, z-scores).
+- **Titles:** Do not add figure or subplot titles unless the user specifically requests one.
+- **Legends:** Only include when necessary. Prefer placement inside the plot area to minimize whitespace. No border. When the plot uses small markers, scale them up in the legend so they are easily readable (e.g., via `legend.legend_handles` and `set_sizes()`).
+
 ### Use SpikeLab plotting functions
 Where possible, use plotting functions from `spikelab.spikedata.plot_utils` instead of writing custom matplotlib code. These functions ensure consistent styling, handle edge cases, and reduce code duplication. Available functions include:
 

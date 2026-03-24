@@ -1702,6 +1702,7 @@ def plot_recording(
     # --- heatmap options ---
     vmin_heatmap=None,
     vmax_heatmap=None,
+    heatmap_clip_pct=80,
     norm_heatmap=False,
     model_states_cmap="viridis",
     model_states_vmin=0,
@@ -1776,6 +1777,10 @@ def plot_recording(
             shaded spans on the population-rate panel.
         vmin_heatmap (float or None): Colormap minimum for the FR heatmap.
         vmax_heatmap (float or None): Colormap maximum for the FR heatmap.
+            When None, clipped to ``heatmap_clip_pct`` percentile of the data.
+        heatmap_clip_pct (float or None): Percentile of the firing-rate data
+            used as the colormap maximum when ``vmax_heatmap`` is None.
+            Default 80. Set to None to use the absolute maximum.
         norm_heatmap (bool or str): Row normalisation for the FR heatmap
             (``False`` or ``'row'``).
         model_states_cmap (str): Colormap for the model-states panel.
@@ -2068,12 +2073,16 @@ def plot_recording(
         fr_extent = None
         if fr_rates_view.shape[1] != n_samples:
             fr_extent = (0, n_samples, 0, fr_rates_view.shape[0])
+        # Auto-clip vmax to percentile when not explicitly set
+        vmax_fr = vmax_heatmap
+        if vmax_fr is None and heatmap_clip_pct is not None:
+            vmax_fr = np.percentile(fr_rates_view, heatmap_clip_pct)
         plot_heatmap(
             fr_rates_view,
             ax=ax,
             norm=norm_heatmap,
             vmin=vmin_heatmap,
-            vmax=vmax_heatmap,
+            vmax=vmax_fr,
             origin="upper",
             extent=fr_extent,
             xlabel="Time (ms)",
