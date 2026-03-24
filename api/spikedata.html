@@ -1069,7 +1069,8 @@ count or composition.</p>
 <ul class="simple">
 <li><p>The stack-level <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> because each
 subset contains a different set of units. Individual <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code>
-objects within the stack carry their own subsetted attributes.</p></li>
+objects within the stack carry their own subsetted attributes
+(constructed with <code class="docutils literal notranslate"><span class="pre">drop_slice_attributes=False</span></code>).</p></li>
 </ul>
 </dd></dl>
 
@@ -1374,6 +1375,50 @@ See <code class="docutils literal notranslate"><span class="pre">plot_recording<
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>fig (matplotlib.Figure)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikedata.SpikeData.plot_spatial_network">
+<span class="sig-name descname"><span class="pre">plot_spatial_network</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_pct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_size_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(2,</span> <span class="pre">20)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'red'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_alpha_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.15,</span> <span class="pre">1.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_bar_um</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikedata/spikedata.html#SpikeData.plot_spatial_network"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikedata.SpikeData.plot_spatial_network" title="Link to this definition"></a></dt>
+<dd><p>Plot units at their MEA positions with pairwise edges.</p>
+<p>Unit positions are extracted from <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> (requires
+<code class="docutils literal notranslate"><span class="pre">'x'</span></code> and <code class="docutils literal notranslate"><span class="pre">'y'</span></code> keys).  The pairwise edge strengths must be
+supplied as <em>matrix</em> — obtain one from e.g.
+<code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrix.matrix</span></code> (returned by <code class="docutils literal notranslate"><span class="pre">spike_time_tilings</span></code>,
+<code class="docutils literal notranslate"><span class="pre">get_pairwise_ccg</span></code>, <code class="docutils literal notranslate"><span class="pre">RateData.get_pairwise_fr_corr</span></code>, etc.).</p>
+<p>Thin wrapper around <code class="docutils literal notranslate"><span class="pre">plot_utils.plot_spatial_network</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes.</p></li>
+<li><p><strong>matrix</strong> (<em>np.ndarray</em>) – Symmetric <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> pairwise matrix (e.g.
+correlation).  Diagonal values are ignored.</p></li>
+<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an
+edge.</p></li>
+<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw.</p></li>
+<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points² for
+scatter markers.</p></li>
+<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
+<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Outline width of node markers.</p></li>
+<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for network edges.</p></li>
+<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for network edges.</p></li>
+<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
+transparency.</p></li>
+<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scale bar length in micrometres (0 to omit).</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The scatter</dt><dd><p>artist, useful for adding a colorbar.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>scatter (matplotlib.collections.PathCollection)</p>
 </dd>
 </dl>
 </dd></dl>

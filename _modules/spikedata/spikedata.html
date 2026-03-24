@@ -1991,7 +1991,8 @@
 <span class="sd">        Notes:</span>
 <span class="sd">            - The stack-level ``neuron_attributes`` is ``None`` because each</span>
 <span class="sd">              subset contains a different set of units. Individual ``SpikeData``</span>
-<span class="sd">              objects within the stack carry their own subsetted attributes.</span>
+<span class="sd">              objects within the stack carry their own subsetted attributes</span>
+<span class="sd">              (constructed with ``drop_slice_attributes=False``).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">n_subsets</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_subsets must be at least 1.&quot;</span><span class="p">)</span>
@@ -2014,6 +2015,7 @@
         <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
             <span class="n">spike_stack</span><span class="o">=</span><span class="n">subsets</span><span class="p">,</span>
             <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">times</span><span class="p">,</span>
+            <span class="n">drop_slice_attributes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -2754,6 +2756,80 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_recording</span>
 
         <span class="k">return</span> <span class="n">plot_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.plot_spatial_network">
+<a class="viewcode-back" href="../../api/spikedata.html#spikedata.SpikeData.plot_spatial_network">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_spatial_network</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ax</span><span class="p">,</span>
+        <span class="n">matrix</span><span class="p">,</span>
+        <span class="n">edge_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">top_pct</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">node_size_range</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+        <span class="n">node_cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+        <span class="n">node_linewidth</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">edge_color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span>
+        <span class="n">edge_linewidth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+        <span class="n">edge_alpha_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">scale_bar_um</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+        <span class="n">font_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot units at their MEA positions with pairwise edges.</span>
+
+<span class="sd">        Unit positions are extracted from ``neuron_attributes`` (requires</span>
+<span class="sd">        ``&#39;x&#39;`` and ``&#39;y&#39;`` keys).  The pairwise edge strengths must be</span>
+<span class="sd">        supplied as *matrix* — obtain one from e.g.</span>
+<span class="sd">        ``PairwiseCompMatrix.matrix`` (returned by ``spike_time_tilings``,</span>
+<span class="sd">        ``get_pairwise_ccg``, ``RateData.get_pairwise_fr_corr``, etc.).</span>
+
+<span class="sd">        Thin wrapper around ``plot_utils.plot_spatial_network``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            ax (matplotlib.axes.Axes): Target axes.</span>
+<span class="sd">            matrix (np.ndarray): Symmetric ``(N, N)`` pairwise matrix (e.g.</span>
+<span class="sd">                correlation).  Diagonal values are ignored.</span>
+<span class="sd">            edge_threshold (float or None): Minimum matrix value to draw an</span>
+<span class="sd">                edge.</span>
+<span class="sd">            top_pct (float or None): Percentage of top edges to draw.</span>
+<span class="sd">            node_size_range (tuple): ``(min_size, max_size)`` in points² for</span>
+<span class="sd">                scatter markers.</span>
+<span class="sd">            node_cmap (str): Matplotlib colourmap for node colour.</span>
+<span class="sd">            node_linewidth (float): Outline width of node markers.</span>
+<span class="sd">            edge_color (str): Colour for network edges.</span>
+<span class="sd">            edge_linewidth (float): Line width for network edges.</span>
+<span class="sd">            edge_alpha_range (tuple): ``(min_alpha, max_alpha)`` for edge</span>
+<span class="sd">                transparency.</span>
+<span class="sd">            scale_bar_um (float): Scale bar length in micrometres (0 to omit).</span>
+<span class="sd">            font_size (int or None): Font size for scale bar label.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            scatter (matplotlib.collections.PathCollection): The scatter</span>
+<span class="sd">                artist, useful for adding a colorbar.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_spatial_network</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;neuron_attributes is None — cannot extract unit positions.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">na</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">na</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]]</span> <span class="k">for</span> <span class="n">na</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">plot_spatial_network</span><span class="p">(</span>
+            <span class="n">ax</span><span class="p">,</span>
+            <span class="n">positions</span><span class="p">,</span>
+            <span class="n">matrix</span><span class="p">,</span>
+            <span class="n">edge_threshold</span><span class="o">=</span><span class="n">edge_threshold</span><span class="p">,</span>
+            <span class="n">top_pct</span><span class="o">=</span><span class="n">top_pct</span><span class="p">,</span>
+            <span class="n">node_size_range</span><span class="o">=</span><span class="n">node_size_range</span><span class="p">,</span>
+            <span class="n">node_cmap</span><span class="o">=</span><span class="n">node_cmap</span><span class="p">,</span>
+            <span class="n">node_linewidth</span><span class="o">=</span><span class="n">node_linewidth</span><span class="p">,</span>
+            <span class="n">edge_color</span><span class="o">=</span><span class="n">edge_color</span><span class="p">,</span>
+            <span class="n">edge_linewidth</span><span class="o">=</span><span class="n">edge_linewidth</span><span class="p">,</span>
+            <span class="n">edge_alpha_range</span><span class="o">=</span><span class="n">edge_alpha_range</span><span class="p">,</span>
+            <span class="n">scale_bar_um</span><span class="o">=</span><span class="n">scale_bar_um</span><span class="p">,</span>
+            <span class="n">font_size</span><span class="o">=</span><span class="n">font_size</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.plot_aligned_pop_rate">
