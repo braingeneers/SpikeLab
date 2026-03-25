@@ -103,13 +103,13 @@ sd.to_kilosort("ks_output/", fs_Hz=20000.0)
 - **`PairwiseCompMatrix`** holds an N x N comparison matrix (e.g., STTC between unit pairs).
 - **`AnalysisWorkspace`** stores intermediate results across multi-stage analysis pipelines.
 
-## AI-assisted analysis with Claude Code
+## AI-assisted analysis
 
-SpikeLab includes a built-in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that can guide you through data analysis interactively. The skill teaches Claude how to use the SpikeLab library, write analysis scripts, generate visualizations, and manage results — all through natural language conversation.
+SpikeLab includes a built-in skill that can guide you through data analysis interactively. The skill teaches your CLI agent of choice how to use the SpikeLab library, write analysis scripts, generate visualizations, and manage results — all through natural language conversation.
 
 ### How it works
 
-When you open the SpikeLab repository in Claude Code, the **spikelab-analysis-implementer** skill is automatically available. It can:
+When the CLI agent accesses the SpikeLab repository, it can find the **spikelab-analysis-implementer** skill in ./.agent/skills/spiklab-analysis-implementer which allows it to:
 
 - Load your data files and set up an analysis workspace
 - Write and run analysis scripts using SpikeLab methods
@@ -117,14 +117,7 @@ When you open the SpikeLab repository in Claude Code, the **spikelab-analysis-im
 - Keep a running log of analyses and results
 - Maintain up-to-date API documentation (repo maps)
 
-### Getting started
-
-1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-2. Open a terminal in the SpikeLab directory
-3. Run `claude` to start a session
-4. Ask Claude to help you analyze your data — for example: *"Load my spike data from recording.nwb and compute pairwise STTC"*
-
-Claude will use the skill's instructions to orient itself with the library, load your data, and walk you through the analysis step by step.
+Alternatively, MCP tools are available for all methods in the repository
 
 ## Directory structure
 
