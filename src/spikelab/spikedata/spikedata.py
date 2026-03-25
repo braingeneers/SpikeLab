@@ -1966,13 +1966,21 @@ class SpikeData:
         Compute spike-triggered population rate (stPR).
 
         Implementation of the stPR measure from "Invariant activity sequences
-        across the mouse brain" (Bhatt et al.).
+        across the mouse brain" (Bimbard et al.), building on Okun et al.
+        (Nature, 2015).
+        https://www.biorxiv.org/content/10.64898/2025.12.20.695676v2.full
 
-        Computes c_{i,τ} = 100 × Σ_{t: f_i(t+τ)>0} [P(t) - μ_i] / ||f_i||
+        Computes c_{i,τ} = Σ_{t: f_i(t+τ)>0} [P_{-i}(t) - P̄_{-i}] / (||f_i|| × N × μ_i)
 
-        For each neuron *i* and lag *τ*, the coupling curve measures how
-        much the population rate deviates from its mean whenever neuron *i*
-        fires, normalised by the neuron's total spike count.
+        For each neuron *i* and lag *τ*, the leave-one-out population rate
+        P_{-i}(t) is computed excluding neuron *i*. The coupling curve
+        measures how much P_{-i} deviates from its temporal mean P̄_{-i}
+        at times when neuron *i* fires, normalised by the neuron's spike
+        count, the number of neurons, and the neuron's average firing rate.
+
+        Compared to Okun et al. (2015), this adds normalisation by the
+        average firing rate (μ_i), making the coupling strength
+        uncorrelated with firing rate.
 
         Parameters
         ----------
@@ -2004,10 +2012,10 @@ class SpikeData:
         # Prepare lags: τ values from −window_ms to +window_ms
         lags = np.arange(-window_ms, window_ms + 1)
 
-        # P(t) = (1/N) Σ_j f_j(t) — population mean rate per time bin
-        P = np.mean(spike_matrix, axis=0)
+        # Total population spike count per bin (used for leave-one-out)
+        pop_sum = np.sum(spike_matrix, axis=0)
 
-        # μ_i = average firing rate of neuron i
+        # μ_i = average firing rate of neuron i (spikes per bin)
         mu = np.mean(spike_matrix, axis=1)
 
         # ||f_i|| = total number of spikes fired by neuron i
@@ -2021,10 +2029,16 @@ class SpikeData:
             if total_spikes[i] == 0:
                 continue
 
+            # Leave-one-out population rate: P_{-i}(t)
+            P_loo = pop_sum - spike_matrix[i]
+
+            # Temporal mean of leave-one-out population rate: P̄_{-i}
+            P_loo_mean = np.mean(P_loo)
+
             # All spike times for neuron i: {s | f_i(s) > 0}
             spike_times = np.where(spike_matrix[i] > 0)[0]
 
-            # Accumulator for Σ[P(t) - μ_i]
+            # Accumulator for Σ[P_{-i}(t) - P̄_{-i}]
             sum_deviations = np.zeros(len(lags))
 
             for tau_idx, tau in enumerate(lags):
@@ -2037,13 +2051,13 @@ class SpikeData:
                 # Only use valid population times t ∈ [0, num_bins)
                 mask = (valid_t >= 0) & (valid_t < num_bins)
                 if np.any(mask):
-                    # Compute [P(t) - μ_i] for valid trigger times
-                    deviations = P[valid_t[mask]] - mu[i]
+                    # Compute [P_{-i}(t) - P̄_{-i}] for valid trigger times
+                    deviations = P_loo[valid_t[mask]] - P_loo_mean
                     # Sum over trigger times
                     sum_deviations[tau_idx] = np.sum(deviations)
 
-            # c_{i,τ} = 100 × Σ[P(t) − μ_i] / ||f_i||
-            stPR[i] = 100 * sum_deviations / total_spikes[i]
+            # c_{i,τ} = Σ[P_{-i}(t) − P̄_{-i}] / (||f_i|| × N × μ_i)
+            stPR[i] = sum_deviations / (total_spikes[i] * num_neurons * mu[i])
 
         # Low-pass filter coupling curves
         stPR_filtered = np.array(
