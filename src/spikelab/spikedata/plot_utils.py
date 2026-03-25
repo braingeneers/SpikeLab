@@ -1783,9 +1783,10 @@ def plot_recording(
         vmin_heatmap (float or None): Colormap minimum for the FR heatmap.
         vmax_heatmap (float or None): Colormap maximum for the FR heatmap.
             When None, clipped to ``heatmap_clip_pct`` percentile of the data.
-        heatmap_clip_pct (float or None): Percentile of the firing-rate data
-            used as the colormap maximum when ``vmax_heatmap`` is None.
-            Default 80. Set to None to use the absolute maximum.
+        heatmap_clip_pct (float or None): Fraction of the data maximum (as a
+            percentage) used as the colormap maximum when ``vmax_heatmap`` is
+            None. Default 80 (i.e. 80% of the max value). Set to None to use
+            the absolute maximum.
         norm_heatmap (bool or str): Row normalisation for the FR heatmap
             (``False`` or ``'row'``).
         model_states_cmap (str): Colormap for the model-states panel.
@@ -2032,6 +2033,8 @@ def plot_recording(
             ]
             ax.eventplot(spike_times_list, colors="black", linewidths=0.5)
         ax.set_ylim([0, spk_mat_view.shape[0]])
+        if raster_style != "imshow":
+            ax.invert_yaxis()
         ax.set_ylabel("Unit")
         _apply_font_size(ax, font_size)
 
@@ -2081,7 +2084,7 @@ def plot_recording(
         # Auto-clip vmax to percentile when not explicitly set
         vmax_fr = vmax_heatmap
         if vmax_fr is None and heatmap_clip_pct is not None:
-            vmax_fr = np.percentile(fr_rates_view, heatmap_clip_pct)
+            vmax_fr = np.max(fr_rates_view) * (heatmap_clip_pct / 100.0)
         plot_heatmap(
             fr_rates_view,
             ax=ax,
