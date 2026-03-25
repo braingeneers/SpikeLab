@@ -109,7 +109,7 @@ SpikeLab includes a built-in skill that can guide you through data analysis inte
 
 ### How it works
 
-When the CLI agent accesses the SpikeLab repository, it can find the **spikelab-analysis-implementer** skill in ./.agent/skills/spiklab-analysis-implementer which allows it to:
+When the CLI agent accesses the SpikeLab repository, it can find the **spikelab-analysis-implementer** skill in .agent/skills/spiklab-analysis-implementer which allows it to:
 
 - Load your data files and set up an analysis workspace
 - Write and run analysis scripts using SpikeLab methods
@@ -144,7 +144,7 @@ SpikeLab/
 │           ├── server.py           # MCP server implementation
 │           └── tools/              # MCP tool definitions
 ├── tests/              # Test suite (pytest)
-├── .agent/             # Claude Code skill for AI-assisted analysis
+├── .agent/             # Agent skill for AI-assisted analysis
 ├── environment.yml     # Conda environment specification
 └── pyproject.toml      # Package configuration
 ```
