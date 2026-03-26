@@ -1765,12 +1765,13 @@ def plot_recording(
             enabled when ``fr_rates`` is provided.
         show_model_states (bool): Include the model-states panel.
             Automatically enabled when ``model_states`` is provided.
-        pop_rate (np.ndarray or None): Pre-computed smoothed population rate,
-            shape ``(T,)``. If None and panel is enabled, computed via
-            ``sd.get_pop_rate()``.
+        pop_rate (np.ndarray or None): Pre-computed smoothed population rate
+            in spikes per bin (as returned by ``sd.get_pop_rate()``), shape
+            ``(T,)``. Automatically converted to Hz/unit for display. If None
+            and panel is enabled, computed via ``sd.get_pop_rate()``.
         pop_rate_params (dict or None): Keyword arguments forwarded to
             ``sd.get_pop_rate()`` when ``pop_rate`` is None. Defaults:
-            ``square_width=5, gauss_sigma=5``.
+            ``square_width=8, gauss_sigma=8``.
         fr_rates (np.ndarray or None): Pre-computed per-unit instantaneous
             firing rates, shape ``(U, T)``. If None and ``show_fr_rates`` is
             True, computed via ``sd.resampled_isi()``.
@@ -1908,7 +1909,11 @@ def plot_recording(
 
     # Auto-compute population rate if requested
     if show_pop_rate and pop_rate is None:
-        params = {"square_width": 5, "gauss_sigma": 5}
+        params = {
+            "square_width": 8,
+            "gauss_sigma": 8,
+            "raster_bin_size_ms": raster_bin_size_ms,
+        }
         if pop_rate_params is not None:
             params.update(pop_rate_params)
         pop_rate = sd.get_pop_rate(**params)
@@ -2071,9 +2076,13 @@ def plot_recording(
         ax = panel_axes["pop_rate"]
 
         if pop_rate_view is not None:
-            x_pop = np.linspace(0, n_samples, len(pop_rate_view), endpoint=False)
-            ax.plot(x_pop, pop_rate_view, color="blue", label="Pop. rate")
-            ax.set_ylabel("Pop. rate (Hz)")
+            # Convert from spikes/bin (summed over units) to Hz/unit
+            n_units = spk_mat.shape[0]
+            bin_duration_s = raster_bin_size_ms / 1000.0
+            pop_rate_hz = pop_rate_view / (bin_duration_s * n_units)
+            x_pop = np.linspace(0, n_samples, len(pop_rate_hz), endpoint=False)
+            ax.plot(x_pop, pop_rate_hz, color="blue", label="Pop. rate")
+            ax.set_ylabel("Pop. rate (Hz/unit)")
 
         if cont_prob_view is not None:
             ax2 = ax.twinx()
@@ -2086,12 +2095,12 @@ def plot_recording(
         # Burst overlays
         if burst_times_view is not None and pop_rate_view is not None:
             # Scale burst times from raster-bin coords to pop_rate coords
-            scale = len(pop_rate_view) / n_samples
+            scale = len(pop_rate_hz) / n_samples
             bt_scaled = np.round(burst_times_view * scale).astype(int)
-            valid = bt_scaled < len(pop_rate_view)
+            valid = bt_scaled < len(pop_rate_hz)
             bt_scaled = bt_scaled[valid]
             bt_plot = burst_times_view[valid]  # x position in raster coords
-            ax.scatter(bt_plot, pop_rate_view[bt_scaled], c="k", zorder=9)
+            ax.scatter(bt_plot, pop_rate_hz[bt_scaled], c="k", zorder=9)
 
         if burst_edges_view is not None:
             for t0, t1 in burst_edges_view:
@@ -2179,15 +2188,11 @@ def plot_recording(
     bin_to_s = raster_bin_size_ms / 1000.0
     if absolute_xticks:
         s_offset = ms_offset / 1000.0
-        formatter = mticker.FuncFormatter(
-            lambda x, _: f"{x * bin_to_s + s_offset:.1f}"
-        )
+        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s + s_offset:.1f}")
         for ax in main_axes:
             ax.xaxis.set_major_formatter(formatter)
     else:
-        formatter = mticker.FuncFormatter(
-            lambda x, _: f"{x * bin_to_s:.1f}"
-        )
+        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s:.1f}")
         for ax in main_axes:
             ax.xaxis.set_major_formatter(formatter)
 

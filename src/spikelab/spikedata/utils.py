@@ -1,5 +1,7 @@
 import math
+import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Literal, Union, Dict, Any
 
 import numpy as np
@@ -55,6 +57,31 @@ try:  # optional, only needed for Louvain community detection
     import community as community_louvain  # type: ignore
 except ImportError:  # pragma: no cover
     community_louvain = None  # type: ignore
+
+
+# ---------------------------------------------------------------------------
+# Thread-pool parallelisation helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_n_jobs(n_jobs):
+    """Resolve an n_jobs parameter to a concrete worker count.
+
+    Parameters:
+        n_jobs (int or None): Desired parallelism. -1 means all cores, None or
+            1 means serial execution, negative values count from cpu_count.
+
+    Returns:
+        n_workers (int): Positive integer worker count (1 = serial).
+    """
+    if n_jobs is None or n_jobs == 1:
+        return 1
+    if n_jobs == -1:
+        return os.cpu_count() or 1
+    if n_jobs < -1:
+        cores = os.cpu_count() or 1
+        return max(1, cores + 1 + n_jobs)
+    return n_jobs
 
 
 def get_sttc(
@@ -1363,6 +1390,7 @@ def _rank_order_correlation_from_timing(
     min_overlap_frac=None,
     n_shuffles=100,
     seed=1,
+    n_jobs=-1,
 ):
     """
     Compute Spearman rank-order correlation of unit timing between all slice pairs.
@@ -1380,6 +1408,8 @@ def _rank_order_correlation_from_timing(
         n_shuffles (int): Shuffle iterations for z-scoring (default: 100).
             0 = raw correlations. Values 1-4 are rejected.
         seed (int or None): Random seed for shuffle reproducibility.
+        n_jobs (int): Number of threads for parallel computation. -1 uses all
+            cores (default), 1 disables parallelism, None is serial.
 
     Returns:
         corr_matrix (PairwiseCompMatrix): (S, S) Spearman correlation or z-score matrix.
@@ -1408,7 +1438,6 @@ def _rank_order_correlation_from_timing(
         frac_count = int(np.ceil(min_overlap_frac * num_units))
         effective_min = max(effective_min, frac_count)
 
-    rng = np.random.default_rng(seed)
     num_slices = timing_matrix.shape[1]
     corr = np.full((num_slices, num_slices), np.nan)
     overlap = np.zeros((num_slices, num_slices), dtype=int)
@@ -1418,36 +1447,51 @@ def _rank_order_correlation_from_timing(
     for i in range(num_slices):
         overlap[i, i] = int(np.sum(~np.isnan(timing_matrix[:, i])))
 
-    for i in range(num_slices):
-        for j in range(i + 1, num_slices):
-            valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
-            n_valid = int(np.sum(valid))
-            overlap[i, j] = n_valid
-            overlap[j, i] = n_valid
+    # Pre-compute validity masks and extract data for each pair
+    pairs = [(i, j) for i in range(num_slices) for j in range(i + 1, num_slices)]
 
-            if n_valid < effective_min:
-                continue
+    # Each pair needs its own independent RNG for reproducibility
+    ss = np.random.SeedSequence(seed)
+    pair_seeds = ss.spawn(len(pairs))
 
-            a = timing_matrix[valid, i]
-            b = timing_matrix[valid, j]
-            rho, _ = spearmanr(a, b)
+    def _compute_pair(args):
+        (i, j), child_seed = args
+        valid = ~np.isnan(timing_matrix[:, i]) & ~np.isnan(timing_matrix[:, j])
+        n_valid = int(np.sum(valid))
 
-            if n_shuffles == 0:
-                corr[i, j] = rho
-                corr[j, i] = rho
-            else:
-                null_rhos = np.empty(n_shuffles)
-                for k in range(n_shuffles):
-                    b_shuffled = rng.permutation(b)
-                    null_rhos[k], _ = spearmanr(a, b_shuffled)
-                null_mean = np.mean(null_rhos)
-                null_std = np.std(null_rhos)
-                if null_std > 0:
-                    z = (rho - null_mean) / null_std
-                else:
-                    z = np.nan
-                corr[i, j] = z
-                corr[j, i] = z
+        if n_valid < effective_min:
+            return i, j, n_valid, np.nan
+
+        a = timing_matrix[valid, i]
+        b = timing_matrix[valid, j]
+        rho, _ = spearmanr(a, b)
+
+        if n_shuffles == 0:
+            return i, j, n_valid, rho
+
+        rng = np.random.default_rng(child_seed)
+        null_rhos = np.empty(n_shuffles)
+        for k in range(n_shuffles):
+            null_rhos[k], _ = spearmanr(a, rng.permutation(b))
+        null_mean = np.mean(null_rhos)
+        null_std = np.std(null_rhos)
+        z = (rho - null_mean) / null_std if null_std > 0 else np.nan
+        return i, j, n_valid, z
+
+    work_items = list(zip(pairs, pair_seeds))
+
+    n_workers = _resolve_n_jobs(n_jobs)
+    if n_workers > 1 and len(pairs) > 1:
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            results = pool.map(_compute_pair, work_items)
+    else:
+        results = map(_compute_pair, work_items)
+
+    for i, j, n_valid, value in results:
+        overlap[i, j] = n_valid
+        overlap[j, i] = n_valid
+        corr[i, j] = value
+        corr[j, i] = value
 
     lower_tri = np.tril_indices(num_slices, k=-1)
     av_corr = float(np.nanmean(corr[lower_tri]))

@@ -1276,6 +1276,40 @@ class TestHDF5IO:
             out.neuron_attributes[2]["waveform"], waveform * 2.0
         )
 
+    def test_roundtrip_spikedata_neuron_attributes_list(self):
+        """
+        Tests HDF5 round-trip for neuron_attributes containing Python list values.
+
+        Tests:
+            (Test Case 1) List-valued attributes (e.g. electrode positions) survive
+                round-trip and are restored as arrays with the correct shape.
+            (Test Case 2) List values are numerically preserved.
+            (Test Case 3) Scalar attributes stored alongside list attributes are preserved.
+            (Test Case 4) Units missing the list attribute do not have the key after load.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sd.neuron_attributes = [
+            {"location": [175.0, 1015.0], "channel": 0},
+            {"location": [200.0, 800.0], "channel": 1},
+            {"channel": 2},
+        ]
+        out = self._roundtrip(sd)
+        assert out.neuron_attributes is not None
+        # Test Case 1 & 2: list values restored as arrays
+        np.testing.assert_array_almost_equal(
+            out.neuron_attributes[0]["location"], [175.0, 1015.0]
+        )
+        np.testing.assert_array_almost_equal(
+            out.neuron_attributes[1]["location"], [200.0, 800.0]
+        )
+        assert out.neuron_attributes[0]["location"].shape == (2,)
+        # Test Case 3: scalar preserved
+        assert float(out.neuron_attributes[0]["channel"]) == pytest.approx(0.0)
+        assert float(out.neuron_attributes[1]["channel"]) == pytest.approx(1.0)
+        assert float(out.neuron_attributes[2]["channel"]) == pytest.approx(2.0)
+        # Test Case 4: missing list attribute
+        assert "location" not in out.neuron_attributes[2]
+
     def test_roundtrip_spikedata_with_raw_data(self):
         """
         Tests HDF5 round-trip for SpikeData that includes raw_data and raw_time.
