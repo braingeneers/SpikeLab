@@ -5,12 +5,15 @@ import numpy as np
 __all__ = ["RateData"]
 
 from .pairwise import PairwiseCompMatrix
+from concurrent.futures import ThreadPoolExecutor
+
 from .utils import (
     compute_cross_correlation_with_lag,
     PCA_reduction,
     UMAP_reduction,
     UMAP_graph_communities,
     _get_attr,
+    _resolve_n_jobs,
 )
 
 
@@ -253,7 +256,7 @@ class RateData:
         return RateSliceStack(self, times_start_to_end=times)
 
     def get_pairwise_fr_corr(
-        self, compare_func=compute_cross_correlation_with_lag, max_lag=10
+        self, compare_func=compute_cross_correlation_with_lag, max_lag=10, n_jobs=-1
     ):
         """
         Takes the object's underlying firing rate matrix (U, T) and computes the unit to unit similarity,
@@ -264,6 +267,8 @@ class RateData:
                                         The default is cross correlation. These functions can be insepcted further in utils.py
         max_lag (int): Max number of lag steps around 0 user wants to be considered for finding the max correlation.
                        If None, lag is set to 0.
+        n_jobs (int): Number of threads for parallel computation. -1 uses all
+            cores (default), 1 disables parallelism, None is serial.
 
 
         Returns:
@@ -281,23 +286,29 @@ class RateData:
         rate_matrix = self.inst_Frate_data
 
         num_units = self.inst_Frate_data.shape[0]  # N
-        num_time_bins = self.inst_Frate_data.shape[1]  # T
         corr_matrix_this_event = np.full((num_units, num_units), np.nan)
         lag_matrix_this_event = np.full((num_units, num_units), np.nan)
 
-        for n1 in range(num_units):
-            for n2 in range(n1, num_units):
-                reference_signal = rate_matrix[n1, :]
-                compare_signal = rate_matrix[n2, :]
-                max_corr, max_lag_idx = compare_func(
-                    reference_signal, compare_signal, max_lag=max_lag
-                )
+        pairs = [(n1, n2) for n1 in range(num_units) for n2 in range(n1, num_units)]
 
-                corr_matrix_this_event[n1, n2] = max_corr
-                lag_matrix_this_event[n1, n2] = max_lag_idx
+        def _compute_pair(pair):
+            n1, n2 = pair
+            return pair, compare_func(
+                rate_matrix[n1, :], rate_matrix[n2, :], max_lag=max_lag
+            )
 
-                corr_matrix_this_event[n2, n1] = max_corr
-                lag_matrix_this_event[n2, n1] = -max_lag_idx
+        n_workers = _resolve_n_jobs(n_jobs)
+        if n_workers > 1 and len(pairs) > 1:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                results = pool.map(_compute_pair, pairs)
+        else:
+            results = map(_compute_pair, pairs)
+
+        for (n1, n2), (max_corr, max_lag_idx) in results:
+            corr_matrix_this_event[n1, n2] = max_corr
+            lag_matrix_this_event[n1, n2] = max_lag_idx
+            corr_matrix_this_event[n2, n1] = max_corr
+            lag_matrix_this_event[n2, n1] = -max_lag_idx
 
         # Output is UxU, wrapped in PairwiseCompMatrix for API consistency
         meta = {"compare_func": compare_func.__name__, "max_lag": max_lag}

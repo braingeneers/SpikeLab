@@ -8,11 +8,14 @@ import warnings
 from .pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 
 
+from concurrent.futures import ThreadPoolExecutor
+
 from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
     _validate_time_start_to_end,
     _get_attr,
+    _resolve_n_jobs,
 )
 
 
@@ -367,6 +370,7 @@ class RateSliceStack:
         MIN_FRAC=0.3,
         max_lag=10,
         frac_active=None,
+        n_jobs=-1,
     ):
         """
         Compute slice-to-slice (aka burst-to-burst) similarity along the 0th axis of self.event_stack (U x T x S)
@@ -387,6 +391,8 @@ class RateSliceStack:
                                           still controls which individual slice pairs are computed.
                                           Compatible sources: SpikeSliceStack.compute_frac_active
                                           and SpikeData.get_frac_active (frac_per_unit output).
+        n_jobs (int): Number of threads for parallel computation. -1 uses all
+            cores (default), 1 disables parallelism, None is serial.
 
         Returns:
         --------
@@ -430,50 +436,42 @@ class RateSliceStack:
 
         lower_tri_indices = np.tril_indices(num_slices, k=-1)
 
-        # For each neuron
-        for unit in range(num_units):
-            # Counter for skipped slices
+        def _process_unit(unit):
+            unit_corr = np.full((num_slices, num_slices), np.nan)
             counter = 0
-
-            # Loop through each slice. This is your reference signal
             for ref_b in range(num_slices):
-                # Reference vector
                 ref_rate = event_stack[unit, :, ref_b]
-
-                # Check if mean firing rate is above threshold
                 if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
-                    # Count each time a reference slice is inactive for this unit
                     counter += 1
                     continue
-
                 for comp_b in range(ref_b, num_slices):
-                    # Comp vector
                     comp_rate = event_stack[unit, :, comp_b]
-
-                    # Check if mean firing rate is above threshold
                     if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
                         continue
-
-                    # Compute similarity, we only want one output, not the lagged one.
                     max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
-
-                    # Store results
-                    all_slice_corr_scores[unit, comp_b, ref_b] = max_corr
-                    all_slice_corr_scores[unit, ref_b, comp_b] = max_corr
-
-            # Check if unit is valid enough to compute an average
+                    unit_corr[comp_b, ref_b] = max_corr
+                    unit_corr[ref_b, comp_b] = max_corr
             if frac_active is not None:
                 unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
             else:
                 unit_valid = counter / num_slices <= MIN_FRAC
+            av = (
+                np.nanmean(unit_corr[lower_tri_indices[0], lower_tri_indices[1]])
+                if unit_valid
+                else np.nan
+            )
+            return unit, unit_corr, av
 
-            if unit_valid:
-                # Average results over all pairs in lower triangle. Don't want to include diagonol in mean calculation.
-                av_slice_corr_scores[unit] = np.nanmean(
-                    all_slice_corr_scores[
-                        unit, lower_tri_indices[0], lower_tri_indices[1]
-                    ]
-                )
+        n_workers = _resolve_n_jobs(n_jobs)
+        if n_workers > 1 and num_units > 1:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                results = pool.map(_process_unit, range(num_units))
+        else:
+            results = map(_process_unit, range(num_units))
+
+        for unit, unit_corr, av in results:
+            all_slice_corr_scores[unit] = unit_corr
+            av_slice_corr_scores[unit] = av
         # Transpose from (U, S, S) to (S, S, U) for n×n×S convention
         all_slice_corr_scores = np.moveaxis(all_slice_corr_scores, 0, 2)
         # all_burst_corr_scores is now SxSxU and av_burst_corr_scores is U since its the mean correlation across all bursts.
@@ -483,7 +481,7 @@ class RateSliceStack:
         )
 
     def get_slice_to_slice_time_corr_from_stack(
-        self, compare_func=compute_cosine_similarity_with_lag, max_lag=0
+        self, compare_func=compute_cosine_similarity_with_lag, max_lag=0, n_jobs=-1
     ):
         """
         Compute slice-to-slice similarity along the 1st axis of RateSliceStack self.event_stack (U x T x S)
@@ -494,6 +492,8 @@ class RateSliceStack:
         compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
                                         The default is cosine similarity. These functions can be inspected further in utils.py
         max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
+        n_jobs (int): Number of threads for parallel computation. -1 uses all
+            cores (default), 1 disables parallelism, None is serial.
 
         Returns:
         --------
@@ -529,30 +529,28 @@ class RateSliceStack:
 
         lower_tri_indices = np.tril_indices(num_slices, k=-1)
 
-        # For each neuron
-        for time in range(num_time_bins):
-
-            # For each reference burst
+        def _process_time(t):
+            time_corr = np.full((num_slices, num_slices), np.nan)
             for ref_b in range(num_slices):
-                # Reference vector
-                ref_rate = event_stack[:, time, ref_b]
-
-                # Start at ref_b since the output must be symmetric, so we only need to do half the computation.
+                ref_rate = event_stack[:, t, ref_b]
                 for comp_b in range(ref_b, num_slices):
-                    # Comparison vector
-                    comp_rate = event_stack[:, time, comp_b]
-
-                    # Compute similarity
+                    comp_rate = event_stack[:, t, comp_b]
                     max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
+                    time_corr[comp_b, ref_b] = max_corr
+                    time_corr[ref_b, comp_b] = max_corr
+            av = np.nanmean(time_corr[lower_tri_indices[0], lower_tri_indices[1]])
+            return t, time_corr, av
 
-                    # Store results
-                    all_slice_corr_scores[time, comp_b, ref_b] = max_corr
+        n_workers = _resolve_n_jobs(n_jobs)
+        if n_workers > 1 and num_time_bins > 1:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                results = pool.map(_process_time, range(num_time_bins))
+        else:
+            results = map(_process_time, range(num_time_bins))
 
-                    all_slice_corr_scores[time, ref_b, comp_b] = max_corr
-
-            av_slice_corr_scores[time] = np.nanmean(
-                all_slice_corr_scores[time, lower_tri_indices[0], lower_tri_indices[1]]
-            )
+        for t, time_corr, av in results:
+            all_slice_corr_scores[t] = time_corr
+            av_slice_corr_scores[t] = av
         # Transpose from (T, S, S) to (S, S, T) for n×n×S convention
         all_slice_corr_scores = np.moveaxis(all_slice_corr_scores, 0, 2)
         # all_slice_corr_scores is now SxSxT and av_burst_corr_scores is T
@@ -589,7 +587,7 @@ class RateSliceStack:
         return output
 
     def unit_to_unit_correlation(
-        self, compare_func=compute_cross_correlation_with_lag, max_lag=10
+        self, compare_func=compute_cross_correlation_with_lag, max_lag=10, n_jobs=-1
     ):
         """
         Compute unit-to-unit similarity along the last axis of RateSliceStack self.event_stack (U x T x S)
@@ -637,7 +635,7 @@ class RateSliceStack:
             rate_data = rate_data_stack[i]
             # This gives 2 UxU matrices
             max_corr_matrix, lag_corr_matrix = rate_data.get_pairwise_fr_corr(
-                compare_func, max_lag
+                compare_func, max_lag, n_jobs=n_jobs
             )
             max_corr_stack.append(max_corr_matrix.matrix)
             max_corr_lag_stack.append(lag_corr_matrix.matrix)
@@ -838,6 +836,7 @@ class RateSliceStack:
         min_overlap_frac=None,
         n_shuffles=100,
         seed=1,
+        n_jobs=-1,
     ):
         """
         Compute Spearman rank-order correlation of unit timing between all slice pairs.
@@ -893,4 +892,5 @@ class RateSliceStack:
             min_overlap_frac=min_overlap_frac,
             n_shuffles=n_shuffles,
             seed=seed,
+            n_jobs=n_jobs,
         )

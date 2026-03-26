@@ -56,6 +56,20 @@ def _apply_font_size(ax, font_size):
     ax.tick_params(axis="both", labelsize=font_size)
 
 
+def _style_axes(ax):
+    """Apply default axis styling: remove top/right spines, outward ticks."""
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="both", direction="out")
+
+
+def _style_axes_heatmap(ax):
+    """Apply heatmap axis styling: all four spines at 0.5 pt, outward ticks."""
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5)
+    ax.tick_params(axis="both", direction="out")
+
+
 # ---------------------------------------------------------------------------
 # plot_distribution
 # ---------------------------------------------------------------------------
@@ -241,6 +255,8 @@ def plot_distribution(
     if log_scale:
         ax.set_yscale("log")
 
+    _style_axes(ax)
+
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -392,8 +408,7 @@ def plot_pvalue_matrix(
     target_ax.set_yticks(range(K))
     target_ax.set_yticklabels(labels, fontsize=tick_fs)
 
-    for spine in target_ax.spines.values():
-        spine.set_linewidth(0.5)
+    _style_axes_heatmap(target_ax)
 
     # --- Colorbar ---------------------------------------------------------
     if show_colorbar:
@@ -545,7 +560,7 @@ def plot_scatter(
             sc.append(s)
 
         if show_legend:
-            ax.legend()
+            ax.legend(frameon=False)
     else:
         # --- Continuous / uniform colouring -------------------------------
         scatter_kw = dict(s=marker_size, alpha=alpha, edgecolors="none", zorder=2)
@@ -618,6 +633,7 @@ def plot_scatter(
     # --- Axes formatting --------------------------------------------------
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    _style_axes(ax)
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -711,6 +727,7 @@ def plot_scatter_with_marginals(
 
     # Plot scatter
     sc = plot_scatter(ax_scatter, x, y, xlabel=xlabel, ylabel=ylabel, **scatter_kwargs)
+    ax_scatter.set_aspect("equal", adjustable="datalim")
 
     # Determine axis range from scatter
     xlim = ax_scatter.get_xlim()
@@ -791,7 +808,7 @@ def plot_manifold(
     groups=None,
     group_labels=None,
     group_colors=None,
-    marker_size=0.8,
+    marker_size=3,
     alpha=0.5,
     show_colorbar=True,
     show_legend=True,
@@ -836,7 +853,7 @@ def plot_manifold(
             discrete colouring (foreground only).
         group_labels (list[str] or None): Labels per unique group value.
         group_colors (list[str] or None): Colours per unique group value.
-        marker_size (float): Marker size for foreground points.
+        marker_size (float): Marker size for foreground points. Default 4.
         alpha (float): Alpha for foreground points.
         show_colorbar (bool): Add a colorbar (continuous mode only).
         show_legend (bool): Show a legend (group mode only).
@@ -917,6 +934,7 @@ def plot_manifold(
     elif var_explained is not None:
         ax.set_ylabel(f"PC{pc_y + 1} ({var_explained[pc_y]:.1%})")
 
+    _style_axes(ax)
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -1015,8 +1033,9 @@ def plot_lines(
     ax.set_ylabel(ylabel)
 
     if show_legend:
-        ax.legend()
+        ax.legend(frameon=False)
 
+    _style_axes(ax)
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -1221,8 +1240,9 @@ def plot_percentile_bands(
         handles = [summary_line]
         if style == "bands":
             handles += artists["bands"]
-        ax.legend(handles=handles, loc="upper left")
+        ax.legend(handles=handles, loc="upper left", frameon=False)
 
+    _style_axes(ax)
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -1530,6 +1550,7 @@ def plot_aligned_slice_single_unit(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
+    _style_axes(ax)
     if font_size is not None:
         _apply_font_size(ax, font_size)
 
@@ -1664,6 +1685,7 @@ def plot_heatmap(
             im, ax, label=colorbar_label, font_size=font_size, size="10%", pad=0.08
         )
 
+    _style_axes_heatmap(ax)
     _apply_font_size(ax, font_size)
 
     if standalone:
@@ -1743,12 +1765,13 @@ def plot_recording(
             enabled when ``fr_rates`` is provided.
         show_model_states (bool): Include the model-states panel.
             Automatically enabled when ``model_states`` is provided.
-        pop_rate (np.ndarray or None): Pre-computed smoothed population rate,
-            shape ``(T,)``. If None and panel is enabled, computed via
-            ``sd.get_pop_rate()``.
+        pop_rate (np.ndarray or None): Pre-computed smoothed population rate
+            in spikes per bin (as returned by ``sd.get_pop_rate()``), shape
+            ``(T,)``. Automatically converted to Hz/unit for display. If None
+            and panel is enabled, computed via ``sd.get_pop_rate()``.
         pop_rate_params (dict or None): Keyword arguments forwarded to
             ``sd.get_pop_rate()`` when ``pop_rate`` is None. Defaults:
-            ``square_width=5, gauss_sigma=5``.
+            ``square_width=8, gauss_sigma=8``.
         fr_rates (np.ndarray or None): Pre-computed per-unit instantaneous
             firing rates, shape ``(U, T)``. If None and ``show_fr_rates`` is
             True, computed via ``sd.resampled_isi()``.
@@ -1806,8 +1829,8 @@ def plot_recording(
             Ignored when ``axes`` is provided.
         height_ratios (list or None): Relative panel heights. Length must
             match the number of enabled panels.
-        absolute_xticks (bool): If True, x-tick labels show absolute ms from
-            recording start. If False, labels are relative to the display
+        absolute_xticks (bool): If True, x-tick labels show absolute seconds
+            from recording start. If False, labels are relative to the display
             window.
         font_size (int): Font size for labels and tick labels.
         show (bool): If True and ``save_path`` is None, call ``plt.show()``.
@@ -1886,7 +1909,11 @@ def plot_recording(
 
     # Auto-compute population rate if requested
     if show_pop_rate and pop_rate is None:
-        params = {"square_width": 5, "gauss_sigma": 5}
+        params = {
+            "square_width": 8,
+            "gauss_sigma": 8,
+            "raster_bin_size_ms": raster_bin_size_ms,
+        }
         if pop_rate_params is not None:
             params.update(pop_rate_params)
         pop_rate = sd.get_pop_rate(**params)
@@ -2036,6 +2063,10 @@ def plot_recording(
         if raster_style != "imshow":
             ax.invert_yaxis()
         ax.set_ylabel("Unit")
+        if raster_style == "imshow":
+            _style_axes_heatmap(ax)
+        else:
+            _style_axes(ax)
         _apply_font_size(ax, font_size)
 
     # ------------------------------------------------------------------
@@ -2045,9 +2076,13 @@ def plot_recording(
         ax = panel_axes["pop_rate"]
 
         if pop_rate_view is not None:
-            x_pop = np.linspace(0, n_samples, len(pop_rate_view), endpoint=False)
-            ax.plot(x_pop, pop_rate_view, color="blue", label="Pop. rate")
-            ax.set_ylabel("Pop. rate (Hz)")
+            # Convert from spikes/bin (summed over units) to Hz/unit
+            n_units = spk_mat.shape[0]
+            bin_duration_s = raster_bin_size_ms / 1000.0
+            pop_rate_hz = pop_rate_view / (bin_duration_s * n_units)
+            x_pop = np.linspace(0, n_samples, len(pop_rate_hz), endpoint=False)
+            ax.plot(x_pop, pop_rate_hz, color="blue", label="Pop. rate")
+            ax.set_ylabel("Pop. rate (Hz/unit)")
 
         if cont_prob_view is not None:
             ax2 = ax.twinx()
@@ -2060,17 +2095,18 @@ def plot_recording(
         # Burst overlays
         if burst_times_view is not None and pop_rate_view is not None:
             # Scale burst times from raster-bin coords to pop_rate coords
-            scale = len(pop_rate_view) / n_samples
+            scale = len(pop_rate_hz) / n_samples
             bt_scaled = np.round(burst_times_view * scale).astype(int)
-            valid = bt_scaled < len(pop_rate_view)
+            valid = bt_scaled < len(pop_rate_hz)
             bt_scaled = bt_scaled[valid]
             bt_plot = burst_times_view[valid]  # x position in raster coords
-            ax.scatter(bt_plot, pop_rate_view[bt_scaled], c="k", zorder=9)
+            ax.scatter(bt_plot, pop_rate_hz[bt_scaled], c="k", zorder=9)
 
         if burst_edges_view is not None:
             for t0, t1 in burst_edges_view:
                 ax.axvspan(t0, t1, color="b", alpha=0.2)
 
+        _style_axes(ax)
         _apply_font_size(ax, font_size)
 
     # ------------------------------------------------------------------
@@ -2093,7 +2129,7 @@ def plot_recording(
             vmax=vmax_fr,
             origin="upper",
             extent=fr_extent,
-            xlabel="Time (ms)",
+            xlabel="Time (s)",
             ylabel="Unit",
             show_colorbar=False,
             font_size=font_size,
@@ -2120,7 +2156,7 @@ def plot_recording(
             vmax=model_states_vmax,
             origin="lower",
             extent=ms_extent,
-            xlabel="Time (ms)",
+            xlabel="Time (s)",
             ylabel="State",
             show_colorbar=False,
             font_size=font_size,
@@ -2142,17 +2178,21 @@ def plot_recording(
     for ax in main_axes[:-1]:
         plt.setp(ax.get_xticklabels(), visible=False)
         ax.set_xlabel("")
-    main_axes[-1].set_xlabel("Time (ms)")
+    main_axes[-1].set_xlabel("Time (s)")
     _apply_font_size(main_axes[-1], font_size)
 
     # Shift tick labels to absolute recording time when requested
-    # Convert bin indices back to ms for tick labels.
+    # Convert bin indices back to seconds for tick labels.
     # Bin 0 in the view corresponds to ms = sd.start_time + start * raster_bin_size_ms.
     ms_offset = sd.start_time + start * raster_bin_size_ms
-    if absolute_xticks and ms_offset != 0:
-        formatter = mticker.FuncFormatter(
-            lambda x, _: f"{int(x * raster_bin_size_ms + ms_offset)}"
-        )
+    bin_to_s = raster_bin_size_ms / 1000.0
+    if absolute_xticks:
+        s_offset = ms_offset / 1000.0
+        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s + s_offset:.1f}")
+        for ax in main_axes:
+            ax.xaxis.set_major_formatter(formatter)
+    else:
+        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s:.1f}")
         for ax in main_axes:
             ax.xaxis.set_major_formatter(formatter)
 

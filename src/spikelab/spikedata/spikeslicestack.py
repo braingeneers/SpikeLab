@@ -6,11 +6,14 @@ __all__ = ["SpikeSliceStack"]
 
 from .pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
 from .spikedata import SpikeData
+from concurrent.futures import ThreadPoolExecutor
+
 from .utils import (
     _validate_time_start_to_end,
     _get_attr,
     get_sttc,
     compute_cross_correlation_with_lag,
+    _resolve_n_jobs,
 )
 
 
@@ -632,6 +635,7 @@ class SpikeSliceStack:
         delt=20.0,
         bin_size=1.0,
         max_lag=350,
+        n_jobs=-1,
     ):
         """
         Compute pairwise unit-to-unit similarity within each slice using spike-based metrics.
@@ -698,7 +702,7 @@ class SpikeSliceStack:
                 corr_matrices.append(pcm.matrix)
             else:  # ccg
                 corr_pcm, lag_pcm = sd.get_pairwise_ccg(
-                    bin_size=bin_size, max_lag=max_lag
+                    bin_size=bin_size, max_lag=max_lag, n_jobs=n_jobs
                 )
                 corr_matrices.append(corr_pcm.matrix)
                 lag_matrices.append(lag_pcm.matrix)
@@ -730,6 +734,7 @@ class SpikeSliceStack:
         min_spikes=2,
         min_frac=0.3,
         frac_active=None,
+        n_jobs=-1,
     ):
         """
         Compute slice-to-slice similarity for each unit using spike-based metrics.
@@ -759,6 +764,8 @@ class SpikeSliceStack:
                 controls which individual slice pairs are computed.
                 Compatible sources: ``SpikeSliceStack.compute_frac_active``
                 and ``SpikeData.get_frac_active`` (``frac_per_unit`` output).
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
             all_corr (PairwiseCompMatrixStack): Pairwise similarity between all
@@ -846,8 +853,13 @@ class SpikeSliceStack:
 
         lower_tri = np.tril_indices(num_slices, k=-1)
 
-        for unit in range(num_units):
-            # Count invalid slices for this unit
+        start_times = [sd.start_time for sd in self.spike_stack]
+
+        def _process_unit(unit):
+            unit_corr = np.full((num_slices, num_slices), np.nan)
+            unit_lag = (
+                np.full((num_slices, num_slices), np.nan) if metric == "ccg" else None
+            )
             invalid_count = 0
 
             for ref_s in range(num_slices):
@@ -855,12 +867,10 @@ class SpikeSliceStack:
                 if len(ref_train) < min_spikes:
                     invalid_count += 1
                     continue
-
                 for comp_s in range(ref_s, num_slices):
                     comp_train = shifted_trains[comp_s][unit]
                     if len(comp_train) < min_spikes:
                         continue
-
                     if metric == "sttc":
                         length = max(slice_durations[ref_s], slice_durations[comp_s])
                         score = get_sttc(
@@ -868,35 +878,50 @@ class SpikeSliceStack:
                             comp_train,
                             delt=delt,
                             length=length,
-                            start_time=self.spike_stack[ref_s].start_time,
+                            start_time=start_times[ref_s],
                         )
-                        all_corr_scores[unit, ref_s, comp_s] = score
-                        all_corr_scores[unit, comp_s, ref_s] = score
-                    else:  # ccg
+                        unit_corr[ref_s, comp_s] = score
+                        unit_corr[comp_s, ref_s] = score
+                    else:
                         ref_signal = slice_rasters[ref_s][unit, :]
                         comp_signal = slice_rasters[comp_s][unit, :]
                         score, lag = compute_cross_correlation_with_lag(
                             ref_signal, comp_signal, max_lag=max_lag_bins
                         )
-                        all_corr_scores[unit, ref_s, comp_s] = score
-                        all_corr_scores[unit, comp_s, ref_s] = score
-                        all_lag_scores[unit, ref_s, comp_s] = lag
-                        all_lag_scores[unit, comp_s, ref_s] = -lag
+                        unit_corr[ref_s, comp_s] = score
+                        unit_corr[comp_s, ref_s] = score
+                        unit_lag[ref_s, comp_s] = lag
+                        unit_lag[comp_s, ref_s] = -lag
 
-            # Compute average if enough slices were valid
             if frac_active is not None:
                 unit_valid = frac_active[unit] >= (1 - min_frac)
             else:
                 unit_valid = invalid_count / num_slices <= min_frac
 
-            if unit_valid:
-                av_corr[unit] = np.nanmean(
-                    all_corr_scores[unit, lower_tri[0], lower_tri[1]]
-                )
-                if metric == "ccg":
-                    av_lag[unit] = np.nanmean(
-                        all_lag_scores[unit, lower_tri[0], lower_tri[1]]
-                    )
+            av_c = (
+                np.nanmean(unit_corr[lower_tri[0], lower_tri[1]])
+                if unit_valid
+                else np.nan
+            )
+            av_l = np.nan
+            if metric == "ccg" and unit_valid:
+                av_l = np.nanmean(unit_lag[lower_tri[0], lower_tri[1]])
+
+            return unit, unit_corr, unit_lag, av_c, av_l
+
+        n_workers = _resolve_n_jobs(n_jobs)
+        if n_workers > 1 and num_units > 1:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                results = pool.map(_process_unit, range(num_units))
+        else:
+            results = map(_process_unit, range(num_units))
+
+        for unit, unit_corr, unit_lag, av_c, av_l in results:
+            all_corr_scores[unit] = unit_corr
+            av_corr[unit] = av_c
+            if metric == "ccg":
+                all_lag_scores[unit] = unit_lag
+                av_lag[unit] = av_l
 
         # Transpose from (U, S, S) to (S, S, U)
         all_corr_scores = np.moveaxis(all_corr_scores, 0, 2)
@@ -982,6 +1007,7 @@ class SpikeSliceStack:
         n_shuffles=100,
         min_overlap_frac=None,
         seed=1,
+        n_jobs=-1,
     ):
         """
         Compute Spearman rank-order correlation of unit timing between all slice pairs.
@@ -1040,6 +1066,7 @@ class SpikeSliceStack:
             min_overlap_frac=min_overlap_frac,
             n_shuffles=n_shuffles,
             seed=seed,
+            n_jobs=n_jobs,
         )
 
     def plot_aligned_slice_single_unit(

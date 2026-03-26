@@ -440,11 +440,13 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
             na_grp.create_dataset(attr_key, data=np.full(N, np.nan))
             continue
 
-        use_array = any(isinstance(v, np.ndarray) for v in non_none)
+        use_array = any(isinstance(v, (np.ndarray, list, tuple)) for v in non_none)
         use_string = any(isinstance(v, str) for v in non_none)
 
         if use_array:
-            sample = next(v for v in non_none if isinstance(v, np.ndarray))
+            sample = np.asarray(
+                next(v for v in non_none if isinstance(v, (np.ndarray, list, tuple)))
+            )
             arr_shape = sample.shape
             stacked = np.full((N, *arr_shape), np.nan, dtype=np.float64)
             for i, v in enumerate(values):

@@ -32,7 +32,9 @@ from .utils import (
     _get_attr,
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
+    _resolve_n_jobs,
 )
+from concurrent.futures import ThreadPoolExecutor
 
 __all__ = [
     "SpikeData",
@@ -1267,7 +1269,33 @@ class SpikeData:
         [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
             comparison of methods and application to the study of retinal waves. Journal of
             Neuroscience 34:43, 14288–14303 (2014).
+
+        Notes:
+            - When ``numba`` is installed, computation is parallelised across
+              all unit pairs using numba's ``prange``.
         """
+        if delt <= 0:
+            raise ValueError(f"delt must be positive, got {delt}")
+
+        from .numba_utils import NUMBA_AVAILABLE
+
+        if NUMBA_AVAILABLE and self.N > 2:
+            from .numba_utils import flatten_spike_trains, nb_sttc_all_pairs
+
+            flat, offsets = flatten_spike_trains(self.train, self.start_time)
+            length = self.length
+            if length is None:
+                length = float(np.max(flat)) if len(flat) > 0 else 0.0
+            upper = nb_sttc_all_pairs(flat, offsets, self.N, delt, length)
+            # Unpack upper-triangle vector into symmetric matrix
+            ret = np.diag(np.ones(self.N))
+            k = 0
+            for i in range(self.N):
+                for j in range(i + 1, self.N):
+                    ret[i, j] = ret[j, i] = upper[k]
+                    k += 1
+            return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
+
         ret = np.diag(np.ones(self.N))
         for i in range(self.N):
             for j in range(i + 1, self.N):
@@ -1309,6 +1337,7 @@ class SpikeData:
         compare_func=compute_cross_correlation_with_lag,
         bin_size=1.0,
         max_lag=350,
+        n_jobs=-1,
     ):
         """
         Compute pairwise cross-correlogram matrices from binned binary spike arrays.
@@ -1326,6 +1355,8 @@ class SpikeData:
                 (default: 1.0).
             max_lag (float): Maximum lag in milliseconds to search for the peak
                 correlation (default: 350). Converted to bins internally.
+            n_jobs (int): Number of threads for parallel computation. -1 uses all
+                cores (default), 1 disables parallelism, None is serial.
 
         Returns:
             corr_matrix (PairwiseCompMatrix): Matrix of maximum correlation
@@ -1341,19 +1372,26 @@ class SpikeData:
         corr_matrix = np.full((num_units, num_units), np.nan)
         lag_matrix = np.full((num_units, num_units), np.nan)
 
-        for n1 in range(num_units):
-            for n2 in range(n1, num_units):
-                ref_signal = raster_matrix[n1, :]
-                comp_signal = raster_matrix[n2, :]
-                max_corr, max_lag_idx = compare_func(
-                    ref_signal, comp_signal, max_lag=max_lag_bins
-                )
+        pairs = [(n1, n2) for n1 in range(num_units) for n2 in range(n1, num_units)]
 
-                corr_matrix[n1, n2] = max_corr
-                lag_matrix[n1, n2] = max_lag_idx
+        def _compute_pair(pair):
+            n1, n2 = pair
+            return pair, compare_func(
+                raster_matrix[n1, :], raster_matrix[n2, :], max_lag=max_lag_bins
+            )
 
-                corr_matrix[n2, n1] = max_corr
-                lag_matrix[n2, n1] = -max_lag_idx
+        n_workers = _resolve_n_jobs(n_jobs)
+        if n_workers > 1 and len(pairs) > 1:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                results = pool.map(_compute_pair, pairs)
+        else:
+            results = map(_compute_pair, pairs)
+
+        for (n1, n2), (max_corr, max_lag_idx) in results:
+            corr_matrix[n1, n2] = max_corr
+            lag_matrix[n1, n2] = max_lag_idx
+            corr_matrix[n2, n1] = max_corr
+            lag_matrix[n2, n1] = -max_lag_idx
 
         return PairwiseCompMatrix(
             matrix=corr_matrix,
@@ -1426,6 +1464,26 @@ class SpikeData:
                 all signed latencies from unit i to unit j.
         """
         N = self.N
+
+        # --- Numba fast path (when distributions are not requested) ---
+        from .numba_utils import NUMBA_AVAILABLE
+
+        if NUMBA_AVAILABLE and not return_distributions and N > 1:
+            from .numba_utils import flatten_spike_trains, nb_latencies_all_pairs
+
+            flat, offsets = flatten_spike_trains(self.train, self.start_time)
+            has_window = window_ms is not None
+            w = window_ms if has_window else 0.0
+            mean_matrix, std_matrix = nb_latencies_all_pairs(
+                flat, offsets, N, w, has_window
+            )
+            meta = {"window_ms": window_ms}
+            return (
+                PairwiseCompMatrix(matrix=mean_matrix, metadata=meta),
+                PairwiseCompMatrix(matrix=std_matrix, metadata=meta),
+            )
+
+        # --- Pure-numpy fallback ---
         mean_matrix = np.zeros((N, N))
         std_matrix = np.zeros((N, N))
 
@@ -2012,52 +2070,54 @@ class SpikeData:
         # Prepare lags: τ values from −window_ms to +window_ms
         lags = np.arange(-window_ms, window_ms + 1)
 
-        # Total population spike count per bin (used for leave-one-out)
-        pop_sum = np.sum(spike_matrix, axis=0)
+        # --- Numba fast path ---
+        from .numba_utils import NUMBA_AVAILABLE
 
-        # μ_i = average firing rate of neuron i (spikes per bin)
-        mu = np.mean(spike_matrix, axis=1)
+        if NUMBA_AVAILABLE:
+            from .numba_utils import nb_spike_trig_pop_rate
 
-        # ||f_i|| = total number of spikes fired by neuron i
-        total_spikes = np.sum(spike_matrix, axis=1)
+            spike_f64 = spike_matrix.astype(np.float64)
+            stPR = nb_spike_trig_pop_rate(spike_f64, lags)
+        else:
+            # --- Pure-numpy fallback ---
+            # Total population spike count per bin (used for leave-one-out)
+            pop_sum = np.sum(spike_matrix, axis=0)
 
-        # c_{i,τ} for all neurons, lags
-        stPR = np.zeros((num_neurons, len(lags)))
+            # μ_i = average firing rate of neuron i (spikes per bin)
+            mu = np.mean(spike_matrix, axis=1)
 
-        for i in range(num_neurons):
-            # Skip silent neurons
-            if total_spikes[i] == 0:
-                continue
+            # ||f_i|| = total number of spikes fired by neuron i
+            total_spikes = np.sum(spike_matrix, axis=1)
 
-            # Leave-one-out population rate: P_{-i}(t)
-            P_loo = pop_sum - spike_matrix[i]
+            # c_{i,τ} for all neurons, lags
+            stPR = np.zeros((num_neurons, len(lags)))
 
-            # Temporal mean of leave-one-out population rate: P̄_{-i}
-            P_loo_mean = np.mean(P_loo)
+            for i in range(num_neurons):
+                # Skip silent neurons
+                if total_spikes[i] == 0:
+                    continue
 
-            # All spike times for neuron i: {s | f_i(s) > 0}
-            spike_times = np.where(spike_matrix[i] > 0)[0]
+                # Leave-one-out population rate: P_{-i}(t)
+                P_loo = pop_sum - spike_matrix[i]
 
-            # Accumulator for Σ[P_{-i}(t) - P̄_{-i}]
-            sum_deviations = np.zeros(len(lags))
+                # Temporal mean of leave-one-out population rate: P̄_{-i}
+                P_loo_mean = np.mean(P_loo)
 
-            for tau_idx, tau in enumerate(lags):
-                # For lag τ, find {t | f_i(t + τ) > 0}
-                # Let s = t + τ → t = s − τ where f_i(s) > 0
+                # All spike times for neuron i: {s | f_i(s) > 0}
+                spike_times = np.where(spike_matrix[i] > 0)[0]
 
-                # Map spike time to population time
-                valid_t = spike_times - tau
+                # Accumulator for Σ[P_{-i}(t) - P̄_{-i}]
+                sum_deviations = np.zeros(len(lags))
 
-                # Only use valid population times t ∈ [0, num_bins)
-                mask = (valid_t >= 0) & (valid_t < num_bins)
-                if np.any(mask):
-                    # Compute [P_{-i}(t) - P̄_{-i}] for valid trigger times
-                    deviations = P_loo[valid_t[mask]] - P_loo_mean
-                    # Sum over trigger times
-                    sum_deviations[tau_idx] = np.sum(deviations)
+                for tau_idx, tau in enumerate(lags):
+                    valid_t = spike_times - tau
+                    mask = (valid_t >= 0) & (valid_t < num_bins)
+                    if np.any(mask):
+                        deviations = P_loo[valid_t[mask]] - P_loo_mean
+                        sum_deviations[tau_idx] = np.sum(deviations)
 
-            # c_{i,τ} = Σ[P_{-i}(t) − P̄_{-i}] / (||f_i|| × N × μ_i)
-            stPR[i] = sum_deviations / (total_spikes[i] * num_neurons * mu[i])
+                # c_{i,τ} = Σ[P_{-i}(t) − P̄_{-i}] / (||f_i|| × N × μ_i)
+                stPR[i] = sum_deviations / (total_spikes[i] * num_neurons * mu[i])
 
         # Low-pass filter coupling curves
         stPR_filtered = np.array(

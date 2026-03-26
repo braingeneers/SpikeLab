@@ -60,6 +60,23 @@ gplvm = [
   "jaxopt>=0.8.2",
   "optax>=0.2.2",
 ]
+plotting = [
+  "matplotlib>=3.5",
+]
+ml = [
+  "scikit-learn>=1.0",
+  "umap-learn>=0.5.0",
+  "networkx>=2.6",
+  "python-louvain>=0.16",
+]
+neo = [
+  "neo>=0.12.0",
+  "quantities>=0.14.0",
+  "pynwb>=2.0.0",
+]
+numba = [
+  "numba>=0.56",
+]
 all = [
   "boto3>=1.28.0",
   "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
@@ -67,6 +84,15 @@ all = [
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",
   "optax>=0.2.2",
+  "matplotlib>=3.5",
+  "scikit-learn>=1.0",
+  "umap-learn>=0.5.0",
+  "networkx>=2.6",
+  "python-louvain>=0.16",
+  "neo>=0.12.0",
+  "quantities>=0.14.0",
+  "pynwb>=2.0.0",
+  "numba>=0.56",
 ]
 
 [tool.black]

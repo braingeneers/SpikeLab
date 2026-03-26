@@ -4,6 +4,11 @@ import numpy as np
 import networkx as nx
 import pytest
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 from spikelab.spikedata.pairwise import (
     PairwiseCompMatrix,
     PairwiseCompMatrixStack,
@@ -1632,3 +1637,170 @@ class TestPairwiseCompMatrixStackDimRedEdgeCases:
         stack = PairwiseCompMatrixStack(stack=np.ones((1, 1, 5)))
         with pytest.raises(ValueError):
             stack.dim_red_on_lower_diagonal_corr_matrix(method="PCA", n_components=1)
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix._is_diverging
+# ---------------------------------------------------------------------------
+
+
+class TestIsDiverging:
+    """Tests for PairwiseCompMatrix._is_diverging."""
+
+    def test_positive_only(self):
+        """Non-negative matrix is not diverging."""
+        mat = np.array([[1.0, 0.5], [0.5, 1.0]])
+        assert PairwiseCompMatrix._is_diverging(mat) is False
+
+    def test_mixed_values(self):
+        """Matrix with both negative and positive values is diverging."""
+        mat = np.array([[1.0, -0.3], [-0.3, 1.0]])
+        assert PairwiseCompMatrix._is_diverging(mat) is True
+
+    def test_all_negative(self):
+        """All-negative matrix is not diverging."""
+        mat = np.array([[-0.5, -0.2], [-0.2, -0.8]])
+        assert PairwiseCompMatrix._is_diverging(mat) is False
+
+    def test_all_zero(self):
+        """All-zero matrix is not diverging."""
+        mat = np.zeros((3, 3))
+        assert PairwiseCompMatrix._is_diverging(mat) is False
+
+    def test_all_nan(self):
+        """All-NaN matrix is not diverging."""
+        mat = np.full((3, 3), np.nan)
+        assert PairwiseCompMatrix._is_diverging(mat) is False
+
+    def test_nan_with_mixed(self):
+        """NaN entries are ignored; remaining values determine divergence."""
+        mat = np.array([[np.nan, -0.5], [0.3, np.nan]])
+        assert PairwiseCompMatrix._is_diverging(mat) is True
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix.plot
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixPlot:
+    """Tests for PairwiseCompMatrix.plot."""
+
+    @pytest.fixture(autouse=True)
+    def close_figs(self):
+        yield
+        plt.close("all")
+
+    def test_standalone_returns_fig_ax(self):
+        """Standalone call (no ax) returns (fig, ax) tuple."""
+        mat = np.random.default_rng(0).random((4, 4))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        result = pcm.plot()
+        assert isinstance(result, tuple)
+        fig, ax = result
+        assert isinstance(fig, plt.Figure)
+
+    def test_with_ax(self):
+        """Passing an axes returns just the axes."""
+        mat = np.random.default_rng(0).random((4, 4))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        result = pcm.plot(ax=ax)
+        assert result is ax
+
+    def test_auto_cmap_viridis(self):
+        """Non-diverging data auto-selects viridis."""
+        mat = np.array([[1.0, 0.5], [0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        pcm.plot(ax=ax)
+        assert ax.images[0].cmap.name == "viridis"
+
+    def test_auto_cmap_diverging(self):
+        """Diverging data auto-selects RdBu_r."""
+        mat = np.array([[1.0, -0.5], [-0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        pcm.plot(ax=ax)
+        assert ax.images[0].cmap.name == "RdBu_r"
+
+    def test_explicit_cmap_overrides(self):
+        """Explicit cmap overrides auto-detection."""
+        mat = np.array([[1.0, -0.5], [-0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        pcm.plot(ax=ax, cmap="hot")
+        assert ax.images[0].cmap.name == "hot"
+
+    def test_labels_as_ticks(self):
+        """Labels are used as tick labels."""
+        mat = np.eye(3)
+        pcm = PairwiseCompMatrix(matrix=mat, labels=["A", "B", "C"])
+        fig, ax = plt.subplots()
+        pcm.plot(ax=ax)
+        tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+        assert tick_labels == ["A", "B", "C"]
+
+    def test_no_labels_uses_indices(self):
+        """Without labels, integer indices are used."""
+        mat = np.eye(3)
+        pcm = PairwiseCompMatrix(matrix=mat)
+        fig, ax = plt.subplots()
+        pcm.plot(ax=ax)
+        tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+        assert tick_labels == ["0", "1", "2"]
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack.plot_mean
+# ---------------------------------------------------------------------------
+
+
+class TestPairwiseCompMatrixStackPlotMean:
+    """Tests for PairwiseCompMatrixStack.plot_mean."""
+
+    @pytest.fixture(autouse=True)
+    def close_figs(self):
+        yield
+        plt.close("all")
+
+    def test_standalone_returns_fig_ax(self):
+        """Standalone call returns (fig, ax) tuple."""
+        stack = np.random.default_rng(0).random((4, 4, 5))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+        result = pcms.plot_mean()
+        assert isinstance(result, tuple)
+
+    def test_with_ax(self):
+        """Passing an axes returns just the axes."""
+        stack = np.random.default_rng(0).random((4, 4, 5))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+        fig, ax = plt.subplots()
+        result = pcms.plot_mean(ax=ax)
+        assert result is ax
+
+    def test_auto_cmap_diverging_mean(self):
+        """Stack whose mean is diverging auto-selects RdBu_r."""
+        rng = np.random.default_rng(0)
+        stack = rng.uniform(-1, 1, size=(4, 4, 5))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+        fig, ax = plt.subplots()
+        pcms.plot_mean(ax=ax)
+        assert ax.images[0].cmap.name == "RdBu_r"
+
+    def test_auto_cmap_nonnegative_mean(self):
+        """Stack whose mean is non-negative auto-selects viridis."""
+        rng = np.random.default_rng(0)
+        stack = rng.uniform(0, 1, size=(4, 4, 5))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+        fig, ax = plt.subplots()
+        pcms.plot_mean(ax=ax)
+        assert ax.images[0].cmap.name == "viridis"
+
+    def test_explicit_cmap(self):
+        """Explicit cmap overrides auto-detection."""
+        stack = np.random.default_rng(0).random((3, 3, 3))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+        fig, ax = plt.subplots()
+        pcms.plot_mean(ax=ax, cmap="hot")
+        assert ax.images[0].cmap.name == "hot"

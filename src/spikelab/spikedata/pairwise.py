@@ -229,6 +229,74 @@ class PairwiseCompMatrix:
         lower_tri_idx = np.tril_indices(n, k=-1)
         return self.matrix[lower_tri_idx[0], lower_tri_idx[1]]
 
+    @staticmethod
+    def _is_diverging(matrix):
+        """Check whether a matrix has both meaningful negative and positive values."""
+        finite = matrix[np.isfinite(matrix)]
+        if len(finite) == 0:
+            return False
+        return float(finite.min()) < 0 and float(finite.max()) > 0
+
+    def plot(
+        self,
+        ax=None,
+        cmap=None,
+        vmin=None,
+        vmax=None,
+        colorbar_label="",
+        font_size=14,
+        save_path=None,
+    ):
+        """
+        Plot the pairwise matrix as a heatmap.
+
+        Parameters:
+            ax (matplotlib.axes.Axes or None): Target axes. If None a standalone
+                figure is created.
+            cmap (str or None): Matplotlib colormap name. If None,
+                auto-selects ``"RdBu_r"`` for diverging data (contains both
+                negative and positive values) or ``"viridis"`` otherwise.
+            vmin (float or None): Colormap minimum.
+            vmax (float or None): Colormap maximum.
+            colorbar_label (str): Label for the colorbar.
+            font_size (int): Font size for labels and ticks.
+            save_path (str or None): If provided (and ``ax`` is None), save the
+                figure to this path and close it.
+
+        Returns:
+            result: ``(fig, ax)`` when ``ax`` is None, otherwise just ``ax``.
+        """
+        from .plot_utils import plot_heatmap
+
+        if cmap is None:
+            cmap = "RdBu_r" if self._is_diverging(self.matrix) else "viridis"
+
+        tick_labels = (
+            self.labels
+            if self.labels is not None
+            else [str(i) for i in range(self.matrix.shape[0])]
+        )
+        n = self.matrix.shape[0]
+        ticks = (list(range(n)), tick_labels)
+
+        return plot_heatmap(
+            self.matrix,
+            ax=ax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            aspect="equal",
+            origin="upper",
+            xlabel="",
+            ylabel="",
+            xticks=ticks,
+            yticks=ticks,
+            show_colorbar=True,
+            colorbar_label=colorbar_label,
+            font_size=font_size,
+            save_path=save_path,
+        )
+
     def plot_spatial_network(
         self,
         ax,
@@ -585,6 +653,50 @@ class PairwiseCompMatrixStack:
             matrix=mean_matrix,
             labels=self.labels,
             metadata={**self.metadata, "computed": "mean"},
+        )
+
+    def plot_mean(
+        self,
+        ax=None,
+        ignore_nan=True,
+        cmap=None,
+        vmin=None,
+        vmax=None,
+        colorbar_label="",
+        font_size=14,
+        save_path=None,
+    ):
+        """
+        Plot the mean matrix across all slices as a heatmap.
+
+        Computes ``nanmean`` (or ``mean``) over the stack axis and delegates
+        to ``PairwiseCompMatrix.plot()``.
+
+        Parameters:
+            ax (matplotlib.axes.Axes or None): Target axes. If None a standalone
+                figure is created.
+            ignore_nan (bool): Use ``np.nanmean`` to ignore NaN values.
+            cmap (str or None): Matplotlib colormap name. If None,
+                auto-selects based on whether the mean matrix is diverging.
+            vmin (float or None): Colormap minimum.
+            vmax (float or None): Colormap maximum.
+            colorbar_label (str): Label for the colorbar.
+            font_size (int): Font size for labels and ticks.
+            save_path (str or None): If provided (and ``ax`` is None), save the
+                figure to this path and close it.
+
+        Returns:
+            result: ``(fig, ax)`` when ``ax`` is None, otherwise just ``ax``.
+        """
+        mean_pcm = self.mean(ignore_nan=ignore_nan)
+        return mean_pcm.plot(
+            ax=ax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            colorbar_label=colorbar_label,
+            font_size=font_size,
+            save_path=save_path,
         )
 
     def extract_lower_triangle_features(self) -> np.ndarray:
