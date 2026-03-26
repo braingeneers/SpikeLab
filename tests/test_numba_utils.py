@@ -22,9 +22,7 @@ from spikelab.spikedata.numba_utils import (
 from spikelab.spikedata.utils import get_sttc, _sttc_ta, _sttc_na
 from spikelab.spikedata import SpikeData
 
-pytestmark = pytest.mark.skipif(
-    not NUMBA_AVAILABLE, reason="numba not installed"
-)
+pytestmark = pytest.mark.skipif(not NUMBA_AVAILABLE, reason="numba not installed")
 
 
 # ---------------------------------------------------------------------------
@@ -36,8 +34,7 @@ def _make_sd(n_units=5, length=1000.0, spikes_per_unit=50, seed=42):
     """Create a SpikeData with random spike trains."""
     rng = np.random.default_rng(seed)
     trains = [
-        np.sort(rng.uniform(0, length, size=spikes_per_unit))
-        for _ in range(n_units)
+        np.sort(rng.uniform(0, length, size=spikes_per_unit)) for _ in range(n_units)
     ]
     return SpikeData(trains, N=n_units, length=length)
 
@@ -225,12 +222,15 @@ class TestNumbaSttcAllPairs:
         for i in range(sd.N):
             for j in range(i + 1, sd.N):
                 ref = get_sttc(
-                    sd.train[i], sd.train[j], delt, sd.length,
+                    sd.train[i],
+                    sd.train[j],
+                    delt,
+                    sd.length,
                     start_time=sd.start_time,
                 )
-                assert np.isclose(result[k], ref, atol=1e-10), (
-                    f"pair ({i},{j}): numba={result[k]}, numpy={ref}"
-                )
+                assert np.isclose(
+                    result[k], ref, atol=1e-10
+                ), f"pair ({i},{j}): numba={result[k]}, numpy={ref}"
                 k += 1
 
     def test_output_shape(self):
@@ -337,9 +337,7 @@ class TestNumbaLatenciesAllPairs:
 
         # Force numba path
         flat, offsets = flatten_spike_trains(sd.train, sd.start_time)
-        nb_mean, nb_std = nb_latencies_all_pairs(
-            flat, offsets, sd.N, 0.0, False
-        )
+        nb_mean, nb_std = nb_latencies_all_pairs(flat, offsets, sd.N, 0.0, False)
         np.testing.assert_allclose(nb_mean, ref_mean.matrix, atol=1e-10)
         np.testing.assert_allclose(nb_std, ref_std.matrix, atol=1e-10)
 
@@ -354,9 +352,7 @@ class TestNumbaLatenciesAllPairs:
         ref_mean, ref_std = sd.get_pairwise_latencies(window_ms=50.0)
 
         flat, offsets = flatten_spike_trains(sd.train, sd.start_time)
-        nb_mean, nb_std = nb_latencies_all_pairs(
-            flat, offsets, sd.N, 50.0, True
-        )
+        nb_mean, nb_std = nb_latencies_all_pairs(flat, offsets, sd.N, 50.0, True)
         np.testing.assert_allclose(nb_mean, ref_mean.matrix, atol=1e-10)
         np.testing.assert_allclose(nb_std, ref_std.matrix, atol=1e-10)
 
@@ -369,9 +365,7 @@ class TestNumbaLatenciesAllPairs:
         """
         sd = _make_sd(n_units=3)
         flat, offsets = flatten_spike_trains(sd.train, sd.start_time)
-        nb_mean, nb_std = nb_latencies_all_pairs(
-            flat, offsets, sd.N, 0.0, False
-        )
+        nb_mean, nb_std = nb_latencies_all_pairs(flat, offsets, sd.N, 0.0, False)
         np.testing.assert_array_equal(np.diag(nb_mean), 0.0)
         np.testing.assert_array_equal(np.diag(nb_std), 0.0)
 
@@ -474,7 +468,10 @@ class TestNumbaIntegrationSttc:
         for i in range(sd.N):
             for j in range(i + 1, sd.N):
                 ref = get_sttc(
-                    sd.train[i], sd.train[j], 20.0, sd.length,
+                    sd.train[i],
+                    sd.train[j],
+                    20.0,
+                    sd.length,
                     start_time=sd.start_time,
                 )
                 assert np.isclose(result.matrix[i, j], ref, atol=1e-10)
@@ -533,12 +530,8 @@ class TestNumbaIntegrationLatencies:
         # Numba path (return_distributions=False)
         nb_mean, nb_std = sd.get_pairwise_latencies(window_ms=None)
 
-        np.testing.assert_allclose(
-            nb_mean.matrix, ref_mean.matrix, atol=1e-10
-        )
-        np.testing.assert_allclose(
-            nb_std.matrix, ref_std.matrix, atol=1e-10
-        )
+        np.testing.assert_allclose(nb_mean.matrix, ref_mean.matrix, atol=1e-10)
+        np.testing.assert_allclose(nb_std.matrix, ref_std.matrix, atol=1e-10)
 
     def test_numba_vs_numpy_with_window(self):
         """
@@ -554,12 +547,8 @@ class TestNumbaIntegrationLatencies:
         )
         nb_mean, nb_std = sd.get_pairwise_latencies(window_ms=50.0)
 
-        np.testing.assert_allclose(
-            nb_mean.matrix, ref_mean.matrix, atol=1e-10
-        )
-        np.testing.assert_allclose(
-            nb_std.matrix, ref_std.matrix, atol=1e-10
-        )
+        np.testing.assert_allclose(nb_mean.matrix, ref_mean.matrix, atol=1e-10)
+        np.testing.assert_allclose(nb_std.matrix, ref_std.matrix, atol=1e-10)
 
 
 class TestNumbaIntegrationStpr:
@@ -574,9 +563,7 @@ class TestNumbaIntegrationStpr:
             (Test Case 2) All non-silent neurons produce finite values.
         """
         sd = _make_sd(n_units=4, length=500.0, spikes_per_unit=30)
-        stPR, c0, cmax, delays, lags = sd.compute_spike_trig_pop_rate(
-            window_ms=10
-        )
+        stPR, c0, cmax, delays, lags = sd.compute_spike_trig_pop_rate(window_ms=10)
         assert stPR.shape == (4, 21)
         assert len(lags) == 21
         assert np.all(np.isfinite(stPR))
@@ -589,9 +576,7 @@ class TestNumbaIntegrationStpr:
             (Test Case 1) c0 matches stPR[:, window_ms] after filtering.
         """
         sd = _make_sd(n_units=4, length=500.0, spikes_per_unit=30)
-        stPR, c0, cmax, delays, lags = sd.compute_spike_trig_pop_rate(
-            window_ms=10
-        )
+        stPR, c0, cmax, delays, lags = sd.compute_spike_trig_pop_rate(window_ms=10)
         # c0 is extracted from the filtered curve at the center index
         assert len(c0) == 4
         assert len(cmax) == 4
