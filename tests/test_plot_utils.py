@@ -23,6 +23,8 @@ from spikelab.spikedata.plot_utils import (
     plot_aligned_slice_single_unit,
     plot_manifold,
     plot_spatial_network,
+    _style_axes,
+    _style_axes_heatmap,
 )
 from spikelab.spikedata.spikeslicestack import SpikeSliceStack
 
@@ -3761,4 +3763,100 @@ class TestPlotAlignedPopRateEdgeCases:
         rss = RateSliceStack(event_matrix=mat)
         fig, ax = plt.subplots()
         plot_percentile_bands(ax, rss.event_stack)
+        plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# _style_axes / _style_axes_heatmap helpers
+# ---------------------------------------------------------------------------
+
+
+class TestStyleAxesHelpers:
+    """Tests for the _style_axes and _style_axes_heatmap helpers."""
+
+    def test_style_axes_removes_top_right_spines(self):
+        """_style_axes hides top and right spines, keeps left and bottom."""
+        fig, ax = plt.subplots()
+        _style_axes(ax)
+        assert ax.spines["top"].get_visible() is False
+        assert ax.spines["right"].get_visible() is False
+        assert ax.spines["left"].get_visible() is True
+        assert ax.spines["bottom"].get_visible() is True
+        plt.close(fig)
+
+    def test_style_axes_heatmap_keeps_all_spines(self):
+        """_style_axes_heatmap keeps all four spines at 0.5 pt."""
+        fig, ax = plt.subplots()
+        _style_axes_heatmap(ax)
+        for spine in ax.spines.values():
+            assert spine.get_visible() is True
+            assert spine.get_linewidth() == 0.5
+        plt.close(fig)
+
+
+class TestStylingIntegration:
+    """Verify that plotting functions apply the expected styling."""
+
+    def test_plot_scatter_removes_top_right_spines(self):
+        """plot_scatter removes top and right spines."""
+        fig, ax = plt.subplots()
+        x = np.arange(10, dtype=float)
+        plot_scatter(ax, x, x)
+        assert ax.spines["top"].get_visible() is False
+        assert ax.spines["right"].get_visible() is False
+        plt.close(fig)
+
+    def test_plot_distribution_removes_top_right_spines(self):
+        """plot_distribution removes top and right spines."""
+        fig, ax = plt.subplots()
+        plot_distribution(ax, {"a": np.arange(10.0), "b": np.arange(10.0)})
+        assert ax.spines["top"].get_visible() is False
+        assert ax.spines["right"].get_visible() is False
+        plt.close(fig)
+
+    def test_plot_lines_removes_top_right_spines(self):
+        """plot_lines removes top and right spines."""
+        fig, ax = plt.subplots()
+        plot_lines(ax, {"a": np.arange(10.0)})
+        assert ax.spines["top"].get_visible() is False
+        assert ax.spines["right"].get_visible() is False
+        plt.close(fig)
+
+    def test_plot_heatmap_keeps_all_spines(self):
+        """plot_heatmap keeps all spines at 0.5 pt."""
+        data = np.random.default_rng(0).random((5, 10))
+        fig, ax = plt.subplots()
+        plot_heatmap(data, ax=ax)
+        for spine in ax.spines.values():
+            assert spine.get_visible() is True
+            assert spine.get_linewidth() == 0.5
+        plt.close(fig)
+
+    def test_plot_manifold_removes_top_right_spines(self):
+        """plot_manifold removes top and right spines."""
+        fig, ax = plt.subplots()
+        emb = np.random.default_rng(0).random((20, 2))
+        plot_manifold(ax, emb)
+        assert ax.spines["top"].get_visible() is False
+        assert ax.spines["right"].get_visible() is False
+        plt.close(fig)
+
+    def test_plot_scatter_group_legend_frameon_false(self):
+        """plot_scatter with groups produces a legend without frame."""
+        fig, ax = plt.subplots()
+        x = np.arange(10, dtype=float)
+        groups = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        plot_scatter(ax, x, x, groups=groups)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert legend.get_frame().get_visible() is False
+        plt.close(fig)
+
+    def test_plot_lines_legend_frameon_false(self):
+        """plot_lines legend has no frame."""
+        fig, ax = plt.subplots()
+        plot_lines(ax, {"a": np.arange(5.0), "b": np.arange(5.0)})
+        legend = ax.get_legend()
+        assert legend is not None
+        assert legend.get_frame().get_visible() is False
         plt.close(fig)
