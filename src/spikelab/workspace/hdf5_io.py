@@ -59,8 +59,7 @@ class _NumpyEncoder(json.JSONEncoder):
 
 
 def dump_workspace(ws, path: str) -> None:
-    """
-    Write a full AnalysisWorkspace to an HDF5 file at {path}.h5.
+    """Write a full AnalysisWorkspace to an HDF5 file at {path}.h5.
 
     Parameters:
         ws (AnalysisWorkspace): The workspace to serialise.
@@ -83,8 +82,7 @@ def dump_workspace(ws, path: str) -> None:
 
 
 def load_workspace_full(path: str):
-    """
-    Load a full AnalysisWorkspace from {path}.h5, reconstructing all objects.
+    """Load a full AnalysisWorkspace from {path}.h5, reconstructing all objects.
 
     Parameters:
         path (str): Base path without file extension.
@@ -123,9 +121,9 @@ def load_workspace_full(path: str):
 
 
 def load_workspace_item(path: str, namespace: str, key: str) -> Any:
-    """
-    Load a single item from a saved workspace HDF5 file, reconstructing its
-    original IAT data class.
+    """Load a single item from a saved workspace HDF5 file.
+
+    Reconstructs the original IAT data class from the stored HDF5 data.
 
     Parameters:
         path (str): Base path without file extension.
@@ -154,8 +152,7 @@ def dump_item_to_file(
     created_at: float,
     note: Optional[str] = None,
 ) -> None:
-    """
-    Write a single item to an HDF5 file, creating or overwriting the item group.
+    """Write a single item to an HDF5 file, creating or overwriting the item group.
 
     Parameters:
         h5_path (str): Full path to the HDF5 file (including .h5 extension).
@@ -175,8 +172,7 @@ def dump_item_to_file(
 
 
 def load_item_from_file(h5_path: str, namespace: str, key: str) -> Any:
-    """
-    Load a single item from an HDF5 file by its full path.
+    """Load a single item from an HDF5 file by its full path.
 
     Parameters:
         h5_path (str): Full path to the HDF5 file (including .h5 extension).
@@ -199,8 +195,7 @@ def load_item_from_file(h5_path: str, namespace: str, key: str) -> Any:
 def delete_item_from_file(
     h5_path: str, namespace: str, key: Optional[str] = None
 ) -> None:
-    """
-    Delete a single item or entire namespace from an HDF5 file.
+    """Delete a single item or entire namespace from an HDF5 file.
 
     Parameters:
         h5_path (str): Full path to the HDF5 file (including .h5 extension).
@@ -286,8 +281,10 @@ def _dump_item(grp, obj: Any, created_at: float, note: Optional[str]) -> None:
 
 
 def _load_item(grp) -> Tuple[Any, dict]:
-    """
-    Read and reconstruct one object from an HDF5 group.
+    """Read and reconstruct one object from an HDF5 group.
+
+    Parameters:
+        grp: Open h5py Group to read from.
 
     Returns:
         obj: Reconstructed IAT data object or numpy array.
@@ -411,12 +408,12 @@ def _load_dict(grp) -> dict:
 
 
 def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
-    """
-    Serialise a list of N per-unit attribute dicts to an HDF5 sub-group.
+    """Serialise a list of N per-unit attribute dicts to an HDF5 sub-group.
 
-    Each unique attribute key becomes one dataset of length N.  Numeric values
-    are stored as float64 (NaN for missing entries).  String values are stored
-    as variable-length strings (empty string for missing entries).
+    Each unique attribute key becomes one dataset of length N. Numeric
+    values are stored as float64 (NaN for missing entries). String
+    values are stored as variable-length strings (empty string for
+    missing entries).
 
     Parameters:
         grp: Open h5py Group to write into.
@@ -469,8 +466,10 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
 
 
 def _load_neuron_attributes(grp) -> Optional[list]:
-    """
-    Reconstruct list of N per-unit dicts from a neuron_attributes HDF5 sub-group.
+    """Reconstruct list of N per-unit dicts from a neuron_attributes HDF5 sub-group.
+
+    Parameters:
+        grp: Open h5py Group to read from.
 
     Returns:
         neuron_attributes (list[dict] | None): Reconstructed list, or None if
@@ -515,8 +514,7 @@ def _load_neuron_attributes(grp) -> Optional[list]:
 
 
 def _dump_labels(grp, labels: Optional[list]) -> None:
-    """
-    Store unit labels (list of int or str) as an HDF5 dataset named 'labels'.
+    """Store unit labels (list of int or str) as an HDF5 dataset named 'labels'.
 
     Parameters:
         grp: Open h5py Group to write into.
@@ -540,8 +538,10 @@ def _dump_labels(grp, labels: Optional[list]) -> None:
 
 
 def _load_labels(grp) -> Optional[list]:
-    """
-    Reconstruct labels list from an HDF5 group, or None if not present.
+    """Reconstruct labels list from an HDF5 group, or None if not present.
+
+    Parameters:
+        grp: Open h5py Group to read from.
 
     Returns:
         labels (list | None): Reconstructed labels, or None.
@@ -555,8 +555,7 @@ def _load_labels(grp) -> Optional[list]:
 
 
 def _dump_times_tuples(grp, times: Optional[list], key: str = "times") -> None:
-    """
-    Store a list of (start, end) tuples as a (S, 2) float64 dataset.
+    """Store a list of (start, end) tuples as a (S, 2) float64 dataset.
 
     Parameters:
         grp: Open h5py Group to write into.
@@ -570,8 +569,11 @@ def _dump_times_tuples(grp, times: Optional[list], key: str = "times") -> None:
 
 
 def _load_times_tuples(grp, key: str = "times") -> Optional[list]:
-    """
-    Reconstruct a list of (start, end) tuples from a (S, 2) HDF5 dataset.
+    """Reconstruct a list of (start, end) tuples from a (S, 2) HDF5 dataset.
+
+    Parameters:
+        grp: Open h5py Group to read from.
+        key (str): Dataset name within the group.
 
     Returns:
         times (list[tuple] | None): Reconstructed list, or None if not present.
@@ -583,8 +585,7 @@ def _load_times_tuples(grp, key: str = "times") -> Optional[list]:
 
 
 def _dump_metadata_json(grp, metadata: dict) -> None:
-    """
-    Store a metadata dict as a JSON string attribute '__metadata__'.
+    """Store a metadata dict as a JSON string attribute '__metadata__'.
 
     Parameters:
         grp: Open h5py Group to write into.
@@ -603,8 +604,10 @@ def _dump_metadata_json(grp, metadata: dict) -> None:
 
 
 def _load_metadata_json(grp) -> dict:
-    """
-    Reconstruct a metadata dict from the '__metadata__' JSON string attribute.
+    """Reconstruct a metadata dict from the '__metadata__' JSON string attribute.
+
+    Parameters:
+        grp: Open h5py Group to read from.
 
     Returns:
         metadata (dict): Reconstructed metadata, or empty dict if not present.

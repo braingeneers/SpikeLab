@@ -87,29 +87,29 @@ def _resolve_n_jobs(n_jobs):
 def get_sttc(
     tA, tB, delt=20.0, length: Optional[float] = None, start_time: float = 0.0
 ):
-    """
-    Calculate the spike time tiling coefficient between two spike trains.
-
-    Formula:
-    STTC = (PA - TB) / (1 - PA * TB) if PA * TB != 1 else 0 + (PB - TA) / (1 - PB * TA) if PB * TA != 1 else 0
+    """Calculate the spike time tiling coefficient between two spike trains.
 
     Parameters:
-    tA (list): List of spike times for the first spike train.
-    tB (list): List of spike times for the second spike train.
-    delt (float): Time window in milliseconds (default: 20.0).
-    length (float): Total duration in milliseconds (optional). If None,
-        inferred from the latest spike time after shifting.
-    start_time (float): Time origin of the spike trains (default 0.0).
-        Spike times are shifted by ``-start_time`` before computation so
-        that the STTC edge corrections work correctly for event-centered
-        data with negative spike times.
+        tA (list): List of spike times for the first spike train.
+        tB (list): List of spike times for the second spike train.
+        delt (float): Time window in milliseconds (default: 20.0).
+        length (float or None): Total duration in milliseconds. If None,
+            inferred from the latest spike time after shifting.
+        start_time (float): Time origin of the spike trains (default 0.0).
+            Spike times are shifted by ``-start_time`` before computation so
+            that the STTC edge corrections work correctly for event-centered
+            data with negative spike times.
 
     Returns:
-    sttc (float): Spike time tiling coefficient between the two spike trains.
+        sttc (float): Spike time tiling coefficient between the two spike
+            trains.
 
-    [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
-        comparison of methods and application to the study of retinal waves. Journal of
-        Neuroscience 34:43, 14288–14303 (2014).
+    Notes:
+        Formula: STTC = ((PA - TB) / (1 - PA * TB) + (PB - TA) / (1 - PB * TA)) / 2
+
+        [1] Cutts & Eglen. Detecting pairwise correlations in spike trains:
+        An objective comparison of methods and application to the study of
+        retinal waves. Journal of Neuroscience 34:43, 14288-14303 (2014).
     """
     if delt <= 0:
         raise ValueError(f"delt must be positive, got {delt}")
@@ -143,9 +143,7 @@ def _spike_time_tiling(tA, tB, TA, TB, delt):
 
 
 def _sttc_ta(tA, delt: float, tmax: float) -> float:
-    """
-    Helper function for STTC: calculate the total amount of time within a range delt of spikes within tA.
-    """
+    """Calculate the total amount of time within a range delt of spikes within tA."""
     if len(tA) == 0:
         return 0.0
 
@@ -179,21 +177,20 @@ def _sttc_na(tA, tB, delt: float) -> int:
 
 
 def _resampled_isi(spikes, times, sigma_ms):
-    """
-    Helper method for calculating the firing rate of a spike train at specific times,
-    based on the reciprocal inter-spike interval.
+    """Calculate the firing rate of a spike train at specific times using the reciprocal inter-spike interval.
 
     Parameters:
-    spikes (list): List of spike times
-    times (list): List of times
-    sigma_ms (float): Standard deviation in milliseconds
+        spikes (list): List of spike times.
+        times (list): List of times.
+        sigma_ms (float): Standard deviation in milliseconds.
 
     Returns:
-    fr (numpy.ndarray): Firing rate at specific times. Same size as times
+        fr (np.ndarray): Firing rate at specific times. Same size as times.
 
     Notes:
-    - Assumed to have been sampled halfway between any two given spikes, interpolated, and then
-    smoothed by a Gaussian kernel with the given width.
+        Assumed to have been sampled halfway between any two given spikes,
+        interpolated, and then smoothed by a Gaussian kernel with the given
+        width.
     """
 
     if len(spikes) == 0 or len(spikes) == 1:
@@ -260,17 +257,16 @@ def _resampled_isi(spikes, times, sigma_ms):
 
 
 def _train_from_i_t_list(idces, times, N):
-    """
-    Helper method for SpikeData constructors: Given lists of spike times and unit indices,
-    produces a list where each entry contains the spike times for the corresponding unit.
+    """Given lists of spike times and unit indices, produce a list of per-unit spike times.
 
     Parameters:
-    idces (list): List of spike indices
-    times (list): List of spike times
-    N (int): Number of units
+        idces (list): List of spike indices.
+        times (list): List of spike times.
+        N (int): Number of units.
 
     Returns:
-    ret (list): List whose ith entry is a list of the spike times of the ith unit
+        ret (list): List whose ith entry is a list of the spike times of the
+            ith unit.
     """
     idces, times = np.asarray(idces), np.asarray(times)
     if N is None:
@@ -289,22 +285,24 @@ def butter_filter(
     fs=20000.0,
     order=5,
 ):
-    """
-    A digital butterworth filter. Type is based on input value.
+    """Apply a digital Butterworth filter. Filter type is based on input values.
 
     Parameters:
-    data (array_like): Data to be filtered
-    lowcut (float): Low cutoff frequency. If None or 0, highcut must be a number.
-    highcut (float): High cutoff frequency. If None, lowpass must be a non-zero number.
-    fs (float): Sample rate
-    order (int): Order of the filter
+        data (array_like): Data to be filtered.
+        lowcut (float or None): Low cutoff frequency. If None or 0, highcut
+            must be a number.
+        highcut (float or None): High cutoff frequency. If None, lowcut must
+            be a non-zero number.
+        fs (float): Sample rate.
+        order (int): Order of the filter.
 
     Returns:
-    filtered_traces (numpy.ndarray): The filtered output with the same shape as data
+        filtered_traces (np.ndarray): The filtered output with the same shape
+            as data.
 
     Notes:
-    - If lowcut and highcut are both given, this filter is bandpass.
-    - In this case, lowcut must be smaller than highcut.
+        If lowcut and highcut are both given, this filter is bandpass. In
+        this case, lowcut must be smaller than highcut.
     """
     if lowcut is None and highcut is None:
         raise ValueError(
@@ -331,24 +329,23 @@ def butter_filter(
 
 
 def swap(ar, idxs, rng):
-    """
-    Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
+    """Attempt one double-edge swap in a binary spike raster while preserving per-row and per-column sums.
 
     Parameters:
-    -----------
-    - ar (numpy.ndarray): Binary spike raster
-    - idxs (tuple): Tuple of numpy arrays containing the indices of the spikes
-    - rng (numpy.random.Generator): Random number generator for reproducibility.
+        ar (np.ndarray): Binary spike raster.
+        idxs (tuple): Tuple of numpy arrays containing the indices of the
+            spikes.
+        rng (np.random.Generator): Random number generator for
+            reproducibility.
 
     Returns:
-    --------
-    - success (bool): True if a swap was performed
+        success (bool): True if a swap was performed.
 
     Notes:
-    ------
-    - The swap chooses two existing spike positions (i0, j0) and (i1, j1) and,
-    if the off-diagonal positions (i0, j1) and (i1, j0) are both empty and the indices are distinct,
-    swaps them so that spikes move to those positions.
+        The swap chooses two existing spike positions (i0, j0) and (i1, j1)
+        and, if the off-diagonal positions (i0, j1) and (i1, j0) are both
+        empty and the indices are distinct, swaps them so that spikes move
+        to those positions.
     """
     # idx0 = np.random.randint(len(idxs[0]))
     # idx1 = np.random.randint(len(idxs[0]))
@@ -366,28 +363,28 @@ def swap(ar, idxs, rng):
 
 
 def randomize(ar, swap_per_spike=5, seed=None):
-    """
-    Randomize a binary spike raster using degree-preserving double-edge swaps.
+    """Randomize a binary spike raster using degree-preserving double-edge swaps.
 
     Parameters:
-    -----------
-    - ar (array_like): Binary matrix shaped (neurons, time) or (time, neurons). Values should be 0/1.
-    - swap_per_spike (int): Target number of successful swaps per spike.
-    - seed (int): This is the random seed number. If you want repeatability during experiments, set the seed number.
+        ar (array_like): Binary matrix shaped (neurons, time) or
+            (time, neurons). Values should be 0/1.
+        swap_per_spike (int): Target number of successful swaps per spike.
+        seed (int or None): Random seed number. Set for repeatability during
+            experiments.
 
     Returns:
-    --------
-    -randomized_raster (numpy.ndarray): Randomized binary matrix with the same shape and row/column sums.
+        randomized_raster (np.ndarray): Randomized binary matrix with the
+            same shape and row/column sums.
 
     Notes:
-    ------
-    - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
-    - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
-    - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
+        Shuffling preserves each neuron's average firing rate but shuffles
+        which time bins it spikes in. Each time bin's population rate is also
+        preserved but the specific units active are shuffled. Every spike
+        swap involves 2 different spikes so on average every spike will get
+        swapped 2 * swap_per_spike times.
 
-    Ref:
-    ----
-    - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
+        Okun, M. et al. Population rate dynamics and multineuron firing
+        patterns in sensory cortex. J. Neurosci. 32, 17108-17119 (2012).
     """
     rng = np.random.default_rng(seed)
 
@@ -423,15 +420,17 @@ def randomize(ar, swap_per_spike=5, seed=None):
 
 
 def trough_between(i0, i1, pop_rate):
-    """
-    Helper function for get_bursts(). Finds the minimum value (trough) between two indices.
+    """Find the minimum value (trough) between two indices in a population rate array.
 
     Parameters:
-    i0, i1 (int): Time bin indices of the bursts
-    pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
+        i0 (int): Time bin index of the first burst.
+        i1 (int): Time bin index of the second burst.
+        pop_rate (np.ndarray): Smoothed population spiking data in spikes
+            per bin.
 
     Returns:
-    (int): Time bin index of minimum value (trough) between peaks
+        trough_idx (int or None): Time bin index of minimum value (trough)
+            between peaks. None if the indices are adjacent.
     """
     L, R = int(i0), int(i1)
 
@@ -444,22 +443,18 @@ def trough_between(i0, i1, pop_rate):
 
 
 def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
-    """
-    Compute normalized cross correlation with lag information.
-
-
+    """Compute normalized cross-correlation with lag information.
 
     Parameters:
-    -----------
-    - ref_rate (array): Reference firing rate signal
-    - comp_rate (array): Comparison firing rate signal
-    - max_lag (int): Maximum lag in frames to search for similarity.
-                     If None, lag is set to 0.
+        ref_rate (array): Reference firing rate signal.
+        comp_rate (array): Comparison firing rate signal.
+        max_lag (int or None): Maximum lag in frames to search for
+            similarity. If None, lag is set to 0.
 
     Returns:
-    --------
-    - max_corr (float): Maximum correlation coefficient
-    - max_lag_idx (int): Lag (in frames) at which maximum correlation occurs
+        max_corr (float): Maximum correlation coefficient.
+        max_lag_idx (int): Lag (in frames) at which maximum correlation
+            occurs.
     """
     if max_lag is None:
         max_lag = 0
@@ -514,20 +509,18 @@ def _cosine_sim(a, b):
 
 
 def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
-    """
-    Compute cosine similarity with lag information.
+    """Compute cosine similarity with lag information.
 
     Parameters:
-    -----------
-    ref_rate (array): Reference firing rate signal
-    comp_rate (array): Comparison firing rate signal
-    max_lag (int): Maximum lag in frames to search for similarity.
-                   If None, lag is set to 0.
+        ref_rate (array): Reference firing rate signal.
+        comp_rate (array): Comparison firing rate signal.
+        max_lag (int or None): Maximum lag in frames to search for
+            similarity. If None, lag is set to 0.
 
     Returns:
-    --------
-    max_sim (float): Maximum cosine similarity coefficient
-    max_lag_idx (int): Lag (in frames) at which maximum similarity occurs
+        max_sim (float): Maximum cosine similarity coefficient.
+        max_lag_idx (int): Lag (in frames) at which maximum similarity
+            occurs.
     """
     ref_rate = np.array(ref_rate).flatten()
     comp_rate = np.array(comp_rate).flatten()
@@ -579,23 +572,24 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
 
 
 def PCA_reduction(matrix_2d, n_components=2):
-    """
-    Compute PCA dimensionality reduction on axis 1 of a 2d matrix.
+    """Compute PCA dimensionality reduction on axis 1 of a 2D matrix.
 
     Parameters:
-    -----------
-    matrix_2d (array): 2D matrix of shape (samples, features) where values
-        must be int, float, or bool.
-    n_components (int): Number of principal components to retain (default: 2).
+        matrix_2d (array): 2D matrix of shape (samples, features) where
+            values must be int, float, or bool.
+        n_components (int): Number of principal components to retain
+            (default: 2).
 
     Returns:
-    --------
-    embedding (array): 2D matrix of shape (samples, n_components).
-    explained_variance_ratio (array): 1D array of shape (n_components,) with the
-        fraction of total variance explained by each component.
-    components (array): 2D matrix of shape (n_components, features) with the
-        principal axes (loadings) — each row is one PC expressed in the
-        original feature space.
+        embedding (np.ndarray): 2D matrix of shape
+            ``(samples, n_components)``.
+        explained_variance_ratio (np.ndarray): 1D array of shape
+            ``(n_components,)`` with the fraction of total variance
+            explained by each component.
+        components (np.ndarray): 2D matrix of shape
+            ``(n_components, features)`` with the principal axes
+            (loadings) -- each row is one PC expressed in the original
+            feature space.
     """
 
     try:
@@ -620,10 +614,7 @@ def PCA_reduction(matrix_2d, n_components=2):
 
 
 def _clamp_umap_n_neighbors(n_samples: int, n_neighbors: int) -> int:
-    """
-    umap-learn requires n_neighbors strictly less than n_samples / 2.
-    Clamp user/default values so small datasets do not raise at fit time.
-    """
+    """Clamp n_neighbors so small datasets do not raise at UMAP fit time."""
     if n_samples < 2:
         return 1
     max_nn = max(1, int(math.ceil(n_samples / 2)) - 1)
@@ -639,41 +630,29 @@ def UMAP_reduction(
     random_state: Optional[int] = None,
     **umap_kwargs: Any,
 ):
-    """
-    Compute UMAP dimensionality reduction on a 2D matrix.
+    """Compute UMAP dimensionality reduction on a 2D matrix.
 
-    Parameters
-    ----------
-    matrix_2d : array-like, shape (n_samples, n_features)
-        Input data. Each row is a sample, each column is a feature.
+    Parameters:
+        matrix_2d (array_like): Input data of shape
+            ``(n_samples, n_features)``. Each row is a sample, each column
+            is a feature.
+        n_components (int): Dimension of the embedded space.
+        n_neighbors (int): Size of local neighborhood used for manifold
+            approximation.
+        min_dist (float): Controls how tightly UMAP packs points together in
+            the low-dimensional space.
+        metric (str): Distance metric used in the input space.
+        random_state (int or None): Random seed for reproducibility.
+        **umap_kwargs: Additional keyword arguments passed to
+            ``umap.UMAP``.
 
-    n_components : int, default=2
-        Dimension of the embedded space.
-
-    n_neighbors : int, default=15
-        Size of local neighborhood (in terms of number of neighboring sample points)
-        used for manifold approximation.
-
-    min_dist : float, default=0.1
-        Controls how tightly UMAP packs points together in the low-dimensional space.
-
-    metric : str, default="euclidean"
-        Distance metric used in the input space.
-
-    random_state : int or None, default=None
-        Random seed for reproducibility.
-
-    **umap_kwargs :
-        Additional keyword arguments passed to ``umap.UMAP``.
-
-    Returns
-    -------
-    embedding : ndarray, shape (n_samples, n_components)
-        Low-dimensional embedding of the data.
-    trustworthiness_score : float
-        Trustworthiness of the embedding (0 to 1). Measures how well local
-        neighborhoods in the high-dimensional space are preserved in the
-        embedding. Requires scikit-learn; returns NaN if unavailable.
+    Returns:
+        embedding (np.ndarray): Low-dimensional embedding of shape
+            ``(n_samples, n_components)``.
+        trustworthiness_score (float): Trustworthiness of the embedding
+            (0 to 1). Measures how well local neighborhoods in the
+            high-dimensional space are preserved. Returns NaN if
+            scikit-learn is unavailable.
     """
     if umap is None:
         raise ImportError(
@@ -714,39 +693,33 @@ def UMAP_graph_communities(
     random_state: Optional[int] = None,
     **umap_kwargs: Any,
 ):
-    """
-    Run UMAP and Louvain community detection on the UMAP connectivity graph.
+    """Run UMAP and Louvain community detection on the UMAP connectivity graph.
 
     This helper keeps UMAP_reduction simple while providing an optional
     graph-based clustering approach that builds on UMAP's internal graph.
 
-    Parameters
-    ----------
-    matrix_2d : array-like, shape (n_samples, n_features)
-        Input data. Each row is a sample, each column is a feature.
+    Parameters:
+        matrix_2d (array_like): Input data of shape
+            ``(n_samples, n_features)``. Each row is a sample, each column
+            is a feature.
+        n_components (int): Dimension of the embedded space.
+        resolution (float): Resolution parameter for the Louvain community
+            detection algorithm. Higher values produce more, smaller
+            communities. Lower values produce fewer, larger communities.
+        n_neighbors (int): Passed through to ``umap.UMAP``.
+        min_dist (float): Passed through to ``umap.UMAP``.
+        metric (str): Passed through to ``umap.UMAP``.
+        random_state (int or None): Passed through to ``umap.UMAP``.
+        **umap_kwargs: Additional keyword arguments passed to
+            ``umap.UMAP``.
 
-    n_components : int, default=2
-        Dimension of the embedded space.
-
-    resolution : float, default=1.0
-        Resolution parameter for the Louvain community detection algorithm.
-        Higher values -> more, smaller communities. Lower values -> fewer,
-        larger communities.
-
-    n_neighbors, min_dist, metric, random_state, **umap_kwargs :
-        Passed through to the underlying UMAP_reduction / umap.UMAP.
-
-    Returns
-    -------
-    embedding : ndarray, shape (n_samples, n_components)
-        Low-dimensional UMAP embedding.
-
-    labels : ndarray, shape (n_samples,)
-        Integer community label for each sample.
-
-    trustworthiness_score : float
-        Trustworthiness of the embedding (0 to 1). Returns NaN if
-        scikit-learn is not available.
+    Returns:
+        embedding (np.ndarray): Low-dimensional UMAP embedding of shape
+            ``(n_samples, n_components)``.
+        labels (np.ndarray): Integer community label for each sample, shape
+            ``(n_samples,)``.
+        trustworthiness_score (float): Trustworthiness of the embedding
+            (0 to 1). Returns NaN if scikit-learn is not available.
     """
     # First compute the UMAP embedding and fitted mapper using the same
     # configuration as UMAP_reduction.
@@ -848,19 +821,21 @@ def to_ms(values: np.ndarray, unit: str, fs_Hz: Optional[float]) -> np.ndarray:
 def check_neuron_attributes(
     neuron_attributes: List[dict], n_neurons: Optional[int] = None
 ) -> List[dict]:
-    """
-    Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
+    """Check a list of dictionaries for use as neuron_attributes to verify that keys and values are consistent.
 
     Parameters:
-        neuron_attributes: List of dictionaries containing neuron attributes.
-        n_neurons: Expected number of neurons. If provided, validates the list length.
+        neuron_attributes (list of dict): List of dictionaries containing
+            neuron attributes.
+        n_neurons (int or None): Expected number of neurons. If provided,
+            validates the list length.
 
     Returns:
-        A list of dictionaries where all dictionaries have valid keys and values.
+        result (list of dict): A list of dictionaries where all dictionaries
+            have valid keys and values.
 
     Notes:
-    - If some dictionaries are missing keys that others have, a ValueError is raised
-      indicating which neuron entries have inconsistent keys.
+        If some dictionaries are missing keys that others have, a ValueError
+        is raised indicating which neuron entries have inconsistent keys.
     """
     if not isinstance(neuron_attributes, list):
         raise ValueError("neuron_attributes must be a list")
@@ -897,18 +872,19 @@ def get_channels_for_unit(
     neuron_to_channel: dict,
     n_channels_total: int,
 ) -> List[int]:
-    """
-    Determine which channels to extract for a given unit.
+    """Determine which channels to extract for a given unit.
 
     Parameters:
-        unit_idx: Index of the unit.
-        channels: Channel specification. None uses neuron_to_channel_map or all channels;
-                  int for single channel; list for multiple; empty list for mapped channel.
-        neuron_to_channel: Mapping from unit indices to channel indices.
-        n_channels_total: Total number of channels in the raw data.
+        unit_idx (int): Index of the unit.
+        channels (int, list of int, or None): Channel specification. None
+            uses neuron_to_channel mapping or all channels; int for single
+            channel; list for multiple; empty list for mapped channel.
+        neuron_to_channel (dict): Mapping from unit indices to channel
+            indices.
+        n_channels_total (int): Total number of channels in the raw data.
 
     Returns:
-        List of channel indices to extract.
+        result (list of int): Channel indices to extract.
 
     Raises:
         ValueError: If channels argument is invalid type.
@@ -933,16 +909,19 @@ def compute_avg_waveform(
     channel_indices: List[int],
     dtype: np.dtype,
 ) -> np.ndarray:
-    """
-    Compute the average waveform from extracted waveforms.
+    """Compute the average waveform from extracted waveforms.
 
     Parameters:
-        waveforms: 3D array of shape (num_channels, num_samples, num_spikes).
-        channel_indices: List of channel indices used for extraction.
-        dtype: Data type for the output array if waveforms is empty.
+        waveforms (np.ndarray): 3D array of shape
+            ``(num_channels, num_samples, num_spikes)``.
+        channel_indices (list of int): List of channel indices used for
+            extraction.
+        dtype (np.dtype): Data type for the output array if waveforms is
+            empty.
 
     Returns:
-        2D array of shape (num_channels, num_samples) containing the average waveform.
+        avg (np.ndarray): 2D array of shape ``(num_channels, num_samples)``
+            containing the average waveform.
     """
     if waveforms.shape[2] > 0:
         return waveforms.mean(axis=2)
@@ -960,18 +939,17 @@ def get_valid_spike_times(
     ms_after: float,
     n_time_samples: int,
 ) -> np.ndarray:
-    """
-    Filter spike times to only those within valid bounds of the raw data.
+    """Filter spike times to only those within valid bounds of the raw data.
 
     Parameters:
-        spike_times_ms: Array of spike times in milliseconds.
-        fs_kHz: Sampling rate in kHz.
-        ms_before: Milliseconds before each spike time.
-        ms_after: Milliseconds after each spike time.
-        n_time_samples: Total number of time samples in the raw data.
+        spike_times_ms (np.ndarray): Array of spike times in milliseconds.
+        fs_kHz (float): Sampling rate in kHz.
+        ms_before (float): Milliseconds before each spike time.
+        ms_after (float): Milliseconds after each spike time.
+        n_time_samples (int): Total number of time samples in the raw data.
 
     Returns:
-        Array of valid spike times in milliseconds.
+        valid (np.ndarray): Array of valid spike times in milliseconds.
     """
     before_samples = round(ms_before * fs_kHz)
     after_samples = round(ms_after * fs_kHz)
@@ -988,15 +966,17 @@ def get_valid_spike_times(
 def waveforms_by_channel(
     waveforms: np.ndarray, channel_indices: List[int]
 ) -> Dict[int, np.ndarray]:
-    """
-    Convert a waveform stack into a per-channel dict.
+    """Convert a waveform stack into a per-channel dict.
 
     Parameters:
-        waveforms: 3D array shaped (num_channels, num_samples, num_spikes).
-        channel_indices: List of channel indices corresponding to waveforms axis 0.
+        waveforms (np.ndarray): 3D array shaped
+            ``(num_channels, num_samples, num_spikes)``.
+        channel_indices (list of int): List of channel indices corresponding
+            to waveforms axis 0.
 
     Returns:
-        Dict mapping channel index -> 2D array shaped (num_samples, num_spikes).
+        result (dict): Mapping of channel index to 2D array shaped
+            ``(num_samples, num_spikes)``.
     """
     if waveforms.ndim != 3:
         raise ValueError(f"waveforms must be 3D, got shape {waveforms.shape}")
@@ -1023,37 +1003,41 @@ def extract_unit_waveforms(
     return_channel_waveforms: bool = False,
     return_avg_waveform: bool = True,
 ) -> tuple[np.ndarray, Dict[str, Any]]:
-    """
-    Extract waveforms and compute statistics for a single unit.
+    """Extract waveforms and compute statistics for a single unit.
 
     This function orchestrates the full waveform extraction pipeline:
-    1. Resolves which channels to extract based on user input and neuron mapping
-    2. Extracts raw voltage snippets around each spike time
-    3. Computes the mean waveform across all spikes
-    4. Filters spike times to only those with valid extraction windows
+    resolves channels, extracts raw voltage snippets around each spike
+    time, computes the mean waveform, and filters spike times to valid
+    extraction windows.
 
     Parameters:
-        unit_idx: Index of the unit being extracted.
-        spike_times_ms: Array of spike times in milliseconds for this unit.
-        raw_data: Raw voltage data with shape (num_channels, num_samples).
-        fs_kHz: Sampling rate in kHz.
-        ms_before: Milliseconds before each spike time.
-        ms_after: Milliseconds after each spike time.
-        channels: Channel specification. None uses neuron_to_channel mapping or all
-                  channels; int for single channel; list for multiple; empty list
-                  for mapped channel.
-        neuron_to_channel: Mapping from unit indices to channel indices.
-        bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
-        filter_order: Butterworth filter order (default: 3).
+        unit_idx (int): Index of the unit being extracted.
+        spike_times_ms (np.ndarray): Array of spike times in milliseconds
+            for this unit.
+        raw_data (np.ndarray): Raw voltage data with shape
+            ``(num_channels, num_samples)``.
+        fs_kHz (float): Sampling rate in kHz.
+        ms_before (float): Milliseconds before each spike time.
+        ms_after (float): Milliseconds after each spike time.
+        channels (int, list of int, or None): Channel specification. None
+            uses neuron_to_channel mapping or all channels; int for single
+            channel; list for multiple; empty list for mapped channel.
+        neuron_to_channel (dict): Mapping from unit indices to channel
+            indices.
+        bandpass (tuple or None): Optional ``(lowcut_Hz, highcut_Hz)`` for
+            bandpass filtering.
+        filter_order (int): Butterworth filter order (default: 3).
+        return_channel_waveforms (bool): If True, include per-channel
+            waveforms in the metadata dict.
+        return_avg_waveform (bool): If True, compute and include the
+            average waveform in the metadata dict.
 
     Returns:
-        (waveforms, meta) where:
-            - waveforms: 3D array (num_channels, num_samples, num_spikes)
-            - meta: dict containing per-unit metadata (no raw waveforms):
-                - channels: List[int] of channel indices used
-                - spike_times_ms: np.ndarray of valid spike times
-                - avg_waveform: 2D array (num_channels, num_samples), or None if disabled
-                - channel_waveforms: Optional dict[channel -> (num_samples, num_spikes)]
+        waveforms (np.ndarray): 3D array
+            ``(num_channels, num_samples, num_spikes)``.
+        meta (dict): Per-unit metadata containing ``channels``,
+            ``spike_times_ms``, ``avg_waveform``, and optionally
+            ``channel_waveforms``.
     """
     n_channels_total = raw_data.shape[0]
     n_time_samples = raw_data.shape[1]
@@ -1114,21 +1098,25 @@ def extract_waveforms(
     bandpass: Optional[tuple] = None,
     filter_order: int = 3,
 ) -> np.ndarray:
-    """
-    Extract waveform snippets from raw data at specified spike times.
+    """Extract waveform snippets from raw data at specified spike times.
 
     Parameters:
-        raw_data: Raw voltage data with shape (num_channels, num_samples).
-        spike_times_ms: Array of spike times in milliseconds.
-        fs_kHz: Sampling rate in kHz.
-        ms_before: Milliseconds before each spike time (default: 1.0).
-        ms_after: Milliseconds after each spike time (default: 2.0).
-        channel_indices: Channel indices to extract. If None, extracts all.
-        bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
-        filter_order: Butterworth filter order (default: 3).
+        raw_data (np.ndarray): Raw voltage data with shape
+            ``(num_channels, num_samples)``.
+        spike_times_ms (np.ndarray): Array of spike times in milliseconds.
+        fs_kHz (float): Sampling rate in kHz.
+        ms_before (float): Milliseconds before each spike time.
+        ms_after (float): Milliseconds after each spike time.
+        channel_indices (list of int or None): Channel indices to extract.
+            If None, extracts all.
+        bandpass (tuple or None): Optional ``(lowcut_Hz, highcut_Hz)`` for
+            bandpass filtering.
+        filter_order (int): Butterworth filter order (default: 3).
 
     Returns:
-        3D array (num_channels, num_samples, num_spikes). Empty if no valid spikes.
+        waveforms (np.ndarray): 3D array
+            ``(num_channels, num_samples, num_spikes)``. Empty if no valid
+            spikes.
     """
     if raw_data.size == 0:
         raise ValueError("raw_data is empty")
@@ -1311,25 +1299,22 @@ def _get_attr(obj, key, default):
 def _validate_time_start_to_end(
     times_start_to_end, warn_negative_start=False, recording_range=None
 ):
-    """
-    Validates that the list of (start, end) tuples has the same duration and is in
-    proper format for the object constructor.
+    """Validate that a list of (start, end) tuples has the same duration and is in proper format.
 
     Parameters:
-    -----------
-    times_start_to_end (list): Each entry must be a tuple (start, end).
-    warn_negative_start (bool): If True, emit a warning for windows with
-        negative start times (default False). Useful when times are expected
-        to be absolute recording positions.
-    recording_range (tuple or None): If provided, a ``(rec_start, rec_end)``
-        tuple defining the valid time range. Any window that extends outside
-        this range raises ``ValueError``. If None (default), no range check
-        is performed.
+        times_start_to_end (list): Each entry must be a tuple
+            ``(start, end)``.
+        warn_negative_start (bool): If True, emit a warning for windows with
+            negative start times (default False). Useful when times are
+            expected to be absolute recording positions.
+        recording_range (tuple or None): If provided, a
+            ``(rec_start, rec_end)`` tuple defining the valid time range.
+            Any window that extends outside this range raises
+            ``ValueError``. If None (default), no range check is performed.
 
     Returns:
-    --------
-    valid_time_tuples (list): Sorted list of valid (start, end) tuples.
-                                Negative-start windows are preserved.
+        valid_time_tuples (list): Sorted list of valid ``(start, end)``
+            tuples. Negative-start windows are preserved.
     """
     if not isinstance(times_start_to_end, list):
         raise TypeError("times must be a list of tuples")

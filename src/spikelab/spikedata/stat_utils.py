@@ -1,5 +1,4 @@
-"""
-Statistical utilities for SpikeLab.
+"""Statistical utilities for SpikeLab.
 
 Provides reusable statistical functions (regression, confidence intervals,
 pairwise group comparisons) that can be used independently of plotting.
@@ -9,8 +8,7 @@ import numpy as np
 
 
 def linear_regression(x, y, ci_level=0.95):
-    """
-    Compute ordinary least-squares linear regression with optional confidence interval.
+    """Compute ordinary least-squares linear regression with optional confidence interval.
 
     Parameters:
         x (np.ndarray): 1-D array of predictor values.
@@ -108,8 +106,7 @@ def pairwise_tests(
     alpha=0.05,
     labels=None,
 ):
-    """
-    Run pairwise statistical tests across groups with multiple-comparison correction.
+    """Run pairwise statistical tests across groups with multiple-comparison correction.
 
     Parameters:
         groups (dict[str, np.ndarray] or list[np.ndarray]): Per-group data

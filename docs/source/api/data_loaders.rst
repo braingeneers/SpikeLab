@@ -1,35 +1,10 @@
-data_loaders module
-===================
+============
+Data Loaders
+============
 
-.. automodule:: data_loaders.data_loaders
+Functions for loading spike train data from various file formats, including
+pickle, NWB, and Neo-compatible formats.
+
+.. automodule:: spikelab.data_loaders.data_loaders
    :members:
-   :undoc-members:
    :show-inheritance:
-
-Loader Functions
-----------------
-
-HDF5 Loaders
-^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.load_spikedata_from_hdf5
-
-.. autofunction:: data_loaders.load_spikedata_from_hdf5_raw_thresholded
-
-NWB Loader
-^^^^^^^^^^
-
-.. autofunction:: data_loaders.load_spikedata_from_nwb
-
-KiloSort Loader
-^^^^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.load_spikedata_from_kilosort
-
-SpikeInterface Loaders
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.load_spikedata_from_spikeinterface
-
-.. autofunction:: data_loaders.load_spikedata_from_spikeinterface_recording
-

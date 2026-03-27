@@ -370,7 +370,7 @@ def nb_spike_trig_pop_rate(spike_matrix, lags):
             tau = lags[tau_idx]
             sum_dev = 0.0
             for s_idx in range(n_spikes_i):
-                t = spike_times_i[s_idx] - tau
+                t = spike_times_i[s_idx] + tau
                 if 0 <= t < num_bins:
                     P_loo_t = pop_sum[t] - spike_matrix[i, t]
                     sum_dev += P_loo_t - P_loo_mean

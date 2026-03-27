@@ -161,56 +161,52 @@ def load_spikedata_from_hdf5(
     length_ms: Optional[float] = None,
     metadata: Optional[Mapping[str, object]] = None,
 ) -> SpikeData:
-    """
-    Load spike trains from a generic HDF5 file using one of four supported input styles.
+    """Load spike trains from a generic HDF5 file using one of four supported input styles.
 
-    Input Styles:
+    Exactly one input style must be specified. The four styles are: raster
+    matrix, ragged arrays, group-per-unit, and paired arrays.
 
-    1. Raster Matrix
-        Use when the HDF5 file contains a 2D array representing spike counts or a binary raster.
-        Parameters:
-            raster_dataset (str): Path to the dataset containing the raster/counts matrix (shape: units × time).
-            raster_bin_size_ms (float): Bin width in milliseconds.
-        The matrix is interpreted as (units × time bins), where each entry is the spike count (or 0/1 for binary).
-        Example: `raster_dataset="/spikes/raster", raster_bin_size_ms=1.0`
+    Parameters:
+        filepath (str): Path to the HDF5 file.
+        raster_dataset (str | None): Dataset path for a 2D raster/counts matrix
+            (units x time). Activates raster style.
+        raster_bin_size_ms (float | None): Bin width in milliseconds. Required
+            for raster style.
+        spike_times_dataset (str | None): Dataset path for flat concatenated
+            spike times. Activates ragged style (requires
+            spike_times_index_dataset).
+        spike_times_index_dataset (str | None): Dataset path for cumulative
+            end-of-unit indices into the flat spike times array.
+        spike_times_unit (str): Time unit for ragged spike times
+            ('s', 'ms', or 'samples').
+        fs_Hz (float | None): Sampling frequency in Hz. Required when any
+            time unit is 'samples'.
+        group_per_unit (str | None): HDF5 group path containing one dataset
+            per unit. Activates group-per-unit style.
+        group_time_unit (str): Time unit for group-per-unit datasets
+            ('s', 'ms', or 'samples').
+        idces_dataset (str | None): Dataset path for unit index array.
+            Activates paired-arrays style (requires times_dataset).
+        times_dataset (str | None): Dataset path for spike times array
+            (paired with idces_dataset).
+        times_unit (str): Time unit for paired spike times
+            ('s', 'ms', or 'samples').
+        raw_dataset (str | None): Dataset path for optional raw analog data.
+        raw_time_dataset (str | None): Dataset path for the raw data time
+            vector.
+        raw_time_unit (str): Time unit for the raw time vector
+            ('s', 'ms', or 'samples').
+        length_ms (float | None): Recording duration in milliseconds. If not
+            provided, inferred from the latest spike time.
+        metadata (Mapping | None): Additional metadata to attach to the
+            resulting SpikeData.
 
-    2. Ragged Arrays (NWB-style)
-        Use when spike times for all units are concatenated into a single array, with an index array marking the end of each unit's spike times.
-        Parameters:
-            spike_times_dataset (str): Path to the flat array of spike times.
-            spike_times_index_dataset (str): Path to the array of indices (end positions for each unit).
-            spike_times_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
-            fs_Hz (float, optional): Required if unit is 'samples'.
-        Example: `spike_times_dataset="/units/spike_times", spike_times_index_dataset="/units/spike_times_index"`
+    Returns:
+        sd (SpikeData): The loaded spike train data.
 
-    3. Group-per-Unit
-        Use when each unit's spike times are stored as a separate dataset within a group.
-        Parameters:
-            group_per_unit (str): Path to the group containing one dataset per unit.
-            group_time_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
-            fs_Hz (float, optional): Required if unit is 'samples'.
-        Example: `group_per_unit="/spikes/unit_times"`
-
-    4. Paired Arrays (Indices and Times)
-        Use when there are two parallel arrays: one for unit indices and one for spike times.
-        Parameters:
-            idces_dataset (str): Path to the array of unit indices (int).
-            times_dataset (str): Path to the array of spike times.
-            times_unit (str): Unit of the spike times ('s', 'ms', or 'samples').
-            fs_Hz (float, optional): Required if unit is 'samples'.
-        Example: `idces_dataset="/spikes/unit_ids", times_dataset="/spikes/times"`
-
-    Optional Raw Data:
-        You may also attach raw analog data and its timebase by specifying:
-            raw_dataset (str): Path to the raw data array.
-            raw_time_dataset (str): Path to the time vector for the raw data.
-            raw_time_unit (str): Unit of the raw time vector ('s', 'ms', or 'samples').
-            fs_Hz (float, required if 'samples'): Sampling frequency for conversion.
-
-
-    Returns: sd (SpikeData): The loaded spike train data.
-
-    Raises: ValueError: If not exactly one input style is specified, or if required arguments are missing.
+    Raises:
+        ValueError: If not exactly one input style is specified, or if
+            required arguments are missing.
     """
     ensure_h5py()
 
@@ -313,18 +309,21 @@ def load_spikedata_from_hdf5_raw_thresholded(
     hysteresis: bool = True,
     direction: str = "both",
 ) -> SpikeData:
-    """
-    Threshold-and-detect spikes from an HDF5 dataset of raw traces.
+    """Threshold-and-detect spikes from an HDF5 dataset of raw traces.
 
     Parameters:
         filepath (str): Path to HDF5 file.
-        dataset (str): HDF5 dataset path containing raw traces shaped (channels, time).
+        dataset (str): HDF5 dataset path containing raw traces shaped
+            (channels, time).
         fs_Hz (float): Sampling frequency in Hz.
         threshold_sigma (float): Threshold in units of per-channel standard deviation.
-        filter (dict | bool): If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
+        filter (dict | bool): If True, apply default Butterworth bandpass;
+            if dict, pass to filter; if False, no filtering.
         hysteresis (bool): Use rising-edge detection if True.
         direction (str): 'both' | 'up' | 'down'.
-    Returns: sd (SpikeData): The detected spike train data.
+
+    Returns:
+        sd (SpikeData): The detected spike train data.
     """
     ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
@@ -350,15 +349,15 @@ def load_spikedata_from_nwb(
     prefer_pynwb: bool = True,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
-    """
-    Load spike trains from an NWB file's Units table.
+    """Load spike trains from an NWB file's Units table.
 
     Parameters:
         filepath (str): Path to the NWB file.
         prefer_pynwb (bool): If True, try pynwb first; if False, try h5py.
-        length_ms (float, optional): Recording duration in milliseconds.
+        length_ms (float | None): Recording duration in milliseconds.
 
-    Returns: sd (SpikeData): The loaded spike train data.
+    Returns:
+        sd (SpikeData): The loaded spike train data.
     """
     trains: List[np.ndarray] = []
     neuron_attributes: List[dict] = []
@@ -533,12 +532,15 @@ def load_spikedata_from_spikeinterface(
     """Convert a SpikeInterface SortingExtractor-like object to SpikeData.
 
     Parameters:
-        sorting (object): Exposes get_unit_ids(), get_sampling_frequency(), get_unit_spike_train(...).
-        sampling_frequency (float, optional): Optional override for sampling frequency (Hz).
-        unit_ids (sequence, optional): Optional subset of unit IDs to include.
+        sorting (object): Exposes get_unit_ids(),
+            get_sampling_frequency(), get_unit_spike_train(...).
+        sampling_frequency (float | None): Optional override for sampling
+            frequency (Hz).
+        unit_ids (Sequence | None): Optional subset of unit IDs to include.
         segment_index (int): Segment index for multi-segment sortings.
 
-    Returns: sd (SpikeData): The converted spike train data.
+    Returns:
+        sd (SpikeData): The converted spike train data.
     """
     try:
         get_unit_ids = sorting.get_unit_ids  # type: ignore[attr-defined]
@@ -609,29 +611,32 @@ def load_spikedata_from_kilosort(
     channel_map_file: str = "channel_map.npy",
     channel_positions_file: str = "channel_positions.npy",
 ) -> SpikeData:
-    """
-    Load KiloSort/Phy outputs into SpikeData.
+    """Load KiloSort/Phy outputs into SpikeData.
 
     Parameters:
         folder (str): Path to the KiloSort/Phy output directory.
         fs_Hz (float): Sampling frequency in Hz.
         spike_times_file (str): Path to the spike_times.npy file.
         spike_clusters_file (str): Path to the spike_clusters.npy file.
-        cluster_info_tsv (str, optional): Path to the cluster info TSV file.
+        cluster_info_tsv (str | None): Path to the cluster info TSV file.
         time_unit (str): Unit of the spike times ('samples', 's', or 'ms').
         include_noise (bool): If True, include noise clusters.
-        length_ms (float, optional): Recording duration in milliseconds.
-        channel_map_file (str): Filename of the channel map file relative to folder.
-            Expected format: 1D numpy array mapping cluster indices to channel numbers.
-        channel_positions_file (str): Filename of the channel positions file relative to folder.
-            Expected format: 2D numpy array of shape (channels, 3) containing channel positions.
+        length_ms (float | None): Recording duration in milliseconds.
+        channel_map_file (str): Filename of the channel map file relative
+            to folder. Expected format: 1D numpy array mapping cluster
+            indices to channel numbers.
+        channel_positions_file (str): Filename of the channel positions
+            file relative to folder. Expected format: 2D numpy array of
+            shape (channels, 3) containing channel positions.
+
     Returns:
         sd (SpikeData): The loaded spike train data.
 
-    Note:
-    - This loader does not extract or include waveform data; only spike times and cluster assignments are loaded.
-    - Reads spike_times.npy (samples) and spike_clusters.npy; groups times per cluster
-    and converts to ms using fs_Hz.
+    Notes:
+        - This loader does not extract or include waveform data; only
+          spike times and cluster assignments are loaded.
+        - Reads spike_times.npy (samples) and spike_clusters.npy; groups
+          times per cluster and converts to ms using fs_Hz.
     """
     st_path = os.path.join(folder, spike_times_file)
     sc_path = os.path.join(folder, spike_clusters_file)
@@ -747,18 +752,20 @@ def load_spikedata_from_spikeinterface_recording(
     hysteresis: bool = True,
     direction: str = "both",
 ) -> SpikeData:
-    """
-    Convert a SpikeInterface BaseRecording-like object into SpikeData.
+    """Convert a SpikeInterface BaseRecording-like object into SpikeData.
 
     Parameters:
-        recording (object): Exposes get_traces(segment_index=..., ...), get_sampling_frequency(), get_num_channels().
+        recording (object): Exposes get_traces(segment_index=...),
+            get_sampling_frequency(), get_num_channels().
         segment_index (int): Segment index for multi-segment recordings.
         threshold_sigma (float): Threshold in units of per-channel standard deviation.
-        filter (dict | bool): If True, apply default Butterworth bandpass; if dict, pass to filter; if False, no filtering.
+        filter (dict | bool): If True, apply default Butterworth bandpass;
+            if dict, pass to filter; if False, no filtering.
         hysteresis (bool): Use rising-edge detection if True.
         direction (str): 'both' | 'up' | 'down'.
 
-    Returns: sd (SpikeData): The converted spike train data.
+    Returns:
+        sd (SpikeData): The converted spike train data.
     """
     # Resolve sampling frequency
     if hasattr(recording, "get_sampling_frequency"):
@@ -809,23 +816,26 @@ def load_spikedata_from_pickle(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> SpikeData:
-    """
-    Load a SpikeData object from a pickle file.
+    """Load a SpikeData object from a pickle file.
 
     Warning:
-        Only load pickle files from trusted sources. Pickle deserialization can
-        execute arbitrary code and should never be used with untrusted data.
+        Only load pickle files from trusted sources. Pickle
+        deserialization can execute arbitrary code and should never be
+        used with untrusted data.
 
     Parameters:
-        filepath (str): Path to the pickle file, or an S3 URL (s3://bucket/key).
-        aws_access_key_id (Optional[str]): AWS access key ID for S3 downloads.
-        aws_secret_access_key (Optional[str]): AWS secret access key for S3 downloads.
-        aws_session_token (Optional[str]): AWS session token for temporary credentials.
-        region_name (Optional[str]): AWS region name for S3 access.
+        filepath (str): Path to the pickle file, or an S3 URL
+            (s3://bucket/key).
+        aws_access_key_id (str | None): AWS access key ID for S3
+            downloads.
+        aws_secret_access_key (str | None): AWS secret access key for
+            S3 downloads.
+        aws_session_token (str | None): AWS session token for temporary
+            credentials.
+        region_name (str | None): AWS region name for S3 access.
 
     Returns:
-        SpikeData: The deserialized SpikeData object.
-
+        sd (SpikeData): The deserialized SpikeData object.
     """
     from .s3_utils import ensure_local_file
 
@@ -877,40 +887,31 @@ def load_spikedata_from_ibl(
     *,
     length_ms: Optional[float] = None,
 ) -> SpikeData:
-    """
-    Load spike trains for a single IBL probe into SpikeData.
+    """Load spike trains for a single IBL probe into SpikeData.
 
-    Authenticates against the public IBL server automatically. Only units
-    labelled as good (``label == 1``) in the Brain-Wide Map unit table are
-    included. Trial event times are stored in ``SpikeData.metadata`` as
-    individual numpy arrays, all in milliseconds.
+    Authenticates against the public IBL server automatically. Only
+    units labelled as good (``label == 1``) in the Brain-Wide Map unit
+    table are included. Trial event times are stored in
+    ``SpikeData.metadata`` as individual numpy arrays, all in
+    milliseconds.
 
     Parameters:
         eid (str): IBL experiment ID (UUID string).
         pid (str): IBL probe ID (UUID string).
-        length_ms (float, optional): Recording duration in milliseconds.
+        length_ms (float | None): Recording duration in milliseconds.
             If not provided, the maximum spike time across all units is used.
 
     Returns:
-        sd (SpikeData): Loaded spike train data. ``neuron_attributes`` contains
-        ``{"region": <Beryl atlas region>}`` per unit. ``metadata`` contains:
-
-        - ``eid`` (str): experiment ID
-        - ``pid`` (str): probe ID
-        - ``n_trials`` (int): number of trials
-        - ``trial_start_times`` (np.ndarray): trial onset times in ms
-        - ``trial_end_times`` (np.ndarray): trial end times in ms
-        - ``stim_on_times`` (np.ndarray): stimulus onset times in ms
-        - ``stim_off_times`` (np.ndarray): stimulus offset times in ms
-        - ``go_cue_times`` (np.ndarray): go-cue times in ms
-        - ``response_times`` (np.ndarray): response times in ms
-        - ``feedback_times`` (np.ndarray): feedback delivery times in ms
-        - ``first_movement_times`` (np.ndarray): first movement onset times in ms
-        - ``choice`` (np.ndarray): trial choice (-1 = left, 1 = right)
-        - ``feedback_type`` (np.ndarray): feedback outcome (1 = correct, -1 = incorrect)
-        - ``contrast_left`` (np.ndarray): left stimulus contrast (0–1)
-        - ``contrast_right`` (np.ndarray): right stimulus contrast (0–1)
-        - ``probability_left`` (np.ndarray): prior probability of left stimulus (0–1)
+        sd (SpikeData): Loaded spike train data.
+            ``neuron_attributes`` contains
+            ``{"region": <Beryl atlas region>}`` per unit.
+            ``metadata`` contains ``eid``, ``pid``, ``n_trials``,
+            ``trial_start_times``, ``trial_end_times``,
+            ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,
+            ``response_times``, ``feedback_times``,
+            ``first_movement_times``, ``choice``, ``feedback_type``,
+            ``contrast_left``, ``contrast_right``, and
+            ``probability_left``. All time arrays are in milliseconds.
 
     Notes:
         - Requires ``one-api`` and ``brainwidemap`` packages (optional dependencies).
@@ -1031,17 +1032,16 @@ def query_ibl_probes(
     min_units: int = 0,
     min_fraction_in_target: float = 0.0,
 ) -> "tuple[list[tuple[str, str]], pd.DataFrame]":
-    """
-    Search the IBL Brain-Wide Map database for probes matching given criteria.
+    """Search the IBL Brain-Wide Map database for probes matching given criteria.
 
-    Authenticates against the public IBL server automatically. Filters probes
-    by brain region and unit count. Returns matching (eid, pid) pairs
-    alongside a per-probe statistics DataFrame.
+    Authenticates against the public IBL server automatically. Filters
+    probes by brain region and unit count. Returns matching (eid, pid)
+    pairs alongside a per-probe statistics DataFrame.
 
     Parameters:
-        target_regions (list[str], optional): Beryl atlas region names to
-            filter by (e.g. ``["MOs", "MOp"]``). If ``None``, no region filter
-            is applied.
+        target_regions (list[str] | None): Beryl atlas region names to
+            filter by (e.g. ``["MOs", "MOp"]``). If None, no region
+            filter is applied.
         min_units (int): Minimum number of good units required per probe.
             Default ``0`` (no minimum).
         min_fraction_in_target (float): Minimum fraction (0–1) of good units

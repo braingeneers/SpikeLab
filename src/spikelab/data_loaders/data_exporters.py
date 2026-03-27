@@ -61,58 +61,62 @@ def export_spikedata_to_hdf5(
     raw_time_dataset: Optional[str] = None,
     raw_time_unit: TimeUnit = "ms",
 ) -> None:
-    """
-    Export a SpikeData to a generic HDF5 file using a chosen style.
+    """Export a SpikeData to a generic HDF5 file using a chosen style.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
-        filepath (str): Path where the HDF5 file will be created (overwrites existing).
-        style (Literal["raster", "ragged", "group", "paired"]): Export format style.
-            - "raster": 2D binary/count matrix (units × time bins)
-            - "ragged": Flat concatenated spike times with cumulative indices
-            - "group": One HDF5 group containing one dataset per unit
-            - "paired": Two parallel arrays of unit indices and spike times
-
-    Raster Style Parameters:
+        filepath (str): Path where the HDF5 file will be created
+            (overwrites existing).
+        style (Literal["raster", "ragged", "group", "paired"]): Export
+            format style. "raster": 2D binary/count matrix (units x time
+            bins). "ragged": flat concatenated spike times with cumulative
+            indices. "group": one HDF5 group containing one dataset per
+            unit. "paired": two parallel arrays of unit indices and spike
+            times.
         raster_dataset (str): HDF5 dataset name for the raster matrix.
-        raster_bin_size_ms (Optional[float]): Bin size in milliseconds for rasterization.
-                                            Required for raster style.
-
-    Ragged Arrays Style Parameters:
-        spike_times_dataset (str): Dataset name for concatenated spike times.
-        spike_times_index_dataset (str): Dataset name for cumulative spike count indices.
-        spike_times_unit (TimeUnit): Time unit for spike times ('ms', 's', 'samples').
-        fs_Hz (Optional[float]): Sampling frequency in Hz. Required when any unit is 'samples'.
-
-    Group-per-Unit Style Parameters:
-        group_per_unit (str): HDF5 group name containing per-unit datasets.
-        group_time_unit (TimeUnit): Time unit for individual unit datasets.
-
-    Paired Arrays Style Parameters:
+        raster_bin_size_ms (float | None): Bin size in milliseconds for
+            rasterization. Required for raster style.
+        spike_times_dataset (str): Dataset name for concatenated spike
+            times.
+        spike_times_index_dataset (str): Dataset name for cumulative
+            spike count indices.
+        spike_times_unit (TimeUnit): Time unit for spike times
+            ('ms', 's', 'samples').
+        fs_Hz (float | None): Sampling frequency in Hz. Required when
+            any unit is 'samples'.
+        group_per_unit (str): HDF5 group name containing per-unit
+            datasets.
+        group_time_unit (TimeUnit): Time unit for individual unit
+            datasets.
         idces_dataset (str): Dataset name for unit indices array.
         times_dataset (str): Dataset name for spike times array.
         times_unit (TimeUnit): Time unit for spike times.
-
-    Optional Raw Data Parameters:
-        raw_dataset (Optional[str]): Dataset name for raw analog data (if present in sd).
-        raw_time_dataset (Optional[str]): Dataset name for raw data time vector.
+        raw_dataset (str | None): Dataset name for raw analog data
+            (if present in sd).
+        raw_time_dataset (str | None): Dataset name for raw data time
+            vector.
         raw_time_unit (TimeUnit): Time unit for raw data timestamps.
 
     Raises:
         ImportError: If h5py is not available.
-        ValueError: If style is invalid, required parameters are missing, or
-                   fs_Hz is needed but not provided for 'samples' unit.
+        ValueError: If style is invalid, required parameters are missing,
+            or fs_Hz is needed but not provided for 'samples' unit.
 
     Notes:
-        - Spike times are automatically converted from milliseconds to the requested unit.
+        - Spike times are automatically converted from milliseconds to
+          the requested unit.
         - The function creates or overwrites the target HDF5 file.
-        - Raw data is only written if both raw_dataset and raw_time_dataset are
-          provided and the SpikeData contains raw_data and raw_time attributes.
-        - For raster style, the bin size is stored as an attribute for provenance.
-        - Parameters mirror the corresponding loader function to ease round-tripping.
-        - ``neuron_attributes`` and ``metadata`` are **not** persisted in the
-          generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace HDF5)
-          or ``export_spikedata_to_pickle`` for full-fidelity round-trips.
+        - Raw data is only written if both raw_dataset and
+          raw_time_dataset are provided and the SpikeData contains
+          raw_data and raw_time attributes.
+        - For raster style, the bin size is stored as an attribute for
+          provenance.
+        - Parameters mirror the corresponding loader function to ease
+          round-tripping.
+        - ``neuron_attributes`` and ``metadata`` are not persisted in the
+          generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace
+          HDF5) or ``export_spikedata_to_pickle`` for full-fidelity
+          round-trips.
     """
     ensure_h5py()
 
@@ -203,29 +207,34 @@ def export_spikedata_to_nwb(
     spike_times_index_dataset: str = "spike_times_index",
     group: str = "units",
 ) -> None:
-    """
-    Export SpikeData to a minimal NWB-like file using h5py.
+    """Export SpikeData to a minimal NWB-like file using h5py.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
-        filepath (str): Path where the NWB file will be created (overwrites existing).
-        spike_times_dataset (str): Name of the dataset containing concatenated spike times.
-                                  Default is "spike_times" per NWB convention.
-        spike_times_index_dataset (str): Name of the dataset containing cumulative indices.
-                                        Default is "spike_times_index" per NWB convention.
+        filepath (str): Path where the NWB file will be created
+            (overwrites existing).
+        spike_times_dataset (str): Name of the dataset containing
+            concatenated spike times. Default is "spike_times" per NWB
+            convention.
+        spike_times_index_dataset (str): Name of the dataset containing
+            cumulative indices. Default is "spike_times_index" per NWB
+            convention.
         group (str): Name of the HDF5 group to contain the datasets.
-                    Default is "units" per NWB convention.
+            Default is "units" per NWB convention.
 
     Raises:
         ImportError: If h5py is not available.
 
     Notes:
-        - Spike times are automatically converted from milliseconds to seconds.
-        - The output file structure follows NWB conventions but is minimal
-          (does not include full NWB metadata or schema validation).
-        - Empty units (no spikes) are handled correctly in the index array.
-        - This is compatible with the load_spikedata_from_nwb function when
-          prefer_pynwb=False.
+        - Spike times are automatically converted from milliseconds to
+          seconds.
+        - The output file structure follows NWB conventions but is
+          minimal (does not include full NWB metadata or schema
+          validation).
+        - Empty units (no spikes) are handled correctly in the index
+          array.
+        - This is compatible with the load_spikedata_from_nwb function
+          when prefer_pynwb=False.
     """
     ensure_h5py()
     if sd.start_time != 0:
@@ -289,36 +298,39 @@ def export_spikedata_to_kilosort(
     time_unit: TimeUnit = "samples",
     cluster_ids: Optional[Sequence[int]] = None,
 ) -> Tuple[str, str]:
-    """
-    Export SpikeData to a KiloSort/Phy-like folder.
+    """Export SpikeData to a KiloSort/Phy-like folder.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
-        folder (str): Directory path where the .npy files will be created.
-                     Created if it doesn't exist.
-        fs_Hz (float): Sampling frequency in Hz. Required for time unit conversion,
-                      especially when time_unit='samples'.
+        folder (str): Directory path where the .npy files will be
+            created. Created if it doesn't exist.
+        fs_Hz (float): Sampling frequency in Hz. Required for time unit
+            conversion, especially when time_unit='samples'.
         spike_times_file (str): Filename for the spike times array.
-                               Default is "spike_times.npy".
+            Default is "spike_times.npy".
         spike_clusters_file (str): Filename for the spike clusters array.
-                                  Default is "spike_clusters.npy".
+            Default is "spike_clusters.npy".
         time_unit (TimeUnit): Time unit for output spike times.
-                             - 'samples': Integer sample indices (default, KiloSort standard)
-                             - 'ms': Milliseconds (float)
-                             - 's': Seconds (float)
-        cluster_ids (Optional[Sequence[int]]): Custom cluster IDs for each unit.
-                                              If None, uses sequential integers 0, 1, 2, ...
-                                              Length must match sd.N.
+            'samples': integer sample indices (default, KiloSort
+            standard). 'ms': milliseconds (float). 's': seconds (float).
+        cluster_ids (Sequence[int] | None): Custom cluster IDs for each
+            unit. If None, uses sequential integers 0, 1, 2, ... Length
+            must match sd.N.
 
     Returns:
-        Tuple[str, str]: Paths to the created spike_times.npy and spike_clusters.npy files.
+        paths (tuple[str, str]): Paths to the created spike_times.npy
+            and spike_clusters.npy files.
 
     Notes:
-        - The output arrays have the same length (one entry per spike across all units).
+        - The output arrays have the same length (one entry per spike
+          across all units).
         - Spike times are sorted by unit order, not chronologically.
-        - Empty units (no spikes) don't contribute entries to the output arrays.
-        - The 'samples' time unit produces integer arrays suitable for KiloSort/Phy.
-        - Cluster IDs can be arbitrary integers and don't need to be sequential.
+        - Empty units (no spikes) don't contribute entries to the output
+          arrays.
+        - The 'samples' time unit produces integer arrays suitable for
+          KiloSort/Phy.
+        - Cluster IDs can be arbitrary integers and don't need to be
+          sequential.
     """
     if not fs_Hz or fs_Hz <= 0:
         raise ValueError("A positive fs_Hz is required for KiloSort export")
@@ -380,24 +392,29 @@ def export_spikedata_to_pickle(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> str:
-    """
-    Export a SpikeData object to a pickle file.
+    """Export a SpikeData object to a pickle file.
 
     Parameters:
         sd (SpikeData): The SpikeData object to export.
-        filepath (str): Path where the pickle file will be created (overwrites existing).
-                       If s3_upload=True, this should be an S3 URL (s3://bucket/key).
-        protocol (Optional[int]): Pickle protocol version. If None, uses the highest
-                                 protocol available. Lower protocols (e.g., 2, 3) may
-                                 be needed for compatibility with older Python versions.
-        s3_upload (bool): If True, upload to S3 URL specified in filepath.
-        aws_access_key_id (Optional[str]): AWS access key ID for S3 uploads.
-        aws_secret_access_key (Optional[str]): AWS secret access key for S3 uploads.
-        aws_session_token (Optional[str]): AWS session token for temporary credentials.
-        region_name (Optional[str]): AWS region name for S3 access.
+        filepath (str): Path where the pickle file will be created
+            (overwrites existing). If s3_upload=True, this should be an
+            S3 URL (s3://bucket/key).
+        protocol (int | None): Pickle protocol version. If None, uses
+            the highest protocol available. Lower protocols (e.g., 2, 3)
+            may be needed for compatibility with older Python versions.
+        s3_upload (bool): If True, upload to S3 URL specified in
+            filepath.
+        aws_access_key_id (str | None): AWS access key ID for S3
+            uploads.
+        aws_secret_access_key (str | None): AWS secret access key for
+            S3 uploads.
+        aws_session_token (str | None): AWS session token for temporary
+            credentials.
+        region_name (str | None): AWS region name for S3 access.
 
     Returns:
-        str: Path to the created pickle file (local path or S3 URL).
+        path (str): Path to the created pickle file (local path or S3
+            URL).
     """
     import tempfile
 

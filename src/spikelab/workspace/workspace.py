@@ -21,8 +21,7 @@ import numpy as np
 
 
 def _make_summary(obj: Any) -> dict:
-    """
-    Build a JSON-serializable summary dict describing a stored object.
+    """Build a JSON-serializable summary dict describing a stored object.
 
     Parameters:
         obj: Any supported IAT type or numpy array.
@@ -96,21 +95,25 @@ def _make_summary(obj: Any) -> dict:
 
 
 class AnalysisWorkspace:
-    """
-    Named, namespaced container for storing analysis results.
+    """Named, namespaced container for storing analysis results.
 
     Results are organised under two-level keys: a namespace (typically
     the name of a recording or comparison group) and a key (the specific
     result within that namespace). Supports saving and loading the full
     workspace to and from disk.
+
+    Attributes:
+        workspace_id (str): UUID identifying this workspace instance.
+        name (str | None): Optional human-readable label.
+        created_at (float): POSIX timestamp of creation time.
     """
 
     def __init__(self, name: Optional[str] = None) -> None:
-        """
-        Create a new empty workspace.
+        """Create a new empty workspace.
 
         Parameters:
-            name (str | None): Optional human-readable label for the workspace.
+            name (str | None): Optional human-readable label for the
+                workspace.
         """
         self.workspace_id: str = str(uuid.uuid4())
         self.name: Optional[str] = name
@@ -129,8 +132,7 @@ class AnalysisWorkspace:
         obj: Any,
         note: Optional[str] = None,
     ) -> None:
-        """
-        Store an object under (namespace, key).
+        """Store an object under (namespace, key).
 
         Parameters:
             namespace (str): Namespace grouping related results (e.g., a
@@ -162,8 +164,7 @@ class AnalysisWorkspace:
         self._index[namespace][key] = entry
 
     def get(self, namespace: str, key: str) -> Optional[Any]:
-        """
-        Retrieve a stored object.
+        """Retrieve a stored object.
 
         Parameters:
             namespace (str): Namespace the object was stored under.
@@ -175,8 +176,7 @@ class AnalysisWorkspace:
         return self._items.get(namespace, {}).get(key)
 
     def get_info(self, namespace: str, key: str) -> Optional[dict]:
-        """
-        Return the index entry for an item without loading the object itself.
+        """Return the index entry for an item without loading the object itself.
 
         Parameters:
             namespace (str): Namespace to look up.
@@ -193,8 +193,7 @@ class AnalysisWorkspace:
     # ------------------------------------------------------------------
 
     def describe(self) -> dict:
-        """
-        Return the full index as a JSON-serializable dict.
+        """Return the full index as a JSON-serializable dict.
 
         Returns:
             index (dict): Nested dict ``{namespace: {key: summary_dict}}``.
@@ -202,8 +201,7 @@ class AnalysisWorkspace:
         return {ns: dict(keys) for ns, keys in self._index.items()}
 
     def list_keys(self, namespace: Optional[str] = None) -> "dict | list":
-        """
-        List stored keys, optionally filtered to a single namespace.
+        """List stored keys, optionally filtered to a single namespace.
 
         Parameters:
             namespace (str | None): If provided, returns the list of keys
@@ -219,8 +217,7 @@ class AnalysisWorkspace:
         return {ns: list(keys.keys()) for ns, keys in self._items.items()}
 
     def list_namespaces(self) -> list:
-        """
-        Return the names of all top-level namespaces in the workspace.
+        """Return the names of all top-level namespaces in the workspace.
 
         Returns:
             namespaces (list[str]): Sorted list of namespace names.
@@ -234,16 +231,15 @@ class AnalysisWorkspace:
     def rename(
         self, namespace: str, old_key: str, new_key: str, overwrite: bool = False
     ) -> bool:
-        """
-        Rename a key within a namespace.
+        """Rename a key within a namespace.
 
         Parameters:
             namespace (str): Namespace containing the key.
             old_key (str): Existing key name.
             new_key (str): New key name.
-            overwrite (bool): If False (default) and *new_key* already exists,
-                a warning is printed and the rename is aborted. Set to True to
-                silently overwrite the existing entry.
+            overwrite (bool): If False (default) and new_key already
+                exists, a warning is printed and the rename is aborted.
+                Set to True to silently overwrite the existing entry.
 
         Returns:
             success (bool): True if renamed, False if namespace or
@@ -263,8 +259,7 @@ class AnalysisWorkspace:
         return True
 
     def add_note(self, namespace: str, key: str, note: str) -> bool:
-        """
-        Add or replace the note attached to a stored item.
+        """Add or replace the note attached to a stored item.
 
         Parameters:
             namespace (str): Namespace of the item.
@@ -280,13 +275,12 @@ class AnalysisWorkspace:
         return True
 
     def delete(self, namespace: str, key: Optional[str] = None) -> bool:
-        """
-        Delete a single item or an entire namespace.
+        """Delete a single item or an entire namespace.
 
         Parameters:
             namespace (str): Namespace to delete from.
-            key (str | None): Key to delete. If None, the entire namespace
-                and all its contents are deleted.
+            key (str | None): Key to delete. If None, the entire
+                namespace and all its contents are deleted.
 
         Returns:
             success (bool): True if deleted, False if not found.
@@ -307,8 +301,7 @@ class AnalysisWorkspace:
         return True
 
     def merge_from(self, other: "AnalysisWorkspace", overwrite: bool = False) -> dict:
-        """
-        Copy all items from another workspace into this one.
+        """Copy all items from another workspace into this one.
 
         Parameters:
             other (AnalysisWorkspace): Source workspace to merge from.
@@ -368,11 +361,10 @@ class AnalysisWorkspace:
     # ------------------------------------------------------------------
 
     def save(self, path: str) -> None:
-        """
-        Save the workspace to disk.
+        """Save the workspace to disk.
 
         Writes two files: ``{path}.h5`` (full object data, HDF5) and
-        ``{path}.json`` (index/metadata, human-readable).  All stored
+        ``{path}.json`` (index/metadata, human-readable). All stored
         objects are serialised to their constituent arrays so that
         individual items can be loaded selectively without reading the
         entire file.
@@ -399,9 +391,7 @@ class AnalysisWorkspace:
 
     @classmethod
     def load(cls, path: str) -> "AnalysisWorkspace":
-        """
-        Load a workspace from disk, reconstructing all stored objects to
-        their original IAT data class types.
+        """Load a workspace from disk, reconstructing all stored objects.
 
         Parameters:
             path (str): Base path without file extension (the same value
@@ -416,9 +406,10 @@ class AnalysisWorkspace:
 
     @classmethod
     def load_item(cls, path: str, namespace: str, key: str) -> Any:
-        """
-        Load a single item from a saved workspace file without reading
-        the entire workspace into memory.
+        """Load a single item from a saved workspace file.
+
+        Loads only the requested item without reading the entire
+        workspace into memory.
 
         Parameters:
             path (str): Base path without file extension.
@@ -438,8 +429,7 @@ class AnalysisWorkspace:
 
     @staticmethod
     def comparison_namespace(*namespaces: str) -> str:
-        """
-        Build a conventional namespace string for cross-recording comparisons.
+        """Build a conventional namespace string for cross-recording comparisons.
 
         Parameters:
             *namespaces (str): Names of the recording namespaces involved
@@ -466,28 +456,30 @@ class AnalysisWorkspace:
 
 
 class LazyAnalysisWorkspace(AnalysisWorkspace):
-    """
-    Disk-backed variant of AnalysisWorkspace for low-RAM environments.
+    """Disk-backed variant of AnalysisWorkspace for low-RAM environments.
 
-    Each stored object is immediately serialised to a temporary HDF5 file and
-    removed from process memory. Only the lightweight index metadata is kept in
-    RAM. Objects are deserialised from the temp file on each ``get()`` call.
+    Each stored object is immediately serialised to a temporary HDF5
+    file and removed from process memory. Only the lightweight index
+    metadata is kept in RAM. Objects are deserialised from the temp
+    file on each ``get()`` call.
 
-    Use this when working with large recordings and limited available RAM.
-    The temp file is deleted automatically when the workspace is garbage-collected.
+    Use this when working with large recordings and limited available
+    RAM. The temp file is deleted automatically when the workspace is
+    garbage-collected.
 
     Notes:
-        - Requires h5py. If h5py is not installed, construction will raise
-          ImportError.
-        - Every ``get()`` call performs a disk read; repeated access to the same
-          item is slower than with the default in-memory workspace.
-        - ``save()`` copies the temp file to the destination path, so it is as
-          fast as a file copy rather than a full re-serialisation.
+        - Requires h5py. If h5py is not installed, construction will
+          raise ImportError.
+        - Every ``get()`` call performs a disk read; repeated access to
+          the same item is slower than with the default in-memory
+          workspace.
+        - ``save()`` copies the temp file to the destination path, so
+          it is as fast as a file copy rather than a full
+          re-serialisation.
     """
 
     def __init__(self, name: Optional[str] = None) -> None:
-        """
-        Create a new empty lazy workspace backed by a temp HDF5 file.
+        """Create a new empty lazy workspace backed by a temp HDF5 file.
 
         Parameters:
             name (str | None): Optional human-readable label.
@@ -523,8 +515,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         obj: Any,
         note: Optional[str] = None,
     ) -> None:
-        """
-        Serialise an object to the temp HDF5 file and record it in the index.
+        """Serialise an object to the temp HDF5 file and record it in the index.
 
         Parameters:
             namespace (str): Namespace grouping related results.
@@ -547,8 +538,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         dump_item_to_file(self._h5_path, namespace, key, obj, created_at, note)
 
     def get(self, namespace: str, key: str) -> Optional[Any]:
-        """
-        Deserialise and return a stored object from the temp HDF5 file.
+        """Deserialise and return a stored object from the temp HDF5 file.
 
         Parameters:
             namespace (str): Namespace the object was stored under.
@@ -571,8 +561,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
     # ------------------------------------------------------------------
 
     def list_keys(self, namespace: Optional[str] = None) -> "dict | list":
-        """
-        List stored keys from the index (no disk read required).
+        """List stored keys from the index (no disk read required).
 
         Parameters:
             namespace (str | None): If provided, returns the list of keys for
@@ -587,11 +576,11 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         return {ns: list(keys.keys()) for ns, keys in self._index.items()}
 
     def list_namespaces(self) -> list:
-        """
-        Return the names of all top-level namespaces in the workspace.
+        """Return the names of all top-level namespaces in the workspace.
 
         Returns:
-            namespaces (list[str]): List of namespace names derived from the in-memory index.
+            namespaces (list[str]): List of namespace names derived from
+                the in-memory index.
         """
         return list(self._index.keys())
 
@@ -602,20 +591,19 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
     def rename(
         self, namespace: str, old_key: str, new_key: str, overwrite: bool = False
     ) -> bool:
-        """
-        Rename a key within a namespace.
+        """Rename a key within a namespace.
 
         Parameters:
             namespace (str): Namespace containing the key.
             old_key (str): Existing key name.
             new_key (str): New key name.
-            overwrite (bool): If False (default) and *new_key* already exists,
-                a warning is printed and the rename is aborted. Set to True to
-                silently overwrite the existing entry.
+            overwrite (bool): If False (default) and new_key already
+                exists, a warning is printed and the rename is aborted.
+                Set to True to silently overwrite the existing entry.
 
         Returns:
-            success (bool): True if renamed, False if namespace or old_key
-                not found or rename was blocked by existing key.
+            success (bool): True if renamed, False if namespace or
+                old_key not found or rename was blocked by existing key.
         """
         from .hdf5_io import delete_item_from_file, dump_item_to_file
 
@@ -648,12 +636,12 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
         return True
 
     def delete(self, namespace: str, key: Optional[str] = None) -> bool:
-        """
-        Delete a single item or an entire namespace from the temp file and index.
+        """Delete a single item or an entire namespace from the temp file and index.
 
         Parameters:
             namespace (str): Namespace to delete from.
-            key (str | None): Key to delete. If None, deletes the entire namespace.
+            key (str | None): Key to delete. If None, deletes the entire
+                namespace.
 
         Returns:
             success (bool): True if deleted, False if not found.
@@ -679,8 +667,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
     # ------------------------------------------------------------------
 
     def save(self, path: str) -> None:
-        """
-        Save the workspace to disk by copying the temp HDF5 file.
+        """Save the workspace to disk by copying the temp HDF5 file.
 
         Parameters:
             path (str): Base path without file extension.
@@ -723,8 +710,7 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
 
 
 class WorkspaceManager:
-    """
-    Registry for multiple AnalysisWorkspace instances within a single process.
+    """Registry for multiple AnalysisWorkspace instances within a single process.
 
     Provides create, retrieve, delete, list, save, and load operations.
     Use ``get_workspace_manager()`` to access the module-level singleton.
@@ -736,8 +722,7 @@ class WorkspaceManager:
         self._lock = threading.Lock()
 
     def create_workspace(self, name: Optional[str] = None, lazy: bool = False) -> str:
-        """
-        Create and register a new empty workspace.
+        """Create and register a new empty workspace.
 
         Parameters:
             name (str | None): Optional human-readable label.
@@ -759,8 +744,7 @@ class WorkspaceManager:
         return ws.workspace_id
 
     def get_workspace(self, workspace_id: str) -> Optional[AnalysisWorkspace]:
-        """
-        Retrieve a workspace by ID.
+        """Retrieve a workspace by ID.
 
         Parameters:
             workspace_id (str): UUID of the workspace.
@@ -773,8 +757,7 @@ class WorkspaceManager:
             return self._workspaces.get(workspace_id)
 
     def delete_workspace(self, workspace_id: str) -> bool:
-        """
-        Delete a workspace and all its contents.
+        """Delete a workspace and all its contents.
 
         Parameters:
             workspace_id (str): UUID of the workspace to delete.
@@ -789,8 +772,7 @@ class WorkspaceManager:
             return False
 
     def list_workspaces(self) -> List[dict]:
-        """
-        List all registered workspaces with summary information.
+        """List all registered workspaces with summary information.
 
         Returns:
             workspaces (list[dict]): Each entry contains workspace_id, name,
@@ -813,8 +795,7 @@ class WorkspaceManager:
             return result
 
     def save_workspace(self, workspace_id: str, path: str) -> None:
-        """
-        Save a workspace to disk.
+        """Save a workspace to disk.
 
         Parameters:
             workspace_id (str): UUID of the workspace to save.
@@ -828,9 +809,9 @@ class WorkspaceManager:
         ws.save(path)
 
     def load_workspace(self, path: str) -> str:
-        """
-        Load a workspace from disk and register it in the manager,
-        reconstructing all stored objects to their original IAT data class
+        """Load a workspace from disk and register it in the manager.
+
+        Reconstructs all stored objects to their original IAT data class
         types.
 
         Parameters:
@@ -852,10 +833,10 @@ class WorkspaceManager:
     def load_workspace_item(
         self, path: str, namespace: str, key: str, workspace_id: str
     ) -> None:
-        """
-        Load a single item from a saved workspace file and store it in an
-        already-registered in-memory workspace, reconstructing the original
-        IAT data class.
+        """Load a single item from a saved workspace file into a registered workspace.
+
+        Reconstructs the original IAT data class and stores it in the
+        specified in-memory workspace.
 
         Parameters:
             path (str): Base path without file extension.
@@ -880,8 +861,7 @@ _workspace_manager_lock = threading.Lock()
 
 
 def get_workspace_manager() -> WorkspaceManager:
-    """
-    Return the global WorkspaceManager singleton.
+    """Return the global WorkspaceManager singleton.
 
     Returns:
         manager (WorkspaceManager): The global instance, created on first call.

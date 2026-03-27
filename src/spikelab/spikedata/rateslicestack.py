@@ -19,55 +19,47 @@ from .utils import (
 
 
 class RateSliceStack:
-    """
-    Description:
-    -----------
-    A data structure where the underlying data is a 3D matrix of shape (U,T,S) and allows the user to compute correlation
-    matrices/cosine similarity matrices.
-        - U: Units (refers to neuron/neuron clusters)
-        - T: Time bins
-        - S: Slices (can be bursts, events, etc)
-    If the user inputs an event_matrix, then no other parameters are needed. Otherwise, all parameters are required.
-    The instance variables are the same despite the input option and all methods will work the same.
+    """A 3D firing rate matrix of shape (U, T, S) with correlation and similarity capabilities.
+
+    U is units (neurons), T is time bins, and S is slices (bursts, events, etc).
+    Construct from either a data_obj (SpikeData or RateData) with time
+    specifications, or directly from a pre-built event_matrix. The instance
+    variables are the same regardless of input option.
 
     Parameters:
-    -----------
-    You can either input data_obj or event_matrix as your underlying data.
-    Option #1: data_obj
-        data_obj (SpikeData or RateData): A data object in either one of these forms.
-        There are 2 choices for time input:
-            Choice A)
-                times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
-                                        represents the start and end times of a desired slice.
-                                        Each tuple must have same duration.
-            Choice B) (both of the following must be input for this option)
-                time_peaks (list): List of times as int or float where there is a burst peak or stimulation event.
-                                This variable must be pairedwith time bounds
-                time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250,500), then this means
-                                    250 ms before peak and 500 ms after peak.
-        sigma_ms (float): Smoothing factor for computing isi if you input a SpikeData object. Otherwise, not used
-        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
+        data_obj (SpikeData or RateData): A data object to slice. Provide
+            either this or event_matrix, not both.
+        times_start_to_end (list or None): Each entry is a tuple (start, end)
+            representing the start and end times of a desired slice. Each
+            tuple must have the same duration.
+        time_peaks (list or None): List of times as int or float where there
+            is a burst peak or stimulation event. Must be paired with
+            time_bounds. Alternative to times_start_to_end.
+        time_bounds (tuple or None): Single tuple (left_bound, right_bound).
+            For example, (250, 500) means 250 ms before peak and 500 ms
+            after peak. Must be paired with time_peaks.
+        sigma_ms (float): Smoothing factor for computing ISI if you input a
+            SpikeData object. Otherwise not used.
+        event_matrix (np.ndarray or None): A 3D array of shape (U, T, S).
+            Provide either this or data_obj, not both.
+        step_size (float or None): Time resolution in milliseconds between
+            consecutive time bins. If None, defaults to 1.0.
+        neuron_attributes (list or None): List of attribute objects, one per
+            unit, containing arbitrary metadata about each neuron.
 
-    Option #2: event_matrix
-        event_matrix (3D array): A 3D array of shape (U, T, S). If the user inputs this, then no other inputs are needed.
-        times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and represents the start and
-                                   end times of a desired slice. Each tuple must have same duration. Length must equal S.
-                                   If none, will be automatically computed with step_size 1.0
-        step_size (float): Time resolution in milliseconds between consecutive time bins. If None, becomes 1.0.
-        neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
-
-    Instance Variables:
-    --------
-    self.event_stack (array): 3D array of shape (U, T, S) where
-        - U: Nuber of units (refers to neuron/neuron clusters)
-        - T: Number of time bins
-        - S: Number of slices (can be bursts, events, etc)
-    self.times (list of tuples): List of (start, end) time bounds for each slice, sorted chronologically. Length equals S (number of slices).
-                            Example: [(100, 200), (500, 600), (1000, 1100)]
-    self.step_size (float): Time resolution in milliseconds between consecutive time bins. Inferred from input data. For SpikeData input, defaults to 1.0ms.
-                            Example: 1.0 means time bins are at [100, 101, 102, ...] ms
-    self.neuron_attributes (list or None): List of attribute objects, one per unit, containing arbitrary metadata about each neuron. None if not provided.
-
+    Attributes:
+        event_stack (np.ndarray): 3D array of shape (U, T, S) where U is the
+            number of units, T is the number of time bins, and S is the
+            number of slices.
+        times (list): List of (start, end) time bounds for each slice, sorted
+            chronologically. Length equals S. Example:
+            [(100, 200), (500, 600), (1000, 1100)].
+        step_size (float): Time resolution in milliseconds between consecutive
+            time bins. Inferred from input data. For SpikeData input, defaults
+            to 1.0 ms. Example: 1.0 means time bins are at [100, 101, 102, ...]
+            ms.
+        neuron_attributes (list or None): List of attribute objects, one per
+            unit, containing arbitrary metadata about each neuron.
     """
 
     def __init__(
@@ -221,56 +213,53 @@ class RateSliceStack:
         frac_active=None,
         timing_matrix=None,
     ):
-        """
-        Reorders the units across slices from earliest to latest peak firing rate in underlying 3D self.event_stack matrix
-        that is UxTxS (units x time_bin x slice)
+        """Reorder units from earliest to latest peak firing rate across slices.
 
         Parameters:
-        agg_func (string): This should be either "median" or "mean". This is for calculating the median/mean time when that
-                           unit has peak firing rate.
-        MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a slice to be included in the ordering calculation.
-                                    Slices where a unit's max rate < threshold are excluded from that unit's typical
-                                    peak time calculation. Ignored when timing_matrix is provided.
-        MIN_FRAC_ACTIVE (float): Minimum fraction of slices across a unit that must be active (above MIN_RATE_THRESHOLD) in order to be
-                                 placed in the first group(backbone units). Default 0.0 means all units are in the first group, so the second
-                                 array in each of the tuple outputs will be empty.
-        frac_active (np.ndarray or None): Optional pre-computed fraction-active
-                                          array of shape (U,) to use for the group
-                                          split instead of the rate-based calculation.
-                                          Compatible sources: SpikeSliceStack.compute_frac_active and
-                                          SpikeData.get_frac_active (frac_per_unit output).
-        timing_matrix (np.ndarray or None): Optional pre-computed (U, S) timing matrix
-                                            from get_unit_timing_per_slice. When provided,
-                                            MIN_RATE_THRESHOLD is ignored and this matrix is
-                                            used directly.
+            agg_func (str): Either ``"median"`` or ``"mean"``. Used for
+                calculating the median/mean time when each unit has peak
+                firing rate.
+            MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a slice
+                to be included in the ordering calculation. Slices where a
+                unit's max rate is below this threshold are excluded from
+                that unit's typical peak time calculation. Ignored when
+                timing_matrix is provided.
+            MIN_FRAC_ACTIVE (float): Minimum fraction of slices a unit must
+                be active in to be placed in the highly-active group.
+                Default 0.0 means all units are in the first group, so the
+                second array in each output tuple will be empty.
+            frac_active (np.ndarray or None): Optional pre-computed
+                fraction-active array of shape (U,) to use for the group
+                split instead of the rate-based calculation. Compatible
+                sources: SpikeSliceStack.compute_frac_active and
+                SpikeData.get_frac_active (frac_per_unit output).
+            timing_matrix (np.ndarray or None): Optional pre-computed (U, S)
+                timing matrix from get_unit_timing_per_slice. When provided,
+                MIN_RATE_THRESHOLD is ignored and this matrix is used
+                directly.
 
         Returns:
-        --------
-        reordered_slice_matrices (tuple of arrays): This is a tuple of 3D self.event_stack but the 0th dimension U is reordered temporally, and the first array
-                                                    represents the highly active group of units and the second array is the lower activity group of units.
-                                                    Now, the first unit/neuron is the one that usually fires off first across slices.
-
-        unit_ids_in_order(tuple of arrays): Two arrays in a tuple where the first array is highly active group of unit ids in temporal order, and the second array
-                                            is the lower activity group of unit ids in temporal order. The length of both combined is U.
-                                            For example, [3, 1, 0, 2] means unit/neuron 3 fires first, then unit/neuron 1, then unit/neuron 0, then unit/neuron 2.
-                                            So unit/neuron 3 is now the first unit/neuron in reordered_burst_matrices. Use this to map back to original unit/neuron IDs.
-
-        unit_std_indices (tuple of arrays): Two arrays in a tuple where the first array is the standard deviation of peak firing
-                                            rate times for the highly active group, and the second array is for the lower activity
-                                            group. Lower standard deviation means the unit fires at a consistent time across slices.
-
-        unit_peak_times (tuple of arrays): Two arrays in a tuple where the first array is the median/mean peak firing time bin
-                                           for the highly active group, and the second array is for the lower activity group.
-
-        unit_frac_active (tuple of arrays): Two arrays in a tuple where the first array is the fraction of slices each unit in
-                                            the highly active group was active in (above MIN_RATE_THRESHOLD or from frac_active override), and the second array
-                                            is for the lower activity group.
+            reordered_slice_matrices (tuple of arrays): Tuple of two 3D
+                arrays from event_stack with the U dimension reordered
+                temporally. The first array is the highly-active group and
+                the second is the lower-activity group.
+            unit_ids_in_order (tuple of arrays): Two arrays of original unit
+                IDs in temporal order (highly-active, low-activity). For
+                example, [3, 1, 0, 2] means unit 3 fires first. Use this
+                to map back to original unit IDs.
+            unit_std_indices (tuple of arrays): Two arrays of standard
+                deviation of peak firing rate times (highly-active,
+                low-activity). Lower values indicate more consistent timing
+                across slices.
+            unit_peak_times (tuple of arrays): Two arrays of median/mean peak
+                firing time bin (highly-active, low-activity).
+            unit_frac_active (tuple of arrays): Two arrays of the fraction of
+                slices each unit was active in (highly-active, low-activity).
 
         Notes:
-        ------
-        - Call get_unit_timing_per_slice first to pre-compute the timing matrix if you want
-          to reuse it across multiple calls (e.g. rank_order_correlation and this method).
-
+            - Call get_unit_timing_per_slice first to pre-compute the timing
+              matrix if you want to reuse it across multiple calls (e.g.
+              rank_order_correlation and this method).
         """
         # burst_matrices is U x T x S
         slice_matrices = self.event_stack
@@ -374,34 +363,37 @@ class RateSliceStack:
         frac_active=None,
         n_jobs=-1,
     ):
-        """
-        Compute slice-to-slice (aka burst-to-burst) similarity along the 0th axis of self.event_stack (U x T x S)
-        to give output PairwiseCompMatrixStack of size (S x S x U)
+        """Compute slice-to-slice similarity along the unit axis of event_stack (U, T, S).
+
+        Output is a PairwiseCompMatrixStack of shape (S, S, U).
 
         Parameters:
-        -----------
-        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cross correlation. These functions can be inspected further in utils.py
-        MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a slice valid for that neuron
-        MIN_FRAC (float): Maximum fraction of slice that can be skipped before a unit is deemed invalid (default 0.3 = 30%)
-        max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
-        frac_active (np.ndarray or None): Optional pre-computed fraction-active
-                                          array of shape (U,) to override the internal
-                                          rate-based validity check for computing averages.
-                                          When provided, a unit's average is set to NaN if
-                                          frac_active[u] < (1 - MIN_FRAC). MIN_RATE_THRESHOLD
-                                          still controls which individual slice pairs are computed.
-                                          Compatible sources: SpikeSliceStack.compute_frac_active
-                                          and SpikeData.get_frac_active (frac_per_unit output).
-        n_jobs (int): Number of threads for parallel computation. -1 uses all
-            cores (default), 1 disables parallelism, None is serial.
+            compare_func (callable): Comparison function from utils. Specify
+                cross-correlation or cosine similarity. The default is cross
+                correlation. See utils.py for details.
+            MIN_RATE_THRESHOLD (float): Minimum mean firing rate to consider a
+                slice valid for that neuron.
+            MIN_FRAC (float): Maximum fraction of slices that can be skipped
+                before a unit is deemed invalid (default 0.3 = 30%).
+            max_lag (int): Maximum lag in frames to search for similarity. If
+                None, lag is set to 0.
+            frac_active (np.ndarray or None): Optional pre-computed
+                fraction-active array of shape (U,) to override the internal
+                rate-based validity check for computing averages. When
+                provided, a unit's average is set to NaN if
+                frac_active[u] < (1 - MIN_FRAC). MIN_RATE_THRESHOLD still
+                controls which individual slice pairs are computed.
+                Compatible sources: SpikeSliceStack.compute_frac_active and
+                SpikeData.get_frac_active (frac_per_unit output).
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
-        --------
-        all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise correlation scores between all slice pairs for each unit.
-            Shape is (S, S, U) in the stack attribute.
-        av_slice_corr_scores (array): Average correlation per neuron across all valid slice pairs shape (U,)
-
+            all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise
+                correlation scores between all slice pairs for each unit.
+                Shape is (S, S, U) in the stack attribute.
+            av_slice_corr_scores (np.ndarray): Average correlation per neuron
+                across all valid slice pairs. Shape is (U,).
         """
         # Get dimensions
         event_stack = self.event_stack
@@ -485,24 +477,25 @@ class RateSliceStack:
     def get_slice_to_slice_time_corr_from_stack(
         self, compare_func=compute_cosine_similarity_with_lag, max_lag=0, n_jobs=-1
     ):
-        """
-        Compute slice-to-slice similarity along the 1st axis of RateSliceStack self.event_stack (U x T x S)
-        This is done along the time axis, making the output PairwiseCompMatrixStack of size (S x S x T).
+        """Compute slice-to-slice similarity along the time axis of event_stack (U, T, S).
+
+        Output is a PairwiseCompMatrixStack of shape (S, S, T).
 
         Parameters:
-        -----------
-        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                        The default is cosine similarity. These functions can be inspected further in utils.py
-        max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
-        n_jobs (int): Number of threads for parallel computation. -1 uses all
-            cores (default), 1 disables parallelism, None is serial.
+            compare_func (callable): Comparison function from utils. Specify
+                cross-correlation or cosine similarity. The default is cosine
+                similarity. See utils.py for details.
+            max_lag (int): Maximum lag in frames to search for similarity. If
+                None, lag is set to 0.
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
-        --------
-        all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise correlation scores between all slice pairs for each time_bin.
-            Shape is (S, S, T) in the stack attribute.
-        av_slice_corr_scores (array): Average correlation per time_bin across all valid slice pairs shape (T,)
-
+            all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise
+                correlation scores between all slice pairs for each time bin.
+                Shape is (S, S, T) in the stack attribute.
+            av_slice_corr_scores (np.ndarray): Average correlation per time
+                bin across all valid slice pairs. Shape is (T,).
         """
         # Get dimensions
         event_stack = self.event_stack
@@ -563,16 +556,10 @@ class RateSliceStack:
         )
 
     def convert_to_list_of_RateData(self):
-        """
-        Creates a stack of RateData objects from the 3D self.event_stack
-
-        Parameters:
-        -----------
-        No inputs, it just uses the underlying self.event_stack
+        """Create a list of RateData objects from the 3D event_stack.
 
         Returns:
-        --------
-        output (list): List of RateData objects. Length of list = S
+            output (list): List of RateData objects. Length equals S.
         """
         output = []
         # U x T x S
@@ -591,25 +578,30 @@ class RateSliceStack:
     def unit_to_unit_correlation(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10, n_jobs=-1
     ):
-        """
-        Compute unit-to-unit similarity along the last axis of RateSliceStack self.event_stack (U x T x S)
-        This is done along the slice axis, making the output PairwiseCompMatrixStack of size (U x U x S).
+        """Compute unit-to-unit similarity along the slice axis of event_stack (U, T, S).
+
+        Output is a PairwiseCompMatrixStack of shape (U, U, S).
 
         Parameters:
-        -----------
-        compare_func (method in utils): Specify if you want to compare signals with correaltion or cosine similarity functions.
-                                          The default is cosine similarity. These functions can be inspected further in utils.py
-        max_lag (int): Maximum lag in frames to search for similarity. If None, lag is set to 0.
+            compare_func (callable): Comparison function from utils. Specify
+                cross-correlation or cosine similarity. The default is cross
+                correlation. See utils.py for details.
+            max_lag (int): Maximum lag in frames to search for similarity. If
+                None, lag is set to 0.
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
-        --------
-        max_corr_array (PairwiseCompMatrixStack): Pairwise correlation scores between all unit pairs for each slice.
-            Shape is (U, U, S) in the stack attribute.
-        max_corr_lag_array (PairwiseCompMatrixStack): Lag where correlation between pair is at max.
-            Shape is (U, U, S) in the stack attribute.
-        av_max_corr (array): Average correlation per slice across all valid unit pairs. Shape is (S,)
-        av_max_corr_lag (array): Average lag where correlation between pair is at max. Shape is (S,)
-
+            max_corr_array (PairwiseCompMatrixStack): Pairwise correlation
+                scores between all unit pairs for each slice. Shape is
+                (U, U, S) in the stack attribute.
+            max_corr_lag_array (PairwiseCompMatrixStack): Lag where
+                correlation between each pair is at its maximum. Shape is
+                (U, U, S) in the stack attribute.
+            av_max_corr (np.ndarray): Average correlation per slice across
+                all valid unit pairs. Shape is (S,).
+            av_max_corr_lag (np.ndarray): Average lag where correlation
+                between each pair is at its maximum. Shape is (S,).
         """
         num_units = self.event_stack.shape[0]
         num_slices = self.event_stack.shape[2]
@@ -668,17 +660,20 @@ class RateSliceStack:
         )
 
     def subset(self, units, by=None):
-        """
-        Extract a subset of units/neurons from the rateslicestack. Index-based if by = None.
+        """Extract a subset of units/neurons from the rate slice stack.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
-                               If by != None, then the list can contain ints or strings.
-        by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
-                     If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
+            units (list or array): Unit indices to extract. If by is None,
+                this should always be a list of ints. If by is not None,
+                the list can contain ints or strings.
+            by (str or None): Neuron attribute key to match against. Only
+                use this if you initialized the object with
+                neuron_attributes. Set to the key that contains neuron_id
+                values. None selects by index (default).
 
         Returns:
-        RateSliceStack: New RateSliceStack object containing only the specified units
+            result (RateSliceStack): New RateSliceStack object containing
+                only the specified units.
         """
         N = self.event_stack.shape[0]
         if isinstance(units, int):
@@ -717,24 +712,27 @@ class RateSliceStack:
         )
 
     def subtime_by_index(self, start_idx, end_idx):
-        """
-        Extract a subset of time bins from every slice in the event stack using index values.
-        Trims along the time axis (T dimension) while preserving all slices (S dimension).
+        """Extract a subset of time bins from every slice using index values.
+
+        Trims along the time axis (T dimension) while preserving all slices
+        (S dimension).
 
         Parameters:
-        -----------
-        - start_idx (int): Starting time bin index (inclusive). Supports negative indexing.
-        - end_idx (int): Ending time bin index (exclusive). Supports negative indexing.
+            start_idx (int): Starting time bin index (inclusive). Supports
+                negative indexing.
+            end_idx (int): Ending time bin index (exclusive). Supports
+                negative indexing.
 
         Returns:
-        --------
-        - RateSliceStack: New RateSliceStack object where each slice contains only the
-                          specified time bins. Shape changes from (U, T, S) to (U, T_trimmed, S).
+            result (RateSliceStack): New RateSliceStack where each slice
+                contains only the specified time bins. Shape changes from
+                (U, T, S) to (U, T_trimmed, S).
 
         Notes:
-        - Original timestamps are preserved (not shifted to zero). If user wants shifted to zero timestamps, they should
-          simply make a new RateSliceStack.
-        - All slices, neuron_attributes, and step_size are carried over from the original.
+            - Original timestamps are preserved (not shifted to zero). To get
+              shifted-to-zero timestamps, create a new RateSliceStack.
+            - All slices, neuron_attributes, and step_size are carried over
+              from the original.
         """
         T = self.event_stack.shape[1]
         if start_idx < 0:
@@ -762,21 +760,23 @@ class RateSliceStack:
         )
 
     def subslice(self, slices):
-        """
-        Extract a subset of slices from the event stack using index values.
-        Trims along the slice axis (S dimension) while preserving all time bins (T dimension).
+        """Extract a subset of slices from the event stack using index values.
+
+        Trims along the slice axis (S dimension) while preserving all time
+        bins (T dimension).
 
         Parameters:
-        -----------
-        - slices (list or array): Slice indices to extract.
+            slices (int or list): Slice index or list of slice indices to
+                extract.
 
         Returns:
-        --------
-        - RateSliceStack: New RateSliceStack object containing only the specified slices.
-                          Shape changes from (U, T, S) to (U, T, S_trimmed).
+            result (RateSliceStack): New RateSliceStack containing only the
+                specified slices. Shape changes from (U, T, S) to
+                (U, T, S_trimmed).
 
         Notes:
-        - All units, neuron_attributes, and step_size are carried over from the original.
+            - All units, neuron_attributes, and step_size are carried over
+              from the original.
         """
         length = self.event_stack.shape[2]
         if isinstance(slices, int):
@@ -799,12 +799,11 @@ class RateSliceStack:
         )
 
     def get_unit_timing_per_slice(self, MIN_RATE_THRESHOLD=0.1):
-        """
-        Compute the peak firing rate time bin for each unit in each slice.
+        """Compute the peak firing rate time bin for each unit in each slice.
 
         Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the time bin
-        index of the peak firing rate for unit *u* in slice *s*. Units whose
-        peak rate falls below *MIN_RATE_THRESHOLD* in a slice are marked NaN.
+        index of the peak firing rate for unit u in slice s. Units whose
+        peak rate falls below MIN_RATE_THRESHOLD in a slice are marked NaN.
 
         Parameters:
             MIN_RATE_THRESHOLD (float): Minimum peak firing rate for a unit
@@ -812,7 +811,7 @@ class RateSliceStack:
 
         Returns:
             timing_matrix (np.ndarray): Array of shape ``(U, S)`` with peak
-                time **bin indices** (integers cast to float for NaN support).
+                time bin indices (integers cast to float for NaN support).
                 These can be used to index directly into the ``(U, T, S)``
                 event stack. NaN where the unit is inactive.
 
@@ -840,14 +839,13 @@ class RateSliceStack:
         seed=1,
         n_jobs=-1,
     ):
-        """
-        Compute Spearman rank-order correlation of unit timing between all slice pairs.
+        """Compute Spearman rank-order correlation of unit timing between all slice pairs.
 
         For each pair of slices, only units active in both slices (non-NaN in
         both columns of the timing matrix) are included. If the overlap falls
         below the required minimum, the pair is set to NaN.
 
-        When ``n_shuffles > 0``, the rank orders are shuffled *n_shuffles*
+        When ``n_shuffles > 0``, the rank orders are shuffled n_shuffles
         times for each pair to build a null distribution, and the raw
         correlation is z-score normalised against it.
 
@@ -855,10 +853,9 @@ class RateSliceStack:
             timing_matrix (np.ndarray or None): Array of shape ``(U, S)`` with
                 timing values per unit per slice. NaN entries mark inactive
                 units. Typically produced by ``get_unit_timing_per_slice``.
-                When ``None``, computed automatically using
-                ``MIN_RATE_THRESHOLD``.
+                When None, computed automatically using MIN_RATE_THRESHOLD.
             MIN_RATE_THRESHOLD (float): Minimum peak firing rate threshold
-                (default: 0.1). Only used when ``timing_matrix`` is None.
+                (default: 0.1). Only used when timing_matrix is None.
             min_overlap (int): Minimum number of units that must be active in
                 both slices (default: 3).
             min_overlap_frac (float or None): Minimum fraction of total units
@@ -871,6 +868,8 @@ class RateSliceStack:
                 a meaningful null distribution).
             seed (int or None): Random seed for reproducibility of the shuffle
                 (default: 1).
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
             corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of

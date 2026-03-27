@@ -18,77 +18,51 @@ from .utils import (
 
 
 class SpikeSliceStack:
-    """
-    Description:
-    -----------
-    A data structure where the underlying data is a list of SpikeData objects, one per slice.
-    User inputs a single SpikeData object and specifies the slice times to split it, or
-    directly provides a pre-built list of SpikeData objects.
+    """A list of SpikeData objects, one per slice, with spike-based comparison capabilities.
 
-        - U: Units (refers to neuron/neuron clusters)
-        - S: Slices (can be bursts, events, etc)
+    U is units (neurons) and S is slices (bursts, events, etc). Construct from
+    either a single SpikeData with time specifications, or directly from a
+    pre-built list of SpikeData objects.
 
     Parameters:
-    -----------
-    Option #1: data_obj
-        data_obj (SpikeData): A SpikeData object to slice.
-        There are 2 choices for time input:
-            Choice A)
-                times_start_to_end (list): Each entry must be a tuple. Each tuple is (start, end) and
-                                           represents the start and end times of a desired slice.
-                                           Each tuple must have same duration.
-            Choice B) (both of the following must be input for this option)
-                time_peaks (list): List of times as int or float where there is a burst peak or
-                                   stimulation event.
-                time_bounds (tuple): Single tuple (left_bound, right_bound). If you put (250, 500),
-                                     then this means 250 ms before peak and 500 ms after peak.
-        neuron_attributes (list or None): List of attribute dicts, one per unit. If None,
-                                          inherited from data_obj.
+        data_obj (SpikeData or None): A SpikeData object to slice. Provide
+            either this or spike_stack, not both.
+        times_start_to_end (list or None): Each entry is a tuple (start, end)
+            representing the start and end times of a desired slice. Each
+            tuple must have the same duration.
+        time_peaks (list or None): List of times as int or float where there
+            is a burst peak or stimulation event. Must be paired with
+            time_bounds. Alternative to times_start_to_end.
+        time_bounds (tuple or None): Single tuple (left_bound, right_bound).
+            For example, (250, 500) means 250 ms before peak and 500 ms
+            after peak. Must be paired with time_peaks.
+        spike_stack (list or None): List of SpikeData objects, one per slice.
+            All must have the same number of units. Spike times must be
+            relative to the slice (0-based or event-centered via
+            start_time), not absolute recording times. Provide either this
+            or data_obj, not both.
+        neuron_attributes (list or None): List of attribute dicts, one per
+            unit. If None, inherited from data_obj when available.
+        drop_slice_attributes (bool): If True (default), neuron_attributes
+            are removed from individual SpikeData slices after construction.
+            The shared copy is stored at neuron_attributes. This avoids
+            duplicating large per-unit data (e.g. waveform templates) across
+            every slice. Set to False to keep per-slice attributes.
 
-    Option #2: spike_stack
-        spike_stack (list): List of SpikeData objects, one per slice. All must have the same
-                            number of units. Spike times must be **relative to the slice**
-                            (0-based or event-centered via ``start_time``), not absolute
-                            recording times. Each SpikeData's ``start_time`` defines the
-                            time origin. If spike times are absolute, subtract the slice
-                            start time from each train before constructing.
-        times_start_to_end (list): Each entry must be a tuple (start, end) in absolute
-                                   recording time. Length must equal len(spike_stack).
-                                   If None, generated automatically from slice lengths
-                                   concatenated end-to-end.
-        neuron_attributes (list or None): List of attribute dicts, one per unit.
-
-    Shared parameter:
-        drop_slice_attributes (bool): If True (default), neuron_attributes are removed
-            from individual SpikeData slices after construction. The shared copy is
-            stored at ``self.neuron_attributes``. This avoids duplicating large
-            per-unit data (e.g. waveform templates) across every slice, which can
-            cause massive memory and disk usage. Set to False to keep per-slice
-            attributes, but beware that this can result in very large file sizes
-            when saving to HDF5 (attributes are serialized once per slice).
-
-    Instance Variables:
-    --------
-    self.spike_stack (list): List of SpikeData objects, one per slice. Spike times
-                             are relative to the slice window. For 0-based slices
-                             (constructed via times_start_to_end), times run from
-                             0 to duration. For event-centered slices (constructed
-                             via time_peaks + time_bounds), times run from -pre_ms
-                             to +post_ms with t=0 at the event.
-                             Use self.times for absolute recording time positions.
-                             Example (0-based):
-                                spike_stack[0].train[neuron_0] = [10, 150, 400]
-                             Example (event-centered):
-                                spike_stack[0].train[neuron_0] = [-90, -10, 50, 180]
-    self.times (list of tuples): List of (start, end) time bounds for each slice in absolute
-                                 recording time, sorted chronologically. Length equals S.
-                                 Example: [(100, 350), (500, 750), (1000, 1250)]
-    self.N (int): Number of units.
-    self.neuron_attributes (list or None): List of attribute dicts, one per unit. None if not
-                                           provided. When ``drop_slice_attributes=True``
-                                           (default), this is the only copy — individual
-                                           slices in ``spike_stack`` will have
-                                           ``neuron_attributes = None``.
+    Attributes:
+        spike_stack (list): List of SpikeData objects, one per slice. Spike
+            times are relative to the slice window. For 0-based slices,
+            times run from 0 to duration. For event-centered slices, times
+            run from -pre_ms to +post_ms with t=0 at the event. Use
+            self.times for absolute recording time positions.
+        times (list): List of (start, end) time bounds for each slice in
+            absolute recording time, sorted chronologically. Length equals S.
+            Example: [(100, 350), (500, 750), (1000, 1250)].
+        N (int): Number of units.
+        neuron_attributes (list or None): List of attribute dicts, one per
+            unit. None if not provided. When drop_slice_attributes is True
+            (default), this is the only copy and individual slices will have
+            neuron_attributes set to None.
     """
 
     def __init__(
@@ -230,18 +204,16 @@ class SpikeSliceStack:
                 sd.neuron_attributes = None
 
     def subslice(self, slices):
-        """
-        Extract a subset of slices from the spike stack.
+        """Extract a subset of slices from the spike stack.
 
         Parameters:
-        -----------
-        slices (int or list): Slice index or list of slice indices to extract.
+            slices (int or list): Slice index or list of slice indices to
+                extract.
 
         Returns:
-        --------
-        SpikeSliceStack: New SpikeSliceStack containing only the specified slices.
-                         Shape changes from S to S_trimmed. All units and
-                         neuron_attributes are carried over.
+            result (SpikeSliceStack): New SpikeSliceStack containing only the
+                specified slices. Shape changes from S to S_trimmed. All
+                units and neuron_attributes are carried over.
         """
         S = len(self.spike_stack)
         if isinstance(slices, int):
@@ -262,25 +234,25 @@ class SpikeSliceStack:
         )
 
     def subset(self, units, by=None):
-        """
-        Extract a subset of units from every slice in the spike stack.
+        """Extract a subset of units from every slice in the spike stack.
 
         Parameters:
-        -----------
-        units (int, str, or list): Unit indices to extract. If by=None, must be int(s).
-                                   If by is set, values to match in neuron_attributes.
-        by (str or None): If set, select units by this neuron_attribute key instead of
-                          by index.
+            units (int, str, or list): Unit indices to extract. If by is None,
+                must be int(s). If by is set, values to match in
+                neuron_attributes.
+            by (str or None): If set, select units by this neuron_attribute
+                key instead of by index.
 
         Returns:
-        --------
-        SpikeSliceStack: New SpikeSliceStack containing only the specified units across
-                         all slices. All slices and neuron_attributes are carried over.
+            result (SpikeSliceStack): New SpikeSliceStack containing only the
+                specified units across all slices. All slices and
+                neuron_attributes are carried over.
 
         Notes:
-        - Units are included in the output in the order they appear in the train
-          (ascending index order), not the order listed in units.
-        - If IDs are not unique (when using by), every matching neuron is included.
+            - Units are included in the output in the order they appear in the
+              train (ascending index order), not the order listed in units.
+            - If IDs are not unique (when using by), every matching neuron is
+              included.
         """
         if isinstance(units, (int, str)):
             units = [units]
@@ -318,28 +290,31 @@ class SpikeSliceStack:
         )
 
     def subtime_by_index(self, start_idx, end_idx):
-        """
-        Trim each slice to a sub-window specified by millisecond indices (1 index = 1 ms),
-        measured from the start of each slice. Trims along the time axis while preserving
-        all slices and units.
+        """Trim each slice to a sub-window specified by millisecond indices.
+
+        Indices are measured from the start of each slice (1 index = 1 ms).
+        Trims along the time axis while preserving all slices and units.
 
         Parameters:
-        -----------
-        start_idx (int): Start index in ms from slice start (inclusive). Supports negative indexing.
-        end_idx (int): End index in ms from slice start (exclusive). Supports negative indexing.
+            start_idx (int): Start index in ms from slice start (inclusive).
+                Supports negative indexing.
+            end_idx (int): End index in ms from slice start (exclusive).
+                Supports negative indexing.
 
         Returns:
-        --------
-        SpikeSliceStack: New SpikeSliceStack where each slice is trimmed to the corresponding
-                         absolute time window. Absolute spike times are preserved (not shifted).
-                         self.times is updated to reflect the new absolute time bounds.
+            result (SpikeSliceStack): New SpikeSliceStack where each slice is
+                trimmed to the corresponding absolute time window. Absolute
+                spike times are preserved (not shifted). self.times is updated
+                to reflect the new absolute time bounds.
 
         Notes:
-        - Indices are relative to each slice's own start (index 0 = slice start ms).
-          They are converted to absolute recording times internally before trimming.
-        - Original absolute timestamps are preserved. If you want shifted-to-zero timestamps,
-          simply make a new SpikeSliceStack.
-        - All slices, neuron_attributes are carried over from the original.
+            - Indices are relative to each slice's own start (index 0 = slice
+              start ms). They are converted to absolute recording times
+              internally before trimming.
+            - Original absolute timestamps are preserved. To get
+              shifted-to-zero timestamps, create a new SpikeSliceStack.
+            - All slices and neuron_attributes are carried over from the
+              original.
         """
         slice_duration_ms = self.times[0][1] - self.times[0][0]
         T = int(round(slice_duration_ms))
@@ -372,28 +347,26 @@ class SpikeSliceStack:
         )
 
     def to_raster_array(self, bin_size=1.0, absolute_times=False):
-        """
-        Convert the spike stack into a 3D raster array of shape (N, T, S).
+        """Convert the spike stack into a 3D raster array of shape (N, T, S).
 
-        Each slice is rasterized with the given bin size, producing a spike count matrix
-        where entry (n, t, s) is the number of spikes unit n fired in time bin t of slice s.
+        Each slice is rasterized with the given bin size, producing a spike
+        count matrix where entry (n, t, s) is the number of spikes unit n
+        fired in time bin t of slice s.
 
         Parameters:
-        -----------
-        bin_size (float): Time bin size in ms (default 1.0).
-        absolute_times (bool): If False (default), time bin 0 corresponds to the
-            start of each slice (0-based). If True, each slice's spikes are offset
-            by its absolute start time from ``self.times``, so bin indices reflect
-            the original recording position. The T dimension is sized to cover
-            the full time span from the earliest slice start to the latest slice
-            end across all slices.
+            bin_size (float): Time bin size in ms (default 1.0).
+            absolute_times (bool): If False (default), time bin 0 corresponds
+                to the start of each slice (0-based). If True, each slice's
+                spikes are offset by its absolute start time from self.times,
+                so bin indices reflect the original recording position. The T
+                dimension is sized to cover the full time span from the
+                earliest slice start to the latest slice end.
 
         Returns:
-        --------
-        raster_stack (np.ndarray): 3D array of shape (N, T, S) with non-negative integer
-                                   spike counts. When ``absolute_times=True``, T covers
-                                   the full recording span and all slices share the same
-                                   time axis.
+            raster_stack (np.ndarray): 3D array of shape (N, T, S) with
+                non-negative integer spike counts. When absolute_times is
+                True, T covers the full recording span and all slices share
+                the same time axis.
         """
         if not absolute_times:
             dense_list = []
@@ -419,10 +392,9 @@ class SpikeSliceStack:
         return raster_stack
 
     def compute_frac_active(self, min_spikes=2):
-        """
-        Compute the fraction of slices each unit is active in.
+        """Compute the fraction of slices each unit is active in.
 
-        A unit counts as active in a slice if it has at least *min_spikes*
+        A unit counts as active in a slice if it has at least min_spikes
         spikes within that slice's time window.
 
         Parameters:
@@ -468,8 +440,7 @@ class SpikeSliceStack:
         frac_active=None,
         timing_matrix=None,
     ):
-        """
-        Reorder units by their typical spike timing across slices.
+        """Reorder units by their typical spike timing across slices.
 
         For each unit in each slice, computes a representative spike time
         (median, mean, or first spike) relative to the slice's time origin. These
@@ -602,8 +573,7 @@ class SpikeSliceStack:
         )
 
     def apply(self, func, *args, **kwargs):
-        """
-        Apply a function to each SpikeData in the stack and return stacked results.
+        """Apply a function to each SpikeData in the stack and return stacked results.
 
         Calls ``func(sd, *args, **kwargs)`` on every slice and stacks the
         outputs into a single numpy array with a new leading axis of size S
@@ -613,8 +583,8 @@ class SpikeSliceStack:
             func (callable): Function that accepts a SpikeData as its first
                 argument and returns a numeric value (scalar, 1-D, or 2-D
                 array). Output shape must be consistent across all slices.
-            *args: Additional positional arguments forwarded to *func*.
-            **kwargs: Additional keyword arguments forwarded to *func*.
+            *args: Additional positional arguments forwarded to func.
+            **kwargs: Additional keyword arguments forwarded to func.
 
         Returns:
             result (np.ndarray): Stacked results with shape ``(S, ...)``.
@@ -637,8 +607,7 @@ class SpikeSliceStack:
         max_lag=350,
         n_jobs=-1,
     ):
-        """
-        Compute pairwise unit-to-unit similarity within each slice using spike-based metrics.
+        """Compute pairwise unit-to-unit similarity within each slice using spike-based metrics.
 
         For each slice, computes a (U, U) similarity matrix between all unit pairs,
         then stacks the results into a ``PairwiseCompMatrixStack (U, U, S)``.
@@ -736,8 +705,7 @@ class SpikeSliceStack:
         frac_active=None,
         n_jobs=-1,
     ):
-        """
-        Compute slice-to-slice similarity for each unit using spike-based metrics.
+        """Compute slice-to-slice similarity for each unit using spike-based metrics.
 
         For each unit independently, compares its spike train across every pair of
         slices. Asks: "Does unit X fire in the same temporal pattern across repeated
@@ -940,13 +908,12 @@ class SpikeSliceStack:
         timing="median",
         min_spikes=2,
     ):
-        """
-        Compute a representative spike time for each unit in each slice.
+        """Compute a representative spike time for each unit in each slice.
 
         Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the timing
-        value (in milliseconds relative to the slice's time origin) for unit *u*
-        in slice *s*. For event-centered slices, t=0 is the event. Units with
-        fewer than *min_spikes* spikes in a slice are marked NaN.
+        value (in milliseconds relative to the slice's time origin) for unit u
+        in slice s. For event-centered slices, t=0 is the event. Units with
+        fewer than min_spikes spikes in a slice are marked NaN.
 
         Parameters:
             timing (str): Which spike time to extract per unit per slice.
@@ -957,7 +924,7 @@ class SpikeSliceStack:
 
         Returns:
             timing_matrix (np.ndarray): Array of shape ``(U, S)`` with timing
-                values in **milliseconds** relative to each slice's time origin.
+                values in milliseconds relative to each slice's time origin.
                 NaN where the unit is inactive.
 
         Notes:
@@ -1009,14 +976,13 @@ class SpikeSliceStack:
         seed=1,
         n_jobs=-1,
     ):
-        """
-        Compute Spearman rank-order correlation of unit timing between all slice pairs.
+        """Compute Spearman rank-order correlation of unit timing between all slice pairs.
 
         For each pair of slices, only units active in both slices (non-NaN in
         both columns of the timing matrix) are included. If the overlap falls
         below the required minimum, the pair is set to NaN.
 
-        When ``n_shuffles > 0``, the rank orders are shuffled *n_shuffles*
+        When ``n_shuffles > 0``, the rank orders are shuffled n_shuffles
         times for each pair to build a null distribution, and the raw
         correlation is z-score normalised against it.
 
@@ -1024,13 +990,13 @@ class SpikeSliceStack:
             timing_matrix (np.ndarray or None): Array of shape ``(U, S)`` with
                 timing values per unit per slice. NaN entries mark inactive
                 units. Typically produced by ``get_unit_timing_per_slice``.
-                When ``None``, computed automatically using ``timing`` and
-                ``min_spikes``.
+                When None, computed automatically using timing and
+                min_spikes.
             timing (str): Which spike time to extract per unit per slice.
                 ``"median"`` (default), ``"mean"``, or ``"first"``. Only used
-                when ``timing_matrix`` is None.
+                when timing_matrix is None.
             min_spikes (int): Minimum spikes for activity (default: 2). Only
-                used when ``timing_matrix`` is None.
+                used when timing_matrix is None.
             min_overlap (int): Minimum number of units that must be active in
                 both slices (default: 3).
             min_overlap_frac (float or None): Minimum fraction of total units
@@ -1043,6 +1009,8 @@ class SpikeSliceStack:
                 a meaningful null distribution).
             seed (int or None): Random seed for reproducibility of the shuffle
                 (default: 1).
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
             corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of
@@ -1088,10 +1056,9 @@ class SpikeSliceStack:
         invert_y=False,
         linewidths=0.5,
     ):
-        """
-        Plot a single unit's spike times across all slices as a raster.
+        """Plot a single unit's spike times across all slices as a raster.
 
-        Extracts the spike train for *unit_idx* from every slice and delegates
+        Extracts the spike train for unit_idx from every slice and delegates
         to :func:`~SpikeLab.spikedata.plot_utils.plot_aligned_slice_single_unit`.
 
         Parameters:
@@ -1106,7 +1073,7 @@ class SpikeSliceStack:
             ylabel (str): Y-axis label.
             x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.
             vlines (list[float] or None): Vertical reference line positions.
-            show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+            show_colorbar (bool): Add a colorbar when color_vals is provided.
             marker_size (float): Scatter marker size.
             font_size (int or None): Font size for labels/ticks.
             style (str): ``"scatter"`` for dot markers, ``"eventplot"`` for
@@ -1115,8 +1082,8 @@ class SpikeSliceStack:
             linewidths (float): Line width for eventplot markers.
 
         Returns:
-            result: ``(fig, ax, sc)`` when *ax* is None, otherwise just *sc*.
-                *sc* is the scatter ``PathCollection`` (or None if no colour
+            result: ``(fig, ax, sc)`` when ax is None, otherwise just sc.
+                sc is the scatter ``PathCollection`` (or None if no colour
                 coding).
         """
         from .plot_utils import (
