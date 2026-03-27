@@ -1479,7 +1479,7 @@ class TestPlotUnitRaster:
         fig, ax = plt.subplots()
         spikes = [np.array([10]), np.array([20]), np.array([30])]
         plot_aligned_slice_single_unit(ax, spikes)
-        assert ax.get_ylim() == (0, 3)
+        assert ax.get_ylim() == (-0.5, 2.5)
 
     def test_axis_labels(self):
         """
@@ -1598,7 +1598,7 @@ class TestSpikeSliceStackPlotUnitRaster:
         """
         stack = self._make_stack(n_units=3, n_slices=5)
         fig, ax, sc = stack.plot_aligned_slice_single_unit(1)
-        assert ax.get_ylim() == (0, 5)
+        assert ax.get_ylim() == (-0.5, 4.5)
 
     def test_with_color_vals(self):
         """
@@ -1714,7 +1714,7 @@ class TestPlotUnitRasterEdgeCases:
         sc = plot_aligned_slice_single_unit(ax, spikes)
         assert sc is None
         # y-axis should still span the number of slices
-        assert ax.get_ylim() == (0, 3)
+        assert ax.get_ylim() == (-0.5, 2.5)
 
 
 # ---------------------------------------------------------------------------
@@ -3859,4 +3859,58 @@ class TestStylingIntegration:
         legend = ax.get_legend()
         assert legend is not None
         assert legend.get_frame().get_visible() is False
+        plt.close(fig)
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in plot_utils."""
+
+    def test_plot_scatter_density_identical_points(self):
+        """
+        Tests: plot_scatter with color_vals='density' and all-identical points.
+
+        (Test Case 1) KDE raises LinAlgError on zero-variance data — verify this.
+        """
+        fig, ax = plt.subplots()
+        x = np.ones(20)
+        y = np.ones(20)
+        with pytest.raises(np.linalg.LinAlgError):
+            plot_scatter(ax, x, y, color_vals="density")
+        plt.close(fig)
+
+    def test_plot_recording_pre_created_axes(self):
+        """
+        Tests: plot_recording with pre-created axes.
+
+        (Test Case 1) Function completes without error.
+        (Test Case 2) Returns a result.
+        """
+        sd = _make_sd(n_units=3, length=100.0)
+        # Default is 1 panel (raster), needs 1 (ax, cbar_ax) pair
+        fig, (ax, cbar_ax) = plt.subplots(1, 2)
+        result = sd.plot(axes=[(ax, cbar_ax)])
+        assert result is not None
+        plt.close(fig)
+
+    def test_plot_aligned_pop_rate_font_size_and_linewidth(self):
+        """
+        Tests: SpikeData.plot_aligned_pop_rate with font_size and linewidth.
+
+        (Test Case 1) Custom font_size and linewidth do not crash.
+        """
+        rng = np.random.default_rng(42)
+        trains = [np.sort(rng.uniform(0, 2000, 50)) for _ in range(5)]
+        sd = SpikeData(trains, length=2000.0)
+
+        fig, ax = plt.subplots()
+        events = [500.0, 1000.0, 1500.0]
+        sd.plot_aligned_pop_rate(
+            events=events,
+            pre_ms=100,
+            post_ms=200,
+            ax=ax,
+            font_size=14,
+            linewidth=3.0,
+        )
+        assert ax is not None
         plt.close(fig)

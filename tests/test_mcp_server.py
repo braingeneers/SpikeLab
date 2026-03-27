@@ -5091,3 +5091,27 @@ class TestFetchWorkspaceItemEdgeCases2:
         ws.store(ns, "rd_empty_times", rd)
         with pytest.raises(IndexError):
             await analysis.fetch_workspace_item(ws_id, ns, "rd_empty_times")
+
+
+@pytest.mark.skipif(not MCP_SERVER_AVAILABLE, reason="MCP server not available")
+class TestCoverageGaps:
+    """Tests for MCP tool coverage gaps."""
+
+    @pytest.mark.asyncio
+    async def test_compute_resampled_isi_happy_path(self, loaded_ws):
+        """
+        Tests: compute_resampled_isi happy-path.
+
+        (Test Case 1) Stored result is a RateData with correct shape.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_resampled_isi(
+            workspace_id=ws_id, namespace=ns, key="isi_rate",
+            times=[0.0, 10.0, 20.0, 30.0, 40.0, 50.0],
+            sigma_ms=5.0,
+        )
+        assert "n_timepoints" in result
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        item = ws.get(ns, "isi_rate")
+        assert hasattr(item, "inst_Frate_data")

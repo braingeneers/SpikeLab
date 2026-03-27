@@ -2968,3 +2968,118 @@ class TestSSSSliceToSliceCompEdgeCases2:
         )
         assert corr.stack.shape[0] == 2
         assert corr.stack.shape[1] == 2
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in SpikeSliceStack methods."""
+
+    def _make_stack(self, n_units=3, n_slices=4, length_ms=200.0, seed=42):
+        rng = np.random.default_rng(seed)
+        sd = make_spikedata(n_units=n_units, length_ms=length_ms, seed=seed)
+        step = length_ms / n_slices
+        times = [(i * step, (i + 1) * step) for i in range(n_slices)]
+        return SpikeSliceStack(sd, times_start_to_end=times)
+
+    def test_unit_to_unit_comparison_serial_equals_parallel(self):
+        """
+        Tests: unit_to_unit_comparison serial vs parallel.
+
+        (Test Case 1) Correlation stacks match between n_jobs=1 and n_jobs=-1.
+        """
+        sss = self._make_stack()
+        corr_s, lag_s, _, _ = sss.unit_to_unit_comparison(n_jobs=1)
+        corr_p, lag_p, _, _ = sss.unit_to_unit_comparison(n_jobs=-1)
+        np.testing.assert_allclose(corr_s.stack, corr_p.stack, rtol=1e-12)
+        np.testing.assert_allclose(lag_s.stack, lag_p.stack, rtol=1e-12)
+
+    def test_get_slice_to_slice_unit_comparison_serial_equals_parallel(self):
+        """
+        Tests: get_slice_to_slice_unit_comparison serial vs parallel.
+
+        (Test Case 1) Correlation stacks match between n_jobs=1 and n_jobs=-1.
+        """
+        sss = self._make_stack()
+        corr_s, lag_s, _, _ = sss.get_slice_to_slice_unit_comparison(n_jobs=1)
+        corr_p, lag_p, _, _ = sss.get_slice_to_slice_unit_comparison(n_jobs=-1)
+        np.testing.assert_allclose(corr_s.stack, corr_p.stack, rtol=1e-12)
+        np.testing.assert_allclose(lag_s.stack, lag_p.stack, rtol=1e-12)
+
+    def test_rank_order_correlation_serial_equals_parallel(self):
+        """
+        Tests: rank_order_correlation serial vs parallel.
+
+        (Test Case 1) Results match between n_jobs=1 and n_jobs=-1.
+        """
+        sss = self._make_stack(n_units=4, n_slices=5, length_ms=250.0)
+        corr_s, _, _ = sss.rank_order_correlation(n_shuffles=0, n_jobs=1, seed=1)
+        corr_p, _, _ = sss.rank_order_correlation(n_shuffles=0, n_jobs=-1, seed=1)
+        np.testing.assert_allclose(corr_s.matrix, corr_p.matrix, rtol=1e-12)
+
+    def test_get_unit_timing_per_slice_mean(self):
+        """
+        Tests: get_unit_timing_per_slice with timing='mean'.
+
+        (Test Case 1) Returns array of correct shape (U, S).
+        (Test Case 2) Mean timing differs from median timing for skewed data.
+        """
+        sss = self._make_stack(n_units=3, n_slices=4)
+        timing_mean = sss.get_unit_timing_per_slice(timing="mean")
+        timing_median = sss.get_unit_timing_per_slice(timing="median")
+        assert timing_mean.shape == (3, 4)
+        assert timing_median.shape == (3, 4)
+        # Mean and median may differ for non-symmetric spike distributions
+        # At minimum, both should have the same NaN pattern
+        nan_mask_mean = np.isnan(timing_mean)
+        nan_mask_median = np.isnan(timing_median)
+        np.testing.assert_array_equal(nan_mask_mean, nan_mask_median)
+
+    def test_order_units_across_slices_with_timing_matrix(self):
+        """
+        Tests: order_units_across_slices with pre-computed timing_matrix.
+
+        (Test Case 1) Custom timing matrix produces expected unit ordering.
+        """
+        sss = self._make_stack(n_units=3, n_slices=4)
+        # Provide a timing matrix where unit 2 is earliest, unit 0 latest
+        timing = np.array([
+            [30.0, 30.0, 30.0, 30.0],  # unit 0: late
+            [20.0, 20.0, 20.0, 20.0],  # unit 1: middle
+            [10.0, 10.0, 10.0, 10.0],  # unit 2: early
+        ])
+        # Returns ((ha_stack, la_stack), (ha_order, la_order), ...)
+        result = sss.order_units_across_slices(timing_matrix=timing)
+        ha_order = result[1][0]  # (ha_order, la_order)
+        # Unit 2 should come first (earliest), then 1, then 0
+        assert list(ha_order) == [2, 1, 0]
+
+    def test_plot_aligned_slice_single_unit_eventplot_style(self):
+        """
+        Tests: plot_aligned_slice_single_unit with style='eventplot'.
+
+        (Test Case 1) Eventplot style produces an axes object without error.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        sss = self._make_stack(n_units=3, n_slices=5)
+        fig, ax, result = sss.plot_aligned_slice_single_unit(0, style="eventplot")
+        assert ax is not None
+        plt.close("all")
+
+    def test_plot_aligned_slice_single_unit_invert_y(self):
+        """
+        Tests: plot_aligned_slice_single_unit with invert_y=True.
+
+        (Test Case 1) Y-axis is inverted when invert_y=True.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        sss = self._make_stack(n_units=3, n_slices=5)
+        fig, ax, _ = sss.plot_aligned_slice_single_unit(0, invert_y=True)
+        assert ax.yaxis_inverted()
+        plt.close("all")

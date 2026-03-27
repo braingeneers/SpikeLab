@@ -5585,3 +5585,111 @@ class TestSpikeDataBurstSensitivityEdgeCases:
             burst_edge_mult_thresh=0.5,
         )
         assert result.shape == (2, 0)
+
+
+class TestSerialExecution:
+    """Tests that serial execution (n_jobs=1) produces identical results to parallel (n_jobs=-1)."""
+
+    def test_get_pairwise_ccg_serial_equals_parallel(self):
+        """
+        SpikeData.get_pairwise_ccg with n_jobs=1 matches n_jobs=-1.
+
+        Tests:
+            (Test Case 1) Correlation matrices are equal.
+            (Test Case 2) Lag matrices are equal.
+        """
+        sd = random_spikedata(units=4, spikes=200, rate=1.0)
+
+        corr_serial, lag_serial = sd.get_pairwise_ccg(
+            bin_size=1.0, max_lag=50, n_jobs=1
+        )
+        corr_parallel, lag_parallel = sd.get_pairwise_ccg(
+            bin_size=1.0, max_lag=50, n_jobs=-1
+        )
+
+        np.testing.assert_allclose(
+            corr_serial.matrix,
+            corr_parallel.matrix,
+            rtol=1e-12,
+            err_msg="get_pairwise_ccg corr matrices differ between serial and parallel",
+        )
+        np.testing.assert_allclose(
+            lag_serial.matrix,
+            lag_parallel.matrix,
+            rtol=1e-12,
+            err_msg="get_pairwise_ccg lag matrices differ between serial and parallel",
+        )
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in SpikeData methods."""
+
+    def test_get_pairwise_latencies_return_distributions(self):
+        """
+        Tests: SpikeData.get_pairwise_latencies with return_distributions=True.
+
+        (Test Case 1) Three values are returned when return_distributions=True.
+        (Test Case 2) Distributions array has shape (U, U).
+        (Test Case 3) Each off-diagonal entry is a 1-D numpy array.
+        (Test Case 4) Diagonal entries are empty arrays.
+        """
+        rng = np.random.default_rng(99)
+        n_units = 4
+        trains = [np.sort(rng.uniform(0, 100, size=25)) for _ in range(n_units)]
+        sd = SpikeData(trains, length=100.0)
+
+        result = sd.get_pairwise_latencies(return_distributions=True)
+        assert len(result) == 3
+
+        mean_lat, std_lat, distributions = result
+        assert distributions.shape == (n_units, n_units)
+
+        for i in range(n_units):
+            for j in range(n_units):
+                entry = distributions[i, j]
+                assert isinstance(entry, np.ndarray)
+                assert entry.ndim == 1
+                if i == j:
+                    assert len(entry) == 0
+
+    def test_plot_forwards_kwargs(self):
+        """
+        Tests: SpikeData.plot(**kwargs) forwards kwargs to plot_recording.
+
+        (Test Case 1) plot_recording is called exactly once.
+        (Test Case 2) Custom kwargs (font_size=16) are forwarded.
+        """
+        sd = SpikeData([[1.0, 2.0, 3.0]], length=5.0)
+
+        with patch("spikelab.spikedata.plot_utils.plot_recording") as mock_plot:
+            mock_plot.return_value = MagicMock()
+            sd.plot(font_size=16, figsize=(10, 5))
+
+            mock_plot.assert_called_once()
+            call_kwargs = mock_plot.call_args
+            assert call_kwargs[1]["font_size"] == 16
+            assert call_kwargs[1]["figsize"] == (10, 5)
+
+    def test_plot_spatial_network_missing_location_keys(self):
+        """
+        Tests: SpikeData.plot_spatial_network raises ValueError with missing location keys.
+
+        (Test Case 1) ValueError is raised when neuron_attributes only have 'channel' key.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        sd = SpikeData(
+            [[1.0, 2.0], [3.0, 4.0]],
+            length=5.0,
+            neuron_attributes=[{"channel": 0}, {"channel": 1}],
+        )
+        fig, ax = plt.subplots()
+        matrix = np.array([[0.0, 0.5], [0.5, 0.0]])
+
+        with pytest.raises(ValueError, match="neuron_attributes must contain"):
+            sd.plot_spatial_network(ax, matrix, edge_threshold=0.1)
+
+        plt.close("all")

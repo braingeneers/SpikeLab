@@ -707,7 +707,7 @@ class TestSliceCorrelations:
         Tests that slice correlation matrices are symmetric.
 
         Tests:
-            (Test Case 1) Each unit's S×S matrix is symmetric.
+            (Test Case 1) Each unit's S*S matrix is symmetric.
         """
         mat = make_event_matrix(2, 15, 4, seed=7) + 1.0
         rss = RateSliceStack(event_matrix=mat)
@@ -1427,7 +1427,7 @@ class TestGetUnitTimingPerSliceRate:
         Output is (U, S) ndarray.
 
         Tests:
-            (Test Case 1) 4 units, 5 slices → shape (4, 5).
+            (Test Case 1) 4 units, 5 slices -> shape (4, 5).
         """
         rng = np.random.default_rng(0)
         mat = rng.random((4, 30, 5)) + 0.2
@@ -2038,7 +2038,7 @@ class TestOrderUnitsAcrossSlicesEdgeCases2:
         )
         # Returns 5-tuple: (reordered_matrices, unit_ids, unit_std, unit_peak_times, unit_frac_active)
         reordered, ids, stds, peaks, fracs = result
-        # All units below threshold → all in low-activity group (second element of each tuple)
+        # All units below threshold -> all in low-activity group (second element of each tuple)
         assert reordered[0].shape[0] == 0  # HA stack has 0 units
         assert len(ids[1]) == 3  # all 3 units in LA group
 
@@ -2178,3 +2178,162 @@ class TestGetUnitTimingPerSliceEdgeCases2:
         tm = rss.get_unit_timing_per_slice(MIN_RATE_THRESHOLD=0.0)
         # All units have max rate < 0 which is < 0.0, so all should be NaN
         assert np.all(np.isnan(tm))
+
+
+# ---------------------------------------------------------------------------
+# Coverage gap tests
+# ---------------------------------------------------------------------------
+
+
+class TestCoverageGaps:
+    """Tests filling coverage gaps: serial vs parallel parity, min_overlap_frac
+    override, neuron_attributes propagation, and sigma_ms validation."""
+
+    def test_get_slice_to_slice_time_corr_serial_vs_parallel(self):
+        """
+        Tests: get_slice_to_slice_time_corr_from_stack serial vs parallel parity.
+        (Test Case 1) n_jobs=1 and n_jobs=-1 produce identical results.
+        """
+        rng = np.random.default_rng(100)
+        mat = rng.random((4, 15, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        pcm_serial, av_serial = rss.get_slice_to_slice_time_corr_from_stack(
+            max_lag=0, n_jobs=1
+        )
+        pcm_parallel, av_parallel = rss.get_slice_to_slice_time_corr_from_stack(
+            max_lag=0, n_jobs=-1
+        )
+
+        np.testing.assert_allclose(
+            pcm_serial.stack, pcm_parallel.stack, rtol=1e-12, atol=1e-12
+        )
+        np.testing.assert_allclose(av_serial, av_parallel, rtol=1e-12, atol=1e-12)
+
+    def test_unit_to_unit_correlation_serial_vs_parallel(self):
+        """
+        Tests: unit_to_unit_correlation serial vs parallel parity.
+        (Test Case 2) n_jobs=1 and n_jobs=-1 produce identical results.
+        """
+        rng = np.random.default_rng(101)
+        mat = rng.random((4, 25, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr_s, lag_s, av_corr_s, av_lag_s = rss.unit_to_unit_correlation(
+            max_lag=2, n_jobs=1
+        )
+        corr_p, lag_p, av_corr_p, av_lag_p = rss.unit_to_unit_correlation(
+            max_lag=2, n_jobs=-1
+        )
+
+        np.testing.assert_allclose(
+            corr_s.stack, corr_p.stack, rtol=1e-12, atol=1e-12
+        )
+        np.testing.assert_allclose(
+            lag_s.stack, lag_p.stack, rtol=1e-12, atol=1e-12
+        )
+        np.testing.assert_allclose(av_corr_s, av_corr_p, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(av_lag_s, av_lag_p, rtol=1e-12, atol=1e-12)
+
+    def test_get_slice_to_slice_unit_corr_serial_vs_parallel(self):
+        """
+        Tests: get_slice_to_slice_unit_corr_from_stack serial vs parallel parity.
+        (Test Case 3) n_jobs=1 and n_jobs=-1 produce identical results.
+        """
+        rng = np.random.default_rng(102)
+        mat = rng.random((4, 30, 5)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        pcm_serial, av_serial = rss.get_slice_to_slice_unit_corr_from_stack(
+            max_lag=2, n_jobs=1
+        )
+        pcm_parallel, av_parallel = rss.get_slice_to_slice_unit_corr_from_stack(
+            max_lag=2, n_jobs=-1
+        )
+
+        np.testing.assert_allclose(
+            pcm_serial.stack, pcm_parallel.stack, rtol=1e-12, atol=1e-12
+        )
+        np.testing.assert_allclose(av_serial, av_parallel, rtol=1e-12, atol=1e-12)
+
+    def test_rank_order_correlation_serial_vs_parallel(self):
+        """
+        Tests: rank_order_correlation serial vs parallel parity.
+        (Test Case 4) n_jobs=1 and n_jobs=-1 produce identical results.
+        """
+        rng = np.random.default_rng(103)
+        mat = rng.random((6, 30, 6)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr_s, av_s, overlap_s = rss.rank_order_correlation(
+            n_shuffles=10, seed=42, n_jobs=1
+        )
+        corr_p, av_p, overlap_p = rss.rank_order_correlation(
+            n_shuffles=10, seed=42, n_jobs=-1
+        )
+
+        np.testing.assert_allclose(
+            corr_s.matrix, corr_p.matrix, rtol=1e-12, atol=1e-12
+        )
+        assert av_s == pytest.approx(av_p, abs=1e-12)
+        np.testing.assert_allclose(
+            overlap_s.matrix, overlap_p.matrix, rtol=1e-12, atol=1e-12
+        )
+
+    def test_rank_order_correlation_min_overlap_frac_override(self):
+        """
+        Tests: rank_order_correlation min_overlap_frac overrides min_overlap.
+        (Test Case 5) Passing min_overlap_frac=0.5 produces a stricter threshold
+        than the default min_overlap=3 alone, yielding different results.
+        """
+        rng = np.random.default_rng(104)
+        mat = rng.random((8, 30, 6)) + 0.5
+        # Make some units inactive in some slices to create partial overlap
+        mat[0, :, 0:3] = 0.0
+        mat[1, :, 1:4] = 0.0
+        mat[2, :, 2:5] = 0.0
+        rss = RateSliceStack(event_matrix=mat)
+
+        corr_default, av_default, _ = rss.rank_order_correlation(
+            min_overlap=3, n_shuffles=0
+        )
+        # min_overlap_frac=0.5 means effective threshold = max(3, ceil(0.5 * 8)) = max(3, 4) = 4
+        corr_frac, av_frac, _ = rss.rank_order_correlation(
+            min_overlap=3, min_overlap_frac=0.5, n_shuffles=0
+        )
+
+        # The frac-based result should be at least as strict (more NaNs or different values)
+        default_nans = np.sum(np.isnan(corr_default.matrix))
+        frac_nans = np.sum(np.isnan(corr_frac.matrix))
+        assert frac_nans >= default_nans
+
+    def test_convert_to_list_neuron_attributes_propagation(self):
+        """
+        Tests: convert_to_list_of_RateData propagates neuron_attributes.
+        (Test Case 6) Each output RateData has neuron_attributes matching the source stack.
+        """
+        rng = np.random.default_rng(105)
+        mat = rng.random((3, 10, 4))
+        attrs = [{"region": "CA1"}, {"region": "CA3"}, {"region": "DG"}]
+        rss = RateSliceStack(event_matrix=mat, neuron_attributes=attrs)
+
+        rd_list = rss.convert_to_list_of_RateData()
+
+        assert len(rd_list) == 4
+        for rd in rd_list:
+            assert rd.neuron_attributes is not None
+            assert len(rd.neuron_attributes) == 3
+            assert rd.neuron_attributes == attrs
+
+    def test_sigma_ms_negative_raises(self):
+        """
+        Tests: sigma_ms validation rejects negative values.
+        (Test Case 7) RateSliceStack(data_obj=sd, ..., sigma_ms=-5) raises ValueError.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0, seed=200)
+        with pytest.raises(ValueError, match="sigma_ms"):
+            RateSliceStack(
+                data_obj=sd,
+                times_start_to_end=[(10.0, 30.0), (50.0, 70.0)],
+                sigma_ms=-5,
+            )

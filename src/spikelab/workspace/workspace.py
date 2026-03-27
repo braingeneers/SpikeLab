@@ -8,6 +8,7 @@ the full workspace.
 """
 
 import json
+import threading
 import warnings
 import os
 import shutil
@@ -731,8 +732,6 @@ class WorkspaceManager:
 
     def __init__(self) -> None:
         """Initialize an empty WorkspaceManager."""
-        import threading
-
         self._workspaces: Dict[str, AnalysisWorkspace] = {}
         self._lock = threading.Lock()
 
@@ -877,17 +876,7 @@ class WorkspaceManager:
 
 # Module-level singleton
 _workspace_manager: Optional[WorkspaceManager] = None
-_workspace_manager_lock: "threading.Lock | None" = None
-
-
-def _get_singleton_lock():
-    """Lazily create the module-level lock (avoids top-level threading import)."""
-    global _workspace_manager_lock
-    if _workspace_manager_lock is None:
-        import threading
-
-        _workspace_manager_lock = threading.Lock()
-    return _workspace_manager_lock
+_workspace_manager_lock = threading.Lock()
 
 
 def get_workspace_manager() -> WorkspaceManager:
@@ -899,7 +888,7 @@ def get_workspace_manager() -> WorkspaceManager:
     """
     global _workspace_manager
     if _workspace_manager is None:
-        with _get_singleton_lock():
+        with _workspace_manager_lock:
             if _workspace_manager is None:
                 _workspace_manager = WorkspaceManager()
     return _workspace_manager

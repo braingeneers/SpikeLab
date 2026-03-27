@@ -1537,7 +1537,7 @@ def plot_aligned_slice_single_unit(
             ax.axvline(x=xv, color="red", linestyle="--", linewidth=1.5, zorder=0)
 
     # --- Axes formatting --------------------------------------------------
-    ax.set_ylim(0, n_slices)
+    ax.set_ylim(-0.5, n_slices - 0.5)
     if invert_y:
         ax.invert_yaxis()
     if x_range is not None:
@@ -1628,7 +1628,7 @@ def plot_heatmap(
     if norm == "row":
         result = np.zeros_like(data_mat, dtype=float)
         for i in range(data_mat.shape[0]):
-            row_min, row_max = data_mat[i].min(), data_mat[i].max()
+            row_min, row_max = np.nanmin(data_mat[i]), np.nanmax(data_mat[i])
             if row_max > row_min:
                 result[i] = (data_mat[i] - row_min) / (row_max - row_min)
             else:

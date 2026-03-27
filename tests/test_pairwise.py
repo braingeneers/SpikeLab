@@ -1804,3 +1804,59 @@ class TestPairwiseCompMatrixStackPlotMean:
         fig, ax = plt.subplots()
         pcms.plot_mean(ax=ax, cmap="hot")
         assert ax.images[0].cmap.name == "hot"
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in pairwise modules."""
+
+    def test_remove_by_condition_eq_operator(self):
+        """
+        Tests: PairwiseCompMatrix.remove_by_condition with 'eq' operator.
+
+        (Test Case 1) Entries equal to threshold are replaced with NaN.
+        (Test Case 2) Entries not equal to threshold are preserved.
+        """
+        mat = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        condition = PairwiseCompMatrix(matrix=mat)
+
+        result = pcm.remove_by_condition(condition, "eq", 5.0)
+        assert np.isnan(result.matrix[1, 1])
+        assert result.matrix[0, 0] == 1.0
+        assert result.matrix[2, 2] == 9.0
+
+    def test_remove_by_condition_ne_operator(self):
+        """
+        Tests: PairwiseCompMatrix.remove_by_condition with 'ne' operator.
+
+        (Test Case 1) Entries not equal to threshold are replaced with NaN.
+        (Test Case 2) Entries equal to threshold are preserved.
+        """
+        mat = np.array([[1.0, 2.0], [3.0, 4.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        condition = PairwiseCompMatrix(matrix=mat)
+
+        result = pcm.remove_by_condition(condition, "ne", 2.0)
+        # Only (0,1) has value 2.0 in condition, everything else is != 2.0 → NaN
+        assert result.matrix[0, 1] == 2.0
+        assert np.isnan(result.matrix[0, 0])
+        assert np.isnan(result.matrix[1, 0])
+        assert np.isnan(result.matrix[1, 1])
+
+    def test_stack_remove_by_condition_stack_vs_stack(self):
+        """
+        Tests: PairwiseCompMatrixStack.remove_by_condition with stack condition.
+
+        (Test Case 1) Per-slice removal works with matching S dimension.
+        """
+        rng = np.random.default_rng(42)
+        stack = rng.random((3, 3, 4))
+        pcms = PairwiseCompMatrixStack(stack=stack)
+
+        cond_stack = rng.random((3, 3, 4))
+        cond = PairwiseCompMatrixStack(stack=cond_stack)
+
+        result = pcms.remove_by_condition(cond, "gt", 0.5)
+        for s in range(4):
+            mask = cond_stack[:, :, s] > 0.5
+            assert np.all(np.isnan(result.stack[:, :, s][mask]))

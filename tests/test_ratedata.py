@@ -1494,3 +1494,32 @@ class TestRateDataGetManifoldEdgeCases2:
         rd = make_ratedata(n_units=3, n_times=50)
         embedding, var_ratio, components = rd.get_manifold("Pca", n_components=2)
         assert embedding.shape == (50, 2)
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in RateData methods."""
+
+    def test_get_pairwise_fr_corr_serial_equals_parallel(self):
+        """
+        Tests: RateData.get_pairwise_fr_corr with n_jobs=1 vs n_jobs=-1.
+
+        (Test Case 1) Correlation matrices from serial and parallel execution are equal.
+        (Test Case 2) Lag matrices from serial and parallel execution are equal.
+        """
+        rd = make_ratedata(n_units=4, n_times=80, seed=123)
+
+        corr_s, lag_s = rd.get_pairwise_fr_corr(n_jobs=1)
+        corr_p, lag_p = rd.get_pairwise_fr_corr(n_jobs=-1)
+
+        np.testing.assert_allclose(
+            corr_s.matrix,
+            corr_p.matrix,
+            rtol=1e-12,
+            err_msg="FR corr matrices differ between n_jobs=1 and n_jobs=-1",
+        )
+        np.testing.assert_allclose(
+            lag_s.matrix,
+            lag_p.matrix,
+            rtol=1e-12,
+            err_msg="FR lag matrices differ between n_jobs=1 and n_jobs=-1",
+        )

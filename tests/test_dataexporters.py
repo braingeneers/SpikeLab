@@ -1337,3 +1337,159 @@ class TestKiloSortExportersEdgeCases2:
         exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
         times = np.load(os.path.join(path, "spike_times.npy"))
         assert len(times) == 0
+
+
+class TestCoverageGaps:
+    """Tests for exporter coverage gaps."""
+
+    def test_export_hdf5_group_time_unit_ms(self, tmp_path):
+        """
+        Tests: export_spikedata_to_hdf5 group style with group_time_unit='ms'.
+
+        (Test Case 1) Export succeeds.
+        (Test Case 2) Reloaded spike times match originals (in ms).
+        """
+        import h5py
+
+        sd = SpikeData([[5.0, 10.0, 20.0], [15.0, 25.0]], length=30.0)
+        filepath = str(tmp_path / "group_ms.h5")
+        exporters.export_spikedata_to_hdf5(
+            sd, filepath, style="group", group_time_unit="ms",
+        )
+        # Verify times are stored in ms (under group "units")
+        with h5py.File(filepath, "r") as f:
+            unit0 = np.asarray(f["units"]["0"])
+            np.testing.assert_allclose(unit0, [5.0, 10.0, 20.0])
+
+    def test_export_hdf5_raw_time_unit_samples(self, tmp_path):
+        """
+        Tests: export_spikedata_to_hdf5 with raw_time_unit='samples'.
+
+        (Test Case 1) Raw time array is stored in sample units.
+        """
+        import h5py
+
+        raw_data = np.random.default_rng(0).random((2, 100))
+        raw_time = np.arange(100, dtype=float)  # in ms
+        sd = SpikeData(
+            [[5.0, 10.0], [15.0]], length=100.0,
+            raw_data=raw_data, raw_time=raw_time,
+        )
+        filepath = str(tmp_path / "raw_samples.h5")
+        exporters.export_spikedata_to_hdf5(
+            sd, filepath, style="ragged",
+            raw_dataset="raw", raw_time_dataset="raw_t",
+            raw_time_unit="samples", fs_Hz=1000.0,
+        )
+        with h5py.File(filepath, "r") as f:
+            raw_t = np.asarray(f["raw_t"])
+            # ms * (1000 Hz / 1000) = samples, so values should be rint(raw_time * 1.0)
+            np.testing.assert_allclose(raw_t, np.rint(raw_time).astype(int))
+
+
+@skip_no_h5py
+class TestEdgeCaseScan:
+    """Edge-case tests for data_loaders/data_exporters.py."""
+
+    def test_raster_style_zero_length_spikedata(self, tmp_path):
+        """Tests: Raster style export with zero-length SpikeData produces (2, 0) raster.
+        (Test Case 1)
+        """
+        import h5py
+
+        sd = SpikeData([[], []], length=0.0)
+        filepath = str(tmp_path / "raster_zero.h5")
+        exporters.export_spikedata_to_hdf5(
+            sd, filepath, style="raster", raster_bin_size_ms=1.0
+        )
+        assert os.path.isfile(filepath)
+        with h5py.File(filepath, "r") as f:
+            raster = np.asarray(f["raster"])
+            assert raster.shape == (2, 0)
+
+    def test_raw_time_unit_seconds_export(self, tmp_path):
+        """Tests: raw_time_unit='s' converts raw_time from ms to seconds.
+        (Test Case 2)
+        """
+        import h5py
+
+        raw_data = np.ones((1, 5))
+        raw_time = np.array([0.0, 100.0, 200.0, 300.0, 400.0])  # in ms
+        sd = SpikeData(
+            [[50.0, 150.0]], length=500.0, raw_data=raw_data, raw_time=raw_time
+        )
+        filepath = str(tmp_path / "raw_seconds.h5")
+        exporters.export_spikedata_to_hdf5(
+            sd,
+            filepath,
+            style="ragged",
+            raw_dataset="raw",
+            raw_time_dataset="raw_t",
+            raw_time_unit="s",
+        )
+        with h5py.File(filepath, "r") as f:
+            raw_t = np.asarray(f["raw_t"])
+            expected = raw_time / 1e3  # ms -> s
+            np.testing.assert_allclose(raw_t, expected)
+
+    def test_group_style_all_empty_trains(self, tmp_path):
+        """Tests: Group style export with all-empty trains creates empty datasets.
+        (Test Case 3)
+        """
+        import h5py
+
+        sd = SpikeData([[], [], []], length=25.0)
+        filepath = str(tmp_path / "group_empty.h5")
+        exporters.export_spikedata_to_hdf5(sd, filepath, style="group")
+        with h5py.File(filepath, "r") as f:
+            grp = f["units"]
+            for i in range(3):
+                ds = np.asarray(grp[str(i)])
+                assert ds.shape == (0,), f"Unit {i} should be empty, got shape {ds.shape}"
+
+    def test_nwb_export_event_centered_warns(self, tmp_path):
+        """Tests: NWB export with event-centered SpikeData emits start_time warning.
+        (Test Case 4)
+        """
+        sd = SpikeData(
+            [np.array([-150.0, -50.0, 100.0]), np.array([-80.0])],
+            length=400.0,
+            start_time=-200.0,
+        )
+        filepath = str(tmp_path / "event_centered.nwb")
+        with pytest.warns(UserWarning, match="start_time"):
+            exporters.export_spikedata_to_nwb(sd, filepath)
+        assert os.path.isfile(filepath)
+
+    def test_kilosort_export_event_centered_warns(self, tmp_path):
+        """Tests: KiloSort export with event-centered SpikeData emits start_time warning.
+        (Test Case 5)
+        """
+        sd = SpikeData(
+            [np.array([-50.0, 0.0, 50.0])],
+            length=200.0,
+            start_time=-100.0,
+        )
+        folder = str(tmp_path / "ks_event")
+        with pytest.warns(UserWarning, match="start_time"):
+            exporters.export_spikedata_to_kilosort(sd, folder, fs_Hz=30000.0)
+        assert os.path.isfile(os.path.join(folder, "spike_times.npy"))
+
+    def test_kilosort_cluster_ids_large_gaps(self, tmp_path):
+        """Tests: KiloSort export with non-sequential cluster_ids preserves IDs.
+        (Test Case 6)
+        """
+        sd = SpikeData(
+            [np.array([1.0, 2.0]), np.array([3.0]), np.array([4.0, 5.0])],
+            length=10.0,
+        )
+        folder = str(tmp_path / "ks_gaps")
+        cluster_ids = [0, 100, 999]
+        exporters.export_spikedata_to_kilosort(
+            sd, folder, fs_Hz=30000.0, cluster_ids=cluster_ids
+        )
+        clusters = np.load(os.path.join(folder, "spike_clusters.npy"))
+        # Unit 0 has 2 spikes -> cluster 0, unit 1 has 1 spike -> cluster 100,
+        # unit 2 has 2 spikes -> cluster 999
+        expected = np.array([0, 0, 100, 999, 999])
+        np.testing.assert_array_equal(clusters, expected)
