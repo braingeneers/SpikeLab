@@ -161,7 +161,7 @@ def export_spikedata_to_hdf5(
             f.create_dataset(raster_dataset, data=np.asarray(raster))
             # Store bin size as an attribute for provenance (readers can ignore)
             f[raster_dataset].attrs["bin_size_ms"] = float(raster_bin_size_ms)
-            return  # file-level attrs (start_time, N) already written above
+            return  # file-level attr (start_time) already written above
 
         if style == "ragged":
             # Flatten all trains and write cumulative end indices

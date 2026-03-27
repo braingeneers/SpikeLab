@@ -2028,17 +2028,17 @@ class SpikeData:
         (Nature, 2015).
         https://www.biorxiv.org/content/10.64898/2025.12.20.695676v2.full
 
-        Computes c_{i,τ} = Σ_{t: f_i(t+τ)>0} [P_{-i}(t) - P̄_{-i}] / (||f_i|| × N × μ_i)
+        Computes c_{i,τ} = Σ_{t: f_i(t+τ)>0} [P_{-i}(t) - P̄_{-i}] / (||f_i|| × Σ_{j≠i} μ_j)
 
         For each neuron *i* and lag *τ*, the leave-one-out population rate
         P_{-i}(t) is computed excluding neuron *i*. The coupling curve
         measures how much P_{-i} deviates from its temporal mean P̄_{-i}
         at times when neuron *i* fires, normalised by the neuron's spike
-        count, the number of neurons, and the neuron's average firing rate.
+        count and the sum of all other neurons' mean firing rates.
 
         Compared to Okun et al. (2015), this adds normalisation by the
-        average firing rate (μ_i), making the coupling strength
-        uncorrelated with firing rate.
+        leave-one-out population mean rate (Σ_{j≠i} μ_j), making the
+        coupling strength uncorrelated with firing rate.
 
         Parameters
         ----------
@@ -2085,6 +2085,7 @@ class SpikeData:
 
             # μ_i = average firing rate of neuron i (spikes per bin)
             mu = np.mean(spike_matrix, axis=1)
+            mu_sum = np.sum(mu)
 
             # ||f_i|| = total number of spikes fired by neuron i
             total_spikes = np.sum(spike_matrix, axis=1)
@@ -2093,8 +2094,8 @@ class SpikeData:
             stPR = np.zeros((num_neurons, len(lags)))
 
             for i in range(num_neurons):
-                # Skip silent neurons
-                if total_spikes[i] == 0:
+                # Skip silent neurons or neurons with zero mean rate
+                if total_spikes[i] == 0 or mu[i] == 0:
                     continue
 
                 # Leave-one-out population rate: P_{-i}(t)
@@ -2102,6 +2103,9 @@ class SpikeData:
 
                 # Temporal mean of leave-one-out population rate: P̄_{-i}
                 P_loo_mean = np.mean(P_loo)
+
+                # Σ_{j≠i} μ_j = leave-one-out sum of mean rates
+                mu_loo = mu_sum - mu[i]
 
                 # All spike times for neuron i: {s | f_i(s) > 0}
                 spike_times = np.where(spike_matrix[i] > 0)[0]
@@ -2116,8 +2120,8 @@ class SpikeData:
                         deviations = P_loo[valid_t[mask]] - P_loo_mean
                         sum_deviations[tau_idx] = np.sum(deviations)
 
-                # c_{i,τ} = Σ[P_{-i}(t) − P̄_{-i}] / (||f_i|| × N × μ_i)
-                stPR[i] = sum_deviations / (total_spikes[i] * num_neurons * mu[i])
+                # c_{i,τ} = Σ[P_{-i}(t) − P̄_{-i}] / (||f_i|| × Σ_{j≠i} μ_j)
+                stPR[i] = sum_deviations / (total_spikes[i] * mu_loo)
 
         # Low-pass filter coupling curves
         stPR_filtered = np.array(
@@ -2574,7 +2578,12 @@ class SpikeData:
             raise ValueError(
                 "neuron_attributes is None — cannot extract unit positions."
             )
-        positions = np.array([[na["x"], na["y"]] for na in self.neuron_attributes])
+        positions = self.unit_locations
+        if positions is None:
+            raise ValueError(
+                "neuron_attributes must contain 'x'/'y', 'location', or 'position' "
+                "keys for spatial plotting."
+            )
         return plot_spatial_network(
             ax,
             positions,

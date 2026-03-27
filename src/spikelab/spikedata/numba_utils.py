@@ -332,18 +332,23 @@ def nb_spike_trig_pop_rate(spike_matrix, lags):
 
     mu = np.zeros(num_neurons, dtype=np.float64)
     total_spikes = np.zeros(num_neurons, dtype=np.float64)
+    mu_sum = 0.0
     for i in range(num_neurons):
         s = 0.0
         for t in range(num_bins):
             s += spike_matrix[i, t]
         total_spikes[i] = s
         mu[i] = s / num_bins
+        mu_sum += mu[i]
 
     stPR = np.zeros((num_neurons, n_lags), dtype=np.float64)
 
     for i in prange(num_neurons):
-        if total_spikes[i] == 0:
+        if total_spikes[i] == 0 or mu[i] == 0:
             continue
+
+        # Σ_{j≠i} μ_j = leave-one-out sum of mean rates
+        mu_loo = mu_sum - mu[i]
 
         # Leave-one-out population rate mean
         P_loo_mean = 0.0
@@ -369,6 +374,6 @@ def nb_spike_trig_pop_rate(spike_matrix, lags):
                 if 0 <= t < num_bins:
                     P_loo_t = pop_sum[t] - spike_matrix[i, t]
                     sum_dev += P_loo_t - P_loo_mean
-            stPR[i, tau_idx] = sum_dev / (total_spikes[i] * num_neurons * mu[i])
+            stPR[i, tau_idx] = sum_dev / (total_spikes[i] * mu_loo)
 
     return stPR

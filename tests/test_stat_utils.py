@@ -612,3 +612,25 @@ class TestPairwiseTests:
         res = pairwise_tests(groups)
         assert res["pval_matrix"].shape == (2, 2)
         assert res["n_comparisons"] == 1
+
+
+class TestCoverageGaps:
+    """Tests for coverage gaps in stat_utils."""
+
+    def test_pairwise_tests_dict_input_implicit_labels(self):
+        """
+        Tests: pairwise_tests with dict input uses dict keys as labels.
+
+        (Test Case 1) Labels in result match dict keys.
+        (Test Case 2) Matrix shape matches number of dict entries.
+        """
+        rng = np.random.default_rng(0)
+        groups = {
+            "A": rng.normal(0, 1, 30),
+            "B": rng.normal(3, 1, 30),
+            "C": rng.normal(6, 1, 30),
+        }
+        res = pairwise_tests(groups, labels=None)
+        assert res["labels"] == ["A", "B", "C"]
+        assert res["pval_matrix"].shape == (3, 3)
+        assert res["n_comparisons"] == 3

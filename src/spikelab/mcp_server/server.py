@@ -7,6 +7,7 @@ Registers all tools and handles stdio transport.
 import asyncio
 import json
 import sys
+import traceback
 from typing import Any
 
 from mcp.server import Server
@@ -474,7 +475,11 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "string",
                             "description": "Output workspace key",
                         },
-                        "bin_size": {"type": "number", "default": 40.0},
+                        "bin_size": {
+                            "type": "number",
+                            "default": 40.0,
+                            "description": "Bin size in milliseconds",
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key"],
                 },
@@ -493,7 +498,11 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "string",
                             "description": "Output workspace key",
                         },
-                        "bin_size": {"type": "number", "default": 40.0},
+                        "bin_size": {
+                            "type": "number",
+                            "default": 40.0,
+                            "description": "Bin size in milliseconds",
+                        },
                         "unit": {
                             "type": "string",
                             "enum": ["Hz", "kHz"],
@@ -517,7 +526,11 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "string",
                             "description": "Output workspace key",
                         },
-                        "bin_size": {"type": "number", "default": 20.0},
+                        "bin_size": {
+                            "type": "number",
+                            "default": 20.0,
+                            "description": "Bin size in milliseconds",
+                        },
                     },
                     "required": ["workspace_id", "namespace", "key"],
                 },
@@ -536,7 +549,11 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "string",
                             "description": "Output workspace key",
                         },
-                        "bin_size": {"type": "number", "default": 20.0},
+                        "bin_size": {
+                            "type": "number",
+                            "default": 20.0,
+                            "description": "Bin size in milliseconds",
+                        },
                         "channel_attr": {
                             "type": "string",
                             "description": "Channel attribute name",
@@ -1618,7 +1635,7 @@ async def _list_tools() -> list[types.Tool]:
                 description=(
                     "Compute slice-to-slice time-bin correlation across event-aligned "
                     "firing rate slices. Loads RateSliceStack from (namespace, stack_key) "
-                    "and stores the PairwiseCompMatrixStack (T, T, S) at (namespace, out_key). "
+                    "and stores the PairwiseCompMatrixStack (S, S, T) at (namespace, out_key). "
                     "Prerequisite: create_rate_slice_stack or frames_rate_data."
                 ),
                 inputSchema={
@@ -3243,6 +3260,7 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     except Exception as e:
+        print(traceback.format_exc(), file=sys.stderr, flush=True)
         error_result = {"error": str(e), "type": type(e).__name__}
         return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
 

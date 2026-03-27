@@ -276,7 +276,7 @@ def _dump_item(grp, obj: Any, created_at: float, note: Optional[str]) -> None:
         _dump_pairwise(grp, obj)
     elif isinstance(obj, dict):
         grp.attrs["__type__"] = "dict"
-        _dump_dict(grp, obj, created_at, note)
+        _dump_dict(grp, obj, created_at)
     else:
         raise TypeError(
             f"Cannot serialise object of type '{type(obj).__name__}' to HDF5. "
@@ -345,7 +345,7 @@ def _load_ndarray(grp) -> np.ndarray:
 # ===========================================================================
 
 
-def _dump_dict(grp, d: dict, created_at: float, note) -> None:
+def _dump_dict(grp, d: dict, created_at: float) -> None:
     """Recursively serialise a plain dict to an HDF5 group.
 
     Each dict key becomes a child group whose value is serialised via
@@ -501,7 +501,7 @@ def _load_neuron_attributes(grp) -> Optional[list]:
                 row = raw[i]
                 if np.all(np.isnan(row)):
                     continue
-                result[i][attr_key] = row
+                result[i][attr_key] = row.tolist()
         else:
             for i, v in enumerate(raw.tolist()):
                 # Skip NaN sentinels used for missing float values
@@ -527,7 +527,7 @@ def _dump_labels(grp, labels: Optional[list]) -> None:
     non_none = [lbl for lbl in labels if lbl is not None]
     if not non_none:
         return
-    use_string = any(isinstance(l, str) for l in non_none)
+    use_string = any(isinstance(lbl, str) for lbl in non_none)
     if use_string:
         dt = h5py.string_dtype()
         grp.create_dataset(
@@ -631,7 +631,7 @@ def _dump_spikedata(grp, sd) -> None:
     grp.attrs["start_time"] = float(sd.start_time)
     grp.attrs["N"] = int(sd.N)
     _dump_metadata_json(grp, sd.metadata)
-    if sd.raw_data.size > 0:
+    if getattr(sd, "raw_data", None) is not None and sd.raw_data.size > 0:
         grp.create_dataset("raw_data", data=sd.raw_data)
         grp.create_dataset("raw_time", data=sd.raw_time)
     if sd.neuron_attributes is not None:

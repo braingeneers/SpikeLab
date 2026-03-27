@@ -32,7 +32,8 @@ class RateData:
     times (list): List of time values that each column index in inst_Frate_data represents.
                   For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
                   1 is 10 ms, and column 2 is 15 ms
-    neuron_attributes: TBD
+    neuron_attributes (list or None): List of dicts, one per unit, containing
+        arbitrary metadata about each neuron. None if not provided.
 
     Notes:
     ------
@@ -49,7 +50,8 @@ class RateData:
     self.times (list): List of time values that each column index in inst_Frate_data represents.
                   For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
                   1 is 10 ms, and column 2 is 15 ms
-    self.neuron_attributes: TBD
+    self.neuron_attributes (list or None): List of dicts, one per unit, containing
+        arbitrary metadata about each neuron. None if not provided.
     self.N (int): Number of units in self.inst_Frate_data
     """
 

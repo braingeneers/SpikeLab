@@ -1,5 +1,4 @@
 import numpy as np
-from scipy import signal
 
 __all__ = ["RateSliceStack"]
 from .ratedata import RateData
@@ -92,6 +91,9 @@ class RateSliceStack:
                 UserWarning,
             )
             data_obj = None
+
+        if sigma_ms is not None and sigma_ms < 0:
+            raise ValueError("sigma_ms must be non-negative")
 
         # Option 1: Using data_obj
         if data_obj is not None:
@@ -582,7 +584,7 @@ class RateSliceStack:
                 # Extremely rare edge case with floating point calculation. Should never happen but just in case
                 time = np.clip(time, start, end - np.finfo(float).eps)
             # time = np.arange(start, end, self.step_size)
-            rate_obj = RateData(matrix, time)
+            rate_obj = RateData(matrix, time, neuron_attributes=self.neuron_attributes)
             output.append(rate_obj)
         return output
 
