@@ -400,9 +400,7 @@ class TestNumbaSpikeTriggeredPopRate:
                 mask = (valid_t >= 0) & (valid_t < num_bins)
                 if np.any(mask):
                     deviations = P_loo[valid_t[mask]] - P_loo_mean
-                    stPR[i, tau_idx] = np.sum(deviations) / (
-                        total_spikes[i] * mu_loo
-                    )
+                    stPR[i, tau_idx] = np.sum(deviations) / (total_spikes[i] * mu_loo)
         return stPR
 
     def test_matches_numpy_reference(self):
