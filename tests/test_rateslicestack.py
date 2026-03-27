@@ -2226,12 +2226,8 @@ class TestCoverageGaps:
             max_lag=2, n_jobs=-1
         )
 
-        np.testing.assert_allclose(
-            corr_s.stack, corr_p.stack, rtol=1e-12, atol=1e-12
-        )
-        np.testing.assert_allclose(
-            lag_s.stack, lag_p.stack, rtol=1e-12, atol=1e-12
-        )
+        np.testing.assert_allclose(corr_s.stack, corr_p.stack, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(lag_s.stack, lag_p.stack, rtol=1e-12, atol=1e-12)
         np.testing.assert_allclose(av_corr_s, av_corr_p, rtol=1e-12, atol=1e-12)
         np.testing.assert_allclose(av_lag_s, av_lag_p, rtol=1e-12, atol=1e-12)
 
@@ -2272,9 +2268,7 @@ class TestCoverageGaps:
             n_shuffles=10, seed=42, n_jobs=-1
         )
 
-        np.testing.assert_allclose(
-            corr_s.matrix, corr_p.matrix, rtol=1e-12, atol=1e-12
-        )
+        np.testing.assert_allclose(corr_s.matrix, corr_p.matrix, rtol=1e-12, atol=1e-12)
         assert av_s == pytest.approx(av_p, abs=1e-12)
         np.testing.assert_allclose(
             overlap_s.matrix, overlap_p.matrix, rtol=1e-12, atol=1e-12

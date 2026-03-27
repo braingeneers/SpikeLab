@@ -584,9 +584,7 @@ class RateSliceStack:
                 # Extremely rare edge case with floating point calculation. Should never happen but just in case
                 time = np.clip(time, start, end - np.finfo(float).eps)
             # time = np.arange(start, end, self.step_size)
-            rate_obj = RateData(
-                matrix, time, neuron_attributes=self.neuron_attributes
-            )
+            rate_obj = RateData(matrix, time, neuron_attributes=self.neuron_attributes)
             output.append(rate_obj)
         return output
 

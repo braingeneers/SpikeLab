@@ -625,7 +625,11 @@ class TestCoverageGaps:
         (Test Case 2) Matrix shape matches number of dict entries.
         """
         rng = np.random.default_rng(0)
-        groups = {"A": rng.normal(0, 1, 30), "B": rng.normal(3, 1, 30), "C": rng.normal(6, 1, 30)}
+        groups = {
+            "A": rng.normal(0, 1, 30),
+            "B": rng.normal(3, 1, 30),
+            "C": rng.normal(6, 1, 30),
+        }
         res = pairwise_tests(groups, labels=None)
         assert res["labels"] == ["A", "B", "C"]
         assert res["pval_matrix"].shape == (3, 3)

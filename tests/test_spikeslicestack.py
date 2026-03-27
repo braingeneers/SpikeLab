@@ -3041,11 +3041,13 @@ class TestCoverageGaps:
         """
         sss = self._make_stack(n_units=3, n_slices=4)
         # Provide a timing matrix where unit 2 is earliest, unit 0 latest
-        timing = np.array([
-            [30.0, 30.0, 30.0, 30.0],  # unit 0: late
-            [20.0, 20.0, 20.0, 20.0],  # unit 1: middle
-            [10.0, 10.0, 10.0, 10.0],  # unit 2: early
-        ])
+        timing = np.array(
+            [
+                [30.0, 30.0, 30.0, 30.0],  # unit 0: late
+                [20.0, 20.0, 20.0, 20.0],  # unit 1: middle
+                [10.0, 10.0, 10.0, 10.0],  # unit 2: early
+            ]
+        )
         # Returns ((ha_stack, la_stack), (ha_order, la_order), ...)
         result = sss.order_units_across_slices(timing_matrix=timing)
         ha_order = result[1][0]  # (ha_order, la_order)

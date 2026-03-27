@@ -1354,7 +1354,10 @@ class TestCoverageGaps:
         sd = SpikeData([[5.0, 10.0, 20.0], [15.0, 25.0]], length=30.0)
         filepath = str(tmp_path / "group_ms.h5")
         exporters.export_spikedata_to_hdf5(
-            sd, filepath, style="group", group_time_unit="ms",
+            sd,
+            filepath,
+            style="group",
+            group_time_unit="ms",
         )
         # Verify times are stored in ms (under group "units")
         with h5py.File(filepath, "r") as f:
@@ -1372,14 +1375,20 @@ class TestCoverageGaps:
         raw_data = np.random.default_rng(0).random((2, 100))
         raw_time = np.arange(100, dtype=float)  # in ms
         sd = SpikeData(
-            [[5.0, 10.0], [15.0]], length=100.0,
-            raw_data=raw_data, raw_time=raw_time,
+            [[5.0, 10.0], [15.0]],
+            length=100.0,
+            raw_data=raw_data,
+            raw_time=raw_time,
         )
         filepath = str(tmp_path / "raw_samples.h5")
         exporters.export_spikedata_to_hdf5(
-            sd, filepath, style="ragged",
-            raw_dataset="raw", raw_time_dataset="raw_t",
-            raw_time_unit="samples", fs_Hz=1000.0,
+            sd,
+            filepath,
+            style="ragged",
+            raw_dataset="raw",
+            raw_time_dataset="raw_t",
+            raw_time_unit="samples",
+            fs_Hz=1000.0,
         )
         with h5py.File(filepath, "r") as f:
             raw_t = np.asarray(f["raw_t"])
@@ -1445,7 +1454,9 @@ class TestEdgeCaseScan:
             grp = f["units"]
             for i in range(3):
                 ds = np.asarray(grp[str(i)])
-                assert ds.shape == (0,), f"Unit {i} should be empty, got shape {ds.shape}"
+                assert ds.shape == (
+                    0,
+                ), f"Unit {i} should be empty, got shape {ds.shape}"
 
     def test_nwb_export_event_centered_warns(self, tmp_path):
         """Tests: NWB export with event-centered SpikeData emits start_time warning.

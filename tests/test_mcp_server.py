@@ -5106,7 +5106,9 @@ class TestCoverageGaps:
         """
         ws_id, ns = loaded_ws
         result = await analysis.compute_resampled_isi(
-            workspace_id=ws_id, namespace=ns, key="isi_rate",
+            workspace_id=ws_id,
+            namespace=ns,
+            key="isi_rate",
             times=[0.0, 10.0, 20.0, 30.0, 40.0, 50.0],
             sigma_ms=5.0,
         )

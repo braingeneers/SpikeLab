@@ -379,27 +379,29 @@ class TestNumbaSpikeTriggeredPopRate:
     """Tests for nb_spike_trig_pop_rate."""
 
     def _numpy_stpr(self, spike_matrix, lags):
-        """Pure-numpy reference implementation of stPR."""
+        """Pure-numpy reference implementation of stPR (Bimbard et al. formula)."""
         num_neurons, num_bins = spike_matrix.shape
         pop_sum = np.sum(spike_matrix, axis=0)
         mu = np.mean(spike_matrix, axis=1)
+        mu_sum = np.sum(mu)
         total_spikes = np.sum(spike_matrix, axis=1)
         stPR = np.zeros((num_neurons, len(lags)))
 
         for i in range(num_neurons):
-            if total_spikes[i] == 0:
+            if total_spikes[i] == 0 or mu[i] == 0:
                 continue
+            mu_loo = mu_sum - mu[i]
             P_loo = pop_sum - spike_matrix[i]
             P_loo_mean = np.mean(P_loo)
             spike_times = np.where(spike_matrix[i] > 0)[0]
 
             for tau_idx, tau in enumerate(lags):
-                valid_t = spike_times - tau
+                valid_t = spike_times + tau
                 mask = (valid_t >= 0) & (valid_t < num_bins)
                 if np.any(mask):
                     deviations = P_loo[valid_t[mask]] - P_loo_mean
                     stPR[i, tau_idx] = np.sum(deviations) / (
-                        total_spikes[i] * num_neurons * mu[i]
+                        total_spikes[i] * mu_loo
                     )
         return stPR
 
