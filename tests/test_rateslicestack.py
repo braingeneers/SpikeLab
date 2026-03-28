@@ -2338,3 +2338,63 @@ class TestCoverageGaps:
                 times_start_to_end=[(10.0, 30.0), (50.0, 70.0)],
                 sigma_ms=-5,
             )
+
+
+class TestRateSliceStackBackendPrintMessages:
+    """Tests that RateSliceStack parallel processing methods print which backend is used."""
+
+    def test_unit_corr_threadpool_message(self, capsys):
+        """
+        get_slice_to_slice_unit_corr_from_stack prints thread pool message with n_jobs=-1.
+
+        Tests:
+            (Test Case 1) With n_jobs=-1 and multiple units, prints thread pool
+                with worker count.
+        """
+        mat = make_event_matrix(3, 20, 5, seed=42) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        rss.get_slice_to_slice_unit_corr_from_stack(max_lag=2, n_jobs=-1)
+        captured = capsys.readouterr()
+        assert "get_slice_to_slice_unit_corr: using thread pool" in captured.out
+        assert "workers)" in captured.out
+
+    def test_unit_corr_serial_message(self, capsys):
+        """
+        get_slice_to_slice_unit_corr_from_stack prints serial message with n_jobs=1.
+
+        Tests:
+            (Test Case 1) With n_jobs=1, prints "using serial backend".
+        """
+        mat = make_event_matrix(3, 20, 5, seed=42) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        rss.get_slice_to_slice_unit_corr_from_stack(max_lag=2, n_jobs=1)
+        captured = capsys.readouterr()
+        assert "get_slice_to_slice_unit_corr: using serial backend" in captured.out
+
+    def test_time_corr_threadpool_message(self, capsys):
+        """
+        get_slice_to_slice_time_corr_from_stack prints thread pool message with n_jobs=-1.
+
+        Tests:
+            (Test Case 1) With n_jobs=-1 and multiple time bins, prints thread pool
+                with worker count.
+        """
+        mat = make_event_matrix(3, 10, 4, seed=42)
+        rss = RateSliceStack(event_matrix=mat)
+        rss.get_slice_to_slice_time_corr_from_stack(max_lag=0, n_jobs=-1)
+        captured = capsys.readouterr()
+        assert "get_slice_to_slice_time_corr: using thread pool" in captured.out
+        assert "workers)" in captured.out
+
+    def test_time_corr_serial_message(self, capsys):
+        """
+        get_slice_to_slice_time_corr_from_stack prints serial message with n_jobs=1.
+
+        Tests:
+            (Test Case 1) With n_jobs=1, prints "using serial backend".
+        """
+        mat = make_event_matrix(3, 10, 4, seed=42)
+        rss = RateSliceStack(event_matrix=mat)
+        rss.get_slice_to_slice_time_corr_from_stack(max_lag=0, n_jobs=1)
+        captured = capsys.readouterr()
+        assert "get_slice_to_slice_time_corr: using serial backend" in captured.out
