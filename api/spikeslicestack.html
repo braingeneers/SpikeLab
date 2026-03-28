@@ -1,0 +1,964 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpikeSliceStack &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utilities" href="utilities.html" />
+    <link rel="prev" title="RateSliceStack" href="rateslicestack.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">SpikeSliceStack</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/spikeslicestack.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="spikeslicestack">
+<h1>SpikeSliceStack<a class="headerlink" href="#spikeslicestack" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> class stores event-aligned slices of raw spike train
+data. It holds a list of <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> objects (one per trial or event window)
+and provides methods for converting to raster arrays of shape
+<code class="docutils literal notranslate"><span class="pre">(num_units,</span> <span class="pre">num_bins,</span> <span class="pre">num_slices)</span></code> and computing trial-averaged statistics.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.spikeslicestack.</span></span><span class="sig-name descname"><span class="pre">SpikeSliceStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_stack</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_slice_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A list of SpikeData objects, one per slice, with spike-based comparison capabilities.</p>
+<p>U is units (neurons) and S is slices (bursts, events, etc). Construct from
+either a single SpikeData with time specifications, or directly from a
+pre-built list of SpikeData objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_obj</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a><em> or </em><em>None</em>) – A SpikeData object to slice. Provide
+either this or spike_stack, not both.</p></li>
+<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
+representing the start and end times of a desired slice. Each
+tuple must have the same duration.</p></li>
+<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
+is a burst peak or stimulation event. Must be paired with
+time_bounds. Alternative to times_start_to_end.</p></li>
+<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
+For example, (250, 500) means 250 ms before peak and 500 ms
+after peak. Must be paired with time_peaks.</p></li>
+<li><p><strong>spike_stack</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of SpikeData objects, one per slice.
+All must have the same number of units. Spike times must be
+relative to the slice (0-based or event-centered via
+start_time), not absolute recording times. Provide either this
+or data_obj, not both.</p></li>
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute dicts, one per
+unit. If None, inherited from data_obj when available.</p></li>
+<li><p><strong>drop_slice_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True (default), neuron_attributes
+are removed from individual SpikeData slices after construction.
+The shared copy is stored at neuron_attributes. This avoids
+duplicating large per-unit data (e.g. waveform templates) across
+every slice. Set to False to keep per-slice attributes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.spike_stack">
+<span class="sig-name descname"><span class="pre">spike_stack</span></span><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.spike_stack" title="Link to this definition"></a></dt>
+<dd><p>List of SpikeData objects, one per slice. Spike
+times are relative to the slice window. For 0-based slices,
+times run from 0 to duration. For event-centered slices, times
+run from -pre_ms to +post_ms with t=0 at the event. Use
+self.times for absolute recording time positions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.times">
+<span class="sig-name descname"><span class="pre">times</span></span><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.times" title="Link to this definition"></a></dt>
+<dd><p>List of (start, end) time bounds for each slice in
+absolute recording time, sorted chronologically. Length equals S.
+Example: [(100, 350), (500, 750), (1000, 1250)].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.N">
+<span class="sig-name descname"><span class="pre">N</span></span><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.N" title="Link to this definition"></a></dt>
+<dd><p>Number of units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.neuron_attributes">
+<span class="sig-name descname"><span class="pre">neuron_attributes</span></span><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.neuron_attributes" title="Link to this definition"></a></dt>
+<dd><p>List of attribute dicts, one per
+unit. None if not provided. When drop_slice_attributes is True
+(default), this is the only copy and individual slices will have
+neuron_attributes set to None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_stack</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_slice_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.subslice">
+<span class="sig-name descname"><span class="pre">subslice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slices</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.subslice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subslice" title="Link to this definition"></a></dt>
+<dd><p>Extract a subset of slices from the spike stack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Slice index or list of slice indices to
+extract.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New SpikeSliceStack containing only the</dt><dd><p>specified slices. Shape changes from S to S_trimmed. All
+units and neuron_attributes are carried over.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset" title="Link to this definition"></a></dt>
+<dd><p>Extract a subset of units from every slice in the spike stack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Unit indices to extract. If by is None,
+must be int(s). If by is set, values to match in
+neuron_attributes.</p></li>
+<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If set, select units by this neuron_attribute
+key instead of by index.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New SpikeSliceStack containing only the</dt><dd><p>specified units across all slices. All slices and
+neuron_attributes are carried over.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Units are included in the output in the order they appear in the
+train (ascending index order), not the order listed in units.</p></li>
+<li><p>If IDs are not unique (when using by), every matching neuron is
+included.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.subtime_by_index">
+<span class="sig-name descname"><span class="pre">subtime_by_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.subtime_by_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subtime_by_index" title="Link to this definition"></a></dt>
+<dd><p>Trim each slice to a sub-window specified by millisecond indices.</p>
+<p>Indices are measured from the start of each slice (1 index = 1 ms).
+Trims along the time axis while preserving all slices and units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Start index in ms from slice start (inclusive).
+Supports negative indexing.</p></li>
+<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – End index in ms from slice start (exclusive).
+Supports negative indexing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New SpikeSliceStack where each slice is</dt><dd><p>trimmed to the corresponding absolute time window. Absolute
+spike times are preserved (not shifted). self.times is updated
+to reflect the new absolute time bounds.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack" title="spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Indices are relative to each slice’s own start (index 0 = slice
+start ms). They are converted to absolute recording times
+internally before trimming.</p></li>
+<li><p>Original absolute timestamps are preserved. To get
+shifted-to-zero timestamps, create a new SpikeSliceStack.</p></li>
+<li><p>All slices and neuron_attributes are carried over from the
+original.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.to_raster_array">
+<span class="sig-name descname"><span class="pre">to_raster_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">absolute_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.to_raster_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.to_raster_array" title="Link to this definition"></a></dt>
+<dd><p>Convert the spike stack into a 3D raster array of shape (N, T, S).</p>
+<p>Each slice is rasterized with the given bin size, producing a spike
+count matrix where entry (n, t, s) is the number of spikes unit n
+fired in time bin t of slice s.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time bin size in ms (default 1.0).</p></li>
+<li><p><strong>absolute_times</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If False (default), time bin 0 corresponds
+to the start of each slice (0-based). If True, each slice’s
+spikes are offset by its absolute start time from self.times,
+so bin indices reflect the original recording position. The T
+dimension is sized to cover the full time span from the
+earliest slice start to the latest slice end.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>3D array of shape (N, T, S) with</dt><dd><p>non-negative integer spike counts. When absolute_times is
+True, T covers the full recording span and all slices share
+the same time axis.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>raster_stack (np.ndarray)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.compute_frac_active">
+<span class="sig-name descname"><span class="pre">compute_frac_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.compute_frac_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.compute_frac_active" title="Link to this definition"></a></dt>
+<dd><p>Compute the fraction of slices each unit is active in.</p>
+<p>A unit counts as active in a slice if it has at least min_spikes
+spikes within that slice’s time window.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
+active in a slice (default: 2).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>1-D array of shape <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> with the</dt><dd><p>fraction of slices each unit is active in (values in [0, 1]).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>frac_active (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The returned array can be passed as <code class="docutils literal notranslate"><span class="pre">frac_active</span></code> to
+<code class="docutils literal notranslate"><span class="pre">RateSliceStack.order_units_across_slices</span></code>,
+<code class="docutils literal notranslate"><span class="pre">RateSliceStack.get_slice_to_slice_unit_corr_from_stack</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.order_units_across_slices</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.get_slice_to_slice_unit_comparison</span></code>
+to override their internal activity calculation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SpikeData.get_frac_active</span></code> produces a compatible <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>
+array based on burst edges and can be used in the same way.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.order_units_across_slices">
+<span class="sig-name descname"><span class="pre">order_units_across_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agg_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'median'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'median'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_frac_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.order_units_across_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.order_units_across_slices" title="Link to this definition"></a></dt>
+<dd><p>Reorder units by their typical spike timing across slices.</p>
+<p>For each unit in each slice, computes a representative spike time
+(median, mean, or first spike) relative to the slice’s time origin. These
+per-slice values are aggregated across slices to obtain a single
+typical timing per unit. Units are then sorted by this value from
+earliest to latest and optionally split into a highly-active group
+and a low-activity group.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – How to aggregate per-slice timing values across
+slices. <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>.</p></li>
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> — median spike time within the slice (default).
+<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> — mean spike time within the slice.
+<code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> — first spike time (onset latency).
+Ignored when <code class="docutils literal notranslate"><span class="pre">timing_matrix</span></code> is provided.</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count as
+active in a slice (default: 2). Ignored when <code class="docutils literal notranslate"><span class="pre">timing_matrix</span></code>
+is provided.</p></li>
+<li><p><strong>min_frac_active</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of slices a unit
+must be active in to be placed in the highly-active group.
+<code class="docutils literal notranslate"><span class="pre">0.0</span></code> or <code class="docutils literal notranslate"><span class="pre">None</span></code> (default: 0.0) skips the split entirely
+and places all units in the highly-active group without
+computing activity fractions.</p></li>
+<li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
+fraction-active array of shape <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> to override the
+internal calculation for the group split. Only used when
+<code class="docutils literal notranslate"><span class="pre">min_frac_active</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>. Compatible sources:
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.compute_frac_active</span></code> and
+<code class="docutils literal notranslate"><span class="pre">SpikeData.get_frac_active</span></code> (<code class="docutils literal notranslate"><span class="pre">frac_per_unit</span></code> output).</p></li>
+<li><p><strong>timing_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code>
+timing matrix from <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code>. When provided,
+<code class="docutils literal notranslate"><span class="pre">timing</span></code> and <code class="docutils literal notranslate"><span class="pre">min_spikes</span></code> are ignored and this matrix is
+used directly.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Two <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> objects</dt><dd><p><code class="docutils literal notranslate"><span class="pre">(highly_active,</span> <span class="pre">low_active)</span></code> with units reordered by typical
+timing. The low-activity stack is <code class="docutils literal notranslate"><span class="pre">None</span></code> when the group is
+empty.</p>
+</dd>
+<dt>unit_ids_in_order (tuple): Two <code class="docutils literal notranslate"><span class="pre">ndarray</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(highly_active,</span> <span class="pre">low_active)</span></code> of original unit indices in the
+reordered sequence.</p>
+</dd>
+<dt>unit_std (tuple): Two <code class="docutils literal notranslate"><span class="pre">ndarray</span></code> <code class="docutils literal notranslate"><span class="pre">(highly_active,</span> <span class="pre">low_active)</span></code></dt><dd><p>of standard deviation of per-slice timing values. Lower values
+indicate more consistent timing across slices.</p>
+</dd>
+<dt>unit_peak_times_ms (tuple): Two <code class="docutils literal notranslate"><span class="pre">ndarray</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(highly_active,</span> <span class="pre">low_active)</span></code> of the aggregated typical
+timing in milliseconds relative to slice start. NaN for units
+with no active slices.</p>
+</dd>
+<dt>unit_frac_active (tuple): Two <code class="docutils literal notranslate"><span class="pre">ndarray</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">(highly_active,</span> <span class="pre">low_active)</span></code> of the fraction of slices each
+unit was active in.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>reordered_stacks (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Call <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code> first to pre-compute the
+timing matrix if you want to reuse it across multiple calls
+(e.g. <code class="docutils literal notranslate"><span class="pre">rank_order_correlation</span></code> and this method).</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">frac_active</span></code> is None and <code class="docutils literal notranslate"><span class="pre">min_frac_active</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>,
+activity fraction is computed via <code class="docutils literal notranslate"><span class="pre">compute_frac_active</span></code>.</p></li>
+<li><p>Analogous to <code class="docutils literal notranslate"><span class="pre">RateSliceStack.order_units_across_slices</span></code> but
+operates on raw spike trains instead of firing rate curves.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.apply" title="Link to this definition"></a></dt>
+<dd><p>Apply a function to each SpikeData in the stack and return stacked results.</p>
+<p>Calls <code class="docutils literal notranslate"><span class="pre">func(sd,</span> <span class="pre">*args,</span> <span class="pre">**kwargs)</span></code> on every slice and stacks the
+outputs into a single numpy array with a new leading axis of size S
+(number of slices).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func</strong> (<em>callable</em>) – Function that accepts a SpikeData as its first
+argument and returns a numeric value (scalar, 1-D, or 2-D
+array). Output shape must be consistent across all slices.</p></li>
+<li><p><strong>*args</strong> – Additional positional arguments forwarded to func.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments forwarded to func.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Stacked results with shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">...)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Intended for use with stacks built by <code class="docutils literal notranslate"><span class="pre">SpikeData.frames</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SpikeData.align_to_events</span></code>, <code class="docutils literal notranslate"><span class="pre">SpikeData.spike_shuffle_stack</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">SpikeData.subset_stack</span></code>. Pair with <code class="docutils literal notranslate"><span class="pre">shuffle_z_score</span></code>,
+<code class="docutils literal notranslate"><span class="pre">shuffle_percentile</span></code>, <code class="docutils literal notranslate"><span class="pre">slice_trend</span></code>, or <code class="docutils literal notranslate"><span class="pre">slice_stability</span></code>
+from <code class="docutils literal notranslate"><span class="pre">utils</span></code> to interpret the results.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.unit_to_unit_comparison">
+<span class="sig-name descname"><span class="pre">unit_to_unit_comparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ccg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">350</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.unit_to_unit_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.unit_to_unit_comparison" title="Link to this definition"></a></dt>
+<dd><p>Compute pairwise unit-to-unit similarity within each slice using spike-based metrics.</p>
+<p>For each slice, computes a (U, U) similarity matrix between all unit pairs,
+then stacks the results into a <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span> <span class="pre">(U,</span> <span class="pre">U,</span> <span class="pre">S)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
+on binned rasters (default), <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code> for spike time tiling coefficient.</p></li>
+<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
+Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
+(default: 1.0). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
+correlation (default: 350). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Pairwise similarity scores between</dt><dd><p>all unit pairs for each slice. Shape is <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">U,</span> <span class="pre">S)</span></code>.</p>
+</dd>
+<dt>lag_stack (PairwiseCompMatrixStack or None): Lag at which maximum</dt><dd><p>similarity occurs for each pair per slice. Shape is <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">U,</span> <span class="pre">S)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code> (STTC has no lag).</p>
+</dd>
+<dt>av_corr (np.ndarray): Average similarity per slice across all unit</dt><dd><p>pairs in the lower triangle. Shape is <code class="docutils literal notranslate"><span class="pre">(S,)</span></code>.</p>
+</dd>
+<dt>av_lag (np.ndarray or None): Average lag per slice. Shape is <code class="docutils literal notranslate"><span class="pre">(S,)</span></code>.</dt><dd><p><code class="docutils literal notranslate"><span class="pre">None</span></code> when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>corr_stack (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Analogous to <code class="docutils literal notranslate"><span class="pre">RateSliceStack.unit_to_unit_correlation</span></code> but operates
+on raw spike trains instead of firing rate time series.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_slice_to_slice_unit_comparison">
+<span class="sig-name descname"><span class="pre">get_slice_to_slice_unit_comparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ccg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">350</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.get_slice_to_slice_unit_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_slice_to_slice_unit_comparison" title="Link to this definition"></a></dt>
+<dd><p>Compute slice-to-slice similarity for each unit using spike-based metrics.</p>
+<p>For each unit independently, compares its spike train across every pair of
+slices. Asks: “Does unit X fire in the same temporal pattern across repeated
+events?” Returns a <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span> <span class="pre">(S,</span> <span class="pre">S,</span> <span class="pre">U)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Similarity metric to use. <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code> for cross-correlogram
+on binned rasters (default), <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code> for spike time tiling coefficient.</p></li>
+<li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – STTC time window in milliseconds (default: 20.0).
+Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in milliseconds for the binary raster
+(default: 1.0). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum lag in milliseconds to search for the peak
+correlation (default: 350). Only used when metric is <code class="docutils literal notranslate"><span class="pre">&quot;ccg&quot;</span></code>.</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes in a slice for a unit to
+be considered valid in that slice (default: 2).</p></li>
+<li><p><strong>min_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum fraction of slices that can be invalid before
+a unit’s average is set to NaN (default: 0.3).</p></li>
+<li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
+fraction-active array of shape <code class="docutils literal notranslate"><span class="pre">(U,)</span></code> to override the
+internal per-unit validity check for computing averages.
+When provided, a unit’s average is set to NaN if
+<code class="docutils literal notranslate"><span class="pre">frac_active[u]</span> <span class="pre">&lt;</span> <span class="pre">(1</span> <span class="pre">-</span> <span class="pre">min_frac)</span></code>. <code class="docutils literal notranslate"><span class="pre">min_spikes</span></code> still
+controls which individual slice pairs are computed.
+Compatible sources: <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.compute_frac_active</span></code>
+and <code class="docutils literal notranslate"><span class="pre">SpikeData.get_frac_active</span></code> (<code class="docutils literal notranslate"><span class="pre">frac_per_unit</span></code> output).</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Pairwise similarity between all</dt><dd><p>slice pairs for each unit. Shape is <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S,</span> <span class="pre">U)</span></code>.</p>
+</dd>
+<dt>all_lag (PairwiseCompMatrixStack or None): Lag at which maximum</dt><dd><p>similarity occurs for each slice pair per unit. Shape is <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S,</span> <span class="pre">U)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p>
+</dd>
+<dt>av_corr (np.ndarray): Average similarity per unit across all valid</dt><dd><p>slice pairs. Shape is <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>.</p>
+</dd>
+<dt>av_lag (np.ndarray or None): Average lag per unit. Shape is <code class="docutils literal notranslate"><span class="pre">(U,)</span></code>.</dt><dd><p><code class="docutils literal notranslate"><span class="pre">None</span></code> when metric is <code class="docutils literal notranslate"><span class="pre">&quot;sttc&quot;</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>all_corr (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Analogous to <code class="docutils literal notranslate"><span class="pre">RateSliceStack.get_slice_to_slice_unit_corr_from_stack</span></code>
+but operates on raw spike trains.</p></li>
+<li><p>Spike times within each slice are relative to the slice time
+origin (0-based or event-centered) for aligned comparison.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_unit_timing_per_slice">
+<span class="sig-name descname"><span class="pre">get_unit_timing_per_slice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'median'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.get_unit_timing_per_slice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_unit_timing_per_slice" title="Link to this definition"></a></dt>
+<dd><p>Compute a representative spike time for each unit in each slice.</p>
+<p>Returns a <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> matrix where entry <code class="docutils literal notranslate"><span class="pre">[u,</span> <span class="pre">s]</span></code> is the timing
+value (in milliseconds relative to the slice’s time origin) for unit u
+in slice s. For event-centered slices, t=0 is the event. Units with
+fewer than min_spikes spikes in a slice are marked NaN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code> (onset
+latency).</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of spikes for a unit to count
+as active in a slice (default: 2).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Array of shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> with timing</dt><dd><p>values in milliseconds relative to each slice’s time origin.
+NaN where the unit is inactive.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>timing_matrix (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Values are in milliseconds, not bin indices. This differs from
+<code class="docutils literal notranslate"><span class="pre">RateSliceStack.get_unit_timing_per_slice</span></code> which returns bin
+indices (suitable for direct indexing into the event stack).
+Both representations preserve rank order, so
+<code class="docutils literal notranslate"><span class="pre">rank_order_correlation</span></code> produces identical results either way.</p></li>
+<li><p>The returned matrix can be passed to <code class="docutils literal notranslate"><span class="pre">rank_order_correlation</span></code>
+to compute Spearman rank correlations between slice pairs, or
+used as input to <code class="docutils literal notranslate"><span class="pre">order_units_across_slices</span></code> for manual
+inspection of per-slice timing values.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.rank_order_correlation">
+<span class="sig-name descname"><span class="pre">rank_order_correlation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timing_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'median'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_shuffles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_overlap_frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.rank_order_correlation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.rank_order_correlation" title="Link to this definition"></a></dt>
+<dd><p>Compute Spearman rank-order correlation of unit timing between all slice pairs.</p>
+<p>For each pair of slices, only units active in both slices (non-NaN in
+both columns of the timing matrix) are included. If the overlap falls
+below the required minimum, the pair is set to NaN.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, the rank orders are shuffled n_shuffles
+times for each pair to build a null distribution, and the raw
+correlation is z-score normalised against it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>timing_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Array of shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> with
+timing values per unit per slice. NaN entries mark inactive
+units. Typically produced by <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code>.
+When None, computed automatically using timing and
+min_spikes.</p></li>
+<li><p><strong>timing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Which spike time to extract per unit per slice.
+<code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;first&quot;</span></code>. Only used
+when timing_matrix is None.</p></li>
+<li><p><strong>min_spikes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum spikes for activity (default: 2). Only
+used when timing_matrix is None.</p></li>
+<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of units that must be active in
+both slices (default: 3).</p></li>
+<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
+that must be active in both slices (default: None). When
+provided, the effective threshold is
+<code class="docutils literal notranslate"><span class="pre">max(min_overlap,</span> <span class="pre">ceil(min_overlap_frac</span> <span class="pre">*</span> <span class="pre">U))</span></code>.</p></li>
+<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
+(default: 100). Set to 0 to return raw Spearman correlations.
+Values between 1 and 4 are rejected (minimum 5 required for
+a meaningful null distribution).</p></li>
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
+(default: 1).</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Spearman correlation matrix of</dt><dd><p>shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code>. When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, values are z-scores.
+When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">==</span> <span class="pre">0</span></code>, values are raw Spearman correlations.</p>
+</dd>
+<dt>av_corr (float): Average correlation (or z-score) across all valid</dt><dd><p>lower-triangle pairs.</p>
+</dd>
+<dt>overlap_matrix (PairwiseCompMatrix): Matrix of shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code></dt><dd><p>with fraction of units active in both slices.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>corr_matrix (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix">PairwiseCompMatrix</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.spikeslicestack.SpikeSliceStack.plot_aligned_slice_single_unit">
+<span class="sig-name descname"><span class="pre">plot_aligned_slice_single_unit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_vals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Rel.</span> <span class="pre">time</span> <span class="pre">(ms)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Burst'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vlines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'scatter'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invert_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikeslicestack.html#SpikeSliceStack.plot_aligned_slice_single_unit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.spikeslicestack.SpikeSliceStack.plot_aligned_slice_single_unit" title="Link to this definition"></a></dt>
+<dd><p>Plot a single unit’s spike times across all slices as a raster.</p>
+<p>Extracts the spike train for unit_idx from every slice and delegates
+to <code class="xref py py-func docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>unit_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Index of the unit to plot.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None, a new
+figure and axes are created.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-slice colour values.</p></li>
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from spike times for display.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis.</p></li>
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Vertical reference line positions.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers, <code class="docutils literal notranslate"><span class="pre">&quot;eventplot&quot;</span></code> for
+vertical line markers.</p></li>
+<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, first slice at top, last at bottom.</p></li>
+<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for eventplot markers.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(fig,</span> <span class="pre">ax,</span> <span class="pre">sc)</span></code> when ax is None, otherwise just sc.</dt><dd><p>sc is the scatter <code class="docutils literal notranslate"><span class="pre">PathCollection</span></code> (or None if no colour
+coding).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="rateslicestack.html" class="btn btn-neutral float-left" title="RateSliceStack" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="utilities.html" class="btn btn-neutral float-right" title="Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

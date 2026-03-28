@@ -1,0 +1,581 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pairwise Analysis &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Exporting Data" href="exporting_data.html" />
+    <link rel="prev" title="Event-Aligned Analysis" href="event_aligned_analysis.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
+      <li class="breadcrumb-item active">Pairwise Analysis</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/pairwise_analysis.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pairwise-analysis">
+<h1>Pairwise Analysis<a class="headerlink" href="#pairwise-analysis" title="Link to this heading"></a></h1>
+<p>This guide covers computing pairwise similarity between neurons, visualizing
+the relationship between firing-rate correlation and spike timing, and
+building spatial network representations of functional connectivity on the
+MEA layout.</p>
+<p>After working through this guide you will know how to:</p>
+<ul class="simple">
+<li><p>Compute spike time tiling coefficient (STTC) matrices with
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">spike_time_tilings()</span></code>.</p></li>
+<li><p>Compare firing-rate correlation and STTC with scatter plots using marginal
+histograms.</p></li>
+<li><p>Convert a <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> to a NetworkX graph and
+run Louvain community detection.</p></li>
+<li><p>Plot functional connectivity as a spatial network on MEA electrode
+positions.</p></li>
+</ul>
+<section id="spike-time-tiling-coefficient-sttc">
+<h2>Spike Time Tiling Coefficient (STTC)<a class="headerlink" href="#spike-time-tiling-coefficient-sttc" title="Link to this heading"></a></h2>
+<p>The STTC quantifies the temporal co-occurrence of spikes between two neurons.
+It ranges from -1 (anti-correlated) to +1 (perfectly coincident) and is
+unbiased with respect to firing rate, making it preferable to raw
+cross-correlation for comparing pairs with different activity levels.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">delt</span></code> parameter sets the coincidence window in milliseconds.  A spike
+in neuron A is considered coincident with neuron B if any spike of B falls
+within <code class="docutils literal notranslate"><span class="pre">delt</span></code> ms.  Typical values range from 5 to 50 ms; 20 ms is a common
+default for cortical data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span><span class="p">,</span> <span class="n">PairwiseCompMatrix</span>
+
+<span class="c1"># sd is a SpikeData with N units</span>
+<span class="c1"># delt: coincidence window in ms (default 20 ms)</span>
+<span class="n">sttc_matrix</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">spike_time_tilings</span><span class="p">(</span><span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">)</span>
+
+<span class="c1"># sttc_matrix is a PairwiseCompMatrix with shape (N, N)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sttc_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (N, N)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sttc_matrix</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>       <span class="c1"># {&#39;delt&#39;: 20.0}</span>
+</pre></div>
+</div>
+<p>The returned <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> stores the symmetric
+N-by-N matrix together with optional labels and metadata.  When <code class="docutils literal notranslate"><span class="pre">numba</span></code> is
+installed and the number of units exceeds two, the computation is
+automatically parallelized across all unit pairs.</p>
+<p>To compare multiple conditions, compute one STTC matrix per recording and
+visualize them side by side:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_heatmap</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="n">plot_heatmap</span><span class="p">(</span>
+    <span class="n">sttc_d0</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>
+    <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
+    <span class="n">colorbar_label</span><span class="o">=</span><span class="s2">&quot;STTC&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Baseline&quot;</span><span class="p">)</span>
+
+<span class="n">plot_heatmap</span><span class="p">(</span>
+    <span class="n">sttc_d50</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>
+    <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
+    <span class="n">colorbar_label</span><span class="o">=</span><span class="s2">&quot;STTC&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Treated&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../_images/sttc_matrices.png"><img alt="STTC matrices for baseline and treated conditions" src="../_images/sttc_matrices.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Pairwise STTC matrices ordered by mean firing-rate correlation, showing
+changes in temporal co-firing between conditions.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="fr-correlation-vs-sttc-scatter">
+<h2>FR Correlation vs STTC Scatter<a class="headerlink" href="#fr-correlation-vs-sttc-scatter" title="Link to this heading"></a></h2>
+<p>Firing-rate correlation and STTC capture different aspects of functional
+connectivity.  Firing-rate correlation reflects co-modulation on slower
+timescales, while STTC captures millisecond-precision coincidences.
+Plotting one against the other reveals whether tightly synchronized pairs
+also share slow rate fluctuations.</p>
+<p>Use <a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals" title="spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a> to
+create a scatter plot with marginal histograms.  The function accepts a
+<code class="docutils literal notranslate"><span class="pre">GridSpec</span></code> slot and a parent figure, so you can embed multiple panels in a
+single layout:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.gridspec</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gridspec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_scatter_with_marginals</span>
+
+<span class="c1"># Extract upper-triangle values from each matrix</span>
+<span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sttc_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">fr_corr_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>   <span class="c1"># firing-rate correlation per pair</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>      <span class="c1"># STTC per pair</span>
+
+<span class="c1"># Remove NaN pairs</span>
+<span class="n">valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">valid</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">)</span>
+
+<span class="n">ax_scatter</span><span class="p">,</span> <span class="n">ax_histx</span><span class="p">,</span> <span class="n">ax_histy</span><span class="p">,</span> <span class="n">sc</span> <span class="o">=</span> <span class="n">plot_scatter_with_marginals</span><span class="p">(</span>
+    <span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>                     <span class="c1"># GridSpec slot for the sub-layout</span>
+    <span class="n">fig</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;FR correlation&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;STTC&quot;</span><span class="p">,</span>
+    <span class="n">color_vals</span><span class="o">=</span><span class="s2">&quot;density&quot;</span><span class="p">,</span>      <span class="c1"># KDE-based density coloring</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+    <span class="n">marker_size</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">show_identity</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># draw x=y reference line</span>
+    <span class="n">show_colorbar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/fr_vs_sttc_scatter.png"><img alt="Scatter plot of firing-rate correlation vs STTC with marginal histograms" src="../_images/fr_vs_sttc_scatter.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Each point is one unit pair.  Density coloring highlights the core of the
+distribution.  The identity line shows where the two metrics would agree
+perfectly.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="network-analysis">
+<h2>Network Analysis<a class="headerlink" href="#network-analysis" title="Link to this heading"></a></h2>
+<p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> can be converted to a weighted
+NetworkX graph for standard graph-theoretic analyses such as clustering
+coefficient, shortest path length, and community detection.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+
+<span class="c1"># Convert to a NetworkX graph</span>
+<span class="c1"># threshold: only include edges with |weight| &gt; threshold</span>
+<span class="c1"># invert_weights: if True, weight = 1 - value (useful for path-length metrics)</span>
+<span class="n">G</span> <span class="o">=</span> <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">invert_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nodes: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_nodes</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Edges: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_edges</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For path-based metrics like global efficiency, use <code class="docutils literal notranslate"><span class="pre">invert_weights=True</span></code> so
+that strongly correlated pairs correspond to short paths:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">G_inv</span> <span class="o">=</span> <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">invert_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">efficiency</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">global_efficiency</span><span class="p">(</span><span class="n">G_inv</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Global efficiency: </span><span class="si">{</span><span class="n">efficiency</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Community detection with the Louvain algorithm identifies groups of neurons
+that are more densely connected to each other than to the rest of the
+network.  This requires the <code class="docutils literal notranslate"><span class="pre">python-louvain</span></code> package (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span>
+<span class="pre">python-louvain</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">community</span><span class="w"> </span><span class="kn">import</span> <span class="n">community_louvain</span>
+
+<span class="c1"># Build a graph with only positive edges (raw weights)</span>
+<span class="n">G_raw</span> <span class="o">=</span> <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">invert_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Run Louvain community detection</span>
+<span class="c1"># resolution: higher values produce more communities</span>
+<span class="n">partition</span> <span class="o">=</span> <span class="n">community_louvain</span><span class="o">.</span><span class="n">best_partition</span><span class="p">(</span><span class="n">G_raw</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">modularity</span> <span class="o">=</span> <span class="n">community_louvain</span><span class="o">.</span><span class="n">modularity</span><span class="p">(</span><span class="n">partition</span><span class="p">,</span> <span class="n">G_raw</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="s2">&quot;weight&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Modularity: </span><span class="si">{</span><span class="n">modularity</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of communities: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">partition</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># partition is a dict mapping node index -&gt; community label</span>
+<span class="n">community_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">partition</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">G_raw</span><span class="o">.</span><span class="n">number_of_nodes</span><span class="p">())]</span>
+</pre></div>
+</div>
+<p>You can also compute per-node metrics such as weighted degree (strength),
+clustering coefficient, and betweenness centrality:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Node strength (sum of edge weights per node)</span>
+<span class="n">strengths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">G_raw</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">weight</span><span class="o">=</span><span class="s2">&quot;weight&quot;</span><span class="p">)])</span>
+
+<span class="c1"># Weighted clustering coefficient</span>
+<span class="n">clustering</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">clustering</span><span class="p">(</span><span class="n">G_raw</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="s2">&quot;weight&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="spatial-network-visualization">
+<h2>Spatial Network Visualization<a class="headerlink" href="#spatial-network-visualization" title="Link to this heading"></a></h2>
+<p>When electrode positions are available in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>, you can
+overlay the pairwise connectivity on the physical MEA layout.  The
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code> method plots each unit at
+its (x, y) position with node size proportional to its mean pairwise metric
+and edges drawn between pairs that exceed a threshold.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+<span class="c1"># sd must have neuron_attributes with &#39;x&#39; and &#39;y&#39; keys (positions in um)</span>
+<span class="n">sc</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">plot_spatial_network</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>          <span class="c1"># (N, N) pairwise metric</span>
+    <span class="n">edge_threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>          <span class="c1"># draw edges where STTC &gt; 0.3</span>
+    <span class="n">node_size_range</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>     <span class="c1"># min/max marker size</span>
+    <span class="n">node_cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span>         <span class="c1"># colormap for node color (by row-mean)</span>
+    <span class="n">edge_color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span>            <span class="c1"># color of connecting lines</span>
+    <span class="n">edge_linewidth</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+    <span class="n">edge_alpha_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>  <span class="c1"># alpha scales with edge strength</span>
+    <span class="n">scale_bar_um</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>            <span class="c1"># scale bar length in micrometers</span>
+<span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Mean STTC&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Alternatively, if you have positions as a separate array, call the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code> method on the
+matrix directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">positions</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">unit_locations</span>   <span class="c1"># (N, 2) array of (x, y) in um</span>
+
+<span class="n">sc</span> <span class="o">=</span> <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">plot_spatial_network</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">positions</span><span class="p">,</span>
+    <span class="n">edge_threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">node_cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+    <span class="n">edge_color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span>
+    <span class="n">scale_bar_um</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also use the <code class="docutils literal notranslate"><span class="pre">top_pct</span></code> parameter instead of <code class="docutils literal notranslate"><span class="pre">edge_threshold</span></code> to
+draw only the top percentile of edges, which is useful when the absolute
+scale varies across conditions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sc</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">plot_spatial_network</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">sttc_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>
+    <span class="n">top_pct</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>    <span class="c1"># draw only the top 10% of edges</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../_images/mea_network_D0.png"><img alt="Spatial network of functional connectivity on the MEA layout" src="../_images/mea_network_D0.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Units plotted at their MEA positions.  Node size and color reflect mean
+pairwise connectivity; red lines connect pairs exceeding the threshold,
+with line opacity proportional to edge strength.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="event_aligned_analysis.html" class="btn btn-neutral float-left" title="Event-Aligned Analysis" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="exporting_data.html" class="btn btn-neutral float-right" title="Exporting Data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1039 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plotting Utilities &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data Loaders" href="data_loaders.html" />
+    <link rel="prev" title="Statistical Utilities" href="stat_utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#utilities">Utilities</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">Plotting Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/plot_utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="plotting-utilities">
+<h1>Plotting Utilities<a class="headerlink" href="#plotting-utilities" title="Link to this heading"></a></h1>
+<p>Plotting helper functions for visualizing spike trains, firing rates, rasters,
+and pairwise comparison matrices. Requires the <code class="docutils literal notranslate"><span class="pre">plotting</span></code> extra
+(<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[plotting]</span></code>).</p>
+<p id="module-spikelab.spikedata.plot_utils">Plotting utilities for SpikeLab.</p>
+<p>Provides <code class="docutils literal notranslate"><span class="pre">plot_recording</span></code> for assembling multi-panel figures from SpikeData
+objects, <code class="docutils literal notranslate"><span class="pre">plot_heatmap</span></code> for standalone 2-D heatmaps, <code class="docutils literal notranslate"><span class="pre">plot_distribution</span></code>
+for comparing per-unit metrics across conditions, <code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix</span></code> for
+significance heatmaps (standalone or as inset), <code class="docutils literal notranslate"><span class="pre">plot_scatter</span></code> for pairwise
+comparisons with optional regression, <code class="docutils literal notranslate"><span class="pre">plot_lines</span></code> for multi-trace line
+plots, <code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity</span></code> for threshold sensitivity curves,
+<code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals</span></code> for scatter plots with marginal histograms,
+<code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit</span></code> for event-aligned single-unit raster plots,
+and <code class="docutils literal notranslate"><span class="pre">plot_spatial_network</span></code> for MEA spatial network visualisation.</p>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> (optional dependency).</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_distribution">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_distribution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'violin'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_median</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_quartiles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_distribution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_distribution" title="Link to this definition"></a></dt>
+<dd><p>Plot distributions of a per-unit metric across multiple groups/conditions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Condition-labelled
+or ordered collection of per-unit value arrays. NaN values are
+stripped automatically before plotting.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+dict keys (for dict input) or integer indices (for list input).</p></li>
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition colours. If None, uses
+the default matplotlib colour cycle.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;violin&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;boxplot&quot;</span></code>.</p></li>
+<li><p><strong>show_median</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay a median dot on each distribution.</p></li>
+<li><p><strong>show_quartiles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay IQR lines (25th-75th percentile) on
+each distribution.</p></li>
+<li><p><strong>show_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Overlay individual data points on each distribution,
+jittered horizontally to reduce overlap.</p></li>
+<li><p><strong>data_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha transparency for overlaid data points.</p></li>
+<li><p><strong>data_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for overlaid data points.</p></li>
+<li><p><strong>log_scale</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use a log scale on the y-axis.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The violin or boxplot artist dict returned by</dt><dd><p>matplotlib (<code class="docutils literal notranslate"><span class="pre">violinplot</span></code> or <code class="docutils literal notranslate"><span class="pre">boxplot</span></code>).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>parts (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>In violin mode, groups with fewer than 2 data points cannot produce
+a kernel density estimate. These groups are rendered as individual
+scatter points instead and excluded from the violin plot.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_pvalue_matrix">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_pvalue_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pval_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inset_loc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'upper</span> <span class="pre">left'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inset_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'30%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inset_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_marker_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'red'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_pvalue_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_pvalue_matrix" title="Link to this definition"></a></dt>
+<dd><p>Display a pairwise p-value matrix as a <code class="docutils literal notranslate"><span class="pre">-log10(p)</span></code> heatmap.</p>
+<p>Supports two rendering modes (mutually exclusive):</p>
+<ul class="simple">
+<li><p>Standalone: pass <code class="docutils literal notranslate"><span class="pre">ax</span></code> to plot directly on existing axes.</p></li>
+<li><p>Inset: pass <code class="docutils literal notranslate"><span class="pre">parent_ax</span></code> to create a small inset axes on a parent
+plot (e.g. a violin or distribution plot).</p></li>
+</ul>
+<p>Exactly one of <code class="docutils literal notranslate"><span class="pre">ax</span></code> or <code class="docutils literal notranslate"><span class="pre">parent_ax</span></code> must be provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pval_matrix</strong> (<em>np.ndarray</em>) – (K, K) p-value matrix. Diagonal entries
+should be NaN (they are rendered in black).</p></li>
+<li><p><strong>sig_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – (K, K) boolean – True where the
+comparison is significant. If None, computed as
+<code class="docutils literal notranslate"><span class="pre">pval_matrix</span> <span class="pre">&lt;</span> <span class="pre">0.05</span></code>.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Tick labels for each group. If None,
+integer indices are used.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes for standalone mode.</p></li>
+<li><p><strong>parent_ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Parent axes on which to
+create an inset.</p></li>
+<li><p><strong>inset_loc</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Location string for <code class="docutils literal notranslate"><span class="pre">inset_axes</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;upper</span> <span class="pre">left&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;lower</span> <span class="pre">left&quot;</span></code>). Only used in inset mode.</p></li>
+<li><p><strong>inset_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Width and height of the inset as a percentage of
+the parent (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;30%&quot;</span></code>). Only used in inset mode.</p></li>
+<li><p><strong>inset_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Horizontal offset of the inset bounding box
+from the parent axes edge. Only used in inset mode.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>sig_marker_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for significance markers.</p></li>
+<li><p><strong>sig_marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for significance dots.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show a <code class="docutils literal notranslate"><span class="pre">-log10(P)</span></code> colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The axes the matrix was drawn on</dt><dd><p>(either <code class="docutils literal notranslate"><span class="pre">ax</span></code> or the newly created inset axes).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>target_ax (matplotlib.axes.Axes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_scatter">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_scatter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_vals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_identity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_ci</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_r2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.7</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_scatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_scatter" title="Link to this definition"></a></dt>
+<dd><p>Scatter plot comparing two arrays with optional color coding and regression.</p>
+<p>Supports two colouring modes (mutually exclusive):</p>
+<ul class="simple">
+<li><p>Continuous: pass <code class="docutils literal notranslate"><span class="pre">color_vals</span></code> for a colormap-based colour scale
+with an optional colorbar.</p></li>
+<li><p>Discrete groups: pass <code class="docutils literal notranslate"><span class="pre">groups</span></code> (integer index per point) to colour
+each group separately with its own legend entry.</p></li>
+</ul>
+<p>When <code class="docutils literal notranslate"><span class="pre">groups</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">color_vals</span></code>, <code class="docutils literal notranslate"><span class="pre">cmap</span></code>, <code class="docutils literal notranslate"><span class="pre">vmin</span></code>, <code class="docutils literal notranslate"><span class="pre">vmax</span></code>,
+<code class="docutils literal notranslate"><span class="pre">color_label</span></code>, and <code class="docutils literal notranslate"><span class="pre">show_colorbar</span></code> are ignored.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – X-axis values.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – Y-axis values.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for continuous
+color mapping. Pass the string <code class="docutils literal notranslate"><span class="pre">&quot;density&quot;</span></code> to auto-compute KDE
+density and sort points so dense regions render on top (requires
+scipy). If None and <code class="docutils literal notranslate"><span class="pre">groups</span></code> is also None, all points are drawn
+in a uniform colour.</p></li>
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label (continuous mode only).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name (continuous mode only).</p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum (continuous mode only).</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum (continuous mode only).</p></li>
+<li><p><strong>show_identity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Plot the x = y identity line.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided
+(continuous mode only).</p></li>
+<li><p><strong>fit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Regression to overlay. <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code> or None.</p></li>
+<li><p><strong>show_ci</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show confidence interval band on the fit.</p></li>
+<li><p><strong>show_r2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Annotate R-squared on the plot.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size.</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter alpha.</p></li>
+<li><p><strong>groups</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-point integer group index for discrete
+colouring. Each unique value is rendered as a separate scatter
+series with its own colour and legend entry.</p></li>
+<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Label for each unique group value,
+ordered by <code class="docutils literal notranslate"><span class="pre">np.unique(groups)</span></code>. If None, the group values are
+used as labels.</p></li>
+<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Colour for each unique group value,
+ordered by <code class="docutils literal notranslate"><span class="pre">np.unique(groups)</span></code>. If None, uses the default
+matplotlib colour cycle.</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend when <code class="docutils literal notranslate"><span class="pre">groups</span></code> is provided. Default
+True.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>In continuous mode, the</dt><dd><p>single scatter artist (useful for shared colorbars). In group
+mode, a list of scatter artists (one per group).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sc (PathCollection or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[PathCollection])</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">color_vals=&quot;density&quot;</span></code>, non-finite values in x and y are
+removed before computing the KDE. Any regression overlay
+(<code class="docutils literal notranslate"><span class="pre">fit=&quot;linear&quot;</span></code>) and the identity line are therefore computed on
+this filtered subset, not the original arrays.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_scatter_with_marginals">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_scatter_with_marginals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gs_slot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marginal_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marginal_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0.4'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_zero_lines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height_ratios</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width_ratios</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">scatter_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_scatter_with_marginals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_scatter_with_marginals" title="Link to this definition"></a></dt>
+<dd><p>Scatter plot with marginal histograms on the top and right edges.</p>
+<p>Creates a 2x2 sub-GridSpec inside gs_slot (top-left: x histogram,
+bottom-left: scatter, bottom-right: y histogram, top-right: empty).
+All scatter options are forwarded to <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter" title="spikelab.spikedata.plot_utils.plot_scatter"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a>.</p>
+<p>When a colorbar is shown (continuous <code class="docutils literal notranslate"><span class="pre">color_vals</span></code> with
+<code class="docutils literal notranslate"><span class="pre">show_colorbar=True</span></code>), it is placed to the right of the right marginal
+histogram rather than on the scatter axes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gs_slot</strong> – A GridSpec slot (e.g. <code class="docutils literal notranslate"><span class="pre">gs[0]</span></code>) to place the sub-layout in.</p></li>
+<li><p><strong>fig</strong> (<em>matplotlib.Figure</em>) – Parent figure.</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – X-axis values.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – Y-axis values.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label for the scatter.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label for the scatter.</p></li>
+<li><p><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Title placed above the top marginal histogram.</p></li>
+<li><p><strong>marginal_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of histogram bins.</p></li>
+<li><p><strong>marginal_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Histogram bar colour.</p></li>
+<li><p><strong>show_zero_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Draw vertical/horizontal zero reference lines
+on the marginal histograms.</p></li>
+<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[hist,</span> <span class="pre">scatter]</span></code> height ratios.
+Default <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">4]</span></code>.</p></li>
+<li><p><strong>width_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">[scatter,</span> <span class="pre">hist]</span></code> width ratios.
+Default <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">1]</span></code>.</p></li>
+<li><p><strong>**scatter_kwargs</strong> – Additional keyword arguments forwarded to
+<a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter" title="spikelab.spikedata.plot_utils.plot_scatter"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a> (e.g. <code class="docutils literal notranslate"><span class="pre">color_vals</span></code>, <code class="docutils literal notranslate"><span class="pre">show_identity</span></code>,
+<code class="docutils literal notranslate"><span class="pre">marker_size</span></code>, <code class="docutils literal notranslate"><span class="pre">cmap</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The main scatter axes.
+ax_histx (matplotlib.axes.Axes): Top marginal histogram axes.
+ax_histy (matplotlib.axes.Axes): Right marginal histogram axes.
+sc: Return value from <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter" title="spikelab.spikedata.plot_utils.plot_scatter"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ax_scatter (matplotlib.axes.Axes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_manifold">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_manifold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_explained</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bg_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bg_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0.85'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bg_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bg_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_vals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_manifold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_manifold" title="Link to this definition"></a></dt>
+<dd><p>Plot a 2-D embedding (PCA, UMAP, etc.) with flexible point coloring.</p>
+<p>Supports three foreground coloring modes (same as <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_scatter" title="spikelab.spikedata.plot_utils.plot_scatter"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a>):</p>
+<ul class="simple">
+<li><p>Continuous: pass <code class="docutils literal notranslate"><span class="pre">color_vals</span></code> for colormap-scaled values.</p></li>
+<li><p>Discrete groups: pass <code class="docutils literal notranslate"><span class="pre">groups</span></code> for per-group colours.</p></li>
+<li><p>Uniform: neither provided – all foreground points drawn in black.</p></li>
+</ul>
+<p>An optional background mask renders selected points in a faint colour
+before the foreground, useful for separating non-event from event points
+(e.g. non-burst vs burst time bins).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>embedding</strong> (<em>np.ndarray</em>) – Shape <code class="docutils literal notranslate"><span class="pre">(T,</span> <span class="pre">&gt;=2)</span></code> embedding coordinates.</p></li>
+<li><p><strong>pc_x</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Column index for the x-axis. Default 0.</p></li>
+<li><p><strong>pc_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Column index for the y-axis. Default 1.</p></li>
+<li><p><strong>var_explained</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Explained variance ratio per
+component. When provided, axis labels are auto-generated as
+<code class="docutils literal notranslate"><span class="pre">&quot;PC{n}</span> <span class="pre">(X.X%)&quot;</span></code>; overridden by explicit <code class="docutils literal notranslate"><span class="pre">xlabel</span></code>/<code class="docutils literal notranslate"><span class="pre">ylabel</span></code>.</p></li>
+<li><p><strong>bg_mask</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Boolean mask, shape <code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. True for
+background points. These are drawn first in <code class="docutils literal notranslate"><span class="pre">bg_color</span></code>.</p></li>
+<li><p><strong>bg_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for background points.</p></li>
+<li><p><strong>bg_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for background points.</p></li>
+<li><p><strong>bg_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for background points.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Per-point values for
+continuous colour mapping (foreground only). Pass <code class="docutils literal notranslate"><span class="pre">&quot;density&quot;</span></code>
+for KDE-based density colouring.</p></li>
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label (continuous mode).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap name (continuous mode).</p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colourmap maximum.</p></li>
+<li><p><strong>groups</strong> (<em>array-like</em><em> or </em><em>None</em>) – Per-point integer group index for
+discrete colouring (foreground only).</p></li>
+<li><p><strong>group_labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Labels per unique group value.</p></li>
+<li><p><strong>group_colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Colours per unique group value.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Marker size for foreground points. Default 4.</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Alpha for foreground points.</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar (continuous mode only).</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show a legend (group mode only).</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – X-axis label. Overrides auto-label from
+<code class="docutils literal notranslate"><span class="pre">var_explained</span></code>.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Y-axis label. Overrides auto-label from
+<code class="docutils literal notranslate"><span class="pre">var_explained</span></code>.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The foreground scatter artist(s) – a single <code class="docutils literal notranslate"><span class="pre">PathCollection</span></code></dt><dd><p>(continuous/uniform) or a <code class="docutils literal notranslate"><span class="pre">list[PathCollection]</span></code> (group mode).
+Useful for adding shared colorbars or custom legends.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sc</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_lines">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_lines</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_lines"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_lines" title="Link to this definition"></a></dt>
+<dd><p>Plot one or more 1-D traces on a shared x-axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>traces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Line data. Dict
+keys are used as labels; for list input, supply <code class="docutils literal notranslate"><span class="pre">labels</span></code>
+separately.</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Shared x-axis values. If None, integer
+indices (<code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">…</span> <span class="pre">len-1</span></code>) are used.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace labels. Required for list
+input; ignored for dict input (keys are used instead).</p></li>
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-trace colours.
+For dict <code class="docutils literal notranslate"><span class="pre">traces</span></code>, may be a dict keyed by the same labels or a
+list in the same order.  If None, uses the default matplotlib
+colour cycle.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for all traces.</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend. Default True.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The line artists.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>lines (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[Line2D])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_percentile_bands">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_percentile_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0.3'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band_alphas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bands'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0.5'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'black'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_zero_line</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_percentile_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_percentile_bands" title="Link to this definition"></a></dt>
+<dd><p>Plot percentile bands or individual lines across ordered groups/conditions.</p>
+<p>For each unit a value is computed per condition. Optionally, values are
+normalized relative to the first group using symmetric normalization:
+<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">(x'</span> <span class="pre">-</span> <span class="pre">d0')</span> <span class="pre">/</span> <span class="pre">(x'</span> <span class="pre">+</span> <span class="pre">d0')</span></code> where <code class="docutils literal notranslate"><span class="pre">x'</span> <span class="pre">=</span> <span class="pre">max(x,</span> <span class="pre">0)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>metric_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Per-condition
+1-D arrays of per-unit values. Dict keys or <code class="docutils literal notranslate"><span class="pre">labels</span></code> define the
+x-axis order.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+dict keys (for dict input) or integer indices (for list input).</p></li>
+<li><p><strong>normalize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Apply symmetric normalization to the first group.
+Units with non-positive or NaN baseline values are excluded.</p></li>
+<li><p><strong>summary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Summary line type: <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>.</p></li>
+<li><p><strong>bands</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em><em>] or </em><em>None</em>) – Percentile band definitions as
+<code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code> pairs, ordered from widest to narrowest. Default is
+<code class="docutils literal notranslate"><span class="pre">[(5,</span> <span class="pre">95),</span> <span class="pre">(10,</span> <span class="pre">90),</span> <span class="pre">(25,</span> <span class="pre">75)]</span></code>.</p></li>
+<li><p><strong>band_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Fill colour for all bands.</p></li>
+<li><p><strong>band_alphas</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – Alpha transparency per band. Must
+match length of <code class="docutils literal notranslate"><span class="pre">bands</span></code>. Default is linearly increasing from
+0.15 to 0.40.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;bands&quot;</span></code> (default) draws shaded percentile regions;
+<code class="docutils literal notranslate"><span class="pre">&quot;lines&quot;</span></code> draws one line per unit.</p></li>
+<li><p><strong>line_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Line colour when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>line_alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line alpha when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>line_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width when <code class="docutils literal notranslate"><span class="pre">style=&quot;lines&quot;</span></code>.</p></li>
+<li><p><strong>summary_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for the summary line.</p></li>
+<li><p><strong>summary_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for the summary line.</p></li>
+<li><p><strong>show_zero_line</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Draw a dashed horizontal line at y=0 when
+<code class="docutils literal notranslate"><span class="pre">normalize=True</span></code>.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>ylim_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Symmetric y-axis limits <code class="docutils literal notranslate"><span class="pre">(-val,</span> <span class="pre">val)</span></code>.
+If None and <code class="docutils literal notranslate"><span class="pre">normalize=True</span></code>, derived from the 5th/95th
+percentile of the data.</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show legend.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels and ticks. If None,
+uses current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Keys <code class="docutils literal notranslate"><span class="pre">&quot;summary&quot;</span></code> (Line2D), and either <code class="docutils literal notranslate"><span class="pre">&quot;bands&quot;</span></code></dt><dd><p>(list of PolyCollection) or <code class="docutils literal notranslate"><span class="pre">&quot;lines&quot;</span></code> (list of Line2D).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>artists (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_burst_sensitivity">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_burst_sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresholds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_counts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RMS</span> <span class="pre">mult.'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Number</span> <span class="pre">of</span> <span class="pre">bursts'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'hot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_burst_sensitivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_burst_sensitivity" title="Link to this definition"></a></dt>
+<dd><p>Plot burst detection sensitivity as line plots or heatmaps.</p>
+<p>Automatically selects the visualisation based on the dimensionality of the
+burst count arrays:</p>
+<ul class="simple">
+<li><p>1-D arrays (single-parameter sweep): one line per condition on a
+shared axes.</p></li>
+<li><p>2-D arrays (two-parameter sweep over thresholds x distances, as
+returned by <code class="docutils literal notranslate"><span class="pre">SpikeData.burst_sensitivity()</span></code>): one heatmap per
+condition via <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_heatmap" title="spikelab.spikedata.plot_utils.plot_heatmap"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a>. A single condition is plotted on
+ax; multiple conditions produce a row of subplots on a new figure.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. Used directly for 1-D
+line plots and single-condition 2-D heatmaps. For multi-condition
+2-D heatmaps this parameter is ignored and a new figure is created
+(pass None explicitly in that case).</p></li>
+<li><p><strong>thresholds</strong> (<em>np.ndarray</em>) – 1-D array of threshold values (x-axis).</p></li>
+<li><p><strong>burst_counts</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><em>np.ndarray</em>) – Burst counts per
+condition. Dict mapping condition labels to arrays, or a bare
+<code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> for a single unnamed condition. Arrays can be 1-D
+(line plot) or 2-D of shape
+<code class="docutils literal notranslate"><span class="pre">(len(thresholds),</span> <span class="pre">len(dist_values))</span></code> (heatmap).</p></li>
+<li><p><strong>dist_values</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – 1-D array of distance parameter
+values. Required when burst counts are 2-D (used as y-axis tick
+labels on the heatmap). Ignored for 1-D line plots.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Ordered condition labels. If None, uses
+dict keys.</p></li>
+<li><p><strong>colors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Per-condition line colours (line plots
+only). If None, uses the default matplotlib colour cycle.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label. For 2-D heatmaps, defaults to
+<code class="docutils literal notranslate"><span class="pre">&quot;Min.</span> <span class="pre">burst</span> <span class="pre">dist.</span> <span class="pre">(bins)&quot;</span></code> when not explicitly changed from the
+default.</p></li>
+<li><p><strong>show_legend</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to show a legend (line plots only).</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to show a colorbar (heatmaps only).</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap for heatmaps.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+current rcParams.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>For 1-D line plots: <code class="docutils literal notranslate"><span class="pre">list[Line2D]</span></code> artists. For a single</dt><dd><p>2-D heatmap: the axes returned by <a class="reference internal" href="#spikelab.spikedata.plot_utils.plot_heatmap" title="spikelab.spikedata.plot_utils.plot_heatmap"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a>. For
+multiple 2-D heatmaps: <code class="docutils literal notranslate"><span class="pre">(fig,</span> <span class="pre">axes_list)</span></code> where axes_list
+contains one axes per condition.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_aligned_slice_single_unit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_per_slice</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_vals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Rel.</span> <span class="pre">time</span> <span class="pre">(ms)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Burst'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vlines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">marker_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'scatter'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invert_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linewidths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_aligned_slice_single_unit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit" title="Link to this definition"></a></dt>
+<dd><p>Raster plot of one unit’s spike times across multiple event-aligned slices.</p>
+<p>Each row corresponds to one slice/burst, x-axis is time relative to the
+alignment point. Optionally colour-codes rows by a per-slice variable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes (caller creates).</p></li>
+<li><p><strong>spike_times_per_slice</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – List of 1-D arrays, one per
+slice, containing spike times relative to the alignment point.</p></li>
+<li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-slice colour values. If None,
+all spikes are drawn in black.</p></li>
+<li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from spike times for display.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis. If None,
+auto-scales to the data.</p></li>
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>] or </em><em>None</em>) – X positions for vertical reference
+lines (e.g. burst onset).</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
+<li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size (only used when
+<code class="docutils literal notranslate"><span class="pre">style=&quot;scatter&quot;</span></code>).</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks. If None, uses
+current rcParams.</p></li>
+<li><p><strong>style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;scatter&quot;</span></code> for dot markers (default), or
+<code class="docutils literal notranslate"><span class="pre">&quot;eventplot&quot;</span></code> for vertical line markers.</p></li>
+<li><p><strong>invert_y</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, the first slice is plotted at the top and
+the last at the bottom. Default False (first slice at bottom).</p></li>
+<li><p><strong>linewidths</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for eventplot markers (only used when
+<code class="docutils literal notranslate"><span class="pre">style=&quot;eventplot&quot;</span></code>). Default 0.5.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The scatter artist when color_vals is</dt><dd><p>provided and <code class="docutils literal notranslate"><span class="pre">style=&quot;scatter&quot;</span></code>, otherwise None.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sc (PathCollection or None)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_heatmap">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_mat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'hot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aspect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'upper'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Time</span> <span class="pre">(ms)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Unit'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xticks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yticks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vlines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hlines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_colorbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colorbar_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Rate</span> <span class="pre">(Hz)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">14</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_heatmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_heatmap" title="Link to this definition"></a></dt>
+<dd><p>Plot a 2-D matrix as a heatmap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_mat</strong> (<em>np.ndarray</em>) – 2-D array to display, shape <code class="docutils literal notranslate"><span class="pre">(rows,</span> <span class="pre">cols)</span></code>.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em> or </em><em>None</em>) – Target axes. If None a standalone
+figure is created.</p></li>
+<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Row normalisation. <code class="docutils literal notranslate"><span class="pre">False</span></code> for none, <code class="docutils literal notranslate"><span class="pre">'row'</span></code>
+to scale each row to [0, 1].</p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum.</p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum.</p></li>
+<li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
+<li><p><strong>aspect</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Aspect ratio passed to <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> stretches
+to fill the axes, <code class="docutils literal notranslate"><span class="pre">&quot;equal&quot;</span></code> preserves square pixels.</p></li>
+<li><p><strong>origin</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Origin for <code class="docutils literal notranslate"><span class="pre">imshow</span></code>. <code class="docutils literal notranslate"><span class="pre">&quot;upper&quot;</span></code> places row 0 at the
+top (default), <code class="docutils literal notranslate"><span class="pre">&quot;lower&quot;</span></code> places row 0 at the bottom.</p></li>
+<li><p><strong>extent</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(left,</span> <span class="pre">right,</span> <span class="pre">bottom,</span> <span class="pre">top)</span></code> passed to
+<code class="docutils literal notranslate"><span class="pre">imshow</span></code>. If None, pixel indices are used.</p></li>
+<li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
+<li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
+<li><p><strong>xticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for x-axis ticks.</p></li>
+<li><p><strong>yticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(locations,</span> <span class="pre">labels)</span></code> for y-axis ticks.</p></li>
+<li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical lines. Each dict may contain
+<code class="docutils literal notranslate"><span class="pre">'x'</span></code>, <code class="docutils literal notranslate"><span class="pre">'color'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code>.</p></li>
+<li><p><strong>hlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Horizontal lines (same keys as vlines
+but with <code class="docutils literal notranslate"><span class="pre">'y'</span></code>).</p></li>
+<li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Whether to draw a colorbar.</p></li>
+<li><p><strong>colorbar_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Label for the colorbar.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and ticks.</p></li>
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – If provided (and <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None), save the
+figure to this path and close it.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(fig,</span> <span class="pre">ax)</span></code> when <code class="docutils literal notranslate"><span class="pre">ax</span></code> is None, otherwise just <code class="docutils literal notranslate"><span class="pre">ax</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_recording">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_raster</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_pop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_fr_rates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_model_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop_rate_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fr_rates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fr_rate_sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cont_prob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gplvm_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'eventplot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burst_edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmin_heatmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vmax_heatmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heatmap_clip_pct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">80</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_heatmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_states_cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_states_vmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_states_vmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height_ratios</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">absolute_xticks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">14</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_recording" title="Link to this definition"></a></dt>
+<dd><p>Assemble a multi-panel column figure from a SpikeData object.</p>
+<p>Each panel is optional – the caller selects which panels to include and
+they are stacked vertically with a shared x-axis. Available panels (in
+display order):</p>
+<ol class="arabic simple">
+<li><p>Spike raster – eventplot or binned-count image.</p></li>
+<li><p>Population rate – smoothed firing rate curve; if <code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> is
+also provided it is overlaid on the same axes.</p></li>
+<li><p>Firing-rate heatmap – per-unit instantaneous rates as a colour map.</p></li>
+<li><p>Model states – latent-state posterior from a GPLVM fit.</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data object.</p></li>
+<li><p><strong>show_raster</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the spike raster panel.</p></li>
+<li><p><strong>show_pop_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the population-rate panel. Automatically
+enabled when <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> or <code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> is provided.</p></li>
+<li><p><strong>show_fr_rates</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the firing-rate heatmap. Automatically
+enabled when <code class="docutils literal notranslate"><span class="pre">fr_rates</span></code> is provided.</p></li>
+<li><p><strong>show_model_states</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Include the model-states panel.
+Automatically enabled when <code class="docutils literal notranslate"><span class="pre">model_states</span></code> is provided.</p></li>
+<li><p><strong>pop_rate</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Pre-computed smoothed population rate
+in spikes per bin (as returned by <code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code>), shape
+<code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. Automatically converted to Hz/unit for display. If None
+and panel is enabled, computed via <code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code>.</p></li>
+<li><p><strong>pop_rate_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Keyword arguments forwarded to
+<code class="docutils literal notranslate"><span class="pre">sd.get_pop_rate()</span></code> when <code class="docutils literal notranslate"><span class="pre">pop_rate</span></code> is None. Defaults:
+<code class="docutils literal notranslate"><span class="pre">square_width=8,</span> <span class="pre">gauss_sigma=8</span></code>.</p></li>
+<li><p><strong>fr_rates</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Pre-computed per-unit instantaneous
+firing rates, shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T)</span></code>. If None and <code class="docutils literal notranslate"><span class="pre">show_fr_rates</span></code> is
+True, computed via <code class="docutils literal notranslate"><span class="pre">sd.resampled_isi()</span></code>.</p></li>
+<li><p><strong>fr_rate_sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Gaussian sigma in ms for
+<code class="docutils literal notranslate"><span class="pre">sd.resampled_isi()</span></code> when auto-computing firing rates.</p></li>
+<li><p><strong>model_states</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Latent-state posterior, shape
+<code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">T)</span></code> where S is the number of latent states. If None and
+<code class="docutils literal notranslate"><span class="pre">show_model_states</span></code> is True, extracted from <code class="docutils literal notranslate"><span class="pre">gplvm_result</span></code>.</p></li>
+<li><p><strong>cont_prob</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Continuous-dynamics probability,
+shape <code class="docutils literal notranslate"><span class="pre">(T,)</span></code>. Overlaid on the population-rate panel. If None
+and <code class="docutils literal notranslate"><span class="pre">gplvm_result</span></code> is provided, extracted automatically.</p></li>
+<li><p><strong>gplvm_result</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> or </em><em>None</em>) – Result dictionary from
+<code class="docutils literal notranslate"><span class="pre">SpikeData.fit_gplvm()</span></code>. Used to auto-extract <code class="docutils literal notranslate"><span class="pre">model_states</span></code>
+and <code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> when those are not provided directly.</p></li>
+<li><p><strong>time_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code> display window.
+None shows the full recording.</p></li>
+<li><p><strong>sort_indices</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Unit reordering indices applied to
+the raster and firing-rate heatmap.</p></li>
+<li><p><strong>raster_style</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">'eventplot'</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">'imshow'</span></code>. Controls
+how the raster panel is rendered.</p></li>
+<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Bin size in ms for the raster (used for
+both eventplot and imshow styles).</p></li>
+<li><p><strong>raster_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum spike count for colormap when
+<code class="docutils literal notranslate"><span class="pre">raster_style='imshow'</span></code>.</p></li>
+<li><p><strong>burst_times</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Burst peak positions as raster bin
+indices (as returned by <code class="docutils literal notranslate"><span class="pre">get_bursts</span></code>), plotted as markers on the
+population-rate panel. With the default <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms=1.0</span></code>,
+bin indices equal milliseconds.</p></li>
+<li><p><strong>burst_edges</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-burst <code class="docutils literal notranslate"><span class="pre">[start_bin,</span> <span class="pre">end_bin]</span></code>
+boundaries as raster bin indices, shape <code class="docutils literal notranslate"><span class="pre">(B,</span> <span class="pre">2)</span></code>. Plotted as
+shaded spans on the population-rate panel.</p></li>
+<li><p><strong>vmin_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap minimum for the FR heatmap.</p></li>
+<li><p><strong>vmax_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Colormap maximum for the FR heatmap.
+When None, clipped to <code class="docutils literal notranslate"><span class="pre">heatmap_clip_pct</span></code> percentile of the data.</p></li>
+<li><p><strong>heatmap_clip_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Fraction of the data maximum (as a
+percentage) used as the colormap maximum when <code class="docutils literal notranslate"><span class="pre">vmax_heatmap</span></code> is
+None. Default 80 (i.e. 80% of the max value). Set to None to use
+the absolute maximum.</p></li>
+<li><p><strong>norm_heatmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Row normalisation for the FR heatmap
+(<code class="docutils literal notranslate"><span class="pre">False</span></code> or <code class="docutils literal notranslate"><span class="pre">'row'</span></code>).</p></li>
+<li><p><strong>model_states_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colormap for the model-states panel.</p></li>
+<li><p><strong>model_states_vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Colormap minimum for model states.</p></li>
+<li><p><strong>model_states_vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Colormap maximum for model states.</p></li>
+<li><p><strong>axes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Pre-created axes to plot onto instead of
+creating a new figure. Must be a list of <code class="docutils literal notranslate"><span class="pre">(ax_panel,</span> <span class="pre">ax_cbar)</span></code>
+tuples, one per enabled panel, in display order (raster,
+pop_rate, fr_heatmap, model_states – only those that are
+enabled). <code class="docutils literal notranslate"><span class="pre">ax_cbar</span></code> is used for colorbars on heatmap/imshow
+panels; pass a hidden axes if no colorbar is needed for that
+panel. When provided, the function skips figure creation,
+<code class="docutils literal notranslate"><span class="pre">tight_layout</span></code>, <code class="docutils literal notranslate"><span class="pre">show</span></code>, and <code class="docutils literal notranslate"><span class="pre">save_path</span></code>. <code class="docutils literal notranslate"><span class="pre">figsize</span></code> and
+<code class="docutils literal notranslate"><span class="pre">height_ratios</span></code> are ignored. Raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if the
+length does not match the number of enabled panels.</p></li>
+<li><p><strong>figsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Figure size <code class="docutils literal notranslate"><span class="pre">(width,</span> <span class="pre">height)</span></code>.
+Ignored when <code class="docutils literal notranslate"><span class="pre">axes</span></code> is provided.</p></li>
+<li><p><strong>height_ratios</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Relative panel heights. Length must
+match the number of enabled panels.</p></li>
+<li><p><strong>absolute_xticks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, x-tick labels show absolute seconds
+from recording start. If False, labels are relative to the display
+window.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Font size for labels and tick labels.</p></li>
+<li><p><strong>show</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True and <code class="docutils literal notranslate"><span class="pre">save_path</span></code> is None, call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code>.</p></li>
+<li><p><strong>save_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Save figure to this path and close it.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The assembled figure.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>fig (matplotlib.Figure)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>At least one panel must be enabled, otherwise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is
+raised.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">gplvm_result</span></code> is provided, <code class="docutils literal notranslate"><span class="pre">model_states</span></code> and
+<code class="docutils literal notranslate"><span class="pre">cont_prob</span></code> are extracted from the <code class="docutils literal notranslate"><span class="pre">decode_res</span></code> sub-dict
+(keys <code class="docutils literal notranslate"><span class="pre">posterior_latent_marg</span></code> and <code class="docutils literal notranslate"><span class="pre">posterior_dynamics_marg</span></code>).
+Arrays with a different time resolution (e.g. GPLVM binned
+output) are automatically cropped to match the ms-based
+<code class="docutils literal notranslate"><span class="pre">time_range</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.plot_utils.plot_spatial_network">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.plot_utils.</span></span><span class="sig-name descname"><span class="pre">plot_spatial_network</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">positions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_pct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_size_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(2,</span> <span class="pre">20)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'red'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_linewidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_alpha_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.15,</span> <span class="pre">1.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_bar_um</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">font_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/plot_utils.html#plot_spatial_network"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.plot_utils.plot_spatial_network" title="Link to this definition"></a></dt>
+<dd><p>Plot a spatial network of units on their MEA positions.</p>
+<p>Units are drawn as scatter markers sized by their mean pairwise value
+(row mean excluding diagonal) and coloured by the same metric. Edges
+are drawn between unit pairs whose matrix value exceeds a threshold or
+falls in the top percentile, with alpha proportional to edge strength.</p>
+<p>Exactly one of edge_threshold or top_pct must be provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em>) – Target axes.</p></li>
+<li><p><strong>positions</strong> (<em>np.ndarray</em>) – Unit positions, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code> with columns
+<code class="docutils literal notranslate"><span class="pre">[x,</span> <span class="pre">y]</span></code> in micrometres.</p></li>
+<li><p><strong>matrix</strong> (<em>np.ndarray</em>) – Symmetric <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> pairwise matrix (e.g.
+correlation, STTC). Diagonal values are ignored.</p></li>
+<li><p><strong>edge_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum matrix value to draw an edge.</p></li>
+<li><p><strong>top_pct</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Percentage of top edges to draw (e.g.
+<code class="docutils literal notranslate"><span class="pre">1.0</span></code> draws the top 1 %).</p></li>
+<li><p><strong>node_size_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_size,</span> <span class="pre">max_size)</span></code> in points squared
+for the scatter markers.</p></li>
+<li><p><strong>node_cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colourmap for node colour.</p></li>
+<li><p><strong>node_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Outline width of node markers.</p></li>
+<li><p><strong>edge_color</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colour for network edges.</p></li>
+<li><p><strong>edge_linewidth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Line width for network edges.</p></li>
+<li><p><strong>edge_alpha_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a>) – <code class="docutils literal notranslate"><span class="pre">(min_alpha,</span> <span class="pre">max_alpha)</span></code> for edge
+transparency, scaled by edge strength.</p></li>
+<li><p><strong>scale_bar_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of the spatial scale bar in micrometres.
+Set to 0 or None to omit.</p></li>
+<li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for scale bar label. If None,
+uses the current rcParams default.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The scatter artist,</dt><dd><p>useful for adding a colorbar.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>scatter (matplotlib.collections.PathCollection)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="stat_utils.html" class="btn btn-neutral float-left" title="Statistical Utilities" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_loaders.html" class="btn btn-neutral float-right" title="Data Loaders" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

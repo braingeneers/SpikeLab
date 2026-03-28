@@ -1,0 +1,542 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spikedata.stat_utils &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spikedata.stat_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spikedata.stat_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Statistical utilities for SpikeLab.</span>
+
+<span class="sd">Provides reusable statistical functions (regression, confidence intervals,</span>
+<span class="sd">pairwise group comparisons) that can be used independently of plotting.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<div class="viewcode-block" id="linear_regression">
+<a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">linear_regression</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">ci_level</span><span class="o">=</span><span class="mf">0.95</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute ordinary least-squares linear regression with optional confidence interval.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        x (np.ndarray): 1-D array of predictor values.</span>
+<span class="sd">        y (np.ndarray): 1-D array of response values (same length as *x*).</span>
+<span class="sd">        ci_level (float): Confidence level for the interval (default 0.95).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): Dictionary with keys:</span>
+<span class="sd">            - ``slope`` (float): Fitted slope.</span>
+<span class="sd">            - ``intercept`` (float): Fitted intercept.</span>
+<span class="sd">            - ``r_squared`` (float): Coefficient of determination.</span>
+<span class="sd">            - ``x_fit`` (np.ndarray): Sorted x values for plotting the fit line.</span>
+<span class="sd">            - ``y_fit`` (np.ndarray): Predicted y values along *x_fit*.</span>
+<span class="sd">            - ``ci_lower`` (np.ndarray): Lower confidence bound along *x_fit*.</span>
+<span class="sd">            - ``ci_upper`` (np.ndarray): Upper confidence bound along *x_fit*.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Uses pure numpy (no scipy/sklearn dependency).</span>
+<span class="sd">        - NaN pairs are dropped automatically.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;x and y must have the same length.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Drop NaN pairs</span>
+    <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 3 non-NaN data points for regression.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># OLS via normal equations</span>
+    <span class="n">x_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">y_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">ss_xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ss_xx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All x values are identical; regression is undefined.&quot;</span><span class="p">)</span>
+    <span class="n">ss_xy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_mean</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y_mean</span><span class="p">))</span>
+    <span class="n">slope</span> <span class="o">=</span> <span class="n">ss_xy</span> <span class="o">/</span> <span class="n">ss_xx</span>
+    <span class="n">intercept</span> <span class="o">=</span> <span class="n">y_mean</span> <span class="o">-</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x_mean</span>
+
+    <span class="c1"># Predictions and R²</span>
+    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">intercept</span>
+    <span class="n">ss_res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">ss_tot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">y_mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">r_squared</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">ss_res</span> <span class="o">/</span> <span class="n">ss_tot</span> <span class="k">if</span> <span class="n">ss_tot</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="c1"># Confidence interval (t-distribution approximation via normal for large n)</span>
+    <span class="c1"># For small n we use a simple approximation; scipy is not required.</span>
+    <span class="n">se</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ss_res</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">))</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="c1"># Approximate t critical value using normal quantile (good for n &gt; 10,</span>
+    <span class="c1"># conservative for smaller n)</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">ci_level</span>
+    <span class="c1"># Rational approximation of the normal quantile (Abramowitz &amp; Stegun 26.2.23)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="n">t_val</span> <span class="o">=</span> <span class="n">_approx_normal_quantile</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+    <span class="n">x_fit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">y_fit</span> <span class="o">=</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x_fit</span> <span class="o">+</span> <span class="n">intercept</span>
+    <span class="n">se_fit</span> <span class="o">=</span> <span class="n">se</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span> <span class="o">+</span> <span class="p">(</span><span class="n">x_fit</span> <span class="o">-</span> <span class="n">x_mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">ss_xx</span><span class="p">)</span>
+    <span class="n">ci_lower</span> <span class="o">=</span> <span class="n">y_fit</span> <span class="o">-</span> <span class="n">t_val</span> <span class="o">*</span> <span class="n">se_fit</span>
+    <span class="n">ci_upper</span> <span class="o">=</span> <span class="n">y_fit</span> <span class="o">+</span> <span class="n">t_val</span> <span class="o">*</span> <span class="n">se_fit</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;slope&quot;</span><span class="p">:</span> <span class="n">slope</span><span class="p">,</span>
+        <span class="s2">&quot;intercept&quot;</span><span class="p">:</span> <span class="n">intercept</span><span class="p">,</span>
+        <span class="s2">&quot;r_squared&quot;</span><span class="p">:</span> <span class="n">r_squared</span><span class="p">,</span>
+        <span class="s2">&quot;x_fit&quot;</span><span class="p">:</span> <span class="n">x_fit</span><span class="p">,</span>
+        <span class="s2">&quot;y_fit&quot;</span><span class="p">:</span> <span class="n">y_fit</span><span class="p">,</span>
+        <span class="s2">&quot;ci_lower&quot;</span><span class="p">:</span> <span class="n">ci_lower</span><span class="p">,</span>
+        <span class="s2">&quot;ci_upper&quot;</span><span class="p">:</span> <span class="n">ci_upper</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_approx_normal_quantile</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Approximate the standard normal quantile for *p* in (0.5, 1).</span>
+
+<span class="sd">    Uses the rational approximation from Abramowitz &amp; Stegun (26.2.23).</span>
+<span class="sd">    Accurate to ~4.5e-4 for typical confidence levels.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="o">&lt;=</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;p must be &gt; 0.5&quot;</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">p</span><span class="p">))</span>
+    <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="mf">2.515517</span><span class="p">,</span> <span class="mf">0.802853</span><span class="p">,</span> <span class="mf">0.010328</span>
+    <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">,</span> <span class="n">d3</span> <span class="o">=</span> <span class="mf">1.432788</span><span class="p">,</span> <span class="mf">0.189269</span><span class="p">,</span> <span class="mf">0.001308</span>
+    <span class="k">return</span> <span class="n">t</span> <span class="o">-</span> <span class="p">(</span><span class="n">c0</span> <span class="o">+</span> <span class="n">c1</span> <span class="o">*</span> <span class="n">t</span> <span class="o">+</span> <span class="n">c2</span> <span class="o">*</span> <span class="n">t</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">d1</span> <span class="o">*</span> <span class="n">t</span> <span class="o">+</span> <span class="n">d2</span> <span class="o">*</span> <span class="n">t</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">d3</span> <span class="o">*</span> <span class="n">t</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="pairwise_tests">
+<a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pairwise_tests</span><span class="p">(</span>
+    <span class="n">groups</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;welch_t&quot;</span><span class="p">,</span>
+    <span class="n">correction</span><span class="o">=</span><span class="s2">&quot;bonferroni&quot;</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run pairwise statistical tests across groups with multiple-comparison correction.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        groups (dict[str, np.ndarray] or list[np.ndarray]): Per-group data</span>
+<span class="sd">            arrays. Dict keys are used as labels; for list input supply</span>
+<span class="sd">            ``labels`` separately.</span>
+<span class="sd">        test (str): Statistical test to use. ``&quot;welch_t&quot;`` (default) for</span>
+<span class="sd">            Welch&#39;s unequal-variance t-test, ``&quot;student_t&quot;`` for Student&#39;s</span>
+<span class="sd">            equal-variance t-test, ``&quot;mann_whitney&quot;`` for the Mann-Whitney U</span>
+<span class="sd">            test. All require ``scipy``.</span>
+<span class="sd">        correction (str or None): Multiple-comparison correction.</span>
+<span class="sd">            ``&quot;bonferroni&quot;`` (default) or ``None`` for uncorrected p-values.</span>
+<span class="sd">        alpha (float): Significance threshold applied after correction.</span>
+<span class="sd">            Default 0.05.</span>
+<span class="sd">        labels (list[str] or None): Group labels. Required for list input;</span>
+<span class="sd">            ignored for dict input (keys are used).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): Dictionary with keys:</span>
+<span class="sd">            - ``pval_matrix`` (np.ndarray): (K, K) corrected p-values.</span>
+<span class="sd">              Diagonal entries are NaN.</span>
+<span class="sd">            - ``sig_matrix`` (np.ndarray): (K, K) boolean — True where</span>
+<span class="sd">              corrected p &lt; ``alpha``.</span>
+<span class="sd">            - ``n_comparisons`` (int): Number of pairwise comparisons.</span>
+<span class="sd">            - ``labels`` (list[str]): Ordered group labels.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires ``scipy`` (optional dependency). Raises ``ImportError``</span>
+<span class="sd">          with installation instructions if not available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;pairwise_tests requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># --- Normalise input --------------------------------------------------</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">ordered_labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ordered_labels</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ordered_labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ordered_labels</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">))]</span>
+
+    <span class="c1"># Strip NaNs</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">d</span><span class="p">)]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">n_comparisons</span> <span class="o">=</span> <span class="n">K</span> <span class="o">*</span> <span class="p">(</span><span class="n">K</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">pval_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">K</span><span class="p">,</span> <span class="n">K</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+    <span class="c1"># --- Select test function ---------------------------------------------</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;welch_t&quot;</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_ind</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">equal_var</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">p</span>
+
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;student_t&quot;</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_ind</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">equal_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">p</span>
+
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;mann_whitney&quot;</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_test</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">mannwhitneyu</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;two-sided&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">p</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;welch_t&#39;, &#39;student_t&#39;, or &#39;mann_whitney&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># --- Run pairwise tests -----------------------------------------------</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">):</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">_test</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">correction</span> <span class="o">==</span> <span class="s2">&quot;bonferroni&quot;</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">n_comparisons</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">correction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unknown correction &#39;</span><span class="si">{</span><span class="n">correction</span><span class="si">}</span><span class="s2">&#39;. &quot;</span> <span class="s2">&quot;Use &#39;bonferroni&#39; or None.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">pval_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+            <span class="n">pval_matrix</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+
+    <span class="n">sig_matrix</span> <span class="o">=</span> <span class="n">pval_matrix</span> <span class="o">&lt;</span> <span class="n">alpha</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;pval_matrix&quot;</span><span class="p">:</span> <span class="n">pval_matrix</span><span class="p">,</span>
+        <span class="s2">&quot;sig_matrix&quot;</span><span class="p">:</span> <span class="n">sig_matrix</span><span class="p">,</span>
+        <span class="s2">&quot;n_comparisons&quot;</span><span class="p">:</span> <span class="n">n_comparisons</span><span class="p">,</span>
+        <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

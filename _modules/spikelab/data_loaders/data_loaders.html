@@ -1,0 +1,1482 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.data_loaders.data_loaders &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.data_loaders.data_loaders</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.data_loaders.data_loaders</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Lightweight loaders that convert common neurophysiology formats into</span>
+<span class="sd">`spikedata.SpikeData` objects.</span>
+
+<span class="sd">Supported inputs (best-effort, optional deps):</span>
+<span class="sd">    - HDF5 (generic): spike times, (indices,times), or raster matrices</span>
+<span class="sd">    - NWB: reads Units table spike_times (via pynwb if available, else h5py)</span>
+<span class="sd">    - KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)</span>
+<span class="sd">    - SpikeInterface: from a SortingExtractor</span>
+<span class="sd">    - IBL (International Brain Laboratory): via ONE API + brainwidemap</span>
+
+<span class="sd">Times are converted to milliseconds to match `SpikeData` conventions.</span>
+<span class="sd">These helpers avoid hard dependencies: optional libraries are imported lazily.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">h5py</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;load_spikedata_from_hdf5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_hdf5_raw_thresholded&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_nwb&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_kilosort&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_spikeinterface&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_spikeinterface_recording&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_pickle&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_ibl&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;query_ibl_probes&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensure_h5py</span><span class="p">,</span> <span class="n">to_ms</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_trains_from_flat_index</span><span class="p">(</span>
+    <span class="n">flat_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">end_indices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a flat time array into per-unit trains using end indices and convert to ms.&quot;&quot;&quot;</span>
+    <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">end_indices</span><span class="p">:</span>
+        <span class="n">segment</span> <span class="o">=</span> <span class="n">flat_times</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span>
+        <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_ms</span><span class="p">(</span><span class="n">segment</span><span class="p">,</span> <span class="n">unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">))</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">stop</span>
+    <span class="k">return</span> <span class="n">trains</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_raw_arrays</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">,</span>
+    <span class="n">raw_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">raw_time_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">raw_time_unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read optional raw arrays and convert the time vector to milliseconds.&quot;&quot;&quot;</span>
+    <span class="n">raw_data</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">raw_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">raw_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">raw_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">raw_dataset</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">raw_time_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">raw_time_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">raw_time_dataset</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">raw_time_unit</span> <span class="o">==</span> <span class="s2">&quot;s&quot;</span><span class="p">:</span>
+                <span class="n">raw_time</span> <span class="o">=</span> <span class="n">raw_time_vals</span> <span class="o">*</span> <span class="mf">1e3</span>
+            <span class="k">elif</span> <span class="n">raw_time_unit</span> <span class="o">==</span> <span class="s2">&quot;ms&quot;</span><span class="p">:</span>
+                <span class="n">raw_time</span> <span class="o">=</span> <span class="n">raw_time_vals</span>
+            <span class="k">elif</span> <span class="n">raw_time_unit</span> <span class="o">==</span> <span class="s2">&quot;samples&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">fs_Hz</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;fs_Hz must be provided for raw_time_unit=&#39;samples&#39;&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">raw_time</span> <span class="o">=</span> <span class="n">raw_time_vals</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">fs_Hz</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e3</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;raw_time_unit must be one of &#39;s&#39;,&#39;ms&#39;,&#39;samples&#39;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_maybe_with_raw</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">:</span> <span class="n">SpikeData</span><span class="p">,</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">raw_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return SpikeData with raw fields attached if provided, else original.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">raw_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">raw_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+            <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">,</span>
+            <span class="n">length_ms</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
+            <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">sd</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_spikedata</span><span class="p">(</span>
+    <span class="n">trains_ms</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">start_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">raw_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal helper to construct a SpikeData with sensible defaults. Infers `length_ms` from the last spike if not provided.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">last</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">trains_ms</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">length_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">last</span><span class="p">))</span> <span class="o">-</span> <span class="n">start_time</span> <span class="k">if</span> <span class="n">last</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="k">return</span> <span class="n">SpikeData</span><span class="p">(</span>
+        <span class="n">trains_ms</span><span class="p">,</span>
+        <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span> <span class="k">if</span> <span class="n">metadata</span> <span class="k">else</span> <span class="p">{},</span>
+        <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
+        <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># HDF5</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_hdf5">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_hdf5</span><span class="p">(</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">raster_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">raster_bin_size_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">spike_times_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">spike_times_index_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">spike_times_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">group_per_unit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">group_time_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="n">idces_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">times_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">times_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="n">raw_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">raw_time_dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">raw_time_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load spike trains from a generic HDF5 file using one of four supported input styles.</span>
+
+<span class="sd">    Exactly one input style must be specified. The four styles are: raster</span>
+<span class="sd">    matrix, ragged arrays, group-per-unit, and paired arrays.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        filepath (str): Path to the HDF5 file.</span>
+<span class="sd">        raster_dataset (str | None): Dataset path for a 2D raster/counts matrix</span>
+<span class="sd">            (units x time). Activates raster style.</span>
+<span class="sd">        raster_bin_size_ms (float | None): Bin width in milliseconds. Required</span>
+<span class="sd">            for raster style.</span>
+<span class="sd">        spike_times_dataset (str | None): Dataset path for flat concatenated</span>
+<span class="sd">            spike times. Activates ragged style (requires</span>
+<span class="sd">            spike_times_index_dataset).</span>
+<span class="sd">        spike_times_index_dataset (str | None): Dataset path for cumulative</span>
+<span class="sd">            end-of-unit indices into the flat spike times array.</span>
+<span class="sd">        spike_times_unit (str): Time unit for ragged spike times</span>
+<span class="sd">            (&#39;s&#39;, &#39;ms&#39;, or &#39;samples&#39;).</span>
+<span class="sd">        fs_Hz (float | None): Sampling frequency in Hz. Required when any</span>
+<span class="sd">            time unit is &#39;samples&#39;.</span>
+<span class="sd">        group_per_unit (str | None): HDF5 group path containing one dataset</span>
+<span class="sd">            per unit. Activates group-per-unit style.</span>
+<span class="sd">        group_time_unit (str): Time unit for group-per-unit datasets</span>
+<span class="sd">            (&#39;s&#39;, &#39;ms&#39;, or &#39;samples&#39;).</span>
+<span class="sd">        idces_dataset (str | None): Dataset path for unit index array.</span>
+<span class="sd">            Activates paired-arrays style (requires times_dataset).</span>
+<span class="sd">        times_dataset (str | None): Dataset path for spike times array</span>
+<span class="sd">            (paired with idces_dataset).</span>
+<span class="sd">        times_unit (str): Time unit for paired spike times</span>
+<span class="sd">            (&#39;s&#39;, &#39;ms&#39;, or &#39;samples&#39;).</span>
+<span class="sd">        raw_dataset (str | None): Dataset path for optional raw analog data.</span>
+<span class="sd">        raw_time_dataset (str | None): Dataset path for the raw data time</span>
+<span class="sd">            vector.</span>
+<span class="sd">        raw_time_unit (str): Time unit for the raw time vector</span>
+<span class="sd">            (&#39;s&#39;, &#39;ms&#39;, or &#39;samples&#39;).</span>
+<span class="sd">        length_ms (float | None): Recording duration in milliseconds. If not</span>
+<span class="sd">            provided, inferred from the latest spike time.</span>
+<span class="sd">        metadata (Mapping | None): Additional metadata to attach to the</span>
+<span class="sd">            resulting SpikeData.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The loaded spike train data.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If not exactly one input style is specified, or if</span>
+<span class="sd">            required arguments are missing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ensure_h5py</span><span class="p">()</span>
+
+    <span class="c1"># Validate exactly one style is provided</span>
+    <span class="n">provided</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">raster_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spike_times_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spike_times_index_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">group_per_unit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">idces_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">times_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">provided</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Specify exactly one HDF5 input style&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Accumulate metadata and preserve file path provenance</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">meta</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;source_file&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">))</span>
+
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="c1"># Read start_time if stored (backward compatible default 0.0)</span>
+        <span class="n">file_start_time</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+
+        <span class="c1"># Optionally read raw arrays and a time vector</span>
+        <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span> <span class="o">=</span> <span class="n">_read_raw_arrays</span><span class="p">(</span>
+            <span class="n">f</span><span class="p">,</span>
+            <span class="n">raw_dataset</span><span class="p">,</span>
+            <span class="n">raw_time_dataset</span><span class="p">,</span>
+            <span class="n">raw_time_unit</span><span class="p">,</span>
+            <span class="n">fs_Hz</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">raster_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Style (1): counts/raster matrix -&gt; SpikeData via from_raster</span>
+            <span class="k">if</span> <span class="n">raster_bin_size_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;raster_bin_size_ms is required for raster_dataset&quot;</span><span class="p">)</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">raster_dataset</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;raster_dataset must be 2D (units, time)&quot;</span><span class="p">)</span>
+            <span class="n">total_time</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">raster_bin_size_ms</span>
+            <span class="k">if</span> <span class="n">total_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># subtract the smallest representable spacing so the length is</span>
+                <span class="c1"># slightly less than the exact bin-aligned value and avoids</span>
+                <span class="c1"># triggering the extra empty bin in `SpikeData.raster`.</span>
+                <span class="n">length_ms</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">total_time</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">spacing</span><span class="p">(</span><span class="n">total_time</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">length_ms</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_raster</span><span class="p">(</span>
+                <span class="n">raster</span><span class="p">,</span> <span class="n">raster_bin_size_ms</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span>
+            <span class="p">)</span>
+            <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_maybe_with_raw</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">spike_times_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spike_times_index_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Style (2): flat ragged spike_times + spike_times_index</span>
+            <span class="n">flat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">spike_times_dataset</span><span class="p">])</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">spike_times_index_dataset</span><span class="p">])</span>
+            <span class="n">trains</span> <span class="o">=</span> <span class="n">_trains_from_flat_index</span><span class="p">(</span>
+                <span class="n">flat</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">spike_times_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs_Hz</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+                <span class="n">trains</span><span class="p">,</span>
+                <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+                <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
+                <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">group_per_unit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Style (3): each child dataset is a unit&#39;s spike times</span>
+            <span class="n">grp</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">group_per_unit</span><span class="p">]</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">grp</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+            <span class="n">trains</span> <span class="o">=</span> <span class="p">[</span><span class="n">to_ms</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">grp</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="n">group_time_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+                <span class="n">trains</span><span class="p">,</span>
+                <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+                <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
+                <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Style (4): paired indices and times arrays</span>
+        <span class="n">idces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">idces_dataset</span><span class="p">])</span>  <span class="c1"># type: ignore</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">to_ms</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">times_dataset</span><span class="p">]),</span> <span class="n">times_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">idces</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">idces</span><span class="o">.</span><span class="n">size</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_idces_times</span><span class="p">(</span>
+            <span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">file_start_time</span>
+        <span class="p">)</span>
+        <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_maybe_with_raw</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">raw_time</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_spikedata_from_hdf5_raw_thresholded">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_hdf5_raw_thresholded</span><span class="p">(</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">threshold_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="nb">filter</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">hysteresis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">direction</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Threshold-and-detect spikes from an HDF5 dataset of raw traces.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        filepath (str): Path to HDF5 file.</span>
+<span class="sd">        dataset (str): HDF5 dataset path containing raw traces shaped</span>
+<span class="sd">            (channels, time).</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        threshold_sigma (float): Threshold in units of per-channel standard deviation.</span>
+<span class="sd">        filter (dict | bool): If True, apply default Butterworth bandpass;</span>
+<span class="sd">            if dict, pass to filter; if False, no filtering.</span>
+<span class="sd">        hysteresis (bool): Use rising-edge detection if True.</span>
+<span class="sd">        direction (str): &#39;both&#39; | &#39;up&#39; | &#39;down&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The detected spike train data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ensure_h5py</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">dataset</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_thresholding</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs_Hz</span><span class="p">,</span>
+        <span class="n">threshold_sigma</span><span class="o">=</span><span class="n">threshold_sigma</span><span class="p">,</span>
+        <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span>
+        <span class="n">hysteresis</span><span class="o">=</span><span class="n">hysteresis</span><span class="p">,</span>
+        <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># NWB (units table)</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_nwb">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_nwb</span><span class="p">(</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">prefer_pynwb</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load spike trains from an NWB file&#39;s Units table.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        filepath (str): Path to the NWB file.</span>
+<span class="sd">        prefer_pynwb (bool): If True, try pynwb first; if False, try h5py.</span>
+<span class="sd">        length_ms (float | None): Recording duration in milliseconds.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The loaded spike train data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;NWB&quot;</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">prefer_pynwb</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pynwb</span><span class="w"> </span><span class="kn">import</span> <span class="n">NWBHDF5IO</span>  <span class="c1"># type: ignore</span>
+
+            <span class="k">with</span> <span class="n">NWBHDF5IO</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">io</span><span class="p">:</span>
+                <span class="n">nwb</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwb</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;NWB file has no Units table&quot;</span><span class="p">)</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="n">nwb</span><span class="o">.</span><span class="n">units</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+
+                <span class="n">electrode_positions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nwb</span><span class="p">,</span> <span class="s2">&quot;electrodes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">elec_df</span> <span class="o">=</span> <span class="n">nwb</span><span class="o">.</span><span class="n">electrodes</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+                    <span class="n">electrode_positions</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">elec_row</span> <span class="ow">in</span> <span class="n">elec_df</span><span class="o">.</span><span class="n">itertuples</span><span class="p">():</span>
+                        <span class="n">pos</span> <span class="o">=</span> <span class="p">[]</span>
+                        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">elec_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                                <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">elec_row</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                                    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+                        <span class="k">if</span> <span class="n">pos</span><span class="p">:</span>
+                            <span class="n">electrode_positions</span><span class="p">[</span><span class="n">elec_row</span><span class="o">.</span><span class="n">Index</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span>
+
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">itertuples</span><span class="p">():</span>
+                    <span class="n">stimes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">spike_times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                    <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stimes</span> <span class="o">*</span> <span class="mf">1e3</span><span class="p">)</span>
+                    <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="n">row</span><span class="o">.</span><span class="n">Index</span><span class="p">}</span>
+                    <span class="n">electrode_id</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;electrodes&quot;</span><span class="p">,</span> <span class="s2">&quot;electrode_group&quot;</span><span class="p">,</span> <span class="s2">&quot;channel&quot;</span><span class="p">,</span> <span class="s2">&quot;ch&quot;</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                            <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="k">if</span> <span class="p">(</span>
+                                    <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span>
+                                    <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+                                    <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                                <span class="p">):</span>
+                                    <span class="n">channel_val</span> <span class="o">=</span> <span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="k">else</span><span class="p">:</span>
+                                    <span class="n">channel_val</span> <span class="o">=</span> <span class="n">val</span>
+                                <span class="k">try</span><span class="p">:</span>
+                                    <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_val</span><span class="p">)</span>
+                                    <span class="n">electrode_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_val</span><span class="p">)</span>
+                                <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                                    <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_val</span>
+                                    <span class="n">electrode_id</span> <span class="o">=</span> <span class="n">channel_val</span>
+                                <span class="k">break</span>
+                    <span class="k">if</span> <span class="n">electrode_positions</span> <span class="ow">and</span> <span class="n">electrode_id</span> <span class="ow">in</span> <span class="n">electrode_positions</span><span class="p">:</span>
+                        <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrode_positions</span><span class="p">[</span><span class="n">electrode_id</span><span class="p">]</span>
+                    <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+                <span class="n">trains</span><span class="p">,</span>
+                <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+                <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span>
+            <span class="ne">ImportError</span><span class="p">,</span>
+            <span class="ne">TypeError</span><span class="p">,</span>
+            <span class="ne">ValueError</span><span class="p">,</span>
+            <span class="ne">KeyError</span><span class="p">,</span>
+            <span class="ne">AttributeError</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Falling back to h5py for NWB reading (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">ensure_h5py</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="s2">&quot;units&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;NWB file missing &#39;/units&#39; group&quot;</span><span class="p">)</span>
+        <span class="n">unit_grp</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
+        <span class="n">st_key</span> <span class="o">=</span> <span class="s2">&quot;spike_times&quot;</span>
+        <span class="n">idx_key</span> <span class="o">=</span> <span class="s2">&quot;spike_times_index&quot;</span>
+        <span class="k">if</span> <span class="n">st_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unit_grp</span> <span class="ow">or</span> <span class="n">idx_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unit_grp</span><span class="p">:</span>
+            <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">unit_grp</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;spike_times&quot;</span><span class="p">)]</span>
+            <span class="n">idx_candidates</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">unit_grp</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;spike_times_index&quot;</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">idx_candidates</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not find spike_times datasets in NWB file&quot;</span><span class="p">)</span>
+            <span class="n">st_key</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">idx_key</span> <span class="o">=</span> <span class="n">idx_candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">flat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="n">st_key</span><span class="p">])</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="n">idx_key</span><span class="p">])</span>
+        <span class="n">trains</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="n">_trains_from_flat_index</span><span class="p">(</span><span class="n">flat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">unit_ids</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">unit_grp</span> <span class="k">else</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">trains</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="n">electrode_indices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;electrodes&quot;</span> <span class="ow">in</span> <span class="n">unit_grp</span> <span class="ow">and</span> <span class="s2">&quot;electrodes_index&quot;</span> <span class="ow">in</span> <span class="n">unit_grp</span><span class="p">:</span>
+            <span class="n">elec_flat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;electrodes&quot;</span><span class="p">])</span>
+            <span class="n">elec_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_grp</span><span class="p">[</span><span class="s2">&quot;electrodes_index&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">elec_idx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">elec_idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">elec_flat</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;NWB electrodes_index exceeds electrodes array length; &quot;</span>
+                    <span class="s2">&quot;electrode data may be truncated.&quot;</span><span class="p">,</span>
+                    <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">electrode_indices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">elec_idx</span><span class="p">:</span>
+                <span class="n">electrode_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elec_flat</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">])</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">stop</span>
+
+        <span class="n">electrode_positions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">elec_table_path</span> <span class="o">=</span> <span class="s2">&quot;general/extracellular_ephys/electrodes&quot;</span>
+        <span class="k">if</span> <span class="n">elec_table_path</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">elec_grp</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="n">elec_table_path</span><span class="p">]</span>
+            <span class="n">electrode_positions</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">x_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">elec_grp</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">elec_grp</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">y_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">elec_grp</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">elec_grp</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">z_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">elec_grp</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;z&quot;</span> <span class="ow">in</span> <span class="n">elec_grp</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">elec_ids</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">elec_grp</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">elec_grp</span>
+                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x_arr</span><span class="p">)</span> <span class="k">if</span> <span class="n">x_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">eid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">elec_ids</span><span class="p">):</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">if</span> <span class="n">x_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_arr</span><span class="p">):</span>
+                    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">x_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+                <span class="k">if</span> <span class="n">y_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_arr</span><span class="p">):</span>
+                    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">y_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+                <span class="k">if</span> <span class="n">z_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">z_arr</span><span class="p">):</span>
+                    <span class="n">pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">z_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+                <span class="k">if</span> <span class="n">pos</span><span class="p">:</span>
+                    <span class="n">electrode_positions</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">eid</span><span class="p">)]</span> <span class="o">=</span> <span class="n">pos</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">uid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">):</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)}</span>
+            <span class="n">electrode_id</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">electrode_indices</span>
+                <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">electrode_indices</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">electrode_indices</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="p">):</span>
+                <span class="n">electrode_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">electrode_indices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrode_id</span>
+            <span class="k">if</span> <span class="n">electrode_positions</span> <span class="ow">and</span> <span class="n">electrode_id</span> <span class="ow">in</span> <span class="n">electrode_positions</span><span class="p">:</span>
+                <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">electrode_positions</span><span class="p">[</span><span class="n">electrode_id</span><span class="p">]</span>
+            <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+        <span class="n">trains</span><span class="p">,</span> <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># SpikeInterface</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_spikeinterface">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_spikeinterface</span><span class="p">(</span>
+    <span class="n">sorting</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">sampling_frequency</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">unit_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">segment_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a SpikeInterface SortingExtractor-like object to SpikeData.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sorting (object): Exposes get_unit_ids(),</span>
+<span class="sd">            get_sampling_frequency(), get_unit_spike_train(...).</span>
+<span class="sd">        sampling_frequency (float | None): Optional override for sampling</span>
+<span class="sd">            frequency (Hz).</span>
+<span class="sd">        unit_ids (Sequence | None): Optional subset of unit IDs to include.</span>
+<span class="sd">        segment_index (int): Segment index for multi-segment sortings.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The converted spike train data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">get_unit_ids</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_unit_ids</span>  <span class="c1"># type: ignore[attr-defined]</span>
+        <span class="n">get_sf</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_sampling_frequency</span>  <span class="c1"># type: ignore[attr-defined]</span>
+        <span class="n">get_train</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_unit_spike_train</span>  <span class="c1"># type: ignore[attr-defined]</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;`sorting` must be a SpikeInterface SortingExtractor-like object&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="n">fs</span> <span class="o">=</span> <span class="n">sampling_frequency</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="n">get_sf</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fs</span> <span class="ow">or</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A positive sampling_frequency (Hz) is required&quot;</span><span class="p">)</span>
+
+    <span class="n">ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">unit_ids</span><span class="p">)</span> <span class="k">if</span> <span class="n">unit_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_unit_ids</span><span class="p">())</span>
+    <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">channel_prop</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">location_prop</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sorting</span><span class="p">,</span> <span class="s2">&quot;get_property&quot;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">prop_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;channel&quot;</span><span class="p">,</span> <span class="s2">&quot;ch&quot;</span><span class="p">,</span> <span class="s2">&quot;peak_channel&quot;</span><span class="p">,</span> <span class="s2">&quot;electrode&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">channel_prop</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_property</span><span class="p">(</span><span class="n">prop_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">channel_prop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">for</span> <span class="n">prop_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;location&quot;</span><span class="p">,</span> <span class="s2">&quot;unit_location&quot;</span><span class="p">,</span> <span class="s2">&quot;position&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">location_prop</span> <span class="o">=</span> <span class="n">sorting</span><span class="o">.</span><span class="n">get_property</span><span class="p">(</span><span class="n">prop_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">location_prop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">uid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ids</span><span class="p">):</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">get_train</span><span class="p">(</span><span class="n">unit_id</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span> <span class="n">segment_index</span><span class="o">=</span><span class="n">segment_index</span><span class="p">))</span>
+        <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_ms</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="s2">&quot;samples&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="p">))</span>
+        <span class="n">attr</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="n">uid</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">channel_prop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_prop</span><span class="p">):</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_prop</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">location_prop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">location_prop</span><span class="p">):</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">location_prop</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">loc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">loc</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="s2">&quot;__iter__&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;source_format&quot;</span><span class="p">:</span> <span class="s2">&quot;SpikeInterface&quot;</span><span class="p">,</span> <span class="s2">&quot;unit_ids&quot;</span><span class="p">:</span> <span class="n">ids</span><span class="p">,</span> <span class="s2">&quot;fs_Hz&quot;</span><span class="p">:</span> <span class="n">fs</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span><span class="n">trains</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># KiloSort / Phy</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_kilosort">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_kilosort</span><span class="p">(</span>
+    <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">spike_times_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_times.npy&quot;</span><span class="p">,</span>
+    <span class="n">spike_clusters_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spike_clusters.npy&quot;</span><span class="p">,</span>
+    <span class="n">cluster_info_tsv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">time_unit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;samples&quot;</span><span class="p">,</span>
+    <span class="n">include_noise</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">channel_map_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;channel_map.npy&quot;</span><span class="p">,</span>
+    <span class="n">channel_positions_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;channel_positions.npy&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load KiloSort/Phy outputs into SpikeData.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        folder (str): Path to the KiloSort/Phy output directory.</span>
+<span class="sd">        fs_Hz (float): Sampling frequency in Hz.</span>
+<span class="sd">        spike_times_file (str): Path to the spike_times.npy file.</span>
+<span class="sd">        spike_clusters_file (str): Path to the spike_clusters.npy file.</span>
+<span class="sd">        cluster_info_tsv (str | None): Path to the cluster info TSV file.</span>
+<span class="sd">        time_unit (str): Unit of the spike times (&#39;samples&#39;, &#39;s&#39;, or &#39;ms&#39;).</span>
+<span class="sd">        include_noise (bool): If True, include noise clusters.</span>
+<span class="sd">        length_ms (float | None): Recording duration in milliseconds.</span>
+<span class="sd">        channel_map_file (str): Filename of the channel map file relative</span>
+<span class="sd">            to folder. Expected format: 1D numpy array mapping cluster</span>
+<span class="sd">            indices to channel numbers.</span>
+<span class="sd">        channel_positions_file (str): Filename of the channel positions</span>
+<span class="sd">            file relative to folder. Expected format: 2D numpy array of</span>
+<span class="sd">            shape (channels, 3) containing channel positions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The loaded spike train data.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - This loader does not extract or include waveform data; only</span>
+<span class="sd">          spike times and cluster assignments are loaded.</span>
+<span class="sd">        - Reads spike_times.npy (samples) and spike_clusters.npy; groups</span>
+<span class="sd">          times per cluster and converts to ms using fs_Hz.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">st_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">spike_times_file</span><span class="p">)</span>
+    <span class="n">sc_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">spike_clusters_file</span><span class="p">)</span>
+    <span class="n">spike_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">st_path</span><span class="p">)</span>
+    <span class="n">spike_clusters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">sc_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">spike_times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">spike_clusters</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spike_times and spike_clusters length mismatch&quot;</span><span class="p">)</span>
+
+    <span class="n">channel_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cm_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">channel_map_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cm_path</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">channel_map</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cm_path</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed loading channel_map: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">channel_positions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cp_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">channel_positions_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cp_path</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">channel_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cp_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed loading channel_positions: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">keep_clusters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">cluster_info_tsv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tsv_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">cluster_info_tsv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tsv_path</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">tsv_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">label_col</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;group&quot;</span>
+                    <span class="k">if</span> <span class="s2">&quot;group&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+                    <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;KSLabel&quot;</span> <span class="k">if</span> <span class="s2">&quot;KSLabel&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">id_col</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;cluster_id&quot;</span>
+                    <span class="k">if</span> <span class="s2">&quot;cluster_id&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+                    <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;id&quot;</span> <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">id_col</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">label_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Could not find id/label columns in cluster TSV; keeping all clusters&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">include_noise</span><span class="p">:</span>
+                        <span class="n">keep_clusters</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">id_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">df</span><span class="p">[</span><span class="n">label_col</span><span class="p">]</span>
+                            <span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+                            <span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                            <span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;mua&quot;</span><span class="p">,</span> <span class="s2">&quot;mua good&quot;</span><span class="p">])</span>
+                        <span class="p">)</span>  <span class="c1"># permissive</span>
+                        <span class="n">keep_clusters</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="n">id_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed parsing cluster info TSV: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">; keeping all clusters&quot;</span>
+                <span class="p">)</span>
+
+    <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">metadata_units</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">unit_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">clu</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">spike_clusters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">keep_clusters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">keep_clusters</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">spike_times</span><span class="p">[</span><span class="n">spike_clusters</span> <span class="o">==</span> <span class="n">clu</span><span class="p">]</span>
+        <span class="n">times_ms</span> <span class="o">=</span> <span class="n">to_ms</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">time_unit</span><span class="p">,</span> <span class="n">fs_Hz</span><span class="p">)</span>
+        <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">times_ms</span><span class="p">))</span>
+        <span class="n">metadata_units</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">))</span>
+
+        <span class="n">attr</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)}</span>
+        <span class="n">channel_idx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">int_clu</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">channel_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">int_clu</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_map</span><span class="p">):</span>
+            <span class="n">channel_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_map</span><span class="p">[</span><span class="n">int_clu</span><span class="p">])</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_idx</span>
+
+        <span class="k">if</span> <span class="n">channel_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">channel_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">channel_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_positions</span><span class="p">):</span>
+                <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">channel_positions</span><span class="p">[</span><span class="n">channel_idx</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="n">unit_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_positions</span><span class="p">):</span>
+                <span class="c1"># Fallback: use unit index when channel map lookup fails</span>
+                <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">channel_positions</span><span class="p">[</span><span class="n">unit_idx</span><span class="p">])</span>
+        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+        <span class="n">unit_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;source_folder&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">folder</span><span class="p">),</span>
+        <span class="s2">&quot;source_format&quot;</span><span class="p">:</span> <span class="s2">&quot;KiloSort&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cluster_ids&quot;</span><span class="p">:</span> <span class="n">metadata_units</span><span class="p">,</span>
+        <span class="s2">&quot;fs_Hz&quot;</span><span class="p">:</span> <span class="n">fs_Hz</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+        <span class="n">trains</span><span class="p">,</span> <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># SpikeInterface BaseRecording -&gt; SpikeData via thresholding</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_spikeinterface_recording">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_spikeinterface_recording</span><span class="p">(</span>
+    <span class="n">recording</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">segment_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">threshold_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="nb">filter</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">hysteresis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">direction</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a SpikeInterface BaseRecording-like object into SpikeData.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        recording (object): Exposes get_traces(segment_index=...),</span>
+<span class="sd">            get_sampling_frequency(), get_num_channels().</span>
+<span class="sd">        segment_index (int): Segment index for multi-segment recordings.</span>
+<span class="sd">        threshold_sigma (float): Threshold in units of per-channel standard deviation.</span>
+<span class="sd">        filter (dict | bool): If True, apply default Butterworth bandpass;</span>
+<span class="sd">            if dict, pass to filter; if False, no filtering.</span>
+<span class="sd">        hysteresis (bool): Use rising-edge detection if True.</span>
+<span class="sd">        direction (str): &#39;both&#39; | &#39;up&#39; | &#39;down&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The converted spike train data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Resolve sampling frequency</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="s2">&quot;get_sampling_frequency&quot;</span><span class="p">):</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">get_sampling_frequency</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="s2">&quot;sampling_frequency&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fs</span> <span class="ow">or</span> <span class="n">fs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A positive sampling_frequency (Hz) is required on recording&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Retrieve traces (2D array) and coerce to numpy</span>
+    <span class="n">traces</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">get_traces</span><span class="p">(</span><span class="n">segment_index</span><span class="o">=</span><span class="n">segment_index</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">traces</span><span class="p">)</span>
+
+    <span class="c1"># Ensure orientation is (channels, time) via robust heuristic:</span>
+    <span class="c1"># choose the smaller dimension as channels (typical: channels &lt;&lt; time).</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;recording.get_traces() must return a 2D array&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Ambiguous data orientation: shape is </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> (square). &quot;</span>
+            <span class="s2">&quot;Assuming (channels, time). Pass data with an explicit orientation &quot;</span>
+            <span class="s2">&quot;if this is incorrect.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">data_ct</span> <span class="o">=</span> <span class="n">data</span> <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">else</span> <span class="n">data</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Delegate detection to SpikeData convenience constructor</span>
+    <span class="k">return</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_thresholding</span><span class="p">(</span>
+        <span class="n">data_ct</span><span class="p">,</span>
+        <span class="n">fs_Hz</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span>
+        <span class="n">threshold_sigma</span><span class="o">=</span><span class="n">threshold_sigma</span><span class="p">,</span>
+        <span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">,</span>
+        <span class="n">hysteresis</span><span class="o">=</span><span class="n">hysteresis</span><span class="p">,</span>
+        <span class="n">direction</span><span class="o">=</span><span class="n">direction</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># Pickle</span>
+<span class="c1"># ----------------------------</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_pickle">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_pickle</span><span class="p">(</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">aws_access_key_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">aws_secret_access_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">aws_session_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">region_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a SpikeData object from a pickle file.</span>
+
+<span class="sd">    Warning:</span>
+<span class="sd">        Only load pickle files from trusted sources. Pickle</span>
+<span class="sd">        deserialization can execute arbitrary code and should never be</span>
+<span class="sd">        used with untrusted data.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        filepath (str): Path to the pickle file, or an S3 URL</span>
+<span class="sd">            (s3://bucket/key).</span>
+<span class="sd">        aws_access_key_id (str | None): AWS access key ID for S3</span>
+<span class="sd">            downloads.</span>
+<span class="sd">        aws_secret_access_key (str | None): AWS secret access key for</span>
+<span class="sd">            S3 downloads.</span>
+<span class="sd">        aws_session_token (str | None): AWS session token for temporary</span>
+<span class="sd">            credentials.</span>
+<span class="sd">        region_name (str | None): AWS region name for S3 access.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The deserialized SpikeData object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.s3_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensure_local_file</span>
+
+    <span class="n">local_path</span><span class="p">,</span> <span class="n">is_temp</span> <span class="o">=</span> <span class="n">ensure_local_file</span><span class="p">(</span>
+        <span class="n">filepath</span><span class="p">,</span>
+        <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">aws_access_key_id</span><span class="p">,</span>
+        <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="n">aws_secret_access_key</span><span class="p">,</span>
+        <span class="n">aws_session_token</span><span class="o">=</span><span class="n">aws_session_token</span><span class="p">,</span>
+        <span class="n">region_name</span><span class="o">=</span><span class="n">region_name</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">is_temp</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SpikeData</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Pickle file does not contain a SpikeData object (found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">obj</span></div>
+
+
+
+<span class="c1"># ----------------------------</span>
+<span class="c1"># IBL (International Brain Laboratory)</span>
+<span class="c1"># ----------------------------</span>
+
+<span class="c1">#: IBL public server URL used for ONE authentication.</span>
+<span class="n">_IBL_BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://openalyx.internationalbrainlab.org&quot;</span>
+
+<span class="c1">#: Collections searched in order when loading spikes. The probe-specific</span>
+<span class="c1">#: collection is prepended at runtime based on the PID suffix.</span>
+<span class="n">_IBL_FALLBACK_COLLECTIONS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;alf/probe00/pykilosort&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;alf/probe01/pykilosort&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;alf&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="load_spikedata_from_ibl">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_ibl</span><span class="p">(</span>
+    <span class="n">eid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">pid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load spike trains for a single IBL probe into SpikeData.</span>
+
+<span class="sd">    Authenticates against the public IBL server automatically. Only</span>
+<span class="sd">    units labelled as good (``label == 1``) in the Brain-Wide Map unit</span>
+<span class="sd">    table are included. Trial event times are stored in</span>
+<span class="sd">    ``SpikeData.metadata`` as individual numpy arrays, all in</span>
+<span class="sd">    milliseconds.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        eid (str): IBL experiment ID (UUID string).</span>
+<span class="sd">        pid (str): IBL probe ID (UUID string).</span>
+<span class="sd">        length_ms (float | None): Recording duration in milliseconds.</span>
+<span class="sd">            If not provided, the maximum spike time across all units is used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): Loaded spike train data.</span>
+<span class="sd">            ``neuron_attributes`` contains</span>
+<span class="sd">            ``{&quot;region&quot;: &lt;Beryl atlas region&gt;}`` per unit.</span>
+<span class="sd">            ``metadata`` contains ``eid``, ``pid``, ``n_trials``,</span>
+<span class="sd">            ``trial_start_times``, ``trial_end_times``,</span>
+<span class="sd">            ``stim_on_times``, ``stim_off_times``, ``go_cue_times``,</span>
+<span class="sd">            ``response_times``, ``feedback_times``,</span>
+<span class="sd">            ``first_movement_times``, ``choice``, ``feedback_type``,</span>
+<span class="sd">            ``contrast_left``, ``contrast_right``, and</span>
+<span class="sd">            ``probability_left``. All time arrays are in milliseconds.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires ``one-api`` and ``brainwidemap`` packages (optional dependencies).</span>
+<span class="sd">        - Spike times are converted from seconds (IBL convention) to milliseconds.</span>
+<span class="sd">        - Trial times are converted from seconds to milliseconds.</span>
+<span class="sd">        - Probe collection is inferred from the PID suffix; falls back through</span>
+<span class="sd">          ``alf/probe00/pykilosort``, ``alf/probe01/pykilosort``, and ``alf``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">one.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">ONE</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;one-api is required for load_spikedata_from_ibl. &quot;</span>
+            <span class="s2">&quot;Install with: pip install one-api&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">brainwidemap</span><span class="w"> </span><span class="kn">import</span> <span class="n">bwm_units</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;brainwidemap is required for load_spikedata_from_ibl. &quot;</span>
+            <span class="s2">&quot;Install with: pip install brainwidemap&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># Authenticate against the public IBL server.</span>
+    <span class="n">ONE</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="n">_IBL_BASE_URL</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">one</span> <span class="o">=</span> <span class="n">ONE</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="s2">&quot;international&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Retrieve good units for this probe from the Brain-Wide Map table.</span>
+    <span class="n">unit_df</span> <span class="o">=</span> <span class="n">bwm_units</span><span class="p">(</span><span class="n">one</span><span class="p">)</span>
+    <span class="n">good_units</span> <span class="o">=</span> <span class="n">unit_df</span><span class="p">[(</span><span class="n">unit_df</span><span class="p">[</span><span class="s2">&quot;pid&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">pid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">unit_df</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)]</span>
+
+    <span class="c1"># Build the ordered list of collections to try, with the probe-specific</span>
+    <span class="c1"># one first when the PID suffix hints at the probe number. This is a</span>
+    <span class="c1"># best-effort heuristic for ordering (PIDs are UUIDs, so the last two</span>
+    <span class="c1"># hex chars can coincidentally match &quot;00&quot;/&quot;01&quot;). All candidates are</span>
+    <span class="c1"># tried regardless, so correctness is not affected — only the order.</span>
+    <span class="n">collections</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">pid</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;00&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">pid</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;01&quot;</span><span class="p">):</span>
+        <span class="n">collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;alf/probe</span><span class="si">{</span><span class="n">pid</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span><span class="si">}</span><span class="s2">/pykilosort&quot;</span><span class="p">)</span>
+    <span class="n">collections</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_IBL_FALLBACK_COLLECTIONS</span><span class="p">)</span>
+    <span class="c1"># Deduplicate while preserving order.</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">ordered_collections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">collections</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">ordered_collections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+
+    <span class="c1"># Load spikes from the first available collection.</span>
+    <span class="n">spikes</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">ordered_collections</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">eid</span><span class="p">,</span> <span class="s2">&quot;spikes&quot;</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="n">collection</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+    <span class="c1"># Build per-unit spike trains (seconds → milliseconds).</span>
+    <span class="n">spike_trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">good_units</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">spikes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">spike_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span><span class="s2">&quot;clusters&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">]</span>
+            <span class="n">spike_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">spikes</span><span class="p">[</span><span class="s2">&quot;times&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1_000.0</span><span class="p">)</span>
+        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;Beryl&quot;</span><span class="p">]})</span>
+
+    <span class="c1"># Infer session length from the largest spike time if not provided.</span>
+    <span class="k">if</span> <span class="n">length_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">max_t</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">t</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">spike_trains</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">length_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_t</span><span class="p">)</span> <span class="k">if</span> <span class="n">max_t</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">10_000.0</span>
+
+    <span class="c1"># Load trials and extract relevant fields as numpy arrays (seconds → ms).</span>
+    <span class="n">trials</span> <span class="o">=</span> <span class="n">one</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">eid</span><span class="p">,</span> <span class="s2">&quot;trials&quot;</span><span class="p">)</span>
+    <span class="n">trials_df</span> <span class="o">=</span> <span class="n">trials</span><span class="o">.</span><span class="n">to_df</span><span class="p">()</span>
+    <span class="n">n_trials</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials_df</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_to_ms_array</span><span class="p">(</span><span class="n">col</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a trials column and convert seconds to milliseconds.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">trials_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1_000.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_to_array</span><span class="p">(</span><span class="n">col</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a trials column as a plain numpy array (no unit conversion).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">trials_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;eid&quot;</span><span class="p">:</span> <span class="n">eid</span><span class="p">,</span>
+        <span class="s2">&quot;pid&quot;</span><span class="p">:</span> <span class="n">pid</span><span class="p">,</span>
+        <span class="s2">&quot;n_trials&quot;</span><span class="p">:</span> <span class="n">n_trials</span><span class="p">,</span>
+        <span class="s2">&quot;trial_start_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;intervals_0&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;trial_end_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;intervals_1&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;stim_on_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;stimOn_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;stim_off_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;stimOff_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;go_cue_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;goCue_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;response_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;response_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;feedback_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;feedback_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;first_movement_times&quot;</span><span class="p">:</span> <span class="n">_to_ms_array</span><span class="p">(</span><span class="s2">&quot;firstMovement_times&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;choice&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;choice&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;feedback_type&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;feedbackType&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;contrast_left&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;contrastLeft&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;contrast_right&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;contrastRight&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;probability_left&quot;</span><span class="p">:</span> <span class="n">_to_array</span><span class="p">(</span><span class="s2">&quot;probabilityLeft&quot;</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+        <span class="n">spike_trains</span><span class="p">,</span>
+        <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="query_ibl_probes">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">query_ibl_probes</span><span class="p">(</span>
+    <span class="n">target_regions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">min_units</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">min_fraction_in_target</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;tuple[list[tuple[str, str]], pd.DataFrame]&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Search the IBL Brain-Wide Map database for probes matching given criteria.</span>
+
+<span class="sd">    Authenticates against the public IBL server automatically. Filters</span>
+<span class="sd">    probes by brain region and unit count. Returns matching (eid, pid)</span>
+<span class="sd">    pairs alongside a per-probe statistics DataFrame.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        target_regions (list[str] | None): Beryl atlas region names to</span>
+<span class="sd">            filter by (e.g. ``[&quot;MOs&quot;, &quot;MOp&quot;]``). If None, no region</span>
+<span class="sd">            filter is applied.</span>
+<span class="sd">        min_units (int): Minimum number of good units required per probe.</span>
+<span class="sd">            Default ``0`` (no minimum).</span>
+<span class="sd">        min_fraction_in_target (float): Minimum fraction (0–1) of good units</span>
+<span class="sd">            that must fall within ``target_regions``. Ignored when</span>
+<span class="sd">            ``target_regions`` is ``None``. Default ``0.0``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        probes (list[tuple[str, str]]): List of ``(eid, pid)`` pairs for</span>
+<span class="sd">            probes that pass all filters, sorted by descending good unit count.</span>
+<span class="sd">        stats (pd.DataFrame): One row per matching probe with columns:</span>
+<span class="sd">            ``eid``, ``pid``, ``n_good_units``, and (when ``target_regions``</span>
+<span class="sd">            is not ``None``) ``n_in_target`` and ``fraction_in_target``.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Requires ``one-api`` and ``brainwidemap`` packages (optional</span>
+<span class="sd">          dependencies).</span>
+<span class="sd">        - ``bwm_units()`` fetches the full Brain-Wide Map unit table from the</span>
+<span class="sd">          IBL server; this may take several seconds on first call.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">one.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">ONE</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;one-api is required for query_ibl_probes. &quot;</span>
+            <span class="s2">&quot;Install with: pip install one-api&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">brainwidemap</span><span class="w"> </span><span class="kn">import</span> <span class="n">bwm_units</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;brainwidemap is required for query_ibl_probes. &quot;</span>
+            <span class="s2">&quot;Install with: pip install brainwidemap&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;pandas is required for query_ibl_probes. &quot;</span>
+            <span class="s2">&quot;Install with: pip install pandas&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># Authenticate against the public IBL server.</span>
+    <span class="n">ONE</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="n">_IBL_BASE_URL</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">one</span> <span class="o">=</span> <span class="n">ONE</span><span class="p">(</span><span class="n">password</span><span class="o">=</span><span class="s2">&quot;international&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Fetch all good units from the Brain-Wide Map table.</span>
+    <span class="n">unit_df</span> <span class="o">=</span> <span class="n">bwm_units</span><span class="p">(</span><span class="n">one</span><span class="p">)</span>
+    <span class="n">good_units</span> <span class="o">=</span> <span class="n">unit_df</span><span class="p">[</span><span class="n">unit_df</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Build per-probe aggregation.</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">good_units</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;eid&quot;</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="n">n_good_units</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Compute region-based columns when target_regions is provided.</span>
+    <span class="k">if</span> <span class="n">target_regions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">in_target</span> <span class="o">=</span> <span class="n">good_units</span><span class="p">[</span><span class="s2">&quot;Beryl&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">target_regions</span><span class="p">)</span>
+        <span class="n">region_counts</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">good_units</span><span class="p">[</span><span class="n">in_target</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;eid&quot;</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">n_in_target</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;cluster_id&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">agg</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">region_counts</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;eid&quot;</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+        <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_in_target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_in_target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;fraction_in_target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_good_units&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_in_target&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_good_units&quot;</span><span class="p">],</span>
+            <span class="mf">0.0</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Apply unit-count filter.</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">agg</span><span class="p">[</span><span class="s2">&quot;n_good_units&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_units</span>
+
+    <span class="c1"># Apply region fraction filter.</span>
+    <span class="k">if</span> <span class="n">target_regions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">agg</span><span class="p">[</span><span class="s2">&quot;fraction_in_target&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_fraction_in_target</span><span class="p">)</span>
+
+    <span class="n">stats</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">agg</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;n_good_units&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">probes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;eid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;pid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+    <span class="k">return</span> <span class="n">probes</span><span class="p">,</span> <span class="n">stats</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

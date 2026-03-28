@@ -6,21 +6,21 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>data_loaders module &mdash; SpikeLab 0.0.0 documentation</title>
+  <title>Data Loaders &mdash; SpikeLab 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=7026087e"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="data_exporters module" href="data_exporters.html" />
-    <link rel="prev" title="spikedata module" href="spikedata.html" /> 
+    <link rel="next" title="Data Exporters" href="data_exporters.html" />
+    <link rel="prev" title="Plotting Utilities" href="plot_utils.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -42,136 +42,232 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
-<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#installation">Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-installation">Basic Installation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#development-installation">Development Installation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#documentation-build">Documentation Build</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#quick-start">Quick Start</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#loading-data">Loading Data</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#basic-analysis">Basic Analysis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#channel-based-analysis">Channel-Based Analysis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#subsetting-and-time-slicing">Subsetting and Time Slicing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting_started.html#exporting-data">Exporting Data</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../getting_started.html#next-steps">Next Steps</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../spikedata.html">SpikeData Class</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#overview">Overview</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../spikedata.html#key-features">Key Features</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../spikedata.html#class-attributes">Class Attributes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../class_methods/index.html">Class Methods</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/binning_and_rasters.html">Binning and Rasters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/firing_rates.html">Firing Rates</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/interspike_intervals.html">Interspike Intervals</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/data_selection.html">Data Selection and Manipulation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/time_windowing.html">Time Windowing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/latency_analysis.html">Latency Analysis</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/sttc.html">Spike Time Tiling Coefficient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../class_methods/export_methods.html">Export Methods</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../standalone_utilities.html">Standalone Utilities</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#spike-time-tiling-ta-tb-delt-20-0-length-none">spike_time_tiling(tA, tB, delt=20.0, length=None)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#randomize-ar-swap-per-spike-5">randomize(ar, swap_per_spike=5)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-pop-rate-t-spk-mat-square-width-gauss-sigma">get_pop_rate(t_spk_mat, SQUARE_WIDTH, GAUSS_SIGMA)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../standalone_utilities.html#get-bursts-pop-rate-pop-rate-acc-thr-burst-min-burst-diff-burst-edge-mult-thresh">get_bursts(pop_rate, pop_rate_acc, THR_BURST, MIN_BURST_DIFF, BURST_EDGE_MULT_THRESH)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../migration_tips.html">Migration &amp; Usage Tips</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#population-firing-rate">Population Firing Rate</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#pairwise-correlations">Pairwise Correlations</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../migration_tips.html#burst-avalanche-dcc-analysis">Burst/Avalanche/DCC Analysis</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../data_loaders.html">Data Loaders</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#overview">Overview</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5.html">HDF5 (Generic)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5.html#load-spikedata-from-hdf5">load_spikedata_from_hdf5</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html">HDF5 Thresholding</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/hdf5_thresholding.html#load-spikedata-from-hdf5-raw-thresholded">load_spikedata_from_hdf5_raw_thresholded</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_loaders/nwb.html">NWB (Units)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/nwb.html#load-spikedata-from-nwb">load_spikedata_from_nwb</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_loaders/kilosort.html">KiloSort / Phy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/kilosort.html#load-spikedata-from-kilosort">load_spikedata_from_kilosort</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_loaders/spikeinterface.html">SpikeInterface</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface">load_spikedata_from_spikeinterface</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../data_loaders/spikeinterface.html#load-spikedata-from-spikeinterface-recording">load_spikedata_from_spikeinterface_recording</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../data_loaders.html#notes">Notes</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../data_exporters.html">Data Exporters</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#overview">Overview</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data_exporters/hdf5.html">HDF5 (Generic)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_exporters/hdf5.html#export-spikedata-to-hdf5">export_spikedata_to_hdf5</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_exporters/nwb.html">NWB (Units)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_exporters/nwb.html#export-spikedata-to-nwb">export_spikedata_to_nwb</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../data_exporters/kilosort.html">KiloSort / Phy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../data_exporters/kilosort.html#export-spikedata-to-kilosort">export_spikedata_to_kilosort</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../data_exporters.html#notes">Notes</a></li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="spikedata.html">spikedata module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="spikedata.html#spikedata-class">SpikeData Class</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spikedata.html#standalone-functions">Standalone Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">data_loaders module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#loader-functions">Loader Functions</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#hdf5-loaders">HDF5 Loaders</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#nwb-loader">NWB Loader</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#kilosort-loader">KiloSort Loader</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spikeinterface-loaders">SpikeInterface Loaders</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="data_exporters.html">data_exporters module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="data_exporters.html#exporter-functions">Exporter Functions</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#hdf5-exporter">HDF5 Exporter</a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#nwb-exporter">NWB Exporter</a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#kilosort-exporter">KiloSort Exporter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#module-index">Module Index</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#data-i-o">Data I/O</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -191,7 +287,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
-      <li class="breadcrumb-item active">data_loaders module</li>
+      <li class="breadcrumb-item active">Data Loaders</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/api/data_loaders.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -201,31 +297,349 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="data-loaders-module">
-<h1>data_loaders module<a class="headerlink" href="#data-loaders-module" title="Link to this heading"></a></h1>
-<section id="loader-functions">
-<h2>Loader Functions<a class="headerlink" href="#loader-functions" title="Link to this heading"></a></h2>
-<section id="hdf5-loaders">
-<h3>HDF5 Loaders<a class="headerlink" href="#hdf5-loaders" title="Link to this heading"></a></h3>
-</section>
-<section id="nwb-loader">
-<h3>NWB Loader<a class="headerlink" href="#nwb-loader" title="Link to this heading"></a></h3>
-</section>
-<section id="kilosort-loader">
-<h3>KiloSort Loader<a class="headerlink" href="#kilosort-loader" title="Link to this heading"></a></h3>
-</section>
-<section id="spikeinterface-loaders">
-<h3>SpikeInterface Loaders<a class="headerlink" href="#spikeinterface-loaders" title="Link to this heading"></a></h3>
-</section>
-</section>
+  <section id="data-loaders">
+<h1>Data Loaders<a class="headerlink" href="#data-loaders" title="Link to this heading"></a></h1>
+<p>Functions for loading spike train data from various file formats, including
+pickle, NWB, and Neo-compatible formats.</p>
+<p id="module-spikelab.data_loaders.data_loaders">Lightweight loaders that convert common neurophysiology formats into
+<cite>spikedata.SpikeData</cite> objects.</p>
+<dl class="simple">
+<dt>Supported inputs (best-effort, optional deps):</dt><dd><ul class="simple">
+<li><p>HDF5 (generic): spike times, (indices,times), or raster matrices</p></li>
+<li><p>NWB: reads Units table spike_times (via pynwb if available, else h5py)</p></li>
+<li><p>KiloSort/Phy outputs: spike_times.npy + spike_clusters.npy (+ optional TSV)</p></li>
+<li><p>SpikeInterface: from a SortingExtractor</p></li>
+<li><p>IBL (International Brain Laboratory): via ONE API + brainwidemap</p></li>
+</ul>
+</dd>
+</dl>
+<p>Times are converted to milliseconds to match <cite>SpikeData</cite> conventions.
+These helpers avoid hard dependencies: optional libraries are imported lazily.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_bin_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_index_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_per_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">idces_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5" title="Link to this definition"></a></dt>
+<dd><p>Load spike trains from a generic HDF5 file using one of four supported input styles.</p>
+<p>Exactly one input style must be specified. The four styles are: raster
+matrix, ragged arrays, group-per-unit, and paired arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the HDF5 file.</p></li>
+<li><p><strong>raster_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for a 2D raster/counts matrix
+(units x time). Activates raster style.</p></li>
+<li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Bin width in milliseconds. Required
+for raster style.</p></li>
+<li><p><strong>spike_times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for flat concatenated
+spike times. Activates ragged style (requires
+spike_times_index_dataset).</p></li>
+<li><p><strong>spike_times_index_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for cumulative
+end-of-unit indices into the flat spike times array.</p></li>
+<li><p><strong>spike_times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for ragged spike times
+(‘s’, ‘ms’, or ‘samples’).</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Sampling frequency in Hz. Required when any
+time unit is ‘samples’.</p></li>
+<li><p><strong>group_per_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – HDF5 group path containing one dataset
+per unit. Activates group-per-unit style.</p></li>
+<li><p><strong>group_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for group-per-unit datasets
+(‘s’, ‘ms’, or ‘samples’).</p></li>
+<li><p><strong>idces_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for unit index array.
+Activates paired-arrays style (requires times_dataset).</p></li>
+<li><p><strong>times_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for spike times array
+(paired with idces_dataset).</p></li>
+<li><p><strong>times_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for paired spike times
+(‘s’, ‘ms’, or ‘samples’).</p></li>
+<li><p><strong>raw_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for optional raw analog data.</p></li>
+<li><p><strong>raw_time_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Dataset path for the raw data time
+vector.</p></li>
+<li><p><strong>raw_time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Time unit for the raw time vector
+(‘s’, ‘ms’, or ‘samples’).</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds. If not
+provided, inferred from the latest spike time.</p></li>
+<li><p><strong>metadata</strong> (<em>Mapping</em><em> | </em><em>None</em>) – Additional metadata to attach to the
+resulting SpikeData.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The loaded spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If not exactly one input style is specified, or if
+    required arguments are missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_hdf5_raw_thresholded</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_hdf5_raw_thresholded"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded" title="Link to this definition"></a></dt>
+<dd><p>Threshold-and-detect spikes from an HDF5 dataset of raw traces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to HDF5 file.</p></li>
+<li><p><strong>dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – HDF5 dataset path containing raw traces shaped
+(channels, time).</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
+<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
+if dict, pass to filter; if False, no filtering.</p></li>
+<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
+<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The detected spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_nwb">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_nwb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefer_pynwb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_nwb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb" title="Link to this definition"></a></dt>
+<dd><p>Load spike trains from an NWB file’s Units table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the NWB file.</p></li>
+<li><p><strong>prefer_pynwb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, try pynwb first; if False, try h5py.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The loaded spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_kilosort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs_Hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_times_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spike_clusters_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_clusters.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_info_tsv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'samples'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_noise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_map_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'channel_map.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_positions_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'channel_positions.npy'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_kilosort"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort" title="Link to this definition"></a></dt>
+<dd><p>Load KiloSort/Phy outputs into SpikeData.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the KiloSort/Phy output directory.</p></li>
+<li><p><strong>fs_Hz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Sampling frequency in Hz.</p></li>
+<li><p><strong>spike_times_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the spike_times.npy file.</p></li>
+<li><p><strong>spike_clusters_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the spike_clusters.npy file.</p></li>
+<li><p><strong>cluster_info_tsv</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Path to the cluster info TSV file.</p></li>
+<li><p><strong>time_unit</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Unit of the spike times (‘samples’, ‘s’, or ‘ms’).</p></li>
+<li><p><strong>include_noise</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, include noise clusters.</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.</p></li>
+<li><p><strong>channel_map_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename of the channel map file relative
+to folder. Expected format: 1D numpy array mapping cluster
+indices to channel numbers.</p></li>
+<li><p><strong>channel_positions_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Filename of the channel positions
+file relative to folder. Expected format: 2D numpy array of
+shape (channels, 3) containing channel positions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The loaded spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>This loader does not extract or include waveform data; only
+spike times and cluster assignments are loaded.</p></li>
+<li><p>Reads spike_times.npy (samples) and spike_clusters.npy; groups
+times per cluster and converts to ms using fs_Hz.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_spikeinterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sorting</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampling_frequency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">segment_index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_spikeinterface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface" title="Link to this definition"></a></dt>
+<dd><p>Convert a SpikeInterface SortingExtractor-like object to SpikeData.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sorting</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a>) – Exposes get_unit_ids(),
+get_sampling_frequency(), get_unit_spike_train(…).</p></li>
+<li><p><strong>sampling_frequency</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Optional override for sampling
+frequency (Hz).</p></li>
+<li><p><strong>unit_ids</strong> (<em>Sequence</em><em> | </em><em>None</em>) – Optional subset of unit IDs to include.</p></li>
+<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Segment index for multi-segment sortings.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The converted spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_spikeinterface_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">recording</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">segment_index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_spikeinterface_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording" title="Link to this definition"></a></dt>
+<dd><p>Convert a SpikeInterface BaseRecording-like object into SpikeData.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>recording</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a>) – Exposes get_traces(segment_index=…),
+get_sampling_frequency(), get_num_channels().</p></li>
+<li><p><strong>segment_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Segment index for multi-segment recordings.</p></li>
+<li><p><strong>threshold_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold in units of per-channel standard deviation.</p></li>
+<li><p><strong>filter</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, apply default Butterworth bandpass;
+if dict, pass to filter; if False, no filtering.</p></li>
+<li><p><strong>hysteresis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Use rising-edge detection if True.</p></li>
+<li><p><strong>direction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – ‘both’ | ‘up’ | ‘down’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The converted spike train data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_pickle">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_access_key_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_secret_access_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_session_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_pickle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle" title="Link to this definition"></a></dt>
+<dd><p>Load a SpikeData object from a pickle file.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only load pickle files from trusted sources. Pickle
+deserialization can execute arbitrary code and should never be
+used with untrusted data.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path to the pickle file, or an S3 URL
+(s3://bucket/key).</p></li>
+<li><p><strong>aws_access_key_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS access key ID for S3
+downloads.</p></li>
+<li><p><strong>aws_secret_access_key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS secret access key for
+S3 downloads.</p></li>
+<li><p><strong>aws_session_token</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS session token for temporary
+credentials.</p></li>
+<li><p><strong>region_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – AWS region name for S3 access.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The deserialized SpikeData object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.load_spikedata_from_ibl">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">load_spikedata_from_ibl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pid</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#load_spikedata_from_ibl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl" title="Link to this definition"></a></dt>
+<dd><p>Load spike trains for a single IBL probe into SpikeData.</p>
+<p>Authenticates against the public IBL server automatically. Only
+units labelled as good (<code class="docutils literal notranslate"><span class="pre">label</span> <span class="pre">==</span> <span class="pre">1</span></code>) in the Brain-Wide Map unit
+table are included. Trial event times are stored in
+<code class="docutils literal notranslate"><span class="pre">SpikeData.metadata</span></code> as individual numpy arrays, all in
+milliseconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>eid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – IBL experiment ID (UUID string).</p></li>
+<li><p><strong>pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – IBL probe ID (UUID string).</p></li>
+<li><p><strong>length_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Recording duration in milliseconds.
+If not provided, the maximum spike time across all units is used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Loaded spike train data.</dt><dd><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> contains
+<code class="docutils literal notranslate"><span class="pre">{&quot;region&quot;:</span> <span class="pre">&lt;Beryl</span> <span class="pre">atlas</span> <span class="pre">region&gt;}</span></code> per unit.
+<code class="docutils literal notranslate"><span class="pre">metadata</span></code> contains <code class="docutils literal notranslate"><span class="pre">eid</span></code>, <code class="docutils literal notranslate"><span class="pre">pid</span></code>, <code class="docutils literal notranslate"><span class="pre">n_trials</span></code>,
+<code class="docutils literal notranslate"><span class="pre">trial_start_times</span></code>, <code class="docutils literal notranslate"><span class="pre">trial_end_times</span></code>,
+<code class="docutils literal notranslate"><span class="pre">stim_on_times</span></code>, <code class="docutils literal notranslate"><span class="pre">stim_off_times</span></code>, <code class="docutils literal notranslate"><span class="pre">go_cue_times</span></code>,
+<code class="docutils literal notranslate"><span class="pre">response_times</span></code>, <code class="docutils literal notranslate"><span class="pre">feedback_times</span></code>,
+<code class="docutils literal notranslate"><span class="pre">first_movement_times</span></code>, <code class="docutils literal notranslate"><span class="pre">choice</span></code>, <code class="docutils literal notranslate"><span class="pre">feedback_type</span></code>,
+<code class="docutils literal notranslate"><span class="pre">contrast_left</span></code>, <code class="docutils literal notranslate"><span class="pre">contrast_right</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">probability_left</span></code>. All time arrays are in milliseconds.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">one-api</span></code> and <code class="docutils literal notranslate"><span class="pre">brainwidemap</span></code> packages (optional dependencies).</p></li>
+<li><p>Spike times are converted from seconds (IBL convention) to milliseconds.</p></li>
+<li><p>Trial times are converted from seconds to milliseconds.</p></li>
+<li><p>Probe collection is inferred from the PID suffix; falls back through
+<code class="docutils literal notranslate"><span class="pre">alf/probe00/pykilosort</span></code>, <code class="docutils literal notranslate"><span class="pre">alf/probe01/pykilosort</span></code>, and <code class="docutils literal notranslate"><span class="pre">alf</span></code>.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_loaders.query_ibl_probes">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_loaders.</span></span><span class="sig-name descname"><span class="pre">query_ibl_probes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target_regions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_units</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_fraction_in_target</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_loaders.html#query_ibl_probes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_loaders.query_ibl_probes" title="Link to this definition"></a></dt>
+<dd><p>Search the IBL Brain-Wide Map database for probes matching given criteria.</p>
+<p>Authenticates against the public IBL server automatically. Filters
+probes by brain region and unit count. Returns matching (eid, pid)
+pairs alongside a per-probe statistics DataFrame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target_regions</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – Beryl atlas region names to
+filter by (e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;MOs&quot;,</span> <span class="pre">&quot;MOp&quot;]</span></code>). If None, no region
+filter is applied.</p></li>
+<li><p><strong>min_units</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of good units required per probe.
+Default <code class="docutils literal notranslate"><span class="pre">0</span></code> (no minimum).</p></li>
+<li><p><strong>min_fraction_in_target</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum fraction (0–1) of good units
+that must fall within <code class="docutils literal notranslate"><span class="pre">target_regions</span></code>. Ignored when
+<code class="docutils literal notranslate"><span class="pre">target_regions</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>List of <code class="docutils literal notranslate"><span class="pre">(eid,</span> <span class="pre">pid)</span></code> pairs for</dt><dd><p>probes that pass all filters, sorted by descending good unit count.</p>
+</dd>
+<dt>stats (pd.DataFrame): One row per matching probe with columns:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">eid</span></code>, <code class="docutils literal notranslate"><span class="pre">pid</span></code>, <code class="docutils literal notranslate"><span class="pre">n_good_units</span></code>, and (when <code class="docutils literal notranslate"><span class="pre">target_regions</span></code>
+is not <code class="docutils literal notranslate"><span class="pre">None</span></code>) <code class="docutils literal notranslate"><span class="pre">n_in_target</span></code> and <code class="docutils literal notranslate"><span class="pre">fraction_in_target</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>probes (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>]])</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">one-api</span></code> and <code class="docutils literal notranslate"><span class="pre">brainwidemap</span></code> packages (optional
+dependencies).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bwm_units()</span></code> fetches the full Brain-Wide Map unit table from the
+IBL server; this may take several seconds on first call.</p></li>
+</ul>
+</dd></dl>
+
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="spikedata.html" class="btn btn-neutral float-left" title="spikedata module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="data_exporters.html" class="btn btn-neutral float-right" title="data_exporters module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="plot_utils.html" class="btn btn-neutral float-left" title="Plotting Utilities" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_exporters.html" class="btn btn-neutral float-right" title="Data Exporters" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

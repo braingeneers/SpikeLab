@@ -1,0 +1,810 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RateSliceStack &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SpikeSliceStack" href="spikeslicestack.html" />
+    <link rel="prev" title="Pairwise Comparisons" href="pairwise.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#core-data-structures">Core Data Structures</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">RateSliceStack</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/rateslicestack.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="rateslicestack">
+<h1>RateSliceStack<a class="headerlink" href="#rateslicestack" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code> class stores event-aligned slices of firing rate data.
+It holds a 3-D array of shape <code class="docutils literal notranslate"><span class="pre">(num_units,</span> <span class="pre">num_bins,</span> <span class="pre">num_slices)</span></code> where each
+slice corresponds to one trial or event window. This structure supports
+trial-averaging, per-unit statistics, and visualization of peri-event firing
+rate profiles.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.rateslicestack.</span></span><span class="sig-name descname"><span class="pre">RateSliceStack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A 3D firing rate matrix of shape (U, T, S) with correlation and similarity capabilities.</p>
+<p>U is units (neurons), T is time bins, and S is slices (bursts, events, etc).
+Construct from either a data_obj (SpikeData or RateData) with time
+specifications, or directly from a pre-built event_matrix. The instance
+variables are the same regardless of input option.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_obj</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a><em> or </em><a class="reference internal" href="ratedata.html#spikelab.spikedata.ratedata.RateData" title="spikelab.spikedata.ratedata.RateData"><em>RateData</em></a>) – A data object to slice. Provide
+either this or event_matrix, not both.</p></li>
+<li><p><strong>times_start_to_end</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – Each entry is a tuple (start, end)
+representing the start and end times of a desired slice. Each
+tuple must have the same duration.</p></li>
+<li><p><strong>time_peaks</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of times as int or float where there
+is a burst peak or stimulation event. Must be paired with
+time_bounds. Alternative to times_start_to_end.</p></li>
+<li><p><strong>time_bounds</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – Single tuple (left_bound, right_bound).
+For example, (250, 500) means 250 ms before peak and 500 ms
+after peak. Must be paired with time_peaks.</p></li>
+<li><p><strong>sigma_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Smoothing factor for computing ISI if you input a
+SpikeData object. Otherwise not used.</p></li>
+<li><p><strong>event_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – A 3D array of shape (U, T, S).
+Provide either this or data_obj, not both.</p></li>
+<li><p><strong>step_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Time resolution in milliseconds between
+consecutive time bins. If None, defaults to 1.0.</p></li>
+<li><p><strong>neuron_attributes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>None</em>) – List of attribute objects, one per
+unit, containing arbitrary metadata about each neuron.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.event_stack">
+<span class="sig-name descname"><span class="pre">event_stack</span></span><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.event_stack" title="Link to this definition"></a></dt>
+<dd><p>3D array of shape (U, T, S) where U is the
+number of units, T is the number of time bins, and S is the
+number of slices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.times">
+<span class="sig-name descname"><span class="pre">times</span></span><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.times" title="Link to this definition"></a></dt>
+<dd><p>List of (start, end) time bounds for each slice, sorted
+chronologically. Length equals S. Example:
+[(100, 200), (500, 600), (1000, 1100)].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.step_size">
+<span class="sig-name descname"><span class="pre">step_size</span></span><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.step_size" title="Link to this definition"></a></dt>
+<dd><p>Time resolution in milliseconds between consecutive
+time bins. Inferred from input data. For SpikeData input, defaults
+to 1.0 ms. Example: 1.0 means time bins are at [100, 101, 102, …]
+ms.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.neuron_attributes">
+<span class="sig-name descname"><span class="pre">neuron_attributes</span></span><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.neuron_attributes" title="Link to this definition"></a></dt>
+<dd><p>List of attribute objects, one per
+unit, containing arbitrary metadata about each neuron.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times_start_to_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_peaks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neuron_attributes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.order_units_across_slices">
+<span class="sig-name descname"><span class="pre">order_units_across_slices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agg_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_RATE_THRESHOLD</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_FRAC_ACTIVE</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.order_units_across_slices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.order_units_across_slices" title="Link to this definition"></a></dt>
+<dd><p>Reorder units from earliest to latest peak firing rate across slices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agg_func</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>. Used for
+calculating the median/mean time when each unit has peak
+firing rate.</p></li>
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate for a slice
+to be included in the ordering calculation. Slices where a
+unit’s max rate is below this threshold are excluded from
+that unit’s typical peak time calculation. Ignored when
+timing_matrix is provided.</p></li>
+<li><p><strong>MIN_FRAC_ACTIVE</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum fraction of slices a unit must
+be active in to be placed in the highly-active group.
+Default 0.0 means all units are in the first group, so the
+second array in each output tuple will be empty.</p></li>
+<li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
+fraction-active array of shape (U,) to use for the group
+split instead of the rate-based calculation. Compatible
+sources: SpikeSliceStack.compute_frac_active and
+SpikeData.get_frac_active (frac_per_unit output).</p></li>
+<li><p><strong>timing_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed (U, S)
+timing matrix from get_unit_timing_per_slice. When provided,
+MIN_RATE_THRESHOLD is ignored and this matrix is used
+directly.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Tuple of two 3D</dt><dd><p>arrays from event_stack with the U dimension reordered
+temporally. The first array is the highly-active group and
+the second is the lower-activity group.</p>
+</dd>
+<dt>unit_ids_in_order (tuple of arrays): Two arrays of original unit</dt><dd><p>IDs in temporal order (highly-active, low-activity). For
+example, [3, 1, 0, 2] means unit 3 fires first. Use this
+to map back to original unit IDs.</p>
+</dd>
+<dt>unit_std_indices (tuple of arrays): Two arrays of standard</dt><dd><p>deviation of peak firing rate times (highly-active,
+low-activity). Lower values indicate more consistent timing
+across slices.</p>
+</dd>
+<dt>unit_peak_times (tuple of arrays): Two arrays of median/mean peak</dt><dd><p>firing time bin (highly-active, low-activity).</p>
+</dd>
+<dt>unit_frac_active (tuple of arrays): Two arrays of the fraction of</dt><dd><p>slices each unit was active in (highly-active, low-activity).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>reordered_slice_matrices (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a> of arrays)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Call get_unit_timing_per_slice first to pre-compute the timing
+matrix if you want to reuse it across multiple calls (e.g.
+rank_order_correlation and this method).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_unit_corr_from_stack">
+<span class="sig-name descname"><span class="pre">get_slice_to_slice_unit_corr_from_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compare_func=&lt;function</span> <span class="pre">compute_cross_correlation_with_lag&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_RATE_THRESHOLD=0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_FRAC=0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag=10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frac_active=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs=-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.get_slice_to_slice_unit_corr_from_stack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_unit_corr_from_stack" title="Link to this definition"></a></dt>
+<dd><p>Compute slice-to-slice similarity along the unit axis of event_stack (U, T, S).</p>
+<p>Output is a PairwiseCompMatrixStack of shape (S, S, U).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
+cross-correlation or cosine similarity. The default is cross
+correlation. See utils.py for details.</p></li>
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum mean firing rate to consider a
+slice valid for that neuron.</p></li>
+<li><p><strong>MIN_FRAC</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum fraction of slices that can be skipped
+before a unit is deemed invalid (default 0.3 = 30%).</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+None, lag is set to 0.</p></li>
+<li><p><strong>frac_active</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Optional pre-computed
+fraction-active array of shape (U,) to override the internal
+rate-based validity check for computing averages. When
+provided, a unit’s average is set to NaN if
+frac_active[u] &lt; (1 - MIN_FRAC). MIN_RATE_THRESHOLD still
+controls which individual slice pairs are computed.
+Compatible sources: SpikeSliceStack.compute_frac_active and
+SpikeData.get_frac_active (frac_per_unit output).</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Pairwise</dt><dd><p>correlation scores between all slice pairs for each unit.
+Shape is (S, S, U) in the stack attribute.</p>
+</dd>
+<dt>av_slice_corr_scores (np.ndarray): Average correlation per neuron</dt><dd><p>across all valid slice pairs. Shape is (U,).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>all_slice_corr_scores (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_time_corr_from_stack">
+<span class="sig-name descname"><span class="pre">get_slice_to_slice_time_corr_from_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compare_func=&lt;function</span> <span class="pre">compute_cosine_similarity_with_lag&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag=0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs=-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.get_slice_to_slice_time_corr_from_stack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.get_slice_to_slice_time_corr_from_stack" title="Link to this definition"></a></dt>
+<dd><p>Compute slice-to-slice similarity along the time axis of event_stack (U, T, S).</p>
+<p>Output is a PairwiseCompMatrixStack of shape (S, S, T).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
+cross-correlation or cosine similarity. The default is cosine
+similarity. See utils.py for details.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+None, lag is set to 0.</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Pairwise</dt><dd><p>correlation scores between all slice pairs for each time bin.
+Shape is (S, S, T) in the stack attribute.</p>
+</dd>
+<dt>av_slice_corr_scores (np.ndarray): Average correlation per time</dt><dd><p>bin across all valid slice pairs. Shape is (T,).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>all_slice_corr_scores (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.convert_to_list_of_RateData">
+<span class="sig-name descname"><span class="pre">convert_to_list_of_RateData</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.convert_to_list_of_RateData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.convert_to_list_of_RateData" title="Link to this definition"></a></dt>
+<dd><p>Create a list of RateData objects from the 3D event_stack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of RateData objects. Length equals S.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>output (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.unit_to_unit_correlation">
+<span class="sig-name descname"><span class="pre">unit_to_unit_correlation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compare_func=&lt;function</span> <span class="pre">compute_cross_correlation_with_lag&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag=10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs=-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.unit_to_unit_correlation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.unit_to_unit_correlation" title="Link to this definition"></a></dt>
+<dd><p>Compute unit-to-unit similarity along the slice axis of event_stack (U, T, S).</p>
+<p>Output is a PairwiseCompMatrixStack of shape (U, U, S).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compare_func</strong> (<em>callable</em>) – Comparison function from utils. Specify
+cross-correlation or cosine similarity. The default is cross
+correlation. See utils.py for details.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in frames to search for similarity. If
+None, lag is set to 0.</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Pairwise correlation</dt><dd><p>scores between all unit pairs for each slice. Shape is
+(U, U, S) in the stack attribute.</p>
+</dd>
+<dt>max_corr_lag_array (PairwiseCompMatrixStack): Lag where</dt><dd><p>correlation between each pair is at its maximum. Shape is
+(U, U, S) in the stack attribute.</p>
+</dd>
+<dt>av_max_corr (np.ndarray): Average correlation per slice across</dt><dd><p>all valid unit pairs. Shape is (S,).</p>
+</dd>
+<dt>av_max_corr_lag (np.ndarray): Average lag where correlation</dt><dd><p>between each pair is at its maximum. Shape is (S,).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>max_corr_array (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.subset" title="Link to this definition"></a></dt>
+<dd><p>Extract a subset of units/neurons from the rate slice stack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> or </em><em>array</em>) – Unit indices to extract. If by is None,
+this should always be a list of ints. If by is not None,
+the list can contain ints or strings.</p></li>
+<li><p><strong>by</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Neuron attribute key to match against. Only
+use this if you initialized the object with
+neuron_attributes. Set to the key that contains neuron_id
+values. None selects by index (default).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New RateSliceStack object containing</dt><dd><p>only the specified units.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.rateslicestack.RateSliceStack" title="spikelab.spikedata.rateslicestack.RateSliceStack">RateSliceStack</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.subtime_by_index">
+<span class="sig-name descname"><span class="pre">subtime_by_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.subtime_by_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.subtime_by_index" title="Link to this definition"></a></dt>
+<dd><p>Extract a subset of time bins from every slice using index values.</p>
+<p>Trims along the time axis (T dimension) while preserving all slices
+(S dimension).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Starting time bin index (inclusive). Supports
+negative indexing.</p></li>
+<li><p><strong>end_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Ending time bin index (exclusive). Supports
+negative indexing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New RateSliceStack where each slice</dt><dd><p>contains only the specified time bins. Shape changes from
+(U, T, S) to (U, T_trimmed, S).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.rateslicestack.RateSliceStack" title="spikelab.spikedata.rateslicestack.RateSliceStack">RateSliceStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Original timestamps are preserved (not shifted to zero). To get
+shifted-to-zero timestamps, create a new RateSliceStack.</p></li>
+<li><p>All slices, neuron_attributes, and step_size are carried over
+from the original.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.subslice">
+<span class="sig-name descname"><span class="pre">subslice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slices</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.subslice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.subslice" title="Link to this definition"></a></dt>
+<dd><p>Extract a subset of slices from the event stack using index values.</p>
+<p>Trims along the slice axis (S dimension) while preserving all time
+bins (T dimension).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>slices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – Slice index or list of slice indices to
+extract.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>New RateSliceStack containing only the</dt><dd><p>specified slices. Shape changes from (U, T, S) to
+(U, T, S_trimmed).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference internal" href="#spikelab.spikedata.rateslicestack.RateSliceStack" title="spikelab.spikedata.rateslicestack.RateSliceStack">RateSliceStack</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>All units, neuron_attributes, and step_size are carried over
+from the original.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.get_unit_timing_per_slice">
+<span class="sig-name descname"><span class="pre">get_unit_timing_per_slice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">MIN_RATE_THRESHOLD</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.get_unit_timing_per_slice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.get_unit_timing_per_slice" title="Link to this definition"></a></dt>
+<dd><p>Compute the peak firing rate time bin for each unit in each slice.</p>
+<p>Returns a <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> matrix where entry <code class="docutils literal notranslate"><span class="pre">[u,</span> <span class="pre">s]</span></code> is the time bin
+index of the peak firing rate for unit u in slice s. Units whose
+peak rate falls below MIN_RATE_THRESHOLD in a slice are marked NaN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate for a unit
+to count as active in a slice (default: 0.1).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Array of shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> with peak</dt><dd><p>time bin indices (integers cast to float for NaN support).
+These can be used to index directly into the <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T,</span> <span class="pre">S)</span></code>
+event stack. NaN where the unit is inactive.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>timing_matrix (np.ndarray)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Values are bin indices, not milliseconds. This differs from
+<code class="docutils literal notranslate"><span class="pre">SpikeSliceStack.get_unit_timing_per_slice</span></code> which returns
+milliseconds. Both representations preserve rank order, so
+<code class="docutils literal notranslate"><span class="pre">rank_order_correlation</span></code> produces identical results either way.</p></li>
+<li><p>The returned matrix can be passed to <code class="docutils literal notranslate"><span class="pre">rank_order_correlation</span></code>
+to compute Spearman rank correlations between slice pairs.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.rateslicestack.RateSliceStack.rank_order_correlation">
+<span class="sig-name descname"><span class="pre">rank_order_correlation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timing_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MIN_RATE_THRESHOLD</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_overlap_frac</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_shuffles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/rateslicestack.html#RateSliceStack.rank_order_correlation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.rateslicestack.RateSliceStack.rank_order_correlation" title="Link to this definition"></a></dt>
+<dd><p>Compute Spearman rank-order correlation of unit timing between all slice pairs.</p>
+<p>For each pair of slices, only units active in both slices (non-NaN in
+both columns of the timing matrix) are included. If the overlap falls
+below the required minimum, the pair is set to NaN.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, the rank orders are shuffled n_shuffles
+times for each pair to build a null distribution, and the raw
+correlation is z-score normalised against it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>timing_matrix</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Array of shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">S)</span></code> with
+timing values per unit per slice. NaN entries mark inactive
+units. Typically produced by <code class="docutils literal notranslate"><span class="pre">get_unit_timing_per_slice</span></code>.
+When None, computed automatically using MIN_RATE_THRESHOLD.</p></li>
+<li><p><strong>MIN_RATE_THRESHOLD</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum peak firing rate threshold
+(default: 0.1). Only used when timing_matrix is None.</p></li>
+<li><p><strong>min_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum number of units that must be active in
+both slices (default: 3).</p></li>
+<li><p><strong>min_overlap_frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Minimum fraction of total units
+that must be active in both slices (default: None). When
+provided, the effective threshold is
+<code class="docutils literal notranslate"><span class="pre">max(min_overlap,</span> <span class="pre">ceil(min_overlap_frac</span> <span class="pre">*</span> <span class="pre">U))</span></code>.</p></li>
+<li><p><strong>n_shuffles</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of shuffle iterations for z-scoring
+(default: 100). Set to 0 to return raw Spearman correlations.
+Values between 1 and 4 are rejected (minimum 5 required for
+a meaningful null distribution).</p></li>
+<li><p><strong>seed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Random seed for reproducibility of the shuffle
+(default: 1).</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of threads for parallel computation. -1 uses
+all cores (default), 1 disables parallelism, None is serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Spearman correlation matrix of</dt><dd><p>shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code>. When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, values are z-scores.
+When <code class="docutils literal notranslate"><span class="pre">n_shuffles</span> <span class="pre">==</span> <span class="pre">0</span></code>, values are raw Spearman correlations.</p>
+</dd>
+<dt>av_corr (float): Average correlation (or z-score) across all valid</dt><dd><p>lower-triangle pairs.</p>
+</dd>
+<dt>overlap_matrix (PairwiseCompMatrix): Matrix of shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S)</span></code></dt><dd><p>with fraction of units active in both slices.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>corr_matrix (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix">PairwiseCompMatrix</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pairwise.html" class="btn btn-neutral float-left" title="Pairwise Comparisons" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="spikeslicestack.html" class="btn btn-neutral float-right" title="SpikeSliceStack" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

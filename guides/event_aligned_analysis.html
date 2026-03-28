@@ -1,0 +1,614 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event-Aligned Analysis &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Pairwise Analysis" href="pairwise_analysis.html" />
+    <link rel="prev" title="Firing Rates and Correlations" href="firing_rates.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
+      <li class="breadcrumb-item active">Event-Aligned Analysis</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/event_aligned_analysis.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="event-aligned-analysis">
+<h1>Event-Aligned Analysis<a class="headerlink" href="#event-aligned-analysis" title="Link to this heading"></a></h1>
+<p>This guide covers extracting windows of neural activity aligned to
+experimental events (such as network bursts or stimulus onsets), and running
+analyses on the resulting stacks of trials.</p>
+<p>After working through this guide you will know how to:</p>
+<ul class="simple">
+<li><p>Align spike or rate data to event times with
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">align_to_events()</span></code>.</p></li>
+<li><p>Work with <code class="xref py py-class docutils literal notranslate"><span class="pre">RateSliceStack</span></code> (3-D firing rate tensor) and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> (list of per-trial spike data).</p></li>
+<li><p>Plot single-unit burst-aligned rasters.</p></li>
+<li><p>Compute burst-to-burst correlations per unit.</p></li>
+<li><p>Run PCA on unit-to-unit correlation structures across trials.</p></li>
+<li><p>Measure rank-order consistency of activation sequences.</p></li>
+</ul>
+<section id="aligning-to-events">
+<h2>Aligning to Events<a class="headerlink" href="#aligning-to-events" title="Link to this heading"></a></h2>
+<p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">align_to_events()</span></code> method cuts windows around a
+list of event times and returns either a rate-based or spike-based stack.
+Each window spans from <code class="docutils literal notranslate"><span class="pre">pre_ms</span></code> before the event to <code class="docutils literal notranslate"><span class="pre">post_ms</span></code> after it,
+so that time zero corresponds to the event.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+<span class="c1"># sd is a SpikeData object; tburst is an array of burst peak times (ms)</span>
+<span class="c1"># kind=&quot;rate&quot; returns a RateSliceStack</span>
+<span class="n">rss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span>
+    <span class="n">tburst</span><span class="p">,</span>              <span class="c1"># event times in ms</span>
+    <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>          <span class="c1"># window before each event</span>
+    <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>         <span class="c1"># window after each event</span>
+    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;rate&quot;</span><span class="p">,</span>         <span class="c1"># &quot;rate&quot; for RateSliceStack, &quot;spike&quot; for SpikeSliceStack</span>
+    <span class="n">bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># time bin width (only used for kind=&quot;rate&quot;)</span>
+    <span class="n">sigma_ms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>         <span class="c1"># Gaussian smoothing sigma (only used for kind=&quot;rate&quot;)</span>
+<span class="p">)</span>
+
+<span class="c1"># kind=&quot;spike&quot; returns a SpikeSliceStack</span>
+<span class="n">sss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span>
+    <span class="n">tburst</span><span class="p">,</span>
+    <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>
+    <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;spike&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">events</span></code> argument can be a numeric array of times in milliseconds, or a
+string key that refers to a list stored in <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code>.  Events whose
+window extends outside the recording boundaries are dropped automatically
+(with a warning).</p>
+</section>
+<section id="rateslicestack">
+<h2>RateSliceStack<a class="headerlink" href="#rateslicestack" title="Link to this heading"></a></h2>
+<p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">RateSliceStack</span></code> stores event-aligned firing rates as a
+3-D array with shape <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T,</span> <span class="pre">S)</span></code>:</p>
+<ul class="simple">
+<li><p>U – number of units</p></li>
+<li><p>T – number of time bins in each window (determined by <code class="docutils literal notranslate"><span class="pre">pre_ms</span></code>,
+<code class="docutils literal notranslate"><span class="pre">post_ms</span></code>, and <code class="docutils literal notranslate"><span class="pre">bin_size_ms</span></code>)</p></li>
+<li><p>S – number of slices (one per event/trial)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">rss</span><span class="o">.</span><span class="n">event_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (U, T, S)</span>
+
+<span class="c1"># Access the time axis metadata</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">rss</span><span class="o">.</span><span class="n">step_size</span><span class="p">)</span>           <span class="c1"># ms per bin (default 1.0)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rss</span><span class="o">.</span><span class="n">times</span><span class="p">))</span>          <span class="c1"># S — list of (start, end) tuples per slice</span>
+</pre></div>
+</div>
+<p>To compute the trial-average firing rate for a single unit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">unit_idx</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">unit_avg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">rss</span><span class="o">.</span><span class="n">event_stack</span><span class="p">[</span><span class="n">unit_idx</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (T,)</span>
+</pre></div>
+</div>
+<p>To compute the population-average heatmap across all trials:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_heatmap</span>
+
+<span class="c1"># Average across slices, then plot units x time</span>
+<span class="n">avg_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">rss</span><span class="o">.</span><span class="n">event_stack</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># (U, T)</span>
+
+<span class="n">plot_heatmap</span><span class="p">(</span>
+    <span class="n">avg_rate</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;hot&quot;</span><span class="p">,</span>
+    <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">250</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">avg_rate</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from event (ms)&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
+    <span class="n">colorbar_label</span><span class="o">=</span><span class="s2">&quot;Rate (kHz)&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id1">
+<a class="reference internal image-reference" href="../_images/avg_burst_heatmap_grid.png"><img alt="Average burst-aligned firing rate heatmaps across conditions" src="../_images/avg_burst_heatmap_grid.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Average burst-aligned firing rate per unit, with units ordered by
+median peak time.  Each column shows a different condition.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="spikeslicestack">
+<h2>SpikeSliceStack<a class="headerlink" href="#spikeslicestack" title="Link to this heading"></a></h2>
+<p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> stores the raw spike times for each
+trial as a list of <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> objects.  This preserves
+the full temporal resolution of the data and is useful for analyses that
+operate directly on spike times (STTC per trial, waveform extraction, etc.).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sss</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">))</span>    <span class="c1"># S — one SpikeData per trial</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sss</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>                   <span class="c1"># number of units (same across all slices)</span>
+
+<span class="c1"># Access the SpikeData for the third trial</span>
+<span class="n">trial_sd</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">trial_sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">trial_sd</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To convert the spike stack to a 3-D raster array with the same <code class="docutils literal notranslate"><span class="pre">(U,</span> <span class="pre">T,</span> <span class="pre">S)</span></code>
+shape as a RateSliceStack:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">raster_3d</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">to_raster_array</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># (U, T, S)</span>
+</pre></div>
+</div>
+<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code> to
+visualize one unit’s spike times across all trials as a raster plot:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="n">sss</span><span class="o">.</span><span class="n">plot_aligned_slice_single_unit</span><span class="p">(</span>
+    <span class="n">unit_idx</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
+    <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">250</span><span class="p">,</span> <span class="mi">500</span><span class="p">),</span>        <span class="c1"># time axis limits in ms</span>
+    <span class="n">style</span><span class="o">=</span><span class="s2">&quot;eventplot&quot;</span><span class="p">,</span>           <span class="c1"># &quot;scatter&quot; for dots, &quot;eventplot&quot; for line markers</span>
+    <span class="n">invert_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># first trial at the top</span>
+    <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Time from burst peak (ms)&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Burst&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/unit_burst_raster.png"><img alt="Single-unit burst-aligned spike raster" src="../_images/unit_burst_raster.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Each row is one burst.  Vertical line markers show individual spike
+times for one unit, aligned to the burst peak at time zero.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="burst-to-burst-correlations">
+<h2>Burst-to-Burst Correlations<a class="headerlink" href="#burst-to-burst-correlations" title="Link to this heading"></a></h2>
+<p>To measure how consistent each unit’s activity pattern is across trials,
+use <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_slice_to_slice_unit_corr_from_stack()</span></code>.
+This computes pairwise correlations between every pair of slices, separately
+for each unit, producing a <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span></code> of
+shape <code class="docutils literal notranslate"><span class="pre">(S,</span> <span class="pre">S,</span> <span class="pre">U)</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">corr_stack</span><span class="p">,</span> <span class="n">av_corr_per_unit</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_slice_to_slice_unit_corr_from_stack</span><span class="p">(</span>
+    <span class="n">MIN_RATE_THRESHOLD</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>   <span class="c1"># ignore units with max rate below this</span>
+    <span class="n">MIN_FRAC</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>             <span class="c1"># unit must be active in &gt;= 30% of slices</span>
+    <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>               <span class="c1"># max lag in bins for cross-correlation</span>
+<span class="p">)</span>
+
+<span class="c1"># corr_stack: PairwiseCompMatrixStack with shape (S, S, U)</span>
+<span class="c1"># av_corr_per_unit: ndarray (U,) — average slice-to-slice correlation per unit</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">corr_stack</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>      <span class="c1"># (S, S, U)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">av_corr_per_unit</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>      <span class="c1"># (U,)</span>
+</pre></div>
+</div>
+<p>Higher values of <code class="docutils literal notranslate"><span class="pre">av_corr_per_unit</span></code> indicate units whose burst-aligned
+activity pattern is more stereotyped across trials.</p>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../_images/burst_corr_heatmap.png"><img alt="Burst-to-burst correlation heatmap" src="../_images/burst_corr_heatmap.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Slice-by-slice correlation matrix for a single unit, showing
+trial-to-trial consistency of the burst response.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="unit-to-unit-pca">
+<h2>Unit-to-Unit PCA<a class="headerlink" href="#unit-to-unit-pca" title="Link to this heading"></a></h2>
+<p>To ask whether the overall pattern of pairwise interactions changes across
+conditions, compute unit-to-unit correlations per slice and then apply PCA
+to the resulting feature vectors.</p>
+<p>Step 1 – compute unit-to-unit correlations per slice:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">u2u_stack</span><span class="p">,</span> <span class="n">u2u_lag_stack</span><span class="p">,</span> <span class="n">av_corr</span><span class="p">,</span> <span class="n">av_lag</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">unit_to_unit_correlation</span><span class="p">(</span>
+    <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>      <span class="c1"># max lag in bins for cross-correlation</span>
+<span class="p">)</span>
+
+<span class="c1"># u2u_stack: PairwiseCompMatrixStack with shape (U, U, S)</span>
+<span class="c1"># Each slice contains the U x U correlation matrix for that trial</span>
+</pre></div>
+</div>
+<p>Step 2 – extract the lower triangle of each slice as a feature vector:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">features</span> <span class="o">=</span> <span class="n">u2u_stack</span><span class="o">.</span><span class="n">extract_lower_triangle_features</span><span class="p">()</span>
+<span class="c1"># features: ndarray (S, F) where F = U*(U-1)/2</span>
+</pre></div>
+</div>
+<p>Step 3 – apply PCA:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PCA_reduction</span>
+
+<span class="n">pca_coords</span><span class="p">,</span> <span class="n">var_explained</span><span class="p">,</span> <span class="n">components</span> <span class="o">=</span> <span class="n">PCA_reduction</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">n_components</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># pca_coords: ndarray (S, 3) — one point per trial</span>
+<span class="c1"># var_explained: ndarray (3,) — fraction of variance per component</span>
+</pre></div>
+</div>
+<p>Step 4 – plot the PCA embedding, coloring each point by its condition:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_scatter</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="n">plot_scatter</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">pca_coords</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="n">pca_coords</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;PC1 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;PC2 (</span><span class="si">{</span><span class="n">var_explained</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">,</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">condition_index</span><span class="p">,</span>         <span class="c1"># integer array (S,) — condition per trial</span>
+    <span class="n">group_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;D3&quot;</span><span class="p">,</span> <span class="s2">&quot;D10&quot;</span><span class="p">,</span> <span class="s2">&quot;D30&quot;</span><span class="p">,</span> <span class="s2">&quot;D50&quot;</span><span class="p">],</span>
+    <span class="n">marker_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>If conditions cluster separately in the PCA space, it means the pairwise
+interaction structure of the network changes between conditions.</p>
+<figure class="align-default" id="id4">
+<a class="reference internal image-reference" href="../_images/burst_pca.png"><img alt="PCA of burst unit-to-unit correlation structure" src="../_images/burst_pca.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Each point is one burst.  Colors indicate experimental conditions.
+Separation along PC1 reflects systematic changes in pairwise interactions.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="rank-order-analysis">
+<h2>Rank-Order Analysis<a class="headerlink" href="#rank-order-analysis" title="Link to this heading"></a></h2>
+<p>Rank-order analysis tests whether units activate in a consistent sequence
+across trials.  For each trial, units are ranked by their peak firing time.
+Pairwise Spearman correlations between rank vectors quantify the
+reproducibility of the activation order.</p>
+<p>Using <code class="xref py py-class docutils literal notranslate"><span class="pre">RateSliceStack</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: get peak timing per unit per slice</span>
+<span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_unit_timing_per_slice</span><span class="p">(</span>
+    <span class="n">MIN_RATE_THRESHOLD</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>   <span class="c1"># units below threshold get NaN</span>
+<span class="p">)</span>
+<span class="c1"># timing_matrix: ndarray (U, S) — peak time bin index per unit per slice</span>
+
+<span class="c1"># Step 2: compute pairwise rank-order correlations</span>
+<span class="n">corr_matrix</span><span class="p">,</span> <span class="n">av_corr</span><span class="p">,</span> <span class="n">overlap_fracs</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">rank_order_correlation</span><span class="p">(</span>
+    <span class="n">timing_matrix</span><span class="o">=</span><span class="n">timing_matrix</span><span class="p">,</span>   <span class="c1"># optional: pass precomputed timing</span>
+    <span class="n">min_overlap</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>                 <span class="c1"># minimum shared active units for a valid pair</span>
+    <span class="n">n_shuffles</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>                <span class="c1"># shuffle iterations for significance testing</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># corr_matrix: PairwiseCompMatrix (S, S) — rank correlation per trial pair</span>
+<span class="c1"># av_corr: float — mean rank-order correlation across all pairs</span>
+<span class="c1"># overlap_fracs: PairwiseCompMatrix (S, S) — fraction of shared active units</span>
+</pre></div>
+</div>
+<p>Using <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code> (works on raw spike times):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">get_unit_timing_per_slice</span><span class="p">(</span>
+    <span class="n">timing</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>    <span class="c1"># median spike time per unit per slice</span>
+    <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>       <span class="c1"># minimum spikes for a valid timing value</span>
+<span class="p">)</span>
+
+<span class="n">corr_matrix</span><span class="p">,</span> <span class="n">av_corr</span><span class="p">,</span> <span class="n">overlap_fracs</span> <span class="o">=</span> <span class="n">sss</span><span class="o">.</span><span class="n">rank_order_correlation</span><span class="p">(</span>
+    <span class="n">timing_matrix</span><span class="o">=</span><span class="n">timing_matrix</span><span class="p">,</span>
+    <span class="n">min_overlap</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">n_shuffles</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average rank-order correlation: </span><span class="si">{</span><span class="n">av_corr</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A high average correlation indicates that neurons tend to fire in the same
+relative order from burst to burst, suggesting a stereotyped activation
+sequence.  The shuffle-based significance test compares the observed
+correlations to a null distribution obtained by randomly permuting unit
+labels within each trial.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="firing_rates.html" class="btn btn-neutral float-left" title="Firing Rates and Correlations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="pairwise_analysis.html" class="btn btn-neutral float-right" title="Pairwise Analysis" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

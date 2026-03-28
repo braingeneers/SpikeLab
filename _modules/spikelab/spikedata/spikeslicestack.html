@@ -1,0 +1,1502 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spikedata.spikeslicestack &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spikedata.spikeslicestack</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spikedata.spikeslicestack</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;SpikeSliceStack&quot;</span><span class="p">]</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.pairwise</span><span class="w"> </span><span class="kn">import</span> <span class="n">PairwiseCompMatrix</span><span class="p">,</span> <span class="n">PairwiseCompMatrixStack</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_validate_time_start_to_end</span><span class="p">,</span>
+    <span class="n">_get_attr</span><span class="p">,</span>
+    <span class="n">get_sttc</span><span class="p">,</span>
+    <span class="n">compute_cross_correlation_with_lag</span><span class="p">,</span>
+    <span class="n">_resolve_n_jobs</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="SpikeSliceStack">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpikeSliceStack</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A list of SpikeData objects, one per slice, with spike-based comparison capabilities.</span>
+
+<span class="sd">    U is units (neurons) and S is slices (bursts, events, etc). Construct from</span>
+<span class="sd">    either a single SpikeData with time specifications, or directly from a</span>
+<span class="sd">    pre-built list of SpikeData objects.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        data_obj (SpikeData or None): A SpikeData object to slice. Provide</span>
+<span class="sd">            either this or spike_stack, not both.</span>
+<span class="sd">        times_start_to_end (list or None): Each entry is a tuple (start, end)</span>
+<span class="sd">            representing the start and end times of a desired slice. Each</span>
+<span class="sd">            tuple must have the same duration.</span>
+<span class="sd">        time_peaks (list or None): List of times as int or float where there</span>
+<span class="sd">            is a burst peak or stimulation event. Must be paired with</span>
+<span class="sd">            time_bounds. Alternative to times_start_to_end.</span>
+<span class="sd">        time_bounds (tuple or None): Single tuple (left_bound, right_bound).</span>
+<span class="sd">            For example, (250, 500) means 250 ms before peak and 500 ms</span>
+<span class="sd">            after peak. Must be paired with time_peaks.</span>
+<span class="sd">        spike_stack (list or None): List of SpikeData objects, one per slice.</span>
+<span class="sd">            All must have the same number of units. Spike times must be</span>
+<span class="sd">            relative to the slice (0-based or event-centered via</span>
+<span class="sd">            start_time), not absolute recording times. Provide either this</span>
+<span class="sd">            or data_obj, not both.</span>
+<span class="sd">        neuron_attributes (list or None): List of attribute dicts, one per</span>
+<span class="sd">            unit. If None, inherited from data_obj when available.</span>
+<span class="sd">        drop_slice_attributes (bool): If True (default), neuron_attributes</span>
+<span class="sd">            are removed from individual SpikeData slices after construction.</span>
+<span class="sd">            The shared copy is stored at neuron_attributes. This avoids</span>
+<span class="sd">            duplicating large per-unit data (e.g. waveform templates) across</span>
+<span class="sd">            every slice. Set to False to keep per-slice attributes.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        spike_stack (list): List of SpikeData objects, one per slice. Spike</span>
+<span class="sd">            times are relative to the slice window. For 0-based slices,</span>
+<span class="sd">            times run from 0 to duration. For event-centered slices, times</span>
+<span class="sd">            run from -pre_ms to +post_ms with t=0 at the event. Use</span>
+<span class="sd">            self.times for absolute recording time positions.</span>
+<span class="sd">        times (list): List of (start, end) time bounds for each slice in</span>
+<span class="sd">            absolute recording time, sorted chronologically. Length equals S.</span>
+<span class="sd">            Example: [(100, 350), (500, 750), (1000, 1250)].</span>
+<span class="sd">        N (int): Number of units.</span>
+<span class="sd">        neuron_attributes (list or None): List of attribute dicts, one per</span>
+<span class="sd">            unit. None if not provided. When drop_slice_attributes is True</span>
+<span class="sd">            (default), this is the only copy and individual slices will have</span>
+<span class="sd">            neuron_attributes set to None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SpikeSliceStack.__init__">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_obj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">times_start_to_end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">time_peaks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">time_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">spike_stack</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">drop_slice_attributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spike_stack</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Must input either a SpikeData as data_obj (option 1) or spike_stack (option 2)&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spike_stack</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;User input both data_obj and spike_stack. &quot;</span>
+                <span class="s2">&quot;Ignoring data_obj and using spike_stack instead.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">data_obj</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Option 1: Using data_obj</span>
+        <span class="k">if</span> <span class="n">data_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_obj</span><span class="p">,</span> <span class="n">SpikeData</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;data_obj must be a SpikeData object&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">times_start_to_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">time_peaks</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">time_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Must provide either times_start_to_end or &quot;</span>
+                        <span class="s2">&quot;both time_peaks and time_bounds&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_bounds</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="s2">&quot;time_bounds must be a tuple of (before, after) durations&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">before</span><span class="p">,</span> <span class="n">after</span> <span class="o">=</span> <span class="n">time_bounds</span>
+                <span class="n">time_peaks</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">time_peaks</span><span class="p">)</span>
+                <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time_peaks</span><span class="p">:</span>
+                    <span class="n">times_start_to_end</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">t</span> <span class="o">-</span> <span class="n">before</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">after</span><span class="p">))</span>
+
+            <span class="n">rec_range</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">data_obj</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">data_obj</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">data_obj</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="n">_validate_time_start_to_end</span><span class="p">(</span>
+                <span class="n">times_start_to_end</span><span class="p">,</span> <span class="n">recording_range</span><span class="o">=</span><span class="n">rec_range</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">times</span> <span class="o">=</span> <span class="n">times_start_to_end</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">time_peaks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Event-centered: shift_to=peak so t=0 is the event</span>
+                <span class="k">for</span> <span class="n">peak</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">time_peaks</span><span class="p">,</span> <span class="n">times_start_to_end</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_obj</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">shift_to</span><span class="o">=</span><span class="n">peak</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Standard: shift_to=start so t=0 is the window start</span>
+                <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="n">times_start_to_end</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_obj</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">neuron_attributes</span> <span class="o">=</span> <span class="n">data_obj</span><span class="o">.</span><span class="n">neuron_attributes</span>
+
+        <span class="c1"># Option 2: Using spike_stack directly</span>
+        <span class="k">if</span> <span class="n">spike_stack</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spike_stack</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;spike_stack must be a list of SpikeData objects&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">spike_stack</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">SpikeData</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;spike_stack must be a list of SpikeData objects&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spike_stack</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spike_stack must not be empty&quot;</span><span class="p">)</span>
+
+            <span class="n">N</span> <span class="o">=</span> <span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">N</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">spike_stack</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">N</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;All SpikeData objects in spike_stack must have the same number of units&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">times_start_to_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">spike_stack</span><span class="p">:</span>
+                    <span class="n">times_start_to_end</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">t</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">s</span><span class="o">.</span><span class="n">length</span><span class="p">))</span>
+                    <span class="n">t</span> <span class="o">+=</span> <span class="n">s</span><span class="o">.</span><span class="n">length</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">warn_neg</span> <span class="o">=</span> <span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">start_time</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+                <span class="n">times_start_to_end</span> <span class="o">=</span> <span class="n">_validate_time_start_to_end</span><span class="p">(</span>
+                    <span class="n">times_start_to_end</span><span class="p">,</span> <span class="n">warn_negative_start</span><span class="o">=</span><span class="n">warn_neg</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times_start_to_end</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">spike_stack</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;times_start_to_end must have the same length as spike_stack&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">spike_stack</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">times</span> <span class="o">=</span> <span class="n">times_start_to_end</span>
+
+            <span class="c1"># Validate that spike times are consistent with the slice</span>
+            <span class="c1"># duration. Spike times must be relative to the slice (0-based</span>
+            <span class="c1"># or event-centered), not absolute recording times.</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)):</span>
+                <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+                <span class="n">expected_start</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span>
+                <span class="n">expected_end</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">duration</span>
+                <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">train</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="n">train</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">expected_start</span> <span class="ow">or</span> <span class="n">train</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">expected_end</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Slice </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, unit </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">: spike times &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">train</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">train</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms fall outside &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;expected range [</span><span class="si">{</span><span class="n">expected_start</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">expected_end</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">] ms. &quot;</span>
+                            <span class="s2">&quot;Spike times must be relative to the slice (0-based &quot;</span>
+                            <span class="s2">&quot;or event-centered), not absolute recording times.&quot;</span>
+                        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">N</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;neuron_attributes has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)</span><span class="si">}</span><span class="s2"> items &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but spike_stack has </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Strip per-slice neuron_attributes to avoid duplicating large data</span>
+        <span class="c1"># (e.g. waveform templates) across every slice.</span>
+        <span class="k">if</span> <span class="n">drop_slice_attributes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">:</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.subslice">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subslice">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subslice</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of slices from the spike stack.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            slices (int or list): Slice index or list of slice indices to</span>
+<span class="sd">                extract.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (SpikeSliceStack): New SpikeSliceStack containing only the</span>
+<span class="sd">                specified slices. Shape changes from S to S_trimmed. All</span>
+<span class="sd">                units and neuron_attributes are carried over.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="n">slices</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">S</span> <span class="ow">or</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">S</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;One or more slice indices out of range for S=</span><span class="si">{</span><span class="n">S</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">slices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span>
+        <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">:</span>
+            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="n">new_times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+            <span class="n">spike_stack</span><span class="o">=</span><span class="n">new_spike_stack</span><span class="p">,</span>
+            <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">new_times</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.subset">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a subset of units from every slice in the spike stack.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            units (int, str, or list): Unit indices to extract. If by is None,</span>
+<span class="sd">                must be int(s). If by is set, values to match in</span>
+<span class="sd">                neuron_attributes.</span>
+<span class="sd">            by (str or None): If set, select units by this neuron_attribute</span>
+<span class="sd">                key instead of by index.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (SpikeSliceStack): New SpikeSliceStack containing only the</span>
+<span class="sd">                specified units across all slices. All slices and</span>
+<span class="sd">                neuron_attributes are carried over.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Units are included in the output in the order they appear in the</span>
+<span class="sd">              train (ascending index order), not the order listed in units.</span>
+<span class="sd">            - If IDs are not unique (when using by), every matching neuron is</span>
+<span class="sd">              included.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+            <span class="n">units</span> <span class="o">=</span> <span class="p">[</span><span class="n">units</span><span class="p">]</span>
+
+        <span class="c1"># Resolve which indices will be kept so we can update neuron_attributes</span>
+        <span class="k">if</span> <span class="n">by</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;can&#39;t use `by` without `neuron_attributes`&quot;</span><span class="p">)</span>
+            <span class="n">_missing</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+            <span class="n">unit_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">units</span><span class="p">)</span>
+            <span class="n">kept_indices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">_get_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">by</span><span class="p">,</span> <span class="n">_missing</span><span class="p">)</span> <span class="ow">in</span> <span class="n">unit_set</span><span class="p">:</span>
+                    <span class="n">kept_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">kept_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">u</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">u</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unit index </span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units.&quot;</span><span class="p">)</span>
+
+        <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">:</span>
+            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">kept_indices</span><span class="p">))</span>
+
+        <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_neuron_attributes</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">:</span>
+                <span class="n">new_neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+            <span class="n">spike_stack</span><span class="o">=</span><span class="n">new_spike_stack</span><span class="p">,</span>
+            <span class="n">times_start_to_end</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">new_neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.subtime_by_index">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.subtime_by_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subtime_by_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">end_idx</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim each slice to a sub-window specified by millisecond indices.</span>
+
+<span class="sd">        Indices are measured from the start of each slice (1 index = 1 ms).</span>
+<span class="sd">        Trims along the time axis while preserving all slices and units.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            start_idx (int): Start index in ms from slice start (inclusive).</span>
+<span class="sd">                Supports negative indexing.</span>
+<span class="sd">            end_idx (int): End index in ms from slice start (exclusive).</span>
+<span class="sd">                Supports negative indexing.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (SpikeSliceStack): New SpikeSliceStack where each slice is</span>
+<span class="sd">                trimmed to the corresponding absolute time window. Absolute</span>
+<span class="sd">                spike times are preserved (not shifted). self.times is updated</span>
+<span class="sd">                to reflect the new absolute time bounds.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Indices are relative to each slice&#39;s own start (index 0 = slice</span>
+<span class="sd">              start ms). They are converted to absolute recording times</span>
+<span class="sd">              internally before trimming.</span>
+<span class="sd">            - Original absolute timestamps are preserved. To get</span>
+<span class="sd">              shifted-to-zero timestamps, create a new SpikeSliceStack.</span>
+<span class="sd">            - All slices and neuron_attributes are carried over from the</span>
+<span class="sd">              original.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">slice_duration_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">slice_duration_ms</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">start_idx</span> <span class="o">+=</span> <span class="n">T</span>
+        <span class="k">if</span> <span class="n">end_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">end_idx</span> <span class="o">+=</span> <span class="n">T</span>
+        <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">start_idx</span> <span class="o">&gt;=</span> <span class="n">T</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;start_idx </span><span class="si">{</span><span class="n">start_idx</span><span class="si">}</span><span class="s2"> out of range for T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">end_idx</span> <span class="o">&lt;=</span> <span class="n">start_idx</span> <span class="ow">or</span> <span class="n">end_idx</span> <span class="o">&gt;</span> <span class="n">T</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;end_idx </span><span class="si">{</span><span class="n">end_idx</span><span class="si">}</span><span class="s2"> invalid for T=</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">new_spike_stack</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_times</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">):</span>
+            <span class="n">new_spike_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">sd</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span>
+                    <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">start_idx</span><span class="p">),</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">abs_start</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span>
+            <span class="n">abs_end</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)</span>
+            <span class="n">new_times</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">abs_start</span><span class="p">,</span> <span class="n">abs_end</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">SpikeSliceStack</span><span class="p">(</span>
+            <span class="n">spike_stack</span><span class="o">=</span><span class="n">new_spike_stack</span><span class="p">,</span>
+            <span class="n">times_start_to_end</span><span class="o">=</span><span class="n">new_times</span><span class="p">,</span>
+            <span class="n">neuron_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.to_raster_array">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.to_raster_array">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_raster_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">absolute_times</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the spike stack into a 3D raster array of shape (N, T, S).</span>
+
+<span class="sd">        Each slice is rasterized with the given bin size, producing a spike</span>
+<span class="sd">        count matrix where entry (n, t, s) is the number of spikes unit n</span>
+<span class="sd">        fired in time bin t of slice s.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bin_size (float): Time bin size in ms (default 1.0).</span>
+<span class="sd">            absolute_times (bool): If False (default), time bin 0 corresponds</span>
+<span class="sd">                to the start of each slice (0-based). If True, each slice&#39;s</span>
+<span class="sd">                spikes are offset by its absolute start time from self.times,</span>
+<span class="sd">                so bin indices reflect the original recording position. The T</span>
+<span class="sd">                dimension is sized to cover the full time span from the</span>
+<span class="sd">                earliest slice start to the latest slice end.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            raster_stack (np.ndarray): 3D array of shape (N, T, S) with</span>
+<span class="sd">                non-negative integer spike counts. When absolute_times is</span>
+<span class="sd">                True, T covers the full recording span and all slices share</span>
+<span class="sd">                the same time axis.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">absolute_times</span><span class="p">:</span>
+            <span class="n">dense_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">:</span>
+                <span class="c1"># Spike times are relative to each slice (0-based or event-centered).</span>
+                <span class="c1"># sparse_raster handles start_time internally.</span>
+                <span class="n">dense_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">dense_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Absolute times: offset each slice by its start time so bin indices</span>
+        <span class="c1"># reflect original recording position. All slices share the same</span>
+        <span class="c1"># time axis spanning [min(start), max(end)].</span>
+        <span class="n">global_start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
+        <span class="n">global_end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">end</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
+        <span class="n">total_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">global_end</span> <span class="o">-</span> <span class="n">global_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span>
+
+        <span class="n">raster_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">total_bins</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">s_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">_</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)):</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">global_start</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+            <span class="n">raster_stack</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+
+        <span class="k">return</span> <span class="n">raster_stack</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.compute_frac_active">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.compute_frac_active">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_frac_active</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the fraction of slices each unit is active in.</span>
+
+<span class="sd">        A unit counts as active in a slice if it has at least min_spikes</span>
+<span class="sd">        spikes within that slice&#39;s time window.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            min_spikes (int): Minimum number of spikes for a unit to count as</span>
+<span class="sd">                active in a slice (default: 2).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            frac_active (np.ndarray): 1-D array of shape ``(U,)`` with the</span>
+<span class="sd">                fraction of slices each unit is active in (values in [0, 1]).</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - The returned array can be passed as ``frac_active`` to</span>
+<span class="sd">              ``RateSliceStack.order_units_across_slices``,</span>
+<span class="sd">              ``RateSliceStack.get_slice_to_slice_unit_corr_from_stack``,</span>
+<span class="sd">              ``SpikeSliceStack.order_units_across_slices``, or</span>
+<span class="sd">              ``SpikeSliceStack.get_slice_to_slice_unit_comparison``</span>
+<span class="sd">              to override their internal activity calculation.</span>
+<span class="sd">            - ``SpikeData.get_frac_active`` produces a compatible ``(U,)``</span>
+<span class="sd">              array based on burst edges and can be used in the same way.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+        <span class="n">active_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
+                <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">])</span>
+                <span class="n">n_valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span>
+                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">n_valid</span> <span class="o">&gt;=</span> <span class="n">min_spikes</span><span class="p">:</span>
+                    <span class="n">active_count</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">active_count</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="k">if</span> <span class="n">num_slices</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_units</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.order_units_across_slices">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.order_units_across_slices">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">order_units_across_slices</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agg_func</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>
+        <span class="n">timing</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>
+        <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">min_frac_active</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">frac_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">timing_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reorder units by their typical spike timing across slices.</span>
+
+<span class="sd">        For each unit in each slice, computes a representative spike time</span>
+<span class="sd">        (median, mean, or first spike) relative to the slice&#39;s time origin. These</span>
+<span class="sd">        per-slice values are aggregated across slices to obtain a single</span>
+<span class="sd">        typical timing per unit. Units are then sorted by this value from</span>
+<span class="sd">        earliest to latest and optionally split into a highly-active group</span>
+<span class="sd">        and a low-activity group.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            agg_func (str): How to aggregate per-slice timing values across</span>
+<span class="sd">                slices. ``&quot;median&quot;`` (default) or ``&quot;mean&quot;``.</span>
+<span class="sd">            timing (str): Which spike time to extract per unit per slice.</span>
+<span class="sd">                ``&quot;median&quot;`` — median spike time within the slice (default).</span>
+<span class="sd">                ``&quot;mean&quot;`` — mean spike time within the slice.</span>
+<span class="sd">                ``&quot;first&quot;`` — first spike time (onset latency).</span>
+<span class="sd">                Ignored when ``timing_matrix`` is provided.</span>
+<span class="sd">            min_spikes (int): Minimum number of spikes for a unit to count as</span>
+<span class="sd">                active in a slice (default: 2). Ignored when ``timing_matrix``</span>
+<span class="sd">                is provided.</span>
+<span class="sd">            min_frac_active (float or None): Minimum fraction of slices a unit</span>
+<span class="sd">                must be active in to be placed in the highly-active group.</span>
+<span class="sd">                ``0.0`` or ``None`` (default: 0.0) skips the split entirely</span>
+<span class="sd">                and places all units in the highly-active group without</span>
+<span class="sd">                computing activity fractions.</span>
+<span class="sd">            frac_active (np.ndarray or None): Optional pre-computed</span>
+<span class="sd">                fraction-active array of shape ``(U,)`` to override the</span>
+<span class="sd">                internal calculation for the group split. Only used when</span>
+<span class="sd">                ``min_frac_active &gt; 0``. Compatible sources:</span>
+<span class="sd">                ``SpikeSliceStack.compute_frac_active`` and</span>
+<span class="sd">                ``SpikeData.get_frac_active`` (``frac_per_unit`` output).</span>
+<span class="sd">            timing_matrix (np.ndarray or None): Optional pre-computed ``(U, S)``</span>
+<span class="sd">                timing matrix from ``get_unit_timing_per_slice``. When provided,</span>
+<span class="sd">                ``timing`` and ``min_spikes`` are ignored and this matrix is</span>
+<span class="sd">                used directly.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            reordered_stacks (tuple): Two ``SpikeSliceStack`` objects</span>
+<span class="sd">                ``(highly_active, low_active)`` with units reordered by typical</span>
+<span class="sd">                timing. The low-activity stack is ``None`` when the group is</span>
+<span class="sd">                empty.</span>
+<span class="sd">            unit_ids_in_order (tuple): Two ``ndarray``</span>
+<span class="sd">                ``(highly_active, low_active)`` of original unit indices in the</span>
+<span class="sd">                reordered sequence.</span>
+<span class="sd">            unit_std (tuple): Two ``ndarray`` ``(highly_active, low_active)``</span>
+<span class="sd">                of standard deviation of per-slice timing values. Lower values</span>
+<span class="sd">                indicate more consistent timing across slices.</span>
+<span class="sd">            unit_peak_times_ms (tuple): Two ``ndarray``</span>
+<span class="sd">                ``(highly_active, low_active)`` of the aggregated typical</span>
+<span class="sd">                timing in milliseconds relative to slice start. NaN for units</span>
+<span class="sd">                with no active slices.</span>
+<span class="sd">            unit_frac_active (tuple): Two ``ndarray``</span>
+<span class="sd">                ``(highly_active, low_active)`` of the fraction of slices each</span>
+<span class="sd">                unit was active in.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Call ``get_unit_timing_per_slice`` first to pre-compute the</span>
+<span class="sd">              timing matrix if you want to reuse it across multiple calls</span>
+<span class="sd">              (e.g. ``rank_order_correlation`` and this method).</span>
+<span class="sd">            - When ``frac_active`` is None and ``min_frac_active &gt; 0``,</span>
+<span class="sd">              activity fraction is computed via ``compute_frac_active``.</span>
+<span class="sd">            - Analogous to ``RateSliceStack.order_units_across_slices`` but</span>
+<span class="sd">              operates on raw spike trains instead of firing rate curves.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">agg_func</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;median&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;agg_func must be &#39;median&#39; or &#39;mean&#39;, got </span><span class="si">{</span><span class="n">agg_func</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">timing_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">timing_matrix</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;timing_matrix must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">num_slices</span><span class="si">}</span><span class="s2">), &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">timing_matrix</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">timing_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_unit_timing_per_slice</span><span class="p">(</span>
+                <span class="n">timing</span><span class="o">=</span><span class="n">timing</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Standard deviation across slices</span>
+        <span class="n">unit_std_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Aggregate across slices</span>
+        <span class="k">if</span> <span class="n">agg_func</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+            <span class="n">unit_timing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">unit_timing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">timing_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Compute or validate frac_active only when splitting is requested</span>
+        <span class="n">skip_split</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">min_frac_active</span>
+        <span class="k">if</span> <span class="n">skip_split</span><span class="p">:</span>
+            <span class="n">frac_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_units</span><span class="p">)</span>
+            <span class="n">ha_units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_units</span><span class="p">)</span>
+            <span class="n">la_units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">frac_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">frac_active</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">frac_active</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_frac_active</span><span class="p">(</span><span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span><span class="p">)</span>
+            <span class="n">highly_active_mask</span> <span class="o">=</span> <span class="n">frac_active</span> <span class="o">&gt;=</span> <span class="n">min_frac_active</span>
+            <span class="n">ha_units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">highly_active_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">la_units</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">highly_active_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Sort within each group by typical timing</span>
+        <span class="n">ha_order</span> <span class="o">=</span> <span class="n">ha_units</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">unit_timing</span><span class="p">[</span><span class="n">ha_units</span><span class="p">])]</span>
+        <span class="n">la_order</span> <span class="o">=</span> <span class="n">la_units</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">unit_timing</span><span class="p">[</span><span class="n">la_units</span><span class="p">])]</span>
+
+        <span class="c1"># Build reordered SpikeSliceStacks</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_reorder_stack</span><span class="p">(</span><span class="n">unit_indices</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unit_indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">unit_indices</span><span class="p">))</span>
+
+        <span class="n">ha_stack</span> <span class="o">=</span> <span class="n">_reorder_stack</span><span class="p">(</span><span class="n">ha_order</span><span class="p">)</span>
+        <span class="n">la_stack</span> <span class="o">=</span> <span class="n">_reorder_stack</span><span class="p">(</span><span class="n">la_order</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">ha_stack</span><span class="p">,</span> <span class="n">la_stack</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">ha_order</span><span class="p">,</span> <span class="n">la_order</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">unit_std_values</span><span class="p">[</span><span class="n">ha_order</span><span class="p">],</span> <span class="n">unit_std_values</span><span class="p">[</span><span class="n">la_order</span><span class="p">]),</span>
+            <span class="p">(</span><span class="n">unit_timing</span><span class="p">[</span><span class="n">ha_order</span><span class="p">],</span> <span class="n">unit_timing</span><span class="p">[</span><span class="n">la_order</span><span class="p">]),</span>
+            <span class="p">(</span><span class="n">frac_active</span><span class="p">[</span><span class="n">ha_order</span><span class="p">],</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">la_order</span><span class="p">]),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.apply">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply a function to each SpikeData in the stack and return stacked results.</span>
+
+<span class="sd">        Calls ``func(sd, *args, **kwargs)`` on every slice and stacks the</span>
+<span class="sd">        outputs into a single numpy array with a new leading axis of size S</span>
+<span class="sd">        (number of slices).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            func (callable): Function that accepts a SpikeData as its first</span>
+<span class="sd">                argument and returns a numeric value (scalar, 1-D, or 2-D</span>
+<span class="sd">                array). Output shape must be consistent across all slices.</span>
+<span class="sd">            *args: Additional positional arguments forwarded to func.</span>
+<span class="sd">            **kwargs: Additional keyword arguments forwarded to func.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (np.ndarray): Stacked results with shape ``(S, ...)``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Intended for use with stacks built by ``SpikeData.frames``,</span>
+<span class="sd">              ``SpikeData.align_to_events``, ``SpikeData.spike_shuffle_stack``,</span>
+<span class="sd">              or ``SpikeData.subset_stack``. Pair with ``shuffle_z_score``,</span>
+<span class="sd">              ``shuffle_percentile``, ``slice_trend``, or ``slice_stability``</span>
+<span class="sd">              from ``utils`` to interpret the results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.unit_to_unit_comparison">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.unit_to_unit_comparison">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unit_to_unit_comparison</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;ccg&quot;</span><span class="p">,</span>
+        <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">max_lag</span><span class="o">=</span><span class="mi">350</span><span class="p">,</span>
+        <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute pairwise unit-to-unit similarity within each slice using spike-based metrics.</span>
+
+<span class="sd">        For each slice, computes a (U, U) similarity matrix between all unit pairs,</span>
+<span class="sd">        then stacks the results into a ``PairwiseCompMatrixStack (U, U, S)``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            metric (str): Similarity metric to use. ``&quot;ccg&quot;`` for cross-correlogram</span>
+<span class="sd">                on binned rasters (default), ``&quot;sttc&quot;`` for spike time tiling coefficient.</span>
+<span class="sd">            delt (float): STTC time window in milliseconds (default: 20.0).</span>
+<span class="sd">                Only used when metric is ``&quot;sttc&quot;``.</span>
+<span class="sd">            bin_size (float): Bin size in milliseconds for the binary raster</span>
+<span class="sd">                (default: 1.0). Only used when metric is ``&quot;ccg&quot;``.</span>
+<span class="sd">            max_lag (float): Maximum lag in milliseconds to search for the peak</span>
+<span class="sd">                correlation (default: 350). Only used when metric is ``&quot;ccg&quot;``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            corr_stack (PairwiseCompMatrixStack): Pairwise similarity scores between</span>
+<span class="sd">                all unit pairs for each slice. Shape is ``(U, U, S)``.</span>
+<span class="sd">            lag_stack (PairwiseCompMatrixStack or None): Lag at which maximum</span>
+<span class="sd">                similarity occurs for each pair per slice. Shape is ``(U, U, S)``.</span>
+<span class="sd">                ``None`` when metric is ``&quot;sttc&quot;`` (STTC has no lag).</span>
+<span class="sd">            av_corr (np.ndarray): Average similarity per slice across all unit</span>
+<span class="sd">                pairs in the lower triangle. Shape is ``(S,)``.</span>
+<span class="sd">            av_lag (np.ndarray or None): Average lag per slice. Shape is ``(S,)``.</span>
+<span class="sd">                ``None`` when metric is ``&quot;sttc&quot;``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Analogous to ``RateSliceStack.unit_to_unit_correlation`` but operates</span>
+<span class="sd">              on raw spike trains instead of firing rate time series.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;sttc&quot;</span><span class="p">,</span> <span class="s2">&quot;ccg&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;metric must be &#39;sttc&#39; or &#39;ccg&#39;, got </span><span class="si">{</span><span class="n">metric</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">num_units</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot compute unit-to-unit comparison with fewer than &quot;</span>
+                <span class="s2">&quot;2 units. Returning NaN.&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">nan_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="n">nan_avgs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">nan_stack</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">),</span>
+                <span class="p">(</span>
+                    <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">nan_stack</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="n">nan_avgs</span><span class="p">,</span>
+                <span class="n">nan_avgs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">corr_matrices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">lag_matrices</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;sttc&quot;</span><span class="p">:</span>
+                <span class="n">pcm</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">spike_time_tilings</span><span class="p">(</span><span class="n">delt</span><span class="o">=</span><span class="n">delt</span><span class="p">)</span>
+                <span class="n">corr_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pcm</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># ccg</span>
+                <span class="n">corr_pcm</span><span class="p">,</span> <span class="n">lag_pcm</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_pairwise_ccg</span><span class="p">(</span>
+                    <span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span>
+                <span class="p">)</span>
+                <span class="n">corr_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">corr_pcm</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+                <span class="n">lag_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lag_pcm</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+
+        <span class="c1"># Stack: list of (U, U) -&gt; (S, U, U) -&gt; transpose to (U, U, S)</span>
+        <span class="n">corr_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">corr_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">lower_tri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tril_indices</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">av_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">corr_array</span><span class="p">[</span><span class="n">lower_tri</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">corr_stack</span> <span class="o">=</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">corr_array</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span><span class="p">:</span>
+            <span class="n">lag_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">lag_matrices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">av_lag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">lag_array</span><span class="p">[</span><span class="n">lower_tri</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">lag_stack</span> <span class="o">=</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">lag_array</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lag_stack</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">av_lag</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">corr_stack</span><span class="p">,</span> <span class="n">lag_stack</span><span class="p">,</span> <span class="n">av_corr</span><span class="p">,</span> <span class="n">av_lag</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.get_slice_to_slice_unit_comparison">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_slice_to_slice_unit_comparison">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_slice_to_slice_unit_comparison</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">metric</span><span class="o">=</span><span class="s2">&quot;ccg&quot;</span><span class="p">,</span>
+        <span class="n">delt</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
+        <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">max_lag</span><span class="o">=</span><span class="mi">350</span><span class="p">,</span>
+        <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">min_frac</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+        <span class="n">frac_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute slice-to-slice similarity for each unit using spike-based metrics.</span>
+
+<span class="sd">        For each unit independently, compares its spike train across every pair of</span>
+<span class="sd">        slices. Asks: &quot;Does unit X fire in the same temporal pattern across repeated</span>
+<span class="sd">        events?&quot; Returns a ``PairwiseCompMatrixStack (S, S, U)``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            metric (str): Similarity metric to use. ``&quot;ccg&quot;`` for cross-correlogram</span>
+<span class="sd">                on binned rasters (default), ``&quot;sttc&quot;`` for spike time tiling coefficient.</span>
+<span class="sd">            delt (float): STTC time window in milliseconds (default: 20.0).</span>
+<span class="sd">                Only used when metric is ``&quot;sttc&quot;``.</span>
+<span class="sd">            bin_size (float): Bin size in milliseconds for the binary raster</span>
+<span class="sd">                (default: 1.0). Only used when metric is ``&quot;ccg&quot;``.</span>
+<span class="sd">            max_lag (float): Maximum lag in milliseconds to search for the peak</span>
+<span class="sd">                correlation (default: 350). Only used when metric is ``&quot;ccg&quot;``.</span>
+<span class="sd">            min_spikes (int): Minimum number of spikes in a slice for a unit to</span>
+<span class="sd">                be considered valid in that slice (default: 2).</span>
+<span class="sd">            min_frac (float): Maximum fraction of slices that can be invalid before</span>
+<span class="sd">                a unit&#39;s average is set to NaN (default: 0.3).</span>
+<span class="sd">            frac_active (np.ndarray or None): Optional pre-computed</span>
+<span class="sd">                fraction-active array of shape ``(U,)`` to override the</span>
+<span class="sd">                internal per-unit validity check for computing averages.</span>
+<span class="sd">                When provided, a unit&#39;s average is set to NaN if</span>
+<span class="sd">                ``frac_active[u] &lt; (1 - min_frac)``. ``min_spikes`` still</span>
+<span class="sd">                controls which individual slice pairs are computed.</span>
+<span class="sd">                Compatible sources: ``SpikeSliceStack.compute_frac_active``</span>
+<span class="sd">                and ``SpikeData.get_frac_active`` (``frac_per_unit`` output).</span>
+<span class="sd">            n_jobs (int): Number of threads for parallel computation. -1 uses</span>
+<span class="sd">                all cores (default), 1 disables parallelism, None is serial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            all_corr (PairwiseCompMatrixStack): Pairwise similarity between all</span>
+<span class="sd">                slice pairs for each unit. Shape is ``(S, S, U)``.</span>
+<span class="sd">            all_lag (PairwiseCompMatrixStack or None): Lag at which maximum</span>
+<span class="sd">                similarity occurs for each slice pair per unit. Shape is ``(S, S, U)``.</span>
+<span class="sd">                ``None`` when metric is ``&quot;sttc&quot;``.</span>
+<span class="sd">            av_corr (np.ndarray): Average similarity per unit across all valid</span>
+<span class="sd">                slice pairs. Shape is ``(U,)``.</span>
+<span class="sd">            av_lag (np.ndarray or None): Average lag per unit. Shape is ``(U,)``.</span>
+<span class="sd">                ``None`` when metric is ``&quot;sttc&quot;``.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Analogous to ``RateSliceStack.get_slice_to_slice_unit_corr_from_stack``</span>
+<span class="sd">              but operates on raw spike trains.</span>
+<span class="sd">            - Spike times within each slice are relative to the slice time</span>
+<span class="sd">              origin (0-based or event-centered) for aligned comparison.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;sttc&quot;</span><span class="p">,</span> <span class="s2">&quot;ccg&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;metric must be &#39;sttc&#39; or &#39;ccg&#39;, got </span><span class="si">{</span><span class="n">metric</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">num_slices</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot compute slice-to-slice unit comparison with fewer than &quot;</span>
+                <span class="s2">&quot;2 slices. Returning NaN.&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">av_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="n">nan_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="n">num_units</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">nan_stack</span><span class="p">),</span>
+                <span class="p">(</span>
+                    <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">nan_stack</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">),</span>
+                <span class="n">av_corr</span><span class="p">,</span>
+                <span class="n">av_corr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Pre-compute spike trains per slice (relative to slice time origin)</span>
+        <span class="c1"># and per-slice rasters for CCG</span>
+        <span class="n">shifted_trains</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># list of S lists, each containing U spike arrays</span>
+        <span class="n">slice_durations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">slice_rasters</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># only populated for CCG</span>
+
+        <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">):</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="n">slice_durations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span>
+            <span class="n">trains</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
+                <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">]))</span>
+            <span class="n">shifted_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trains</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span><span class="p">:</span>
+                <span class="c1"># Build shifted SpikeData for raster computation</span>
+                <span class="n">temp_sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">(</span>
+                    <span class="n">trains</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">duration</span><span class="p">,</span> <span class="n">start_time</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">num_units</span>
+                <span class="p">)</span>
+                <span class="n">slice_rasters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp_sd</span><span class="o">.</span><span class="n">raster</span><span class="p">(</span><span class="n">bin_size</span><span class="p">))</span>
+
+        <span class="n">max_lag_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">max_lag</span> <span class="o">/</span> <span class="n">bin_size</span><span class="p">))</span> <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="k">else</span> <span class="mi">0</span>
+
+        <span class="c1"># Validate frac_active override if provided</span>
+        <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frac_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">frac_active</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">num_units</span><span class="p">,):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_active must have shape (</span><span class="si">{</span><span class="n">num_units</span><span class="si">}</span><span class="s2">,), &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">frac_active</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Initialize result arrays: (U, S, S), will transpose to (S, S, U) at end</span>
+        <span class="n">all_corr_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">all_lag_scores</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">av_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="n">av_lag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_units</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span> <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">lower_tri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tril_indices</span><span class="p">(</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">start_times</span> <span class="o">=</span> <span class="p">[</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_process_unit</span><span class="p">(</span><span class="n">unit</span><span class="p">):</span>
+            <span class="n">unit_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="n">unit_lag</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span> <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="n">invalid_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="k">for</span> <span class="n">ref_s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slices</span><span class="p">):</span>
+                <span class="n">ref_train</span> <span class="o">=</span> <span class="n">shifted_trains</span><span class="p">[</span><span class="n">ref_s</span><span class="p">][</span><span class="n">unit</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_train</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_spikes</span><span class="p">:</span>
+                    <span class="n">invalid_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">comp_s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ref_s</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
+                    <span class="n">comp_train</span> <span class="o">=</span> <span class="n">shifted_trains</span><span class="p">[</span><span class="n">comp_s</span><span class="p">][</span><span class="n">unit</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">comp_train</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_spikes</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;sttc&quot;</span><span class="p">:</span>
+                        <span class="n">length</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">slice_durations</span><span class="p">[</span><span class="n">ref_s</span><span class="p">],</span> <span class="n">slice_durations</span><span class="p">[</span><span class="n">comp_s</span><span class="p">])</span>
+                        <span class="n">score</span> <span class="o">=</span> <span class="n">get_sttc</span><span class="p">(</span>
+                            <span class="n">ref_train</span><span class="p">,</span>
+                            <span class="n">comp_train</span><span class="p">,</span>
+                            <span class="n">delt</span><span class="o">=</span><span class="n">delt</span><span class="p">,</span>
+                            <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">,</span>
+                            <span class="n">start_time</span><span class="o">=</span><span class="n">start_times</span><span class="p">[</span><span class="n">ref_s</span><span class="p">],</span>
+                        <span class="p">)</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">ref_s</span><span class="p">,</span> <span class="n">comp_s</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">comp_s</span><span class="p">,</span> <span class="n">ref_s</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">ref_signal</span> <span class="o">=</span> <span class="n">slice_rasters</span><span class="p">[</span><span class="n">ref_s</span><span class="p">][</span><span class="n">unit</span><span class="p">,</span> <span class="p">:]</span>
+                        <span class="n">comp_signal</span> <span class="o">=</span> <span class="n">slice_rasters</span><span class="p">[</span><span class="n">comp_s</span><span class="p">][</span><span class="n">unit</span><span class="p">,</span> <span class="p">:]</span>
+                        <span class="n">score</span><span class="p">,</span> <span class="n">lag</span> <span class="o">=</span> <span class="n">compute_cross_correlation_with_lag</span><span class="p">(</span>
+                            <span class="n">ref_signal</span><span class="p">,</span> <span class="n">comp_signal</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag_bins</span>
+                        <span class="p">)</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">ref_s</span><span class="p">,</span> <span class="n">comp_s</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">comp_s</span><span class="p">,</span> <span class="n">ref_s</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                        <span class="n">unit_lag</span><span class="p">[</span><span class="n">ref_s</span><span class="p">,</span> <span class="n">comp_s</span><span class="p">]</span> <span class="o">=</span> <span class="n">lag</span>
+                        <span class="n">unit_lag</span><span class="p">[</span><span class="n">comp_s</span><span class="p">,</span> <span class="n">ref_s</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">lag</span>
+
+            <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">min_frac</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">invalid_count</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="o">&lt;=</span> <span class="n">min_frac</span>
+
+            <span class="n">av_c</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_corr</span><span class="p">[</span><span class="n">lower_tri</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="n">unit_valid</span>
+                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="p">)</span>
+            <span class="n">av_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span> <span class="ow">and</span> <span class="n">unit_valid</span><span class="p">:</span>
+                <span class="n">av_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_lag</span><span class="p">[</span><span class="n">lower_tri</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+
+            <span class="k">return</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">unit_lag</span><span class="p">,</span> <span class="n">av_c</span><span class="p">,</span> <span class="n">av_l</span>
+
+        <span class="n">n_workers</span> <span class="o">=</span> <span class="n">_resolve_n_jobs</span><span class="p">(</span><span class="n">n_jobs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_units</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">unit_lag</span><span class="p">,</span> <span class="n">av_c</span><span class="p">,</span> <span class="n">av_l</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">all_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_corr</span>
+            <span class="n">av_corr</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">av_c</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span><span class="p">:</span>
+                <span class="n">all_lag_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_lag</span>
+                <span class="n">av_lag</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">av_l</span>
+
+        <span class="c1"># Transpose from (U, S, S) to (S, S, U)</span>
+        <span class="n">all_corr_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">all_corr_scores</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">all_corr_stack</span> <span class="o">=</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">all_corr_scores</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;ccg&quot;</span><span class="p">:</span>
+            <span class="n">all_lag_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">all_lag_scores</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">all_lag_stack</span> <span class="o">=</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span><span class="n">stack</span><span class="o">=</span><span class="n">all_lag_scores</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">all_lag_stack</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">all_corr_stack</span><span class="p">,</span> <span class="n">all_lag_stack</span><span class="p">,</span> <span class="n">av_corr</span><span class="p">,</span> <span class="n">av_lag</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.get_unit_timing_per_slice">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.get_unit_timing_per_slice">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_unit_timing_per_slice</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">timing</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>
+        <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a representative spike time for each unit in each slice.</span>
+
+<span class="sd">        Returns a ``(U, S)`` matrix where entry ``[u, s]`` is the timing</span>
+<span class="sd">        value (in milliseconds relative to the slice&#39;s time origin) for unit u</span>
+<span class="sd">        in slice s. For event-centered slices, t=0 is the event. Units with</span>
+<span class="sd">        fewer than min_spikes spikes in a slice are marked NaN.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            timing (str): Which spike time to extract per unit per slice.</span>
+<span class="sd">                ``&quot;median&quot;`` (default), ``&quot;mean&quot;``, or ``&quot;first&quot;`` (onset</span>
+<span class="sd">                latency).</span>
+<span class="sd">            min_spikes (int): Minimum number of spikes for a unit to count</span>
+<span class="sd">                as active in a slice (default: 2).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            timing_matrix (np.ndarray): Array of shape ``(U, S)`` with timing</span>
+<span class="sd">                values in milliseconds relative to each slice&#39;s time origin.</span>
+<span class="sd">                NaN where the unit is inactive.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Values are in milliseconds, not bin indices. This differs from</span>
+<span class="sd">              ``RateSliceStack.get_unit_timing_per_slice`` which returns bin</span>
+<span class="sd">              indices (suitable for direct indexing into the event stack).</span>
+<span class="sd">              Both representations preserve rank order, so</span>
+<span class="sd">              ``rank_order_correlation`` produces identical results either way.</span>
+<span class="sd">            - The returned matrix can be passed to ``rank_order_correlation``</span>
+<span class="sd">              to compute Spearman rank correlations between slice pairs, or</span>
+<span class="sd">              used as input to ``order_units_across_slices`` for manual</span>
+<span class="sd">              inspection of per-slice timing values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">timing</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;median&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;first&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;timing must be &#39;median&#39;, &#39;mean&#39;, or &#39;first&#39;, got </span><span class="si">{</span><span class="n">timing</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">num_units</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">)</span>
+        <span class="n">timing_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_units</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">s_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
+                <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">])</span>
+                <span class="n">duration</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+                <span class="n">spikes</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span>
+                    <span class="p">(</span><span class="n">spikes</span> <span class="o">&gt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">spikes</span> <span class="o">&lt;=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">duration</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_spikes</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">timing</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+                    <span class="n">timing_matrix</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">timing</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+                    <span class="n">timing_matrix</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">timing_matrix</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">s_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">timing_matrix</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.rank_order_correlation">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.rank_order_correlation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rank_order_correlation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">timing_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">timing</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>
+        <span class="n">min_spikes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">min_overlap</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">n_shuffles</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">min_overlap_frac</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute Spearman rank-order correlation of unit timing between all slice pairs.</span>
+
+<span class="sd">        For each pair of slices, only units active in both slices (non-NaN in</span>
+<span class="sd">        both columns of the timing matrix) are included. If the overlap falls</span>
+<span class="sd">        below the required minimum, the pair is set to NaN.</span>
+
+<span class="sd">        When ``n_shuffles &gt; 0``, the rank orders are shuffled n_shuffles</span>
+<span class="sd">        times for each pair to build a null distribution, and the raw</span>
+<span class="sd">        correlation is z-score normalised against it.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            timing_matrix (np.ndarray or None): Array of shape ``(U, S)`` with</span>
+<span class="sd">                timing values per unit per slice. NaN entries mark inactive</span>
+<span class="sd">                units. Typically produced by ``get_unit_timing_per_slice``.</span>
+<span class="sd">                When None, computed automatically using timing and</span>
+<span class="sd">                min_spikes.</span>
+<span class="sd">            timing (str): Which spike time to extract per unit per slice.</span>
+<span class="sd">                ``&quot;median&quot;`` (default), ``&quot;mean&quot;``, or ``&quot;first&quot;``. Only used</span>
+<span class="sd">                when timing_matrix is None.</span>
+<span class="sd">            min_spikes (int): Minimum spikes for activity (default: 2). Only</span>
+<span class="sd">                used when timing_matrix is None.</span>
+<span class="sd">            min_overlap (int): Minimum number of units that must be active in</span>
+<span class="sd">                both slices (default: 3).</span>
+<span class="sd">            min_overlap_frac (float or None): Minimum fraction of total units</span>
+<span class="sd">                that must be active in both slices (default: None). When</span>
+<span class="sd">                provided, the effective threshold is</span>
+<span class="sd">                ``max(min_overlap, ceil(min_overlap_frac * U))``.</span>
+<span class="sd">            n_shuffles (int): Number of shuffle iterations for z-scoring</span>
+<span class="sd">                (default: 100). Set to 0 to return raw Spearman correlations.</span>
+<span class="sd">                Values between 1 and 4 are rejected (minimum 5 required for</span>
+<span class="sd">                a meaningful null distribution).</span>
+<span class="sd">            seed (int or None): Random seed for reproducibility of the shuffle</span>
+<span class="sd">                (default: 1).</span>
+<span class="sd">            n_jobs (int): Number of threads for parallel computation. -1 uses</span>
+<span class="sd">                all cores (default), 1 disables parallelism, None is serial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            corr_matrix (PairwiseCompMatrix): Spearman correlation matrix of</span>
+<span class="sd">                shape ``(S, S)``. When ``n_shuffles &gt; 0``, values are z-scores.</span>
+<span class="sd">                When ``n_shuffles == 0``, values are raw Spearman correlations.</span>
+<span class="sd">            av_corr (float): Average correlation (or z-score) across all valid</span>
+<span class="sd">                lower-triangle pairs.</span>
+<span class="sd">            overlap_matrix (PairwiseCompMatrix): Matrix of shape ``(S, S)``</span>
+<span class="sd">                with fraction of units active in both slices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_rank_order_correlation_from_timing</span>
+
+        <span class="k">if</span> <span class="n">timing_matrix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timing_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_unit_timing_per_slice</span><span class="p">(</span>
+                <span class="n">timing</span><span class="o">=</span><span class="n">timing</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">_rank_order_correlation_from_timing</span><span class="p">(</span>
+            <span class="n">timing_matrix</span><span class="p">,</span>
+            <span class="n">min_overlap</span><span class="o">=</span><span class="n">min_overlap</span><span class="p">,</span>
+            <span class="n">min_overlap_frac</span><span class="o">=</span><span class="n">min_overlap_frac</span><span class="p">,</span>
+            <span class="n">n_shuffles</span><span class="o">=</span><span class="n">n_shuffles</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+            <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeSliceStack.plot_aligned_slice_single_unit">
+<a class="viewcode-back" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.plot_aligned_slice_single_unit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_aligned_slice_single_unit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">unit_idx</span><span class="p">,</span>
+        <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">color_vals</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">color_label</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+        <span class="n">time_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Rel. time (ms)&quot;</span><span class="p">,</span>
+        <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Burst&quot;</span><span class="p">,</span>
+        <span class="n">x_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">vlines</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">show_colorbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">marker_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">font_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">style</span><span class="o">=</span><span class="s2">&quot;scatter&quot;</span><span class="p">,</span>
+        <span class="n">invert_y</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot a single unit&#39;s spike times across all slices as a raster.</span>
+
+<span class="sd">        Extracts the spike train for unit_idx from every slice and delegates</span>
+<span class="sd">        to :func:`~SpikeLab.spikedata.plot_utils.plot_aligned_slice_single_unit`.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            unit_idx (int): Index of the unit to plot.</span>
+<span class="sd">            ax (matplotlib.axes.Axes or None): Target axes. If None, a new</span>
+<span class="sd">                figure and axes are created.</span>
+<span class="sd">            color_vals (np.ndarray or None): Per-slice colour values.</span>
+<span class="sd">            color_label (str): Colorbar label.</span>
+<span class="sd">            cmap (str): Matplotlib colormap name.</span>
+<span class="sd">            time_offset (float): Value subtracted from spike times for display.</span>
+<span class="sd">            xlabel (str): X-axis label.</span>
+<span class="sd">            ylabel (str): Y-axis label.</span>
+<span class="sd">            x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.</span>
+<span class="sd">            vlines (list[float] or None): Vertical reference line positions.</span>
+<span class="sd">            show_colorbar (bool): Add a colorbar when color_vals is provided.</span>
+<span class="sd">            marker_size (float): Scatter marker size.</span>
+<span class="sd">            font_size (int or None): Font size for labels/ticks.</span>
+<span class="sd">            style (str): ``&quot;scatter&quot;`` for dot markers, ``&quot;eventplot&quot;`` for</span>
+<span class="sd">                vertical line markers.</span>
+<span class="sd">            invert_y (bool): If True, first slice at top, last at bottom.</span>
+<span class="sd">            linewidths (float): Line width for eventplot markers.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result: ``(fig, ax, sc)`` when ax is None, otherwise just sc.</span>
+<span class="sd">                sc is the scatter ``PathCollection`` (or None if no colour</span>
+<span class="sd">                coding).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">plot_aligned_slice_single_unit</span> <span class="k">as</span> <span class="n">_plot_aligned_slice_single_unit</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;plot_aligned_slice_single_unit requires &#39;matplotlib&#39;. &quot;</span>
+                <span class="s2">&quot;Install with: pip install matplotlib&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">if</span> <span class="n">unit_idx</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">unit_idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unit_idx </span><span class="si">{</span><span class="n">unit_idx</span><span class="si">}</span><span class="s2"> out of range for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Extract per-slice spike times for this unit</span>
+        <span class="n">spike_times_per_slice</span> <span class="o">=</span> <span class="p">[</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">unit_idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spike_stack</span><span class="p">]</span>
+
+        <span class="n">standalone</span> <span class="o">=</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">standalone</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">_plot_aligned_slice_single_unit</span><span class="p">(</span>
+            <span class="n">ax</span><span class="p">,</span>
+            <span class="n">spike_times_per_slice</span><span class="p">,</span>
+            <span class="n">color_vals</span><span class="o">=</span><span class="n">color_vals</span><span class="p">,</span>
+            <span class="n">color_label</span><span class="o">=</span><span class="n">color_label</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+            <span class="n">time_offset</span><span class="o">=</span><span class="n">time_offset</span><span class="p">,</span>
+            <span class="n">xlabel</span><span class="o">=</span><span class="n">xlabel</span><span class="p">,</span>
+            <span class="n">ylabel</span><span class="o">=</span><span class="n">ylabel</span><span class="p">,</span>
+            <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span>
+            <span class="n">vlines</span><span class="o">=</span><span class="n">vlines</span><span class="p">,</span>
+            <span class="n">show_colorbar</span><span class="o">=</span><span class="n">show_colorbar</span><span class="p">,</span>
+            <span class="n">marker_size</span><span class="o">=</span><span class="n">marker_size</span><span class="p">,</span>
+            <span class="n">font_size</span><span class="o">=</span><span class="n">font_size</span><span class="p">,</span>
+            <span class="n">style</span><span class="o">=</span><span class="n">style</span><span class="p">,</span>
+            <span class="n">invert_y</span><span class="o">=</span><span class="n">invert_y</span><span class="p">,</span>
+            <span class="n">linewidths</span><span class="o">=</span><span class="n">linewidths</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">standalone</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">sc</span>
+
+        <span class="k">return</span> <span class="n">sc</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
