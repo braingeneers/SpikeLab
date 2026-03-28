@@ -1299,6 +1299,7 @@ class SpikeData:
         if NUMBA_AVAILABLE and self.N > 2:
             from .numba_utils import flatten_spike_trains, nb_sttc_all_pairs
 
+            print("pairwise_sttc: using numba parallel backend")
             flat, offsets = flatten_spike_trains(self.train, self.start_time)
             length = self.length
             if length is None:
@@ -1313,6 +1314,7 @@ class SpikeData:
                     k += 1
             return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
+        print("pairwise_sttc: using pure-numpy backend")
         ret = np.diag(np.ones(self.N))
         for i in range(self.N):
             for j in range(i + 1, self.N):
@@ -1399,9 +1401,11 @@ class SpikeData:
 
         n_workers = _resolve_n_jobs(n_jobs)
         if n_workers > 1 and len(pairs) > 1:
+            print(f"get_pairwise_ccg: using thread pool ({n_workers} workers)")
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 results = pool.map(_compute_pair, pairs)
         else:
+            print("get_pairwise_ccg: using serial backend")
             results = map(_compute_pair, pairs)
 
         for (n1, n2), (max_corr, max_lag_idx) in results:
@@ -1490,6 +1494,7 @@ class SpikeData:
         if NUMBA_AVAILABLE and not return_distributions and N > 1:
             from .numba_utils import flatten_spike_trains, nb_latencies_all_pairs
 
+            print("pairwise_latencies: using numba parallel backend")
             flat, offsets = flatten_spike_trains(self.train, self.start_time)
             has_window = window_ms is not None
             w = window_ms if has_window else 0.0
@@ -1503,6 +1508,7 @@ class SpikeData:
             )
 
         # --- Pure-numpy fallback ---
+        print("pairwise_latencies: using pure-numpy backend")
         mean_matrix = np.zeros((N, N))
         std_matrix = np.zeros((N, N))
 
@@ -2110,10 +2116,12 @@ class SpikeData:
         if NUMBA_AVAILABLE:
             from .numba_utils import nb_spike_trig_pop_rate
 
+            print("spike_triggered_pop_rate: using numba parallel backend")
             spike_f64 = spike_matrix.astype(np.float64)
             stPR = nb_spike_trig_pop_rate(spike_f64, lags)
         else:
             # --- Pure-numpy fallback ---
+            print("spike_triggered_pop_rate: using pure-numpy backend")
             # Total population spike count per bin (used for leave-one-out)
             pop_sum = np.sum(spike_matrix, axis=0)
 

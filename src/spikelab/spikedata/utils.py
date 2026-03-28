@@ -1470,9 +1470,11 @@ def _rank_order_correlation_from_timing(
 
     n_workers = _resolve_n_jobs(n_jobs)
     if n_workers > 1 and len(pairs) > 1:
+        print(f"rank_order_correlation: using thread pool ({n_workers} workers)")
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             results = pool.map(_compute_pair, work_items)
     else:
+        print("rank_order_correlation: using serial backend")
         results = map(_compute_pair, work_items)
 
     for i, j, n_valid, value in results:

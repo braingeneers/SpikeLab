@@ -298,9 +298,11 @@ class RateData:
 
         n_workers = _resolve_n_jobs(n_jobs)
         if n_workers > 1 and len(pairs) > 1:
+            print(f"get_pairwise_corr: using thread pool ({n_workers} workers)")
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 results = pool.map(_compute_pair, pairs)
         else:
+            print("get_pairwise_corr: using serial backend")
             results = map(_compute_pair, pairs)
 
         for (n1, n2), (max_corr, max_lag_idx) in results:

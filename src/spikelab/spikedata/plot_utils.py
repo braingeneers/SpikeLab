@@ -1751,7 +1751,7 @@ def plot_recording(
     sort_indices=None,
     raster_style="eventplot",
     raster_bin_size_ms=1.0,
-    raster_vmax=3,
+    raster_vmax=5,
     burst_times=None,
     burst_edges=None,
     # --- heatmap options ---
@@ -2080,7 +2080,7 @@ def plot_recording(
             cax = panel_cbar["raster"]
             cax.axis("on")
             fig.colorbar(im, cax=cax, label="Spike Count")
-            cax.tick_params(labelsize=font_size)
+            _apply_font_size(cax, font_size)
         else:
             spike_times_list = [
                 np.where(spk_mat_view[i, :] >= 1)[0]
@@ -2166,7 +2166,7 @@ def plot_recording(
         cax.axis("on")
         cb_label = "Norm. Rate (Hz)" if norm_heatmap else "Rate (Hz)"
         fig.colorbar(ax.images[0], cax=cax, label=cb_label)
-        cax.tick_params(labelsize=font_size)
+        _apply_font_size(cax, font_size)
 
     # ------------------------------------------------------------------
     # 8. Model states panel
@@ -2192,7 +2192,7 @@ def plot_recording(
         cax = panel_cbar["model_states"]
         cax.axis("on")
         fig.colorbar(ax.images[0], cax=cax, label="Probability")
-        cax.tick_params(labelsize=font_size)
+        _apply_font_size(cax, font_size)
 
     # ------------------------------------------------------------------
     # 9. X-axis formatting
