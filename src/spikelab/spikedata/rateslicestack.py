@@ -458,7 +458,9 @@ class RateSliceStack:
 
         n_workers = _resolve_n_jobs(n_jobs)
         if n_workers > 1 and num_units > 1:
-            print(f"get_slice_to_slice_unit_corr: using thread pool ({n_workers} workers)")
+            print(
+                f"get_slice_to_slice_unit_corr: using thread pool ({n_workers} workers)"
+            )
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 results = pool.map(_process_unit, range(num_units))
         else:
@@ -540,7 +542,9 @@ class RateSliceStack:
 
         n_workers = _resolve_n_jobs(n_jobs)
         if n_workers > 1 and num_time_bins > 1:
-            print(f"get_slice_to_slice_time_corr: using thread pool ({n_workers} workers)")
+            print(
+                f"get_slice_to_slice_time_corr: using thread pool ({n_workers} workers)"
+            )
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 results = pool.map(_process_time, range(num_time_bins))
         else:
