@@ -2079,7 +2079,7 @@
     <span class="n">sort_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">raster_style</span><span class="o">=</span><span class="s2">&quot;eventplot&quot;</span><span class="p">,</span>
     <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">raster_vmax</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">raster_vmax</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
     <span class="n">burst_times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">burst_edges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="c1"># --- heatmap options ---</span>
@@ -2408,7 +2408,7 @@
             <span class="n">cax</span> <span class="o">=</span> <span class="n">panel_cbar</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span>
             <span class="n">cax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;on&quot;</span><span class="p">)</span>
             <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">cax</span><span class="o">=</span><span class="n">cax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Spike Count&quot;</span><span class="p">)</span>
-            <span class="n">cax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">labelsize</span><span class="o">=</span><span class="n">font_size</span><span class="p">)</span>
+            <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">cax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">spike_times_list</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">spk_mat_view</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -2494,7 +2494,7 @@
         <span class="n">cax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;on&quot;</span><span class="p">)</span>
         <span class="n">cb_label</span> <span class="o">=</span> <span class="s2">&quot;Norm. Rate (Hz)&quot;</span> <span class="k">if</span> <span class="n">norm_heatmap</span> <span class="k">else</span> <span class="s2">&quot;Rate (Hz)&quot;</span>
         <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cax</span><span class="o">=</span><span class="n">cax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">cb_label</span><span class="p">)</span>
-        <span class="n">cax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">labelsize</span><span class="o">=</span><span class="n">font_size</span><span class="p">)</span>
+        <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">cax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 8. Model states panel</span>
@@ -2520,7 +2520,7 @@
         <span class="n">cax</span> <span class="o">=</span> <span class="n">panel_cbar</span><span class="p">[</span><span class="s2">&quot;model_states&quot;</span><span class="p">]</span>
         <span class="n">cax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;on&quot;</span><span class="p">)</span>
         <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cax</span><span class="o">=</span><span class="n">cax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Probability&quot;</span><span class="p">)</span>
-        <span class="n">cax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">labelsize</span><span class="o">=</span><span class="n">font_size</span><span class="p">)</span>
+        <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">cax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 9. X-axis formatting</span>

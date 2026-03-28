@@ -764,9 +764,13 @@
 
         <span class="n">n_workers</span> <span class="o">=</span> <span class="n">_resolve_n_jobs</span><span class="p">(</span><span class="n">n_jobs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">n_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_units</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;get_slice_to_slice_unit_corr: using thread pool (</span><span class="si">{</span><span class="n">n_workers</span><span class="si">}</span><span class="s2"> workers)&quot;</span>
+            <span class="p">)</span>
             <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
                 <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;get_slice_to_slice_unit_corr: using serial backend&quot;</span><span class="p">)</span>
             <span class="n">results</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
 
         <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">av</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
@@ -847,9 +851,13 @@
 
         <span class="n">n_workers</span> <span class="o">=</span> <span class="n">_resolve_n_jobs</span><span class="p">(</span><span class="n">n_jobs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">n_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_time_bins</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;get_slice_to_slice_time_corr: using thread pool (</span><span class="si">{</span><span class="n">n_workers</span><span class="si">}</span><span class="s2"> workers)&quot;</span>
+            <span class="p">)</span>
             <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
                 <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_time</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_time_bins</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;get_slice_to_slice_time_corr: using serial backend&quot;</span><span class="p">)</span>
             <span class="n">results</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">_process_time</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_time_bins</span><span class="p">))</span>
 
         <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_corr</span><span class="p">,</span> <span class="n">av</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
