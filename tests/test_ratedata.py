@@ -1523,3 +1523,39 @@ class TestCoverageGaps:
             rtol=1e-12,
             err_msg="FR lag matrices differ between n_jobs=1 and n_jobs=-1",
         )
+
+
+class TestRateDataBackendPrintMessages:
+    """Tests that RateData parallel processing methods print which backend is used."""
+
+    def test_get_pairwise_corr_threadpool_message(self, capsys):
+        """
+        get_pairwise_fr_corr prints thread pool message with n_jobs=-1.
+
+        Tests:
+            (Test Case 1) With n_jobs=-1 and multiple pairs, prints thread pool
+                with worker count.
+        """
+        rng = np.random.default_rng(42)
+        data = rng.random((4, 80))
+        times = np.arange(80, dtype=float)
+        rd = RateData(data, times)
+        rd.get_pairwise_fr_corr(max_lag=5, n_jobs=-1)
+        captured = capsys.readouterr()
+        assert "get_pairwise_corr: using thread pool" in captured.out
+        assert "workers)" in captured.out
+
+    def test_get_pairwise_corr_serial_message(self, capsys):
+        """
+        get_pairwise_fr_corr prints serial message with n_jobs=1.
+
+        Tests:
+            (Test Case 1) With n_jobs=1, prints "using serial backend".
+        """
+        rng = np.random.default_rng(42)
+        data = rng.random((4, 80))
+        times = np.arange(80, dtype=float)
+        rd = RateData(data, times)
+        rd.get_pairwise_fr_corr(max_lag=5, n_jobs=1)
+        captured = capsys.readouterr()
+        assert "get_pairwise_corr: using serial backend" in captured.out
