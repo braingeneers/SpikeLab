@@ -2945,6 +2945,32 @@ class TestValidateTimeStartToEndEdgeCases:
         assert len(result) == 1
         assert result[0] == (100.0, 100.0)
 
+    def test_float_rounding_tolerance(self):
+        """
+        Windows with durations that differ by sub-picosecond amounts due to
+        floating-point arithmetic on different base values are accepted.
+
+        Tests:
+            (Test Case 1) Event times derived from float64 seconds converted
+                to ms produce sub-1e-10 duration differences. The validator
+                accepts all windows.
+            (Test Case 2) Windows with genuinely different durations (>1e-6)
+                still raise ValueError.
+        """
+        # Simulate IBL-style event times: float64 seconds -> ms
+        event_times_s = np.array([0.123456789012345, 1.987654321098765, 3.5])
+        event_times_ms = event_times_s * 1000.0
+        pre_ms, post_ms = 200.0, 500.0
+        windows = [(t - pre_ms, t + post_ms) for t in event_times_ms]
+
+        result = _validate_time_start_to_end(windows)
+        assert len(result) == 3
+
+        # Genuinely different durations still raise
+        bad_windows = [(0.0, 700.0), (1000.0, 1700.001)]
+        with pytest.raises(ValueError, match="same length"):
+            _validate_time_start_to_end(bad_windows)
+
 
 # ---------------------------------------------------------------------------
 # Edge Case Tests — times_from_ms / to_ms

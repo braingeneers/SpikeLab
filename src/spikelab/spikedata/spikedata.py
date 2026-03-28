@@ -961,7 +961,7 @@ class SpikeData:
             },  # self.metadata takes precedence on key collision
         )
 
-    def sparse_raster(self, bin_size=20.0, time_offset=0.0):
+    def sparse_raster(self, bin_size=1.0, time_offset=0.0):
         """Bin spike times into a sparse (units, bins) matrix.
 
         Entry (i, j) is the number of times unit i fired in bin j. Spike
@@ -999,7 +999,7 @@ class SpikeData:
         # Use csr_matrix for SciPy < 1.8 compatibility (csr_array not available)
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
 
-    def raster(self, bin_size=20.0, time_offset=0.0):
+    def raster(self, bin_size=1.0, time_offset=0.0):
         """Bin spike times into a dense (units, bins) array.
 
         Entry (i, j) is the number of times unit i fired in bin j.
@@ -1020,7 +1020,7 @@ class SpikeData:
         """
         return self.sparse_raster(bin_size, time_offset=time_offset).toarray()
 
-    def channel_raster(self, bin_size=20.0, channel_attr: Optional[str] = None):
+    def channel_raster(self, bin_size=1.0, channel_attr: Optional[str] = None):
         """Create a raster aggregated by channel instead of neuron.
 
         Parameters:

@@ -398,21 +398,28 @@ class TestValidateTimeStartToEnd:
 
     def test_validate_float_precision_accepted(self):
         """
-        Tests that two windows with durations differing by < 1e-10 are accepted
-        when the float subtraction yields identical results.
+        Tests that windows with durations differing by sub-picosecond amounts
+        due to floating-point arithmetic are accepted by the tolerance-based
+        comparison.
 
         Tests:
             (Test Case 1) Construction succeeds without error.
             (Test Case 2) Both slices are present in the result.
 
         Notes:
-            _validate_time_start_to_end uses set() on durations, so windows with
-            identical computed durations (same float value) pass the check. This test
-            uses symmetric offsets so that both durations compute to the same float.
+            Uses asymmetric event times converted from seconds to milliseconds
+            to reproduce the real-world floating-point rounding that causes
+            sub-picosecond duration differences.
         """
-        rd = make_ratedata(n_units=2, n_times=200, step=1.0)
-        offset = 1e-12
-        times = [(0.0 + offset, 10.0 + offset), (20.0 + offset, 30.0 + offset)]
+        rd = make_ratedata(n_units=2, n_times=2000, step=1.0)
+        # Simulate event times from float64 seconds -> ms, producing
+        # tiny rounding differences in window durations
+        event_times_s = np.array([0.123456789012345, 1.987654321098765])
+        event_times_ms = event_times_s * 1000.0
+        pre_ms, post_ms = 200.0, 500.0
+        times = [
+            (t - pre_ms, t + post_ms) for t in event_times_ms
+        ]
 
         rss = RateSliceStack(data_obj=rd, times_start_to_end=times)
 

@@ -12,17 +12,29 @@ You are acting as the **Analysis Implementer** for the SpikeLab library. Your re
 - Writing and executing analysis and visualization scripts
 - Interpreting and reporting results to the user
 
-**Important:** Always use SpikeLab methods for neuroscience analyses. Do not implement custom neuroscience analysis logic (e.g., spike train correlations, burst detection, firing rate computations) outside of the library. If SpikeLab does not provide a method for a requested analysis, tell the user rather than writing your own implementation. Simple post-processing operations using standard packages (numpy, scipy, etc.) are fine — for example, computing summary statistics (mean, median, standard deviation), running statistical tests (t-tests, p-values), or basic array operations on SpikeLab outputs.
-
 ---
 
-## Strict Boundary Rule
+## Strict Boundary Rules
+
+### File boundaries
 
 At the start of a session, ask the user to specify or confirm an **analysis directory** — a directory where all analysis scripts and results will be stored (e.g., `./analysis/`). Create it if it does not exist.
 
 **You are only authorized to create or edit files inside the analysis directory and the repo map files (`REPO_MAP.md` and `REPO_MAP_DETAILED.md` in `.agent/skills/spikelab-analysis-implementer/`). You must never create or modify files inside `SpikeLab/` (the library source) or any other repository files.**
 
 If a task seems to require changes to library code, stop and tell the user.
+
+### Analysis boundaries
+
+Always use SpikeLab methods for neuroscience analyses. Do not implement custom neuroscience analysis logic (e.g., spike train correlations, burst detection, firing rate computations, shuffle procedures) outside of the library. If SpikeLab does not provide a method for a requested analysis, tell the user rather than writing your own implementation. Simple post-processing using standard packages (numpy, scipy, etc.) is fine — for example, summary statistics, statistical tests, or basic array operations on SpikeLab outputs.
+
+When a `SpikeData` or `RateData` method encapsulates a multi-step workflow, use it instead of calling the individual steps yourself:
+
+- Use `sd.spike_shuffle()` / `sd.spike_shuffle_stack()` instead of manually calling `sd.raster()` → clip → `randomize()` → `SpikeData.from_raster()`.
+- Use `sd.compute_spike_trig_pop_rate()` instead of manually computing leave-one-out population rates and spike-triggered averages.
+- Use `rd.get_manifold()` instead of manually z-scoring and calling sklearn PCA.
+
+Built-in methods ensure correct default parameters, consistent preprocessing, and avoid subtle bugs in glue code. Only fall back to manual pipelines when the built-in method lacks a required option — and document why in a code comment.
 
 ---
 

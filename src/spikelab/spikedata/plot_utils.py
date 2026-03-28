@@ -1491,8 +1491,10 @@ def plot_aligned_slice_single_unit(
         ylabel (str): Y-axis label.
         x_range (tuple or None): ``(xmin, xmax)`` for the x-axis. If None,
             auto-scales to the data.
-        vlines (list[float] or None): X positions for vertical reference
-            lines (e.g. burst onset).
+        vlines (list[dict] or None): Vertical reference lines. Each dict
+            may contain ``'x'`` (required), ``'color'`` (default ``'red'``),
+            ``'linestyle'`` (default ``'--'``), ``'linewidth'`` (default
+            ``1.5``).
         show_colorbar (bool): Add a colorbar when color_vals is provided.
         marker_size (float): Scatter marker size (only used when
             ``style="scatter"``).
@@ -1554,8 +1556,14 @@ def plot_aligned_slice_single_unit(
 
     # --- Vertical reference lines -----------------------------------------
     if vlines is not None:
-        for xv in vlines:
-            ax.axvline(x=xv, color="red", linestyle="--", linewidth=1.5, zorder=0)
+        for vl in vlines:
+            ax.axvline(
+                x=vl["x"],
+                color=vl.get("color", "red"),
+                linestyle=vl.get("linestyle", "--"),
+                linewidth=vl.get("linewidth", 1.5),
+                zorder=0,
+            )
 
     # --- Axes formatting --------------------------------------------------
     ax.set_ylim(-0.5, n_slices - 0.5)

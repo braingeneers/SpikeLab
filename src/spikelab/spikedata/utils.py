@@ -1364,7 +1364,10 @@ def _validate_time_start_to_end(
                 )
         time_diff_check.append(time_window[1] - time_window[0])
         valid_time_tuples.append(time_window)
-        if len(set(time_diff_check)) > 1:
+
+    if len(time_diff_check) > 1:
+        diffs = np.array(time_diff_check)
+        if not np.allclose(diffs, diffs[0], atol=1e-6, rtol=0):
             raise ValueError("All time windows must have the same length")
     return valid_time_tuples
 
