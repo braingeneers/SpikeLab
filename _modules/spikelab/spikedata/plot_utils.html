@@ -1813,8 +1813,10 @@
 <span class="sd">        ylabel (str): Y-axis label.</span>
 <span class="sd">        x_range (tuple or None): ``(xmin, xmax)`` for the x-axis. If None,</span>
 <span class="sd">            auto-scales to the data.</span>
-<span class="sd">        vlines (list[float] or None): X positions for vertical reference</span>
-<span class="sd">            lines (e.g. burst onset).</span>
+<span class="sd">        vlines (list[dict] or None): Vertical reference lines. Each dict</span>
+<span class="sd">            may contain ``&#39;x&#39;`` (required), ``&#39;color&#39;`` (default ``&#39;red&#39;``),</span>
+<span class="sd">            ``&#39;linestyle&#39;`` (default ``&#39;--&#39;``), ``&#39;linewidth&#39;`` (default</span>
+<span class="sd">            ``1.5``).</span>
 <span class="sd">        show_colorbar (bool): Add a colorbar when color_vals is provided.</span>
 <span class="sd">        marker_size (float): Scatter marker size (only used when</span>
 <span class="sd">            ``style=&quot;scatter&quot;``).</span>
@@ -1876,8 +1878,14 @@
 
     <span class="c1"># --- Vertical reference lines -----------------------------------------</span>
     <span class="k">if</span> <span class="n">vlines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">xv</span> <span class="ow">in</span> <span class="n">vlines</span><span class="p">:</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">xv</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">vl</span> <span class="ow">in</span> <span class="n">vlines</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">vl</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">vl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="s2">&quot;red&quot;</span><span class="p">),</span>
+                <span class="n">linestyle</span><span class="o">=</span><span class="n">vl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;linestyle&quot;</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">),</span>
+                <span class="n">linewidth</span><span class="o">=</span><span class="n">vl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;linewidth&quot;</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">),</span>
+                <span class="n">zorder</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
 
     <span class="c1"># --- Axes formatting --------------------------------------------------</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">n_slices</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span>

@@ -1318,7 +1318,7 @@
 
 <div class="viewcode-block" id="SpikeData.sparse_raster">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.sparse_raster">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">sparse_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sparse_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Bin spike times into a sparse (units, bins) matrix.</span>
 
 <span class="sd">        Entry (i, j) is the number of times unit i fired in bin j. Spike</span>
@@ -1359,7 +1359,7 @@
 
 <div class="viewcode-block" id="SpikeData.raster">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.raster">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Bin spike times into a dense (units, bins) array.</span>
 
 <span class="sd">        Entry (i, j) is the number of times unit i fired in bin j.</span>
@@ -1383,7 +1383,7 @@
 
 <div class="viewcode-block" id="SpikeData.channel_raster">
 <a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.channel_raster">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">channel_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">channel_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">channel_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bin_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">channel_attr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a raster aggregated by channel instead of neuron.</span>
 
 <span class="sd">        Parameters:</span>

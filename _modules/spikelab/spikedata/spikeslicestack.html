@@ -1408,7 +1408,9 @@
 <span class="sd">            xlabel (str): X-axis label.</span>
 <span class="sd">            ylabel (str): Y-axis label.</span>
 <span class="sd">            x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.</span>
-<span class="sd">            vlines (list[float] or None): Vertical reference line positions.</span>
+<span class="sd">            vlines (list[dict] or None): Vertical reference lines. Each dict</span>
+<span class="sd">                may contain ``&#39;x&#39;``, ``&#39;color&#39;``, ``&#39;linestyle&#39;``,</span>
+<span class="sd">                ``&#39;linewidth&#39;``.</span>
 <span class="sd">            show_colorbar (bool): Add a colorbar when color_vals is provided.</span>
 <span class="sd">            marker_size (float): Scatter marker size.</span>
 <span class="sd">            font_size (int or None): Font size for labels/ticks.</span>
