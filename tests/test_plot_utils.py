@@ -1446,15 +1446,28 @@ class TestPlotUnitRaster:
 
     def test_vlines(self):
         """
-        vlines adds vertical reference lines.
+        vlines adds vertical reference lines using dict format.
 
         Tests:
-            (Test Case 1) Lines are present on the axes.
+            (Test Case 1) Two vlines dicts produce at least 2 lines on the axes.
+            (Test Case 2) Custom color and linestyle are applied.
         """
         fig, ax = plt.subplots()
         spikes = [np.array([10, 50])]
-        plot_aligned_slice_single_unit(ax, spikes, vlines=[0.0, 25.0])
+        plot_aligned_slice_single_unit(
+            ax,
+            spikes,
+            vlines=[
+                {"x": 0.0, "color": "blue", "linestyle": "-", "linewidth": 2.0},
+                {"x": 25.0},
+            ],
+        )
         assert len(ax.lines) >= 2
+        # First line should have the custom color
+        assert ax.lines[0].get_color() == "blue"
+        assert ax.lines[0].get_linestyle() == "-"
+        # Second line should use defaults (red, dashed)
+        assert ax.lines[1].get_color() == "red"
 
     def test_x_range_applied(self):
         """
@@ -3674,6 +3687,21 @@ class TestPlotBurstSensitivityEdgeCases2:
 
 class TestPlotAlignedSliceEdgeCases:
     """Edge case tests for plot_aligned_slice_single_unit."""
+
+    def test_vlines_minimal_dict(self):
+        """
+        vlines with only the required 'x' key uses default styling.
+
+        Tests:
+            (Test Case 1) A single vlines dict with only 'x' does not raise.
+            (Test Case 2) Default color is 'red' and linestyle is '--'.
+        """
+        fig, ax = plt.subplots()
+        spikes = [np.array([10, 50])]
+        plot_aligned_slice_single_unit(ax, spikes, vlines=[{"x": 0.0}])
+        assert len(ax.lines) >= 1
+        assert ax.lines[0].get_color() == "red"
+        assert ax.lines[0].get_linestyle() == "--"
 
     def test_eventplot_all_empty_trains(self):
         """

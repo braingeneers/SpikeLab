@@ -1072,7 +1072,9 @@ class SpikeSliceStack:
             xlabel (str): X-axis label.
             ylabel (str): Y-axis label.
             x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.
-            vlines (list[float] or None): Vertical reference line positions.
+            vlines (list[dict] or None): Vertical reference lines. Each dict
+                may contain ``'x'``, ``'color'``, ``'linestyle'``,
+                ``'linewidth'``.
             show_colorbar (bool): Add a colorbar when color_vals is provided.
             marker_size (float): Scatter marker size.
             font_size (int or None): Font size for labels/ticks.
