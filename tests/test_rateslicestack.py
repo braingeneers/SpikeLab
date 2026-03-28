@@ -413,13 +413,13 @@ class TestValidateTimeStartToEnd:
         """
         rd = make_ratedata(n_units=2, n_times=2000, step=1.0)
         # Simulate event times from float64 seconds -> ms, producing
-        # tiny rounding differences in window durations
-        event_times_s = np.array([0.123456789012345, 1.987654321098765])
+        # tiny rounding differences in window durations.
+        # Times must be far enough from recording edges (0–2000 ms)
+        # to fit the full pre/post window.
+        event_times_s = np.array([0.523456789012345, 1.287654321098765])
         event_times_ms = event_times_s * 1000.0
         pre_ms, post_ms = 200.0, 500.0
-        times = [
-            (t - pre_ms, t + post_ms) for t in event_times_ms
-        ]
+        times = [(t - pre_ms, t + post_ms) for t in event_times_ms]
 
         rss = RateSliceStack(data_obj=rd, times_start_to_end=times)
 
