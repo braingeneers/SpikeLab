@@ -1,0 +1,13 @@
+.git
+.github
+.agent
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv-docs/
+docs/build/
+build/
+dist/
+tests/
+examples/
+pyproject.toml.bak

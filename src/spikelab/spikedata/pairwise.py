@@ -5,34 +5,28 @@ import numpy as np
 
 @dataclass
 class PairwiseCompMatrix:
-    """
-    A data class for n x n pairwise comparison matrices (e.g., correlation, STTC).
+    """A data class for n x n pairwise comparison matrices (e.g., correlation, STTC).
 
     Attributes:
-    -----------
-    matrix : np.ndarray
-        The n x n comparison matrix.
-    labels : list, optional
-        Labels for the rows/columns (e.g., unit IDs).
-    metadata : dict
-        Additional information about the matrix.
+        matrix (np.ndarray): The n x n comparison matrix.
+        labels (list or None): Labels for the rows/columns (e.g., unit IDs).
+        metadata (dict): Additional information about the matrix.
 
     Examples:
-    ---------
-    Creating a PairwiseCompMatrix:
+        Creating a PairwiseCompMatrix:
 
-        >>> matrix = np.array([[1.0, 0.5], [0.5, 1.0]])
-        >>> pcm = PairwiseCompMatrix(matrix=matrix, labels=["A", "B"])
+            >>> matrix = np.array([[1.0, 0.5], [0.5, 1.0]])
+            >>> pcm = PairwiseCompMatrix(matrix=matrix, labels=["A", "B"])
 
-    Exporting to NetworkX:
+        Exporting to NetworkX:
 
-        >>> G = pcm.to_networkx()
-        >>> G = pcm.to_networkx(threshold=0.3)  # Only edges with |weight| > 0.3
-        >>> G = pcm.to_networkx(invert_weights=True)  # For shortest path algorithms
+            >>> G = pcm.to_networkx()
+            >>> G = pcm.to_networkx(threshold=0.3)  # Only edges with |weight| > 0.3
+            >>> G = pcm.to_networkx(invert_weights=True)  # For shortest path algorithms
 
-    Getting a binary thresholded matrix:
+        Getting a binary thresholded matrix:
 
-        >>> binary_pcm = pcm.threshold(0.4)  # Values > 0.4 become 1, else 0
+            >>> binary_pcm = pcm.threshold(0.4)  # Values > 0.4 become 1, else 0
     """
 
     matrix: np.ndarray
@@ -56,31 +50,27 @@ class PairwiseCompMatrix:
         threshold: Optional[float] = None,
         invert_weights: bool = False,
     ):
-        """
-        Export the matrix to a NetworkX graph.
+        """Export the matrix to a NetworkX graph.
 
         Parameters:
-        -----------
-        threshold : float, optional
-            If provided, only edges with absolute weight > threshold will be included.
-        invert_weights : bool, default False
-            If True, edge weights are set to (1 - value) instead of value.
-            This is useful for weighted network metrics like shortest path length,
-            where strong correlations (e.g., 0.9) should represent short/cheap paths
-            rather than long/expensive paths.
+            threshold (float or None): If provided, only edges with absolute
+                weight > threshold will be included.
+            invert_weights (bool): If True, edge weights are set to
+                (1 - value) instead of value. This is useful for weighted
+                network metrics like shortest path length, where strong
+                correlations (e.g., 0.9) should represent short/cheap paths
+                rather than long/expensive paths.
 
         Returns:
-        --------
-        G : networkx.Graph
+            G (networkx.Graph): The exported graph.
 
         Notes:
-        ------
-        When using NetworkX for weighted shortest path algorithms (e.g.,
-        `nx.shortest_path_length`), edge weights are interpreted as distances.
-        For correlation matrices where high values indicate strong relationships,
-        set `invert_weights=True` so that:
-        - Strong correlation (0.9) → weight 0.1 (short path)
-        - Weak correlation (0.1) → weight 0.9 (long path)
+            When using NetworkX for weighted shortest path algorithms (e.g.,
+            ``nx.shortest_path_length``), edge weights are interpreted as
+            distances. For correlation matrices where high values indicate
+            strong relationships, set ``invert_weights=True`` so that:
+            - Strong correlation (0.9) -> weight 0.1 (short path)
+            - Weak correlation (0.1) -> weight 0.9 (long path)
         """
         try:
             import networkx as nx
@@ -109,28 +99,24 @@ class PairwiseCompMatrix:
         return G
 
     def threshold(self, threshold: float) -> "PairwiseCompMatrix":
-        """
-        Create a binary matrix based on a threshold.
+        """Create a binary matrix based on a threshold.
 
         Parameters:
-        -----------
-        threshold : float
-            Values with absolute value > threshold become 1, otherwise 0.
+            threshold (float): Values with absolute value > threshold become
+                1, otherwise 0.
 
         Returns:
-        --------
-        PairwiseCompMatrix
-            A new PairwiseCompMatrix with binary (0/1) values.
+            result (PairwiseCompMatrix): A new PairwiseCompMatrix with binary
+                (0/1) values.
 
         Examples:
-        ---------
-        >>> matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])
-        >>> pcm = PairwiseCompMatrix(matrix=matrix)
-        >>> binary_pcm = pcm.threshold(0.4)
-        >>> print(binary_pcm.matrix)
-        [[1. 1. 0.]
-         [1. 1. 1.]
-         [0. 1. 1.]]
+            >>> matrix = np.array([[1.0, 0.8, 0.2], [0.8, 1.0, 0.5], [0.2, 0.5, 1.0]])
+            >>> pcm = PairwiseCompMatrix(matrix=matrix)
+            >>> binary_pcm = pcm.threshold(0.4)
+            >>> print(binary_pcm.matrix)
+            [[1. 1. 0.]
+             [1. 1. 1.]
+             [0. 1. 1.]]
         """
         binary_matrix = (np.abs(self.matrix) > threshold).astype(float)
         return PairwiseCompMatrix(
@@ -155,8 +141,7 @@ class PairwiseCompMatrix:
         threshold: float,
         fill: float = np.nan,
     ) -> "PairwiseCompMatrix":
-        """
-        Return a copy with entries removed where a condition matrix satisfies a comparison.
+        """Return a copy with entries removed where a condition matrix satisfies a comparison.
 
         Entries where the comparison ``op(condition, threshold)`` evaluates to
         True are replaced by *fill*; all other entries keep their original value
@@ -217,13 +202,11 @@ class PairwiseCompMatrix:
         )
 
     def extract_lower_triangle(self) -> np.ndarray:
-        """
-        Extract lower triangle (excluding diagonal) from this correlation matrix.
+        """Extract lower triangle (excluding diagonal) from this correlation matrix.
 
-        Returns
-        -------
-        ndarray, shape (F,)
-            Lower triangle values as a 1D array. F = n*(n-1)/2.
+        Returns:
+            values (np.ndarray): Lower triangle values as a 1D array with
+                shape ``(F,)`` where F = n*(n-1)/2.
         """
         n = self.matrix.shape[0]
         lower_tri_idx = np.tril_indices(n, k=-1)
@@ -247,8 +230,7 @@ class PairwiseCompMatrix:
         font_size=14,
         save_path=None,
     ):
-        """
-        Plot the pairwise matrix as a heatmap.
+        """Plot the pairwise matrix as a heatmap.
 
         Parameters:
             ax (matplotlib.axes.Axes or None): Target axes. If None a standalone
@@ -312,10 +294,9 @@ class PairwiseCompMatrix:
         scale_bar_um=500,
         font_size=None,
     ):
-        """
-        Plot this pairwise matrix as a spatial network on MEA positions.
+        """Plot this pairwise matrix as a spatial network on MEA positions.
 
-        Unit positions must be supplied as *positions* — extract them from
+        Unit positions must be supplied as *positions* -- extract them from
         ``SpikeData.neuron_attributes`` (e.g.
         ``np.array([[na['x'], na['y']] for na in sd.neuron_attributes])``).
 
@@ -364,57 +345,50 @@ class PairwiseCompMatrix:
 
 @dataclass
 class PairwiseCompMatrixStack:
-    """
-    A data class for a stack of n x n pairwise comparison matrices (e.g., across slices or time bins).
+    """A data class for a stack of n x n pairwise comparison matrices (e.g., across slices or time bins).
 
     Attributes:
-    -----------
-    stack : np.ndarray
-        The n x n x S stack of comparison matrices, where S is the number of slices.
-    labels : list, optional
-        Labels for the rows/columns (e.g., unit IDs).
-    times : list of tuples, optional
-        Time windows (start, end) associated with each matrix in the stack.
-    metadata : dict
-        Additional information about the stack.
+        stack (np.ndarray): The n x n x S stack of comparison matrices, where
+            S is the number of slices.
+        labels (list or None): Labels for the rows/columns (e.g., unit IDs).
+        times (list of tuple or None): Time windows (start, end) associated
+            with each matrix in the stack.
+        metadata (dict): Additional information about the stack.
 
-    Indexing and Slicing:
-    ---------------------
     The stack supports flexible indexing:
 
-    - **Single index**: Returns a PairwiseCompMatrix for that slice.
+    - Single index: Returns a PairwiseCompMatrix for that slice.
 
         >>> stack[0]  # First matrix as PairwiseCompMatrix
 
-    - **Slice**: Returns a new PairwiseCompMatrixStack with the selected range.
+    - Slice: Returns a new PairwiseCompMatrixStack with the selected range.
 
         >>> stack[0:5]  # First 5 matrices as a new stack
         >>> stack[::2]  # Every other matrix
 
-    - **Iteration**: Iterate over all matrices in the stack.
+    - Iteration: Iterate over all matrices in the stack.
 
         >>> for matrix in stack:
         ...     print(matrix.matrix.shape)
 
-    - **subslice()**: Select specific non-contiguous slices by index.
+    - subslice(): Select specific non-contiguous slices by index.
 
         >>> stack.subslice([0, 2, 5])  # Select slices 0, 2, and 5
 
     Examples:
-    ---------
-    Creating a stack:
+        Creating a stack:
 
-        >>> stack_data = np.random.rand(5, 5, 10)  # 5x5 matrices, 10 slices
-        >>> stack = PairwiseCompMatrixStack(stack=stack_data)
+            >>> stack_data = np.random.rand(5, 5, 10)  # 5x5 matrices, 10 slices
+            >>> stack = PairwiseCompMatrixStack(stack=stack_data)
 
-    Slicing:
+        Slicing:
 
-        >>> sub_stack = stack[0:3]  # Get first 3 slices
-        >>> single_matrix = stack[5]  # Get 6th slice as PairwiseCompMatrix
+            >>> sub_stack = stack[0:3]  # Get first 3 slices
+            >>> single_matrix = stack[5]  # Get 6th slice as PairwiseCompMatrix
 
-    Binary thresholding:
+        Binary thresholding:
 
-        >>> binary_stack = stack.threshold(0.5)  # Threshold all matrices
+            >>> binary_stack = stack.threshold(0.5)  # Threshold all matrices
     """
 
     stack: np.ndarray
@@ -442,24 +416,21 @@ class PairwiseCompMatrixStack:
     def __getitem__(
         self, index
     ) -> Union[PairwiseCompMatrix, "PairwiseCompMatrixStack"]:
-        """
-        Get a single matrix or a sub-stack by index or slice.
+        """Get a single matrix or a sub-stack by index or slice.
 
         Parameters:
-        -----------
-        index : int or slice
-            - int: Returns the matrix at that slice index as PairwiseCompMatrix
-            - slice: Returns a new PairwiseCompMatrixStack with the selected slices
+            index (int or slice): int returns the matrix at that slice index
+                as PairwiseCompMatrix; slice returns a new
+                PairwiseCompMatrixStack with the selected slices.
 
         Returns:
-        --------
-        PairwiseCompMatrix or PairwiseCompMatrixStack
+            result (PairwiseCompMatrix or PairwiseCompMatrixStack): Single
+                matrix or sub-stack.
 
         Examples:
-        ---------
-        >>> stack[0]      # Get first matrix as PairwiseCompMatrix
-        >>> stack[0:5]    # Get first 5 matrices as new stack
-        >>> stack[::2]    # Get every other matrix
+            >>> stack[0]      # Get first matrix as PairwiseCompMatrix
+            >>> stack[0:5]    # Get first 5 matrices as new stack
+            >>> stack[::2]    # Get every other matrix
         """
         if isinstance(index, slice):
             return PairwiseCompMatrixStack(
@@ -489,24 +460,19 @@ class PairwiseCompMatrixStack:
         return self.stack.shape[2]
 
     def subslice(self, indices: List[int]) -> "PairwiseCompMatrixStack":
-        """
-        Select specific slices from the stack by their indices.
+        """Select specific slices from the stack by their indices.
 
         Parameters:
-        -----------
-        indices : list of int
-            List of slice indices to select.
+            indices (list of int): List of slice indices to select.
 
         Returns:
-        --------
-        PairwiseCompMatrixStack
-            A new stack containing only the selected slices.
+            result (PairwiseCompMatrixStack): A new stack containing only the
+                selected slices.
 
         Examples:
-        ---------
-        >>> stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))
-        >>> sub = stack.subslice([0, 2, 5, 9])  # Select specific slices
-        >>> len(sub)  # 4
+            >>> stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))
+            >>> sub = stack.subslice([0, 2, 5, 9])  # Select specific slices
+            >>> len(sub)  # 4
         """
         indices = list(indices)
         return PairwiseCompMatrixStack(
@@ -517,23 +483,19 @@ class PairwiseCompMatrixStack:
         )
 
     def threshold(self, threshold: float) -> "PairwiseCompMatrixStack":
-        """
-        Create a binary stack based on a threshold.
+        """Create a binary stack based on a threshold.
 
         Parameters:
-        -----------
-        threshold : float
-            Values with absolute value > threshold become 1, otherwise 0.
+            threshold (float): Values with absolute value > threshold become
+                1, otherwise 0.
 
         Returns:
-        --------
-        PairwiseCompMatrixStack
-            A new stack with binary (0/1) values.
+            result (PairwiseCompMatrixStack): A new stack with binary (0/1)
+                values.
 
         Examples:
-        ---------
-        >>> stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))
-        >>> binary_stack = stack.threshold(0.5)
+            >>> stack = PairwiseCompMatrixStack(stack=np.random.rand(5, 5, 10))
+            >>> binary_stack = stack.threshold(0.5)
         """
         binary_stack = (np.abs(self.stack) > threshold).astype(float)
         return PairwiseCompMatrixStack(
@@ -552,8 +514,7 @@ class PairwiseCompMatrixStack:
         threshold: float,
         fill: float = np.nan,
     ) -> "PairwiseCompMatrixStack":
-        """
-        Return a copy with entries removed where a condition satisfies a comparison.
+        """Return a copy with entries removed where a condition satisfies a comparison.
 
         Entries where ``op(condition, threshold)`` evaluates to True are
         replaced by *fill*; all other entries keep their original value from
@@ -632,17 +593,15 @@ class PairwiseCompMatrixStack:
         )
 
     def mean(self, ignore_nan: bool = True) -> PairwiseCompMatrix:
-        """
-        Compute the mean matrix across the stack.
+        """Compute the mean matrix across the stack.
 
         Parameters:
-        -----------
-        ignore_nan : bool, default True
-            Whether to use np.nanmean to ignore NaN values in the average.
+            ignore_nan (bool): Whether to use np.nanmean to ignore NaN values
+                in the average.
 
         Returns:
-        --------
-        mean_matrix : PairwiseCompMatrix
+            mean_matrix (PairwiseCompMatrix): The element-wise mean across all
+                slices.
         """
         if ignore_nan:
             mean_matrix = np.nanmean(self.stack, axis=2)
@@ -666,8 +625,7 @@ class PairwiseCompMatrixStack:
         font_size=14,
         save_path=None,
     ):
-        """
-        Plot the mean matrix across all slices as a heatmap.
+        """Plot the mean matrix across all slices as a heatmap.
 
         Computes ``nanmean`` (or ``mean``) over the stack axis and delegates
         to ``PairwiseCompMatrix.plot()``.
@@ -700,19 +658,12 @@ class PairwiseCompMatrixStack:
         )
 
     def extract_lower_triangle_features(self) -> np.ndarray:
-        """
-        Extract lower triangle (excluding diagonal) from each correlation matrix
-        in the stack.
+        """Extract lower triangle (excluding diagonal) from each correlation matrix in the stack.
 
-        Parameters
-        ----------
-        (uses self.stack)
-
-        Returns
-        -------
-        features : ndarray, shape (S, F)
-            2D matrix where each row contains lower triangle values for that
-            correlation matrix. F = n*(n-1)/2 (number of unique pairs).
+        Returns:
+            features (np.ndarray): 2D matrix of shape ``(S, F)`` where each
+                row contains lower triangle values for that correlation
+                matrix. F = n*(n-1)/2 (number of unique pairs).
         """
         matrix_3d = self.stack
         if matrix_3d.ndim != 3:
@@ -735,29 +686,26 @@ class PairwiseCompMatrixStack:
         n_components: int = 2,
         **kwargs,
     ) -> np.ndarray:
-        """
-        Apply dimensionality reduction (PCA or UMAP) to the lower triangle
-        of each correlation matrix in the stack.
+        """Apply dimensionality reduction (PCA or UMAP) to the lower triangle of each correlation matrix in the stack.
 
-        Parameters
-        ----------
-        method : {"PCA", "UMAP"}, default="PCA"
-            Dimensionality reduction method to use.
-        n_components : int, default=2
-            Number of components (dimensions) in the output manifold.
-        **kwargs
-            Additional keyword arguments passed through to UMAP when
-            ``method='UMAP'`` (e.g., ``n_neighbors``, ``min_dist``, ``metric``).
+        Parameters:
+            method (str): Dimensionality reduction method to use. ``"PCA"``
+                (default) or ``"UMAP"``.
+            n_components (int): Number of components (dimensions) in the
+                output manifold.
+            **kwargs: Additional keyword arguments passed through to UMAP when
+                ``method='UMAP'`` (e.g., ``n_neighbors``, ``min_dist``,
+                ``metric``).
 
-        Returns
-        -------
-        (embedding, explained_variance_ratio, components) : tuple
-            If method="PCA": embedding of shape (S, n_components), fraction of
-            variance explained per component (n_components,), and principal axes
-            of shape (n_components, F) where F = N*(N-1)/2.
-        (embedding, trustworthiness) : tuple
-            If method="UMAP": embedding of shape (S, n_components) and a
-            trustworthiness score (float, 0 to 1).
+        Returns:
+            result (tuple): If method="PCA": ``(embedding, explained_variance_ratio,
+                components)`` where embedding has shape ``(S, n_components)``,
+                explained_variance_ratio has shape ``(n_components,)``, and
+                components has shape ``(n_components, F)`` with
+                F = N*(N-1)/2. If method="UMAP": ``(embedding,
+                trustworthiness)`` where embedding has shape
+                ``(S, n_components)`` and trustworthiness is a float in
+                [0, 1].
         """
         from .utils import PCA_reduction, UMAP_reduction
 

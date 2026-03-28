@@ -1,26 +1,10 @@
-data_exporters module
-=====================
+==============
+Data Exporters
+==============
 
-.. automodule:: data_loaders.data_exporters
+Functions for exporting spike train data and analysis results to CSV, pickle,
+and other output formats.
+
+.. automodule:: spikelab.data_loaders.data_exporters
    :members:
-   :undoc-members:
    :show-inheritance:
-
-Exporter Functions
-------------------
-
-HDF5 Exporter
-^^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.data_exporters.export_spikedata_to_hdf5
-
-NWB Exporter
-^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.data_exporters.export_spikedata_to_nwb
-
-KiloSort Exporter
-^^^^^^^^^^^^^^^^^
-
-.. autofunction:: data_loaders.data_exporters.export_spikedata_to_kilosort
-

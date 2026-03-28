@@ -18,41 +18,38 @@ from .utils import (
 
 
 class RateData:
-    """
-    Description:
-    -----------
-    A data structure where the underlying data is a 2D instantaneous firing rate matrix. This object allows the user
-    to perform a set of functions upon this data, including unit to unit correlation matrix computations.
+    """A 2D instantaneous firing rate matrix with unit-to-unit correlation capabilities.
 
     Parameters:
-    -----------
-    inst_Frate_data (array): 2D array of shape (U, T). Each value is the instanteous firing rate.
-        - U: number of  units/neurons
-        - T: number of time bins
-    times (list): List of time values that each column index in inst_Frate_data represents.
-                  For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
-                  1 is 10 ms, and column 2 is 15 ms
-    neuron_attributes (list or None): List of dicts, one per unit, containing
-        arbitrary metadata about each neuron. None if not provided.
+        inst_Frate_data (array): 2D array of shape (U, T). Each value is the
+            instantaneous firing rate. U is the number of units/neurons and
+            T is the number of time bins.
+        times (list): List of time values that each column index in
+            inst_Frate_data represents. For example, times = [5, 10, 15]
+            so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
+            column 2 is 15 ms.
+        neuron_attributes (list or None): List of dicts, one per unit,
+            containing arbitrary metadata about each neuron. None if not
+            provided.
+
+    Attributes:
+        inst_Frate_data (array): 2D array of shape (U, T). Each value is the
+            instantaneous firing rate. U is the number of units/neurons and
+            T is the number of time bins.
+        times (list): List of time values that each column index in
+            inst_Frate_data represents. For example, times = [5, 10, 15]
+            so inst_Frate_data column 0 is 5 ms, column 1 is 10 ms, and
+            column 2 is 15 ms.
+        neuron_attributes (list or None): List of dicts, one per unit,
+            containing arbitrary metadata about each neuron. None if not
+            provided.
+        N (int): Number of units in inst_Frate_data.
 
     Notes:
-    ------
-    - ``times`` may contain negative values when the RateData represents an
-      event-aligned window (e.g., times from -200 to +500 ms around a stimulus).
-    - ``subtime`` always treats ``start``/``end`` as literal time values.
-      Use ``subtime_by_index`` for index-based slicing with negative indexing.
-
-    Instance Variables:
-    --------
-    self.inst_Frate_data (array): 2D array of shape (U, T). Each value is the instanteous firing rate.
-        - U: number of  units/neurons
-        - T: number of time bins
-    self.times (list): List of time values that each column index in inst_Frate_data represents.
-                  For example, times = [5,10,15] so inst_Frate_data column 0 is 5 ms, column
-                  1 is 10 ms, and column 2 is 15 ms
-    self.neuron_attributes (list or None): List of dicts, one per unit, containing
-        arbitrary metadata about each neuron. None if not provided.
-    self.N (int): Number of units in self.inst_Frate_data
+        - ``times`` may contain negative values when the RateData represents an
+          event-aligned window (e.g., times from -200 to +500 ms around a stimulus).
+        - ``subtime`` always treats ``start``/``end`` as literal time values.
+          Use ``subtime_by_index`` for index-based slicing with negative indexing.
     """
 
     def __init__(self, inst_Frate_data, times, neuron_attributes=None):
@@ -87,17 +84,20 @@ class RateData:
         return f"RateData(shape={self.inst_Frate_data.shape}, time_range=[{t0:.1f}, {t1:.1f}])"
 
     def subset(self, units, by=None):
-        """
-        Extract a subset of units/neurons from the rate data. Index-based if by = None.
+        """Extract a subset of units/neurons from the rate data.
 
         Parameters:
-        units (list or array): Unit indices to extract. If by = None, then this should always be a list of ints.
-                               If by != None, then the list can contain ints or strings.
-        by (string): This is None by default. Only use this if you initialized object with neuron_attributes dictionary.
-                     If you have neuron_attributes, set variable "by" to be the key that contains neuron_id values.
+            units (list or array): Unit indices to extract. If by is None,
+                this should always be a list of ints. If by is not None,
+                the list can contain ints or strings.
+            by (str or None): Neuron attribute key to match against. Only
+                use this if you initialized the object with
+                neuron_attributes. Set to the key that contains neuron_id
+                values. None selects by index (default).
 
         Returns:
-        RateData: New RateData object containing only the specified units
+            result (RateData): New RateData object containing only the
+                specified units.
         """
 
         if isinstance(units, int):
@@ -130,22 +130,22 @@ class RateData:
         )
 
     def subtime(self, start, end):
-        """
-        Extract a subset of time points from the rate data using time values.
+        """Extract a subset of time points from the rate data using time values.
 
         Original time values are preserved in the output.
 
         Parameters:
-        start (int/float): Starting time value (inclusive)
-        end (int/float): Ending time value (exclusive)
+            start (int or float): Starting time value (inclusive).
+            end (int or float): Ending time value (exclusive).
 
         Returns:
-        RateData: New RateData object containing only the specified time range
+            result (RateData): New RateData object containing only the
+                specified time range.
 
         Notes:
-        - Start and end are always treated as literal time values (not offsets
-          from the end). To slice by array index with negative indexing support,
-          use ``subtime_by_index(start_idx, end_idx)``.
+            - Start and end are always treated as literal time values (not
+              offsets from the end). To slice by array index with negative
+              indexing support, use ``subtime_by_index(start_idx, end_idx)``.
         """
 
         # Handle start
@@ -184,22 +184,22 @@ class RateData:
         )
 
     def subtime_by_index(self, start_idx, end_idx):
-        """
-        Extract a subset of time points from the rate data using time index values.
+        """Extract a subset of time points from the rate data using time index values.
 
         Original time values are preserved in the output.
 
         Parameters:
-        start_idx (int): Starting time index (inclusive)
-        end_idx (int): Ending time index (exclusive)
+            start_idx (int): Starting time index (inclusive).
+            end_idx (int): Ending time index (exclusive).
 
         Returns:
-        RateData: New RateData object containing only the specified time range
+            result (RateData): New RateData object containing only the
+                specified time range.
 
         Notes:
-        - Supports negative indexing (e.g., -5 selects 5 from the end).
-        - To slice by time values instead of array indices, use
-          ``subtime(start, end)``.
+            - Supports negative indexing (e.g., -5 selects 5 from the end).
+            - To slice by time values instead of array indices, use
+              ``subtime(start, end)``.
         """
         if start_idx < 0:
             start_idx += len(self.times)
@@ -221,8 +221,7 @@ class RateData:
         )
 
     def frames(self, length, overlap=0):
-        """
-        Split the rate data into a RateSliceStack of fixed-length windows.
+        """Split the rate data into a RateSliceStack of fixed-length windows.
 
         Parameters:
             length (float): Length of each window in milliseconds.
@@ -260,29 +259,27 @@ class RateData:
     def get_pairwise_fr_corr(
         self, compare_func=compute_cross_correlation_with_lag, max_lag=10, n_jobs=-1
     ):
-        """
-        Takes the object's underlying firing rate matrix (U, T) and computes the unit to unit similarity,
-        and the similarity metric is set with compare_func.
+        """Compute unit-to-unit similarity from the firing rate matrix (U, T).
 
         Parameters:
-        compare_func (method in utils): Specify if you want to compare signals with cross-correlation or cosine similarity functions.
-                                        The default is cross correlation. These functions can be insepcted further in utils.py
-        max_lag (int): Max number of lag steps around 0 user wants to be considered for finding the max correlation.
-                       If None, lag is set to 0.
-        n_jobs (int): Number of threads for parallel computation. -1 uses all
-            cores (default), 1 disables parallelism, None is serial.
-
+            compare_func (callable): Comparison function from utils. Specify
+                cross-correlation or cosine similarity. The default is cross
+                correlation. See utils.py for details.
+            max_lag (int): Max number of lag steps around 0 to consider for
+                finding the max correlation. If None, lag is set to 0.
+            n_jobs (int): Number of threads for parallel computation. -1 uses
+                all cores (default), 1 disables parallelism, None is serial.
 
         Returns:
-        tuple[PairwiseCompMatrix, PairwiseCompMatrix]:
-            corr_matrix: PairwiseCompMatrix of maximum correlation coefficients between all unit/neuron pairs.
-                         matrix[i, j] is the max correlation between unit i and unit j.
-                         Values range from -1 to 1. Diagonal is always 1 (self-correlation).
-            lag_matrix: PairwiseCompMatrix of time lags (in time bins) at which maximum correlation occurs.
-                        lag_matrix[i, j] is the lag where correlation between i and j is maximal.
-                        Positive lag means unit j leads unit i (j fires earlier).
-                        Negative lag means unit i leads unit j (i fires earlier).
-                        Diagonal is always 0 (self-correlation is perfectly aligned, so max corr at 0 lag.)
+            corr_matrix (PairwiseCompMatrix): Maximum correlation coefficients
+                between all unit/neuron pairs. matrix[i, j] is the max
+                correlation between unit i and unit j. Values range from -1
+                to 1. Diagonal is always 1 (self-correlation).
+            lag_matrix (PairwiseCompMatrix): Time lags (in time bins) at which
+                maximum correlation occurs. lag_matrix[i, j] is the lag where
+                correlation between i and j is maximal. Positive lag means
+                unit j leads unit i (j fires earlier). Negative lag means
+                unit i leads unit j (i fires earlier). Diagonal is always 0.
         """
 
         rate_matrix = self.inst_Frate_data
@@ -325,25 +322,29 @@ class RateData:
         n_components: int = 2,
         **kwargs,
     ):
-        """
-        Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.
+        """Project the firing-rate data into a low-dimensional manifold using PCA or UMAP.
 
         Parameters:
-        method (str): Which dimensionality reduction method to use. Either "PCA" (default) or "UMAP".
-        n_components (int): Number of output dimensions to return (default=2).
-        **kwargs: Additional options for UMAP. If method="UMAP", you can specify:
-            - use_graph_communities (bool): If True, use UMAP's connectivity graph with Louvain community detection (default: False).
-            - return_labels (bool): If True and use_graph_communities is True, return (embedding, labels) tuple (default: False).
-            - Other UMAP-specific keyword arguments such as n_neighbors, min_dist, metric, or resolution.
+            method (str): Which dimensionality reduction method to use.
+                Either ``"PCA"`` (default) or ``"UMAP"``.
+            n_components (int): Number of output dimensions to return
+                (default 2).
+            **kwargs: Additional options for UMAP. If method is ``"UMAP"``,
+                you can specify use_graph_communities (bool), return_labels
+                (bool), and other UMAP-specific keyword arguments such as
+                n_neighbors, min_dist, metric, or resolution.
 
         Returns:
-        (embedding, explained_variance_ratio, components) (tuple): If method="PCA", returns the embedding
-            of shape (T, n_components), the fraction of variance explained per component (n_components,),
-            and the principal axes of shape (n_components, U).
-        (embedding, trustworthiness) (tuple): If method="UMAP", returns the embedding of shape
-            (T, n_components) and a trustworthiness score (float, 0 to 1).
-        (embedding, labels, trustworthiness) (tuple): If method="UMAP", use_graph_communities=True,
-            and return_labels=True, returns embedding, community labels, and trustworthiness.
+            result (tuple): Depends on method and options:
+                If method is ``"PCA"``: ``(embedding, explained_variance_ratio,
+                components)`` where embedding has shape (T, n_components),
+                explained_variance_ratio has shape (n_components,), and
+                components has shape (n_components, U).
+                If method is ``"UMAP"``: ``(embedding, trustworthiness)`` where
+                embedding has shape (T, n_components) and trustworthiness is
+                a float from 0 to 1.
+                If method is ``"UMAP"`` with use_graph_communities=True and
+                return_labels=True: ``(embedding, labels, trustworthiness)``.
 
         Notes:
             - To visualise the resulting embedding, use

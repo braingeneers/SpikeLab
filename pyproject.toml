@@ -31,6 +31,7 @@ dependencies = [
   "numpy>=1.20",
   "scipy>=1.5",
   "pandas>=1.3",
+  "matplotlib>=3.5",
   "mcp>=0.9.0",
   "h5py>=3.0.0",
 ]
@@ -60,9 +61,7 @@ gplvm = [
   "jaxopt>=0.8.2",
   "optax>=0.2.2",
 ]
-plotting = [
-  "matplotlib>=3.5",
-]
+plotting = []
 ml = [
   "scikit-learn>=1.0",
   "umap-learn>=0.5.0",
@@ -84,7 +83,6 @@ all = [
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",
   "optax>=0.2.2",
-  "matplotlib>=3.5",
   "scikit-learn>=1.0",
   "umap-learn>=0.5.0",
   "networkx>=2.6",

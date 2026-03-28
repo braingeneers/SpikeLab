@@ -37,7 +37,14 @@ __all__ = [
 
 
 def is_s3_url(url: str) -> bool:
-    """Return True if `url` looks like an S3 URL (s3:// or https://...amazonaws.com)."""
+    """Return True if url looks like an S3 URL (s3:// or https://...amazonaws.com).
+
+    Parameters:
+        url (str): URL string to check.
+
+    Returns:
+        is_s3 (bool): True if the URL matches an S3 pattern.
+    """
     if url.startswith("s3://"):
         return True
     if url.startswith("https://") or url.startswith("http://"):
@@ -54,12 +61,20 @@ def is_s3_url(url: str) -> bool:
 def parse_s3_url(url: str) -> Tuple[str, str]:
     """Parse an S3 URL into (bucket, key).
 
-    Supported forms:
-    - s3://bucket/key
-    - https://s3.amazonaws.com/bucket/key
-    - https://s3.<region>.amazonaws.com/bucket/key
-    - https://<bucket>.s3.amazonaws.com/key
-    - https://<bucket>.s3.<region>.amazonaws.com/key
+    Supported forms include s3://bucket/key, path-style HTTPS
+    (s3.amazonaws.com/bucket/key), and virtual-hosted-style HTTPS
+    (bucket.s3.amazonaws.com/key), with optional region subdomains.
+
+    Parameters:
+        url (str): S3 URL to parse.
+
+    Returns:
+        bucket_key (tuple[str, str]): The (bucket, key) pair extracted
+            from the URL.
+
+    Raises:
+        ValueError: If the URL format is not recognised or has no
+            object key.
     """
     if url.startswith("s3://"):
         path = url[5:]
@@ -116,7 +131,28 @@ def download_from_s3(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> str:
-    """Download a single S3 object to a local file and return the local path."""
+    """Download a single S3 object to a local file and return the local path.
+
+    Parameters:
+        url (str): S3 URL of the object to download.
+        local_path (str | None): Destination file path. If None, a
+            temporary file is created.
+        aws_access_key_id (str | None): AWS access key ID.
+        aws_secret_access_key (str | None): AWS secret access key.
+        aws_session_token (str | None): AWS session token for temporary
+            credentials.
+        region_name (str | None): AWS region name.
+
+    Returns:
+        local_path (str): Path to the downloaded local file.
+
+    Raises:
+        ImportError: If boto3 is not installed.
+        ValueError: If the URL is not an S3 URL or the bucket/key is
+            not found.
+        PermissionError: If access to the S3 object is denied.
+        RuntimeError: If the download fails for another reason.
+    """
     if boto3 is None:
         raise ImportError(
             "boto3 is required for S3 downloads. Install it with: pip install boto3"
@@ -176,7 +212,28 @@ def upload_to_s3(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> str:
-    """Upload a local file to S3 and return the S3 URL."""
+    """Upload a local file to S3 and return the S3 URL.
+
+    Parameters:
+        local_path (str): Path to the local file to upload.
+        s3_url (str): Destination S3 URL (s3://bucket/key).
+        aws_access_key_id (str | None): AWS access key ID.
+        aws_secret_access_key (str | None): AWS secret access key.
+        aws_session_token (str | None): AWS session token for temporary
+            credentials.
+        region_name (str | None): AWS region name.
+
+    Returns:
+        s3_url (str): The S3 URL the file was uploaded to.
+
+    Raises:
+        ImportError: If boto3 is not installed.
+        FileNotFoundError: If the local file does not exist.
+        ValueError: If the URL is not an S3 URL or the bucket is not
+            found.
+        PermissionError: If access to the S3 bucket is denied.
+        RuntimeError: If the upload fails for another reason.
+    """
     if not is_s3_url(s3_url):
         raise ValueError(f"Not an S3 URL: {s3_url}")
 
@@ -226,7 +283,28 @@ def ensure_local_file(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> Tuple[str, bool]:
-    """Return (local_path, is_temporary) for a local path or S3 URL."""
+    """Return (local_path, is_temporary) for a local path or S3 URL.
+
+    If the input is an S3 URL, the object is downloaded to a temporary
+    file. If it is a local path, it is returned as-is.
+
+    Parameters:
+        file_path_or_url (str): Local file path or S3 URL.
+        aws_access_key_id (str | None): AWS access key ID.
+        aws_secret_access_key (str | None): AWS secret access key.
+        aws_session_token (str | None): AWS session token for temporary
+            credentials.
+        region_name (str | None): AWS region name.
+
+    Returns:
+        result (tuple[str, bool]): A (local_path, is_temporary) pair.
+            is_temporary is True when the file was downloaded from S3
+            and the caller should delete it after use.
+
+    Raises:
+        FileNotFoundError: If a local path is given and the file does
+            not exist.
+    """
     if is_s3_url(file_path_or_url):
         local_path = download_from_s3(
             file_path_or_url,

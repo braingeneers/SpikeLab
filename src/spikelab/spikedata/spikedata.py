@@ -1,6 +1,4 @@
-"""
-SpikeData core module.
-"""
+"""SpikeData core module."""
 
 import heapq
 import itertools
@@ -43,55 +41,46 @@ __all__ = [
 
 
 class SpikeData:
-    """
-    Class for handling and manipulating neuronal spike data with functionality
-    for loading, processing, and analyzing spike data from different sources.
+    """Neuronal spike data with functionality for loading, processing, and analyzing.
 
-
-    Each instance of SpikeData has the following attributes:
-
-    train: The main data attribute. This is a list of numpy arrays, where each array
-      contains the spike times for a particular neuron.
-
-    N: The number of neurons in the dataset.
-
-    length: The total duration of the time window in milliseconds.
-
-    start_time: The time origin in milliseconds (default 0.0). For event-centered
-      data, this is typically -pre_ms. Spike times fall within
-      [start_time, start_time + length].
-
-    neuron_attributes: A list of dictionaries containing information on each neuron.
-
-    metadata: A dictionary containing any additional information or metadata about the
-      spike data.
-
-    raw_data: If provided, this numpy array contains the raw time series data.
-
-    raw_time: This is either a numpy array of sample times, or a single float
-      representing a sample rate in kHz.
-
+    Attributes:
+        train (list[numpy.ndarray]): List of numpy arrays, where each array
+            contains the spike times for a particular neuron.
+        N (int): The number of neurons in the dataset.
+        length (float): The total duration of the time window in milliseconds.
+        start_time (float): The time origin in milliseconds (default 0.0).
+            For event-centered data, this is typically -pre_ms. Spike times
+            fall within [start_time, start_time + length].
+        neuron_attributes (list[dict] or None): A list of dictionaries
+            containing information on each neuron.
+        metadata (dict): A dictionary containing any additional information
+            or metadata about the spike data.
+        raw_data (numpy.ndarray): If provided, this numpy array contains the
+            raw time series data.
+        raw_time (numpy.ndarray or float): Either a numpy array of sample
+            times, or a single float representing a sample rate in kHz.
     """
 
     @staticmethod
     def from_idces_times(idces, times, N=None, **kwargs):
-        """
-        Create a SpikeData object based on a list of N units indices and
-        spike times.
+        """Create a SpikeData object from lists of unit indices and spike times.
 
         Parameters:
-        idces (list): List of unit indices
-        times (list): List of spike times
-        N (int): Number of units (optional)
-        **kwargs: Additional keyword arguments for the SpikeData constructor
+            idces (list): List of unit indices.
+            times (list): List of spike times.
+            N (int): Number of units (optional).
+            **kwargs: Additional keyword arguments for the SpikeData
+                constructor.
 
         Returns:
-        spike_data (SpikeData): A new SpikeData object with the given unit indices and spike times.
+            spike_data (SpikeData): A new SpikeData object with the given
+                unit indices and spike times.
 
         Notes:
-        - This method is a wrapper around the _train_from_i_t_list helper function.
-        - When ``idces`` is empty and ``N`` is None, defaults to 0 units and
-          ``length=0``.
+            - This method is a wrapper around the _train_from_i_t_list
+              helper function.
+            - When ``idces`` is empty and ``N`` is None, defaults to 0 units
+              and ``length=0``.
         """
         idces = np.asarray(idces)
         if idces.size == 0:
@@ -101,24 +90,27 @@ class SpikeData:
 
     @staticmethod
     def from_raster(raster, bin_size_ms, **kwargs):
-        """
-        Create a SpikeData object based on a spike raster matrix with shape (N [units], T [time bins])
+        """Create a SpikeData object from a spike raster matrix with shape (N, T).
 
         Parameters:
-        raster (numpy.ndarray): Spike raster matrix with shape (N [units], T [time bins])
-        bin_size_ms (float): Size of each time bin in milliseconds
-        **kwargs: Additional keyword arguments for the SpikeData constructor
+            raster (numpy.ndarray): Spike raster matrix with shape
+                (N [units], T [time bins]).
+            bin_size_ms (float): Size of each time bin in milliseconds.
+            **kwargs: Additional keyword arguments for the SpikeData
+                constructor.
 
         Returns:
-        sd (SpikeData): Object with the given spike raster.
+            sd (SpikeData): Object with the given spike raster.
 
         Notes:
-        - The generated spike times are evenly spaced within each time bin. For example, if a unit fires
-            3 times in a 10 ms time bin, those events go at 2.5, 5, and 7.5 ms after the start of the bin.
-        - All metadata parameters of the regular constructor are accepted.
-        - For event-centered rasters (where bin 0 corresponds to ``start_time``,
-          not t=0), pass ``start_time`` in kwargs so that spike times are
-          correctly offset. Without it, bin 0 maps to t=0.
+            - The generated spike times are evenly spaced within each time
+              bin. For example, if a unit fires 3 times in a 10 ms time bin,
+              those events go at 2.5, 5, and 7.5 ms after the start of the
+              bin.
+            - All metadata parameters of the regular constructor are accepted.
+            - For event-centered rasters (where bin 0 corresponds to
+              ``start_time``, not t=0), pass ``start_time`` in kwargs so that
+              spike times are correctly offset. Without it, bin 0 maps to t=0.
         """
         raster = raster.astype(int)
         N, T = raster.shape
@@ -140,20 +132,21 @@ class SpikeData:
 
     @staticmethod
     def from_events(events, N=None, **kwargs):
-        """
-        Create a SpikeData object based on a list of (unit index, time) pairs.
+        """Create a SpikeData object from a list of (unit index, time) pairs.
 
         Parameters:
-        events (list): List of (index, time) pairs
-        N (int): Number of units (default: maximum index in the events)
-        **kwargs: Additional keyword arguments for the SpikeData constructor
+            events (list): List of (index, time) pairs.
+            N (int): Number of units (default: maximum index in the events).
+            **kwargs: Additional keyword arguments for the SpikeData
+                constructor.
 
         Returns:
-        sd (SpikeData): Object with the given events.
+            sd (SpikeData): Object with the given events.
 
         Notes:
-        - This method is a wrapper around the from_idces_times helper function.
-            All metadata parameters of the regular constructor are accepted.
+            - This method is a wrapper around the from_idces_times helper
+              function. All metadata parameters of the regular constructor
+              are accepted.
         """
         idces, times = [], []
         for i, t in events:
@@ -163,14 +156,16 @@ class SpikeData:
 
     @staticmethod
     def from_neo_spiketrains(spiketrains, **kwargs):
-        """
-        Create a SpikeData object from a list of neo.SpikeTrain objects.
+        """Create a SpikeData object from a list of neo.SpikeTrain objects.
+
         Parameters:
-        spiketrains (list): List of neo.SpikeTrain objects
-        **kwargs: Additional keyword arguments for the SpikeData constructor
+            spiketrains (list): List of neo.SpikeTrain objects.
+            **kwargs: Additional keyword arguments for the SpikeData
+                constructor.
 
         Returns:
-        sd (SpikeData): Object with the given spike trains in milliseconds.
+            sd (SpikeData): Object with the given spike trains in
+                milliseconds.
         """
         trains = [st.copy() for st in spiketrains]
         for st in trains:
@@ -187,24 +182,27 @@ class SpikeData:
         hysteresis=True,
         direction: Literal["both", "up", "down"] = "both",
     ):
-        """
-        Create a SpikeData object from raw data by filtering and thresholding raw
-        electrophysiological data formatted as an array with shape (channels, time).
+        """Create a SpikeData object by filtering and thresholding raw electrophysiological data.
 
         Parameters:
-        data (numpy.ndarray): Raw data with shape (channels, time)
-        fs_Hz (float): Sampling frequency in Hz
-        threshold_sigma (float): Threshold in units of per-channel standard deviation
-        filter (dict or bool): Filter configuration or False to disable filtering; if True, a third-order Butterworth filter with passband 300 Hz to 6 kHz is used.
-        hysteresis (bool): Use hysteresis for thresholding
-        direction (str): Direction of thresholding ('both', 'up', 'down')
+            data (numpy.ndarray): Raw data with shape (channels, time).
+            fs_Hz (float): Sampling frequency in Hz.
+            threshold_sigma (float): Threshold in units of per-channel
+                standard deviation.
+            filter (dict or bool): Filter configuration or False to disable
+                filtering; if True, a third-order Butterworth filter with
+                passband 300 Hz to 6 kHz is used.
+            hysteresis (bool): Use hysteresis for thresholding.
+            direction (str): Direction of thresholding ('both', 'up',
+                'down').
 
         Returns:
-        sd (SpikeData): Object with the given raw data.
+            sd (SpikeData): Object with the given raw data.
 
         Notes:
-        -  To use different filter parameters, pass a dictionary, which will be passed as keyword arguments to butter_filter().
-        -  If filter is False, no filtering is done.
+            - To use different filter parameters, pass a dictionary, which
+              will be passed as keyword arguments to butter_filter().
+            - If filter is False, no filtering is done.
         """
         if filter:
             if filter is True:
@@ -243,32 +241,36 @@ class SpikeData:
         raw_data=None,
         raw_time: Optional[Union[NDArray, float]] = None,
     ):
-        """
-        Initialize a SpikeData object using a list of spike trains, each a
-        list of spike times in milliseconds.
+        """Initialize a SpikeData object from a list of spike trains.
 
         Parameters:
-        train (list): List of spike trains, each a list of spike times in milliseconds.
-            Spike times can be negative for event-centered data (e.g. -200 to +300
-            around a stimulus event).
-        N (int): Number of units (optional).
-        length (float): Total duration of the time window in milliseconds (optional).
-            For event-centered data with times from -200 to +300, length is 500.
-            Defaults to the span from start_time to the latest spike time.
-        start_time (float): Time of the first bin in milliseconds (default 0.0).
-            For event-centered data, this is typically ``-pre_ms`` (e.g. -200.0).
-            Spike times must fall within ``[start_time, start_time + length]``.
-        neuron_attributes (list): List of neuron attributes (optional).
-        metadata (dict): Dictionary of metadata (optional).
-        raw_data (numpy.ndarray): Raw timeseries data with shape (channels, time) (optional).
-        raw_time (numpy.ndarray or float): Raw time vector with shape (time) or
-            sample rate in kHz (optional).
+            train (list): List of spike trains, each a list of spike times
+                in milliseconds. Spike times can be negative for
+                event-centered data (e.g. -200 to +300 around a stimulus
+                event).
+            N (int): Number of units (optional).
+            length (float): Total duration of the time window in
+                milliseconds (optional). For event-centered data with times
+                from -200 to +300, length is 500. Defaults to the span from
+                start_time to the latest spike time.
+            start_time (float): Time of the first bin in milliseconds
+                (default 0.0). For event-centered data, this is typically
+                ``-pre_ms`` (e.g. -200.0). Spike times must fall within
+                ``[start_time, start_time + length]``.
+            neuron_attributes (list): List of neuron attributes (optional).
+            metadata (dict): Dictionary of metadata (optional).
+            raw_data (numpy.ndarray): Raw timeseries data with shape
+                (channels, time) (optional).
+            raw_time (numpy.ndarray or float): Raw time vector with shape
+                (time) or sample rate in kHz (optional).
 
         Notes:
-        - Arbitrary raw timeseries data, not associated with particular units,
-          can be passed in as `raw_data` (an array with shape (channels, time)).
-        - The `raw_time` argument can also be a sample rate in kHz, in which case
-          it is generated assuming that the start of the raw data corresponds with t=0.
+            - Arbitrary raw timeseries data, not associated with particular
+              units, can be passed in as ``raw_data`` (an array with shape
+              (channels, time)).
+            - The ``raw_time`` argument can also be a sample rate in kHz, in
+              which case it is generated assuming that the start of the raw
+              data corresponds with t=0.
         """
         # Make sure each individual spike train is sorted. As a side effect,
         # also copy each array to avoid aliasing.
@@ -371,17 +373,15 @@ class SpikeData:
         )
 
     def idces_times(self):
-        """
-        Generate a matched pair of numpy arrays containing unit indices and times for
-        all events.
+        """Generate matched arrays of unit indices and times for all events.
 
         Returns:
-        idces (numpy.ndarray): Array of unit indices
-        times (numpy.ndarray): Array of times for all events.
+            idces (numpy.ndarray): Array of unit indices.
+            times (numpy.ndarray): Array of times for all events.
 
         Notes:
-        - This method is not a property unlike `times` and `events` because the lists must
-        actually be constructed in memory.
+            - This method is not a property unlike ``times`` and ``events``
+              because the lists must actually be constructed in memory.
         """
         idces, times = [], []
         for i, t in self.events:
@@ -391,16 +391,15 @@ class SpikeData:
 
     @property
     def unit_locations(self) -> Optional[np.ndarray]:
-        """
-        Get unit locations as an (U, D) array where D is the spatial dimension.
-
+        """Get unit locations as an (U, D) array where D is the spatial dimension.
 
         Returns:
-        locations (numpy.ndarray): Array of unit locations, shape (N, D)
-        - None if any unit lacks location data
+            locations (numpy.ndarray or None): Array of unit locations, shape
+                (N, D). None if any unit lacks location data.
 
         Notes:
-        - Extracts from neuron_attributes 'location', 'x'/'y'/'z' (x and y required), or 'position' keys.
+            - Extracts from neuron_attributes 'location', 'x'/'y'/'z'
+              (x and y required), or 'position' keys.
         """
         if self.neuron_attributes is None:
             return None
@@ -425,11 +424,15 @@ class SpikeData:
 
     @property
     def electrodes(self) -> Optional[np.ndarray]:
-        """
-        Get electrode/channel indices for each unit as a 1D array.
+        """Get electrode/channel indices for each unit as a 1D array.
 
-        Extracts from neuron_attributes 'electrode', 'channel', or 'ch' keys.
-        Returns None if any unit lacks electrode data.
+        Returns:
+            electrodes (numpy.ndarray or None): 1D array of electrode
+                indices. None if any unit lacks electrode data.
+
+        Notes:
+            - Extracts from neuron_attributes 'electrode', 'channel', or
+              'ch' keys.
         """
         if self.neuron_attributes is None:
             return None
@@ -450,18 +453,20 @@ class SpikeData:
         return np.array(electrodes)
 
     def frames(self, length, overlap=0):
-        """
-        Split the recording into a SpikeSliceStack of fixed-length windows.
+        """Split the recording into a SpikeSliceStack of fixed-length windows.
 
         Parameters:
             length (float): Length of each window in milliseconds.
-            overlap (float): Overlap between consecutive windows in milliseconds. Default 0.
+            overlap (float): Overlap between consecutive windows in
+                milliseconds (default: 0).
 
         Returns:
-            stack (SpikeSliceStack): Stack of SpikeData windows, one per frame.
+            stack (SpikeSliceStack): Stack of SpikeData windows, one per
+                frame.
 
         Notes:
-            - Windows that would extend past the end of the recording are excluded.
+            - Windows that would extend past the end of the recording are
+              excluded.
             - overlap must be strictly less than length.
         """
         from .spikeslicestack import SpikeSliceStack
@@ -490,29 +495,35 @@ class SpikeData:
         bin_size_ms=1.0,
         sigma_ms=10,
     ):
-        """
-        Align spike trains to a set of events and return an event-aligned slice stack.
+        """Align spike trains to events and return an event-aligned slice stack.
 
         Parameters:
-            events (array-like or str): Event times in milliseconds, or a string key
-                into ``self.metadata`` whose value is an array of event times in ms.
-            pre_ms (float): Window duration before each event in milliseconds.
-            post_ms (float): Window duration after each event in milliseconds.
-            kind (str): ``"spike"`` to return a ``SpikeSliceStack``, or ``"rate"`` to
-                return a ``RateSliceStack``. Default ``"spike"``.
-            bin_size_ms (float): Time bin width in milliseconds. Only used when
-                ``kind="rate"``. Default 1.0.
-            sigma_ms (float): Gaussian smoothing sigma in milliseconds for ISI-based
-                firing rate estimation. Only used when ``kind="rate"``. Default 10.
+            events (array-like or str): Event times in milliseconds, or a
+                string key into ``self.metadata`` whose value is an array
+                of event times in ms.
+            pre_ms (float): Window duration before each event in
+                milliseconds.
+            post_ms (float): Window duration after each event in
+                milliseconds.
+            kind (str): ``"spike"`` to return a ``SpikeSliceStack``, or
+                ``"rate"`` to return a ``RateSliceStack``. Default
+                ``"spike"``.
+            bin_size_ms (float): Time bin width in milliseconds. Only used
+                when ``kind="rate"``. Default 1.0.
+            sigma_ms (float): Gaussian smoothing sigma in milliseconds for
+                ISI-based firing rate estimation. Only used when
+                ``kind="rate"``. Default 10.
 
         Returns:
-            stack (SpikeSliceStack or RateSliceStack): Event-aligned slice stack with
-                one slice per event. Events whose window extends outside
-                ``[start_time, start_time + length]`` are dropped with a warning.
+            stack (SpikeSliceStack or RateSliceStack): Event-aligned slice
+                stack with one slice per event. Events whose window extends
+                outside ``[start_time, start_time + length]`` are dropped
+                with a warning.
 
         Notes:
-            - When ``events`` is a metadata key, the corresponding array must already
-              be in milliseconds (as stored by ``load_spikedata_from_ibl``).
+            - When ``events`` is a metadata key, the corresponding array
+              must already be in milliseconds (as stored by
+              ``load_spikedata_from_ibl``).
         """
         import warnings
 
@@ -571,34 +582,36 @@ class SpikeData:
             )
 
     def binned(self, bin_size=40.0):
-        """
-        Quantize time into intervals of bin_size and count the number of events in
-        each bin. Bins are relative to ``start_time``: ``(start_time, start_time + bin_size]``,
-        ``(start_time + bin_size, start_time + 2*bin_size]``, etc. A spike at exactly
-        ``start_time`` is included in bin 0.
+        """Count the number of events in each time bin across all units.
+
+        Bins are relative to ``start_time``: ``(start_time, start_time +
+        bin_size]``, ``(start_time + bin_size, start_time + 2*bin_size]``,
+        etc. A spike at exactly ``start_time`` is included in bin 0.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds
+            bin_size (float): Size of the time bin in milliseconds.
 
         Returns:
-        binned_raster (numpy.ndarray): Array of the number of events in each bin.
+            binned_raster (numpy.ndarray): Array of the number of events in
+                each bin.
         """
         # sum(0) on CSR returns a (1, T) matrix in older SciPy; flatten to 1D array
         return np.asarray(self.sparse_raster(bin_size).sum(0)).ravel()  # type: ignore
 
     def binned_meanrate(self, bin_size=40, unit="kHz"):
-        """
-        Calculate the mean firing rate across the population in each time bin.
+        """Calculate the mean firing rate across the population in each time bin.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds
-        unit (str): Unit of the firing rate ('Hz' or 'kHz')
+            bin_size (float): Size of the time bin in milliseconds.
+            unit (str): Unit of the firing rate ('Hz' or 'kHz').
 
         Returns:
-        binned_meanrate (numpy.ndarray): Array of the mean firing rate in each bin.
+            binned_meanrate (numpy.ndarray): Array of the mean firing rate
+                in each bin.
 
         Notes:
-        - The rate is calculated as the number of events in each bin divided by the bin size and number of units.
+            - The rate is calculated as the number of events in each bin
+              divided by the bin size and number of units.
         """
         if self.N == 0:
             return np.zeros(int(np.ceil(self.length / bin_size)))
@@ -611,15 +624,13 @@ class SpikeData:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
     def rates(self, unit="kHz"):
-        """
-        Calculate the mean firing rate of each neuron as an average number of events per
-        time over the length of the data.
+        """Calculate the mean firing rate of each neuron over the recording.
 
         Parameters:
-        unit (str): Unit of the firing rate ('Hz' or 'kHz')
+            unit (str): Unit of the firing rate ('Hz' or 'kHz').
 
         Returns:
-        rates (numpy.ndarray): Array of the firing rate of each neuron.
+            rates (numpy.ndarray): Array of the firing rate of each neuron.
         """
         if self.length == 0:
             return np.zeros(self.N)
@@ -632,27 +643,29 @@ class SpikeData:
             raise ValueError(f"Unknown unit {unit} (try Hz or kHz)")
 
     def resampled_isi(self, times, sigma_ms=10.0):
-        """
-        Calculate instantaneous firing rate of each unit at the given times by calculating the
-        interspike intervals and interpolating their inverse.
+        """Calculate instantaneous firing rate of each unit at the given times.
+
+        Computes interspike intervals and interpolates their inverse.
 
         Parameters:
-        times (numpy.ndarray): Array of times to resample the firing rate to
-        sigma_ms (float): Standard deviation of the Gaussian kernel in milliseconds
+            times (numpy.ndarray): Array of times to resample the firing
+                rate to.
+            sigma_ms (float): Standard deviation of the Gaussian kernel in
+                milliseconds.
 
         Returns:
-        rates (numpy.ndarray): Array of the resampled firing rate.
+            rates (numpy.ndarray): Array of the resampled firing rate.
         """
         return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
-        """
-        Set an attribute: a list of dictionaries, each with a key/value pair with length equal to the number of neurons.
+        """Set an attribute across neurons in neuron_attributes.
 
         Parameters:
-        key (str):  Name of a particular attribute.
-        values (single value or list): Single value (applied to all) or list/array matching neuron_indices length for each neuron.
-        neuron_indices (list): Neurons to update. If None, updates all.
+            key (str): Name of the attribute.
+            values (single value or list): Single value (applied to all) or
+                list/array matching neuron_indices length for each neuron.
+            neuron_indices (list): Neurons to update. If None, updates all.
         """
         if self.neuron_attributes is None:
             self.neuron_attributes = [{} for _ in range(self.N)]
@@ -670,39 +683,43 @@ class SpikeData:
                 self.neuron_attributes[i][key] = values
 
     def get_neuron_attribute(self, key: str, default=None):
-        """
-        Get an attribute across all neurons.
+        """Get an attribute across all neurons.
 
         Parameters:
-            key: Attribute name.
-            default: Value if neuron lacks the attribute.
+            key (str): Attribute name.
+            default (any): Value if neuron lacks the attribute.
 
         Returns:
-            List of values, one per neuron.
+            values (list): List of values, one per neuron.
         """
         if self.neuron_attributes is None:
             return [default] * self.N
         return [attr.get(key, default) for attr in self.neuron_attributes]
 
     def subset(self, units, by=None):
-        """
-        Return a new SpikeData with spike times for only some units, selected either by
-        their indices or by an ID stored under a given key in the neuron_attributes. Index-based if by = None.
+        """Return a new SpikeData with only the selected units.
+
+        Units are selected either by their indices or by an ID stored under
+        a given key in the neuron_attributes.
 
         Parameters:
-        units (list): List of unit indices to select
-        by (str): Key to select units by in the neuron_attributes. Index-based if by = None.
+            units (list): List of unit indices to select.
+            by (str): Key to select units by in the neuron_attributes.
+                Index-based if None.
 
         Returns:
-        sd (SpikeData): New SpikeData object with the selected units.
+            sd (SpikeData): New SpikeData object with the selected units.
 
         Notes:
-        - Units are included in the output according to their order in self.train, not the
-        order in the unit list (which is treated as a set).
-        - raw_data and raw_time are not propagated to the subset — they remain on the
-        original SpikeData object.
-        - If IDs are not unique, every neuron which matches is included in the output.
-        - Neurons whose neuron_attributes entry does not have the key are always excluded.
+            - Units are included in the output according to their order in
+              self.train, not the order in the unit list (which is treated
+              as a set).
+            - raw_data and raw_time are not propagated to the subset -- they
+              remain on the original SpikeData object.
+            - If IDs are not unique, every neuron which matches is included
+              in the output.
+            - Neurons whose neuron_attributes entry does not have the key
+              are always excluded.
         """
         if isinstance(units, int):
             units = [units]
@@ -742,21 +759,24 @@ class SpikeData:
     def neuron_to_channel_map(
         self, channel_attr: Optional[str] = None
     ) -> dict[int, int]:
-        """
-        Return a mapping from neuron indices to channel indices.
+        """Return a mapping from neuron indices to channel indices.
 
         Parameters:
-            channel_attr: Optional name of the attribute in neuron_attributes that
-                contains the channel index. If None, searches for common attribute names.
+            channel_attr (str or None): Name of the attribute in
+                neuron_attributes that contains the channel index. If None,
+                searches for common attribute names.
 
         Returns:
-        mapping (dict): Mapping from neuron index (int) to channel index (int). Returns an empty dict if neuron_attributes is None.
+            mapping (dict): Mapping from neuron index (int) to channel index
+                (int). Returns an empty dict if neuron_attributes is None.
 
         Notes:
-        - If neuron_attributes is None and channel information is required,
-        or if the specified channel_attr doesn't exist for all neurons, a ValueError is raised.
-        - If channel_attr is not specified, attempts to find channel information using common attribute names:
-        'channel', 'channel_id', 'channel_index', 'ch', 'channel_idx'.
+            - If neuron_attributes is None and channel information is
+              required, or if the specified channel_attr doesn't exist for
+              all neurons, a ValueError is raised.
+            - If channel_attr is not specified, attempts to find channel
+              information using common attribute names: 'channel',
+              'channel_id', 'channel_index', 'ch', 'channel_idx'.
         """
         if self.neuron_attributes is None or self.N == 0:
             return {}
@@ -786,34 +806,36 @@ class SpikeData:
         return mapping
 
     def subtime(self, start, end, shift_to=None):
-        """
-        Extract a subset of time points from spikedata using time values.
+        """Extract a subset of time points from the spike data.
 
         Spike times are shifted so that ``shift_to`` becomes t=0 in the new
-        SpikeData. By default ``shift_to=start``, so subtime(100, 200) produces
-        spikes in the range [0, 100). For event-centered slicing, pass
-        ``shift_to=event_time`` to produce spikes from ``-(event - start)`` to
-        ``+(end - event)``.
+        SpikeData. By default ``shift_to=start``, so subtime(100, 200)
+        produces spikes in the range [0, 100). For event-centered slicing,
+        pass ``shift_to=event_time`` to produce spikes from
+        ``-(event - start)`` to ``+(end - event)``.
 
         Parameters:
-        start (int/float): Starting time value (inclusive).
-        end (int/float): Ending time value (exclusive).
-        shift_to (float or None): The time value that becomes t=0 in the output.
-            Defaults to ``start`` (standard behavior). For event-centered output,
-            pass the event time so that t=0 corresponds to the event.
+            start (float): Starting time value (inclusive).
+            end (float): Ending time value (exclusive).
+            shift_to (float or None): The time value that becomes t=0 in the
+                output. Defaults to ``start`` (standard behavior). For
+                event-centered output, pass the event time so that t=0
+                corresponds to the event.
 
         Returns:
-        SpikeData: New SpikeData object containing only the specified time range.
+            sd (SpikeData): New SpikeData object containing only the
+                specified time range.
 
         Notes:
-        - For standard data (``start_time >= 0``), negative start/end values are
-          counted backwards from the end of the recording. For event-centered data
-          (``start_time < 0``), negative values are treated as literal times.
-        - Start and end can also be None or Ellipsis, in which case that end of
-          the data is not truncated.
-        - All metadata and neuron data are propagated.
-        - The output SpikeData has ``start_time = start - shift_to`` and
-          ``length = end - start``.
+            - For standard data (``start_time >= 0``), negative start/end
+              values are counted backwards from the end of the recording.
+              For event-centered data (``start_time < 0``), negative values
+              are treated as literal times.
+            - Start and end can also be None or Ellipsis, in which case that
+              end of the data is not truncated.
+            - All metadata and neuron data are propagated.
+            - The output SpikeData has ``start_time = start - shift_to`` and
+              ``length = end - start``.
         """
         end_time = self.start_time + self.length
 
@@ -873,16 +895,17 @@ class SpikeData:
         )
 
     def __getitem__(self, key):
-        """
-        If a slice is provided, it is interpreted as a time range and handled using self.subtime().
-        If an iterable is provided, it is interpreted as a list of neuron indices and handled
-        using self.subset().
+        """Index by time slice or by unit indices.
+
+        A slice is interpreted as a time range via ``subtime()``. An
+        iterable is interpreted as unit indices via ``subset()``.
 
         Parameters:
-        key (slice or iterable): Slice or iterable of neuron indices to select
+            key (slice or iterable): Slice or iterable of neuron indices to
+                select.
 
         Returns:
-        sd (SpikeData): New SpikeData object with the selected units.
+            sd (SpikeData): New SpikeData object with the selected units.
         """
         if isinstance(key, slice):
             return self.subtime(key.start, key.stop)
@@ -890,19 +913,18 @@ class SpikeData:
             return self.subset(key)
 
     def append(self, spikeData, offset=0):
-        """
-        Append the spike times from another SpikeData object to this one, optionally
-        offsetting them by a given amount from the end of the current data.
+        """Append spike times from another SpikeData object to this one.
 
         Parameters:
-        spikeData (SpikeData): SpikeData object to append
-        offset (float): Offset in milliseconds to add to the spike times of the appended data
+            spikeData (SpikeData): SpikeData object to append.
+            offset (float): Offset in milliseconds to add to the spike times
+                of the appended data.
 
         Returns:
-        sd (SpikeData): New SpikeData object with the appended data.
+            sd (SpikeData): New SpikeData object with the appended data.
 
         Notes:
-        - The two SpikeData objects must have the same number of neurons.
+            - The two SpikeData objects must have the same number of neurons.
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
@@ -940,30 +962,29 @@ class SpikeData:
         )
 
     def sparse_raster(self, bin_size=20.0, time_offset=0.0):
-        """
-        Bin all spike times and create a sparse array where entry (i,j) is the number of
-        times unit i fired in bin j.
+        """Bin spike times into a sparse (units, bins) matrix.
 
-        Spike times are shifted by ``-start_time`` before binning so that bin 0
-        corresponds to ``start_time``. For standard (0-based) SpikeData this has
-        no effect. For event-centered SpikeData with negative ``start_time``,
-        pre-event spikes occupy the first bins.
+        Entry (i, j) is the number of times unit i fired in bin j. Spike
+        times are shifted by ``-start_time`` before binning so that bin 0
+        corresponds to ``start_time``.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds.
-        time_offset (float): Additional offset added to all spike times before
-            binning (default 0.0). Use this to place spikes at their absolute
-            recording position, e.g. ``time_offset=500`` to shift all spikes
-            by 500 ms in the raster.
+            bin_size (float): Size of the time bin in milliseconds.
+            time_offset (float): Additional offset added to all spike times
+                before binning (default 0.0). Use this to place spikes at
+                their absolute recording position, e.g. ``time_offset=500``
+                to shift all spikes by 500 ms in the raster.
 
         Returns:
-        raster (sparse.csr_matrix): Sparse array where entry (i,j) is the number of
-        times unit i fired in bin j.
+            raster (sparse.csr_matrix): Sparse array where entry (i, j) is
+                the number of times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open, right-closed intervals relative to start_time.
-        - A spike at exactly start_time is clipped into bin 0.
-        - The number of bins is always ceil((length + time_offset) / bin_size).
+            - Bins are left-open, right-closed intervals relative to
+              start_time.
+            - A spike at exactly start_time is clipped into bin 0.
+            - The number of bins is always
+              ceil((length + time_offset) / bin_size).
         """
         # Shift spike times so start_time → 0 before binning
         shift = -self.start_time + time_offset
@@ -979,41 +1000,45 @@ class SpikeData:
         return sparse.csr_matrix((values, indices, indptr), shape=(self.N, length))
 
     def raster(self, bin_size=20.0, time_offset=0.0):
-        """
-        Bin all spike times and create a dense array where entry (i,j) is the number of
-        times cell i fired in bin j.
+        """Bin spike times into a dense (units, bins) array.
+
+        Entry (i, j) is the number of times unit i fired in bin j.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds.
-        time_offset (float): Additional offset added to spike times before binning
-            (default 0.0).
+            bin_size (float): Size of the time bin in milliseconds.
+            time_offset (float): Additional offset added to spike times
+                before binning (default 0.0).
 
         Returns:
-        raster (numpy.ndarray): Dense array where entry (i,j) is the number of
-        times unit i fired in bin j.
+            raster (numpy.ndarray): Dense array where entry (i, j) is the
+                number of times unit i fired in bin j.
 
         Notes:
-        - Bins are left-open, right-closed intervals relative to start_time.
-        - A spike at exactly start_time is clipped into bin 0.
+            - Bins are left-open, right-closed intervals relative to
+              start_time.
+            - A spike at exactly start_time is clipped into bin 0.
         """
         return self.sparse_raster(bin_size, time_offset=time_offset).toarray()
 
     def channel_raster(self, bin_size=20.0, channel_attr: Optional[str] = None):
-        """
-        Create a raster aggregated by channel instead of neuron.
+        """Create a raster aggregated by channel instead of neuron.
 
         Parameters:
-        bin_size (float): Size of the time bin in milliseconds
-        channel_attr (str): Name of the attribute in neuron_attributes that
-        contains the channel index. If None, searches for common attribute names.
+            bin_size (float): Size of the time bin in milliseconds.
+            channel_attr (str): Name of the attribute in neuron_attributes
+                that contains the channel index. If None, searches for
+                common attribute names.
 
         Returns:
-        channel_raster (numpy.ndarray): Dense array where entry (c,j) is the total number of spikes from all
-        neurons on channel c in bin j.
+            channel_raster (numpy.ndarray): Dense array where entry (c, j)
+                is the total number of spikes from all neurons on channel c
+                in bin j.
 
         Notes:
-        - Channels are determined from neuron_attributes using the same logic as neuron_to_channel_map().
-        - If neuron_attributes is None or no channel information can be found, a ValueError is raised.
+            - Channels are determined from neuron_attributes using the same
+              logic as neuron_to_channel_map().
+            - If neuron_attributes is None or no channel information can be
+              found, a ValueError is raised.
         """
         # Get neuron-to-channel mapping
         neuron_to_channel = self.neuron_to_channel_map(channel_attr)
@@ -1055,38 +1080,37 @@ class SpikeData:
         return_channel_waveforms: bool = False,
         return_avg_waveform: bool = True,
     ) -> Tuple[Union[np.ndarray, List[np.ndarray]], Dict[str, Any]]:
-        """
-        Extract raw voltage waveforms around spike times from raw data.
+        """Extract raw voltage waveforms around spike times from raw data.
 
         Parameters:
-            unit: Unit index selection.
-                - int: extract a single unit (returns a single waveform array)
-                - slice / list-like / array-like / range: extract a subset (returns a list of waveform arrays)
-                - None: extract all units (returns a list of waveform arrays)
-            ms_before: Milliseconds before each spike time (default: 1.0).
-            ms_after: Milliseconds after each spike time (default: 2.0).
-            channels: Channel(s) to extract. None uses neuron_to_channel_map or all
-                channels; int for single channel; list for multiple; [] for mapped channel.
-            bandpass: Optional (lowcut_Hz, highcut_Hz) for bandpass filtering.
-            filter_order: Butterworth filter order (default: 3).
-            store: If True (default), stores waveforms and avg_waveform in neuron_attributes.
-            return_channel_waveforms: If True, include a per-channel dict
-                `channel_waveforms[channel] -> (num_samples, num_spikes)` in the return.
-            return_avg_waveform: If False, skip computing/returning `avg_waveform` (it will be None).
+            unit (int, slice, list, or None): Unit index selection. int
+                extracts a single unit (returns a single waveform array);
+                slice/list-like/range extracts a subset (returns a list);
+                None extracts all units (returns a list).
+            ms_before (float): Milliseconds before each spike time
+                (default: 1.0).
+            ms_after (float): Milliseconds after each spike time
+                (default: 2.0).
+            channels (int, list, or None): Channel(s) to extract. None uses
+                neuron_to_channel_map or all channels; int for single
+                channel; list for multiple; [] for mapped channel.
+            bandpass (tuple or None): Optional (lowcut_Hz, highcut_Hz) for
+                bandpass filtering.
+            filter_order (int): Butterworth filter order (default: 3).
+            store (bool): If True (default), stores waveforms and
+                avg_waveform in neuron_attributes.
+            return_channel_waveforms (bool): If True, include a per-channel
+                dict in the return.
+            return_avg_waveform (bool): If False, skip computing/returning
+                avg_waveform (it will be None).
 
         Returns:
-            (waveforms, meta)
-
-            - waveforms:
-                - If unit is an int: a single 3D array shaped (num_channels, num_samples, num_spikes)
-                - Otherwise: a list of 3D arrays, one per selected unit
-            - meta (dict):
-                - fs_kHz: sampling rate in kHz
-                - unit_indices: list of unit indices corresponding to the returned waveforms
-                - channels: list of List[int], channels used per unit
-                - spike_times_ms: list of np.ndarray, valid spike times per unit
-                - avg_waveforms: optional list of 2D arrays (num_channels, num_samples) per unit
-                - channel_waveforms: optional list of dicts (channel -> (num_samples, num_spikes)) per unit
+            waveforms (numpy.ndarray or list): If unit is an int, a single
+                3D array shaped (num_channels, num_samples, num_spikes).
+                Otherwise, a list of 3D arrays, one per selected unit.
+            meta (dict): Dictionary with keys: fs_kHz, unit_indices,
+                channels, spike_times_ms, avg_waveforms (optional),
+                channel_waveforms (optional).
         """
         # Validate that raw voltage data exists
         if self.raw_data.size == 0:
@@ -1198,34 +1222,30 @@ class SpikeData:
         )
 
     def interspike_intervals(self):
-        """
-        Produce a list of arrays of interspike intervals per unit.
-
-        Formula:
-        ISI = t_n - t_(n-1)
+        """Produce a list of arrays of interspike intervals per unit.
 
         Returns:
-        isis (list): List of arrays of interspike intervals per unit.
+            isis (list): List of arrays of interspike intervals per unit.
         """
         return [np.diff(ts) for ts in self.train]
 
     def concatenate_spike_data(self, sd):
-        """
-        Combine the units from another SpikeData object with this one.
+        """Combine units from another SpikeData object with this one.
 
         Returns a new SpikeData with the units of both objects. If the other
-        SpikeData has a different time range, it is subtimed to match this one.
+        SpikeData has a different time range, it is subtimed to match this
+        one.
 
         Parameters:
-        sd (SpikeData): SpikeData object whose units will be added.
+            sd (SpikeData): SpikeData object whose units will be added.
 
         Returns:
-        SpikeData: New SpikeData with units from both objects.
+            combined (SpikeData): New SpikeData with units from both objects.
 
         Notes:
-        - raw_data and raw_time are carried over from self only.
-        - If only one object has neuron_attributes, a RuntimeWarning is issued
-          and the attributes from both are not merged.
+            - raw_data and raw_time are carried over from self only.
+            - If only one object has neuron_attributes, a RuntimeWarning is
+              issued and the attributes from both are not merged.
         """
 
         # Subtime the second SpikeData object to the time range of the first
@@ -1257,22 +1277,19 @@ class SpikeData:
         )
 
     def spike_time_tilings(self, delt=20.0):
-        """
-        Compute the spike time tiling coefficient matrix.
+        """Compute the spike time tiling coefficient matrix.
 
         Parameters:
-        delt (float): Time window in milliseconds (default: 20.0)
+            delt (float): Time window in milliseconds (default: 20.0).
 
         Returns:
-        ret (numpy.ndarray): Spike time tiling coefficient matrix.
-
-        [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
-            comparison of methods and application to the study of retinal waves. Journal of
-            Neuroscience 34:43, 14288–14303 (2014).
+            ret (PairwiseCompMatrix): Spike time tiling coefficient matrix.
 
         Notes:
             - When ``numba`` is installed, computation is parallelised across
               all unit pairs using numba's ``prange``.
+            - Reference: Cutts & Eglen. Detecting pairwise correlations in
+              spike trains. J. Neurosci. 34:43, 14288-14303 (2014).
         """
         if delt <= 0:
             raise ValueError(f"delt must be positive, got {delt}")
@@ -1309,20 +1326,19 @@ class SpikeData:
         return PairwiseCompMatrix(matrix=ret, metadata={"delt": delt})
 
     def spike_time_tiling(self, i, j, delt=20.0):
-        """
-        Calculate the spike time tiling coefficient between two units within this SpikeData.
+        """Calculate the spike time tiling coefficient between two units.
 
         Parameters:
-        i (int): Index of the first unit
-        j (int): Index of the second unit
-        delt (float): Time window in milliseconds (default: 20.0)
+            i (int): Index of the first unit.
+            j (int): Index of the second unit.
+            delt (float): Time window in milliseconds (default: 20.0).
 
         Returns:
-        ret (float): Spike time tiling coefficient between the two units.
+            ret (float): Spike time tiling coefficient between the two units.
 
-        [1] Cutts & Eglen. Detecting pairwise correlations in spike trains: An objective
-            comparison of methods and application to the study of retinal waves. Journal of
-            Neuroscience 34:43, 14288–14303 (2014).
+        Notes:
+            - Reference: Cutts & Eglen. Detecting pairwise correlations in
+              spike trains. J. Neurosci. 34:43, 14288-14303 (2014).
         """
         return get_sttc(
             self.train[i],
@@ -1339,31 +1355,32 @@ class SpikeData:
         max_lag=350,
         n_jobs=-1,
     ):
-        """
-        Compute pairwise cross-correlogram matrices from binned binary spike arrays.
+        """Compute pairwise cross-correlogram matrices from binned spike arrays.
 
         Bins the spike trains into a binary raster and computes the pairwise
-        similarity between all unit pairs using lagged cross-correlation (default)
-        or lagged cosine similarity.
+        similarity between all unit pairs using lagged cross-correlation
+        (default) or lagged cosine similarity.
 
         Parameters:
-            compare_func (callable): Comparison function from utils. Must accept
-                (ref_signal, comp_signal, max_lag=int) and return (score, lag).
-                Default is compute_cross_correlation_with_lag. Alternative:
-                compute_cosine_similarity_with_lag.
+            compare_func (callable): Comparison function from utils. Must
+                accept (ref_signal, comp_signal, max_lag=int) and return
+                (score, lag). Default is
+                compute_cross_correlation_with_lag.
             bin_size (float): Bin size in milliseconds for the binary raster
                 (default: 1.0).
-            max_lag (float): Maximum lag in milliseconds to search for the peak
-                correlation (default: 350). Converted to bins internally.
-            n_jobs (int): Number of threads for parallel computation. -1 uses all
-                cores (default), 1 disables parallelism, None is serial.
+            max_lag (float): Maximum lag in milliseconds to search for the
+                peak correlation (default: 350). Converted to bins
+                internally.
+            n_jobs (int): Number of threads for parallel computation. -1
+                uses all cores (default), 1 disables parallelism, None is
+                serial.
 
         Returns:
             corr_matrix (PairwiseCompMatrix): Matrix of maximum correlation
                 coefficients between all unit pairs. Diagonal is always 1.
-            lag_matrix (PairwiseCompMatrix): Matrix of time lags in bins at which
-                maximum correlation occurs. Positive lag means unit j leads unit i.
-                Diagonal is always 0.
+            lag_matrix (PairwiseCompMatrix): Matrix of time lags in bins at
+                which maximum correlation occurs. Positive lag means unit j
+                leads unit i. Diagonal is always 0.
         """
         raster_matrix = self.raster(bin_size)
         num_units = raster_matrix.shape[0]
@@ -1402,16 +1419,15 @@ class SpikeData:
         )
 
     def latencies(self, times, window_ms=100.0):
-        """
-        Given a sorted list of times, compute the latencies from that time to each spike
-        in each spike train within a window.
+        """Compute latencies from each time to the nearest spike per unit.
 
         Parameters:
-        times (list): List of times
-        window_ms (float): Window in milliseconds (default: 100.0)
+            times (list): List of times.
+            window_ms (float): Window in milliseconds (default: 100.0).
 
         Returns:
-        latencies (list): 2d list, each row is a list of latencies from a time to each spike in the train
+            latencies (list): 2D list, each row is a list of latencies from
+                a time to the nearest spike in the train.
         """
         latencies = []
         if len(times) == 0:
@@ -1438,30 +1454,33 @@ class SpikeData:
         return latencies
 
     def get_pairwise_latencies(self, window_ms=None, return_distributions=False):
-        """
-        Compute pairwise nearest-spike latency distributions between all unit pairs.
+        """Compute pairwise nearest-spike latency distributions between all unit pairs.
 
-        For each ordered pair (i, j), and for each spike in train i, finds the
-        closest spike in train j and records the signed latency (t_j - t_i).
-        Both directions are computed independently.
+        For each ordered pair (i, j), and for each spike in train i, finds
+        the closest spike in train j and records the signed latency
+        (t_j - t_i). Both directions are computed independently.
 
         Parameters:
-            window_ms (float or None): If not None, discard latencies where the
-                absolute distance exceeds this value (default: None, no filtering).
-            return_distributions (bool): If True, also return a (U, U) numpy
-                object array where entry [i, j] is an ndarray of all individual
-                signed latencies from unit i to unit j (default: False).
+            window_ms (float or None): If not None, discard latencies where
+                the absolute distance exceeds this value (default: None, no
+                filtering).
+            return_distributions (bool): If True, also return a (U, U)
+                numpy object array where entry [i, j] is an ndarray of all
+                individual signed latencies from unit i to unit j
+                (default: False).
 
         Returns:
-            mean_latency (PairwiseCompMatrix): Matrix of mean signed latencies
-                in milliseconds. Entry [i, j] is the average latency from each
-                spike in unit i to the nearest spike in unit j. Diagonal is 0.
+            mean_latency (PairwiseCompMatrix): Matrix of mean signed
+                latencies in milliseconds. Entry [i, j] is the average
+                latency from each spike in unit i to the nearest spike in
+                unit j. Diagonal is 0.
             std_latency (PairwiseCompMatrix): Matrix of latency standard
-                deviations. Entry [i, j] is the std of latencies from unit i
-                to unit j. Diagonal is 0.
-            distributions (np.ndarray): Only returned when return_distributions
-                is True. A (U, U) object array where [i, j] is an ndarray of
-                all signed latencies from unit i to unit j.
+                deviations. Entry [i, j] is the std of latencies from
+                unit i to unit j. Diagonal is 0.
+            distributions (numpy.ndarray): Only returned when
+                return_distributions is True. A (U, U) object array where
+                [i, j] is an ndarray of all signed latencies from unit i
+                to unit j.
         """
         N = self.N
 
@@ -1539,43 +1558,39 @@ class SpikeData:
         return result
 
     def latencies_to_index(self, i, window_ms=100.0):
-        """
-        Compute the latency from one unit to all other units via self.latencies().
+        """Compute the latency from one unit to all other units.
 
         Parameters:
-        i (int): Index of the unit
-        window_ms (float): Window in milliseconds (default: 100.0)
+            i (int): Index of the unit.
+            window_ms (float): Window in milliseconds (default: 100.0).
 
         Returns:
-        latencies (list): 2d list, each row is a list of latencies per neuron
+            latencies (list): 2D list, each row is a list of latencies per
+                neuron.
         """
         return self.latencies(self.train[i], window_ms)
 
     def get_frac_active(self, edges, MIN_SPIKES, backbone_threshold, bin_size=1.0):
-        """
-        Computes fraction of total units active per burst, fraction of bursts
-        in which each unit is active, and assigns backbone identity based on
-        fraction of active bursts.
+        """Compute fraction of units active per burst and backbone identity.
 
         Parameters:
-        edges (numpy.ndarray): Array of shape (B, 2) containing [start, end]
-            indices for each burst. Indices are in raster bin coordinates
-            (bin index = time_ms / bin_size).
-        MIN_SPIKES (int): Minimum number of spikes required for a unit to be
-            considered active in a burst.
-        backbone_threshold (float [0, 1]): Minimum fraction of bursts a unit
-            must be active in to be considered a backbone unit.
-        bin_size (float): Raster bin size in milliseconds (default 1.0). Must
-            match the bin size used to compute ``edges`` (e.g., from
-            ``get_bursts(raster_bin_size_ms=...)``).
+            edges (numpy.ndarray): Array of shape (B, 2) containing
+                [start, end] indices for each burst. Indices are in raster
+                bin coordinates (bin index = time_ms / bin_size).
+            MIN_SPIKES (int): Minimum number of spikes required for a unit
+                to be considered active in a burst.
+            backbone_threshold (float): Minimum fraction of bursts a unit
+                must be active in to be considered a backbone unit (0 to 1).
+            bin_size (float): Raster bin size in milliseconds (default 1.0).
+                Must match the bin size used to compute ``edges``.
 
         Returns:
-        frac_per_unit (numpy.ndarray): 1D array where each value represents a
-            neuron and the fraction of bursts in which the neuron was active.
-        frac_per_burst (numpy.ndarray): 1D array where each value represents a
-            burst and the fraction of neurons that are active in that burst.
-        backbone_units (numpy.ndarray): 1D array of the neuron/unit indices
-            that are backbone units.
+            frac_per_unit (numpy.ndarray): 1D array where each value is the
+                fraction of bursts in which the neuron was active.
+            frac_per_burst (numpy.ndarray): 1D array where each value is the
+                fraction of neurons active in that burst.
+            backbone_units (numpy.ndarray): 1D array of the neuron/unit
+                indices that are backbone units.
         """
         t_spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
 
@@ -1627,29 +1642,31 @@ class SpikeData:
         return frac_per_unit, frac_per_burst, backbone_units
 
     def spike_shuffle(self, swap_per_spike=5, seed=None, bin_size=1):
-        """
-        Shuffles the underlying spike matrix of a SpikeData object using degree-preserving double-edge swaps.
+        """Shuffle the spike matrix using degree-preserving double-edge swaps.
 
         Parameters:
-        -----------
-        - swap_per_spike (int): Determines total number of swaps: num_spikes * swap_per_spike (optional, default=5).
-        - seed (int): Set the random seed number for repeatability of results, None means no seed is set (optional, default=None).
-        - bin_size(int): The number of individual time steps per bin. Bins with multiple
-                       spikes are binarized to 1. In other words, the number of spikes within a bin is NOT preserved.
-                       A RuntimeWarning is issued when multi-spike bins are detected (optional, default=1).
+            swap_per_spike (int): Determines total number of swaps:
+                num_spikes * swap_per_spike (default: 5).
+            seed (int or None): Random seed for repeatability. None means no
+                seed is set (default: None).
+            bin_size (int): Number of individual time steps per bin. Bins
+                with multiple spikes are binarized to 1. A RuntimeWarning
+                is issued when multi-spike bins are detected (default: 1).
+
         Returns:
-        --------
-        - shuffled_spike_data (SpikeData): SpikeData object where the underlying spike train matrix is now shuffled.
+            shuffled_spike_data (SpikeData): SpikeData object with shuffled
+                spike train matrix.
 
         Notes:
-        -----
-        - Shuffling is done in a manner where each neuron's average firing rate is preserved, but the specific time_bin in it spikes is shuffled.
-        - Shuffling is done in a manner where each time bin's population rate is preserved, but the specific units active in each time bin are shuffled.
-        - Ever spike swap involves 2 different spikes so on average, ever spike will get swapped 2*swap_per_spike times
-
-        Ref:
-        ----
-        - Okun, M. et al. Population rate dynamics and multineuron firing patterns in sensory cortex. J. Neurosci. 32, 17108–17119 (2012)
+            - Each neuron's average firing rate is preserved, but the
+              specific time bin in which it spikes is shuffled.
+            - Each time bin's population rate is preserved, but the specific
+              units active in each time bin are shuffled.
+            - Every spike swap involves 2 different spikes so on average,
+              every spike will get swapped 2*swap_per_spike times.
+            - Reference: Okun, M. et al. Population rate dynamics and
+              multineuron firing patterns in sensory cortex. J. Neurosci.
+              32, 17108-17119 (2012).
         """
         if self.N == 0:
             return SpikeData(
@@ -1679,23 +1696,23 @@ class SpikeData:
         return shuffled_spike_data
 
     def spike_shuffle_stack(self, n_shuffles, seed=None, swap_per_spike=5, bin_size=1):
-        """
-        Generate multiple degree-preserving shuffled copies and return them as a SpikeSliceStack.
+        """Generate multiple shuffled copies as a SpikeSliceStack.
 
-        Each shuffle is an independent call to ``spike_shuffle``. The resulting
-        stack can be used with ``SpikeSliceStack.apply`` to build null
-        distributions for statistical testing.
+        Each shuffle is an independent call to ``spike_shuffle``. The
+        resulting stack can be used with ``SpikeSliceStack.apply`` to build
+        null distributions for statistical testing.
 
         Parameters:
             n_shuffles (int): Number of shuffled datasets to generate.
-            seed (int | None): Base random seed. Each shuffle uses
+            seed (int or None): Base random seed. Each shuffle uses
                 ``seed + i`` for reproducibility. None means no seed.
-            swap_per_spike (int): Forwarded to ``spike_shuffle`` (default: 5).
+            swap_per_spike (int): Forwarded to ``spike_shuffle``
+                (default: 5).
             bin_size (int): Forwarded to ``spike_shuffle`` (default: 1).
 
         Returns:
-            stack (SpikeSliceStack): Stack of *n_shuffles* shuffled SpikeData
-                objects. All slices share the same time bounds ``(start_time, start_time + length)``.
+            stack (SpikeSliceStack): Stack of n_shuffles shuffled SpikeData
+                objects. All slices share the same time bounds.
         """
         if n_shuffles < 1:
             raise ValueError("n_shuffles must be at least 1.")
@@ -1719,30 +1736,27 @@ class SpikeData:
         )
 
     def subset_stack(self, n_subsets, units_per_subset, seed=None):
-        """
-        Generate multiple random unit subsets and return them as a SpikeSliceStack.
+        """Generate multiple random unit subsets as a SpikeSliceStack.
 
-        Each subset is drawn by sampling *units_per_subset* unit indices
+        Each subset is drawn by sampling units_per_subset unit indices
         without replacement from the full unit set. Draws are independent
-        across subsets (with replacement across draws), so the same unit may
-        appear in multiple subsets. The resulting stack can be used with
-        ``SpikeSliceStack.apply`` to test sensitivity of a metric to unit
-        count or composition.
+        across subsets (with replacement across draws), so the same unit
+        may appear in multiple subsets.
 
         Parameters:
             n_subsets (int): Number of random subsets to generate.
             units_per_subset (int): Number of units in each subset.
-            seed (int | None): Random seed for reproducibility.
+            seed (int or None): Random seed for reproducibility.
 
         Returns:
-            stack (SpikeSliceStack): Stack of *n_subsets* subsetted SpikeData
-                objects. All slices share the same time bounds ``(start_time, start_time + length)``.
+            stack (SpikeSliceStack): Stack of n_subsets subsetted SpikeData
+                objects. All slices share the same time bounds.
 
         Notes:
             - The stack-level ``neuron_attributes`` is ``None`` because each
-              subset contains a different set of units. Individual ``SpikeData``
-              objects within the stack carry their own subsetted attributes
-              (constructed with ``drop_slice_attributes=False``).
+              subset contains a different set of units. Individual
+              ``SpikeData`` objects within the stack carry their own
+              subsetted attributes.
         """
         if n_subsets < 1:
             raise ValueError("n_subsets must be at least 1.")
@@ -1792,49 +1806,49 @@ class SpikeData:
         raw_time_dataset: Optional[str] = None,
         raw_time_unit: "Literal['ms','s','samples']" = "ms",
     ) -> None:
-        """
-        Export this SpikeData to an HDF5 file with flexible formatting options.
+        """Export this SpikeData to an HDF5 file with flexible formatting.
 
-        Supports four different storage styles to accommodate various analysis workflows:
-        1. 'raster': Dense 2D array (units × time bins) for binned spike counts
-        2. 'ragged': Flat spike times with index array (efficient for sparse data)
-        3. 'group': Separate dataset per unit within a group (easy unit access)
-        4. 'paired': Two parallel arrays of unit indices and spike times
+        Supports four storage styles: 'raster' (dense 2D array), 'ragged'
+        (flat spike times with index array), 'group' (separate dataset per
+        unit), and 'paired' (parallel index and time arrays).
 
         Parameters:
-
-        filepath (str): Path to the output HDF5 file
-        style (Literal['raster','ragged','group','paired']): Storage format style. Defaults to 'ragged' for efficiency.
-
-        # Raster style parameters
-        raster_dataset (str): Dataset name for raster data (style='raster')
-        raster_bin_size_ms (float): Bin size in milliseconds for rasterization. Required for 'raster' style.
-
-        # Ragged style parameters
-        spike_times_dataset (str): Dataset name for flat spike times (style='ragged')
-        spike_times_index_dataset (str): Dataset name for cumulative spike counts per unit (style='ragged')
-        spike_times_unit (Literal['ms','s','samples']): Time unit for spike times in ragged format
-
-        # Time conversion parameters
-        fs_Hz (float): Sampling frequency in Hz, required when converting to 'samples' unit
-
-        # Group style parameters
-        group_per_unit (str): Group name containing per-unit datasets (style='group')
-        group_time_unit (Literal['ms','s','samples']): Time unit for individual unit datasets
-
-        # Paired style parameters
-        idces_dataset (str): Dataset name for unit indices (style='paired')
-        times_dataset (str): Dataset name for spike times (style='paired')
-        times_unit (Literal['ms','s','samples']): Time unit for paired times
-
-        # Optional raw data parameters (unused in current implementation)
-        raw_dataset (str): Reserved for future raw data export
-        raw_time_dataset (str): Reserved for future raw time axis export
-        raw_time_unit (Literal['ms','s','samples']): Time unit for raw data timestamps
+            filepath (str): Path to the output HDF5 file.
+            style (str): Storage format style ('raster', 'ragged', 'group',
+                or 'paired'). Defaults to 'ragged'.
+            raster_dataset (str): Dataset name for raster data
+                (style='raster').
+            raster_bin_size_ms (float): Bin size in milliseconds for
+                rasterization. Required for 'raster' style.
+            spike_times_dataset (str): Dataset name for flat spike times
+                (style='ragged').
+            spike_times_index_dataset (str): Dataset name for cumulative
+                spike counts per unit (style='ragged').
+            spike_times_unit (str): Time unit for spike times in ragged
+                format ('ms', 's', or 'samples').
+            fs_Hz (float): Sampling frequency in Hz, required when
+                converting to 'samples' unit.
+            group_per_unit (str): Group name containing per-unit datasets
+                (style='group').
+            group_time_unit (str): Time unit for individual unit datasets
+                ('ms', 's', or 'samples').
+            idces_dataset (str): Dataset name for unit indices
+                (style='paired').
+            times_dataset (str): Dataset name for spike times
+                (style='paired').
+            times_unit (str): Time unit for paired times ('ms', 's', or
+                'samples').
+            raw_dataset (str or None): Reserved for future raw data export.
+            raw_time_dataset (str or None): Reserved for future raw time
+                axis export.
+            raw_time_unit (str): Time unit for raw data timestamps ('ms',
+                's', or 'samples').
 
         Notes:
-        - All spike times are stored internally in milliseconds and converted to the requested output unit.
-        - When using 'samples' unit, fs_Hz must be provided for proper conversion.
+            - All spike times are stored internally in milliseconds and
+              converted to the requested output unit.
+            - When using 'samples' unit, fs_Hz must be provided for proper
+              conversion.
         """
         # Import locally to avoid import cycles at module import time
         from ..data_loaders.data_exporters import export_spikedata_to_hdf5
@@ -1868,19 +1882,29 @@ class SpikeData:
         spike_times_index_dataset: str = "spike_times_index",
         group: str = "units",
     ) -> None:
-        """
-        Export this SpikeData to a minimal NWB-compatible file using h5py, storing spike times in the standard '/units' group format for round-tripping with the NWB loader.
+        """Export this SpikeData to a minimal NWB-compatible HDF5 file.
+
+        Stores spike times in the standard '/units' group format for
+        round-tripping with the NWB loader.
 
         Parameters:
-        filepath (str): Path to the output NWB file (.nwb extension recommended)
-        spike_times_dataset (str): Name of the dataset containing flattened spike times in seconds. Standard NWB uses "spike_times".
-        spike_times_index_dataset (str): Name of the dataset containing cumulative spike counts per unit for indexing into spike_times. Standard NWB uses "spike_times_index".
-        group (str): Name of the HDF5 group to contain the spike data. Standard NWB uses "units" for the units table.
+            filepath (str): Path to the output NWB file (.nwb extension
+                recommended).
+            spike_times_dataset (str): Name of the dataset containing
+                flattened spike times in seconds. Standard NWB uses
+                "spike_times".
+            spike_times_index_dataset (str): Name of the dataset containing
+                cumulative spike counts per unit for indexing into
+                spike_times. Standard NWB uses "spike_times_index".
+            group (str): Name of the HDF5 group to contain the spike data.
+                Standard NWB uses "units" for the units table.
 
         Notes:
-        - Spike times are automatically converted from internal milliseconds to seconds as required by the NWB standard
-        - The output file contains only the essential spike timing data, not the full NWB metadata structure
-        - Compatible with both pynwb and h5py-based NWB readers
+            - Spike times are automatically converted from internal
+              milliseconds to seconds as required by the NWB standard.
+            - The output file contains only the essential spike timing data,
+              not the full NWB metadata structure.
+            - Compatible with both pynwb and h5py-based NWB readers.
         """
         # Import locally to avoid circular imports
         from ..data_loaders.data_exporters import export_spikedata_to_nwb
@@ -1904,24 +1928,35 @@ class SpikeData:
         time_unit: "Literal['samples','ms','s']" = "samples",
         cluster_ids: Optional[List[int]] = None,
     ) -> Tuple[str, str]:
-        """
-        Export this SpikeData to a KiloSort/Phy-compatible folder structure with spike_times.npy and spike_clusters.npy arrays for use with Phy.
+        """Export this SpikeData to a KiloSort/Phy-compatible folder.
+
+        Creates spike_times.npy and spike_clusters.npy arrays for use with
+        Phy.
 
         Parameters:
-        folder (str): Output directory path. Will be created if it doesn't exist.
-        fs_Hz (float): Sampling frequency in Hz. Required for time unit conversion, especially when using 'samples' (the KiloSort default).
-        spike_times_file (str): Filename for the spike times array. Standard KiloSort uses "spike_times.npy".
-        spike_clusters_file (str): Filename for the cluster assignments array. Standard KiloSort uses "spike_clusters.npy".
-        time_unit (Literal['samples','ms','s']): Output time unit for spike times.
-        cluster_ids (Optional[List[int]]): Optional list of cluster IDs to assign to each unit. Must have length equal to self.N. If None, uses sequential integers [0, 1, 2, ...].
+            folder (str): Output directory path. Will be created if it
+                doesn't exist.
+            fs_Hz (float): Sampling frequency in Hz. Required for time unit
+                conversion, especially when using 'samples'.
+            spike_times_file (str): Filename for the spike times array.
+                Standard KiloSort uses "spike_times.npy".
+            spike_clusters_file (str): Filename for the cluster assignments
+                array. Standard KiloSort uses "spike_clusters.npy".
+            time_unit (str): Output time unit for spike times ('samples',
+                'ms', or 's').
+            cluster_ids (list[int] or None): Optional list of cluster IDs
+                to assign to each unit. Must have length equal to self.N.
+                If None, uses sequential integers [0, 1, 2, ...].
 
         Returns:
-        tuple[str, str]: Paths to the created (spike_times_file, spike_clusters_file)
+            paths (tuple[str, str]): Paths to the created
+                (spike_times_file, spike_clusters_file).
 
         Notes:
-        - Empty units (no spikes) are skipped in the output arrays
-        - Cluster IDs are mapped to units in order, so cluster_ids[i] corresponds to unit i in the SpikeData
-        - The 'samples' time unit is most common for KiloSort workflows
+            - Empty units (no spikes) are skipped in the output arrays.
+            - Cluster IDs are mapped to units in order, so cluster_ids[i]
+              corresponds to unit i in the SpikeData.
+            - The 'samples' time unit is most common for KiloSort workflows.
         """
         # Import locally to avoid circular imports
         from ..data_loaders.data_exporters import export_spikedata_to_kilosort
@@ -1938,26 +1973,31 @@ class SpikeData:
         )
 
     def get_pop_rate(self, square_width=20, gauss_sigma=100, raster_bin_size_ms=1.0):
-        """
-        Compute population firing rate by smoothing the summed spike counts using
-        a moving-average (square) window, then a Gaussian smoothing window.
+        """Compute smoothed population firing rate.
+
+        Smooths the summed spike counts using a moving-average (square)
+        window, then a Gaussian smoothing window.
 
         Parameters:
-        square_width (float): Width of square smoothing window in milliseconds.
-        gauss_sigma (float): Sigma of Gaussian smoothing window in milliseconds.
-        raster_bin_size_ms (float): Size of raster bins in ms.
+            square_width (float): Width of square smoothing window in
+                milliseconds.
+            gauss_sigma (float): Sigma of Gaussian smoothing window in
+                milliseconds.
+            raster_bin_size_ms (float): Size of raster bins in ms.
 
         Returns:
-        pop_rate (np.ndarray[float64]): Smoothed population spiking data in spikes per bin
+            pop_rate (numpy.ndarray): Smoothed population spiking data in
+                spikes per bin.
 
         Notes:
-        - ``square_width`` and ``gauss_sigma`` are specified in milliseconds and
-          converted to bin counts internally using ``raster_bin_size_ms``. With the
-          default ``raster_bin_size_ms=1.0``, 1 ms = 1 bin.
-        - The returned array index corresponds to raster bin index. For
-          event-centered data (start_time < 0), bin 0 corresponds to start_time,
-          not t=0. To find the bin for t=0 (the event), use
-          ``event_bin = int(-start_time / raster_bin_size_ms)``.
+            - ``square_width`` and ``gauss_sigma`` are specified in
+              milliseconds and converted to bin counts internally using
+              ``raster_bin_size_ms``. With the default
+              ``raster_bin_size_ms=1.0``, 1 ms = 1 bin.
+            - The returned array index corresponds to raster bin index. For
+              event-centered data (start_time < 0), bin 0 corresponds to
+              start_time, not t=0. To find the bin for t=0 (the event), use
+              ``event_bin = int(-start_time / raster_bin_size_ms)``.
         """
         if gauss_sigma < 0:
             raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
@@ -2020,41 +2060,35 @@ class SpikeData:
     def compute_spike_trig_pop_rate(
         self, window_ms=80, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=10
     ):
-        """
-        Compute spike-triggered population rate (stPR).
+        """Compute spike-triggered population rate (stPR).
 
-        Implementation of the stPR measure from "Invariant activity sequences
-        across the mouse brain" (Bimbard et al.), building on Okun et al.
-        (Nature, 2015).
-        https://www.biorxiv.org/content/10.64898/2025.12.20.695676v2.full
+        Implementation of the stPR measure from Bimbard et al., building on
+        Okun et al. (Nature, 2015). For each neuron i and lag tau, the
+        leave-one-out population rate is computed excluding neuron i. The
+        coupling curve measures how much the other neurons' activity
+        deviates from their temporal mean at times offset by tau from
+        neuron i's spikes.
 
-        Computes c_{i,τ} = Σ_{t: f_i(t+τ)>0} [P_{-i}(t) - P̄_{-i}] / (||f_i|| × Σ_{j≠i} μ_j)
+        Parameters:
+            window_ms (int): Half-width of the lag window in ms (window
+                from -window_ms to +window_ms).
+            cutoff_hz (float): Low-pass Butterworth filter cutoff in Hz
+                applied to the coupling curves.
+            fs (float): Sampling rate in Hz used for filter design.
+            bin_size (float): Bin size in ms for the spike raster.
+            cut_outer (int): Number of outer lag bins to ignore.
 
-        For each neuron *i* and lag *τ*, the leave-one-out population rate
-        P_{-i}(t) is computed excluding neuron *i*. The coupling curve
-        measures how much P_{-i} deviates from its temporal mean P̄_{-i}
-        at times when neuron *i* fires, normalised by the neuron's spike
-        count and the sum of all other neurons' mean firing rates.
-
-        Compared to Okun et al. (2015), this adds normalisation by the
-        leave-one-out population mean rate (Σ_{j≠i} μ_j), making the
-        coupling strength uncorrelated with firing rate.
-
-        Parameters
-        ----------
-        window_ms (int): Half-width of the lag window in ms (window from -window_ms to +window_ms )
-        cutoff_hz (float): Low-pass Butterworth filter cutoff in Hz applied to the coupling curves.
-        fs (float): Sampling rate in Hz used for filter design.
-        bin_size (float): Bin size in ms for the spike raster.
-        cut_outer (int): Number of outer lag bins to ignore.
-
-        Returns
-        -------
-        stPR_filtered (np.ndarray, shape (N, 2*window_ms + 1)): Low-pass filtered coupling curves for every neuron.
-        coupling_strengths_zero_lag (np.ndarray, shape (N,)): Coupling strength at lag 0 (c_{i,0})
-        coupling_strengths_max (np.ndarray, shape (N,)): Peak coupling strength within the trimmed lag window.
-        delays (np.ndarray, shape (N,)): Lag (in bins) at which peak coupling occurs, relative to lag 0, within the trimmed window.
-        lags (np.ndarray): Array of lag values from -window_ms to +window_ms.
+        Returns:
+            stPR_filtered (numpy.ndarray): Low-pass filtered coupling
+                curves for every neuron, shape (N, 2*window_ms + 1).
+            coupling_strengths_zero_lag (numpy.ndarray): Coupling strength
+                at lag 0, shape (N,).
+            coupling_strengths_max (numpy.ndarray): Peak coupling strength
+                within the trimmed lag window, shape (N,).
+            delays (numpy.ndarray): Lag (in ms) at which peak coupling
+                occurs, shape (N,). Positive means neuron leads population.
+            lags (numpy.ndarray): Array of lag values from -window_ms to
+                +window_ms.
         """
         if window_ms < 1:
             raise ValueError("window_ms must be at least 1.")
@@ -2114,7 +2148,7 @@ class SpikeData:
                 sum_deviations = np.zeros(len(lags))
 
                 for tau_idx, tau in enumerate(lags):
-                    valid_t = spike_times - tau
+                    valid_t = spike_times + tau
                     mask = (valid_t >= 0) & (valid_t < num_bins)
                     if np.any(mask):
                         deviations = P_loo[valid_t[mask]] - P_loo_mean
@@ -2163,37 +2197,49 @@ class SpikeData:
         pop_rate_acc=None,
         pop_rms_override=None,
     ):
-        """
-        Detect bursts from a population rate vector using thresholded peak finding and
-        amplitude-scaled edge detection.
+        """Detect bursts using thresholded peak finding and edge detection.
 
         Parameters:
-        thr_burst (float): Threshold multiplier for burst peak detection
-        min_burst_diff (int): Minimum time between detected bursts (in bins)
-        burst_edge_mult_thresh (float): Threshold multiplier for burst edge detection
-        square_width (int): Square window width for calculating pop_rate (in bins)
-        gauss_sigma (int): Gaussian window sigma for calculating pop_rate (in bins)
-        acc_square_width (int): Square window width for calculating pop_rate_acc (in bins)
-        acc_gauss_sigma (int): Gaussian window sigma for calculating pop_rate_acc (in bins)
-        raster_bin_size_ms (int): Time bin size for calculating population rate in ms
-        peak_to_trough (bool): Flag to calculate bursts peak-to-trough (True) or peak-to-zero (False)
-        pop_rate (np.ndarray[float64], optional): Pre-calculated smoothed population spiking data in spikes per bin
-        pop_rate_acc (np.ndarray[float64], optional): Pre-calculated accurate smoothed population spiking data in spikes per bin
-        pop_rms_override (float, optional): RMS to override burst threshold baseline for normalizing accross separate datasets
+            thr_burst (float): Threshold multiplier for burst peak detection.
+            min_burst_diff (int): Minimum time between detected bursts
+                (in bins).
+            burst_edge_mult_thresh (float): Threshold multiplier for burst
+                edge detection.
+            square_width (int): Square window width for calculating pop_rate
+                (in bins).
+            gauss_sigma (int): Gaussian window sigma for calculating
+                pop_rate (in bins).
+            acc_square_width (int): Square window width for calculating
+                pop_rate_acc (in bins).
+            acc_gauss_sigma (int): Gaussian window sigma for calculating
+                pop_rate_acc (in bins).
+            raster_bin_size_ms (float): Time bin size for calculating
+                population rate in ms.
+            peak_to_trough (bool): Flag to calculate bursts peak-to-trough
+                (True) or peak-to-zero (False).
+            pop_rate (numpy.ndarray or None): Pre-calculated smoothed
+                population spiking data in spikes per bin.
+            pop_rate_acc (numpy.ndarray or None): Pre-calculated accurate
+                smoothed population spiking data in spikes per bin.
+            pop_rms_override (float or None): RMS override for burst
+                threshold baseline.
 
         Returns:
-        tburst (np.ndarray[float64]): Time bin indices of detected bursts
-        edges (np.ndarray[float64]): Time bin indices of burst edges (Shape = (N,2))
-        peak_amp (np.ndarray[float64]): Amplitudes of bursts at corresponding array indices
+            tburst (numpy.ndarray): Time bin indices of detected bursts.
+            edges (numpy.ndarray): Time bin indices of burst edges, shape
+                (N, 2).
+            peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding
+                array indices.
 
         Notes:
-        - Will use pop_rate and pop_rate_acc if provided, otherwise will calculate using squared widths and sigmas.
-        - Using the peak-to-zero calculations may result in several bursts being detected at one peak.
-        - In the case that duplicate bursts are detected, prints an error with potential fixes.
-        - Returned time bin indices are relative to bin 0 of the raster. For standard
-          (start_time=0) data, bin index = time in ms / raster_bin_size_ms. For event-centered
-          data (start_time < 0), add start_time to convert bin indices to event-relative times:
-          ``event_relative_ms = tburst * raster_bin_size_ms + start_time``.
+            - Will use pop_rate and pop_rate_acc if provided, otherwise will
+              calculate using squared widths and sigmas.
+            - Using the peak-to-zero calculations may result in several
+              bursts being detected at one peak.
+            - Returned time bin indices are relative to bin 0 of the raster.
+              For event-centered data (start_time < 0), add start_time to
+              convert bin indices to event-relative times:
+              ``event_relative_ms = tburst * raster_bin_size_ms + start_time``.
         """
         # Get pop rates and rms
         if pop_rate is None:
@@ -2323,38 +2369,44 @@ class SpikeData:
         pop_rate_acc=None,
         pop_rms_override=None,
     ):
-        """
-        Sweep burst detection parameters and return a matrix of detected burst counts.
+        """Sweep burst detection parameters and return burst counts.
 
         Calls ``get_bursts`` for every combination of ``thr_values`` and
-        ``dist_values``, holding ``burst_edge_mult_thresh`` constant, and
-        returns the number of detected bursts for each parameter pair.
+        ``dist_values``, holding ``burst_edge_mult_thresh`` constant.
 
         Parameters:
-            thr_values (array-like): 1-D array of ``thr_burst`` values to sweep.
-            dist_values (array-like): 1-D array of ``min_burst_diff`` values (in bins) to sweep.
+            thr_values (array-like): 1-D array of ``thr_burst`` values to
+                sweep.
+            dist_values (array-like): 1-D array of ``min_burst_diff`` values
+                (in bins) to sweep.
             burst_edge_mult_thresh (float): Held constant during the sweep.
             square_width (int): Square window width for pop_rate (in bins).
             gauss_sigma (int): Gaussian window sigma for pop_rate (in bins).
-            acc_square_width (int): Square window width for pop_rate_acc (in bins).
-            acc_gauss_sigma (int): Gaussian window sigma for pop_rate_acc (in bins).
-            raster_bin_size_ms (float): Time bin size for population rate in ms.
-            peak_to_trough (bool): Peak-to-trough (True) or peak-to-zero (False) burst detection.
-            pop_rate (np.ndarray, optional): Pre-computed smoothed population rate.
-            pop_rate_acc (np.ndarray, optional): Pre-computed accurate smoothed population rate.
-            pop_rms_override (float, optional): RMS override for burst threshold baseline.
+            acc_square_width (int): Square window width for pop_rate_acc
+                (in bins).
+            acc_gauss_sigma (int): Gaussian window sigma for pop_rate_acc
+                (in bins).
+            raster_bin_size_ms (float): Time bin size for population rate
+                in ms.
+            peak_to_trough (bool): Peak-to-trough (True) or peak-to-zero
+                (False) burst detection.
+            pop_rate (numpy.ndarray or None): Pre-computed smoothed
+                population rate.
+            pop_rate_acc (numpy.ndarray or None): Pre-computed accurate
+                smoothed population rate.
+            pop_rms_override (float or None): RMS override for burst
+                threshold baseline.
 
         Returns:
-            burst_counts (np.ndarray): Integer array of shape
-                ``(len(thr_values), len(dist_values))`` with the number of
+            burst_counts (numpy.ndarray): Integer array of shape
+                (len(thr_values), len(dist_values)) with the number of
                 detected bursts for each parameter combination.
 
         Notes:
             - Either ``thr_values`` or ``dist_values`` can have length 1 to
               focus the sensitivity analysis on a single parameter.
-            - Pre-computing ``pop_rate`` and ``pop_rate_acc`` and passing them
-              in avoids redundant smoothing inside the loop and can speed up
-              the sweep significantly.
+            - Pre-computing ``pop_rate`` and ``pop_rate_acc`` and passing
+              them in avoids redundant smoothing inside the loop.
         """
         thr_values = np.asarray(thr_values)
         dist_values = np.asarray(dist_values)
@@ -2398,56 +2450,46 @@ class SpikeData:
         model_class=None,
         **model_kwargs,
     ):
-        """
-        Fit a Gaussian Process Latent Variable Model to binned spike counts.
+        """Fit a Gaussian Process Latent Variable Model to binned spike counts.
 
-        Bins the spike data into a spike count matrix using ``raster(bin_size_ms)``,
-        then fits a GPLVM model via expectation-maximisation, decodes latent states,
-        and returns the results together with a unit reordering based on tuning peaks.
+        Bins the spike data into a spike count matrix, fits a GPLVM model
+        via expectation-maximisation, decodes latent states, and returns
+        the results together with a unit reordering based on tuning peaks.
 
         Parameters:
-            bin_size_ms (float): Bin width in milliseconds for spike count matrix.
-            movement_variance (float): Movement variance hyperparameter for the
-                GPLVM transition kernel.
-            tuning_lengthscale (float): Lengthscale hyperparameter for the tuning
-                curve kernel.
-            n_latent_bin (int): Number of latent bins (discretisation of the latent
-                space).
+            bin_size_ms (float): Bin width in milliseconds for spike count
+                matrix.
+            movement_variance (float): Movement variance hyperparameter for
+                the GPLVM transition kernel.
+            tuning_lengthscale (float): Lengthscale hyperparameter for the
+                tuning curve kernel.
+            n_latent_bin (int): Number of latent bins (discretisation of
+                the latent space).
             n_iter (int): Number of EM iterations.
-            n_time_per_chunk (int): Number of time bins per chunk for chunked
-                inference (controls memory usage).
+            n_time_per_chunk (int): Number of time bins per chunk for
+                chunked inference (controls memory usage).
             random_seed (int): Random seed for JAX PRNG key.
-            model_class: Model class to use. Defaults to
+            model_class (class or None): Model class to use. Defaults to
                 ``PoissonGPLVMJump1D`` from ``poor_man_gplvm``.
             **model_kwargs: Additional keyword arguments passed to the model
                 constructor (e.g. ``p_move_to_jump``, ``basis_type``).
 
         Returns:
-            result (dict): Dictionary with keys:
-                - ``"decode_res"`` — decoded latent state dictionary from
-                  ``model.decode_latent()``, containing ``posterior_latent_marg``,
-                  ``posterior_dynamics_marg``, etc.
-                - ``"log_marginal_l"`` — array of log marginal likelihoods per EM
-                  iteration.
-                - ``"reorder_indices"`` — unit reordering indices based on tuning
-                  curve peak positions.
-                - ``"model"`` — the fitted model object.
-                - ``"binned_spike_counts"`` — the ``(T, N)`` binned spike count
-                  matrix used for fitting.
-                - ``"bin_size_ms"`` — the bin width in milliseconds used for
-                  binning.
+            result (dict): Dictionary with keys: ``"decode_res"`` (decoded
+                latent state dictionary), ``"log_marginal_l"`` (array of
+                log marginal likelihoods per EM iteration),
+                ``"reorder_indices"`` (unit reordering indices based on
+                tuning curve peaks), ``"model"`` (the fitted model object),
+                ``"binned_spike_counts"`` (the (T, N) binned spike count
+                matrix), and ``"bin_size_ms"`` (the bin width used).
 
         Notes:
             - Requires ``poor_man_gplvm`` and ``jax``. Install with
               ``pip install poor-man-gplvm jax jaxlib``.
-            - The binned spike count matrix has shape ``(T, N)`` where T is the
-              number of time bins and N is the number of units.
-            - To compute metrics from the fitted model, see the GPLVM utility
-              functions in ``spikedata.utils``:
-              ``gplvm_state_entropy`` (Shannon entropy per time bin),
-              ``gplvm_continuity_prob`` (continuity probability time series),
-              ``gplvm_average_state_probability`` (mean state probability),
-              and ``consecutive_durations`` (run lengths above/below a threshold).
+            - The binned spike count matrix has shape ``(T, N)`` where T is
+              the number of time bins and N is the number of units.
+            - To compute metrics from the fitted model, see the GPLVM
+              utility functions in ``spikedata.utils``.
         """
         try:
             import poor_man_gplvm as pmg
@@ -2507,8 +2549,7 @@ class SpikeData:
         }
 
     def plot(self, **kwargs):
-        """
-        Assemble a multi-panel column figure from this SpikeData object.
+        """Assemble a multi-panel column figure from this SpikeData object.
 
         Thin wrapper around ``plot_utils.plot_recording(self, **kwargs)``.
         See ``plot_recording`` for the full list of parameters.
@@ -2539,33 +2580,29 @@ class SpikeData:
         scale_bar_um=500,
         font_size=None,
     ):
-        """
-        Plot units at their MEA positions with pairwise edges.
+        """Plot units at their MEA positions with pairwise edges.
 
         Unit positions are extracted from ``neuron_attributes`` (requires
-        ``'x'`` and ``'y'`` keys).  The pairwise edge strengths must be
-        supplied as *matrix* — obtain one from e.g.
-        ``PairwiseCompMatrix.matrix`` (returned by ``spike_time_tilings``,
-        ``get_pairwise_ccg``, ``RateData.get_pairwise_fr_corr``, etc.).
-
-        Thin wrapper around ``plot_utils.plot_spatial_network``.
+        ``'x'`` and ``'y'`` keys). Thin wrapper around
+        ``plot_utils.plot_spatial_network``.
 
         Parameters:
             ax (matplotlib.axes.Axes): Target axes.
-            matrix (np.ndarray): Symmetric ``(N, N)`` pairwise matrix (e.g.
-                correlation).  Diagonal values are ignored.
+            matrix (numpy.ndarray): Symmetric (N, N) pairwise matrix (e.g.
+                correlation). Diagonal values are ignored.
             edge_threshold (float or None): Minimum matrix value to draw an
                 edge.
             top_pct (float or None): Percentage of top edges to draw.
-            node_size_range (tuple): ``(min_size, max_size)`` in points² for
-                scatter markers.
+            node_size_range (tuple): (min_size, max_size) in points squared
+                for scatter markers.
             node_cmap (str): Matplotlib colourmap for node colour.
             node_linewidth (float): Outline width of node markers.
             edge_color (str): Colour for network edges.
             edge_linewidth (float): Line width for network edges.
-            edge_alpha_range (tuple): ``(min_alpha, max_alpha)`` for edge
+            edge_alpha_range (tuple): (min_alpha, max_alpha) for edge
                 transparency.
-            scale_bar_um (float): Scale bar length in micrometres (0 to omit).
+            scale_bar_um (float): Scale bar length in micrometres (0 to
+                omit).
             font_size (int or None): Font size for scale bar label.
 
         Returns:
@@ -2620,62 +2657,52 @@ class SpikeData:
         ylabel="Pop. rate",
         font_size=None,
     ):
-        """
-        Plot the average population rate aligned to events.
+        """Plot the average population rate aligned to events.
 
         Cuts the population rate around each event and plots the mean trace.
-        Optionally overlays individual event traces and/or vertical markers
-        showing event edge positions at a chosen percentile.
-
-        When ``events`` is None, burst peaks and edges are auto-detected via
-        ``self.get_bursts(thr_burst=2.5, min_burst_diff=1000,
-        burst_edge_mult_thresh=0.2)``. For non-burst events (e.g. task cues,
-        stimulus onsets), pass ``events`` explicitly.
+        When ``events`` is None, burst peaks are auto-detected via
+        ``self.get_bursts()``.
 
         Parameters:
             events (array-like or None): Event times in ms. If None, burst
-                peaks are auto-detected via ``self.get_bursts()``.
+                peaks are auto-detected.
             pre_ms (float): Window duration before each event in ms.
             post_ms (float): Window duration after each event in ms.
             ax (matplotlib.axes.Axes or None): Target axes. If None, a new
                 figure is created.
-            pop_rate (np.ndarray or None): Pre-computed population rate (1-ms
-                bins, full recording). If None, computed via
+            pop_rate (numpy.ndarray or None): Pre-computed population rate
+                (1-ms bins, full recording). If None, computed via
                 ``self.get_pop_rate()``.
             pop_rate_params (dict or None): Keyword arguments forwarded to
                 ``self.get_pop_rate()`` when ``pop_rate`` is None. Defaults:
                 ``square_width=5, gauss_sigma=5``.
-            color (str or None): Colour for the mean trace (and edge markers).
-                If None, uses the first colour from the default colour cycle.
+            color (str or None): Colour for the mean trace. If None, uses
+                the first colour from the default colour cycle.
             label (str or None): Legend label for the mean trace.
             linewidth (float): Line width for the mean trace.
             show_individual (bool): If True, plot each individual event's
                 pop-rate trace as a thin line behind the average.
             individual_alpha (float): Alpha for individual traces.
             individual_linewidth (float): Line width for individual traces.
-            burst_edges (np.ndarray or None): Per-event ``[start_ms, end_ms]``
-                boundaries, shape ``(B, 2)``. When ``events`` is None and
-                ``edge_percentile`` is set, burst edges are auto-detected
-                alongside burst peaks.
-            edge_percentile (float or None): Percentile (0–100) controlling
-                how conservatively the edge markers are placed.
-                100 = most conservative (smallest window — all events fit),
-                0 = most liberal (widest window). When set, vertical dashed
-                lines are drawn at the resulting start and end positions.
+            burst_edges (numpy.ndarray or None): Per-event [start_ms,
+                end_ms] boundaries, shape (B, 2).
+            edge_percentile (float or None): Percentile (0-100) controlling
+                how conservatively the edge markers are placed. When set,
+                vertical dashed lines are drawn at the resulting positions.
             xlabel (str): X-axis label.
             ylabel (str): Y-axis label.
-            font_size (int or None): Font size for labels and ticks. If None,
-                uses current rcParams.
+            font_size (int or None): Font size for labels and ticks. If
+                None, uses current rcParams.
 
         Returns:
-            avg_rate (np.ndarray): The mean population rate across events,
-                shape ``(pre_ms + post_ms,)``.
+            avg_rate (numpy.ndarray): The mean population rate across
+                events, shape (pre_ms + post_ms,).
 
         Notes:
             - To compare multiple conditions, call this method once per
               condition on the same ``ax``. Each call draws its own trace
               with its own ``color`` and ``label``; add ``ax.legend()``
-              after the last call to show the legend.
+              after the last call.
         """
         from .plot_utils import _import_matplotlib, _apply_font_size
 

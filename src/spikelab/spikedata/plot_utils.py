@@ -30,12 +30,28 @@ def _import_matplotlib():
         ) from e
 
 
-def _add_colorbar(im, ax, label="", font_size=14, size="3%", pad=0.05):
+def _add_colorbar(im, ax, label="", font_size=None, size="3%", pad=0.05):
     """Add a colorbar on a dedicated axes so the parent axes width is unchanged.
 
-    Uses ``make_axes_locatable`` to append a thin axes to the right of *ax*.
+    Uses ``make_axes_locatable`` to append a thin axes to the right of ax.
     This avoids the width-stealing behaviour of ``fig.colorbar(im, ax=ax)``.
+    When font_size is None, matplotlib rcParams control the label and tick
+    sizes (``axes.labelsize`` and ``xtick.labelsize``).
+
+    Parameters:
+        im: The mappable artist (e.g. image returned by ``imshow``).
+        ax (matplotlib.axes.Axes): Parent axes to attach the colorbar to.
+        label (str): Colorbar label text.
+        font_size (int or None): Font size for the label and tick labels.
+            If None, uses matplotlib rcParams defaults.
+        size (str): Width of the colorbar axes as a percentage of the
+            parent axes (e.g. ``"3%"``).
+        pad (float): Padding between the parent axes and the colorbar axes.
+
+    Returns:
+        cb (matplotlib.colorbar.Colorbar): The colorbar instance.
     """
+    import matplotlib as mpl
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     divider = make_axes_locatable(ax)
@@ -44,27 +60,41 @@ def _add_colorbar(im, ax, label="", font_size=14, size="3%", pad=0.05):
     # Render colorbar at full opacity even when the mappable has alpha < 1
     if cb.solids is not None:
         cb.solids.set_alpha(1.0)
-    cb.set_label(label, fontsize=font_size)
-    cb.ax.tick_params(labelsize=font_size)
+    fs = font_size or mpl.rcParams["axes.labelsize"]
+    cb.set_label(label, fontsize=fs)
+    cb.ax.tick_params(labelsize=fs)
     return cb
 
 
 def _apply_font_size(ax, font_size):
-    """Apply font_size to axis labels and tick labels."""
+    """Apply font_size to axis labels and tick labels.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes.
+        font_size (int or float): Font size to apply.
+    """
     ax.xaxis.label.set_fontsize(font_size)
     ax.yaxis.label.set_fontsize(font_size)
     ax.tick_params(axis="both", labelsize=font_size)
 
 
 def _style_axes(ax):
-    """Apply default axis styling: remove top/right spines, outward ticks."""
+    """Apply default axis styling: remove top/right spines, outward ticks.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes.
+    """
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.tick_params(axis="both", direction="out")
 
 
 def _style_axes_heatmap(ax):
-    """Apply heatmap axis styling: all four spines at 0.5 pt, outward ticks."""
+    """Apply heatmap axis styling: all four spines at 0.5 pt, outward ticks.
+
+    Parameters:
+        ax (matplotlib.axes.Axes): Target axes.
+    """
     for spine in ax.spines.values():
         spine.set_linewidth(0.5)
     ax.tick_params(axis="both", direction="out")
@@ -91,8 +121,7 @@ def plot_distribution(
     log_scale=False,
     font_size=None,
 ):
-    """
-    Plot distributions of a per-unit metric across multiple groups/conditions.
+    """Plot distributions of a per-unit metric across multiple groups/conditions.
 
     Parameters:
         ax (matplotlib.axes.Axes): Target axes (caller creates).
@@ -107,7 +136,7 @@ def plot_distribution(
         xlabel (str): X-axis label.
         style (str): ``"violin"`` (default) or ``"boxplot"``.
         show_median (bool): Overlay a median dot on each distribution.
-        show_quartiles (bool): Overlay IQR lines (25th–75th percentile) on
+        show_quartiles (bool): Overlay IQR lines (25th-75th percentile) on
             each distribution.
         show_data (bool): Overlay individual data points on each distribution,
             jittered horizontally to reduce overlap.
@@ -122,9 +151,9 @@ def plot_distribution(
             matplotlib (``violinplot`` or ``boxplot``).
 
     Notes:
-        - In violin mode, groups with fewer than 2 data points cannot produce
-          a kernel density estimate. These groups are rendered as individual
-          scatter points instead and excluded from the violin plot.
+        In violin mode, groups with fewer than 2 data points cannot produce
+        a kernel density estimate. These groups are rendered as individual
+        scatter points instead and excluded from the violin plot.
     """
     _import_matplotlib()
 
@@ -283,13 +312,12 @@ def plot_pvalue_matrix(
     show_colorbar=True,
     font_size=None,
 ):
-    """
-    Display a pairwise p-value matrix as a ``-log10(p)`` heatmap.
+    """Display a pairwise p-value matrix as a ``-log10(p)`` heatmap.
 
     Supports two rendering modes (mutually exclusive):
 
-    - **Standalone**: pass ``ax`` to plot directly on existing axes.
-    - **Inset**: pass ``parent_ax`` to create a small inset axes on a parent
+    - Standalone: pass ``ax`` to plot directly on existing axes.
+    - Inset: pass ``parent_ax`` to create a small inset axes on a parent
       plot (e.g. a violin or distribution plot).
 
     Exactly one of ``ax`` or ``parent_ax`` must be provided.
@@ -297,7 +325,7 @@ def plot_pvalue_matrix(
     Parameters:
         pval_matrix (np.ndarray): (K, K) p-value matrix. Diagonal entries
             should be NaN (they are rendered in black).
-        sig_matrix (np.ndarray or None): (K, K) boolean — True where the
+        sig_matrix (np.ndarray or None): (K, K) boolean -- True where the
             comparison is significant. If None, computed as
             ``pval_matrix < 0.05``.
         labels (list[str] or None): Tick labels for each group. If None,
@@ -459,14 +487,13 @@ def plot_scatter(
     show_legend=True,
     font_size=None,
 ):
-    """
-    Scatter plot comparing two arrays with optional color coding and regression.
+    """Scatter plot comparing two arrays with optional color coding and regression.
 
     Supports two colouring modes (mutually exclusive):
 
-    - **Continuous**: pass ``color_vals`` for a colormap-based colour scale
+    - Continuous: pass ``color_vals`` for a colormap-based colour scale
       with an optional colorbar.
-    - **Discrete groups**: pass ``groups`` (integer index per point) to colour
+    - Discrete groups: pass ``groups`` (integer index per point) to colour
       each group separately with its own legend entry.
 
     When ``groups`` is provided, ``color_vals``, ``cmap``, ``vmin``, ``vmax``,
@@ -488,7 +515,7 @@ def plot_scatter(
         vmin (float or None): Colormap minimum (continuous mode only).
         vmax (float or None): Colormap maximum (continuous mode only).
         show_identity (bool): Plot the x = y identity line.
-        show_colorbar (bool): Add a colorbar when *color_vals* is provided
+        show_colorbar (bool): Add a colorbar when color_vals is provided
             (continuous mode only).
         fit (str or None): Regression to overlay. ``"linear"`` or None.
         show_ci (bool): Show confidence interval band on the fit.
@@ -515,10 +542,10 @@ def plot_scatter(
             mode, a list of scatter artists (one per group).
 
     Notes:
-        - When ``color_vals="density"``, non-finite values in *x* and *y* are
-          removed before computing the KDE. Any regression overlay
-          (``fit="linear"``) and the identity line are therefore computed on
-          this filtered subset, not the original arrays.
+        When ``color_vals="density"``, non-finite values in x and y are
+        removed before computing the KDE. Any regression overlay
+        (``fit="linear"``) and the identity line are therefore computed on
+        this filtered subset, not the original arrays.
     """
     _import_matplotlib()
 
@@ -628,7 +655,7 @@ def plot_scatter(
 
     # --- Colorbar ---------------------------------------------------------
     if groups is None and color_vals is not None and show_colorbar:
-        _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+        _add_colorbar(sc, ax, label=color_label, font_size=font_size)
 
     # --- Axes formatting --------------------------------------------------
     ax.set_xlabel(xlabel)
@@ -660,10 +687,9 @@ def plot_scatter_with_marginals(
     width_ratios=None,
     **scatter_kwargs,
 ):
-    """
-    Scatter plot with marginal histograms on the top and right edges.
+    """Scatter plot with marginal histograms on the top and right edges.
 
-    Creates a 2x2 sub-GridSpec inside *gs_slot* (top-left: x histogram,
+    Creates a 2x2 sub-GridSpec inside gs_slot (top-left: x histogram,
     bottom-left: scatter, bottom-right: y histogram, top-right: empty).
     All scatter options are forwarded to :func:`plot_scatter`.
 
@@ -727,7 +753,7 @@ def plot_scatter_with_marginals(
 
     # Plot scatter
     sc = plot_scatter(ax_scatter, x, y, xlabel=xlabel, ylabel=ylabel, **scatter_kwargs)
-    ax_scatter.set_aspect("equal", adjustable="datalim")
+    ax_scatter.set_aspect("equal", adjustable="box")
 
     # Determine axis range from scatter
     xlim = ax_scatter.get_xlim()
@@ -777,7 +803,7 @@ def plot_scatter_with_marginals(
             sc,
             ax_histy,
             label=color_label,
-            font_size=font_size or 14,
+            font_size=font_size,
             size="5%",
             pad=0.08,
         )
@@ -816,16 +842,15 @@ def plot_manifold(
     ylabel=None,
     font_size=None,
 ):
-    """
-    Plot a 2-D embedding (PCA, UMAP, etc.) with flexible point coloring.
+    """Plot a 2-D embedding (PCA, UMAP, etc.) with flexible point coloring.
 
     Supports three foreground coloring modes (same as :func:`plot_scatter`):
 
-    - **Continuous**: pass ``color_vals`` for colormap-scaled values.
-    - **Discrete groups**: pass ``groups`` for per-group colours.
-    - **Uniform**: neither provided — all foreground points drawn in black.
+    - Continuous: pass ``color_vals`` for colormap-scaled values.
+    - Discrete groups: pass ``groups`` for per-group colours.
+    - Uniform: neither provided -- all foreground points drawn in black.
 
-    An optional **background mask** renders selected points in a faint colour
+    An optional background mask renders selected points in a faint colour
     before the foreground, useful for separating non-event from event points
     (e.g. non-burst vs burst time bins).
 
@@ -865,7 +890,7 @@ def plot_manifold(
             uses current rcParams.
 
     Returns:
-        sc: The foreground scatter artist(s) — a single ``PathCollection``
+        sc: The foreground scatter artist(s) -- a single ``PathCollection``
             (continuous/uniform) or a ``list[PathCollection]`` (group mode).
             Useful for adding shared colorbars or custom legends.
     """
@@ -958,8 +983,7 @@ def plot_lines(
     show_legend=True,
     font_size=None,
 ):
-    """
-    Plot one or more 1-D traces on a shared x-axis.
+    """Plot one or more 1-D traces on a shared x-axis.
 
     Parameters:
         ax (matplotlib.axes.Axes): Target axes (caller creates).
@@ -1069,8 +1093,7 @@ def plot_percentile_bands(
     show_legend=False,
     font_size=None,
 ):
-    """
-    Plot percentile bands or individual lines across ordered groups/conditions.
+    """Plot percentile bands or individual lines across ordered groups/conditions.
 
     For each unit a value is computed per condition. Optionally, values are
     normalized relative to the first group using symmetric normalization:
@@ -1268,18 +1291,17 @@ def plot_burst_sensitivity(
     cmap="hot",
     font_size=None,
 ):
-    """
-    Plot burst detection sensitivity as line plots or heatmaps.
+    """Plot burst detection sensitivity as line plots or heatmaps.
 
     Automatically selects the visualisation based on the dimensionality of the
     burst count arrays:
 
-    - **1-D** arrays (single-parameter sweep): one line per condition on a
+    - 1-D arrays (single-parameter sweep): one line per condition on a
       shared axes.
-    - **2-D** arrays (two-parameter sweep over thresholds x distances, as
+    - 2-D arrays (two-parameter sweep over thresholds x distances, as
       returned by ``SpikeData.burst_sensitivity()``): one heatmap per
       condition via :func:`plot_heatmap`. A single condition is plotted on
-      *ax*; multiple conditions produce a row of subplots on a new figure.
+      ax; multiple conditions produce a row of subplots on a new figure.
 
     Parameters:
         ax (matplotlib.axes.Axes or None): Target axes. Used directly for 1-D
@@ -1312,7 +1334,7 @@ def plot_burst_sensitivity(
     Returns:
         result: For 1-D line plots: ``list[Line2D]`` artists. For a single
             2-D heatmap: the axes returned by :func:`plot_heatmap`. For
-            multiple 2-D heatmaps: ``(fig, axes_list)`` where *axes_list*
+            multiple 2-D heatmaps: ``(fig, axes_list)`` where axes_list
             contains one axes per condition.
     """
     plt, _ = _import_matplotlib()
@@ -1363,7 +1385,7 @@ def plot_burst_sensitivity(
                 for v in np.linspace(dist_values[0], dist_values[-1], min(n_dist, 6))
             ],
         )
-        fs = font_size or 14
+        fs = font_size
 
         # Single condition — plot on the provided ax
         if len(labels) == 1:
@@ -1451,8 +1473,7 @@ def plot_aligned_slice_single_unit(
     invert_y=False,
     linewidths=0.5,
 ):
-    """
-    Raster plot of one unit's spike times across multiple event-aligned slices.
+    """Raster plot of one unit's spike times across multiple event-aligned slices.
 
     Each row corresponds to one slice/burst, x-axis is time relative to the
     alignment point. Optionally colour-codes rows by a per-slice variable.
@@ -1472,7 +1493,7 @@ def plot_aligned_slice_single_unit(
             auto-scales to the data.
         vlines (list[float] or None): X positions for vertical reference
             lines (e.g. burst onset).
-        show_colorbar (bool): Add a colorbar when *color_vals* is provided.
+        show_colorbar (bool): Add a colorbar when color_vals is provided.
         marker_size (float): Scatter marker size (only used when
             ``style="scatter"``).
         font_size (int or None): Font size for labels/ticks. If None, uses
@@ -1485,7 +1506,7 @@ def plot_aligned_slice_single_unit(
             ``style="eventplot"``). Default 0.5.
 
     Returns:
-        sc (PathCollection or None): The scatter artist when *color_vals* is
+        sc (PathCollection or None): The scatter artist when color_vals is
             provided and ``style="scatter"``, otherwise None.
     """
     _import_matplotlib()
@@ -1527,7 +1548,7 @@ def plot_aligned_slice_single_unit(
             c_all = np.concatenate(c_all)
             sc = ax.scatter(x_all, y_all, c=c_all, cmap=cmap, s=marker_size, zorder=2)
             if show_colorbar:
-                _add_colorbar(sc, ax, label=color_label, font_size=font_size or 14)
+                _add_colorbar(sc, ax, label=color_label, font_size=font_size)
         else:
             ax.scatter(x_all, y_all, c="black", s=marker_size, zorder=2)
 
@@ -1583,8 +1604,7 @@ def plot_heatmap(
     font_size=14,
     save_path=None,
 ):
-    """
-    Plot a 2-D matrix as a heatmap.
+    """Plot a 2-D matrix as a heatmap.
 
     Parameters:
         data_mat (np.ndarray): 2-D array to display, shape ``(rows, cols)``.
@@ -1743,18 +1763,17 @@ def plot_recording(
     show=True,
     save_path=None,
 ):
-    """
-    Assemble a multi-panel column figure from a SpikeData object.
+    """Assemble a multi-panel column figure from a SpikeData object.
 
-    Each panel is optional — the caller selects which panels to include and
+    Each panel is optional -- the caller selects which panels to include and
     they are stacked vertically with a shared x-axis. Available panels (in
     display order):
 
-    1. **Spike raster** — eventplot or binned-count image.
-    2. **Population rate** — smoothed firing rate curve; if ``cont_prob`` is
+    1. Spike raster -- eventplot or binned-count image.
+    2. Population rate -- smoothed firing rate curve; if ``cont_prob`` is
        also provided it is overlaid on the same axes.
-    3. **Firing-rate heatmap** — per-unit instantaneous rates as a colour map.
-    4. **Model states** — latent-state posterior from a GPLVM fit.
+    3. Firing-rate heatmap -- per-unit instantaneous rates as a colour map.
+    4. Model states -- latent-state posterior from a GPLVM fit.
 
     Parameters:
         sd (SpikeData): Source spike data object.
@@ -1818,7 +1837,7 @@ def plot_recording(
         axes (list or None): Pre-created axes to plot onto instead of
             creating a new figure. Must be a list of ``(ax_panel, ax_cbar)``
             tuples, one per enabled panel, in display order (raster,
-            pop_rate, fr_heatmap, model_states — only those that are
+            pop_rate, fr_heatmap, model_states -- only those that are
             enabled). ``ax_cbar`` is used for colorbars on heatmap/imshow
             panels; pass a hidden axes if no colorbar is needed for that
             panel. When provided, the function skips figure creation,
@@ -1840,14 +1859,15 @@ def plot_recording(
         fig (matplotlib.Figure): The assembled figure.
 
     Notes:
-        - At least one panel must be enabled, otherwise ``ValueError`` is
-          raised.
-        - When ``gplvm_result`` is provided, ``model_states`` and
-          ``cont_prob`` are extracted from the ``decode_res`` sub-dict
-          (keys ``posterior_latent_marg`` and ``posterior_dynamics_marg``).
-          Arrays with a different time resolution (e.g. GPLVM binned
-          output) are automatically cropped to match the ms-based
-          ``time_range``.
+        At least one panel must be enabled, otherwise ``ValueError`` is
+        raised.
+
+        When ``gplvm_result`` is provided, ``model_states`` and
+        ``cont_prob`` are extracted from the ``decode_res`` sub-dict
+        (keys ``posterior_latent_marg`` and ``posterior_dynamics_marg``).
+        Arrays with a different time resolution (e.g. GPLVM binned
+        output) are automatically cropped to match the ms-based
+        ``time_range``.
     """
     plt, mticker = _import_matplotlib()
 
@@ -2226,27 +2246,26 @@ def plot_spatial_network(
     scale_bar_um=500,
     font_size=None,
 ):
-    """
-    Plot a spatial network of units on their MEA positions.
+    """Plot a spatial network of units on their MEA positions.
 
     Units are drawn as scatter markers sized by their mean pairwise value
-    (row mean excluding diagonal) and coloured by the same metric.  Edges
+    (row mean excluding diagonal) and coloured by the same metric. Edges
     are drawn between unit pairs whose matrix value exceeds a threshold or
     falls in the top percentile, with alpha proportional to edge strength.
 
-    Exactly one of *edge_threshold* or *top_pct* must be provided.
+    Exactly one of edge_threshold or top_pct must be provided.
 
     Parameters:
         ax (matplotlib.axes.Axes): Target axes.
         positions (np.ndarray): Unit positions, shape ``(N, 2)`` with columns
             ``[x, y]`` in micrometres.
         matrix (np.ndarray): Symmetric ``(N, N)`` pairwise matrix (e.g.
-            correlation, STTC).  Diagonal values are ignored.
+            correlation, STTC). Diagonal values are ignored.
         edge_threshold (float or None): Minimum matrix value to draw an edge.
         top_pct (float or None): Percentage of top edges to draw (e.g.
             ``1.0`` draws the top 1 %).
-        node_size_range (tuple): ``(min_size, max_size)`` in points² for the
-            scatter markers.
+        node_size_range (tuple): ``(min_size, max_size)`` in points squared
+            for the scatter markers.
         node_cmap (str): Matplotlib colourmap for node colour.
         node_linewidth (float): Outline width of node markers.
         edge_color (str): Colour for network edges.
@@ -2255,7 +2274,7 @@ def plot_spatial_network(
             transparency, scaled by edge strength.
         scale_bar_um (float): Length of the spatial scale bar in micrometres.
             Set to 0 or None to omit.
-        font_size (int or None): Font size for scale bar label.  If None,
+        font_size (int or None): Font size for scale bar label. If None,
             uses the current rcParams default.
 
     Returns:
