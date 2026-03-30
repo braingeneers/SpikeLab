@@ -45,6 +45,14 @@ Persistence
 
    workspace
 
+Spike Sorting
+-------------
+
+.. toctree::
+   :maxdepth: 2
+
+   spike_sorting
+
 Server
 ------
 

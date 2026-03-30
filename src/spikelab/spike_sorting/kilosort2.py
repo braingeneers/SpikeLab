@@ -1,6 +1,53 @@
 """
-Much of this code is adapted from SpikeInterface
+Kilosort2 spike-sorting pipeline for Maxwell Biosystems and NWB recordings.
+
+The single public entry point is :func:`sort_with_kilosort2`, which runs the
+full pipeline — loading, bandpass filtering, binary-file conversion, MATLAB
+execution, waveform extraction, and two-stage quality curation — and returns
+the curated units as a :class:`~spikelab.spikedata.SpikeData` object.
+
+All internal classes and helper functions are private to this module.
+
+Much of this code is adapted from SpikeInterface.
 """
+
+import datetime
+import h5py
+import json
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+import traceback
+from math import ceil
+from pathlib import Path
+from types import MethodType
+from typing import Any, List, Optional, Union
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from natsort import natsorted
+from scipy.io import savemat
+from tqdm import tqdm
+
+import spikeinterface.core.segmentutils as si_segmentutils
+from spikeinterface.extractors import (BaseRecording, BinaryRecordingExtractor,
+                                       MaxwellRecordingExtractor,
+                                       NwbRecordingExtractor)
+from spikeinterface.preprocessing import ScaleRecording, bandpass_filter
+
+from braindance.core.spikesorter.rt_sort import save_traces
+
+from braindance.core.spikesorter.rt_sort import save_traces
+
+__all__ = ["sort_with_kilosort2"]
+
+# Module-level global set by sort_with_kilosort2 and consumed by load_single_recording.
+STREAM_ID = None
+
 
 def print_stage(text):
     text = str(text)
@@ -14,52 +61,13 @@ def print_stage(text):
     print(num_chars * char)
 
 
-# region Import Modules
-# print_stage("IMPORTING LIBRARIES")
-import time
-import datetime
-
-# _import_start = time.time()
-
-from spikeinterface.extractors import MaxwellRecordingExtractor, NwbRecordingExtractor
-from spikeinterface.preprocessing import bandpass_filter, ScaleRecording
-import numpy as np
-import spikeinterface.core.segmentutils as si_segmentutils
-from spikeinterface.extractors import BinaryRecordingExtractor, BaseRecording
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import matplotlib.axes._axes as axes
-import subprocess
-import tempfile
-import shutil
-import signal
-from pathlib import Path
-import json
-from typing import Optional, List, Any, Union
-from types import MethodType
-from tqdm import tqdm
-from scipy.io import savemat
-import pandas as pd
-from natsort import natsorted
-from math import ceil
-import traceback
-import h5py
-
-from braindance.core.spikesorter.rt_sort import save_traces
-
-# print(f"Done. Time: {time.time() - _import_start:.2f}s")
-
-
-# endregion
-
-
 # region Kilosort
 class RunKilosort:
     # Must create Kilosort instance to 1) set paths 2) check if kilosort is installed
     def __init__(self):
         # Set paths
         self.path = self.set_kilosort_path(KILOSORT_PATH)
-        # os.environ['HDF5_PLUGIN_PATH'] = HDF5_PLUGIN_PATH  # Handled by run_kilosort2()
+        # os.environ['HDF5_PLUGIN_PATH'] = HDF5_PLUGIN_PATH  # Handled by sort_with_kilosort2()
 
         # Check if kilosort is installed
         if not self.check_if_installed():
@@ -446,7 +454,7 @@ end'''
     def set_kilosort_path(kilosort_path):
         if kilosort_path is None:
             if "KILOSORT_PATH" not in os.environ:
-                raise ValueError("Because environment variable KILOSORT_PATH is not defined, you must set kilosort_path='/path/to/kilosort2' in the call to run_kilosort2")
+                raise ValueError("Because environment variable KILOSORT_PATH is not defined, you must set kilosort_path='/path/to/kilosort2' in the call to sort_with_kilosort2")
             return os.environ['KILOSORT_PATH']
         
         path = str(Path(kilosort_path).absolute())
@@ -3528,7 +3536,7 @@ class TemplatesPlot(Figure):
             subplot_i = n_col_neg
 
         # Plot vertical lines in each axis and set limits and labels
-        for i, ax in enumerate(axs):  # type: int, axes.Axes
+        for i, ax in enumerate(axs): 
             ax.set_xlim(*self.window)
             ax.set_xticks(self.window + [0])
             ax.set_xlabel(self.xlabel)
@@ -3621,11 +3629,50 @@ def load_recording(rec_path):
     return rec
 
 
+def _waveform_extractor_to_spikedata(w_e, rec_path):
+    """Convert a curated WaveformExtractor to a SpikeData object.
+
+    Parameters
+    ----------
+    w_e : WaveformExtractor
+        The curated waveform extractor returned by process_recording.
+    rec_path : str or Path
+        Original recording file path, stored as source metadata.
+
+    Returns
+    -------
+    SpikeData
+        Spike trains in milliseconds, one per curated unit.
+    """
+    from spikelab.spikedata import SpikeData
+
+    sorting = w_e.sorting
+    fs_Hz = float(w_e.sampling_frequency)
+
+    trains = []
+    neuron_attributes = []
+    for uid in sorting.unit_ids:
+        spike_samples = sorting.get_unit_spike_train(uid)
+        spike_times_ms = np.sort(spike_samples.astype(float) / fs_Hz * 1000.0)
+        trains.append(spike_times_ms)
+        neuron_attributes.append({"unit_id": int(uid)})
+
+    metadata = {
+        "source_file": str(rec_path),
+        "source_format": "Kilosort2",
+        "fs_Hz": fs_Hz,
+    }
+    return SpikeData(trains, metadata=metadata, neuron_attributes=neuron_attributes)
+
+
 def load_single_recording(rec_path):
     if isinstance(rec_path, BaseRecording):
         rec = rec_path
     elif str(rec_path).endswith(".h5"):
-        rec = MaxwellRecordingExtractor(rec_path)
+        maxwell_kwargs = {}
+        if STREAM_ID is not None:
+            maxwell_kwargs["stream_id"] = STREAM_ID
+        rec = MaxwellRecordingExtractor(rec_path, **maxwell_kwargs)
         test_file = h5py.File(rec_path)
         if 'sig' not in test_file:  # Test if hdf5_plugin_path is needed
             try:
@@ -3644,7 +3691,7 @@ Then, you have 3 options to setup the plugin:
     2. Add the following lines of code BEFORE importing this module, spikeinterface, or h5py:
             import os
             os.environ['HDF5_PLUGIN_PATH'] = '/your/path/to/custom/hdf5/plugin/'  # '/your/path/to/custom/hdf5/plugin/' is the folder containing the decompression file
-    3. Add the code from option 2 to the very first lines of braindance/core/spikesorter/kilosort2.py
+    3. Add the code from option 2 to the very first lines of spikelab/spike_sorting/kilosort2.py
 
 *This message was adapted from SpikeInterface
 """)
@@ -4164,11 +4211,12 @@ class Tee:
             print(s, file=self.stdout)
 
 
-def run_kilosort2(
+def sort_with_kilosort2(
     recording_files: list, intermediate_folders=None, results_folders=None, compiled_results_folder=None,
-    out_file="run_kilosort2.out", 
-    
+    out_file="sort_with_kilosort2.out",
+
     kilosort_path=None,      # "/path/to/Kilosort2"
+    stream_id=None,          # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
     
     kilosort_params={
     'detect_threshold': 6,
@@ -4285,9 +4333,12 @@ def run_kilosort2(
         intermediate_folders (list, optional): List of folders for intermediate results. Defaults to None.
         results_folders (list, optional): Output folders for compiled results. Defaults to None.
         compiled_results_folder (str, optional): Folder for final compiled results. Defaults to None.
-        out_file (str, optional): Name of the .out file for stdout logs. Defaults to "run_kilosort2.out".
-        
+        out_file (str, optional): Name of the .out file for stdout logs. Defaults to "sort_with_kilosort2.out".
+
         kilosort_path (str, optional): Path to Kilosort2 installation. Defaults to None.
+        stream_id (str, optional): Stream identifier passed to ``MaxwellRecordingExtractor``
+            when loading ``.h5`` files that contain multiple recording streams. If ``None``
+            the extractor uses its default stream. Defaults to None.
         
         kilosort_params (dict, optional): Kilosort2 configuration parameters. Defaults to preset values.
         
@@ -4376,9 +4427,14 @@ def run_kilosort2(
         all_templates_line_ms_before_peak (float, optional): Time window before peak for vertical line in template plots (ms). Defaults to 1.
         all_templates_line_ms_after_peak (float, optional): Time window after peak for vertical line in template plots (ms). Defaults to 4.
         all_templates_x_label (str, optional): X-axis label for template plots. Defaults to "Time Rel. to Peak (ms)".
-        
-    Returns: 
-        None
+
+    Returns:
+        list[SpikeData]: One :class:`~spikelab.spikedata.SpikeData` per successfully
+            sorted recording, in the same order as *recording_files*. Failed recordings
+            are silently skipped so the list may be shorter than *recording_files*.
+            Spike times are in **milliseconds**. Each object's ``neuron_attributes``
+            contains ``{"unit_id": int}`` for every curated unit, and ``metadata``
+            includes ``source_file``, ``source_format="Kilosort2"``, and ``fs_Hz``.
     """
     
     if intermediate_folders is None:
@@ -4392,7 +4448,7 @@ def run_kilosort2(
             raise ValueError("'compile_all_recordings' is set to True, so you must specify where the results will be stored with 'compiled_results_folder'")
     
     global RECORDING_FILES, INTERMEDIATE_FOLDERS, OUT_FILE, RESULTS_FOLDERS
-    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS
+    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID
     global RECOMPUTE_RECORDING, RECOMPUTE_SORTING, REEXTRACT_WAVEFORMS, RECURATE_FIRST, RECURATE_SECOND
     global RECOMPILE_SINGLE_RECORDING, RECOMPILE_ALL_RECORDINGS, SAVE_SCRIPT, N_JOBS, TOTAL_MEMORY
     global USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION, FIRST_N_MINS, MEA_Y_MAX, GAIN_TO_UV, OFFSET_TO_UV, REC_CHUNKS
@@ -4417,6 +4473,7 @@ def run_kilosort2(
     # HDF5_PLUGIN_PATH = hdf5_plugin_path
     COMPILED_RESULTS_FOLDER = compiled_results_folder
     KILOSORT_PARAMS = kilosort_params
+    STREAM_ID = stream_id
     RECOMPUTE_RECORDING = recompute_recording
     RECOMPUTE_SORTING = recompute_sorting
     REEXTRACT_WAVEFORMS = reextract_waveforms
@@ -4518,7 +4575,7 @@ def run_kilosort2(
         assert len(SCATTER_RECORDING_COLORS) >= len(RECORDING_FILES) or not COMPILE_ALL_RECORDINGS, "The length of 'SCATTER_RECORDING_COLORS' must be at " \
                                                                     "least the length of 'RECORDING_FILES' if 'COMPILE_ALL_RECORDINGS' is True"
 
-    # recordings_sorted = []
+    spikedata_results = []
     for (rec_path, inter_path, results_path) in zip(RECORDING_FILES, INTERMEDIATE_FOLDERS, RESULTS_FOLDERS):
         if isinstance(rec_path, BaseRecording):
             rec_loaded = rec_path
@@ -4533,7 +4590,9 @@ def run_kilosort2(
 
         if isinstance(w_e, BaseException):
             continue
-        
+
+        spikedata_results.append(_waveform_extractor_to_spikedata(w_e, rec_path))
+
         if not compiled_results_folder.exists() and delete_inter:  # If not compiling all recording results
             shutil.rmtree(inter_path)
 
@@ -4555,8 +4614,10 @@ def run_kilosort2(
             for inter_path in INTERMEDIATE_FOLDERS:
                 shutil.rmtree(inter_path)
 
+    return spikedata_results
+
 if __name__ == "__main__":
-    run_kilosort2(
+    sort_with_kilosort2(
         recording_files=["/data/MEAprojects/organoid/intrinsic/dl/2950/data.raw.h5"],
         intermediate_folders=["/data/MEAprojects/organoid/intrinsic/dl/2950/test"],
         results_folders=["/data/MEAprojects/organoid/intrinsic/dl/2950/test_results"],
