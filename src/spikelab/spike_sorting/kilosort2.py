@@ -588,8 +588,8 @@ end'''
         #             '''
         # else:
         if "win" in sys.platform and sys.platform != "darwin":
-            shell_cmd = f'''cd {output_folder}
-            matlab -nosplash -wait -log -r kilosort_master
+            shell_cmd = f'''cd "{output_folder}"
+            matlab -nosplash -wait -log -r kilosort2_master
             '''
         else:
             shell_cmd = f'''
