@@ -39,10 +39,6 @@ from spikeinterface.extractors import (BaseRecording, BinaryRecordingExtractor,
                                        NwbRecordingExtractor)
 from spikeinterface.preprocessing import ScaleRecording, bandpass_filter
 
-from braindance.core.spikesorter.rt_sort import save_traces
-
-from braindance.core.spikesorter.rt_sort import save_traces
-
 __all__ = ["sort_with_kilosort2"]
 
 # Module-level global set by sort_with_kilosort2 and consumed by load_single_recording.
@@ -59,6 +55,171 @@ def print_stage(text):
     print("\n" + num_chars * char)
     print(indent * " " + text)
     print(num_chars * char)
+
+
+# region Save traces and detection model outputs for fast access when detecting sequences
+def save_traces(recording, inter_path,
+                start_ms=0, end_ms=None,
+                num_processes=None, dtype="float16",
+                verbose=True):
+    """
+    For Maxwell recordings, iterating through traces for DL model can take about 3-4 times longer than recording duration
+    because some channels contain meaningless data, so traces have to be sliced which makes loading data slow.
+    This is resolved through parallel processing. 
+    """
+    if verbose:
+        print("Saving traces:")
+    recording = load_recording(recording)
+
+    if num_processes is None:
+        num_processes = max(1, os.cpu_count() // 2)
+
+    inter_path = Path(inter_path)
+    inter_path.mkdir(exist_ok=True, parents=True)
+    scaled_traces_path = inter_path / "scaled_traces.npy"
+    if isinstance(recording, MaxwellRecordingExtractor):
+        # Use h5py instead of spikeinterface to save Maxwell recording traces since h5py is much faster
+        save_traces_mea(recording._kwargs['file_path'], scaled_traces_path, 
+                        start_ms=start_ms, end_ms=end_ms, 
+                        num_processes=num_processes, dtype=dtype,
+                        verbose=verbose)
+    else:
+        save_traces_si(recording, scaled_traces_path, 
+                       start_ms=start_ms, end_ms=end_ms, 
+                       num_processes=num_processes, dtype=dtype,
+                       verbose=verbose)
+    return scaled_traces_path
+
+
+def save_traces_si(recording: BaseRecording, scaled_traces_path,
+                   start_ms=0, end_ms=None,
+                   num_processes=16, dtype="float16",
+                   verbose=True):
+    # Save scaled traces (microvolts) for a spikeinterface recording
+    
+    samp_freq = recording.get_sampling_frequency() / 1000  # kHz
+    num_elecs = recording.get_num_channels()
+    
+    start_frame = round(start_ms * samp_freq)
+    
+    if end_ms is None:
+        end_frame = recording.get_total_samples()
+    else:
+        end_frame = round(end_ms * samp_freq)
+
+    if verbose:
+        print("Alllocating disk space for traces ...")
+    traces = np.zeros((num_elecs, end_frame-start_frame), dtype=dtype)
+    np.save(scaled_traces_path, traces)
+    del traces
+    
+    if verbose:
+        print("Extracting traces")
+       
+    from multiprocessing import Pool, Manager 
+    with Manager() as manager:
+        config = manager.Namespace()
+        config.recording = recording
+        tasks = [(config, start_frame, end_frame, channel_idx, scaled_traces_path, dtype) for channel_idx in range(num_elecs)]
+        with Pool(processes=num_processes) as pool:
+            imap = pool.imap_unordered(_save_traces_si, tasks)
+            if verbose:
+                imap = tqdm(imap, total=len(tasks))
+            for _ in imap:
+                pass
+        
+        
+def _save_traces_si(task):
+    config, start_frame, end_frame, channel_idx, save_path, dtype = task 
+    recording = config.recording   
+    traces = recording.get_traces(start_frame=start_frame, 
+                                  end_frame=end_frame, 
+                                  channel_ids=[recording.get_channel_ids()[channel_idx]],
+                                  return_scaled=recording.has_scaleable_traces()).flatten().astype(dtype)
+    saved_traces = np.load(save_path, mmap_mode="r+")
+    saved_traces[channel_idx] = traces
+
+
+def save_traces_mea(rec_path, save_path,
+                    start_ms=0, end_ms=None, samp_freq=20,  # kHz
+                    default_gain=1,
+                    chunk_size=100000,
+                    num_processes=2, dtype="float16",
+                    verbose=True):
+    """
+    Can't save traces with spikeinterface get_traces() because it is really slow on MaxWell MEA recordings
+    """
+
+    rec_h5 = h5py.File(rec_path)
+    rec_si = MaxwellRecordingExtractor(rec_path)
+    
+    start_frame = round(start_ms * samp_freq)
+    
+    if end_ms is None:
+        end_frame = rec_si.get_total_samples()
+    else:
+        end_frame = round(end_ms * samp_freq)
+        
+    if 'sig' in rec_h5:  # Old file format
+        # chan_ind = []
+        # for mapping in recording['mapping']:  # (chan_idx, elec_id, x_cord, y_cord)
+        #     if mapping[1] != -1:
+        #         chan_ind.append(mapping[0])
+        # if 'lsb' in recording['settings']:
+        #     gain = recording['settings']['lsb'][0] * 1e6
+        # else:
+        #     gain = default_gain
+        #     if verbose:
+        #         print(f"'lsb' not found in 'settings'. Setting gain to uV to {gain}")
+        chan_ind = [int(chan_id) for chan_id in rec_si.get_channel_ids()]  # This gives same result as recording['mapping] for-loop
+        get_traces = _get_traces_mea_old
+    else:
+        # Check that h5py matches rec_si
+        assert rec_h5['recordings']['rec0000']['well000']['groups']['routed']['raw'].shape == (rec_si.get_num_channels(), rec_si.get_total_samples()), "h5py file doesn't match what spikeinterface loads"
+        chan_ind = list(range(rec_si.get_num_channels()))
+        get_traces = _get_traces_mea_new
+    if rec_si.has_scaleable_traces():
+        gain = rec_si.get_channel_gains()
+    else:
+        gain = np.full_like(chan_ind, default_gain, dtype="float16")
+        if verbose:
+            print(f"Recording does not have channel gains. Setting gain to {gain}")
+    gain = gain[:, None]
+
+    # print("Alllocating memory for traces ...")
+    traces = np.zeros((len(chan_ind), end_frame-start_frame), dtype=dtype)
+    np.save(save_path, traces)
+    del traces
+
+    # print("Extracting traces ...")
+    tasks = [(rec_path, save_path, start_frame, chan_ind, chunk_start, chunk_size, gain, dtype, get_traces)
+             for chunk_start in range(start_frame, end_frame, chunk_size)]
+
+    with mp.Pool(processes=num_processes) as pool:
+        imap = pool.imap_unordered(_save_traces_mea, tasks)
+        if verbose:
+            imap = tqdm(imap, total=len(tasks))
+        for _ in imap:
+            pass
+        
+        
+def _get_traces_mea_old(rec_path):
+    # Used in save_traces_mea
+    return h5py.File(rec_path, 'r')['sig']
+
+
+def _get_traces_mea_new(rec_path):
+    # Used in save_traces_mea
+    return h5py.File(rec_path, 'r')['recordings']['rec0000']['well000']['groups']['routed']['raw']
+
+
+def _save_traces_mea(task):
+    rec_path, save_path, start_frame, chan_ind, chunk_start, chunk_size, gain, dtype, get_traces = task
+    sig = get_traces(rec_path)
+    traces = sig[chan_ind, chunk_start:chunk_start + chunk_size].astype(dtype) * gain
+    saved_traces = np.load(save_path, mmap_mode="r+")
+    saved_traces[:, chunk_start-start_frame:chunk_start - start_frame+traces.shape[1]] = traces  # using traces.shape[1] in case chunk_start is within chunk_size of the end of the file (does not raise index error)
+# endregion
 
 
 # region Kilosort
