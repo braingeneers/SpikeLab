@@ -4783,9 +4783,3 @@ def sort_with_kilosort2(
 
     return spikedata_results
 
-if __name__ == "__main__":
-    sort_with_kilosort2(
-        recording_files=["/data/MEAprojects/organoid/intrinsic/dl/2950/data.raw.h5"],
-        intermediate_folders=["/data/MEAprojects/organoid/intrinsic/dl/2950/test"],
-        results_folders=["/data/MEAprojects/organoid/intrinsic/dl/2950/test_results"],
-        kilosort_path="/home/mea/SpikeSorting/kilosort/Kilosort2")
