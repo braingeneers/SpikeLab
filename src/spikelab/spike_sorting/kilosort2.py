@@ -1447,7 +1447,7 @@ class WaveformExtractor:
             The sampled indices with shape (n_waveforms,)
         """
 
-        sampled_index_file = self.folder / 'waveforms' / f"sampled_index_{unit_id}.npy"
+        sampled_index_file = self.root_folder / 'waveforms' / f"sampled_index_{unit_id}.npy"
         sampled_index = np.load(str(sampled_index_file))
 
         # When this function was written, the sampled_index .npy files also included segment index of spikes
