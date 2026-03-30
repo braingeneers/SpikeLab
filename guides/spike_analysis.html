@@ -81,13 +81,13 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#firing-rates">Firing rates</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#inter-spike-intervals">Inter-spike intervals</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#further-reading">Further Reading</a></li>
 </ul>
@@ -313,12 +313,13 @@ loaded. See the <a class="reference internal" href="../getting_started/quickstar
 <section id="population-rate">
 <h2>Population Rate<a class="headerlink" href="#population-rate" title="Link to this heading"></a></h2>
 <p>The population rate is the smoothed aggregate firing rate across all units.
-SpikeLab computes it in two stages: a square (boxcar) convolution followed by a
-Gaussian convolution, both applied to the 1-ms-binned population spike count.</p>
+SpikeLab computes it in two stages: an optional square (boxcar) convolution
+followed by an optional Gaussian convolution, both applied to the binned
+population spike count.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pop_rate</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_pop_rate</span><span class="p">(</span>
-    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>         <span class="c1"># half-width of the boxcar kernel (ms)</span>
+    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>         <span class="c1"># full width of the boxcar kernel (ms)</span>
     <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>         <span class="c1"># standard deviation of the Gaussian kernel (ms)</span>
-    <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>  <span class="c1"># bin size for the underlying raster (ms)</span>
+    <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>  <span class="c1"># bin size for binning spike times to the raster (ms)</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -326,19 +327,20 @@ Gaussian convolution, both applied to the 1-ms-binned population spike count.</p
 smoothed population firing rate over time.</p>
 <p>Adjusting <code class="docutils literal notranslate"><span class="pre">square_width</span></code> and <code class="docutils literal notranslate"><span class="pre">gauss_sigma</span></code> controls the trade-off between
 temporal resolution and smoothness. A smaller <code class="docutils literal notranslate"><span class="pre">gauss_sigma</span></code> preserves fast
-transients; a larger value reveals slow trends. The <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms</span></code>
-parameter sets the resolution of the internal raster used for counting spikes.</p>
+transients; a larger value reveals slow trends. Setting either to <code class="docutils literal notranslate"><span class="pre">0</span></code> skips
+that smoothing step entirely. The <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms</span></code> parameter sets the bin
+size used for binning spike times to the internal raster.</p>
 </section>
 <section id="burst-detection">
 <h2>Burst Detection<a class="headerlink" href="#burst-detection" title="Link to this heading"></a></h2>
 <p>Network bursts are periods of elevated population activity that stand out above
 baseline. <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_bursts()</span></code> detects them by thresholding
-the smoothed population rate and its acceleration (second derivative):</p>
+the smoothed population rate:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_bursts</span><span class="p">(</span>
     <span class="n">thr_burst</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>                <span class="c1"># RMS multiplier for peak detection</span>
     <span class="n">min_burst_diff</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>           <span class="c1"># minimum distance between burst peaks (bins)</span>
-    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>    <span class="c1"># multiplier for detecting burst onset/offset</span>
-    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>               <span class="c1"># pop rate smoothing: boxcar half-width (ms)</span>
+    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>    <span class="c1"># fraction of peak height for edge detection</span>
+    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>               <span class="c1"># pop rate smoothing: boxcar full width (ms)</span>
     <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>               <span class="c1"># pop rate smoothing: Gaussian sigma (ms)</span>
     <span class="n">raster_bin_size_ms</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># raster bin size (ms)</span>
 <span class="p">)</span>
@@ -359,8 +361,11 @@ are more conservative.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">min_burst_diff</span></code> sets the minimum separation between consecutive burst
 peaks. This prevents a single long burst from being split into many short
 ones.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">burst_edge_mult_thresh</span></code> controls how far out from a peak the burst
-boundaries extend. A lower value pushes edges closer to baseline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">burst_edge_mult_thresh</span></code> sets the fraction of the burst peak height at
+which the burst edges are drawn. In peak-to-trough mode (default), the
+height is measured relative to the neighbouring interburst trough; in
+peak-to-zero mode, it is measured relative to zero. A lower value pushes
+edges closer to baseline.</p></li>
 </ul>
 <p>Set <code class="docutils literal notranslate"><span class="pre">peak_to_trough=True</span></code> (the default) for trough-to-trough baseline
 subtraction, or <code class="docutils literal notranslate"><span class="pre">False</span></code> for a zero baseline.</p>
@@ -372,6 +377,78 @@ subtraction, or <code class="docutils literal notranslate"><span class="pre">Fal
 Detected burst boundaries overlay the population rate trace.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
 </figcaption>
 </figure>
+</section>
+<section id="burst-sensitivity-analysis">
+<h2>Burst Sensitivity Analysis<a class="headerlink" href="#burst-sensitivity-analysis" title="Link to this heading"></a></h2>
+<p>Choosing burst detection parameters requires understanding how the number of
+detected bursts changes with threshold and distance settings. The
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">burst_sensitivity()</span></code> method sweeps a grid of
+<code class="docutils literal notranslate"><span class="pre">thr_burst</span></code> and <code class="docutils literal notranslate"><span class="pre">min_burst_diff</span></code> values and returns the burst count at each
+combination:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">thr_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">5.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>     <span class="c1"># RMS multipliers to test</span>
+<span class="n">dist_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2200</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>    <span class="c1"># minimum peak distances to test</span>
+
+<span class="n">counts</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">burst_sensitivity</span><span class="p">(</span>
+    <span class="n">thr_values</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
+    <span class="n">dist_values</span><span class="o">=</span><span class="n">dist_values</span><span class="p">,</span>
+    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># counts.shape == (len(thr_values), len(dist_values))</span>
+</pre></div>
+</div>
+<p>The result is a 2-D matrix that you can visualise as a heatmap using the
+built-in plotting utility:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_burst_sensitivity</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_burst_sensitivity</span><span class="p">(</span>
+    <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">thresholds</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
+    <span class="n">burst_counts</span><span class="o">=</span><span class="n">counts</span><span class="p">,</span>
+    <span class="n">dist_values</span><span class="o">=</span><span class="n">dist_values</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Threshold (RMS mult.)&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Min burst distance (bins)&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/burst_sensitivity.png"><img alt="Burst sensitivity heatmap" src="../_images/burst_sensitivity.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Heatmap of detected burst counts as a function of threshold multiplier
+(x-axis) and minimum burst distance (y-axis). Warm colours indicate more
+bursts detected.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Inspecting this heatmap helps you identify a plateau region where the burst
+count is stable — a sign that your chosen parameters are robust.</p>
+<p>To test a single parameter in isolation, pass a length-1 list for the other.
+The output is then effectively 1-D, and <code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity</span></code> renders it
+as a line plot instead of a heatmap. To compare multiple recordings, pass
+<code class="docutils literal notranslate"><span class="pre">burst_counts</span></code> as a dict mapping condition labels to arrays — each condition
+is drawn as a separate line on the same axes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sweep thresholds with a fixed min_burst_diff</span>
+<span class="n">counts_d0</span> <span class="o">=</span> <span class="n">sd_d0</span><span class="o">.</span><span class="n">burst_sensitivity</span><span class="p">(</span>
+    <span class="n">thr_values</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
+    <span class="n">dist_values</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">],</span>
+    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">counts_d50</span> <span class="o">=</span> <span class="n">sd_d50</span><span class="o">.</span><span class="n">burst_sensitivity</span><span class="p">(</span>
+    <span class="n">thr_values</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
+    <span class="n">dist_values</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">],</span>
+    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">plot_burst_sensitivity</span><span class="p">(</span>
+    <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">thresholds</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
+    <span class="n">burst_counts</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;D0&quot;</span><span class="p">:</span> <span class="n">counts_d0</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="s2">&quot;D50&quot;</span><span class="p">:</span> <span class="n">counts_d50</span><span class="o">.</span><span class="n">ravel</span><span class="p">()},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="per-unit-metrics">
 <h2>Per-Unit Metrics<a class="headerlink" href="#per-unit-metrics" title="Link to this heading"></a></h2>
@@ -417,63 +494,15 @@ coupling between individual units and the population:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">delays</span></code> — <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> lag at which each unit’s coupling peaks.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lags</span></code> — <code class="docutils literal notranslate"><span class="pre">(2*window_ms+1,)</span></code> lag axis in ms.</p></li>
 </ul>
-<figure class="align-default" id="id2">
+<figure class="align-default" id="id3">
 <a class="reference internal image-reference" href="../_images/firing_rate_violins.png"><img alt="Firing rate distributions across conditions" src="../_images/firing_rate_violins.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Violin plots of per-unit firing rates compared across experimental
-conditions.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+conditions.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>
-</section>
-<section id="burst-sensitivity-analysis">
-<h2>Burst Sensitivity Analysis<a class="headerlink" href="#burst-sensitivity-analysis" title="Link to this heading"></a></h2>
-<p>Choosing burst detection parameters requires understanding how the number of
-detected bursts changes with threshold and distance settings. The
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">burst_sensitivity()</span></code> method sweeps a grid of
-<code class="docutils literal notranslate"><span class="pre">thr_burst</span></code> and <code class="docutils literal notranslate"><span class="pre">min_burst_diff</span></code> values and returns the burst count at each
-combination:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="n">thr_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">5.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>     <span class="c1"># RMS multipliers to test</span>
-<span class="n">dist_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2200</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>    <span class="c1"># minimum peak distances to test</span>
-
-<span class="n">counts</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">burst_sensitivity</span><span class="p">(</span>
-    <span class="n">thr_values</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
-    <span class="n">dist_values</span><span class="o">=</span><span class="n">dist_values</span><span class="p">,</span>
-    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-    <span class="n">square_width</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-    <span class="n">gauss_sigma</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="c1"># counts.shape == (len(thr_values), len(dist_values))</span>
-</pre></div>
-</div>
-<p>The result is a 2-D matrix that you can visualise as a heatmap using the
-built-in plotting utility:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_burst_sensitivity</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_burst_sensitivity</span><span class="p">(</span>
-    <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">thresholds</span><span class="o">=</span><span class="n">thr_values</span><span class="p">,</span>
-    <span class="n">burst_counts</span><span class="o">=</span><span class="n">counts</span><span class="p">,</span>
-    <span class="n">dist_values</span><span class="o">=</span><span class="n">dist_values</span><span class="p">,</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Threshold (RMS mult.)&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Min burst distance (bins)&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<figure class="align-default" id="id3">
-<a class="reference internal image-reference" href="../_images/burst_sensitivity.png"><img alt="Burst sensitivity heatmap" src="../_images/burst_sensitivity.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Heatmap of detected burst counts as a function of threshold multiplier
-(x-axis) and minimum burst distance (y-axis). Warm colours indicate more
-bursts detected.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
-</figcaption>
-</figure>
-<p>Inspecting this heatmap helps you identify a plateau region where the burst
-count is stable — a sign that your chosen parameters are robust.</p>
 </section>
 <section id="burst-widths">
 <h2>Burst Widths<a class="headerlink" href="#burst-widths" title="Link to this heading"></a></h2>

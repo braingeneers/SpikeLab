@@ -3,7 +3,8 @@ Quick Start
 ===========
 
 This guide walks through the basics of creating and analyzing spike train data
-with SpikeLab. All spike times in the library are in **milliseconds**.
+with SpikeLab. All analyses assume spike times are in **milliseconds** — make
+sure your data uses this convention.
 
 Creating a SpikeData Object
 ---------------------------

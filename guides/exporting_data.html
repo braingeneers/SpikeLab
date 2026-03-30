@@ -81,13 +81,13 @@
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
@@ -301,8 +301,8 @@
 <h1>Exporting Data<a class="headerlink" href="#exporting-data" title="Link to this heading"></a></h1>
 <p>SpikeLab provides export functions for saving
 <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> objects to several common
-electrophysiology formats. All exporters accept <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> with spike times
-in <strong>milliseconds</strong> and convert to the target format’s native time unit
+electrophysiology formats. All exporters assume spike times are in
+<strong>milliseconds</strong> and convert to the target format’s native time unit
 automatically.</p>
 <p>The export functions live in <code class="docutils literal notranslate"><span class="pre">spikelab.data_loaders.data_exporters</span></code>.</p>
 <section id="to-hdf5">

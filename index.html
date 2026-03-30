@@ -80,13 +80,13 @@
 <li class="toctree-l2"><a class="reference internal" href="guides/spike_analysis.html">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_analysis.html#firing-rates">Firing rates</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
@@ -319,8 +319,9 @@ Context Protocol, enabling integration with LLM-based analysis tools.</p></li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>All spike times in SpikeLab are stored and processed in <strong>milliseconds</strong>
-unless explicitly stated otherwise.</p>
+<p>SpikeLab’s analyses assume that spike times are provided in
+<strong>milliseconds</strong>. Make sure your data uses this convention before
+passing it to analysis functions.</p>
 </div>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
