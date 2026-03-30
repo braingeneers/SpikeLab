@@ -1,56 +1,46 @@
-IntegratedAnalysisTools
-========================
+========
+SpikeLab
+========
 
-.. image:: https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/tests.yml/badge.svg?branch=main
-   :target: https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/tests.yml?query=branch%3Amain
-   :alt: SpikeData Tests
+Python library for spike train analysis of neural electrophysiology data.
 
-.. image:: https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/black.yml/badge.svg
-   :target: https://github.com/braingeneers/IntegratedAnalysisTools/actions/workflows/black.yml
-   :alt: Black Formatting
+SpikeLab provides a complete toolkit for loading, analyzing, and exporting
+neuronal spike train data from multi-electrode array (MEA) electrophysiology
+experiments.
 
-A monorepo for a suite of analysis tools supporting automated closed-loop experimentation and data analysis in neuroscience and related fields.
+Key features:
 
-Overview
---------
+- **Spike and rate data structures** -- ``SpikeData`` and ``RateData`` classes
+  for representing raw spike trains and instantaneous firing rates, with
+  built-in analysis methods (ISI, firing rate, burst detection, and more).
+- **Event-aligned slicing** -- Extract trial-aligned windows of spike or rate
+  data around stimulus events, stored as ``SpikeSliceStack`` and
+  ``RateSliceStack`` objects for easy averaging and visualization.
+- **Pairwise comparison matrices** -- Compute unit-by-unit similarity or
+  distance matrices with ``PairwiseCompMatrix`` and stack them across
+  conditions with ``PairwiseCompMatrixStack``.
+- **Flexible I/O** -- Load data from pickle, NWB, Neo, and custom formats;
+  export to CSV, pickle, or HDF5 workspaces; optionally read from Amazon S3.
+- **MCP server** -- Programmatic access to all core analysis via the Model
+  Context Protocol, enabling integration with LLM-based analysis tools.
 
-IntegratedAnalysisTools provides a unified framework for working with neuronal spike train data. The main components are:
+.. note::
 
-* **spikedata**: Core module for spike train data representation, manipulation, and analysis
-* **data_loaders**: Utilities to load various file formats (HDF5, NWB, KiloSort/Phy, SpikeInterface)
-* **data_exporters**: Export SpikeData to common neuroscience formats
-
-The ``SpikeData`` class provides a unified, extensible interface for representing, manipulating, and analyzing neuronal spike train data with a focus on clarity, performance, and interoperability.
-
-Repository Structure
---------------------
-
-* **spikedata/** - Core module for spike train data representation, manipulation, and analysis
-* **data_loaders/** - Utilities to load various file formats into ``SpikeData``
-  
-  - Includes exporters in ``data_loaders/data_exporters.py`` to write ``SpikeData`` back to these formats
-
-Contents
---------
+   SpikeLab's analyses assume that spike times are provided in
+   **milliseconds**. Make sure your data uses this convention before
+   passing it to analysis functions.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Contents
 
-   getting_started
-   spikedata
-   data_loaders
-   data_exporters
-
-.. toctree::
-   :maxdepth: 2
-   :caption: API Reference
-
+   getting_started/index
+   guides/index
    api/index
 
-Indices and tables
+Indices and Tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

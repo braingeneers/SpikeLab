@@ -3,23 +3,42 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "integrated-analysis-tools"
-version = "0.0.0"
-description = "Analysis tools for automated closed-loop experimentation and analysis"
+name = "spikelab"
+version = "0.1.0"
+description = "Python library for agentic spike train analysis of neural electrophysiology data"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-  { name = "IntegratedAnalysisTools Maintainers" }
+  { name = "Tjitse van der Molen" },
+  { name = "Braingeneers" },
+  { name = "SpikeLab Maintainers" }
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
   "numpy>=1.20",
   "scipy>=1.5",
+  "pandas>=1.3",
+  "matplotlib>=3.5",
   "mcp>=0.9.0",
-  "boto3>=1.28.0",
+  "h5py>=3.0.0",
 ]
 
 [tool.setuptools.packages.find]
-include = ["spikedata*", "data_loaders*", "mcp_server*"]
+where = ["src"]
+include = ["spikelab*"]
 
 [project.optional-dependencies]
 dev = [
@@ -32,11 +51,46 @@ docs = [
   "sphinx-rtd-theme>=2.0",
   "sphinx-autodoc-typehints>=1.25",
 ]
-hdf5 = [
-  "h5py>=3.0.0",
+s3 = [
+  "boto3>=1.28.0",
+]
+gplvm = [
+  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
+  "jax>=0.4.26",
+  "jaxlib>=0.4.26",
+  "jaxopt>=0.8.2",
+  "optax>=0.2.2",
+]
+plotting = []
+ml = [
+  "scikit-learn>=1.0",
+  "umap-learn>=0.5.0",
+  "networkx>=2.6",
+  "python-louvain>=0.16",
+]
+neo = [
+  "neo>=0.12.0",
+  "quantities>=0.14.0",
+  "pynwb>=2.0.0",
+]
+numba = [
+  "numba>=0.56",
 ]
 all = [
-  "h5py>=3.0.0",
+  "boto3>=1.28.0",
+  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
+  "jax>=0.4.26",
+  "jaxlib>=0.4.26",
+  "jaxopt>=0.8.2",
+  "optax>=0.2.2",
+  "scikit-learn>=1.0",
+  "umap-learn>=0.5.0",
+  "networkx>=2.6",
+  "python-louvain>=0.16",
+  "neo>=0.12.0",
+  "quantities>=0.14.0",
+  "pynwb>=2.0.0",
+  "numba>=0.56",
 ]
 
 [tool.black]
@@ -47,6 +101,11 @@ exclude = '(\.git|\.venv|build|dist)'
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["src"]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: async test (requires pytest-asyncio)",
+]
 filterwarnings = [
     "ignore::DeprecationWarning:quantities",
     "ignore:numpy.core is deprecated:DeprecationWarning",
