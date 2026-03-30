@@ -4379,20 +4379,7 @@ def sort_with_kilosort2(
     kilosort_path=None,      # "/path/to/Kilosort2"
     stream_id=None,          # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
     
-    kilosort_params={
-    'detect_threshold': 6,
-    'projection_threshold': [10, 4],
-    'preclust_threshold': 8,
-    'car': True,
-    'minFR': 0.1,
-    'minfr_goodchannels': 0.1,
-    'freq_min': 150,
-    'sigmaMask': 30,
-    'nPCs': 3,
-    'ntbuff': 64,
-    'nfilt_factor': 4,
-    'NT': None,
-    'keep_good_only': False},
+    kilosort_params=None,
     
     recompute_recording=True, 
     recompute_sorting=False, 
@@ -4414,7 +4401,7 @@ def sort_with_kilosort2(
     mea_y_max=None,  # 2100 
     gain_to_uv=None, 
     offset_to_uv=None,
-    rec_chunks=[], 
+    rec_chunks=None, 
     
     freq_min=300, 
     freq_max=6000, 
@@ -4462,13 +4449,7 @@ def sort_with_kilosort2(
     bar_selected_label="Selected Curation",
     
     scatter_std_max_units_per_recording=None, 
-    scatter_recording_colors=[
-    "#f74343",  # red
-    "#fccd56",  # yellow
-    "#74fc56",  # green
-    "#56fcf6",  # light blue
-    "#1e1efa",  # dark blue
-    "#fa1ed2"],  # pink 
+    scatter_recording_colors=None, 
     scatter_recording_alpha=1, 
     scatter_x_label="Number of Spikes",
     scatter_y_label="avg. STD / amplitude", 
@@ -4523,7 +4504,7 @@ def sort_with_kilosort2(
         mea_y_max (int, optional): Maximum height (μm) for flipping MEA y-coordinates. Defaults to None.
         gain_to_uv (float, optional): Gain factor for converting to microvolts (μV). Defaults to None.
         offset_to_uv (float, optional): Offset for converting to μV. Defaults to None.
-        rec_chunks (list, optional): Recording chunks to process, defined as frame ranges. Defaults to [].
+        rec_chunks (list, optional): Recording chunks to process, defined as frame ranges. Defaults to empty list.
         
         freq_min (int, optional): Minimum frequency for bandpass filter (Hz). Defaults to 300.
         freq_max (int, optional): Maximum frequency for bandpass filter (Hz). Defaults to 6000.
@@ -4598,6 +4579,32 @@ def sort_with_kilosort2(
             includes ``source_file``, ``source_format="Kilosort2"``, and ``fs_Hz``.
     """
     
+    _default_kilosort_params = {
+        'detect_threshold': 6,
+        'projection_threshold': [10, 4],
+        'preclust_threshold': 8,
+        'car': True,
+        'minFR': 0.1,
+        'minfr_goodchannels': 0.1,
+        'freq_min': 150,
+        'sigmaMask': 30,
+        'nPCs': 3,
+        'ntbuff': 64,
+        'nfilt_factor': 4,
+        'NT': None,
+        'keep_good_only': False,
+    }
+    kilosort_params = {**_default_kilosort_params, **(kilosort_params or {})}
+    rec_chunks = list(rec_chunks or [])
+    scatter_recording_colors = list(scatter_recording_colors or [
+        "#f74343",  # red
+        "#fccd56",  # yellow
+        "#74fc56",  # green
+        "#56fcf6",  # light blue
+        "#1e1efa",  # dark blue
+        "#fa1ed2",  # pink
+    ])
+
     if intermediate_folders is None:
         cur_datetime = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
         intermediate_folders = [Path(rec).parent / f"inter_kilosort2_{cur_datetime}" for rec in recording_files]
@@ -4607,7 +4614,6 @@ def sort_with_kilosort2(
         compiled_results_folder = "None"  # Set this to a string to prevent error later on
         if compile_all_recordings:
             raise ValueError("'compile_all_recordings' is set to True, so you must specify where the results will be stored with 'compiled_results_folder'")
-    
     global RECORDING_FILES, INTERMEDIATE_FOLDERS, OUT_FILE, RESULTS_FOLDERS
     global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID
     global RECOMPUTE_RECORDING, RECOMPUTE_SORTING, REEXTRACT_WAVEFORMS, RECURATE_FIRST, RECURATE_SECOND
