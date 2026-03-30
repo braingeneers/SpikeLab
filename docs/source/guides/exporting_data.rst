@@ -4,8 +4,8 @@ Exporting Data
 
 SpikeLab provides export functions for saving
 :class:`~spikelab.spikedata.spike_data.SpikeData` objects to several common
-electrophysiology formats. All exporters accept ``SpikeData`` with spike times
-in **milliseconds** and convert to the target format's native time unit
+electrophysiology formats. All exporters assume spike times are in
+**milliseconds** and convert to the target format's native time unit
 automatically.
 
 The export functions live in ``spikelab.data_loaders.data_exporters``.

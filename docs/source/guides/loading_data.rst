@@ -4,8 +4,8 @@ Loading Data
 
 SpikeLab supports loading spike train data from a variety of common
 electrophysiology formats. All loaders return a
-:class:`~spikelab.spikedata.spike_data.SpikeData` object with spike times in
-**milliseconds**.
+:class:`~spikelab.spikedata.spike_data.SpikeData` object and convert spike
+times to **milliseconds** where possible, since all analyses assume this unit.
 
 The main loader functions live in
 ``spikelab.data_loaders.data_loaders``. In addition,

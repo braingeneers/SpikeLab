@@ -26,8 +26,9 @@ Key features:
 
 .. note::
 
-   All spike times in SpikeLab are stored and processed in **milliseconds**
-   unless explicitly stated otherwise.
+   SpikeLab's analyses assume that spike times are provided in
+   **milliseconds**. Make sure your data uses this convention before
+   passing it to analysis functions.
 
 .. toctree::
    :maxdepth: 2
