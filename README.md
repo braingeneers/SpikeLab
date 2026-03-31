@@ -68,7 +68,7 @@ Some features require additional packages that are not installed by default:
 | NWB file support | `pip install neo quantities` | Reading NWB (Neurodata Without Borders) files |
 | UMAP dimensionality reduction | `pip install umap-learn` | UMAP projections of pairwise matrices |
 | Development tools | `pip install -e ".[dev]"` | pytest, black, and other dev utilities |
-| Spike sorting | `pip install spikeinterface` + MATLAB + Kilosort2 | `spikelab.spike_sorting` Kilosort2 pipeline |
+| Spike sorting | `pip install -e ".[spike-sorting]"` + MATLAB + Kilosort2 | `spikelab.spike_sorting` Kilosort2 pipeline |
 
 ## Quick start
 

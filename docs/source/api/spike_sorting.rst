@@ -10,10 +10,9 @@ and a two-stage quality curation.
 
 .. note::
 
-   ``spikelab.spike_sorting`` depends on a working **MATLAB** installation,
-   the `Kilosort2 <https://github.com/MouseLand/Kilosort2>`_ MATLAB source
-   tree, and `SpikeInterface <https://spikeinterface.readthedocs.io/>`_.
-   These are not installed automatically with SpikeLab.  See the
+   ``spikelab.spike_sorting`` depends on a working **MATLAB** installation
+   and the `Kilosort2 <https://github.com/MouseLand/Kilosort2>`_ MATLAB source
+   tree. These are not installed automatically with SpikeLab.  See the
    :doc:`/guides/spike_sorting` guide for environment setup instructions.
 
 .. _spikesorting-api:

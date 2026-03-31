@@ -16,14 +16,13 @@ raw recordings and returns the curated results as
 Prerequisites
 -------------
 
-The spike-sorting pipeline requires three external components that are **not**
+The spike-sorting pipeline requires two external components that are **not**
 installed automatically with SpikeLab:
 
 1. **MATLAB** (R2019b or later recommended).
 2. **Kilosort2** — clone from `MouseLand/Kilosort2
    <https://github.com/MouseLand/Kilosort2>`_ and note the path to the root
    directory (the folder that contains ``master_kilosort.m``).
-3. **SpikeInterface** — ``pip install spikeinterface``.
 
 For Maxwell Biosystems ``.h5`` files the HDF5 decompression plugin must also be
 installed; follow the instructions printed by the loader if the plugin is
