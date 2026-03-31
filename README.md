@@ -14,6 +14,7 @@ SpikeLab is a Python library for loading, analyzing, visualizing, and exporting 
 - **Export data** to KiloSort, NWB, and other formats
 - **Store and organize results** using the `AnalysisWorkspace` for multi-stage analysis projects
 - **Access programmatically** via a built-in MCP server for tool-based workflows
+- **Run spike sorting** on electrophysiology recordings with built-in KiloSort2 pipeline (`spikelab.spike_sorting`)
 
 ## Installation
 
@@ -67,6 +68,7 @@ Some features require additional packages that are not installed by default:
 | NWB file support | `pip install neo quantities` | Reading NWB (Neurodata Without Borders) files |
 | UMAP dimensionality reduction | `pip install umap-learn` | UMAP projections of pairwise matrices |
 | Development tools | `pip install -e ".[dev]"` | pytest, black, and other dev utilities |
+| Spike sorting | `pip install -e ".[spike-sorting]"` + MATLAB + Kilosort2 | `spikelab.spike_sorting` Kilosort2 pipeline |
 
 ## Quick start
 
@@ -137,6 +139,8 @@ SpikeLab/
 │       │   ├── data_loaders.py     # Load from HDF5, NWB, KiloSort, SpikeInterface
 │       │   ├── data_exporters.py   # Export to KiloSort, NWB, and other formats
 │       │   └── s3_utils.py         # Amazon S3 upload/download utilities
+│       ├── spike_sorting/      # Kilosort2 spike-sorting pipeline
+│       │   └── kilosort2.py        # sort_with_kilosort2 (requires MATLAB + SpikeInterface)
 │       ├── workspace/          # Analysis workspace for storing intermediate results
 │       │   ├── workspace.py        # AnalysisWorkspace class
 │       │   └── hdf5_io.py          # HDF5 serialization for workspace objects
