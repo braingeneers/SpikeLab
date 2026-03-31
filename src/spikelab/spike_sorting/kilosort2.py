@@ -4255,13 +4255,16 @@ def delete_folder(folder):
 def load_recording(rec_path):
     """Load a recording, apply optional truncation and coordinate transforms.
 
-    Loads a single recording via ``load_single_recording``, then applies
+    Loads a single recording file via ``load_single_recording``, or all
+    recordings in a directory via ``concatenate_recordings``. Then applies
     the module-level configuration: truncation to ``FIRST_N_MINS``, frame
     chunking via ``REC_CHUNKS``, y-coordinate flipping via ``MEA_Y_MAX``,
     and custom gain/offset scaling.
 
     Parameters:
-        rec_path (str or Path): Path to the recording file.
+        rec_path (str, Path, or BaseRecording): Path to a recording file,
+            a directory containing ``.raw.h5`` / ``.nwb`` files to
+            concatenate, or a pre-loaded ``BaseRecording``.
 
     Returns:
         rec (BaseRecording): The loaded and optionally transformed
@@ -4270,7 +4273,11 @@ def load_recording(rec_path):
     print_stage("LOADING RECORDING")
     print(f"Recording path: {rec_path}")
     stopwatch = Stopwatch()
-    rec = load_single_recording(rec_path)
+    rec_path = Path(rec_path)
+    if rec_path.is_dir():
+        rec = concatenate_recordings(rec_path)
+    else:
+        rec = load_single_recording(rec_path)
 
     print(f"Recording has {rec.get_num_channels()} channels")
     if FIRST_N_MINS is not None:
@@ -4414,7 +4421,10 @@ Then, you have 3 options to setup the plugin:
         rec = NwbRecordingExtractor(rec_path)
     else:
         raise ValueError(
-            f"Recording {rec_path} is not in .h5 or .nwb format.\nYou must load it directly SpikeInterface and pass the loaded object (not the file path) as the argument. See https://spikeinterface.readthedocs.io/en/latest/modules/extractors.html for details"
+            f"Recording {rec_path} is not in .h5 or .nwb format.\n"
+            f"Load it with SpikeInterface and pass the BaseRecording object "
+            f"instead of the file path. See "
+            f"https://spikeinterface.readthedocs.io/en/latest/modules/extractors.html"
         )
 
     assert (
@@ -5249,7 +5259,7 @@ def sort_with_kilosort2(
     kilosort_path=None,  # "/path/to/Kilosort2"
     stream_id=None,  # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
     kilosort_params=None,
-    recompute_recording=True,
+    recompute_recording=False,
     recompute_sorting=False,
     reextract_waveforms=False,
     recurate_first=False,
@@ -5326,7 +5336,10 @@ def sort_with_kilosort2(
 
     Args:
         recording_files (list): List of file paths to raw recordings.
-        intermediate_folders (list, optional): List of folders for intermediate results. Defaults to None.
+        intermediate_folders (list, optional): List of folders for intermediate results (one per
+            recording). When ``None`` (default), a timestamped folder is created next to each
+            recording file, ensuring a fresh run every time. When an explicit path is provided,
+            existing intermediate files are reused according to the ``recompute_*`` flags.
         results_folders (list, optional): Output folders for compiled results. Defaults to None.
         compiled_results_folder (str, optional): Folder for final compiled results. Defaults to None.
         out_file (str, optional): Name of the .out file for stdout logs. Defaults to "sort_with_kilosort2.out".
@@ -5338,7 +5351,11 @@ def sort_with_kilosort2(
 
         kilosort_params (dict, optional): Kilosort2 configuration parameters. Defaults to preset values.
 
-        recompute_recording (bool, optional): Whether to recompute the reformatted recording file if it already exists. Defaults to True.
+        recompute_recording (bool, optional): Whether to recompute the reformatted ``.dat`` file
+            and delete all downstream results (sorting, waveforms, curation). Defaults to False.
+            Only takes effect when ``intermediate_folders`` is provided — when ``None``, a fresh
+            timestamped folder is used and all files are created from scratch regardless of this
+            flag. Setting this to True forces a full recomputation of the entire pipeline.
         recompute_sorting (bool, optional): Whether to rerun Kilosort2 if the saved files already exist. Defaults to False.
         reextract_waveforms (bool, optional): Whether to reextract waveforms if the saved files already exist. Defaults to False.
         recurate_first (bool, optional): Whether to rerun first curation if the saved files already exist. Defaults to False.
