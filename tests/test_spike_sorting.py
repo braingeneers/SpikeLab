@@ -2256,6 +2256,275 @@ class TestSortWithKilosort2Validation:
             )
             assert result == []
 
+    def test_use_docker_sets_global(self, sort_fn):
+        """
+        use_docker=True sets the USE_DOCKER global.
+
+        Tests:
+            (Test Case 1) Global is True after calling with use_docker=True.
+            (Test Case 2) Global is False after calling with use_docker=False.
+        """
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+            sort_fn(
+                recording_files=["fake.h5"],
+                kilosort_path="/fake/kilosort",
+                use_docker=True,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+            assert ks_mod.USE_DOCKER is True
+
+            sort_fn(
+                recording_files=["fake.h5"],
+                kilosort_path="/fake/kilosort",
+                use_docker=False,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+            assert ks_mod.USE_DOCKER is False
+
+
+# ===========================================================================
+# _spike_sort_docker and Docker branch in spike_sort
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+@skip_no_pandas
+class TestSpikeSortDocker:
+    """
+    Tests for _spike_sort_docker and the Docker branch in spike_sort.
+
+    Tests:
+        (Test Case 1) _spike_sort_docker calls run_sorter with correct args.
+        (Test Case 2) _spike_sort_docker reads output from sorter_output subfolder.
+        (Test Case 3) _spike_sort_docker falls back to output_folder if no subfolder.
+        (Test Case 4) spike_sort uses Docker path when USE_DOCKER is True.
+        (Test Case 5) spike_sort uses MATLAB path when USE_DOCKER is False.
+        (Test Case 6) spike_sort returns exception when Docker sorting fails.
+
+    Notes:
+        - All tests mock spikeinterface.sorters.run_sorter and create fake
+          Phy output files on disk. Docker is never actually invoked.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _set_globals(self):
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        self._ks_mod = ks_mod
+        self._old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
+        self._old_recompute = getattr(ks_mod, "RECOMPUTE_SORTING", None)
+        ks_mod.KILOSORT_PARAMS = {
+            "detect_threshold": 6,
+            "projection_threshold": [10, 4],
+            "preclust_threshold": 8,
+            "car": True,
+            "minFR": 0.1,
+            "minfr_goodchannels": 0.1,
+            "freq_min": 150,
+            "sigmaMask": 30,
+            "nPCs": 3,
+            "ntbuff": 64,
+            "nfilt_factor": 4,
+            "NT": None,
+            "keep_good_only": False,
+        }
+        ks_mod.RECOMPUTE_SORTING = True
+        yield
+        if self._old_params is not None:
+            ks_mod.KILOSORT_PARAMS = self._old_params
+        if self._old_docker is not None:
+            ks_mod.USE_DOCKER = self._old_docker
+        if self._old_recompute is not None:
+            ks_mod.RECOMPUTE_SORTING = self._old_recompute
+
+    def _write_fake_phy_output(self, folder):
+        """Write minimal Phy output files so KilosortSortingExtractor can load."""
+        folder.mkdir(parents=True, exist_ok=True)
+        spike_times = np.array([100, 200, 300, 400], dtype=np.int64)
+        spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
+        np.save(str(folder / "spike_times.npy"), spike_times)
+        np.save(str(folder / "spike_clusters.npy"), spike_clusters)
+        (folder / "params.py").write_text(
+            "dat_path = 'recording.dat'\n"
+            "n_channels_dat = 4\n"
+            "dtype = 'int16'\n"
+            "offset = 0\n"
+            "sample_rate = 20000.0\n"
+            "hp_filtered = True\n"
+        )
+
+    def test_spike_sort_docker_calls_run_sorter(self, tmp_path):
+        """
+        _spike_sort_docker passes correct arguments to SI run_sorter.
+
+        Tests:
+            (Test Case 1) run_sorter is called with sorter_name='kilosort2'.
+            (Test Case 2) docker_image=True is passed.
+            (Test Case 3) KILOSORT_PARAMS are forwarded as kwargs.
+        """
+        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+
+        output_folder = tmp_path / "ks_output"
+        sorter_output = output_folder / "sorter_output"
+        self._write_fake_phy_output(sorter_output)
+
+        recording = _make_mock_recording()
+        mock_rs = MagicMock(return_value=None)
+
+        with patch.dict(
+            sys.modules,
+            {"spikeinterface.sorters": MagicMock(run_sorter=mock_rs)},
+        ):
+            result = _spike_sort_docker(recording, output_folder)
+
+        mock_rs.assert_called_once()
+        _, call_kwargs = mock_rs.call_args
+        assert call_kwargs["sorter_name"] == "kilosort2"
+        assert call_kwargs["docker_image"] is True
+        assert call_kwargs["detect_threshold"] == 6
+
+        assert hasattr(result, "unit_ids")
+        assert set(result.unit_ids) == {0, 1}
+
+    def test_spike_sort_docker_sorter_output_subfolder(self, tmp_path):
+        """
+        _spike_sort_docker reads from sorter_output/ subfolder when it exists.
+
+        Tests:
+            (Test Case 1) Phy files in sorter_output/ are found.
+        """
+        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+
+        output_folder = tmp_path / "ks_output"
+        sorter_output = output_folder / "sorter_output"
+        self._write_fake_phy_output(sorter_output)
+
+        recording = _make_mock_recording()
+
+        with patch.dict(
+            sys.modules,
+            {"spikeinterface.sorters": MagicMock(run_sorter=MagicMock())},
+        ):
+            result = _spike_sort_docker(recording, output_folder)
+
+        assert result.folder == sorter_output.absolute()
+
+    def test_spike_sort_docker_fallback_to_output_folder(self, tmp_path):
+        """
+        _spike_sort_docker falls back to output_folder when no sorter_output/ exists.
+
+        Tests:
+            (Test Case 1) Phy files directly in output_folder are found.
+        """
+        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+
+        output_folder = tmp_path / "ks_output"
+        self._write_fake_phy_output(output_folder)
+
+        recording = _make_mock_recording()
+
+        with patch.dict(
+            sys.modules,
+            {"spikeinterface.sorters": MagicMock(run_sorter=MagicMock())},
+        ):
+            result = _spike_sort_docker(recording, output_folder)
+
+        assert result.folder == output_folder.absolute()
+
+    def test_spike_sort_uses_docker_when_enabled(self, tmp_path):
+        """
+        spike_sort calls _spike_sort_docker when USE_DOCKER is True.
+
+        Tests:
+            (Test Case 1) _spike_sort_docker is called instead of RunKilosort.
+            (Test Case 2) RunKilosort is never instantiated.
+        """
+        from spikelab.spike_sorting.kilosort2 import spike_sort
+
+        self._ks_mod.USE_DOCKER = True
+        output_folder = tmp_path / "ks_output"
+        recording = _make_mock_recording()
+
+        mock_kse = SimpleNamespace(unit_ids=[0, 1])
+
+        with patch.object(
+            self._ks_mod, "_spike_sort_docker", return_value=mock_kse
+        ) as mock_docker, patch.object(
+            self._ks_mod, "RunKilosort"
+        ) as mock_rk:
+            result = spike_sort(
+                recording, "fake.h5", tmp_path / "rec.dat", output_folder
+            )
+
+        mock_docker.assert_called_once_with(recording, output_folder)
+        mock_rk.assert_not_called()
+        assert result is mock_kse
+
+    def test_spike_sort_uses_matlab_when_docker_disabled(self, tmp_path):
+        """
+        spike_sort uses RunKilosort when USE_DOCKER is False.
+
+        Tests:
+            (Test Case 1) RunKilosort is instantiated.
+            (Test Case 2) _spike_sort_docker is not called.
+        """
+        from spikelab.spike_sorting.kilosort2 import spike_sort
+
+        self._ks_mod.USE_DOCKER = False
+        output_folder = tmp_path / "ks_output"
+        recording = _make_mock_recording()
+
+        mock_sorting = SimpleNamespace(unit_ids=[0])
+        mock_ks_instance = MagicMock()
+        mock_ks_instance.run.return_value = mock_sorting
+
+        with patch.object(
+            self._ks_mod, "RunKilosort", return_value=mock_ks_instance
+        ) as mock_rk, patch.object(
+            self._ks_mod, "_spike_sort_docker"
+        ) as mock_docker, patch.object(
+            self._ks_mod, "write_recording"
+        ):
+            result = spike_sort(
+                recording, "fake.h5", tmp_path / "rec.dat", output_folder
+            )
+
+        mock_rk.assert_called_once()
+        mock_docker.assert_not_called()
+        assert result is mock_sorting
+
+    def test_spike_sort_docker_failure_returns_exception(self, tmp_path):
+        """
+        spike_sort returns the exception when Docker sorting fails.
+
+        Tests:
+            (Test Case 1) Exception from _spike_sort_docker is caught and returned.
+        """
+        from spikelab.spike_sorting.kilosort2 import spike_sort
+
+        self._ks_mod.USE_DOCKER = True
+        output_folder = tmp_path / "ks_output"
+        recording = _make_mock_recording()
+
+        with patch.object(
+            self._ks_mod,
+            "_spike_sort_docker",
+            side_effect=RuntimeError("Docker failed"),
+        ):
+            result = spike_sort(
+                recording, "fake.h5", tmp_path / "rec.dat", output_folder
+            )
+
+        assert isinstance(result, RuntimeError)
+        assert "Docker failed" in str(result)
+
 
 # ===========================================================================
 # print_stage

@@ -4632,13 +4632,55 @@ def write_recording(recording_filtered, recording_dat_path, verbose=True):
     stopwatch.log_time("Done converting recording.")
 
 
+def _spike_sort_docker(recording, output_folder):
+    """Run Kilosort2 inside a Docker container via SpikeInterface.
+
+    Uses the ``spikeinterface/kilosort2-compiled-base`` image which bundles a
+    compiled MATLAB Runtime — no MATLAB license or local installation required.
+    Requires Docker with NVIDIA GPU support (``--gpus all``).
+
+    Parameters:
+        recording (BaseRecording): Scaled and filtered SpikeInterface recording.
+        output_folder (Path): Directory for Kilosort2 output files.
+
+    Returns:
+        sorting (KilosortSortingExtractor): The sorting result loaded from the
+            Docker output folder.
+    """
+    from spikeinterface.sorters import run_sorter
+
+    # Map KILOSORT_PARAMS to SpikeInterface's run_sorter kwargs.
+    # The parameter names are identical between our dict and SI's defaults.
+    si_params = {k: v for k, v in KILOSORT_PARAMS.items()}
+
+    print("Running Kilosort2 via Docker container")
+    si_sorting = run_sorter(
+        sorter_name="kilosort2",
+        recording=recording,
+        folder=str(output_folder),
+        docker_image=True,
+        verbose=True,
+        raise_error=True,
+        with_output=False,  # We load results ourselves via KilosortSortingExtractor
+        **si_params,
+    )
+
+    # SI places sorter output in a subfolder; locate the Phy output files
+    sorter_output = output_folder / "sorter_output"
+    if not (sorter_output / "spike_times.npy").exists():
+        # Fallback: some SI versions put output directly in the folder
+        sorter_output = output_folder
+
+    return KilosortSortingExtractor(folder_path=sorter_output)
+
+
 def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
     """Run Kilosort2 on a single recording and return the sorting result.
 
     Converts the recording to ``.dat`` format (if needed), launches
-    Kilosort2 via MATLAB, and returns the detected units as a
-    ``KilosortSortingExtractor``. Skips re-sorting when
-    ``RECOMPUTE_SORTING`` is False and results already exist.
+    Kilosort2 via MATLAB (or Docker when ``USE_DOCKER`` is True), and
+    returns the detected units as a ``KilosortSortingExtractor``. Skips
+    re-sorting when ``RECOMPUTE_SORTING`` is False and results already exist.
 
     Parameters:
         rec_cache (BaseRecording): Scaled and filtered recording.
@@ -4653,13 +4695,17 @@ def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
     print_stage("SPIKE SORTING")
     stopwatch = Stopwatch()
 
-    kilosort = RunKilosort()
     try:
         if not RECOMPUTE_SORTING and (output_folder / "spike_times.npy").exists():
             print("Loading Kilosort2's sorting results")
-            sorting = kilosort.get_result_from_folder(output_folder)
+            sorting = KilosortSortingExtractor(folder_path=output_folder)
+        elif USE_DOCKER:
+            # Docker: SpikeInterface handles .dat conversion internally
+            create_folder(output_folder)
+            sorting = _spike_sort_docker(rec_cache, output_folder)
         else:
-            # Filter and writing .dat for input to Kilosort2
+            # Local MATLAB
+            kilosort = RunKilosort()
             try:
                 write_recording(rec_cache, recording_dat_path, verbose=True)
             except Exception as e:
@@ -5257,6 +5303,7 @@ def sort_with_kilosort2(
     kilosort_path=None,  # "/path/to/Kilosort2"
     stream_id=None,  # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
     kilosort_params=None,
+    use_docker=False,
     recompute_recording=False,
     recompute_sorting=False,
     reextract_waveforms=False,
@@ -5348,6 +5395,11 @@ def sort_with_kilosort2(
             the extractor uses its default stream. Defaults to None.
 
         kilosort_params (dict, optional): Kilosort2 configuration parameters. Defaults to preset values.
+
+        use_docker (bool, optional): Run Kilosort2 inside a Docker container
+            (``spikeinterface/kilosort2-compiled-base``) instead of a local MATLAB
+            installation. Requires Docker with NVIDIA GPU support. When True,
+            ``kilosort_path`` is not required. Defaults to False.
 
         recompute_recording (bool, optional): Whether to recompute the reformatted ``.dat`` file
             and delete all downstream results (sorting, waveforms, curation). Defaults to False.
@@ -5501,7 +5553,7 @@ def sort_with_kilosort2(
                 "'compile_all_recordings' is set to True, so you must specify where the results will be stored with 'compiled_results_folder'"
             )
     global RECORDING_FILES, INTERMEDIATE_FOLDERS, OUT_FILE, RESULTS_FOLDERS
-    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID
+    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID, USE_DOCKER
     global RECOMPUTE_RECORDING, RECOMPUTE_SORTING, REEXTRACT_WAVEFORMS, RECURATE_FIRST, RECURATE_SECOND
     global RECOMPILE_SINGLE_RECORDING, RECOMPILE_ALL_RECORDINGS, SAVE_SCRIPT, N_JOBS, TOTAL_MEMORY
     global USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION, FIRST_N_MINS, MEA_Y_MAX, GAIN_TO_UV, OFFSET_TO_UV, REC_CHUNKS
@@ -5526,6 +5578,7 @@ def sort_with_kilosort2(
     COMPILED_RESULTS_FOLDER = compiled_results_folder
     KILOSORT_PARAMS = kilosort_params
     STREAM_ID = stream_id
+    USE_DOCKER = use_docker
     RECOMPUTE_RECORDING = recompute_recording
     RECOMPUTE_SORTING = recompute_sorting
     REEXTRACT_WAVEFORMS = reextract_waveforms
