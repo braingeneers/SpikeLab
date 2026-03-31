@@ -19,7 +19,6 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import numpy as np
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Optional-dependency gating
 # ---------------------------------------------------------------------------
@@ -41,9 +40,7 @@ except Exception:
 skip_no_spikeinterface = pytest.mark.skipif(
     not _has_spikeinterface, reason="spikeinterface not installed"
 )
-skip_no_pandas = pytest.mark.skipif(
-    not _has_pandas, reason="pandas not installed"
-)
+skip_no_pandas = pytest.mark.skipif(not _has_pandas, reason="pandas not installed")
 
 
 # ---------------------------------------------------------------------------
@@ -105,9 +102,11 @@ def _write_ks_folder(
     if write_templates:
         if templates is None:
             n_units = int(spike_clusters.max()) + 1
-            templates = np.random.default_rng(42).standard_normal(
-                (n_units, 61, 4)
-            ).astype(np.float32)
+            templates = (
+                np.random.default_rng(42)
+                .standard_normal((n_units, 61, 4))
+                .astype(np.float32)
+            )
         np.save(str(folder / "templates.npy"), templates)
         if channel_map is None:
             channel_map = np.arange(templates.shape[2])
@@ -120,7 +119,9 @@ def _make_mock_sorting(unit_ids, spike_trains_dict, sampling_frequency=20000.0):
     mock.unit_ids = list(unit_ids)
     mock.sampling_frequency = sampling_frequency
 
-    def get_unit_spike_train(unit_id, segment_index=None, start_frame=None, end_frame=None):
+    def get_unit_spike_train(
+        unit_id, segment_index=None, start_frame=None, end_frame=None
+    ):
         st = spike_trains_dict[unit_id].copy()
         if start_frame is not None:
             st = st[st >= start_frame]
@@ -132,7 +133,9 @@ def _make_mock_sorting(unit_ids, spike_trains_dict, sampling_frequency=20000.0):
     return mock
 
 
-def _make_mock_recording(num_samples=200000, sampling_frequency=20000.0, num_channels=4):
+def _make_mock_recording(
+    num_samples=200000, sampling_frequency=20000.0, num_channels=4
+):
     """Return a lightweight object mimicking a SpikeInterface recording."""
     mock = SimpleNamespace()
     mock.get_num_samples = lambda: num_samples
@@ -147,7 +150,9 @@ def _make_mock_recording(num_samples=200000, sampling_frequency=20000.0, num_cha
     rng = np.random.default_rng(0)
     traces = rng.standard_normal((num_samples, num_channels)).astype(np.float32)
 
-    def get_traces(start_frame=0, end_frame=None, channel_ids=None, return_scaled=False):
+    def get_traces(
+        start_frame=0, end_frame=None, channel_ids=None, return_scaled=False
+    ):
         ef = end_frame if end_frame is not None else num_samples
         if channel_ids is not None:
             return traces[start_frame:ef, channel_ids]
@@ -284,6 +289,7 @@ class TestKilosortSortingExtractor:
 
         # Need to set KILOSORT_PARAMS global for init
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -307,6 +313,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -331,6 +338,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -351,10 +359,15 @@ class TestKilosortSortingExtractor:
         """
         spike_times = np.array([10, 20, 100, 200], dtype=np.int64)
         spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
-        tsv = {"cluster_id": [0, 1], "KSLabel": ["good", "mua"], "group": ["good", "mua"]}
+        tsv = {
+            "cluster_id": [0, 1],
+            "KSLabel": ["good", "mua"],
+            "group": ["good", "mua"],
+        }
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
         try:
@@ -377,6 +390,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -402,6 +416,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -448,6 +463,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, sample_rate=20000.0)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -471,6 +487,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -495,6 +512,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -521,10 +539,13 @@ class TestKilosortSortingExtractor:
         (folder / "cluster_info.csv").write_text(csv_text)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
-            kse = ks_module.KilosortSortingExtractor(folder, exclude_cluster_groups="noise")
+            kse = ks_module.KilosortSortingExtractor(
+                folder, exclude_cluster_groups="noise"
+            )
             assert kse.unit_ids == [0]
         finally:
             if old_params is not None:
@@ -544,6 +565,7 @@ class TestKilosortSortingExtractor:
         (folder / "cluster_info.tsv").write_text("id\tgroup\n0\tgood\n1\tgood")
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -566,10 +588,13 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
-            kse = ks_module.KilosortSortingExtractor(tmp_path, exclude_cluster_groups=[])
+            kse = ks_module.KilosortSortingExtractor(
+                tmp_path, exclude_cluster_groups=[]
+            )
             assert set(kse.unit_ids) == {0, 1}
         finally:
             if old_params is not None:
@@ -587,9 +612,12 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "multi_tsv"
         _write_ks_folder(folder, spike_times, spike_clusters)
         (folder / "cluster_group.tsv").write_text("cluster_id\tgroup\n0\tgood\n1\tgood")
-        (folder / "cluster_KSLabel.tsv").write_text("cluster_id\tKSLabel\n0\tgood\n1\tmua")
+        (folder / "cluster_KSLabel.tsv").write_text(
+            "cluster_id\tKSLabel\n0\tgood\n1\tmua"
+        )
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
         try:
@@ -612,6 +640,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -636,6 +665,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -659,6 +689,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -682,6 +713,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters, sample_rate=44100.0)
 
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
         try:
@@ -727,8 +759,12 @@ class TestKilosortSortingExtractorGetChansMax:
 
         channel_map = np.array([0, 1, 2, 3])
         _write_ks_folder(
-            tmp_path, spike_times, spike_clusters,
-            write_templates=True, templates=templates, channel_map=channel_map,
+            tmp_path,
+            spike_times,
+            spike_clusters,
+            write_templates=True,
+            templates=templates,
+            channel_map=channel_map,
         )
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
@@ -781,8 +817,12 @@ class TestKilosortSortingExtractorGetChansMax:
         channel_map = np.array([0, 1, 2, 3])
         folder = tmp_path / "pos_peak"
         _write_ks_folder(
-            folder, spike_times, spike_clusters,
-            write_templates=True, templates=templates, channel_map=channel_map,
+            folder,
+            spike_times,
+            spike_clusters,
+            write_templates=True,
+            templates=templates,
+            channel_map=channel_map,
         )
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
@@ -836,6 +876,7 @@ class TestCurationSpikesMin:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
     def test_curates_above_threshold(self, Curation):
@@ -959,6 +1000,7 @@ class TestCurationFiringRate:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
     def test_firing_rate_curation(self, Curation):
@@ -971,6 +1013,7 @@ class TestCurationFiringRate:
             (Test Case 3) Metrics contain correct rates.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_fr_min = getattr(ks_mod, "FR_MIN", None)
         ks_mod.FR_MIN = 0.05
 
@@ -1003,6 +1046,7 @@ class TestCurationFiringRate:
             (Test Case 1) Unit with firing rate 0.04 Hz fails FR_MIN=0.05.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_fr_min = getattr(ks_mod, "FR_MIN", None)
         ks_mod.FR_MIN = 0.05
 
@@ -1044,6 +1088,7 @@ class TestCurationIsiViolation:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
     def test_clean_train_passes(self, Curation):
@@ -1054,6 +1099,7 @@ class TestCurationIsiViolation:
             (Test Case 1) All ISIs > isi_threshold => 0% violations.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 1.0
 
@@ -1078,6 +1124,7 @@ class TestCurationIsiViolation:
             (Test Case 1) Spikes 1 sample apart => high violation %.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 1.0
 
@@ -1103,13 +1150,16 @@ class TestCurationIsiViolation:
             (Test Case 1) Correct percentage computation for mixed case.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 5.0
 
         try:
             # 20kHz, isi_threshold = 1.5ms = 30 samples
             # 10 spikes: 9 ISIs, 2 violations
-            spikes = np.array([0, 10, 1000, 1010, 2000, 3000, 4000, 5000, 6000, 7000], dtype=np.int64)
+            spikes = np.array(
+                [0, 10, 1000, 1010, 2000, 3000, 4000, 5000, 6000, 7000], dtype=np.int64
+            )
             trains = {0: spikes}
             sorting = _make_mock_sorting([0], trains)
             recording = _make_mock_recording()
@@ -1130,6 +1180,7 @@ class TestCurationIsiViolation:
                 violation_num=0, violation_percent=0/1*100=0%.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 1.0
 
@@ -1158,6 +1209,7 @@ class TestCurationIsiViolation:
               Two spikes 30 samples apart should produce 0 violations.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 1.0
 
@@ -1181,6 +1233,7 @@ class TestCurationIsiViolation:
             (Test Case 1) ISI of 29 samples < 30 samples threshold.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 100.0
 
@@ -1204,6 +1257,7 @@ class TestCurationIsiViolation:
                 samples is a violation.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
         ks_mod.ISI_VIOL_MAX = 100.0
 
@@ -1240,6 +1294,7 @@ class TestCurationSnr:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
     def _make_mock_waveform_extractor(
@@ -1270,6 +1325,7 @@ class TestCurationSnr:
             (Test Case 1) SNR of 20 passes SNR_MIN of 5.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_snr = getattr(ks_mod, "SNR_MIN", None)
         ks_mod.SNR_MIN = 5.0
 
@@ -1304,6 +1360,7 @@ class TestCurationSnr:
             (Test Case 1) SNR < 5 fails SNR_MIN of 5.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_snr = getattr(ks_mod, "SNR_MIN", None)
         ks_mod.SNR_MIN = 5.0
 
@@ -1318,7 +1375,9 @@ class TestCurationSnr:
             rng = np.random.default_rng(42)
             traces = rng.standard_normal((200000, 2)).astype(np.float32) * 100
 
-            def get_traces(start_frame=0, end_frame=None, channel_ids=None, return_scaled=False):
+            def get_traces(
+                start_frame=0, end_frame=None, channel_ids=None, return_scaled=False
+            ):
                 ef = end_frame if end_frame is not None else 200000
                 return traces[start_frame:ef]
 
@@ -1354,6 +1413,7 @@ class TestCurationSnr:
             - Source uses np.errstate(divide='ignore') on this path.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_snr = getattr(ks_mod, "SNR_MIN", None)
         ks_mod.SNR_MIN = 5.0
 
@@ -1365,7 +1425,9 @@ class TestCurationSnr:
             recording.has_scaleable_traces = lambda: False
             traces = np.zeros((200000, 2), dtype=np.float32)
 
-            def get_traces(start_frame=0, end_frame=None, channel_ids=None, return_scaled=False):
+            def get_traces(
+                start_frame=0, end_frame=None, channel_ids=None, return_scaled=False
+            ):
                 ef = end_frame if end_frame is not None else 200000
                 return traces[start_frame:ef]
 
@@ -1410,9 +1472,18 @@ class TestCurationStdNormMax:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
-    def _make_we(self, unit_ids, templates_avg, templates_std, peak_ind, chans_max_all, sampling_frequency=20000.0):
+    def _make_we(
+        self,
+        unit_ids,
+        templates_avg,
+        templates_std,
+        peak_ind,
+        chans_max_all,
+        sampling_frequency=20000.0,
+    ):
         we = SimpleNamespace()
         we.sorting = SimpleNamespace(unit_ids=unit_ids)
         we.peak_ind = peak_ind
@@ -1441,6 +1512,7 @@ class TestCurationStdNormMax:
             (Test Case 1) std_norm = 0.1/10 = 0.01, well below threshold 1.0.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
         old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
         ks_mod.STD_NORM_MAX = 1.0
@@ -1476,6 +1548,7 @@ class TestCurationStdNormMax:
             (Test Case 1) std_norm = 20/10 = 2.0, above threshold 1.0.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
         old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
         ks_mod.STD_NORM_MAX = 1.0
@@ -1511,6 +1584,7 @@ class TestCurationStdNormMax:
             (Test Case 1) Mean std over window is used instead of single-sample std.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
         old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
         old_before = getattr(ks_mod, "STD_OVER_WINDOW_MS_BEFORE", None)
@@ -1555,6 +1629,7 @@ class TestCurationStdNormMax:
             (Test Case 1) Zero amplitude with non-zero std => inf > STD_NORM_MAX.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+
         old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
         old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
         ks_mod.STD_NORM_MAX = 1.0
@@ -1600,6 +1675,7 @@ class TestCurationUpdateHistory:
     @pytest.fixture()
     def Curation(self):
         from spikelab.spike_sorting.kilosort2 import Curation
+
         return Curation
 
     def test_single_update(self, Curation):
@@ -1654,6 +1730,7 @@ class TestWaveformExtractorToSpikeData:
     @pytest.fixture()
     def convert_fn(self):
         from spikelab.spike_sorting.kilosort2 import _waveform_extractor_to_spikedata
+
         return _waveform_extractor_to_spikedata
 
     def test_basic_conversion(self, convert_fn):
@@ -1767,6 +1844,7 @@ class TestShellScriptTextProcessing:
     @pytest.fixture()
     def ShellScript(self):
         from spikelab.spike_sorting.kilosort2 import ShellScript
+
         return ShellScript
 
     def test_remove_initial_blank_lines(self, ShellScript):
@@ -1928,6 +2006,7 @@ class TestUtilsMemToInt:
     @pytest.fixture()
     def Utils(self):
         from spikelab.spike_sorting.kilosort2 import Utils
+
         return Utils
 
     def test_kilobyte(self, Utils):
@@ -2007,6 +2086,7 @@ class TestUtilsReadPython:
     @pytest.fixture()
     def Utils(self):
         from spikelab.spike_sorting.kilosort2 import Utils
+
         return Utils
 
     def test_parses_params_file(self, tmp_path, Utils):
@@ -2019,9 +2099,7 @@ class TestUtilsReadPython:
             (Test Case 3) hp_filtered is parsed as bool.
         """
         params_text = (
-            "sample_rate = 30000.0\n"
-            "dtype = 'int16'\n"
-            "hp_filtered = True\n"
+            "sample_rate = 30000.0\n" "dtype = 'int16'\n" "hp_filtered = True\n"
         )
         p = tmp_path / "params.py"
         p.write_text(params_text)
@@ -2075,6 +2153,7 @@ class TestSortWithKilosort2Validation:
     @pytest.fixture()
     def sort_fn(self):
         from spikelab.spike_sorting.kilosort2 import sort_with_kilosort2
+
         return sort_with_kilosort2
 
     def test_compile_all_without_folder_raises(self, sort_fn):
@@ -2197,6 +2276,7 @@ class TestPrintStage:
     @pytest.fixture()
     def print_stage(self):
         from spikelab.spike_sorting.kilosort2 import print_stage
+
         return print_stage
 
     def test_banner_contains_text(self, print_stage, capsys):
