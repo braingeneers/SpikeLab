@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Workspace Persistence &mdash; SpikeLab 0.1.0 documentation</title>
+  <title>Spike Sorting &mdash; SpikeLab 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -19,8 +19,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="MCP Server" href="mcp_server.html" />
-    <link rel="prev" title="Exporting Data" href="exporting_data.html" /> 
+    <link rel="next" title="Spike Analysis" href="spike_analysis.html" />
+    <link rel="prev" title="Loading Data" href="loading_data.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -78,15 +78,15 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#sorting-multiple-recordings">Sorting multiple recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#controlling-curation-thresholds">Controlling curation thresholds</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#kilosort2-parameters">Kilosort2 parameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#downstream-analysis">Downstream analysis</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Spike Sorting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basic-usage">Basic usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sorting-multiple-recordings">Sorting multiple recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#controlling-curation-thresholds">Controlling curation thresholds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kilosort2-parameters">Kilosort2 parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#downstream-analysis">Downstream analysis</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
@@ -139,11 +139,11 @@
 <li class="toctree-l3"><a class="reference internal" href="exporting_data.html#to-pickle">To pickle</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Workspace Persistence</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#creating-a-workspace">Creating a Workspace</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#saving-and-loading">Saving and Loading</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#listing-and-retrieving">Listing and Retrieving</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
@@ -305,9 +305,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
-      <li class="breadcrumb-item active">Workspace Persistence</li>
+      <li class="breadcrumb-item active">Spike Sorting</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/guides/workspace.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/guides/spike_sorting.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -315,171 +315,179 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="workspace-persistence">
-<h1>Workspace Persistence<a class="headerlink" href="#workspace-persistence" title="Link to this heading"></a></h1>
-<p>This guide covers saving and loading analysis results with the
-<code class="xref py py-class docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code>, so that expensive computations do not
-need to be repeated across sessions.</p>
-<p>After working through this guide you will know how to:</p>
+  <section id="spike-sorting">
+<h1>Spike Sorting<a class="headerlink" href="#spike-sorting" title="Link to this heading"></a></h1>
+<p>SpikeLab ships a full Kilosort2 spike-sorting pipeline in the
+<code class="docutils literal notranslate"><span class="pre">spikelab.spike_sorting</span></code> sub-package.  The single public entry point,
+<a class="reference internal" href="../api/spike_sorting.html#spikesorting-api"><span class="std std-ref">sort_with_kilosort2</span></a>, runs the sorter on one or more
+raw recordings and returns the curated results as
+<a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> objects ready for downstream analysis.</p>
+<nav class="contents local" id="on-this-page">
+<p class="topic-title">On this page</p>
 <ul class="simple">
-<li><p>Create a workspace and store analysis results in named namespaces.</p></li>
-<li><p>Save a workspace to disk and reload it later.</p></li>
-<li><p>Browse the contents of a workspace with <code class="docutils literal notranslate"><span class="pre">list_namespaces</span></code>,
-<code class="docutils literal notranslate"><span class="pre">list_keys</span></code>, and <code class="docutils literal notranslate"><span class="pre">describe</span></code>.</p></li>
-<li><p>Use <a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace" title="spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="xref py py-class docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a> for
-large datasets that do not fit in RAM.</p></li>
+<li><p><a class="reference internal" href="#prerequisites" id="id1">Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#basic-usage" id="id2">Basic usage</a></p></li>
+<li><p><a class="reference internal" href="#sorting-multiple-recordings" id="id3">Sorting multiple recordings</a></p></li>
+<li><p><a class="reference internal" href="#maxwell-multi-stream-recordings" id="id4">Maxwell multi-stream recordings</a></p></li>
+<li><p><a class="reference internal" href="#controlling-curation-thresholds" id="id5">Controlling curation thresholds</a></p></li>
+<li><p><a class="reference internal" href="#kilosort2-parameters" id="id6">Kilosort2 parameters</a></p></li>
+<li><p><a class="reference internal" href="#reusing-intermediate-results" id="id7">Reusing intermediate results</a></p></li>
+<li><p><a class="reference internal" href="#downstream-analysis" id="id8">Downstream analysis</a></p></li>
 </ul>
-<section id="creating-a-workspace">
-<h2>Creating a Workspace<a class="headerlink" href="#creating-a-workspace" title="Link to this heading"></a></h2>
-<p>An <code class="xref py py-class docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code> is a two-level dictionary: items are
-addressed by a <code class="docutils literal notranslate"><span class="pre">(namespace,</span> <span class="pre">key)</span></code> pair.  A typical convention is to use the
-experimental condition as the namespace and the analysis result name as the
-key.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnalysisWorkspace</span>
+</nav>
+<section id="prerequisites">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Prerequisites</a><a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<p>The spike-sorting pipeline requires two external components that are <strong>not</strong>
+installed automatically with SpikeLab:</p>
+<ol class="arabic simple">
+<li><p><strong>MATLAB</strong> (R2019b or later recommended).</p></li>
+<li><p><strong>Kilosort2</strong> — clone from <a class="reference external" href="https://github.com/MouseLand/Kilosort2">MouseLand/Kilosort2</a> and note the path to the root
+directory (the folder that contains <code class="docutils literal notranslate"><span class="pre">master_kilosort.m</span></code>).</p></li>
+</ol>
+<p>For Maxwell Biosystems <code class="docutils literal notranslate"><span class="pre">.h5</span></code> files the HDF5 decompression plugin must also be
+installed; follow the instructions printed by the loader if the plugin is
+missing.</p>
+</section>
+<section id="basic-usage">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Basic usage</a><a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_with_kilosort2</span>
 
-<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_experiment&quot;</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+<span class="p">)</span>
 
-<span class="c1"># Store a SpikeData object under namespace &quot;D0&quot;, key &quot;spikedata&quot;</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Baseline recording, 120 units&quot;</span><span class="p">)</span>
-
-<span class="c1"># Store a pairwise matrix in the same namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">,</span> <span class="n">sttc</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;STTC, delt=20 ms&quot;</span><span class="p">)</span>
-
-<span class="c1"># Store a numpy array under a shared namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_times&quot;</span><span class="p">,</span> <span class="n">tburst</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Burst peak times across all conditions&quot;</span><span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>          <span class="c1"># SpikeData for the first (and only) recording</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>              <span class="c1"># number of curated units</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>  <span class="c1"># recording duration in seconds</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">note</span></code> parameter is optional free-text metadata that helps you remember
-what each item contains.</p>
-<p>Supported types include <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code>,
-<code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RateSliceStack</span></code>,
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code>,
-<code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span></code>, <code class="docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>, and <code class="docutils literal notranslate"><span class="pre">dict</span></code>
-(with serializable leaf values such as scalars, strings, arrays, or nested
-supported types).</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">describe</span></code> to get a summary of every item in the workspace:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">summary</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span>
+<p><code class="docutils literal notranslate"><span class="pre">sort_with_kilosort2</span></code> accepts a <strong>list</strong> of recording paths and always
+returns a <strong>list</strong> of <a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> objects — one per
+successfully sorted recording.  If a recording fails (e.g. MATLAB error) it is
+silently skipped so the returned list may be shorter than <em>recording_files</em>.</p>
+</section>
+<section id="sorting-multiple-recordings">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Sorting multiple recordings</a><a class="headerlink" href="#sorting-multiple-recordings" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_with_kilosort2</span>
 
-<span class="c1"># summary is a nested dict: {namespace: {key: info_dict}}</span>
-<span class="k">for</span> <span class="n">ns</span><span class="p">,</span> <span class="n">keys</span> <span class="ow">in</span> <span class="n">summary</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shape&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">recordings</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;/data/recordings/session2.raw.h5&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="n">recordings</span><span class="p">,</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">total_memory</span><span class="o">=</span><span class="s2">&quot;32G&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">sd</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">recordings</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="saving-and-loading">
-<h2>Saving and Loading<a class="headerlink" href="#saving-and-loading" title="Link to this heading"></a></h2>
-<p>Call <code class="docutils literal notranslate"><span class="pre">save</span></code> to write the workspace to disk.  This produces two files: an
-HDF5 file (<code class="docutils literal notranslate"><span class="pre">*.h5</span></code>) containing all data, and a JSON sidecar with workspace
-metadata.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Save to disk — creates workspace.h5 and workspace.json</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>To reload the workspace in a later session:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
-
-<span class="c1"># All items are available immediately</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
-<span class="n">sttc</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>If you only need a single item and want to avoid loading the entire
-workspace into memory, use <code class="xref py py-meth docutils literal notranslate"><span class="pre">load_item()</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sttc</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load_item</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">,</span> <span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
+<section id="maxwell-multi-stream-recordings">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Maxwell multi-stream recordings</a><a class="headerlink" href="#maxwell-multi-stream-recordings" title="Link to this heading"></a></h2>
+<p>Maxwell Biosystems <code class="docutils literal notranslate"><span class="pre">.h5</span></code> files can contain multiple recording streams
+(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;well000&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;well001&quot;</span></code>).  Pass <code class="docutils literal notranslate"><span class="pre">stream_id</span></code> to select the
+desired stream:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/multiwell.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">stream_id</span><span class="o">=</span><span class="s2">&quot;well000&quot;</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="listing-and-retrieving">
-<h2>Listing and Retrieving<a class="headerlink" href="#listing-and-retrieving" title="Link to this heading"></a></h2>
-<p>Several methods let you browse the workspace contents without loading the
-actual data:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># List all top-level namespaces</span>
-<span class="n">namespaces</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_namespaces</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">namespaces</span><span class="p">)</span>   <span class="c1"># [&#39;D0&#39;, &#39;D3&#39;, &#39;D10&#39;, &#39;D30&#39;, &#39;D50&#39;, &#39;all&#39;]</span>
-
-<span class="c1"># List keys within a specific namespace</span>
-<span class="n">keys</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_keys</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>         <span class="c1"># [&#39;spikedata&#39;, &#39;sttc_matrix&#39;, &#39;fr_corr_matrix&#39;, ...]</span>
-
-<span class="c1"># List keys across all namespaces</span>
-<span class="n">all_keys</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">list_keys</span><span class="p">()</span>   <span class="c1"># returns {ns: [keys]} dict</span>
-<span class="k">for</span> <span class="n">ns</span><span class="p">,</span> <span class="n">ks</span> <span class="ow">in</span> <span class="n">all_keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">ns</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ks</span><span class="p">)</span><span class="si">}</span><span class="s2"> items&quot;</span><span class="p">)</span>
-
-<span class="c1"># Get summary info for a single item (without loading the object)</span>
-<span class="n">info</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-<span class="c1"># {&#39;type&#39;: &#39;PairwiseCompMatrix&#39;, &#39;shape&#39;: (120, 120), &#39;created_at&#39;: ..., &#39;note&#39;: &#39;...&#39;}</span>
+<section id="controlling-curation-thresholds">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Controlling curation thresholds</a><a class="headerlink" href="#controlling-curation-thresholds" title="Link to this heading"></a></h2>
+<p>The pipeline applies two curation stages.  Stage 1 filters by firing rate,
+ISI violations, SNR, and minimum spike count.  Stage 2 filters by waveform
+consistency.  All thresholds can be overridden:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="c1"># Stage 1</span>
+    <span class="n">fr_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>          <span class="c1"># Hz — stricter than the default 0.05</span>
+    <span class="n">isi_viol_max</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>    <span class="c1"># % — stricter than the default 1</span>
+    <span class="n">snr_min</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+    <span class="n">spikes_min_first</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+    <span class="c1"># Stage 2</span>
+    <span class="n">spikes_min_second</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">std_norm_max</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>To retrieve the actual object:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">)</span>   <span class="c1"># returns the object, or None if not found</span>
-</pre></div>
-</div>
-<p>Other management operations:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Rename a key</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_matrix&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">)</span>
-
-<span class="c1"># Add or update a note</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">,</span> <span class="s2">&quot;STTC with delt=20 ms, 120 units&quot;</span><span class="p">)</span>
-
-<span class="c1"># Delete a single item</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;sttc_delt20&quot;</span><span class="p">)</span>
-
-<span class="c1"># Delete an entire namespace</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;scratch&quot;</span><span class="p">)</span>
+<p>To disable a curation stage entirely:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">curate_first</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">curate_second</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="lazy-loading">
-<h2>Lazy Loading<a class="headerlink" href="#lazy-loading" title="Link to this heading"></a></h2>
-<p>For large datasets where loading everything into RAM is impractical, use
-<a class="reference internal" href="../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace" title="spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="xref py py-class docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a>.  It has the
-same API as the regular workspace, but each <code class="docutils literal notranslate"><span class="pre">store</span></code> call immediately writes
-the object to a temporary HDF5 file and releases it from memory, and each
-<code class="docutils literal notranslate"><span class="pre">get</span></code> call reads the object back from disk.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.workspace.workspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">LazyAnalysisWorkspace</span>
-
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;large_experiment&quot;</span><span class="p">)</span>
-
-<span class="c1"># Store writes to disk immediately — the object is not kept in RAM</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Baseline recording&quot;</span><span class="p">)</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">,</span> <span class="n">rss</span><span class="p">,</span> <span class="n">note</span><span class="o">=</span><span class="s2">&quot;Burst-aligned RateSliceStack&quot;</span><span class="p">)</span>
-
-<span class="c1"># get reads from disk on every call</span>
-<span class="n">rss</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">)</span>
-
-<span class="c1"># save copies the backing file to the target path</span>
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
-
-<span class="c1"># Load also returns a LazyAnalysisWorkspace when the file is large</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<section id="kilosort2-parameters">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Kilosort2 parameters</a><a class="headerlink" href="#kilosort2-parameters" title="Link to this heading"></a></h2>
+<p>Pass a dict to <code class="docutils literal notranslate"><span class="pre">kilosort_params</span></code> to override any Kilosort2 configuration
+value:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">kilosort_params</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;detect_threshold&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="s1">&#39;car&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s1">&#39;keep_good_only&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>The lazy workspace requires <code class="docutils literal notranslate"><span class="pre">h5py</span></code> to be installed.  All other operations
-– <code class="docutils literal notranslate"><span class="pre">list_namespaces</span></code>, <code class="docutils literal notranslate"><span class="pre">list_keys</span></code>, <code class="docutils literal notranslate"><span class="pre">describe</span></code>, <code class="docutils literal notranslate"><span class="pre">get_info</span></code> – work
-from an in-memory index and do not trigger disk reads.</p>
-<p>A typical workflow is to use the lazy workspace during long-running compute
-scripts (where intermediate results accumulate and would exhaust RAM) and
-switch to the regular workspace for interactive exploration:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># During computation — use lazy to keep RAM under control</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">LazyAnalysisWorkspace</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;compute_session&quot;</span><span class="p">)</span>
+<p>See the <a class="reference internal" href="../api/spike_sorting.html#spikesorting-api"><span class="std std-ref">API reference</span></a> for the full default parameter
+dict.</p>
+</section>
+<section id="reusing-intermediate-results">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Reusing intermediate results</a><a class="headerlink" href="#reusing-intermediate-results" title="Link to this heading"></a></h2>
+<p>By default the pipeline rewrites the <code class="docutils literal notranslate"><span class="pre">.dat</span></code> binary on every run but skips
+re-running Kilosort2 if <code class="docutils literal notranslate"><span class="pre">spike_times.npy</span></code> already exists in the output
+folder.  Use the <code class="docutils literal notranslate"><span class="pre">recompute_*</span></code> flags to control which stages are re-run:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+    <span class="n">recompute_recording</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>   <span class="c1"># reuse existing .dat</span>
+    <span class="n">recompute_sorting</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>      <span class="c1"># force re-run of Kilosort2</span>
+    <span class="n">reextract_waveforms</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># force waveform re-extraction</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="downstream-analysis">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Downstream analysis</a><a class="headerlink" href="#downstream-analysis" title="Link to this heading"></a></h2>
+<p>The returned <a class="reference internal" href="../api/spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> objects integrate
+directly with all SpikeLab analysis methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_with_kilosort2</span>
 
-<span class="k">for</span> <span class="n">condition</span> <span class="ow">in</span> <span class="n">conditions</span><span class="p">:</span>
-    <span class="n">sd</span> <span class="o">=</span> <span class="n">load_my_data</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
-    <span class="n">rss</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">align_to_events</span><span class="p">(</span><span class="n">tburst</span><span class="p">,</span> <span class="n">pre_ms</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span> <span class="n">post_ms</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;rate&quot;</span><span class="p">)</span>
-    <span class="n">corr_stack</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_slice_to_slice_unit_corr_from_stack</span><span class="p">()</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">sort_with_kilosort2</span><span class="p">(</span>
+    <span class="n">recording_files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data/recordings/session1.raw.h5&quot;</span><span class="p">],</span>
+    <span class="n">kilosort_path</span><span class="o">=</span><span class="s2">&quot;/opt/Kilosort2&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span>
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;burst_rss&quot;</span><span class="p">,</span> <span class="n">rss</span><span class="p">)</span>
-    <span class="n">ws</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="s2">&quot;burst_corr&quot;</span><span class="p">,</span> <span class="n">corr_stack</span><span class="p">)</span>
+<span class="c1"># Firing rates</span>
+<span class="n">fr</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">mean_firing_rate</span><span class="p">()</span>
 
-<span class="n">ws</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
+<span class="c1"># Burst detection</span>
+<span class="n">bursts</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">burst_detection</span><span class="p">()</span>
 
-<span class="c1"># Later, for interactive exploration — load everything into RAM</span>
-<span class="n">ws</span> <span class="o">=</span> <span class="n">AnalysisWorkspace</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/workspace&quot;</span><span class="p">)</span>
-<span class="n">sd</span> <span class="o">=</span> <span class="n">ws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;spikedata&quot;</span><span class="p">)</span>
+<span class="c1"># Pairwise STTC correlation</span>
+<span class="n">sttc</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">spike_time_tiling_coefficient</span><span class="p">()</span>
+
+<span class="c1"># Save for later</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_hdf5</span>
+<span class="n">export_spikedata_to_hdf5</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;session1_sorted.h5&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -489,8 +497,8 @@ switch to the regular workspace for interactive exploration:</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="exporting_data.html" class="btn btn-neutral float-left" title="Exporting Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="mcp_server.html" class="btn btn-neutral float-right" title="MCP Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="loading_data.html" class="btn btn-neutral float-left" title="Loading Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="spike_analysis.html" class="btn btn-neutral float-right" title="Spike Analysis" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

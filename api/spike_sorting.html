@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Statistical Utilities &mdash; SpikeLab 0.1.0 documentation</title>
+  <title>Spike Sorting &mdash; SpikeLab 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -19,8 +19,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Plotting Utilities" href="plot_utils.html" />
-    <link rel="prev" title="Utilities" href="utilities.html" /> 
+    <link rel="next" title="MCP Server" href="mcp_server.html" />
+    <link rel="prev" title="Workspace" href="workspace.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -184,7 +184,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="reference internal" href="index.html#utilities">Utilities</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#utilities">Utilities</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="utilities.html">Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
@@ -210,9 +210,9 @@
 <li class="toctree-l4"><a class="reference internal" href="utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Statistical Utilities</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="plot_utils.html">Plotting Utilities</a><ul>
@@ -272,9 +272,9 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#spike-sorting">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#spike-sorting">Spike Sorting</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sort-with-kilosort2">sort_with_kilosort2</a></li>
 </ul>
 </li>
 </ul>
@@ -305,9 +305,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
-      <li class="breadcrumb-item active">Statistical Utilities</li>
+      <li class="breadcrumb-item active">Spike Sorting</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/api/stat_utils.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/api/spike_sorting.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -315,106 +315,224 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="statistical-utilities">
-<h1>Statistical Utilities<a class="headerlink" href="#statistical-utilities" title="Link to this heading"></a></h1>
-<p>Statistical helper functions for spike train analysis, including firing rate
-statistics, distribution fitting, and hypothesis testing utilities.</p>
-<p id="module-spikelab.spikedata.stat_utils">Statistical utilities for SpikeLab.</p>
-<p>Provides reusable statistical functions (regression, confidence intervals,
-pairwise group comparisons) that can be used independently of plotting.</p>
-<dl class="py function">
-<dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.linear_regression">
-<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">linear_regression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ci_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#linear_regression"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.linear_regression" title="Link to this definition"></a></dt>
-<dd><p>Compute ordinary least-squares linear regression with optional confidence interval.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>np.ndarray</em>) – 1-D array of predictor values.</p></li>
-<li><p><strong>y</strong> (<em>np.ndarray</em>) – 1-D array of response values (same length as <em>x</em>).</p></li>
-<li><p><strong>ci_level</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Confidence level for the interval (default 0.95).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Dictionary with keys:</dt><dd><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">slope</span></code> (float): Fitted slope.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">intercept</span></code> (float): Fitted intercept.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">r_squared</span></code> (float): Coefficient of determination.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">x_fit</span></code> (np.ndarray): Sorted x values for plotting the fit line.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">y_fit</span></code> (np.ndarray): Predicted y values along <em>x_fit</em>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ci_lower</span></code> (np.ndarray): Lower confidence bound along <em>x_fit</em>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ci_upper</span></code> (np.ndarray): Upper confidence bound along <em>x_fit</em>.</p></li>
-</ul>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
+  <section id="spike-sorting">
+<h1>Spike Sorting<a class="headerlink" href="#spike-sorting" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">spikelab.spike_sorting</span></code> sub-package wraps the Kilosort2 MATLAB spike
+sorter, handling the full pipeline from raw recording files to a
+<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> object: loading, bandpass filtering,
+writing the <code class="docutils literal notranslate"><span class="pre">.dat</span></code> file for Kilosort2, running MATLAB, extracting waveforms,
+and a two-stage quality curation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">spikelab.spike_sorting</span></code> depends on a working <strong>MATLAB</strong> installation
+and the <a class="reference external" href="https://github.com/MouseLand/Kilosort2">Kilosort2</a> MATLAB source
+tree. These are not installed automatically with SpikeLab.  See the
+<a class="reference internal" href="../guides/spike_sorting.html"><span class="doc">Spike Sorting</span></a> guide for environment setup instructions.</p>
+</div>
+<section id="sort-with-kilosort2">
+<span id="spikesorting-api"></span><h2>sort_with_kilosort2<a class="headerlink" href="#sort-with-kilosort2" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_with_kilosort2</span>
+</pre></div>
+</div>
+<p><strong>Signature</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>sort_with_kilosort2(
+    recording_files,
+    intermediate_folders=None,
+    results_folders=None,
+    compiled_results_folder=None,
+    out_file=&quot;sort_with_kilosort2.out&quot;,
+    kilosort_path=None,
+    stream_id=None,
+    kilosort_params={...},
+    recompute_recording=True,
+    recompute_sorting=False,
+    reextract_waveforms=False,
+    recurate_first=False,
+    recurate_second=False,
+    recompile_single_recording=False,
+    recompile_all_recordings=False,
+    delete_inter=True,
+    save_script=False,
+    n_jobs=8,
+    total_memory=&quot;16G&quot;,
+    use_parallel_processing_for_raw_conversion=True,
+    first_n_mins=None,
+    mea_y_max=None,
+    gain_to_uv=None,
+    offset_to_uv=None,
+    rec_chunks=[],
+    freq_min=300,
+    freq_max=6000,
+    waveforms_ms_before=2,
+    waveforms_ms_after=2,
+    pos_peak_thresh=2,
+    max_waveforms_per_unit=300,
+    curate_first=True,
+    curate_second=True,
+    fr_min=0.05,
+    isi_viol_max=1,
+    snr_min=5,
+    spikes_min_first=30,
+    spikes_min_second=50,
+    std_norm_max=1,
+    std_at_peak=True,
+    std_over_window_ms_before=0.5,
+    std_over_window_ms_after=1.5,
+    save_electrodes=True,
+    save_spike_times=True,
+    save_dl_data=True,
+    compile_single_recording=True,
+    compile_to_mat=False,
+    compile_to_npz=True,
+    compile_waveforms=False,
+    compile_all_recordings=False,
+    compiled_waveforms_ms_before=2,
+    compiled_waveforms_ms_after=2,
+    scale_compiled_waveforms=True,
+    create_figures=False,
+    figures_dpi=None,
+    figures_font_size=12,
+    ...figure/plot kwargs...
+) -&gt; list[SpikeData]
+</pre></div>
+</div>
+<p><strong>Description</strong></p>
+<p>Run the full Kilosort2 spike-sorting pipeline on one or more recordings and
+return the curated results as <a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> objects.</p>
+<p>For each recording the function:</p>
+<ol class="arabic simple">
+<li><p>Loads the recording via SpikeInterface (Maxwell <code class="docutils literal notranslate"><span class="pre">.h5</span></code>, NWB <code class="docutils literal notranslate"><span class="pre">.nwb</span></code>, or
+any pre-loaded <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> object).</p></li>
+<li><p>Scales traces to µV and applies a bandpass filter.</p></li>
+<li><p>Writes a binary <code class="docutils literal notranslate"><span class="pre">.dat</span></code> file required by Kilosort2.</p></li>
+<li><p>Invokes Kilosort2 via a MATLAB subprocess.</p></li>
+<li><p>Extracts per-unit waveforms.</p></li>
+<li><p>Applies a two-stage quality curation (firing rate, ISI violations, SNR,
+spike count, waveform consistency).</p></li>
+<li><p>Optionally saves <code class="docutils literal notranslate"><span class="pre">spike_times.npy</span></code> / <code class="docutils literal notranslate"><span class="pre">spike_clusters.npy</span></code> and
+compiled <code class="docutils literal notranslate"><span class="pre">.npz</span></code> / <code class="docutils literal notranslate"><span class="pre">.mat</span></code> result files.</p></li>
+</ol>
+<p><strong>Parameters (key subset)</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">recording_files</span></code></p></td>
+<td><p><em>(required)</em></p></td>
+<td><p>List of file paths (<code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">Path</span></code>) to raw recordings, <strong>or</strong>
+pre-loaded SpikeInterface <code class="docutils literal notranslate"><span class="pre">BaseRecording</span></code> objects.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">intermediate_folders</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>List of folders for intermediate files (one per recording). Auto-generated
+next to the recording if <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">results_folders</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Output folders for per-recording compiled results. Defaults to
+<code class="docutils literal notranslate"><span class="pre">&lt;recording_dir&gt;/sorted_kilosort2</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kilosort_path</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Path to the Kilosort2 MATLAB source tree. Falls back to the
+<code class="docutils literal notranslate"><span class="pre">KILOSORT_PATH</span></code> environment variable.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stream_id</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Stream identifier forwarded to <code class="docutils literal notranslate"><span class="pre">MaxwellRecordingExtractor</span></code> when
+loading <code class="docutils literal notranslate"><span class="pre">.h5</span></code> files that contain multiple recording streams.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kilosort_params</span></code></p></td>
+<td><p><em>see below</em></p></td>
+<td><p>Dict of Kilosort2 configuration values (detect threshold, projection
+threshold, CAR, etc.).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">delete_inter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Delete intermediate files (binary <code class="docutils literal notranslate"><span class="pre">.dat</span></code>, raw waveforms) after sorting.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_jobs</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
+<td><p>Number of parallel CPU threads.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">total_memory</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;16G&quot;</span></code></p></td>
+<td><p>Memory budget for parallel processing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">first_n_mins</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Truncate each recording to the first <em>N</em> minutes before sorting.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">freq_min</span></code> / <code class="docutils literal notranslate"><span class="pre">freq_max</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">300</span></code> / <code class="docutils literal notranslate"><span class="pre">6000</span></code></p></td>
+<td><p>Bandpass filter cutoffs in Hz.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">curate_first</span></code> / <code class="docutils literal notranslate"><span class="pre">curate_second</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code> / <code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Enable the two curation stages.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fr_min</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.05</span></code></p></td>
+<td><p>Minimum firing rate (Hz) for first-stage curation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">isi_viol_max</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Maximum ISI violation percentage (%) for first-stage curation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">snr_min</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Minimum SNR for first-stage curation.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Default kilosort_params</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s1">&#39;detect_threshold&#39;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="s1">&#39;projection_threshold&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+    <span class="s1">&#39;preclust_threshold&#39;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="s1">&#39;car&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;minFR&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s1">&#39;minfr_goodchannels&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="s1">&#39;freq_min&#39;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+    <span class="s1">&#39;sigmaMask&#39;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s1">&#39;nPCs&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="s1">&#39;ntbuff&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="s1">&#39;nfilt_factor&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="s1">&#39;NT&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s1">&#39;keep_good_only&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Returns</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">list[SpikeData]</span></code> — one entry per successfully sorted recording, in the same
+order as <em>recording_files</em>.  Recordings that fail (file not found, MATLAB
+error, etc.) are skipped and do not appear in the list.</p>
+<p>Each <a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code></a> object has:</p>
 <ul class="simple">
-<li><p>Uses pure numpy (no scipy/sklearn dependency).</p></li>
-<li><p>NaN pairs are dropped automatically.</p></li>
+<li><p>Spike trains in <strong>milliseconds</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>: list of <code class="docutils literal notranslate"><span class="pre">{&quot;unit_id&quot;:</span> <span class="pre">int}</span></code> dicts, one per curated unit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata[&quot;source_file&quot;]</span></code>: path to the original recording.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata[&quot;source_format&quot;]</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;Kilosort2&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata[&quot;fs_Hz&quot;]</span></code>: sampling frequency used during sorting.</p></li>
 </ul>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.pairwise_tests">
-<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">pairwise_tests</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'welch_t'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bonferroni'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#pairwise_tests"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.pairwise_tests" title="Link to this definition"></a></dt>
-<dd><p>Run pairwise statistical tests across groups with multiple-comparison correction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>np.ndarray</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em>) – Per-group data
-arrays. Dict keys are used as labels; for list input supply
-<code class="docutils literal notranslate"><span class="pre">labels</span></code> separately.</p></li>
-<li><p><strong>test</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Statistical test to use. <code class="docutils literal notranslate"><span class="pre">&quot;welch_t&quot;</span></code> (default) for
-Welch’s unequal-variance t-test, <code class="docutils literal notranslate"><span class="pre">&quot;student_t&quot;</span></code> for Student’s
-equal-variance t-test, <code class="docutils literal notranslate"><span class="pre">&quot;mann_whitney&quot;</span></code> for the Mann-Whitney U
-test. All require <code class="docutils literal notranslate"><span class="pre">scipy</span></code>.</p></li>
-<li><p><strong>correction</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Multiple-comparison correction.
-<code class="docutils literal notranslate"><span class="pre">&quot;bonferroni&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">None</span></code> for uncorrected p-values.</p></li>
-<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Significance threshold applied after correction.
-Default 0.05.</p></li>
-<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Group labels. Required for list input;
-ignored for dict input (keys are used).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Dictionary with keys:</dt><dd><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">pval_matrix</span></code> (np.ndarray): (K, K) corrected p-values.
-Diagonal entries are NaN.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sig_matrix</span></code> (np.ndarray): (K, K) boolean — True where
-corrected p &lt; <code class="docutils literal notranslate"><span class="pre">alpha</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">n_comparisons</span></code> (int): Number of pairwise comparisons.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">labels</span></code> (list[str]): Ordered group labels.</p></li>
-</ul>
-</dd>
-</dl>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (optional dependency). Raises <code class="docutils literal notranslate"><span class="pre">ImportError</span></code>
-with installation instructions if not available.</p></li>
-</ul>
-</dd></dl>
-
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="utilities.html" class="btn btn-neutral float-left" title="Utilities" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="plot_utils.html" class="btn btn-neutral float-right" title="Plotting Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="workspace.html" class="btn btn-neutral float-left" title="Workspace" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="mcp_server.html" class="btn btn-neutral float-right" title="MCP Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -36,6 +36,9 @@ Install only what you need:
    * - ``s3``
      - ``pip install spikelab[s3]``
      - boto3 (Amazon S3 access)
+   * - ``spike-sorting``
+     - ``pip install spikelab[spike-sorting]``
+     - spikeinterface, natsort, six (Kilosort2 pipeline)
    * - ``gplvm``
      - ``pip install spikelab[gplvm]``
      - poor-man-gplvm, jax, jaxlib, jaxopt, optax

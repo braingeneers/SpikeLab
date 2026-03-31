@@ -8,6 +8,7 @@ In-depth guides covering the main workflows in SpikeLab.
    :maxdepth: 2
 
    loading_data
+   spike_sorting
    spike_analysis
    firing_rates
    event_aligned_analysis
