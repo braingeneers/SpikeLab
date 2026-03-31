@@ -76,6 +76,11 @@ neo = [
 numba = [
   "numba>=0.56",
 ]
+spike-sorting = [
+  "spikeinterface>=0.104.0",
+  "natsort>=8.0",
+  "six>=1.16",
+]
 all = [
   "boto3>=1.28.0",
   "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
@@ -91,6 +96,9 @@ all = [
   "quantities>=0.14.0",
   "pynwb>=2.0.0",
   "numba>=0.56",
+  "spikeinterface>=0.104.0",
+  "natsort>=8.0",
+  "six>=1.16",
 ]
 
 [tool.black]

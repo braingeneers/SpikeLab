@@ -14,6 +14,7 @@ Much of this code is adapted from SpikeInterface.
 import datetime
 import h5py
 import json
+import os
 import shutil
 import signal
 import subprocess
@@ -34,13 +35,14 @@ from scipy.io import savemat
 from tqdm import tqdm
 
 import spikeinterface.core.segmentutils as si_segmentutils
-from spikeinterface.extractors import (
-    BaseRecording,
+from spikeinterface.core import BaseRecording
+from spikeinterface.extractors.extractor_classes import (
     BinaryRecordingExtractor,
     MaxwellRecordingExtractor,
     NwbRecordingExtractor,
 )
-from spikeinterface.preprocessing import ScaleRecording, bandpass_filter
+from spikeinterface.preprocessing import bandpass_filter
+from spikeinterface.preprocessing.preprocessing_classes import ScaleRecording
 
 __all__ = ["sort_with_kilosort2"]
 
@@ -49,6 +51,11 @@ STREAM_ID = None
 
 
 def print_stage(text):
+    """Print a centered banner message framed by ``=`` lines.
+
+    Parameters:
+        text: Message to display. Converted to ``str`` if not already.
+    """
     text = str(text)
 
     num_chars = 70
@@ -60,7 +67,7 @@ def print_stage(text):
     print(num_chars * char)
 
 
-# region Save traces and detection model outputs for fast access when detecting sequences
+# region Save traces
 def save_traces(
     recording,
     inter_path,
@@ -70,10 +77,27 @@ def save_traces(
     dtype="float16",
     verbose=True,
 ):
-    """
-    For Maxwell recordings, iterating through traces for DL model can take about 3-4 times longer than recording duration
-    because some channels contain meaningless data, so traces have to be sliced which makes loading data slow.
-    This is resolved through parallel processing.
+    """Save scaled voltage traces to a ``.npy`` file for fast downstream access.
+
+    Dispatches to a Maxwell-optimised path (direct HDF5 reads via ``h5py``)
+    or a generic SpikeInterface path depending on the recording type.
+
+    Parameters:
+        recording: File path to a recording or a SpikeInterface
+            ``BaseRecording`` object.
+        inter_path (str or Path): Directory for intermediate files.
+            Created if it does not exist.
+        start_ms (float): Start time in milliseconds (default 0).
+        end_ms (float or None): End time in milliseconds. When *None*,
+            the full recording is used.
+        num_processes (int or None): Number of parallel workers. Defaults
+            to half the available CPU cores.
+        dtype (str): NumPy dtype for the saved traces (default
+            ``'float16'``).
+        verbose (bool): Print progress messages.
+
+    Returns:
+        scaled_traces_path (Path): Path to the saved ``.npy`` file.
     """
     if verbose:
         print("Saving traces:")
@@ -118,7 +142,22 @@ def save_traces_si(
     dtype="float16",
     verbose=True,
 ):
-    # Save scaled traces (microvolts) for a spikeinterface recording
+    """Save scaled traces from a SpikeInterface recording to a ``.npy`` file.
+
+    Each channel is extracted in parallel and written into a pre-allocated
+    memory-mapped array of shape ``(num_channels, num_frames)``.
+
+    Parameters:
+        recording (BaseRecording): SpikeInterface recording object.
+        scaled_traces_path (str or Path): Output ``.npy`` file path.
+        start_ms (float): Start time in milliseconds (default 0).
+        end_ms (float or None): End time in milliseconds. When *None*,
+            the full recording is used.
+        num_processes (int): Number of parallel workers (default 16).
+        dtype (str): NumPy dtype for the saved traces (default
+            ``'float16'``).
+        verbose (bool): Print progress messages.
+    """
 
     samp_freq = recording.get_sampling_frequency() / 1000  # kHz
     num_elecs = recording.get_num_channels()
@@ -131,7 +170,7 @@ def save_traces_si(
         end_frame = round(end_ms * samp_freq)
 
     if verbose:
-        print("Alllocating disk space for traces ...")
+        print("Allocating disk space for traces ...")
     traces = np.zeros((num_elecs, end_frame - start_frame), dtype=dtype)
     np.save(scaled_traces_path, traces)
     del traces
@@ -157,6 +196,15 @@ def save_traces_si(
 
 
 def _save_traces_si(task):
+    """Worker function for ``save_traces_si``.
+
+    Extracts traces for a single channel and writes them into the
+    pre-allocated ``.npy`` file via memory-mapped access.
+
+    Parameters:
+        task (tuple): ``(config, start_frame, end_frame, channel_idx,
+            save_path, dtype)`` packed by ``save_traces_si``.
+    """
     config, start_frame, end_frame, channel_idx, save_path, dtype = task
     recording = config.recording
     traces = (
@@ -185,8 +233,28 @@ def save_traces_mea(
     dtype="float16",
     verbose=True,
 ):
-    """
-    Can't save traces with spikeinterface get_traces() because it is really slow on MaxWell MEA recordings
+    """Save scaled traces from a Maxwell MEA recording to a ``.npy`` file.
+
+    Reads the HDF5 file directly with ``h5py`` instead of SpikeInterface's
+    ``get_traces()``, which is significantly slower on Maxwell recordings.
+    Traces are extracted in parallel chunks and written into a pre-allocated
+    memory-mapped array.
+
+    Parameters:
+        rec_path (str or Path): Path to the Maxwell ``.h5`` recording file.
+        save_path (str or Path): Output ``.npy`` file path.
+        start_ms (float): Start time in milliseconds (default 0).
+        end_ms (float or None): End time in milliseconds. When *None*,
+            the full recording is used.
+        samp_freq (float): Sampling frequency in kHz (default 20).
+        default_gain (float): Fallback gain factor when the recording does
+            not report channel gains (default 1).
+        chunk_size (int): Number of frames per processing chunk
+            (default 100000).
+        num_processes (int): Number of parallel workers (default 2).
+        dtype (str): NumPy dtype for the saved traces (default
+            ``'float16'``).
+        verbose (bool): Print progress messages.
     """
 
     rec_h5 = h5py.File(rec_path)
@@ -200,19 +268,7 @@ def save_traces_mea(
         end_frame = round(end_ms * samp_freq)
 
     if "sig" in rec_h5:  # Old file format
-        # chan_ind = []
-        # for mapping in recording['mapping']:  # (chan_idx, elec_id, x_cord, y_cord)
-        #     if mapping[1] != -1:
-        #         chan_ind.append(mapping[0])
-        # if 'lsb' in recording['settings']:
-        #     gain = recording['settings']['lsb'][0] * 1e6
-        # else:
-        #     gain = default_gain
-        #     if verbose:
-        #         print(f"'lsb' not found in 'settings'. Setting gain to uV to {gain}")
-        chan_ind = [
-            int(chan_id) for chan_id in rec_si.get_channel_ids()
-        ]  # This gives same result as recording['mapping] for-loop
+        chan_ind = [int(chan_id) for chan_id in rec_si.get_channel_ids()]
         get_traces = _get_traces_mea_old
     else:
         # Check that h5py matches rec_si
@@ -232,12 +288,14 @@ def save_traces_mea(
             print(f"Recording does not have channel gains. Setting gain to {gain}")
     gain = gain[:, None]
 
-    # print("Alllocating memory for traces ...")
+    if verbose:
+        print("Allocating memory for traces ...")
     traces = np.zeros((len(chan_ind), end_frame - start_frame), dtype=dtype)
     np.save(save_path, traces)
     del traces
 
-    # print("Extracting traces ...")
+    if verbose:
+        print("Extracting traces ...")
     tasks = [
         (
             rec_path,
@@ -262,18 +320,44 @@ def save_traces_mea(
 
 
 def _get_traces_mea_old(rec_path):
-    # Used in save_traces_mea
+    """Return the raw signal dataset from an old-format Maxwell HDF5 file.
+
+    Parameters:
+        rec_path (str or Path): Path to the Maxwell ``.h5`` file.
+
+    Returns:
+        sig (h5py.Dataset): The ``'sig'`` dataset.
+    """
     return h5py.File(rec_path, "r")["sig"]
 
 
 def _get_traces_mea_new(rec_path):
-    # Used in save_traces_mea
+    """Return the raw signal dataset from a new-format Maxwell HDF5 file.
+
+    Parameters:
+        rec_path (str or Path): Path to the Maxwell ``.h5`` file.
+
+    Returns:
+        raw (h5py.Dataset): The ``recordings/rec0000/well000/groups/routed/raw``
+            dataset.
+    """
     return h5py.File(rec_path, "r")["recordings"]["rec0000"]["well000"]["groups"][
         "routed"
     ]["raw"]
 
 
 def _save_traces_mea(task):
+    """Worker function for ``save_traces_mea``.
+
+    Reads one chunk of frames from the HDF5 file, scales by gain, and
+    writes the result into the pre-allocated ``.npy`` file via
+    memory-mapped access.
+
+    Parameters:
+        task (tuple): ``(rec_path, save_path, start_frame, chan_ind,
+            chunk_start, chunk_size, gain, dtype, get_traces)`` packed
+            by ``save_traces_mea``.
+    """
     (
         rec_path,
         save_path,
@@ -298,11 +382,25 @@ def _save_traces_mea(task):
 
 # region Kilosort
 class RunKilosort:
-    # Must create Kilosort instance to 1) set paths 2) check if kilosort is installed
+    """Kilosort2 MATLAB sorter interface.
+
+    Manages the full Kilosort2 execution lifecycle: locating the MATLAB
+    installation, generating MATLAB scripts and channel maps, launching the
+    sorter as a subprocess, and collecting the results as a
+    ``KilosortSortingExtractor``.
+
+    The constructor validates the Kilosort2 path (from the module-level
+    ``KILOSORT_PATH`` global or the ``KILOSORT_PATH`` environment variable),
+    checks that the expected MATLAB entry-point script exists, and formats
+    the Kilosort2 parameter dict.
+
+    Attributes:
+        path (str): Absolute path to the Kilosort2 MATLAB source tree.
+    """
+
     def __init__(self):
         # Set paths
         self.path = self.set_kilosort_path(KILOSORT_PATH)
-        # os.environ['HDF5_PLUGIN_PATH'] = HDF5_PLUGIN_PATH  # Handled by sort_with_kilosort2()
 
         # Check if kilosort is installed
         if not self.check_if_installed():
@@ -649,7 +747,6 @@ end"""
                 print(f"kilosort2 run time: {run_time:0.2f}s")
 
         if has_error and raise_error:
-            # print(runtime_trace)
             raise Exception(
                 f"You can inspect the runtime trace in {output_folder}/kilosort2.log"
             )
@@ -660,16 +757,6 @@ end"""
     def execute_kilosort_file(output_folder, verbose):
         print("Running kilosort file")
 
-        # if SETUP_POD_ENV:
-        #     os.environ['MW_NVCC_PATH'] = "/usr/local/cuda-10.1/bin"
-        #     shell_cmd = f'''
-        #                 #!/bin/bash
-        #                 cd "{output_folder}"
-        #                 module load MatLab/R2021b
-        #                 module load cuda/10.1
-        #                 matlab -nosplash -nodisplay -log -r kilosort2_master
-        #             '''
-        # else:
         if "win" in sys.platform and sys.platform != "darwin":
             shell_cmd = f"""cd "{output_folder}"
             matlab -nosplash -wait -log -r kilosort2_master
@@ -937,9 +1024,23 @@ class KilosortSortingExtractor:
 
 
 class ShellScript:
-    """
-    Code for running shell scripts
-    (used to run Kilosort2's MATLAB files from shell)
+    """Shell script runner for launching MATLAB from Python.
+
+    Writes a shell script to a temporary or specified path, executes it
+    as a subprocess, and optionally captures output to a log file. Used
+    to run Kilosort2's MATLAB entry-point scripts.
+
+    Parameters:
+        script (str): Shell script contents (leading indentation is
+            automatically stripped).
+        script_path (str, Path, or None): Where to write the script
+            file. When *None*, a temporary file is created.
+        log_path (str, Path, or None): Path for capturing stdout/stderr.
+            When *None*, output is not saved to disk.
+        keep_temp_files (bool): Keep the script file after execution
+            (default False).
+        verbose (bool): Print the script contents before running
+            (default False).
     """
 
     PathType = Union[str, Path]
@@ -1164,18 +1265,24 @@ class ShellScript:
 
 # region Extract Waveforms
 class WaveformExtractor:
+    """Per-unit waveform storage, template computation, and curation helper.
+
+    Extracts spike waveforms from a recording aligned to each unit's
+    spike times, computes average and standard-deviation templates, and
+    supports saving/loading curated subsets of units to disk.
+
+    Parameters:
+        recording (BaseRecording): SpikeInterface recording object.
+        sorting (KilosortSortingExtractor): Sorting result containing
+            unit IDs and spike trains.
+        root_folder (Path): Root folder for all waveform data (contains
+            ``extraction_parameters.json``).
+        folder (Path): Sub-folder for this instance's unit ID list
+            (e.g. initial, first-curation, second-curation).
+    """
+
     # region Initialize
     def __init__(self, recording, sorting, root_folder, folder):
-        """
-        Parameters
-        ----------
-        recording
-        sorting
-        root_folder: Path
-            Root folder of all the waveforms and curated waveforms
-        folder: Path
-            Folder containing the unit_ids of this instance
-        """
         with open(root_folder / "extraction_parameters.json", "r") as f:
             parameters = json.load(f)
 
@@ -1203,22 +1310,7 @@ class WaveformExtractor:
         )  # Total number of samples in waveform
         self.peak_ind = parameters["peak_ind"]
 
-        # return_scaled_corrected = RETURN_SCALED
-        # if return_scaled_corrected:
-        #     # Check if recording has scaled values:
-        #     if not self.recording.has_scaleable_traces():
-        #         print("Setting 'RETURN_SCALED' to False")
-        #         return_scaled_corrected = False
-        self.return_scaled = False  # return_scaled_corrected
-
-        # dtype = WAVEFORM_DTYPE
-        # if dtype is None:
-        #     dtype = self.recording.get_dtype()
-        # if np.issubdtype(dtype, np.integer) and self.return_scaled:
-        #     # If waveform will be scaled, dtype cannot be an integer (that would cause rounding)
-        #     print("Setting 'dtype' to float32 because 'RETURN_SCALED' is True")
-        #     dtype = "float32"
-        # dtype = np.dtype(dtype)
+        self.return_scaled = False
         self.dtype = parameters["dtype"]
 
         self.chans_max_folder = root_folder / "channels_max"
@@ -1350,7 +1442,6 @@ class WaveformExtractor:
             shape = (n_spikes, self.nsamples, num_chans)
             wfs = np.zeros(shape, self.dtype)
             np.save(str(file_path), wfs)
-            # wfs = np.load(file_path, mmap_mode='r+')
             wfs_memmap[unit_id] = file_path
 
         # Run extract waveforms
@@ -1578,17 +1669,7 @@ class WaveformExtractor:
                     )
                     st_trace += st_offset
 
-                    # Add a buffer to st so that there are at least nbefore samples before st_trace and nafter-1 samples after
-                    # st_buffer = 0
-                    # if st_trace - nbefore < 0:
-                    #     st_buffer += (nbefore - st_trace)
-                    # if st_trace + nafter > traces.shape[0]:
-                    #     st_buffer -= st_trace + nafter - traces.shape[0]
-                    # st_trace += st_buffer
-                    # if st_buffer != 0:
-                    #     with open("/data/MEAprojects/kilosort_tmp/spikesort_matlab4/debug.txt", "a") as f:
-                    #         f.write(f"unit_id={unit_id}, st={st}, st_trace={st_trace}, start={start}, end={end}, chan_max={chan_max}")
-                    spike_times_centered[st] = st + st_offset  # + st_buffer
+                    spike_times_centered[st] = st + st_offset
 
                     pos = (
                         unit_cum_sum[unit_id][segment_index] + i0 + i
@@ -1664,7 +1745,6 @@ class WaveformExtractor:
         indices: np.array
             If 'with_index' is True, the spike indices corresponding to the waveforms extracted
         """
-        # assert unit_id in self.sorting.unit_ids, "'unit_id' is invalid"
         wfs = self._waveforms.get(unit_id, None)
         if wfs is None:
             waveform_file = self.root_folder / "waveforms" / f"waveforms_{unit_id}.npy"
@@ -1732,7 +1812,6 @@ class WaveformExtractor:
 
         _possible_template_modes = {"average", "std", "median"}
         assert mode in _possible_template_modes
-        # assert unit_id in self.sorting.unit_ids
 
         if mode in self.template_cache:
             # already in the global cache
@@ -1770,8 +1849,6 @@ class WaveformExtractor:
             Folder to save templates to
             If None-> use self.folder
         """
-        # TODO : run this in parralel
-
         print_stage("COMPUTING TEMPLATES")
         print("Template modes: " + ", ".join(modes))
         stopwatch = Stopwatch()
@@ -1874,24 +1951,6 @@ class WaveformExtractor:
         # Save curation history
         with open(curated_folder / "curation_history.json", "w") as f:
             json.dump(curation_history, f)
-
-        # region Copy waveforms
-        # # Create waveforms folder
-        # curated_waveforms_folder = curated_folder / "waveforms"
-        # create_folder(curated_waveforms_folder)
-        #
-        # # Copy .npy waveform files to new folder
-        # waveforms_files = [f for f in (self.folder / "waveforms").iterdir() if f.suffix == ".npy"]
-        # for unit in unit_ids:
-        #     for wf_file in waveforms_files:
-        #         if f"waveforms_{unit}.npy" in wf_file.name or f'sampled_index_{unit}.npy' in wf_file.name:
-        #             shutil.copyfile(wf_file, curated_waveforms_folder / wf_file.name)
-        #
-        # # Copy computed templates (will contain templates even from units that did not pass curation)
-        # for file in self.folder.iterdir():
-        #     if file.name.startswith("templates_"):
-        #         shutil.copyfile(file, curated_folder / file.name)
-        # endregion
 
         we = WaveformExtractor.load_from_folder(
             self.recording,
@@ -2858,6 +2917,14 @@ atexit.register(_python_exit)
 
 # region Curation
 class Curation:
+    """Quality-control filters for Kilosort2 sorted units.
+
+    Each static method evaluates one curation criterion (minimum spike count,
+    firing rate, ISI violations, SNR, or waveform consistency) and partitions
+    the unit IDs into *curated* (passed) and *failed* lists together with
+    per-unit metric values.
+    """
+
     @staticmethod
     def update_history(curation_history, key, curated, failed, metrics):
         curation_history["curations"].append(key)
@@ -2949,17 +3016,20 @@ class Curation:
         return curated_unit_ids, failed_unit_ids, metrics
 
     @staticmethod
-    def isi_violation(recording, sorting, isi_threshold_ms=1.5, min_isi_ms=0):
+    def isi_violation(
+        recording, sorting, isi_threshold_ms=1.5, min_isi_ms=0, method="percent"
+    ):
         """
         Calculate Inter-Spike Interval (ISI) violations for a spike train.
 
-        It computes several metrics related to isi violations:
-            * isi_violations_ratio: the relative firing rate of the hypothetical neurons that are generating the ISI
-                                    violations. Described in [1]. See Notes.
-            * isi_violation_rate: number of ISI violations divided by total rate
-            * isi_violation_count: number of ISI violations
+        Two methods are available:
 
-        [1] Hill et al. (2011) J Neurosci 31: 8699-8705
+        * ``"percent"`` — violation count divided by total spike count,
+          expressed as a percentage. Simple and intuitive.
+        * ``"hill"`` — violation rate ratio described in Hill et al.
+          (2011) J Neurosci 31: 8699-8705. Computes the relative firing
+          rate of hypothetical contaminating neurons. Values above 1
+          indicate highly contaminated units.
 
         Parameters
         ----------
@@ -2974,6 +3044,11 @@ class Curation:
             Minimum possible inter-spike interval (default=0). This is the artificial refractory period enforced
             by the data acquisition system or post-processing algorithms.
             Ex) If kilosort2 cannot detect two spikes that occur within 0.15 ms of each other, min_isi_ms = 0.15
+        method : str
+            ``"percent"`` (default) — violation count / total spikes * 100.
+            ``"hill"`` — violation rate ratio from Hill et al. (2011).
+            Note: ``isi_viol_max`` should be set accordingly (percentage
+            for ``"percent"``, ratio for ``"hill"``).
 
         Returns
         -------
@@ -2983,28 +3058,21 @@ class Curation:
             Contains the unit_ids that did not pass the curation
         metrics: dict
             Contains the curation metric of each unit
-            metrics["unit_id"] = value
+            metrics[unit_id] = value
 
         Notes
         -----
-        isi_violations_ratio : float
-            The isi violation ratio described in [1] (violations_rate / total_rate)
-        isi_violations_rate : float
-            Rate of contaminating spikes as a fraction of overall rate. Higher values indicate more contamination
-        isi_violation_count : int
-            Number of violations
-        -----
-        You can interpret an ISI violations ratio value of 0.5 as meaning that contaminating spikes are occurring at roughly
-        half the rate of "true" spikes for that unit. In cases of highly contaminated units, the ISI violations value can
-        sometimes be even greater than 1.
-
         Originally written in Matlab by Nick Steinmetz (https://github.com/cortex-lab/sortingQuality) and
         converted to Python by Daniel Denman.
         """
+        if method not in ("percent", "hill"):
+            raise ValueError(
+                f"isi_violation method must be 'percent' or 'hill', got '{method}'"
+            )
+
         sampling_frequency = recording.get_sampling_frequency()
         total_duration = recording.get_num_samples() / sampling_frequency
 
-        # All units converted to seconds
         isi_threshold_s = isi_threshold_ms / 1000
         min_isi_s = min_isi_ms / 1000
         isi_threshold_samples = int(isi_threshold_s * sampling_frequency)
@@ -3018,22 +3086,21 @@ class Curation:
             isis = np.diff(spike_train)
 
             violation_num = np.sum(isis < isi_threshold_samples)
-            # violation_time = 2 * num_spikes * (isi_threshold_s - min_isi_s)
-            #
-            # total_rate = num_spikes / total_duration
-            # violation_rate = violation_num / violation_time
-            # violation_rate_ratio = violation_rate / total_rate
 
-            violation_percent = (violation_num / num_spikes) * 100
+            if method == "hill":
+                violation_time = 2 * num_spikes * (isi_threshold_s - min_isi_s)
+                total_rate = num_spikes / total_duration
+                violation_rate = violation_num / violation_time
+                metric = violation_rate / total_rate
+            else:
+                metric = (violation_num / num_spikes) * 100
 
             unit_id = int(unit_id)
-            if (
-                violation_percent <= ISI_VIOL_MAX
-            ):  # violation_rate_ratio <= ISI_VIOL_MAX:
+            if metric <= ISI_VIOL_MAX:
                 curated_unit_ids.append(unit_id)
             else:
                 failed_unit_ids.append(unit_id)
-            metrics[unit_id] = float(violation_percent)
+            metrics[unit_id] = float(metric)
         return curated_unit_ids, failed_unit_ids, metrics
 
     @staticmethod
@@ -3065,7 +3132,6 @@ class Curation:
         metrics = dict()
 
         unit_ids = waveform_extractor.sorting.unit_ids
-        # print(f"Iterating through {len(unit_ids)} units")
         for unit_id in unit_ids:
             chan_max = waveform_extractor.chans_max_all[unit_id]
             peak_ind = waveform_extractor.peak_ind
@@ -3214,8 +3280,11 @@ class Curation:
 
 # region Utilities
 class Utils:
-    """
-    Utility functions implemented by spikeinterface
+    """Utility helpers adapted from SpikeInterface.
+
+    Provides static methods for parsing Kilosort2 Python parameter
+    files, clamping worker counts to OS limits, and computing chunk
+    sizes for parallel waveform extraction.
     """
 
     @staticmethod
@@ -3264,12 +3333,6 @@ class Utils:
         if (n_jobs != 1) and not (version.major >= 3 and version.minor >= 7):
             print(f"Python {sys.version} does not support parallel processing")
             n_jobs = 1
-
-        # # Original spikesort_matlab4.py had this, now raises error with newer version of spikeinterface
-        # if not recording.is_dumpable:
-        #     if n_jobs > 1:
-        #         n_jobs = 1
-        #         print("RecordingExtractor is not dumpable and can't be processed in parallel")
 
         return n_jobs
 
@@ -3347,6 +3410,15 @@ class Utils:
 
 # region spikesort_matlab.py
 class Stopwatch:
+    """Simple wall-clock timer for logging pipeline stage durations.
+
+    Parameters:
+        start_msg (str or None): Optional message printed when the timer
+            starts. When *None*, nothing is printed on construction.
+        use_print_stage (bool): If True (default), format *start_msg*
+            with the ``print_stage`` banner; otherwise use plain ``print``.
+    """
+
     def __init__(self, start_msg=None, use_print_stage=True):
         if start_msg is not None:
             if use_print_stage:
@@ -3364,8 +3436,15 @@ class Stopwatch:
 
 
 class Compiler:
-    """
-    Class to compile together results from different recordings
+    """Aggregates sorting results from multiple recordings for export.
+
+    Collects spike times, cluster assignments, electrode locations, and
+    waveform templates from one or more ``WaveformExtractor`` instances
+    and writes combined ``.npz``, ``.mat``, and figure outputs.
+
+    Units are split into two ``HalfCompiler`` instances — one for
+    negative-peak units and one for positive-peak units — so that
+    waveform templates and figures can be organised by polarity.
     """
 
     def __init__(self):
@@ -3589,11 +3668,6 @@ class Compiler:
                         self.std_scatter.add_unit(unit)
                     self.templates_plot.add_unit(unit, has_pos_peak=half.has_pos_peak)
 
-        # 10/4/24 - I don't remember why I made this, but I think it was for DL synthetic data. Not needed anymore since spike times are stored in .npz file
-        #           I'm removing it since self.concatenate_spike_times() makes seperating spikes in a single recording's chunks complicateds
-        # np.save(folder / "spike_times.npy", self.concatenate_spike_times())
-        # np.save(folder / "spike_clusters.npy", self.concatenate_spike_clusters())
-
         if compile_dict is not None:
             if self.compile_to_mat:
                 savemat(folder / "sorted.mat", compile_dict)
@@ -3601,20 +3675,6 @@ class Compiler:
             if self.compile_to_npz:
                 np.savez(folder / "sorted.npz", **compile_dict)
                 print("Compiled results to .npz")
-
-        # 10/4/23 - Stop saving parameters (not necessary since entire .py file is saved)
-        # parameters = KILOSORT_PARAMS
-        # parameters["recording_files"] = self.rec_names
-        # parameters["waveforms_ms_before"] = WAVEFORMS_MS_BEFORE
-        # for var in ["N_JOBS", "TOTAL_MEMORY", "USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION",
-        #             "FREQ_MIN", "FREQ_MAX",
-        #             "WAVEFORMS_MS_AFTER", "POS_PEAK_THRESH", "MAX_WAVEFORMS_PER_UNIT",
-        #             "CURATE_FIRST", "CURATE_SECOND",
-        #             "FR_MIN", "ISI_VIOL_MAX", "SNR_MIN", "SPIKES_MIN_FIRST", "SPIKES_MIN_SECOND", "STD_NORM_MAX",
-        #             "STD_AT_PEAK", "STD_OVER_WINDOW_MS_BEFORE", "STD_OVER_WINDOW_MS_AFTER", "COMPILED_WAVEFORMS_MS_BEFORE", "COMPILED_WAVEFORMS_MS_AFTER"]:
-        #     parameters[var.lower()] = globals()[var]
-        # with open(folder / "parameters.json", "w") as f:
-        #     json.dump(parameters, f)
 
         if self.create_figures:
             figures_path = Path(folder) / "figures"
@@ -3662,20 +3722,19 @@ class Compiler:
 
 
 class HalfCompiler:
-    """
-    Class to compile half of the compiled results
-    Functions with class Compiler
-    I.e. One HalfCompiler for negative peak data and another for positive peak data
+    """Polarity-specific accumulator used by ``Compiler``.
+
+    Collects ``SortedUnit`` instances that share the same waveform
+    polarity (negative-peak or positive-peak). One ``HalfCompiler``
+    stores negative-peak units and the other stores positive-peak units,
+    allowing templates and figures to be grouped by polarity.
+
+    Parameters:
+        has_pos_peak (bool): True for positive-peak units, False for
+            negative-peak units.
     """
 
     def __init__(self, has_pos_peak):
-        """
-
-        Parameters
-        ----------
-        has_pos_peak: bool
-            Whether stores units with positive or negative peaks
-        """
         self.units = []
         self.has_pos_peak = has_pos_peak
 
@@ -3692,25 +3751,21 @@ class HalfCompiler:
 
 
 class SortedUnit:
-    """
-    Class to represent a sorted unit (has been detected by spike sorter)
-    Functions with class HalfCompiler to represent the units that
-    HalfCompiler will compile together
+    """A single sorted unit with its waveform template and metadata.
+
+    Wraps one unit from a ``WaveformExtractor``, storing its mean and
+    std templates, peak amplitude, electrode location, and curation
+    status. Used by ``HalfCompiler`` and ``Compiler`` when aggregating
+    results across recordings.
+
+    Parameters:
+        unit_id (int): Unit ID within the ``WaveformExtractor``.
+        rec_name (str): Name of the source recording.
+        w_e (WaveformExtractor): Waveform extractor containing this unit.
+        is_curated (bool): Whether the unit passed curation.
     """
 
     def __init__(self, unit_id, rec_name, w_e, is_curated):
-        """
-        Parameters
-        ----------
-        unit_id: int
-            The unit id of the unit in w_e
-        rec_name: str
-            Name of recording this unit comes from
-        w_e: WaveformExtractor
-            Result of sorting recording that corresponds with rec_name
-        is_curated: bool
-            Whether the unit is curated
-        """
 
         self.rec_name = rec_name
         self.sampling_frequency = w_e.sampling_frequency
@@ -3721,7 +3776,6 @@ class SortedUnit:
 
         self.nbefore = w_e.ms_to_samples(COMPILED_WAVEFORMS_MS_BEFORE)
         self.nafter = w_e.ms_to_samples(COMPILED_WAVEFORMS_MS_AFTER) + 1
-        # self.peak_ind = self.nbefore
 
         template_mean = w_e.get_computed_template(unit_id=unit_id, mode="average")
         template_std = w_e.get_computed_template(unit_id=unit_id, mode="std")
@@ -3799,19 +3853,20 @@ class SortedUnit:
 
 
 class Figure:
-    """
-    Base class for creating 3 figures
+    """Base class for summary figures produced by ``Compiler``.
+
+    Subclasses (``BarPlot``, ``StdScatterPlot``, ``TemplatesPlot``)
+    override this class to create specific figure types. Provides
+    shared ``__init__`` (wrapping ``plt.subplots``) and ``save`` methods.
+
+    Parameters:
+        **subplots_kwargs: Keyword arguments forwarded to
+            ``matplotlib.pyplot.subplots``.
     """
 
     name = "figure"
 
     def __init__(self, **subplots_kwargs):
-        """
-        Parameters
-        ----------
-        subplots_kwargs:
-            Kwargs for plt.subplots
-        """
         self.fig, self.axs = plt.subplots(**subplots_kwargs)
 
     def save(self, save_path, verbose=True):
@@ -3832,8 +3887,10 @@ class Figure:
 
 
 class BarPlot(Figure):
-    """
-    Class for creating bar plot showing curation
+    """Bar chart comparing total vs. curated unit counts per recording.
+
+    Displays one group of two bars per recording: total units after
+    first-stage curation and selected units after second-stage curation.
     """
 
     name = "curation bar plot"
@@ -3895,8 +3952,12 @@ class BarPlot(Figure):
 
 
 class StdScatterPlot(Figure):
-    """
-    Class for creating std scatter plot
+    """Scatter plot of normalised waveform std vs. spike count per unit.
+
+    Each dot represents one unit. The x-axis is the number of spikes and
+    the y-axis is the average normalised standard deviation divided by
+    amplitude. Dashed threshold lines show the second-stage curation
+    cutoffs. Recordings are colour-coded.
     """
 
     name = "std scatter plot"
@@ -4018,6 +4079,13 @@ class StdScatterPlot(Figure):
 
 
 class TemplatesPlot(Figure):
+    """Stacked waveform template overview for all sorted units.
+
+    Plots the mean waveform template of every unit (curated and failed)
+    in vertically stacked columns, split by polarity. Curated units are
+    drawn in black and failed units in red.
+    """
+
     name = "all templates plot"
 
     def __init__(self, **subplots_kwargs):
@@ -4156,6 +4224,12 @@ class TemplatesPlot(Figure):
 
 
 def create_folder(folder, parents=True):
+    """Create a directory if it does not already exist.
+
+    Parameters:
+        folder (str or Path): Directory path to create.
+        parents (bool): Create parent directories as needed (default True).
+    """
     folder = Path(folder)
     if not folder.exists():
         folder.mkdir(parents=parents)
@@ -4163,6 +4237,11 @@ def create_folder(folder, parents=True):
 
 
 def delete_folder(folder):
+    """Delete a file or directory tree if it exists.
+
+    Parameters:
+        folder (str or Path): Path to the file or directory to delete.
+    """
     folder = Path(folder)
     if folder.exists():
         if folder.is_dir():
@@ -4174,16 +4253,24 @@ def delete_folder(folder):
 
 
 def load_recording(rec_path):
+    """Load a recording, apply optional truncation and coordinate transforms.
+
+    Loads a single recording via ``load_single_recording``, then applies
+    the module-level configuration: truncation to ``FIRST_N_MINS``, frame
+    chunking via ``REC_CHUNKS``, y-coordinate flipping via ``MEA_Y_MAX``,
+    and custom gain/offset scaling.
+
+    Parameters:
+        rec_path (str or Path): Path to the recording file.
+
+    Returns:
+        rec (BaseRecording): The loaded and optionally transformed
+            SpikeInterface recording object.
+    """
     print_stage("LOADING RECORDING")
     print(f"Recording path: {rec_path}")
     stopwatch = Stopwatch()
     rec = load_single_recording(rec_path)
-    # if str(rec_path).endswith(".raw.h5"):
-    #     rec = load_single_recording(rec_path)
-    # elif str(rec_path).endswith(".nwb"):
-    #     rec = load_single_recording(rec_path)
-    # else:  # rec_path is a folder containins recordings. Not implemented here because code would need to check that 1) recording is a folder 2) there are recordings in .h5 or .nwb format to be loaded
-    #     rec = concatenate_recordings(rec_path)
 
     print(f"Recording has {rec.get_num_channels()} channels")
     if FIRST_N_MINS is not None:
@@ -4275,6 +4362,20 @@ def _waveform_extractor_to_spikedata(w_e, rec_path):
 
 
 def load_single_recording(rec_path):
+    """Load one recording file and return a scaled, bandpass-filtered recording.
+
+    Supports Maxwell ``.h5`` files, NWB ``.nwb`` files, and pre-loaded
+    SpikeInterface ``BaseRecording`` objects. The recording is scaled to
+    µV (using ``GAIN_TO_UV`` / ``OFFSET_TO_UV`` or the recording's own
+    gains) and bandpass-filtered between ``FREQ_MIN`` and ``FREQ_MAX``.
+
+    Parameters:
+        rec_path (str, Path, or BaseRecording): Path to a ``.h5`` or
+            ``.nwb`` file, or an already-loaded ``BaseRecording``.
+
+    Returns:
+        rec (BaseRecording): Scaled and bandpass-filtered recording.
+    """
     if isinstance(rec_path, BaseRecording):
         rec = rec_path
     elif str(rec_path).endswith(".h5"):
@@ -4349,6 +4450,19 @@ Then, you have 3 options to setup the plugin:
 
 
 def concatenate_recordings(rec_path):
+    """Load and concatenate all recordings in a directory.
+
+    Scans *rec_path* for ``.raw.h5`` and ``.nwb`` files, loads each via
+    ``load_single_recording``, and concatenates them into a single
+    multi-segment recording. Updates the global ``REC_CHUNKS`` with the
+    frame boundaries of each constituent recording.
+
+    Parameters:
+        rec_path (Path): Directory containing recording files.
+
+    Returns:
+        rec (BaseRecording): The concatenated recording.
+    """
     print("Concatenating recordings")
     recordings = []
 
@@ -4389,6 +4503,24 @@ def concatenate_recordings(rec_path):
 
 
 def get_paths(rec_path, inter_path, results_path):
+    """Resolve and prepare all directory paths for one recording run.
+
+    Derives paths for the binary ``.dat`` file, Kilosort2 output,
+    waveforms, curation stages, and final results. Deletes stale
+    intermediate folders when ``RECOMPUTE_*`` flags are set, and creates
+    the intermediate directory.
+
+    Parameters:
+        rec_path (str or Path): Path to the recording file.
+        inter_path (str or Path): Root intermediate directory.
+        results_path (str or Path): Root results directory.
+
+    Returns:
+        tuple: ``(rec_path, inter_path, recording_dat_path,
+            output_folder, waveforms_root_folder,
+            curation_initial_folder, curation_first_folder,
+            curation_second_folder, results_path)`` as ``Path`` objects.
+    """
     print_stage("PROCESSING RECORDING")
     print(f"Recording path: {rec_path}")
     print(f"Intermediate results path: {inter_path}")
@@ -4413,7 +4545,6 @@ def get_paths(rec_path, inter_path, results_path):
 
     delete_folders = []
     if RECOMPUTE_RECORDING:
-        # delete_folders.extend((recording_dat_path, output_folder, waveforms_root_folder, curation_folder, results_path))
         delete_folders.extend(
             (recording_dat_path, output_folder, waveforms_root_folder, curation_folder)
         )
@@ -4431,7 +4562,6 @@ def get_paths(rec_path, inter_path, results_path):
         delete_folder(folder)
 
     if len(delete_folders) > 0:
-        # delete_folder(results_path)
         global RECOMPILE_ALL_RECORDINGS
         RECOMPILE_ALL_RECORDINGS = True
 
@@ -4450,6 +4580,17 @@ def get_paths(rec_path, inter_path, results_path):
 
 
 def write_recording(recording_filtered, recording_dat_path, verbose=True):
+    """Convert a filtered recording to the binary ``.dat`` format for Kilosort2.
+
+    Writes an ``int16`` binary file using SpikeInterface's
+    ``BinaryRecordingExtractor``. Skips writing if the file already exists.
+
+    Parameters:
+        recording_filtered (BaseRecording): Scaled and bandpass-filtered
+            SpikeInterface recording.
+        recording_dat_path (Path): Destination ``.dat`` file path.
+        verbose (bool): Print progress messages and show progress bar.
+    """
     stopwatch = Stopwatch(start_msg="CONVERTING RECORDING", use_print_stage=True)
     if USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION:
         job_kwargs = {
@@ -4484,6 +4625,23 @@ def write_recording(recording_filtered, recording_dat_path, verbose=True):
 
 
 def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
+    """Run Kilosort2 on a single recording and return the sorting result.
+
+    Converts the recording to ``.dat`` format (if needed), launches
+    Kilosort2 via MATLAB, and returns the detected units as a
+    ``KilosortSortingExtractor``. Skips re-sorting when
+    ``RECOMPUTE_SORTING`` is False and results already exist.
+
+    Parameters:
+        rec_cache (BaseRecording): Scaled and filtered recording.
+        rec_path (str or Path): Original recording path (for logging).
+        recording_dat_path (Path): Path to the binary ``.dat`` file.
+        output_folder (Path): Kilosort2 output directory.
+
+    Returns:
+        sorting (KilosortSortingExtractor or Exception): The sorting
+            result, or the caught exception if sorting failed.
+    """
     print_stage("SPIKE SORTING")
     stopwatch = Stopwatch()
 
@@ -4508,9 +4666,6 @@ def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
                 recording_dat_path=recording_dat_path,
                 output_folder=output_folder,
             )
-
-        # os.remove(recording_dat_path)  # recording.dat is not needed after kilosort is run
-        # os.remove(output_folder / "temp_wh.dat")
 
     except Exception as e:
         print(f"Kilosort2 failed on recording {rec_path}\n{e}")
@@ -4558,7 +4713,6 @@ def extract_waveforms(
         we = WaveformExtractor.load_from_folder(
             recording, sorting, root_folder, initial_folder
         )
-        # we.compute_templates(mode=("average", "std"))
         stopwatch.log_time("Done extracting waveforms.")
     else:  # Create new waveform extractor
         we = WaveformExtractor.create_initial(
@@ -4574,12 +4728,32 @@ def extract_waveforms(
 def curate(
     we_raw, waveforms_root_folder, curation_first_folder, curation_second_folder
 ):
+    """Run both curation stages on extracted waveforms.
+
+    Builds the curation history dict, then delegates to ``curate_first``
+    and ``curate_second`` in sequence.
+
+    Parameters:
+        we_raw (WaveformExtractor): Uncurated waveform extractor with
+            all Kilosort2 units.
+        waveforms_root_folder (Path): Root folder containing waveform
+            data.
+        curation_first_folder (Path): Output folder for first-stage
+            curation results.
+        curation_second_folder (Path): Output folder for second-stage
+            curation results.
+
+    Returns:
+        we_curated (WaveformExtractor): Waveform extractor containing
+            only units that passed both curation stages.
+    """
     curation_history = {
         "curate_first": CURATE_FIRST,
         "curate_second": CURATE_SECOND,
         "curation_parameters": {
             "fr_min": FR_MIN,
             "isi_viol_max": ISI_VIOL_MAX,
+            "isi_violation_method": ISI_VIOLATION_METHOD,
             "snr_min": SNR_MIN,
             "spikes_min_first": SPIKES_MIN_FIRST,
             "spikes_min_second": SPIKES_MIN_SECOND,
@@ -4609,6 +4783,24 @@ def curate(
 def curate_first(
     we_raw, curation_history, waveforms_root_folder, curation_first_folder
 ):
+    """Apply first-stage quality curation.
+
+    Filters units by firing rate, ISI violation percentage, SNR, and
+    minimum spike count. Thresholds are read from the module-level
+    globals (``FR_MIN``, ``ISI_VIOL_MAX``, ``SNR_MIN``,
+    ``SPIKES_MIN_FIRST``). Skips re-curation when ``RECURATE_FIRST`` is
+    False and saved results exist.
+
+    Parameters:
+        we_raw (WaveformExtractor): Uncurated waveform extractor.
+        curation_history (dict): Mutable curation history accumulator.
+        waveforms_root_folder (Path): Root waveform data folder.
+        curation_first_folder (Path): Output folder for this stage.
+
+    Returns:
+        tuple: ``(we_curated, curation_history)`` — the filtered
+            waveform extractor and the updated history dict.
+    """
     print_stage("CURATING FIRST TIME")
     total_stopwatch = Stopwatch()
 
@@ -4659,12 +4851,17 @@ def curate_first(
         stopwatch = Stopwatch("COMPUTING ISI")
 
         curated_isi, failed_isi, metrics_isi = Curation.isi_violation(
-            recording, sorting
+            recording, sorting, method=ISI_VIOLATION_METHOD
         )
         stopwatch.log_time("Done.")
-        print(
-            f"{len(curated_isi)}/{n_units_total} units have % ISI violations <= {ISI_VIOL_MAX}%"
-        )
+        if ISI_VIOLATION_METHOD == "hill":
+            print(
+                f"{len(curated_isi)}/{n_units_total} units have ISI violation ratio <= {ISI_VIOL_MAX}"
+            )
+        else:
+            print(
+                f"{len(curated_isi)}/{n_units_total} units have % ISI violations <= {ISI_VIOL_MAX}%"
+            )
 
         Curation.update_history(
             curation_history, "isi", curated_isi, failed_isi, metrics_isi
@@ -4728,6 +4925,24 @@ def curate_first(
 def curate_second(
     we_raw, curation_history, waveforms_root_folder, curation_second_folder
 ):
+    """Apply second-stage quality curation.
+
+    Filters units by minimum spike count and maximum normalised waveform
+    standard deviation. Thresholds are read from the module-level globals
+    (``SPIKES_MIN_SECOND``, ``STD_NORM_MAX``). Skips re-curation when
+    ``RECURATE_SECOND`` is False and saved results exist.
+
+    Parameters:
+        we_raw (WaveformExtractor): Waveform extractor from first-stage
+            curation.
+        curation_history (dict): Mutable curation history accumulator.
+        waveforms_root_folder (Path): Root waveform data folder.
+        curation_second_folder (Path): Output folder for this stage.
+
+    Returns:
+        we_curated (WaveformExtractor): Waveform extractor containing
+            only units that passed second-stage curation.
+    """
     print_stage("CURATING SECOND TIME")
     total_stopwatch = Stopwatch()
 
@@ -4811,6 +5026,25 @@ def curate_second(
 
 
 def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=None):
+    """Run the full sorting pipeline on a single recording.
+
+    Orchestrates path setup, recording loading, spike sorting, waveform
+    extraction, two-stage curation, result compilation, and optional
+    trace saving for downstream models.
+
+    Parameters:
+        rec_name (str): Short name for the recording (used in logging
+            and result filenames).
+        rec_path (str or Path): Path to the recording file.
+        inter_path (str or Path): Root intermediate directory.
+        results_path (str or Path): Root results directory.
+        rec_loaded (BaseRecording or None): Pre-loaded recording object.
+            When provided, used instead of loading from *rec_path*.
+
+    Returns:
+        w_e (WaveformExtractor or Exception): The curated waveform
+            extractor, or the caught exception if any stage failed.
+    """
     create_folder(inter_path)
     with Tee(Path(inter_path) / OUT_FILE, "a"):
         stopwatch = Stopwatch()
@@ -4890,8 +5124,11 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
 
 
 def copy_script(path):
-    # Copies script and stores it in path
-    # https://stackoverflow.com/questions/23321100/best-way-to-have-a-python-script-copy-itself/49210778
+    """Save a timestamped copy of this module to the given directory.
+
+    Parameters:
+        path (Path): Destination directory.
+    """
     copied_script_name = (
         time.strftime("%y%m%d_%H%M%S") + "_" + os.path.basename(__file__)
     )
@@ -4901,6 +5138,19 @@ def copy_script(path):
 
 
 def compile_results(rec_name, rec_path, results_path, w_e):
+    """Compile and export sorting results for a single recording.
+
+    Saves spike times, electrode information, and optionally ``.npz`` /
+    ``.mat`` files via a ``Compiler`` instance. When the recording was
+    built from multiple chunks (``REC_CHUNKS``), each chunk is compiled
+    separately into its own sub-folder.
+
+    Parameters:
+        rec_name (str): Short name for the recording.
+        rec_path (str or Path): Original recording file path.
+        results_path (Path): Output directory for compiled results.
+        w_e (WaveformExtractor): Curated waveform extractor.
+    """
     compile_stopwatch = Stopwatch("COMPILING RESULTS")
     print(f"For recording: {rec_path}")
     if COMPILE_SINGLE_RECORDING:
@@ -4908,7 +5158,6 @@ def compile_results(rec_name, rec_path, results_path, w_e):
             not (results_path / "parameters.json").exists()
             or RECOMPILE_SINGLE_RECORDING
         ):
-            # delete_folder(results_path)
             print(f"Saving to path: {results_path}")
             # Give multiple out files for each chunk in recording
             if len(REC_CHUNKS) > 1:
@@ -4952,6 +5201,18 @@ def compile_results(rec_name, rec_path, results_path, w_e):
 
 
 class Tee:
+    """Context manager that mirrors ``stdout`` to a log file.
+
+    While the context is active, every ``print`` call writes to both the
+    original ``stdout`` and the specified file. On exit, ``stdout`` is
+    restored and the file is closed. Exceptions raised inside the
+    context are written to the log before re-raising.
+
+    Parameters:
+        file_path (str or Path): Path to the log file.
+        file_mode (str): File open mode (e.g. ``'w'`` or ``'a'``).
+    """
+
     def __init__(self, file_path, file_mode):
         _file = open(file_path, file_mode)
         _file.stdout = sys.stdout
@@ -5015,6 +5276,7 @@ def sort_with_kilosort2(
     curate_second=True,
     fr_min=0.05,
     isi_viol_max=1,
+    isi_violation_method="percent",
     snr_min=5,
     spikes_min_first=30,
     spikes_min_second=50,
@@ -5110,7 +5372,12 @@ def sort_with_kilosort2(
         curate_second (bool, optional): Whether to curate units based on second-stage criteria (e.g., consistency). Defaults to True.
 
         fr_min (float, optional): Minimum firing rate threshold for first curation (Hz). Defaults to 0.05.
-        isi_viol_max (float, optional): Maximum inter-spike interval violations allowed (%) for first curation. Defaults to 1.
+        isi_viol_max (float, optional): Maximum inter-spike interval violations allowed for first curation.
+            Interpreted as a percentage when ``isi_violation_method="percent"`` or as a ratio when
+            ``isi_violation_method="hill"``. Defaults to 1.
+        isi_violation_method (str, optional): Method for computing ISI violations. ``"percent"`` (default)
+            computes violation count / total spikes * 100. ``"hill"`` computes the violation rate ratio
+            from Hill et al. (2011) J Neurosci 31: 8699-8705.
         snr_min (float, optional): Minimum signal-to-noise ratio threshold for first curation. Defaults to 5.
         spikes_min_first (int, optional): Minimum spikes per unit for first curation. Defaults to 30.
 
@@ -5224,7 +5491,7 @@ def sort_with_kilosort2(
     global RECOMPILE_SINGLE_RECORDING, RECOMPILE_ALL_RECORDINGS, SAVE_SCRIPT, N_JOBS, TOTAL_MEMORY
     global USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION, FIRST_N_MINS, MEA_Y_MAX, GAIN_TO_UV, OFFSET_TO_UV, REC_CHUNKS
     global FREQ_MIN, FREQ_MAX, WAVEFORMS_MS_BEFORE, WAVEFORMS_MS_AFTER, POS_PEAK_THRESH, MAX_WAVEFORMS_PER_UNIT
-    global CURATE_FIRST, CURATE_SECOND, FR_MIN, ISI_VIOL_MAX, SNR_MIN, SPIKES_MIN_FIRST, SPIKES_MIN_SECOND
+    global CURATE_FIRST, CURATE_SECOND, FR_MIN, ISI_VIOL_MAX, ISI_VIOLATION_METHOD, SNR_MIN, SPIKES_MIN_FIRST, SPIKES_MIN_SECOND
     global STD_NORM_MAX, STD_AT_PEAK, STD_OVER_WINDOW_MS_BEFORE, STD_OVER_WINDOW_MS_AFTER, SAVE_ELECTRODES
     global SAVE_SPIKE_TIMES, SAVE_DL_DATA, COMPILE_SINGLE_RECORDING, COMPILE_TO_MAT, COMPILE_TO_NPZ
     global COMPILE_WAVEFORMS, COMPILE_ALL_RECORDINGS, COMPILED_WAVEFORMS_MS_BEFORE, COMPILED_WAVEFORMS_MS_AFTER
@@ -5241,7 +5508,6 @@ def sort_with_kilosort2(
     OUT_FILE = out_file
     RESULTS_FOLDERS = results_folders
     KILOSORT_PATH = kilosort_path
-    # HDF5_PLUGIN_PATH = hdf5_plugin_path
     COMPILED_RESULTS_FOLDER = compiled_results_folder
     KILOSORT_PARAMS = kilosort_params
     STREAM_ID = stream_id
@@ -5273,6 +5539,7 @@ def sort_with_kilosort2(
     CURATE_SECOND = curate_second
     FR_MIN = fr_min
     ISI_VIOL_MAX = isi_viol_max
+    ISI_VIOLATION_METHOD = isi_violation_method
     SNR_MIN = snr_min
     SPIKES_MIN_FIRST = spikes_min_first
     SPIKES_MIN_SECOND = spikes_min_second
@@ -5325,9 +5592,6 @@ def sort_with_kilosort2(
             mpl.rcParams["figure.dpi"] = FIGURES_DPI
         if FIGURES_FONT_SIZE is not None:
             mpl.rcParams["font.size"] = FIGURES_FONT_SIZE
-
-    # if hdf5_plugin_path is not None:
-    #     os.environ['HDF5_PLUGIN_PATH'] = hdf5_plugin_path
 
     compiled_results_folder = Path(COMPILED_RESULTS_FOLDER)
     if COMPILE_ALL_RECORDINGS:
@@ -5383,8 +5647,6 @@ def sort_with_kilosort2(
             shutil.rmtree(inter_path)
 
         if type(all_recs_compiler) == Compiler:
-            # To conserve RAM: Replace w_e with a list containing path to saved recording, folder containing kilosort results, folder for root waveforms, and folder for w_e
-            #                  Then write a new method for WaveformExtractor to load completely from folder paths (instead of passing a recording and sorting object)
             all_recs_compiler.add_recording(rec_name, w_e)
 
     if compiled_results_folder.exists():
