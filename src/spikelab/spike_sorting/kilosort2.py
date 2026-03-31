@@ -2784,9 +2784,9 @@ class ProcessPoolExecutor(_base.Executor):
             )
             self._queue_management_thread.daemon = True
             self._queue_management_thread.start()
-            _threads_wakeups[
-                self._queue_management_thread
-            ] = self._queue_management_thread_wakeup
+            _threads_wakeups[self._queue_management_thread] = (
+                self._queue_management_thread_wakeup
+            )
 
     def _adjust_process_count(self):
         for _ in range(len(self._processes), self._max_workers):
@@ -3633,9 +3633,9 @@ class Compiler:
                                 "sorted_index": unit.sorted_index,
                                 "max_channel_si": unit.chan_max,  # Max channel index (used for getting max waveforms and template)
                                 "max_channel_id": unit.chan_max_id,  # Max channel ID (used for getting channel from braingeneers ephys data loader)
-                                "peak_sign": "positive"
-                                if half.has_pos_peak
-                                else "negative",
+                                "peak_sign": (
+                                    "positive" if half.has_pos_peak else "negative"
+                                ),
                                 "peak_ind": unit.peak_ind,
                                 "amplitudes": unit.amplitudes,
                                 "std_norms": unit.std_norms,
@@ -4321,9 +4321,9 @@ def load_recording(rec_path):
             else:
                 y_cords_flipped = MEA_Y_MAX - y_cords
 
-            probe._contact_positions[
-                np.arange(y_cords_flipped.size), 1
-            ] = y_cords_flipped
+            probe._contact_positions[np.arange(y_cords_flipped.size), 1] = (
+                y_cords_flipped
+            )
             probes_all.append(probe)
         rec = rec.set_probes(probes_all)
 
@@ -4397,8 +4397,7 @@ def load_single_recording(rec_path):
             except OSError as exception:
                 test_file.close()
                 print("*" * 10)
-                print(
-                    """This MaxWell Biosystems file format is based on HDF5.
+                print("""This MaxWell Biosystems file format is based on HDF5.
 The internal compression requires a custom plugin.
 Please visit this page and install the missing decompression libraries:
 https://share.mxwbio.com/d/4742248b2e674a85be97/
@@ -4412,8 +4411,7 @@ Then, you have 3 options to setup the plugin:
     3. Add the code from option 2 to the very first lines of spikelab/spike_sorting/kilosort2.py
 
 *This message was adapted from SpikeInterface
-"""
-                )
+""")
                 print("*" * 10)
                 raise (exception)
         test_file.close()
