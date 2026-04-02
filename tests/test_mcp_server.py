@@ -5117,3 +5117,117 @@ class TestCoverageGaps:
         ws = wm.get_workspace(ws_id)
         item = ws.get(ns, "isi_rate")
         assert hasattr(item, "inst_Frate_data")
+
+    @pytest.mark.asyncio
+    async def test_frames_rate_data_overlap_ge_length(self, loaded_ws):
+        """
+        frames_rate_data raises ValueError when overlap >= length.
+
+        Tests:
+            (Test Case 1) overlap == length raises ValueError.
+            (Test Case 2) overlap > length raises ValueError.
+        """
+        from spikelab.spikedata.ratedata import RateData
+
+        ws_id, ns = loaded_ws
+        # Store a RateData in the workspace
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        rd = RateData(
+            inst_Frate_data=np.random.default_rng(0).standard_normal((3, 100)),
+            times=np.arange(100, dtype=float),
+        )
+        ws.store(ns, "rates", rd)
+
+        # overlap == length
+        with pytest.raises(ValueError, match="overlap must be less than length"):
+            await analysis.frames_rate_data(
+                workspace_id=ws_id,
+                namespace=ns,
+                rate_key="rates",
+                key="frames",
+                length=10.0,
+                overlap=10.0,
+            )
+
+        # overlap > length
+        with pytest.raises(ValueError, match="overlap must be less than length"):
+            await analysis.frames_rate_data(
+                workspace_id=ws_id,
+                namespace=ns,
+                rate_key="rates",
+                key="frames",
+                length=10.0,
+                overlap=15.0,
+            )
+
+    @pytest.mark.asyncio
+    async def test_load_from_hdf5_paired_happy_path(self, tmp_path):
+        """
+        load_from_hdf5_paired loads paired arrays and stores to workspace.
+
+        Tests:
+            (Test Case 1) Returns dict with workspace_id and namespace.
+            (Test Case 2) Stored SpikeData has correct number of units.
+        """
+        import h5py
+
+        # Create test HDF5 with paired arrays
+        path = str(tmp_path / "paired.h5")
+        idces = np.array([0, 0, 1, 1, 2])
+        times = np.array([10.0, 20.0, 15.0, 25.0, 30.0])
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=idces)
+            f.create_dataset("times", data=times)
+
+        result = await data_loaders.load_from_hdf5_paired(
+            file_path=path,
+            idces_dataset="idces",
+            times_dataset="times",
+            times_unit="ms",
+        )
+
+        assert "workspace_id" in result
+        assert "namespace" in result
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(result["workspace_id"])
+        sd = ws.get(result["namespace"], "spikedata")
+        assert sd.N == 3
+
+    @pytest.mark.asyncio
+    async def test_export_to_hdf5_group(self, loaded_ws, tmp_path):
+        """
+        export_to_hdf5_group creates an HDF5 file with group-per-unit format.
+
+        Tests:
+            (Test Case 1) File is created.
+            (Test Case 2) Return dict contains file_path.
+        """
+        ws_id, ns = loaded_ws
+        path = str(tmp_path / "group_export.h5")
+        result = await exporters.export_to_hdf5_group(
+            workspace_id=ws_id,
+            namespace=ns,
+            file_path=path,
+        )
+        assert os.path.exists(path)
+        assert result["file_path"] == path
+
+    @pytest.mark.asyncio
+    async def test_export_to_hdf5_paired(self, loaded_ws, tmp_path):
+        """
+        export_to_hdf5_paired creates an HDF5 file with paired array format.
+
+        Tests:
+            (Test Case 1) File is created.
+            (Test Case 2) Return dict contains file_path.
+        """
+        ws_id, ns = loaded_ws
+        path = str(tmp_path / "paired_export.h5")
+        result = await exporters.export_to_hdf5_paired(
+            workspace_id=ws_id,
+            namespace=ns,
+            file_path=path,
+        )
+        assert os.path.exists(path)
+        assert result["file_path"] == path

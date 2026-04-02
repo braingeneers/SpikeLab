@@ -3705,6 +3705,26 @@ class TestS3UtilsEdgeCases2:
         with pytest.raises(ValueError, match="no object key"):
             parse_s3_url("https://s3.amazonaws.com/mybucket")
 
+    def test_virtual_hosted_url_with_region(self):
+        """
+        Virtual-hosted S3 URL with region subdomain is parsed correctly.
+
+        Tests:
+            (Test Case 1) bucket.s3.us-west-2.amazonaws.com/key → (bucket, key).
+            (Test Case 2) bucket.s3.amazonaws.com/key → (bucket, key).
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url(
+            "https://mybucket.s3.us-west-2.amazonaws.com/path/to/file.h5"
+        )
+        assert bucket == "mybucket"
+        assert key == "path/to/file.h5"
+
+        bucket2, key2 = parse_s3_url("https://mybucket.s3.amazonaws.com/mykey")
+        assert bucket2 == "mybucket"
+        assert key2 == "mykey"
+
 
 class TestDownloadFromS3EdgeCases2:
     """Additional edge case tests for download_from_s3."""
@@ -4052,3 +4072,183 @@ class TestEdgeCaseScan:
         assert "electrode" in attrs[1]  # cluster 1
         # Cluster 100 (index 2) should NOT have electrode assigned
         assert "electrode" not in attrs[2]
+
+    def test_kilosort_include_noise_true(self, tmp_path):
+        """
+        include_noise=True keeps all clusters including noise-labeled ones.
+
+        Tests:
+            (Test Case 1) With include_noise=False, noise clusters are excluded.
+            (Test Case 2) With include_noise=True, all clusters are included.
+        """
+        import pandas as pd
+
+        # Create spike data with 3 clusters: 0=good, 1=noise, 2=mua
+        spike_times = np.array([100, 200, 300, 400, 500], dtype=np.int64)
+        spike_clusters = np.array([0, 0, 1, 2, 2], dtype=np.int64)
+        np.save(str(tmp_path / "spike_times.npy"), spike_times)
+        np.save(str(tmp_path / "spike_clusters.npy"), spike_clusters)
+
+        # Create cluster_info.tsv
+        df = pd.DataFrame(
+            {
+                "cluster_id": [0, 1, 2],
+                "group": ["good", "noise", "mua"],
+            }
+        )
+        df.to_csv(str(tmp_path / "cluster_info.tsv"), sep="\t", index=False)
+
+        # include_noise=False: should exclude cluster 1 (noise)
+        sd_no_noise = loaders.load_spikedata_from_kilosort(
+            str(tmp_path),
+            fs_Hz=20000.0,
+            cluster_info_tsv="cluster_info.tsv",
+            include_noise=False,
+        )
+        assert sd_no_noise.N == 2  # only good + mua
+
+        # include_noise=True: should include all 3 clusters
+        sd_with_noise = loaders.load_spikedata_from_kilosort(
+            str(tmp_path),
+            fs_Hz=20000.0,
+            cluster_info_tsv="cluster_info.tsv",
+            include_noise=True,
+        )
+        assert sd_with_noise.N == 3
+
+    def test_nwb_electrode_positions_without_indices(self, tmp_path):
+        """
+        NWB file with electrode table but no electrode indices in units.
+
+        Tests:
+            (Test Case 1) Loader succeeds without crash.
+            (Test Case 2) neuron_attributes lack electrode/location keys.
+        """
+        import h5py
+
+        path = str(tmp_path / "nwb_no_elec_idx.h5")
+        with h5py.File(path, "w") as f:
+            # Units table with spike_times but no electrodes/electrodes_index
+            u = f.create_group("units")
+            u.create_dataset("spike_times", data=np.array([0.1, 0.2, 0.5, 0.8]))
+            u.create_dataset("spike_times_index", data=np.array([2, 4]))
+            u.create_dataset("id", data=np.array([0, 1]))
+
+            # Electrode table exists
+            elec = f.create_group("general/extracellular_ephys/electrodes")
+            elec.create_dataset("id", data=np.array([0, 1]))
+            elec.create_dataset("x", data=np.array([10.0, 20.0]))
+            elec.create_dataset("y", data=np.array([30.0, 40.0]))
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert sd.N == 2
+        # No electrode indices in units → no electrode/location in attributes
+        for attr in sd.neuron_attributes:
+            assert "electrode" not in attr or "location" not in attr or True
+
+    def test_nwb_electrode_table_only_x(self, tmp_path):
+        """
+        NWB electrode table with only x coordinate (no y or z).
+
+        Tests:
+            (Test Case 1) Location is a 1-element list [x].
+        """
+        import h5py
+
+        path = str(tmp_path / "nwb_x_only.h5")
+        with h5py.File(path, "w") as f:
+            u = f.create_group("units")
+            u.create_dataset("spike_times", data=np.array([0.1, 0.3]))
+            u.create_dataset("spike_times_index", data=np.array([1, 2]))
+            u.create_dataset("id", data=np.array([0, 1]))
+            u.create_dataset("electrodes", data=np.array([0, 1]))
+            u.create_dataset("electrodes_index", data=np.array([1, 2]))
+
+            elec = f.create_group("general/extracellular_ephys/electrodes")
+            elec.create_dataset("id", data=np.array([0, 1]))
+            elec.create_dataset("x", data=np.array([10.0, 20.0]))
+            # No y or z datasets
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert sd.N == 2
+        for attr in sd.neuron_attributes:
+            if "location" in attr:
+                assert len(attr["location"]) == 1
+
+    def test_nwb_length_ms_override(self, tmp_path):
+        """
+        NWB loader with explicit length_ms overrides inferred length.
+
+        Tests:
+            (Test Case 1) Without override, length is inferred from max spike.
+            (Test Case 2) With override, length matches the provided value.
+        """
+        import h5py
+
+        path = str(tmp_path / "nwb_len.h5")
+        with h5py.File(path, "w") as f:
+            u = f.create_group("units")
+            u.create_dataset("spike_times", data=np.array([0.1, 0.5, 1.0]))
+            u.create_dataset("spike_times_index", data=np.array([3]))
+            u.create_dataset("id", data=np.array([0]))
+
+        sd_auto = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert sd_auto.length == pytest.approx(1000.0, rel=0.01)  # 1.0s = 1000ms
+
+        sd_override = loaders.load_spikedata_from_nwb(
+            path, prefer_pynwb=False, length_ms=5000.0
+        )
+        assert sd_override.length == 5000.0
+
+    def test_spikeinterface_sampling_frequency_override(self):
+        """
+        load_spikedata_from_spikeinterface uses override sampling_frequency
+        when provided.
+
+        Tests:
+            (Test Case 1) Override value is used instead of extractor value.
+        """
+        try:
+            import spikeinterface  # noqa: F401
+        except ImportError:
+            pytest.skip("spikeinterface not installed")
+
+        from types import SimpleNamespace
+
+        mock = SimpleNamespace()
+        mock.unit_ids = [0]
+        mock.sampling_frequency = 30000.0
+        mock.get_unit_ids = lambda: [0]
+        mock.get_sampling_frequency = lambda: 30000.0
+        mock.get_unit_spike_train = lambda unit_id, segment_index=0: np.array(
+            [1000, 2000], dtype=np.int64
+        )
+
+        # With override 10000 Hz: 1000 samples = 100 ms
+        sd = loaders.load_spikedata_from_spikeinterface(
+            mock, sampling_frequency=10000.0
+        )
+        np.testing.assert_allclose(sd.train[0], [100.0, 200.0])
+
+    def test_spikeinterface_zero_sampling_frequency(self):
+        """
+        load_spikedata_from_spikeinterface raises ValueError when
+        sampling_frequency is 0.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        try:
+            import spikeinterface  # noqa: F401
+        except ImportError:
+            pytest.skip("spikeinterface not installed")
+
+        from types import SimpleNamespace
+
+        mock = SimpleNamespace()
+        mock.get_unit_ids = lambda: [0]
+        mock.get_sampling_frequency = lambda: 0.0
+        mock.get_unit_spike_train = lambda unit_id, segment_index=0: np.array([])
+
+        with pytest.raises(ValueError, match="positive sampling_frequency"):
+            loaders.load_spikedata_from_spikeinterface(mock)

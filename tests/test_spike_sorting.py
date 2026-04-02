@@ -856,865 +856,6 @@ class TestKilosortSortingExtractorGetChansMax:
         assert all(isinstance(s, int) and s >= 0 for s in hw_sizes)
 
 
-# ===========================================================================
-# Curation.spikes_min
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationSpikesMin:
-    """
-    Tests for Curation.spikes_min static method.
-
-    Tests:
-        (Test Case 1) Units above threshold are curated.
-        (Test Case 2) Units below threshold are failed.
-        (Test Case 3) Boundary: exactly at threshold passes.
-        (Test Case 4) Metrics dict contains correct spike counts.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def test_curates_above_threshold(self, Curation):
-        """
-        Units with spikes >= threshold are curated.
-
-        Tests:
-            (Test Case 1) Unit with 100 spikes passes threshold of 50.
-            (Test Case 2) Unit with 10 spikes fails threshold of 50.
-        """
-        trains = {
-            0: np.arange(100, dtype=np.int64),
-            1: np.arange(10, dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0, 1], trains)
-
-        curated, failed, metrics = Curation.spikes_min(sorting, spikes_min=50)
-
-        assert curated == [0]
-        assert failed == [1]
-        assert metrics[0] == 100.0
-        assert metrics[1] == 10.0
-
-    def test_boundary_exactly_at_threshold(self, Curation):
-        """
-        A unit with exactly spikes_min spikes passes curation.
-
-        Tests:
-            (Test Case 1) 30 spikes with threshold 30 passes.
-        """
-        trains = {0: np.arange(30, dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains)
-
-        curated, failed, _ = Curation.spikes_min(sorting, spikes_min=30)
-        assert curated == [0]
-        assert failed == []
-
-    def test_all_units_pass(self, Curation):
-        """
-        All units above threshold are curated.
-
-        Tests:
-            (Test Case 1) Both units have enough spikes.
-        """
-        trains = {
-            0: np.arange(100, dtype=np.int64),
-            1: np.arange(200, dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0, 1], trains)
-
-        curated, failed, _ = Curation.spikes_min(sorting, spikes_min=50)
-        assert set(curated) == {0, 1}
-        assert failed == []
-
-    def test_all_units_fail(self, Curation):
-        """
-        All units below threshold are failed.
-
-        Tests:
-            (Test Case 1) Both units have too few spikes.
-        """
-        trains = {
-            0: np.arange(5, dtype=np.int64),
-            1: np.arange(3, dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0, 1], trains)
-
-        curated, failed, _ = Curation.spikes_min(sorting, spikes_min=50)
-        assert curated == []
-        assert set(failed) == {0, 1}
-
-    def test_single_spike_at_threshold_one(self, Curation):
-        """
-        A unit with exactly 1 spike passes threshold=1.
-
-        Tests:
-            (Test Case 1) size == 1 >= 1 is True.
-        """
-        trains = {0: np.array([500], dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains)
-
-        curated, failed, metrics = Curation.spikes_min(sorting, spikes_min=1)
-        assert curated == [0]
-        assert failed == []
-        assert metrics[0] == 1.0
-
-    def test_threshold_zero_passes_all(self, Curation):
-        """
-        threshold=0 means all units pass.
-
-        Tests:
-            (Test Case 1) All units have size >= 0.
-        """
-        trains = {
-            0: np.array([100], dtype=np.int64),
-            1: np.arange(50, dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0, 1], trains)
-
-        curated, failed, _ = Curation.spikes_min(sorting, spikes_min=0)
-        assert set(curated) == {0, 1}
-        assert failed == []
-
-
-# ===========================================================================
-# Curation.firing_rate
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationFiringRate:
-    """
-    Tests for Curation.firing_rate static method.
-
-    Tests:
-        (Test Case 1) Units above FR_MIN pass curation.
-        (Test Case 2) Units below FR_MIN fail curation.
-        (Test Case 3) Metrics contain correct firing rate values.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def test_firing_rate_curation(self, Curation):
-        """
-        Units are curated based on firing rate relative to FR_MIN.
-
-        Tests:
-            (Test Case 1) Unit 0 has 1000 spikes in 10s = 100 Hz, passes FR_MIN=0.05.
-            (Test Case 2) Unit 1 has 0 spikes = 0 Hz, fails.
-            (Test Case 3) Metrics contain correct rates.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_fr_min = getattr(ks_mod, "FR_MIN", None)
-        ks_mod.FR_MIN = 0.05
-
-        try:
-            trains = {
-                0: np.arange(1000, dtype=np.int64),
-                1: np.array([], dtype=np.int64),
-            }
-            sorting = _make_mock_sorting([0, 1], trains)
-            recording = _make_mock_recording(
-                num_samples=200000, sampling_frequency=20000.0
-            )
-            # Duration = 200000 / 20000 = 10 seconds
-
-            curated, failed, metrics = Curation.firing_rate(recording, sorting)
-
-            assert 0 in curated
-            assert 1 in failed
-            assert metrics[0] == pytest.approx(100.0)
-            assert metrics[1] == pytest.approx(0.0)
-        finally:
-            if old_fr_min is not None:
-                ks_mod.FR_MIN = old_fr_min
-
-    def test_low_firing_rate_unit_fails(self, Curation):
-        """
-        A unit just below FR_MIN threshold is failed.
-
-        Tests:
-            (Test Case 1) Unit with firing rate 0.04 Hz fails FR_MIN=0.05.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_fr_min = getattr(ks_mod, "FR_MIN", None)
-        ks_mod.FR_MIN = 0.05
-
-        try:
-            # 10s recording, need < 0.5 spikes -> 0 spikes to fail
-            # But let's make a marginal case: 100s recording, 4 spikes = 0.04 Hz
-            trains = {0: np.array([100, 1000, 5000, 10000], dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording(
-                num_samples=2000000, sampling_frequency=20000.0
-            )
-            # Duration = 2000000 / 20000 = 100 seconds, FR = 4/100 = 0.04
-
-            curated, failed, metrics = Curation.firing_rate(recording, sorting)
-            assert 0 in failed
-            assert metrics[0] == pytest.approx(0.04)
-        finally:
-            if old_fr_min is not None:
-                ks_mod.FR_MIN = old_fr_min
-
-
-# ===========================================================================
-# Curation.isi_violation
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationIsiViolation:
-    """
-    Tests for Curation.isi_violation static method.
-
-    Tests:
-        (Test Case 1) Clean spike train with no violations passes.
-        (Test Case 2) Spike train with many violations fails.
-        (Test Case 3) Boundary: exactly at threshold passes.
-        (Test Case 4) Metrics contain correct violation percentages.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def test_clean_train_passes(self, Curation):
-        """
-        A spike train with large ISIs has zero violations.
-
-        Tests:
-            (Test Case 1) All ISIs > isi_threshold => 0% violations.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 1.0
-
-        try:
-            # Spikes every 1000 samples at 20kHz = 50ms apart (>> 1.5ms threshold)
-            trains = {0: np.arange(0, 100000, 1000, dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            assert 0 in curated
-            assert metrics[0] == pytest.approx(0.0)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_many_violations_fails(self, Curation):
-        """
-        A spike train where most ISIs are below threshold fails.
-
-        Tests:
-            (Test Case 1) Spikes 1 sample apart => high violation %.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 1.0
-
-        try:
-            # Spikes every 1 sample at 20kHz = 0.05ms apart (< 1.5ms threshold)
-            trains = {0: np.arange(0, 100, dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            assert 0 in failed
-            # 99 ISIs, all < threshold => 99/100 * 100 = 99%
-            assert metrics[0] == pytest.approx(99.0)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_mixed_violations(self, Curation):
-        """
-        A train with some violations and some clean ISIs.
-
-        Tests:
-            (Test Case 1) Correct percentage computation for mixed case.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 5.0
-
-        try:
-            # 20kHz, isi_threshold = 1.5ms = 30 samples
-            # 10 spikes: 9 ISIs, 2 violations
-            spikes = np.array(
-                [0, 10, 1000, 1010, 2000, 3000, 4000, 5000, 6000, 7000], dtype=np.int64
-            )
-            trains = {0: spikes}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            # 2 violations out of 10 spikes = 20%
-            assert metrics[0] == pytest.approx(2 / 10 * 100)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_single_spike(self, Curation):
-        """
-        A unit with one spike has zero ISI violations.
-
-        Tests:
-            (Test Case 1) np.diff on 1-spike train gives empty array, so
-                violation_num=0, violation_percent=0/1*100=0%.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 1.0
-
-        try:
-            trains = {0: np.array([500], dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            assert 0 in curated
-            assert metrics[0] == pytest.approx(0.0)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_two_spikes_exactly_at_threshold(self, Curation):
-        """
-        Two spikes with ISI exactly at the threshold are NOT a violation.
-
-        Tests:
-            (Test Case 1) ISI == isi_threshold_samples is not < threshold,
-                so violation_num=0.
-
-        Notes:
-            - Default isi_threshold_ms=1.5, at 20kHz = 30 samples.
-              Two spikes 30 samples apart should produce 0 violations.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 1.0
-
-        try:
-            trains = {0: np.array([100, 130], dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            assert 0 in curated
-            assert metrics[0] == pytest.approx(0.0)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_two_spikes_one_sample_below_threshold(self, Curation):
-        """
-        Two spikes with ISI one sample below threshold IS a violation.
-
-        Tests:
-            (Test Case 1) ISI of 29 samples < 30 samples threshold.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 100.0
-
-        try:
-            trains = {0: np.array([100, 129], dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(recording, sorting)
-            assert metrics[0] == pytest.approx(50.0)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-    def test_custom_isi_threshold(self, Curation):
-        """
-        Custom isi_threshold_ms overrides the default 1.5ms.
-
-        Tests:
-            (Test Case 1) 5ms threshold at 20kHz = 100 samples. ISI of 80
-                samples is a violation.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_isi = getattr(ks_mod, "ISI_VIOL_MAX", None)
-        ks_mod.ISI_VIOL_MAX = 100.0
-
-        try:
-            trains = {0: np.array([100, 180, 500], dtype=np.int64)}
-            sorting = _make_mock_sorting([0], trains)
-            recording = _make_mock_recording()
-
-            curated, failed, metrics = Curation.isi_violation(
-                recording, sorting, isi_threshold_ms=5.0
-            )
-            assert metrics[0] == pytest.approx(1 / 3 * 100)
-        finally:
-            if old_isi is not None:
-                ks_mod.ISI_VIOL_MAX = old_isi
-
-
-# ===========================================================================
-# Curation.snr
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationSnr:
-    """
-    Tests for Curation.snr static method.
-
-    Tests:
-        (Test Case 1) High-SNR unit passes.
-        (Test Case 2) Low-SNR unit fails.
-        (Test Case 3) Metrics contain correct SNR values.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def _make_mock_waveform_extractor(
-        self, unit_ids, templates_avg, templates_std, peak_ind, chans_max_all, recording
-    ):
-        """Build a lightweight WaveformExtractor-like object."""
-        we = SimpleNamespace()
-        we.sorting = SimpleNamespace(unit_ids=unit_ids)
-        we.recording = recording
-        we.peak_ind = peak_ind
-        we.chans_max_all = chans_max_all
-        we.return_scaled = False
-
-        def get_computed_template(unit_id, mode="average"):
-            if mode == "average":
-                return templates_avg[unit_id]
-            elif mode == "std":
-                return templates_std[unit_id]
-
-        we.get_computed_template = get_computed_template
-        return we
-
-    def test_high_snr_passes(self, Curation):
-        """
-        A unit with high signal-to-noise ratio passes curation.
-
-        Tests:
-            (Test Case 1) SNR of 20 passes SNR_MIN of 5.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_snr = getattr(ks_mod, "SNR_MIN", None)
-        ks_mod.SNR_MIN = 5.0
-
-        try:
-            recording = _make_mock_recording(num_channels=2)
-
-            # Template with large peak at (peak_ind, chan 0)
-            template = np.zeros((61, 2), dtype=np.float32)
-            template[30, 0] = -20.0  # large peak
-
-            we = self._make_mock_waveform_extractor(
-                unit_ids=[0],
-                templates_avg={0: template},
-                templates_std={0: np.ones_like(template)},
-                peak_ind=30,
-                chans_max_all={0: 0},
-                recording=recording,
-            )
-
-            curated, failed, metrics = Curation.snr(we)
-            assert 0 in curated
-            assert metrics[0] > 5.0
-        finally:
-            if old_snr is not None:
-                ks_mod.SNR_MIN = old_snr
-
-    def test_low_snr_fails(self, Curation):
-        """
-        A unit with low signal-to-noise ratio fails curation.
-
-        Tests:
-            (Test Case 1) SNR < 5 fails SNR_MIN of 5.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_snr = getattr(ks_mod, "SNR_MIN", None)
-        ks_mod.SNR_MIN = 5.0
-
-        try:
-            # Create recording with high noise
-            recording = SimpleNamespace()
-            recording.get_num_samples = lambda: 200000
-            recording.get_sampling_frequency = lambda: 20000.0
-            recording.get_num_channels = lambda: 2
-            recording.has_scaleable_traces = lambda: False
-            # Traces with high noise (std ~1.0, MAD ~0.67)
-            rng = np.random.default_rng(42)
-            traces = rng.standard_normal((200000, 2)).astype(np.float32) * 100
-
-            def get_traces(
-                start_frame=0, end_frame=None, channel_ids=None, return_scaled=False
-            ):
-                ef = end_frame if end_frame is not None else 200000
-                return traces[start_frame:ef]
-
-            recording.get_traces = get_traces
-
-            # Template with tiny peak
-            template = np.zeros((61, 2), dtype=np.float32)
-            template[30, 0] = -0.1  # tiny peak
-
-            we = self._make_mock_waveform_extractor(
-                unit_ids=[0],
-                templates_avg={0: template},
-                templates_std={0: np.ones_like(template)},
-                peak_ind=30,
-                chans_max_all={0: 0},
-                recording=recording,
-            )
-
-            curated, failed, metrics = Curation.snr(we)
-            assert 0 in failed
-        finally:
-            if old_snr is not None:
-                ks_mod.SNR_MIN = old_snr
-
-    def test_zero_noise_produces_inf_snr(self, Curation):
-        """
-        When noise level is zero, SNR is inf and the unit passes.
-
-        Tests:
-            (Test Case 1) Zero noise with non-zero amplitude produces inf SNR.
-
-        Notes:
-            - Source uses np.errstate(divide='ignore') on this path.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_snr = getattr(ks_mod, "SNR_MIN", None)
-        ks_mod.SNR_MIN = 5.0
-
-        try:
-            recording = SimpleNamespace()
-            recording.get_num_samples = lambda: 200000
-            recording.get_sampling_frequency = lambda: 20000.0
-            recording.get_num_channels = lambda: 2
-            recording.has_scaleable_traces = lambda: False
-            traces = np.zeros((200000, 2), dtype=np.float32)
-
-            def get_traces(
-                start_frame=0, end_frame=None, channel_ids=None, return_scaled=False
-            ):
-                ef = end_frame if end_frame is not None else 200000
-                return traces[start_frame:ef]
-
-            recording.get_traces = get_traces
-
-            template = np.zeros((61, 2), dtype=np.float32)
-            template[30, 0] = -10.0
-
-            we = self._make_mock_waveform_extractor(
-                unit_ids=[0],
-                templates_avg={0: template},
-                templates_std={0: np.ones_like(template)},
-                peak_ind=30,
-                chans_max_all={0: 0},
-                recording=recording,
-            )
-
-            curated, failed, metrics = Curation.snr(we)
-            assert 0 in curated
-            assert np.isinf(metrics[0])
-        finally:
-            if old_snr is not None:
-                ks_mod.SNR_MIN = old_snr
-
-
-# ===========================================================================
-# Curation.std_norm_max
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationStdNormMax:
-    """
-    Tests for Curation.std_norm_max static method.
-
-    Tests:
-        (Test Case 1) Consistent unit passes (low std/amplitude ratio).
-        (Test Case 2) Inconsistent unit fails (high std/amplitude ratio).
-        (Test Case 3) std_at_peak vs. std_over_window modes.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def _make_we(
-        self,
-        unit_ids,
-        templates_avg,
-        templates_std,
-        peak_ind,
-        chans_max_all,
-        sampling_frequency=20000.0,
-    ):
-        we = SimpleNamespace()
-        we.sorting = SimpleNamespace(unit_ids=unit_ids)
-        we.peak_ind = peak_ind
-        we.chans_max_all = chans_max_all
-        we.sampling_frequency = sampling_frequency
-
-        def ms_to_samples(ms):
-            return round(ms * sampling_frequency / 1000.0)
-
-        we.ms_to_samples = ms_to_samples
-
-        def get_computed_template(unit_id, mode="average"):
-            if mode == "average":
-                return templates_avg[unit_id]
-            elif mode == "std":
-                return templates_std[unit_id]
-
-        we.get_computed_template = get_computed_template
-        return we
-
-    def test_consistent_unit_passes(self, Curation):
-        """
-        A unit with low waveform variability passes curation.
-
-        Tests:
-            (Test Case 1) std_norm = 0.1/10 = 0.01, well below threshold 1.0.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
-        old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
-        ks_mod.STD_NORM_MAX = 1.0
-        ks_mod.STD_AT_PEAK = True
-
-        try:
-            template_avg = np.zeros((61, 4), dtype=np.float32)
-            template_avg[30, 2] = -10.0  # large amplitude at peak
-            template_std = np.full((61, 4), 0.1, dtype=np.float32)
-
-            we = self._make_we(
-                unit_ids=[0],
-                templates_avg={0: template_avg},
-                templates_std={0: template_std},
-                peak_ind=30,
-                chans_max_all={0: 2},
-            )
-
-            curated, failed, metrics = Curation.std_norm_max(we)
-            assert 0 in curated
-            assert metrics[0] == pytest.approx(0.01)
-        finally:
-            if old_std_max is not None:
-                ks_mod.STD_NORM_MAX = old_std_max
-            if old_std_peak is not None:
-                ks_mod.STD_AT_PEAK = old_std_peak
-
-    def test_inconsistent_unit_fails(self, Curation):
-        """
-        A unit with high waveform variability fails curation.
-
-        Tests:
-            (Test Case 1) std_norm = 20/10 = 2.0, above threshold 1.0.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
-        old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
-        ks_mod.STD_NORM_MAX = 1.0
-        ks_mod.STD_AT_PEAK = True
-
-        try:
-            template_avg = np.zeros((61, 4), dtype=np.float32)
-            template_avg[30, 0] = -10.0
-            template_std = np.full((61, 4), 20.0, dtype=np.float32)
-
-            we = self._make_we(
-                unit_ids=[0],
-                templates_avg={0: template_avg},
-                templates_std={0: template_std},
-                peak_ind=30,
-                chans_max_all={0: 0},
-            )
-
-            curated, failed, metrics = Curation.std_norm_max(we)
-            assert 0 in failed
-            assert metrics[0] == pytest.approx(2.0)
-        finally:
-            if old_std_max is not None:
-                ks_mod.STD_NORM_MAX = old_std_max
-            if old_std_peak is not None:
-                ks_mod.STD_AT_PEAK = old_std_peak
-
-    def test_std_over_window_mode(self, Curation):
-        """
-        When STD_AT_PEAK is False, std is averaged over a time window.
-
-        Tests:
-            (Test Case 1) Mean std over window is used instead of single-sample std.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
-        old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
-        old_before = getattr(ks_mod, "STD_OVER_WINDOW_MS_BEFORE", None)
-        old_after = getattr(ks_mod, "STD_OVER_WINDOW_MS_AFTER", None)
-        ks_mod.STD_NORM_MAX = 1.0
-        ks_mod.STD_AT_PEAK = False
-        ks_mod.STD_OVER_WINDOW_MS_BEFORE = 0.5
-        ks_mod.STD_OVER_WINDOW_MS_AFTER = 1.5
-
-        try:
-            template_avg = np.zeros((61, 4), dtype=np.float32)
-            template_avg[30, 1] = -10.0
-            template_std = np.full((61, 4), 0.5, dtype=np.float32)
-
-            we = self._make_we(
-                unit_ids=[0],
-                templates_avg={0: template_avg},
-                templates_std={0: template_std},
-                peak_ind=30,
-                chans_max_all={0: 1},
-            )
-
-            curated, failed, metrics = Curation.std_norm_max(we)
-            # Mean of uniform 0.5 over window / amplitude 10 = 0.05
-            assert 0 in curated
-            assert metrics[0] == pytest.approx(0.05)
-        finally:
-            if old_std_max is not None:
-                ks_mod.STD_NORM_MAX = old_std_max
-            if old_std_peak is not None:
-                ks_mod.STD_AT_PEAK = old_std_peak
-            if old_before is not None:
-                ks_mod.STD_OVER_WINDOW_MS_BEFORE = old_before
-            if old_after is not None:
-                ks_mod.STD_OVER_WINDOW_MS_AFTER = old_after
-
-    def test_zero_amplitude_produces_inf(self, Curation):
-        """
-        When amplitude at peak is zero, std_norm is inf and unit fails.
-
-        Tests:
-            (Test Case 1) Zero amplitude with non-zero std => inf > STD_NORM_MAX.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-
-        old_std_max = getattr(ks_mod, "STD_NORM_MAX", None)
-        old_std_peak = getattr(ks_mod, "STD_AT_PEAK", None)
-        ks_mod.STD_NORM_MAX = 1.0
-        ks_mod.STD_AT_PEAK = True
-
-        try:
-            template_avg = np.zeros((61, 4), dtype=np.float32)
-            template_std = np.full((61, 4), 1.0, dtype=np.float32)
-
-            we = self._make_we(
-                unit_ids=[0],
-                templates_avg={0: template_avg},
-                templates_std={0: template_std},
-                peak_ind=30,
-                chans_max_all={0: 0},
-            )
-
-            curated, failed, metrics = Curation.std_norm_max(we)
-            assert 0 in failed
-            assert np.isinf(metrics[0])
-        finally:
-            if old_std_max is not None:
-                ks_mod.STD_NORM_MAX = old_std_max
-            if old_std_peak is not None:
-                ks_mod.STD_AT_PEAK = old_std_peak
-
-
-# ===========================================================================
-# Curation.update_history
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestCurationUpdateHistory:
-    """
-    Tests for Curation.update_history bookkeeping.
-
-    Tests:
-        (Test Case 1) History dict is populated correctly.
-        (Test Case 2) Multiple calls append to the curations list.
-    """
-
-    @pytest.fixture()
-    def Curation(self):
-        from spikelab.spike_sorting.kilosort2 import Curation
-
-        return Curation
-
-    def test_single_update(self, Curation):
-        """
-        A single update_history call populates all keys.
-
-        Tests:
-            (Test Case 1) 'curations' list has one entry.
-            (Test Case 2) 'curated', 'failed', 'metrics' dicts are set.
-        """
-        history = {"curations": [], "curated": {}, "failed": {}, "metrics": {}}
-        Curation.update_history(history, "fr", [0, 1], [2], {0: 1.0, 1: 2.0, 2: 0.01})
-
-        assert history["curations"] == ["fr"]
-        assert history["curated"]["fr"] == [0, 1]
-        assert history["failed"]["fr"] == [2]
-        assert history["metrics"]["fr"][2] == 0.01
-
-    def test_multiple_updates(self, Curation):
-        """
-        Multiple update_history calls append to the curations list.
-
-        Tests:
-            (Test Case 1) Both 'fr' and 'isi' appear in curations.
-        """
-        history = {"curations": [], "curated": {}, "failed": {}, "metrics": {}}
-        Curation.update_history(history, "fr", [0], [1], {0: 1.0, 1: 0.01})
-        Curation.update_history(history, "isi", [0, 1], [], {0: 0.0, 1: 0.5})
-
-        assert history["curations"] == ["fr", "isi"]
-        assert "fr" in history["curated"]
-        assert "isi" in history["curated"]
-
-
-# ===========================================================================
-# _waveform_extractor_to_spikedata
-# ===========================================================================
-
-
 @skip_no_spikeinterface
 class TestWaveformExtractorToSpikeData:
     """
@@ -1724,7 +865,7 @@ class TestWaveformExtractorToSpikeData:
         (Test Case 1) Produces a SpikeData with correct number of units.
         (Test Case 2) Spike times are converted to milliseconds.
         (Test Case 3) Metadata contains source_file, source_format, fs_Hz.
-        (Test Case 4) neuron_attributes contain unit_id for each unit.
+        (Test Case 4) neuron_attributes contain enriched per-unit data.
     """
 
     @pytest.fixture()
@@ -1733,7 +874,83 @@ class TestWaveformExtractorToSpikeData:
 
         return _waveform_extractor_to_spikedata
 
-    def test_basic_conversion(self, convert_fn):
+    @staticmethod
+    def _make_mock_we(
+        unit_ids,
+        spike_trains_dict,
+        num_channels=2,
+        sampling_frequency=20000.0,
+        template_len=30,
+        peak_ind=15,
+    ):
+        """Build a mock WaveformExtractor with all attributes needed by
+        _waveform_extractor_to_spikedata."""
+        sorting = _make_mock_sorting(
+            unit_ids, spike_trains_dict, sampling_frequency=sampling_frequency
+        )
+        recording = _make_mock_recording(
+            num_channels=num_channels, sampling_frequency=sampling_frequency
+        )
+        # Add get_property for electrode IDs
+        recording.get_property = lambda name: None
+
+        # chans_max_all: map each unit to channel 0
+        chans_max_all = {uid: 0 for uid in unit_ids}
+
+        # Polarity flags: all negative peak
+        use_pos_peak = {uid: False for uid in unit_ids}
+
+        # Templates: random (template_len, num_channels) per unit
+        rng = np.random.default_rng(42)
+        templates_avg = {
+            uid: rng.standard_normal((template_len, num_channels)) for uid in unit_ids
+        }
+        templates_std = {
+            uid: np.abs(rng.standard_normal((template_len, num_channels)))
+            for uid in unit_ids
+        }
+
+        we = SimpleNamespace()
+        we.sorting = sorting
+        we.recording = recording
+        we.sampling_frequency = sampling_frequency
+        we.chans_max_all = chans_max_all
+        we.use_pos_peak = use_pos_peak
+        we.peak_ind = peak_ind
+        we.return_scaled = True
+        we.root_folder = Path("/fake/waveforms")
+
+        def get_computed_template(unit_id, mode="average"):
+            return (
+                templates_avg[unit_id] if mode == "average" else templates_std[unit_id]
+            )
+
+        def ms_to_samples(ms):
+            return int(round(ms * sampling_frequency / 1000.0))
+
+        we.get_computed_template = get_computed_template
+        we.ms_to_samples = ms_to_samples
+        return we
+
+    @staticmethod
+    def _patch_globals(monkeypatch):
+        """Patch module globals needed by _waveform_extractor_to_spikedata."""
+        from spikelab.spike_sorting import kilosort2
+
+        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
+        monkeypatch.setattr(kilosort2, "COMPILED_WAVEFORMS_MS_BEFORE", 2, raising=False)
+        monkeypatch.setattr(kilosort2, "COMPILED_WAVEFORMS_MS_AFTER", 2, raising=False)
+        monkeypatch.setattr(kilosort2, "SCALE_COMPILED_WAVEFORMS", True, raising=False)
+        monkeypatch.setattr(kilosort2, "STD_OVER_WINDOW_MS_BEFORE", 0.5, raising=False)
+        monkeypatch.setattr(kilosort2, "STD_OVER_WINDOW_MS_AFTER", 1.5, raising=False)
+        # Patch _get_noise_levels to return simple noise array
+        monkeypatch.setattr(
+            kilosort2,
+            "_get_noise_levels",
+            lambda rec, return_scaled=True, **kw: np.ones(2),
+        )
+
+    def test_basic_conversion(self, convert_fn, monkeypatch):
         """
         Conversion produces SpikeData with correct trains and metadata.
 
@@ -1741,22 +958,19 @@ class TestWaveformExtractorToSpikeData:
             (Test Case 1) Two units produce two trains.
             (Test Case 2) Spike times are in milliseconds.
             (Test Case 3) Metadata fields are set.
-            (Test Case 4) neuron_attributes have unit_id.
+            (Test Case 4) neuron_attributes have enriched data.
         """
+        self._patch_globals(monkeypatch)
+
         trains = {
-            0: np.array([200, 400, 600], dtype=np.int64),  # samples
+            0: np.array([200, 400, 600], dtype=np.int64),
             1: np.array([1000, 2000], dtype=np.int64),
         }
-        sorting = _make_mock_sorting([0, 1], trains, sampling_frequency=20000.0)
-
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        we = self._make_mock_we([0, 1], trains)
 
         sd = convert_fn(we, "/fake/recording.h5")
 
         assert len(sd.train) == 2
-        # 200 samples / 20000 Hz * 1000 = 10 ms
         np.testing.assert_allclose(sd.train[0], [10.0, 20.0, 30.0])
         np.testing.assert_allclose(sd.train[1], [50.0, 100.0])
         assert sd.metadata["source_file"] == "/fake/recording.h5"
@@ -1764,64 +978,83 @@ class TestWaveformExtractorToSpikeData:
         assert sd.metadata["fs_Hz"] == 20000.0
         assert sd.neuron_attributes[0]["unit_id"] == 0
         assert sd.neuron_attributes[1]["unit_id"] == 1
+        # Enriched attributes
+        assert "snr" in sd.neuron_attributes[0]
+        assert "std_norm" in sd.neuron_attributes[0]
+        assert "template_full" in sd.neuron_attributes[0]
+        assert "has_pos_peak" in sd.neuron_attributes[0]
+        assert "channel" in sd.neuron_attributes[0]
+        assert "x" in sd.neuron_attributes[0]
+        assert "amplitude" in sd.neuron_attributes[0]
+        assert "spike_train_samples" in sd.neuron_attributes[0]
 
-    def test_empty_unit(self, convert_fn):
+    def test_empty_unit(self, convert_fn, monkeypatch):
         """
         A unit with no spikes produces an empty train.
 
         Tests:
             (Test Case 1) Empty spike train becomes empty array in SpikeData.
         """
-        trains = {
-            0: np.array([], dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        self._patch_globals(monkeypatch)
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        trains = {0: np.array([], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 0
 
-    def test_single_unit_single_spike(self, convert_fn):
+    def test_single_unit_single_spike(self, convert_fn, monkeypatch):
         """
         Minimal valid input: one unit with one spike.
 
         Tests:
             (Test Case 1) Produces SpikeData with 1 unit and 1 spike time in ms.
         """
-        trains = {0: np.array([2000], dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        self._patch_globals(monkeypatch)
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        trains = {0: np.array([2000], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 1
         np.testing.assert_allclose(sd.train[0], [100.0])
 
-    def test_unsorted_spikes_are_sorted(self, convert_fn):
+    def test_unsorted_spikes_are_sorted(self, convert_fn, monkeypatch):
         """
         Output spike times are sorted even if input samples are not.
 
         Tests:
             (Test Case 1) Source calls np.sort(), so output is monotonic.
         """
-        trains = {0: np.array([600, 200, 400], dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        self._patch_globals(monkeypatch)
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        trains = {0: np.array([600, 200, 400], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         times = sd.train[0]
         assert np.all(np.diff(times) >= 0), "Spike times should be monotonically sorted"
         np.testing.assert_allclose(times, [10.0, 20.0, 30.0])
+
+    def test_metadata_includes_channel_locations(self, convert_fn, monkeypatch):
+        """
+        Metadata includes channel_locations and n_samples.
+
+        Tests:
+            (Test Case 1) channel_locations is a (channels, 2) array.
+            (Test Case 2) n_samples is an integer.
+        """
+        self._patch_globals(monkeypatch)
+
+        trains = {0: np.array([200], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
+
+        sd = convert_fn(we, "test.h5")
+        locs = sd.metadata["channel_locations"]
+        assert locs.shape == (2, 2)
+        assert isinstance(sd.metadata["n_samples"], int)
 
 
 # ===========================================================================

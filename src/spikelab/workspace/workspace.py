@@ -478,15 +478,25 @@ class LazyAnalysisWorkspace(AnalysisWorkspace):
           re-serialisation.
     """
 
+    @property
+    def _items(self):
+        raise NotImplementedError(
+            "LazyAnalysisWorkspace does not use _items. "
+            "Override the parent method to use _index and the HDF5 file instead."
+        )
+
+    @_items.setter
+    def _items(self, value):
+        # Allow the parent __init__ to set _items without error; the value
+        # is silently discarded since all storage goes through HDF5.
+        pass
+
     def __init__(self, name: Optional[str] = None) -> None:
         """Create a new empty lazy workspace backed by a temp HDF5 file.
 
         Parameters:
             name (str | None): Optional human-readable label.
         """
-        from .hdf5_io import _require_h5py
-
-        _require_h5py()
         super().__init__(name=name)
 
         # Create the backing temp file.

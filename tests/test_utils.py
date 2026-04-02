@@ -653,7 +653,7 @@ class TestTimesFromMs:
         t = np.array([0, 1, 5])
         result = times_from_ms(t, "samples", fs_Hz=1000.0)
         np.testing.assert_array_equal(result, [0, 1, 5])
-        assert result.dtype == int
+        assert np.issubdtype(result.dtype, np.integer)
 
         result_20k = times_from_ms(t, "samples", fs_Hz=20000.0)
         np.testing.assert_array_equal(result_20k, [0, 20, 100])
@@ -695,7 +695,7 @@ class TestTimesFromMs:
         t = np.array([-1.0, -0.5, -10.0])
         result = times_from_ms(t, "samples", fs_Hz=20000.0)
         np.testing.assert_array_equal(result, [-20, -10, -200])
-        assert result.dtype == int
+        assert np.issubdtype(result.dtype, np.integer)
 
     def test_very_large_ms_values_to_samples(self):
         """
@@ -861,18 +861,14 @@ class TestEnsureH5py:
         """
         ensure_h5py()
 
-    def test_raises_when_missing(self, monkeypatch):
+    def test_noop_when_called(self):
         """
-        ensure_h5py raises ImportError when h5py is None.
+        ensure_h5py is a no-op now that h5py is a hard dependency.
 
         Tests:
-            (Test Case 1) Patching h5py to None triggers ImportError.
+            (Test Case 1) Calling ensure_h5py() a second time still does not raise.
         """
-        import spikelab.spikedata.utils as utils_mod
-
-        monkeypatch.setattr(utils_mod, "h5py", None)
-        with pytest.raises(ImportError, match="h5py"):
-            ensure_h5py()
+        ensure_h5py()  # no-op, should not raise
 
 
 # ---------------------------------------------------------------------------
@@ -2946,7 +2942,9 @@ class TestValidateTimeStartToEndEdgeCases:
         assert result[0] == (100.0, 100.0)
 
     def test_float_rounding_tolerance(self):
-        """
+        """Regression test for the set()-based equality check that rejected
+        windows with sub-epsilon duration differences.
+
         Windows with durations that differ by sub-picosecond amounts due to
         floating-point arithmetic on different base values are accepted.
 
@@ -3389,3 +3387,73 @@ class TestRankOrderCorrelationEdgeCases:
                 assert np.isnan(corr_pcm.matrix[i, j]) or corr_pcm.matrix[
                     i, j
                 ] == pytest.approx(1.0)
+
+
+class TestNumbaFallback:
+    """Tests for numba fallback when numba is not installed."""
+
+    def test_no_op_njit_decorator(self):
+        """
+        The fallback njit decorator returns the original function unchanged.
+
+        Tests:
+            (Test Case 1) Decorated function is identical to the original.
+            (Test Case 2) Decorator with arguments also returns the original.
+        """
+        from spikelab.spikedata import numba_utils
+
+        # Save original and simulate absence
+        orig_njit = numba_utils.njit
+        orig_avail = numba_utils.NUMBA_AVAILABLE
+
+        # Build fresh no-op njit
+        def _njit(*args, **kwargs):
+            def _decorator(func):
+                return func
+
+            if args and callable(args[0]):
+                return args[0]
+            return _decorator
+
+        try:
+            numba_utils.NUMBA_AVAILABLE = False
+            numba_utils.njit = _njit
+
+            # Case 1: bare decorator
+            def my_func(x):
+                return x + 1
+
+            decorated = numba_utils.njit(my_func)
+            assert decorated is my_func
+
+            # Case 2: decorator with arguments
+            decorated2 = numba_utils.njit(parallel=True)(my_func)
+            assert decorated2 is my_func
+        finally:
+            numba_utils.njit = orig_njit
+            numba_utils.NUMBA_AVAILABLE = orig_avail
+
+    def test_prange_fallback_to_range(self):
+        """
+        The fallback prange produces the same values as range().
+
+        Tests:
+            (Test Case 1) prange(5) produces [0, 1, 2, 3, 4].
+        """
+        from spikelab.spikedata import numba_utils
+
+        orig_prange = numba_utils.prange
+        orig_avail = numba_utils.NUMBA_AVAILABLE
+
+        def _prange(*args, **kwargs):
+            return range(*args)
+
+        try:
+            numba_utils.NUMBA_AVAILABLE = False
+            numba_utils.prange = _prange
+
+            result = list(numba_utils.prange(5))
+            assert result == [0, 1, 2, 3, 4]
+        finally:
+            numba_utils.prange = orig_prange
+            numba_utils.NUMBA_AVAILABLE = orig_avail

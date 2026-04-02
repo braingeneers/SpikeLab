@@ -1028,6 +1028,12 @@ def plot_lines(
         x = np.arange(len(ordered_data[0]))
     else:
         x = np.asarray(x).ravel()
+        for i in range(n):
+            if len(ordered_data[i]) != len(x):
+                raise ValueError(
+                    f"Trace '{ordered_labels[i]}' has length "
+                    f"{len(ordered_data[i])} but x has length {len(x)}"
+                )
 
     # --- Resolve colours --------------------------------------------------
     if colors is None:
@@ -1486,15 +1492,19 @@ def plot_aligned_slice_single_unit(
             all spikes are drawn in black.
         color_label (str): Colorbar label.
         cmap (str): Matplotlib colormap name.
-        time_offset (float): Value subtracted from spike times for display.
+        time_offset (float): Value subtracted from every spike time before
+            plotting. Slices from ``align_to_events`` are already
+            event-centered (spike times in ``[-pre_ms, +post_ms]``), so
+            use the default ``time_offset=0``. Only set a non-zero value
+            when spike times are not already centered on the event.
         xlabel (str): X-axis label.
         ylabel (str): Y-axis label.
         x_range (tuple or None): ``(xmin, xmax)`` for the x-axis. If None,
             auto-scales to the data.
         vlines (list[dict] or None): Vertical reference lines. Each dict
-            may contain ``'x'`` (required), ``'color'`` (default ``'red'``),
-            ``'linestyle'`` (default ``'--'``), ``'linewidth'`` (default
-            ``1.5``).
+            must contain ``'x'`` (required) and may optionally include
+            ``'color'`` (default ``'red'``), ``'linestyle'`` (default
+            ``'--'``), and ``'linewidth'`` (default ``1.5``).
         show_colorbar (bool): Add a colorbar when color_vals is provided.
         marker_size (float): Scatter marker size (only used when
             ``style="scatter"``).
@@ -1557,6 +1567,8 @@ def plot_aligned_slice_single_unit(
     # --- Vertical reference lines -----------------------------------------
     if vlines is not None:
         for vl in vlines:
+            if "x" not in vl:
+                raise ValueError("Each vlines dict must contain an 'x' key.")
             ax.axvline(
                 x=vl["x"],
                 color=vl.get("color", "red"),
@@ -1692,6 +1704,8 @@ def plot_heatmap(
 
     if vlines:
         for vl in vlines:
+            if "x" not in vl:
+                raise ValueError("Each vlines dict must contain an 'x' key.")
             ax.axvline(
                 x=vl["x"],
                 color=vl.get("color", "green"),
@@ -1754,6 +1768,7 @@ def plot_recording(
     raster_vmax=5,
     burst_times=None,
     burst_edges=None,
+    burst_colors=None,
     # --- heatmap options ---
     vmin_heatmap=None,
     vmax_heatmap=None,
@@ -1818,11 +1833,17 @@ def plot_recording(
         sort_indices (np.ndarray or None): Unit reordering indices applied to
             the raster and firing-rate heatmap.
         raster_style (str): ``'eventplot'`` (default) or ``'imshow'``. Controls
-            how the raster panel is rendered.
+            how the raster panel is rendered. Both styles display unit 0 at the
+            top, but achieve this differently: ``'imshow'`` uses
+            ``origin='upper'`` while ``'eventplot'`` inverts the y-axis. As a
+            result, y-coordinates are reversed in eventplot mode (ylim goes
+            from N to 0). Keep this in mind when overlaying custom artists.
         raster_bin_size_ms (float): Bin size in ms for the raster (used for
-            both eventplot and imshow styles).
+            both eventplot and imshow styles). When ``absolute_xticks=True``,
+            tick values are computed as ``bin_index * raster_bin_size_ms +
+            offset``, which is exact only when ``raster_bin_size_ms=1.0``.
         raster_vmax (int): Maximum spike count for colormap when
-            ``raster_style='imshow'``.
+            ``raster_style='imshow'``. Default is 5.
         burst_times (np.ndarray or None): Burst peak positions as raster bin
             indices (as returned by ``get_bursts``), plotted as markers on the
             population-rate panel. With the default ``raster_bin_size_ms=1.0``,
@@ -1830,6 +1851,11 @@ def plot_recording(
         burst_edges (np.ndarray or None): Per-burst ``[start_bin, end_bin]``
             boundaries as raster bin indices, shape ``(B, 2)``. Plotted as
             shaded spans on the population-rate panel.
+        burst_colors (array-like or None): Per-burst color values, one per
+            burst (length B, matching ``burst_times`` / ``burst_edges``).
+            When provided, each burst span and peak marker is drawn in its
+            assigned color. When None, spans default to blue and peaks to
+            black.
         vmin_heatmap (float or None): Colormap minimum for the FR heatmap.
         vmax_heatmap (float or None): Colormap maximum for the FR heatmap.
             When None, clipped to ``heatmap_clip_pct`` percentile of the data.
@@ -1996,19 +2022,29 @@ def plot_recording(
 
     # Burst peaks: keep those inside range, shift to window coords
     burst_times_view = None
+    burst_colors_times_view = None
     if burst_times is not None:
         mask = (burst_times >= start) & (burst_times <= end)
         burst_times_view = np.round(burst_times[mask] - start).astype(int)
+        if burst_colors is not None:
+            burst_colors_times_view = np.asarray(burst_colors)[mask]
 
     # Burst edges: clip to range, skip fully-outside bursts
     burst_edges_view = None
+    burst_colors_edges_view = None
     if burst_edges is not None:
         clipped = []
-        for t0, t1 in burst_edges:
+        edge_color_list = []
+        colors_arr = np.asarray(burst_colors) if burst_colors is not None else None
+        for idx, (t0, t1) in enumerate(burst_edges):
             if t1 < start or t0 > end:
                 continue
             clipped.append((max(t0, start) - start, min(t1, end) - start))
+            if colors_arr is not None:
+                edge_color_list.append(colors_arr[idx])
         burst_edges_view = clipped if clipped else None
+        if colors_arr is not None and edge_color_list:
+            burst_colors_edges_view = edge_color_list
 
     # ------------------------------------------------------------------
     # 4. Create figure with two-column GridSpec (panels + colorbars)
@@ -2128,11 +2164,25 @@ def plot_recording(
             valid = bt_scaled < len(pop_rate_hz)
             bt_scaled = bt_scaled[valid]
             bt_plot = burst_times_view[valid]  # x position in raster coords
-            ax.scatter(bt_plot, pop_rate_hz[bt_scaled], c="k", zorder=9)
+            if burst_colors_times_view is not None:
+                ax.scatter(
+                    bt_plot,
+                    pop_rate_hz[bt_scaled],
+                    c=burst_colors_times_view[valid],
+                    s=40,
+                    zorder=9,
+                )
+            else:
+                ax.scatter(bt_plot, pop_rate_hz[bt_scaled], c="k", zorder=9)
 
         if burst_edges_view is not None:
-            for t0, t1 in burst_edges_view:
-                ax.axvspan(t0, t1, color="b", alpha=0.2)
+            for i, (t0, t1) in enumerate(burst_edges_view):
+                color = (
+                    burst_colors_edges_view[i]
+                    if burst_colors_edges_view is not None
+                    else "b"
+                )
+                ax.axvspan(t0, t1, color=color, alpha=0.2)
 
         _style_axes(ax)
         _apply_font_size(ax, font_size)
@@ -2206,23 +2256,38 @@ def plot_recording(
     for ax in main_axes[:-1]:
         plt.setp(ax.get_xticklabels(), visible=False)
         ax.set_xlabel("")
-    main_axes[-1].set_xlabel("Time (s)")
-    _apply_font_size(main_axes[-1], font_size)
 
-    # Shift tick labels to absolute recording time when requested
-    # Convert bin indices back to seconds for tick labels.
+    # Choose x-axis unit: ms when the plotted range is < 1000 ms, else seconds.
     # Bin 0 in the view corresponds to ms = sd.start_time + start * raster_bin_size_ms.
     ms_offset = sd.start_time + start * raster_bin_size_ms
-    bin_to_s = raster_bin_size_ms / 1000.0
-    if absolute_xticks:
-        s_offset = ms_offset / 1000.0
-        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s + s_offset:.1f}")
-        for ax in main_axes:
-            ax.xaxis.set_major_formatter(formatter)
+    range_ms = n_samples * raster_bin_size_ms
+    use_ms = range_ms < 1000.0
+
+    if use_ms:
+        xlabel = "Time (ms)"
+        if absolute_xticks:
+            formatter = mticker.FuncFormatter(
+                lambda x, _: f"{x * raster_bin_size_ms + ms_offset:.1f}"
+            )
+        else:
+            formatter = mticker.FuncFormatter(
+                lambda x, _: f"{x * raster_bin_size_ms:.1f}"
+            )
     else:
-        formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s:.1f}")
-        for ax in main_axes:
-            ax.xaxis.set_major_formatter(formatter)
+        xlabel = "Time (s)"
+        bin_to_s = raster_bin_size_ms / 1000.0
+        if absolute_xticks:
+            s_offset = ms_offset / 1000.0
+            formatter = mticker.FuncFormatter(
+                lambda x, _: f"{x * bin_to_s + s_offset:.1f}"
+            )
+        else:
+            formatter = mticker.FuncFormatter(lambda x, _: f"{x * bin_to_s:.1f}")
+
+    main_axes[-1].set_xlabel(xlabel)
+    _apply_font_size(main_axes[-1], font_size)
+    for ax in main_axes:
+        ax.xaxis.set_major_formatter(formatter)
 
     # ------------------------------------------------------------------
     # 10. Output

@@ -16,9 +16,6 @@ from ...spikedata.rateslicestack import RateSliceStack
 from ...spikedata.spikeslicestack import SpikeSliceStack
 from ...spikedata.spikedata import SpikeData
 from ...spikedata.utils import (
-    PCA_reduction,
-    UMAP_graph_communities,
-    UMAP_reduction,
     compute_cosine_similarity_with_lag,
     compute_cross_correlation_with_lag,
     consecutive_durations,
@@ -27,13 +24,17 @@ from ...spikedata.utils import (
     gplvm_state_entropy,
 )
 from ...workspace.workspace import AnalysisWorkspace, get_workspace_manager
+from ._helpers import (
+    SPIKEDATA_KEY as _SPIKEDATA_KEY,
+    get_workspace as _get_workspace,
+    get_spikedata as _get_spikedata,
+    get_ratedata as _get_ratedata,
+)
 
 _COMPARE_FUNCS = {
     "cross_correlation": compute_cross_correlation_with_lag,
     "cosine_similarity": compute_cosine_similarity_with_lag,
 }
-
-_SPIKEDATA_KEY = "spikedata"
 
 
 def _to_list(arr):
@@ -41,47 +42,6 @@ def _to_list(arr):
     if isinstance(arr, np.ndarray):
         return arr.tolist()
     return arr
-
-
-def _get_workspace(workspace_id: str):
-    """Get AnalysisWorkspace by ID, raising ValueError if not found."""
-    ws = get_workspace_manager().get_workspace(workspace_id)
-    if ws is None:
-        raise ValueError(f"Workspace not found: {workspace_id}")
-    return ws
-
-
-def _get_spikedata(ws, namespace: str) -> SpikeData:
-    """
-    Load SpikeData from (namespace, 'spikedata') in the workspace.
-
-    Raises ValueError with tool suggestions if not found.
-    """
-    sd = ws.get(namespace, _SPIKEDATA_KEY)
-    if sd is None or not isinstance(sd, SpikeData):
-        raise ValueError(
-            f"No SpikeData found at ({namespace!r}, {_SPIKEDATA_KEY!r}). "
-            "Load a recording first using one of: "
-            "load_from_hdf5_raster, load_from_hdf5_ragged, load_from_hdf5_group, "
-            "load_from_hdf5_paired, load_from_nwb, load_from_kilosort, "
-            "load_from_pickle, load_from_hdf5_thresholded."
-        )
-    return sd
-
-
-def _get_ratedata(ws, namespace: str, key: str) -> RateData:
-    """
-    Load RateData from (namespace, key) in the workspace.
-
-    Raises ValueError with tool suggestions if not found.
-    """
-    rd = ws.get(namespace, key)
-    if rd is None or not isinstance(rd, RateData):
-        raise ValueError(
-            f"No RateData found at ({namespace!r}, {key!r}). "
-            "Compute instantaneous firing rates first using: compute_resampled_isi."
-        )
-    return rd
 
 
 def _get_rateslicestack(ws, namespace: str, key: str) -> RateSliceStack:
@@ -197,17 +157,19 @@ async def compute_raster(
     namespace: str,
     key: str,
     bin_size: float = 20.0,
+    time_offset: float = 0.0,
 ) -> Dict[str, Any]:
     """Compute a dense spike raster array and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    raster = sd.raster(bin_size=bin_size)
+    raster = sd.raster(bin_size=bin_size, time_offset=time_offset)
     ws.store(namespace, key, raster)
     return {
         "workspace_id": workspace_id,
         "namespace": namespace,
         "key": key,
         "bin_size": bin_size,
+        "time_offset": time_offset,
         "info": ws.get_info(namespace, key),
     }
 
@@ -1353,6 +1315,8 @@ async def pca_on_lower_triangle(
             f"Expected PairwiseCompMatrixStack or (N, N, S) ndarray at "
             f"({namespace!r}, {key!r}), got {type(obj).__name__}"
         )
+    from ...spikedata.utils import PCA_reduction
+
     lower_tri = stack.extract_lower_triangle_features()
     embedding, var_ratio, components = PCA_reduction(
         lower_tri, n_components=n_components
@@ -1394,6 +1358,8 @@ async def pca_on_workspace_item(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
+    from ...spikedata.utils import PCA_reduction
+
     embedding, var_ratio, components = PCA_reduction(obj, n_components=n_components)
     ws.store(namespace, out_key, embedding)
     result: Dict[str, Any] = {
@@ -1435,6 +1401,8 @@ async def umap_reduction(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
+    from ...spikedata.utils import UMAP_reduction
+
     embedding, tw = UMAP_reduction(
         obj,
         n_components=n_components,
@@ -1476,6 +1444,8 @@ async def umap_graph_communities(
             f"got {type(obj).__name__}"
             + (f" with ndim={obj.ndim}" if isinstance(obj, np.ndarray) else "")
         )
+    from ...spikedata.utils import UMAP_graph_communities
+
     embedding, labels, tw = UMAP_graph_communities(
         obj,
         n_components=n_components,
@@ -2212,6 +2182,63 @@ async def compute_gplvm_avg_state_prob(
         "namespace": namespace,
         "key": out_key,
         "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def curate_spikedata(
+    workspace_id: str,
+    namespace: str,
+    out_namespace: Optional[str] = None,
+    min_spikes: Optional[int] = None,
+    min_rate_hz: Optional[float] = None,
+    isi_max: Optional[float] = None,
+    isi_threshold_ms: float = 1.5,
+    isi_method: str = "percent",
+    min_snr: Optional[float] = None,
+    max_std_norm: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Curate SpikeData by applying quality-control filters.
+
+    Reads SpikeData from (namespace, 'spikedata'), applies the requested
+    curation criteria, stores the curated SpikeData at
+    (out_namespace, 'spikedata'), and returns the curation history inline.
+    """
+    from ...spikedata.curation import build_curation_history
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    kwargs: Dict[str, Any] = {}
+    if min_spikes is not None:
+        kwargs["min_spikes"] = min_spikes
+    if min_rate_hz is not None:
+        kwargs["min_rate_hz"] = min_rate_hz
+    if isi_max is not None:
+        kwargs["isi_max"] = isi_max
+        kwargs["isi_threshold_ms"] = isi_threshold_ms
+        kwargs["isi_method"] = isi_method
+    if min_snr is not None:
+        kwargs["min_snr"] = min_snr
+    if max_std_norm is not None:
+        kwargs["max_std_norm"] = max_std_norm
+
+    sd_curated, results = sd.curate(**kwargs)
+    history = build_curation_history(sd, sd_curated, results, parameters=kwargs)
+
+    target_ns = out_namespace if out_namespace else namespace + "_curated"
+    ws.store(target_ns, _SPIKEDATA_KEY, sd_curated)
+
+    return {
+        "workspace_id": workspace_id,
+        "namespace": target_ns,
+        "workspace_key": _SPIKEDATA_KEY,
+        "info": {
+            "num_neurons_before": sd.N,
+            "num_neurons_after": sd_curated.N,
+            "criteria_applied": history["curations"],
+            "curated_final": history["curated_final"],
+        },
+        "curation_history": history,
     }
 
 

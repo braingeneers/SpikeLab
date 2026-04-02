@@ -13,37 +13,11 @@ from ...data_loaders.data_exporters import (
     export_spikedata_to_hdf5,
     export_spikedata_to_kilosort,
     export_spikedata_to_nwb,
-    export_spikedata_to_pickle,
+    export_to_pickle as _export_to_pickle,
 )
 
 from ...data_loaders.s3_utils import is_s3_url, upload_to_s3
-from ...workspace.workspace import get_workspace_manager
-
-_SPIKEDATA_KEY = "spikedata"
-
-
-def _get_workspace(workspace_id: str):
-    """Get AnalysisWorkspace by ID, raising ValueError if not found."""
-    ws = get_workspace_manager().get_workspace(workspace_id)
-    if ws is None:
-        raise ValueError(f"Workspace not found: {workspace_id}")
-    return ws
-
-
-def _get_spikedata(ws, namespace: str):
-    """Load SpikeData from (namespace, 'spikedata') in the workspace."""
-    from ...spikedata.spikedata import SpikeData
-
-    sd = ws.get(namespace, _SPIKEDATA_KEY)
-    if sd is None or not isinstance(sd, SpikeData):
-        raise ValueError(
-            f"No SpikeData found at ({namespace!r}, {_SPIKEDATA_KEY!r}). "
-            "Load a recording first using one of: "
-            "load_from_hdf5_raster, load_from_hdf5_ragged, load_from_hdf5_group, "
-            "load_from_hdf5_paired, load_from_nwb, load_from_kilosort, "
-            "load_from_pickle, load_from_hdf5_thresholded."
-        )
-    return sd
+from ._helpers import get_workspace as _get_workspace, get_spikedata as _get_spikedata
 
 
 def _hdf5_export_helper(
@@ -120,8 +94,9 @@ async def export_to_hdf5_raster(
         "raster_bin_size_ms": raster_bin_size_ms,
         "raw_dataset": raw_dataset,
         "raw_time_dataset": raw_time_dataset,
-        "raw_time_unit": raw_time_unit,
     }
+    if raw_dataset is not None:
+        kwargs["raw_time_unit"] = raw_time_unit
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
     return _hdf5_export_helper(
         spikedata,
@@ -160,8 +135,9 @@ async def export_to_hdf5_ragged(
         "fs_Hz": fs_Hz,
         "raw_dataset": raw_dataset,
         "raw_time_dataset": raw_time_dataset,
-        "raw_time_unit": raw_time_unit,
     }
+    if raw_dataset is not None:
+        kwargs["raw_time_unit"] = raw_time_unit
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
     return _hdf5_export_helper(
         spikedata,
@@ -198,8 +174,9 @@ async def export_to_hdf5_group(
         "fs_Hz": fs_Hz,
         "raw_dataset": raw_dataset,
         "raw_time_dataset": raw_time_dataset,
-        "raw_time_unit": raw_time_unit,
     }
+    if raw_dataset is not None:
+        kwargs["raw_time_unit"] = raw_time_unit
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
     return _hdf5_export_helper(
         spikedata,
@@ -238,8 +215,9 @@ async def export_to_hdf5_paired(
         "fs_Hz": fs_Hz,
         "raw_dataset": raw_dataset,
         "raw_time_dataset": raw_time_dataset,
-        "raw_time_unit": raw_time_unit,
     }
+    if raw_dataset is not None:
+        kwargs["raw_time_unit"] = raw_time_unit
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
     return _hdf5_export_helper(
         spikedata,
@@ -417,7 +395,7 @@ async def export_to_pickle(
     """
     spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
 
-    result_path = export_spikedata_to_pickle(
+    result_path = _export_to_pickle(
         spikedata,
         file_path,
         protocol=protocol,
