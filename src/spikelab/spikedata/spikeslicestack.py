@@ -360,7 +360,9 @@ class SpikeSliceStack:
                 spikes are offset by its absolute start time from self.times,
                 so bin indices reflect the original recording position. The T
                 dimension is sized to cover the full time span from the
-                earliest slice start to the latest slice end.
+                earliest slice start to the latest slice end. **Caution:**
+                this can produce very large arrays when the recording span is
+                long and bin_size is small.
 
         Returns:
             raster_stack (np.ndarray): 3D array of shape (N, T, S) with
@@ -1068,13 +1070,18 @@ class SpikeSliceStack:
             color_vals (np.ndarray or None): Per-slice colour values.
             color_label (str): Colorbar label.
             cmap (str): Matplotlib colormap name.
-            time_offset (float): Value subtracted from spike times for display.
+            time_offset (float): Value subtracted from every spike time
+                before plotting. Slices from ``align_to_events`` are
+                already event-centered (spike times in
+                ``[-pre_ms, +post_ms]``), so use the default
+                ``time_offset=0``. Only set a non-zero value when spike
+                times are not already centered on the event.
             xlabel (str): X-axis label.
             ylabel (str): Y-axis label.
             x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.
             vlines (list[dict] or None): Vertical reference lines. Each dict
-                may contain ``'x'``, ``'color'``, ``'linestyle'``,
-                ``'linewidth'``.
+                must contain ``'x'`` and may optionally include ``'color'``,
+                ``'linestyle'``, ``'linewidth'``.
             show_colorbar (bool): Add a colorbar when color_vals is provided.
             marker_size (float): Scatter marker size.
             font_size (int or None): Font size for labels/ticks.

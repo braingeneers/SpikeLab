@@ -228,6 +228,7 @@ class PairwiseCompMatrix:
         vmax=None,
         colorbar_label="",
         font_size=14,
+        tick_labels=None,
         save_path=None,
     ):
         """Plot the pairwise matrix as a heatmap.
@@ -242,6 +243,9 @@ class PairwiseCompMatrix:
             vmax (float or None): Colormap maximum.
             colorbar_label (str): Label for the colorbar.
             font_size (int): Font size for labels and ticks.
+            tick_labels (list[str] or None): Custom tick labels for both axes.
+                If None, uses ``self.labels`` (or integer indices when labels
+                are not set).
             save_path (str or None): If provided (and ``ax`` is None), save the
                 figure to this path and close it.
 
@@ -253,11 +257,12 @@ class PairwiseCompMatrix:
         if cmap is None:
             cmap = "RdBu_r" if self._is_diverging(self.matrix) else "viridis"
 
-        tick_labels = (
-            self.labels
-            if self.labels is not None
-            else [str(i) for i in range(self.matrix.shape[0])]
-        )
+        if tick_labels is None:
+            tick_labels = (
+                self.labels
+                if self.labels is not None
+                else [str(i) for i in range(self.matrix.shape[0])]
+            )
         n = self.matrix.shape[0]
         ticks = (list(range(n)), tick_labels)
 
@@ -623,6 +628,7 @@ class PairwiseCompMatrixStack:
         vmax=None,
         colorbar_label="",
         font_size=14,
+        tick_labels=None,
         save_path=None,
     ):
         """Plot the mean matrix across all slices as a heatmap.
@@ -640,6 +646,9 @@ class PairwiseCompMatrixStack:
             vmax (float or None): Colormap maximum.
             colorbar_label (str): Label for the colorbar.
             font_size (int): Font size for labels and ticks.
+            tick_labels (list[str] or None): Custom tick labels for both axes.
+                If None, uses ``self.labels`` (or integer indices when labels
+                are not set).
             save_path (str or None): If provided (and ``ax`` is None), save the
                 figure to this path and close it.
 
@@ -654,6 +663,7 @@ class PairwiseCompMatrixStack:
             vmax=vmax,
             colorbar_label=colorbar_label,
             font_size=font_size,
+            tick_labels=tick_labels,
             save_path=save_path,
         )
 

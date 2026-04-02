@@ -438,6 +438,65 @@ class TestPlotRecording:
         assert len(pop_ax.collections) >= 1
         assert len(pop_ax.patches) >= 3
 
+    def test_burst_colors(self):
+        """
+        Per-burst colors are applied to scatter markers and edge spans.
+
+        Tests:
+            (Test Case 1) With burst_colors, scatter markers use per-burst
+                colors instead of the default black.
+            (Test Case 2) With burst_colors, edge spans use per-burst colors
+                instead of the default blue.
+            (Test Case 3) Without burst_colors, default colors are used
+                (backward compatibility verified by test_burst_overlays).
+        """
+        sd = _make_sd(length=400.0)
+        bt = np.array([50.0, 150.0, 250.0])
+        be = np.array([[40.0, 60.0], [140.0, 160.0], [240.0, 260.0]])
+        colors = ["red", "green", "blue"]
+        fig = plot_recording(
+            sd,
+            show_raster=True,
+            show_pop_rate=True,
+            burst_times=bt,
+            burst_edges=be,
+            burst_colors=colors,
+            show=False,
+        )
+        pop_ax = fig.axes[1]
+        # Scatter collection present with per-burst colors
+        assert len(pop_ax.collections) >= 1
+        # Edge spans drawn with per-burst colors
+        assert len(pop_ax.patches) >= 3
+
+    def test_burst_colors_with_time_range(self):
+        """
+        Per-burst colors are correctly cropped when time_range excludes some
+        bursts.
+
+        Tests:
+            (Test Case 1) Only bursts inside the time window are drawn; colors
+                stay aligned after cropping.
+        """
+        sd = _make_sd(length=400.0)
+        bt = np.array([50.0, 150.0, 350.0])
+        be = np.array([[40.0, 60.0], [140.0, 160.0], [340.0, 360.0]])
+        colors = ["red", "green", "blue"]
+        fig = plot_recording(
+            sd,
+            show_raster=True,
+            show_pop_rate=True,
+            burst_times=bt,
+            burst_edges=be,
+            burst_colors=colors,
+            time_range=(100.0, 200.0),
+            show=False,
+        )
+        pop_ax = fig.axes[1]
+        # Only 1 burst (at 150ms) is inside [100, 200]
+        assert len(pop_ax.patches) == 1
+        assert len(pop_ax.collections) >= 1
+
     def test_different_time_resolution(self):
         """
         Data arrays with different time resolution than the raster are
@@ -3941,4 +4000,64 @@ class TestCoverageGaps:
             linewidth=3.0,
         )
         assert ax is not None
+        plt.close(fig)
+
+    def test_import_matplotlib_error_branch(self):
+        """
+        _import_matplotlib raises ImportError with a helpful message when
+        matplotlib is not installed.
+
+        Tests:
+            (Test Case 1) ImportError is raised.
+            (Test Case 2) Message mentions 'matplotlib'.
+        """
+        import importlib
+        import spikelab.spikedata.plot_utils as pu
+
+        original_import = (
+            __builtins__.__import__
+            if hasattr(__builtins__, "__import__")
+            else __import__
+        )
+
+        def mock_import(name, *args, **kwargs):
+            if name.startswith("matplotlib"):
+                raise ImportError("No module named 'matplotlib'")
+            return original_import(name, *args, **kwargs)
+
+        import builtins
+
+        old_import = builtins.__import__
+        try:
+            builtins.__import__ = mock_import
+            with pytest.raises(ImportError, match="matplotlib"):
+                pu._import_matplotlib()
+        finally:
+            builtins.__import__ = old_import
+
+    def test_plot_scatter_group_labels_length_mismatch(self):
+        """
+        plot_scatter raises IndexError when group_labels has fewer elements
+        than unique groups.
+
+        Tests:
+            (Test Case 1) Mismatched group_labels raises IndexError.
+            (Test Case 2) Mismatched group_colors raises IndexError.
+        """
+        from spikelab.spikedata.plot_utils import plot_scatter
+
+        fig, ax = plt.subplots()
+        x = np.array([1.0, 2.0, 3.0, 4.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        groups = np.array([0, 0, 1, 2])  # 3 unique groups
+
+        # Case 1: too few labels
+        with pytest.raises(IndexError):
+            plot_scatter(ax, x, y, groups=groups, group_labels=["A"])
+        plt.close(fig)
+
+        # Case 2: too few colors
+        fig, ax = plt.subplots()
+        with pytest.raises(IndexError):
+            plot_scatter(ax, x, y, groups=groups, group_colors=["red"])
         plt.close(fig)

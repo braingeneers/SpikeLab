@@ -22,7 +22,7 @@ from .data_exporters import (
     export_spikedata_to_hdf5,
     export_spikedata_to_nwb,
     export_spikedata_to_kilosort,
-    export_spikedata_to_pickle,
+    export_to_pickle,
 )
 
 from .s3_utils import (
@@ -47,7 +47,7 @@ __all__ = [
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
-    "export_spikedata_to_pickle",
+    "export_to_pickle",
     "download_from_s3",
     "upload_to_s3",
     "ensure_local_file",

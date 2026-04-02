@@ -397,7 +397,9 @@ class TestValidateTimeStartToEnd:
         assert result[0][0] == pytest.approx(-5.0)
 
     def test_validate_float_precision_accepted(self):
-        """
+        """Regression test for the set()-based equality check that rejected
+        windows with sub-epsilon duration differences.
+
         Tests that windows with durations differing by sub-picosecond amounts
         due to floating-point arithmetic are accepted by the tolerance-based
         comparison.

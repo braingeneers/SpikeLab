@@ -37,10 +37,7 @@ __all__ = [
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
-try:  # optional, only needed for HDF5/NWB exporters
-    import h5py  # type: ignore
-except ImportError:  # pragma: no cover
-    h5py = None  # type: ignore
+import h5py
 
 # Optional dependencies for manifold learning and graph-based clustering.
 try:  # optional, only needed for UMAP-based reductions
@@ -94,7 +91,10 @@ def get_sttc(
         tB (list): List of spike times for the second spike train.
         delt (float): Time window in milliseconds (default: 20.0).
         length (float or None): Total duration in milliseconds. If None,
-            inferred from the latest spike time after shifting.
+            inferred from the latest spike time after shifting, which may
+            underestimate the true recording duration if the last spike does
+            not fall near the end. Pass the actual recording length for
+            unbiased STTC.
         start_time (float): Time origin of the spike trains (default 0.0).
             Spike times are shifted by ``-start_time`` before computation so
             that the STTC edge corrections work correctly for event-centered
@@ -235,7 +235,9 @@ def _resampled_isi(spikes, times, sigma_ms):
     n_bins = int(round((t_end - t_start) / dt_ms)) + 1
     isi_rate_temp = np.zeros(n_bins)
 
-    # Assign rates to bins between spikes (piece 1 logic)
+    # Assign rates to bins between spikes.
+    # Note: int(round(...)) bin assignment can shift spikes at exact bin
+    # boundaries to adjacent bins — a known sub-ms precision limitation.
     for i in range(1, len(spikes)):
         start_bin = int(round((spikes[i - 1] - t_start) / dt_ms))
         end_bin = int(round((spikes[i] - t_start) / dt_ms))
@@ -470,13 +472,14 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
         return 0.0, 0
     norm_product = ref_norm * comp_norm
 
-    # Fast path for zero lag (no time shift)
+    # Fast path for zero lag: direct dot-product normalisation (equivalent to
+    # the general path below with max_lag=0, but avoids scipy.signal overhead).
     if max_lag == 0:
         max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(norm_product)
         return max_corr, 0
-    # r is the correlation between ref and comp. Each value is sum of elementwise products
-    # for each possible lag and it is normalized so each value is between -1 and 1
-    # Normalization: autocorrelation at zero lag for each signal
+    # General path: use scipy.signal.correlate and normalise by the geometric
+    # mean of the zero-lag autocorrelations (equivalent to dividing by the
+    # product of L2 norms, but computed via correlate for consistency).
     auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[len(ref_rate) // 2]
     auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[len(comp_rate) // 2]
     denom = auto_ref * auto_comp
@@ -782,11 +785,8 @@ def UMAP_graph_communities(
 
 
 def ensure_h5py():
-    """Ensure h5py is available for HDF5-based exporters."""
-    if h5py is None:
-        raise ImportError(
-            "h5py is required for HDF5/NWB exporters. `pip install h5py`."
-        )
+    """No-op — h5py is a hard dependency. Kept for backwards compatibility."""
+    pass
 
 
 def times_from_ms(
@@ -801,7 +801,7 @@ def times_from_ms(
         if not fs_Hz or fs_Hz <= 0:
             raise ValueError("fs_Hz must be provided and > 0 when unit='samples'")
         # Use round-to-nearest to produce integer samples
-        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(int)
+        return np.rint(times_ms.astype(float) * (fs_Hz / 1e3)).astype(np.int64)
     raise ValueError(f"Unknown time unit '{unit}' (expected 's','ms','samples')")
 
 

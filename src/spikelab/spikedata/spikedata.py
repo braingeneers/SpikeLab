@@ -359,6 +359,12 @@ class SpikeData:
                     f"instead of {self.N} items."
                 )
 
+    def __repr__(self) -> str:
+        return (
+            f"SpikeData(N={self.N}, length={self.length:.1f}, "
+            f"start_time={self.start_time:.1f})"
+        )
+
     @property
     def times(self):
         """Iterate spike times for all units in time order."""
@@ -925,6 +931,7 @@ class SpikeData:
 
         Notes:
             - The two SpikeData objects must have the same number of neurons.
+            - On metadata key collision, values from ``self`` take precedence.
         """
         if self.N != spikeData.N:
             raise ValueError("Cannot concatenate SpikeData with different N")
@@ -2816,3 +2823,203 @@ class SpikeData:
             _apply_font_size(ax, font_size)
 
         return avg_rate
+
+    # ------------------------------------------------------------------
+    # Curation
+    # ------------------------------------------------------------------
+
+    def curate_by_min_spikes(self, min_spikes=30):
+        """Remove units with fewer than *min_spikes* spikes.
+
+        See ``spikelab.spikedata.curation.curate_by_min_spikes`` for
+        full documentation.
+        """
+        from .curation import curate_by_min_spikes
+
+        return curate_by_min_spikes(self, min_spikes=min_spikes)
+
+    def curate_by_firing_rate(self, min_rate_hz=0.05):
+        """Remove units whose firing rate is below *min_rate_hz*.
+
+        See ``spikelab.spikedata.curation.curate_by_firing_rate`` for
+        full documentation.
+        """
+        from .curation import curate_by_firing_rate
+
+        return curate_by_firing_rate(self, min_rate_hz=min_rate_hz)
+
+    def curate_by_isi_violations(
+        self, max_violation=1.0, threshold_ms=1.5, min_isi_ms=0.0, method="percent"
+    ):
+        """Remove units with excessive ISI violations.
+
+        See ``spikelab.spikedata.curation.curate_by_isi_violations``
+        for full documentation.
+        """
+        from .curation import curate_by_isi_violations
+
+        return curate_by_isi_violations(
+            self,
+            max_violation=max_violation,
+            threshold_ms=threshold_ms,
+            min_isi_ms=min_isi_ms,
+            method=method,
+        )
+
+    def curate_by_snr(self, min_snr=5.0, ms_before=1.0, ms_after=2.0):
+        """Remove units whose SNR is below *min_snr*.
+
+        See ``spikelab.spikedata.curation.curate_by_snr`` for full
+        documentation.
+        """
+        from .curation import curate_by_snr
+
+        return curate_by_snr(
+            self, min_snr=min_snr, ms_before=ms_before, ms_after=ms_after
+        )
+
+    def curate_by_std_norm(
+        self,
+        max_std_norm=1.0,
+        at_peak=True,
+        window_ms_before=0.5,
+        window_ms_after=1.5,
+        ms_before=1.0,
+        ms_after=2.0,
+    ):
+        """Remove units whose normalized waveform STD exceeds *max_std_norm*.
+
+        See ``spikelab.spikedata.curation.curate_by_std_norm`` for full
+        documentation.
+        """
+        from .curation import curate_by_std_norm
+
+        return curate_by_std_norm(
+            self,
+            max_std_norm=max_std_norm,
+            at_peak=at_peak,
+            window_ms_before=window_ms_before,
+            window_ms_after=window_ms_after,
+            ms_before=ms_before,
+            ms_after=ms_after,
+        )
+
+    def compute_waveform_metrics(
+        self,
+        ms_before=1.0,
+        ms_after=2.0,
+        at_peak=True,
+        window_ms_before=0.5,
+        window_ms_after=1.5,
+    ):
+        """Compute average waveforms, SNR, and normalized STD for all units.
+
+        Stores results in ``neuron_attributes``.  See
+        ``spikelab.spikedata.curation.compute_waveform_metrics`` for
+        full documentation.
+        """
+        from .curation import compute_waveform_metrics
+
+        return compute_waveform_metrics(
+            self,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            at_peak=at_peak,
+            window_ms_before=window_ms_before,
+            window_ms_after=window_ms_after,
+        )
+
+    def curate(self, **kwargs):
+        """Apply multiple curation criteria in sequence (intersection).
+
+        See ``spikelab.spikedata.curation.curate`` for full
+        documentation and supported keyword arguments.
+        """
+        from .curation import curate
+
+        return curate(self, **kwargs)
+
+    @staticmethod
+    def build_curation_history(sd_original, sd_curated, results, parameters=None):
+        """Translate curation results into a serializable history dict.
+
+        See ``spikelab.spikedata.curation.build_curation_history`` for
+        full documentation.
+        """
+        from .curation import build_curation_history
+
+        return build_curation_history(
+            sd_original,
+            sd_curated,
+            results,
+            parameters=parameters,
+        )
+
+    def split_epochs(self):
+        """Split a concatenated SpikeData into per-epoch SpikeData objects.
+
+        Uses ``metadata["rec_chunks_ms"]`` (list of ``(start_ms, end_ms)``
+        tuples) to slice this SpikeData via ``subtime``.  Each resulting
+        SpikeData receives the corresponding epoch template from
+        ``neuron_attributes["epoch_templates"]`` as its ``"template"``
+        attribute.
+
+        Parameters:
+            None.  Epoch boundaries and names are read from ``metadata``.
+
+        Returns:
+            epochs (list[SpikeData]): One SpikeData per epoch, time-shifted
+                so each starts at t=0.
+
+        Notes:
+            - Requires ``metadata["rec_chunks_ms"]``.  Raises ``ValueError``
+              if not present.
+            - ``metadata["rec_chunk_names"]`` (optional) is stored as
+              ``metadata["source_file"]`` on each output SpikeData.
+        """
+        chunks_ms = self.metadata.get("rec_chunks_ms")
+        if chunks_ms is None or len(chunks_ms) == 0:
+            raise ValueError(
+                "No epoch boundaries found in metadata['rec_chunks_ms']. "
+                "This SpikeData was not created from concatenated recordings."
+            )
+
+        # Pre-read epoch templates from the original before subtime
+        # shares the neuron_attributes dicts by reference.
+        epoch_templates_per_unit = []
+        if self.neuron_attributes is not None:
+            for attrs in self.neuron_attributes:
+                epoch_templates_per_unit.append(attrs.get("epoch_templates"))
+
+        chunk_names = self.metadata.get("rec_chunk_names")
+        epochs = []
+
+        for i, (start_ms, end_ms) in enumerate(chunks_ms):
+            sd_epoch = self.subtime(start_ms, end_ms)
+
+            # Give each epoch its own copy of neuron_attributes and metadata
+            # since subtime shares them by reference.
+            if sd_epoch.neuron_attributes is not None:
+                sd_epoch.neuron_attributes = [
+                    dict(a) for a in sd_epoch.neuron_attributes
+                ]
+                for j, attrs in enumerate(sd_epoch.neuron_attributes):
+                    if j < len(epoch_templates_per_unit):
+                        et = epoch_templates_per_unit[j]
+                        if et is not None and i < len(et):
+                            attrs["template"] = et[i]
+                    attrs.pop("epoch_templates", None)
+
+            sd_epoch.metadata = dict(sd_epoch.metadata)
+            # Remove concatenation metadata from individual epochs
+            sd_epoch.metadata.pop("rec_chunks_ms", None)
+            sd_epoch.metadata.pop("rec_chunks_frames", None)
+            sd_epoch.metadata.pop("rec_chunk_names", None)
+
+            if chunk_names is not None and i < len(chunk_names):
+                sd_epoch.metadata["source_file"] = chunk_names[i]
+            sd_epoch.metadata["epoch_index"] = i
+
+            epochs.append(sd_epoch)
+
+        return epochs

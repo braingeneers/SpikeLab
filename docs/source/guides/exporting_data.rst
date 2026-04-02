@@ -152,13 +152,13 @@ Amazon S3.
 
 .. code-block:: python
 
-   from spikelab.data_loaders.data_exporters import export_spikedata_to_pickle
+   from spikelab.data_loaders.data_exporters import export_to_pickle
 
    # Local file
-   path = export_spikedata_to_pickle(sd, "my_data.pkl")
+   path = export_to_pickle(sd, "my_data.pkl")
 
    # Upload to S3
-   s3_url = export_spikedata_to_pickle(
+   s3_url = export_to_pickle(
        sd,
        "s3://my-bucket/my_data.pkl",
        s3_upload=True,

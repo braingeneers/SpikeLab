@@ -1523,3 +1523,37 @@ class TestCoverageGaps:
             rtol=1e-12,
             err_msg="FR lag matrices differ between n_jobs=1 and n_jobs=-1",
         )
+
+    def test_get_manifold_community_labels_small_data(self):
+        """
+        get_manifold with UMAP graph communities on minimal data returns
+        labels with correct shape.
+
+        Tests:
+            (Test Case 1) Returns (embedding, labels, trustworthiness) tuple.
+            (Test Case 2) Labels array has length T (number of time bins).
+        """
+        try:
+            import umap  # noqa: F401
+            import networkx  # noqa: F401
+            import community  # noqa: F401
+        except ImportError:
+            pytest.skip("umap/networkx/community not installed")
+
+        rng = np.random.default_rng(42)
+        # Need enough time bins for UMAP (at least n_neighbors worth)
+        rd = RateData(
+            inst_Frate_data=rng.standard_normal((3, 30)),
+            times=np.arange(30, dtype=float),
+        )
+        result = rd.get_manifold(
+            method="UMAP",
+            n_components=2,
+            use_graph_communities=True,
+            return_labels=True,
+            n_neighbors=5,
+        )
+        assert len(result) == 3
+        embedding, labels, tw = result
+        assert embedding.shape == (30, 2)
+        assert len(labels) == 30

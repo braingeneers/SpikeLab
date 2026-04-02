@@ -10,9 +10,15 @@ import sys
 import traceback
 from typing import Any
 
-from mcp.server import Server
-from mcp import types
-from mcp.server.stdio import stdio_server
+try:
+    from mcp.server import Server
+    from mcp import types
+    from mcp.server.stdio import stdio_server
+except ImportError as e:
+    raise ImportError(
+        "The MCP server requires the 'mcp' package. "
+        "Install with: pip install spikelab[mcp]"
+    ) from e
 
 from .tools import analysis, data_loaders, exporters
 
@@ -515,7 +521,7 @@ async def _list_tools() -> list[types.Tool]:
             types.Tool(
                 name="compute_raster",
                 description=(
-                    "Generate a dense spike raster matrix. Stores a (U, T_bins) array "
+                    "Generate a dense spike raster matrix of spike counts per bin. Stores a (U, T_bins) array "
                     "at (namespace, key)."
                 ),
                 inputSchema={
@@ -530,6 +536,11 @@ async def _list_tools() -> list[types.Tool]:
                             "type": "number",
                             "default": 20.0,
                             "description": "Bin size in milliseconds",
+                        },
+                        "time_offset": {
+                            "type": "number",
+                            "default": 0.0,
+                            "description": "Additional offset in ms added to spike times before binning",
                         },
                     },
                     "required": ["workspace_id", "namespace", "key"],
@@ -1179,6 +1190,74 @@ async def _list_tools() -> list[types.Tool]:
                         },
                     },
                     "required": ["workspace_id", "namespace_a", "namespace_b"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Curation tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="curate_spikedata",
+                description=(
+                    "Apply quality-control curation filters to SpikeData. "
+                    "Stores the curated SpikeData at (out_namespace, 'spikedata') "
+                    "and returns curation history inline. Only criteria with "
+                    "non-null thresholds are applied."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_namespace": {
+                            "type": "string",
+                            "description": (
+                                "Namespace for the curated SpikeData. "
+                                "Defaults to '<namespace>_curated'."
+                            ),
+                        },
+                        "min_spikes": {
+                            "type": "integer",
+                            "description": "Minimum spike count per unit",
+                        },
+                        "min_rate_hz": {
+                            "type": "number",
+                            "description": "Minimum firing rate in Hz",
+                        },
+                        "isi_max": {
+                            "type": "number",
+                            "description": "Maximum ISI violation metric",
+                        },
+                        "isi_threshold_ms": {
+                            "type": "number",
+                            "description": "Refractory period threshold in ms for ISI check",
+                            "default": 1.5,
+                        },
+                        "isi_method": {
+                            "type": "string",
+                            "description": "'percent' or 'hill' for ISI violation method",
+                            "default": "percent",
+                        },
+                        "min_snr": {
+                            "type": "number",
+                            "description": (
+                                "Minimum SNR. Requires precomputed 'snr' in "
+                                "neuron_attributes or raw_data on the SpikeData."
+                            ),
+                        },
+                        "max_std_norm": {
+                            "type": "number",
+                            "description": (
+                                "Maximum normalized waveform STD. Requires "
+                                "precomputed 'std_norm' in neuron_attributes "
+                                "or raw_data on the SpikeData."
+                            ),
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
                 },
             ),
         ]
@@ -3172,6 +3251,8 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "subset": analysis.subset,
     "append_session": analysis.append_session,
     "concatenate_units": analysis.concatenate_units,
+    # Curation tools
+    "curate_spikedata": analysis.curate_spikedata,
     # RateData-based analysis tools
     "compute_pairwise_fr_corr": analysis.compute_pairwise_fr_corr,
     "compute_pairwise_ccg": analysis.compute_pairwise_ccg,

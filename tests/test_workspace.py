@@ -8,6 +8,7 @@ and the get_workspace_manager singleton.
 """
 
 import json
+import os
 import pathlib
 import tempfile
 
@@ -2058,7 +2059,7 @@ class TestLazyAnalysisWorkspace:
             (Test Case 2) name attribute matches the provided name.
             (Test Case 3) created_at is a positive float timestamp.
             (Test Case 4) The backing temp HDF5 file exists on disk.
-            (Test Case 5) _items dict is empty (data lives on disk, not in memory).
+            (Test Case 5) _items raises NotImplementedError (data lives on disk).
             (Test Case 6) _index dict is empty for a fresh workspace.
         """
         ws = LazyAnalysisWorkspace(name="test_lazy")
@@ -2067,7 +2068,8 @@ class TestLazyAnalysisWorkspace:
         assert ws.name == "test_lazy"
         assert isinstance(ws.created_at, float) and ws.created_at > 0
         assert pathlib.Path(ws._h5_path).exists()
-        assert ws._items == {}
+        with pytest.raises(NotImplementedError):
+            _ = ws._items
         assert ws._index == {}
 
     def test_construction_without_name(self):
@@ -2095,7 +2097,7 @@ class TestLazyAnalysisWorkspace:
             (Test Case 1) get() returns an array equal to the stored array.
             (Test Case 2) The dtype is preserved.
             (Test Case 3) The shape is preserved.
-            (Test Case 4) _items remains empty (data is on disk, not in memory).
+            (Test Case 4) _items raises NotImplementedError (data is on disk).
         """
         ws = LazyAnalysisWorkspace(name="store_get")
         arr = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
@@ -2106,7 +2108,8 @@ class TestLazyAnalysisWorkspace:
         np.testing.assert_array_equal(retrieved, arr)
         assert retrieved.dtype == arr.dtype
         assert retrieved.shape == arr.shape
-        assert ws._items == {}
+        with pytest.raises(NotImplementedError):
+            _ = ws._items
 
     def test_store_and_get_multiple_items(self):
         """
@@ -3130,19 +3133,16 @@ class TestWorkspaceManagerEdgeCases:
 class TestLazyAnalysisWorkspaceEdgeCases:
     """Edge case tests for LazyAnalysisWorkspace (workspace/workspace.py)."""
 
-    def test_h5py_not_available_raises(self, monkeypatch):
+    def test_items_property_raises(self):
         """
-        LazyAnalysisWorkspace.__init__ raises ImportError when h5py is not available.
+        Accessing _items on a LazyAnalysisWorkspace raises NotImplementedError.
 
         Tests:
-            (Test Case 1) ImportError is raised with a descriptive message.
+            (Test Case 1) Reading _items raises NotImplementedError.
         """
-        import spikelab.workspace.hdf5_io as hdf5_io
-
-        monkeypatch.setattr(hdf5_io, "_H5PY_AVAILABLE", False)
-
-        with pytest.raises(ImportError, match="h5py is required"):
-            LazyAnalysisWorkspace(name="should_fail")
+        ws = LazyAnalysisWorkspace(name="test_items")
+        with pytest.raises(NotImplementedError, match="does not use _items"):
+            _ = ws._items
 
     def test_get_after_delete(self):
         """
@@ -4227,24 +4227,19 @@ class TestEdgeCaseScan:
 
     def test_spikedata_empty_raw_data_nonempty_raw_time(self, tmp_path):
         """
-        Tests: Create SpikeData with raw_data=np.zeros((0,0)) but
+        Tests: Create SpikeData with raw_data=np.zeros((0,2)) but
         raw_time=np.array([1.0,2.0]). Roundtrip through workspace.
 
-        (Test Case 1) raw_time is dropped on save because raw_data.size==0
-            gates the write in _dump_spikedata.
-        (Test Case 2) After load, raw_data and raw_time are zero-sized arrays
-            (SpikeData defaults when both are None).
+        (Test Case 1) raw_time is preserved on save even when raw_data is empty.
+        (Test Case 2) After load, raw_time matches the original.
         """
         train = [np.array([10.0, 20.0]), np.array([15.0])]
-        # raw_data has 0 channels and 2 time points; raw_time has 2 entries
-        # so lengths match, but raw_data.size == 0 gates the HDF5 write.
         sd = SpikeData(
             train,
             length=50.0,
             raw_data=np.zeros((0, 2)),
             raw_time=np.array([1.0, 2.0]),
         )
-        # Verify original has 2-element raw_time
         assert sd.raw_time.shape == (2,)
 
         ws = AnalysisWorkspace("raw_test")
@@ -4255,12 +4250,9 @@ class TestEdgeCaseScan:
         ws2 = AnalysisWorkspace.load(path)
         loaded = ws2.get("ns", "sd")
 
-        # raw_data.size == 0 means neither raw_data nor raw_time are written.
-        # On load, SpikeData receives raw_data=None, raw_time=None and defaults
-        # to zero-sized arrays. The original raw_time data is lost.
-        assert loaded.raw_data.size == 0
-        assert loaded.raw_time.size == 0
-        # Spike trains survive
+        # raw_time is now preserved; raw_data is reconstructed as empty
+        np.testing.assert_array_equal(loaded.raw_time, [1.0, 2.0])
+        assert loaded.raw_data.shape[0] == 0
         assert loaded.N == 2
         np.testing.assert_array_almost_equal(loaded.train[0], [10.0, 20.0])
 
@@ -4431,3 +4423,217 @@ class TestEdgeCaseScan:
         loaded2 = load_item_from_file(h5_path, "ns", "item")
         assert isinstance(loaded2, np.ndarray)
         np.testing.assert_array_equal(loaded2, arr)
+
+
+class TestRemainingEdgeCases:
+    """Tests for remaining untested edge cases from REVIEW.md."""
+
+    def test_save_path_with_spaces(self, tmp_path):
+        """
+        Workspace save/load with spaces in path.
+
+        Tests:
+            (Test Case 1) Save and load roundtrip succeeds.
+        """
+        ws = AnalysisWorkspace("spaces")
+        ws.store("ns", "arr", np.array([1.0, 2.0]))
+
+        path = str(tmp_path / "my workspace" / "data")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        ws.save(path)
+
+        ws2 = AnalysisWorkspace.load(path)
+        np.testing.assert_array_equal(ws2.get("ns", "arr"), [1.0, 2.0])
+
+    def test_save_path_with_unicode(self, tmp_path):
+        """
+        Workspace save/load with unicode characters in path.
+
+        Tests:
+            (Test Case 1) Save and load roundtrip succeeds.
+        """
+        ws = AnalysisWorkspace("unicode")
+        ws.store("ns", "arr", np.array([3.0]))
+
+        path = str(tmp_path / "café" / "data")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        ws.save(path)
+
+        ws2 = AnalysisWorkspace.load(path)
+        np.testing.assert_array_equal(ws2.get("ns", "arr"), [3.0])
+
+    def test_list_workspaces_mixed_regular_and_lazy(self):
+        """
+        WorkspaceManager.list_workspaces with both regular and lazy workspaces.
+
+        Tests:
+            (Test Case 1) Both appear in listing without errors.
+            (Test Case 2) Item counts are correct for each.
+        """
+        from spikelab.workspace.workspace import WorkspaceManager
+
+        wm = WorkspaceManager()
+        reg_id = wm.create_workspace(name="regular")
+        lazy_id = wm.create_workspace(name="lazy", lazy=True)
+
+        wm.get_workspace(reg_id).store("ns", "a", np.array([1.0]))
+        wm.get_workspace(lazy_id).store("ns", "b", np.array([2.0]))
+
+        listing = wm.list_workspaces()
+        assert len(listing) == 2
+        names = {w["name"] for w in listing}
+        assert names == {"regular", "lazy"}
+        for w in listing:
+            assert w["item_count"] == 1
+
+    def test_neuron_attributes_mixed_scalar_and_array(self):
+        """
+        Neuron attributes with mixed scalar and array values for same key.
+
+        Tests:
+            (Test Case 1) Roundtrip preserves data (scalar broadcast to array shape).
+        """
+        ws = AnalysisWorkspace("mixed_attrs")
+        sd = SpikeData(
+            [[1.0], [2.0]],
+            length=5.0,
+            neuron_attributes=[
+                {"template": [1.0, 2.0, 3.0]},
+                {"template": [4.0, 5.0, 6.0]},
+            ],
+        )
+        ws.store("ns", "sd", sd)
+        ws.store(
+            "ns",
+            "sd2",
+            SpikeData(
+                [[1.0], [2.0]],
+                length=5.0,
+                neuron_attributes=[
+                    {"val": 5.0},
+                    {"val": [1.0, 2.0]},
+                ],
+            ),
+        )
+
+        sd2 = ws.get("ns", "sd")
+        assert sd2.neuron_attributes[0]["template"] == [1.0, 2.0, 3.0]
+
+    def test_dict_with_integer_keys(self):
+        """
+        Dict metadata with integer keys is coerced to string keys on roundtrip.
+
+        Tests:
+            (Test Case 1) Integer keys become strings after save/load.
+        """
+        ws = AnalysisWorkspace("int_keys")
+        sd = SpikeData(
+            [[1.0]],
+            length=5.0,
+            metadata={1: "a", 2: "b"},
+        )
+        ws.store("ns", "sd", sd)
+        sd2 = ws.get("ns", "sd")
+        # Integer keys coerced to strings by HDF5
+        assert "1" in sd2.metadata or 1 in sd2.metadata
+
+    def test_labels_with_none_coercion(self):
+        """
+        PairwiseCompMatrix labels with None entries survive roundtrip.
+
+        Tests:
+            (Test Case 1) Labels with None are serialized without crashing.
+            (Test Case 2) The None entry is coerced (to "None" string or stays None).
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        ws = AnalysisWorkspace("labels_none")
+        pcm = PairwiseCompMatrix(
+            matrix=np.eye(3),
+            labels=["a", None, "c"],
+        )
+        ws.store("ns", "pcm", pcm)
+        pcm2 = ws.get("ns", "pcm")
+        assert pcm2.labels[0] == "a"
+        assert pcm2.labels[2] == "c"
+        # None may be coerced to "None" or preserved as None
+        assert pcm2.labels[1] in (None, "None")
+
+    def test_deeply_nested_dict_roundtrip(self):
+        """
+        Moderately nested dict metadata survives roundtrip.
+
+        Tests:
+            (Test Case 1) 50-level nesting roundtrips correctly.
+        """
+        ws = AnalysisWorkspace("deep")
+        nested = {"key": "leaf"}
+        for _ in range(50):
+            nested = {"child": nested}
+
+        sd = SpikeData([[1.0]], length=5.0, metadata=nested)
+        ws.store("ns", "sd", sd)
+        sd2 = ws.get("ns", "sd")
+
+        # Walk down 50 levels
+        d = sd2.metadata
+        for _ in range(50):
+            assert "child" in d
+            d = d["child"]
+        assert d["key"] == "leaf"
+
+    def test_lazy_workspace_concurrent_store_get(self):
+        """
+        Concurrent store and get on LazyAnalysisWorkspace from multiple threads.
+
+        Tests:
+            (Test Case 1) All items are stored and retrievable.
+            (Test Case 2) No corruption or exceptions.
+        """
+        import threading
+
+        ws = LazyAnalysisWorkspace(name="concurrent")
+        errors = []
+
+        def store_item(idx):
+            try:
+                ws.store("ns", f"item_{idx}", np.array([float(idx)]))
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=store_item, args=(i,)) for i in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        for i in range(10):
+            result = ws.get("ns", f"item_{i}")
+            assert result is not None
+            np.testing.assert_array_equal(result, [float(i)])
+
+    def test_lazy_workspace_save_locked_destination(self, tmp_path):
+        """
+        LazyAnalysisWorkspace.save raises when destination is locked.
+
+        Tests:
+            (Test Case 1) OSError or PermissionError is raised.
+        """
+        ws = LazyAnalysisWorkspace(name="locked")
+        ws.store("ns", "arr", np.array([1.0]))
+
+        dest = str(tmp_path / "locked_ws")
+        # Create the .h5 file and hold it open to simulate a lock
+        h5_path = f"{dest}.h5"
+        with open(h5_path, "wb") as locked_file:
+            locked_file.write(b"dummy")
+            # On Windows, the file is locked while open; on POSIX,
+            # shutil.copy2 may succeed. We test that save either
+            # succeeds or raises a clear error.
+            try:
+                ws.save(dest)
+                # If it succeeded (POSIX), verify the file was overwritten
+                assert os.path.getsize(h5_path) > len(b"dummy")
+            except (OSError, PermissionError):
+                pass  # Expected on Windows

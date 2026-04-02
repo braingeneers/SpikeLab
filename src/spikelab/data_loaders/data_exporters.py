@@ -23,11 +23,7 @@ import warnings
 
 import numpy as np
 
-try:
-    import h5py
-except ImportError:
-    h5py = None  # type: ignore
-
+import h5py
 import pickle
 
 if TYPE_CHECKING:  # avoid runtime circular import
@@ -115,7 +111,7 @@ def export_spikedata_to_hdf5(
           round-tripping.
         - ``neuron_attributes`` and ``metadata`` are not persisted in the
           generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace
-          HDF5) or ``export_spikedata_to_pickle`` for full-fidelity
+          HDF5) or ``export_to_pickle`` for full-fidelity
           round-trips.
     """
     ensure_h5py()
@@ -381,8 +377,8 @@ def export_spikedata_to_kilosort(
     return spike_times_path, spike_clusters_path
 
 
-def export_spikedata_to_pickle(
-    sd: "SpikeData",
+def export_to_pickle(
+    obj,
     filepath: str,
     *,
     protocol: Optional[int] = None,
@@ -392,10 +388,13 @@ def export_spikedata_to_pickle(
     aws_session_token: Optional[str] = None,
     region_name: Optional[str] = None,
 ) -> str:
-    """Export a SpikeData object to a pickle file.
+    """Export a spikelab data object to a pickle file.
+
+    Supported types: ``SpikeData``, ``RateData``, ``PairwiseCompMatrix``,
+    ``PairwiseCompMatrixStack``, ``RateSliceStack``, ``SpikeSliceStack``.
 
     Parameters:
-        sd (SpikeData): The SpikeData object to export.
+        obj: The spikelab data object to export.
         filepath (str): Path where the pickle file will be created
             (overwrites existing). If s3_upload=True, this should be an
             S3 URL (s3://bucket/key).
@@ -418,7 +417,29 @@ def export_spikedata_to_pickle(
     """
     import tempfile
 
+    from ..spikedata.spikedata import SpikeData
+    from ..spikedata.ratedata import RateData
+    from ..spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+    from ..spikedata.rateslicestack import RateSliceStack
+    from ..spikedata.spikeslicestack import SpikeSliceStack
     from .s3_utils import is_s3_url, upload_to_s3 as _upload_to_s3
+
+    _SUPPORTED = (
+        SpikeData,
+        RateData,
+        PairwiseCompMatrix,
+        PairwiseCompMatrixStack,
+        RateSliceStack,
+        SpikeSliceStack,
+    )
+    if not isinstance(obj, _SUPPORTED):
+        supported_names = ", ".join(t.__name__ for t in _SUPPORTED)
+        raise TypeError(
+            f"Expected a spikelab data object ({supported_names}), "
+            f"got {type(obj).__name__}"
+        )
+
+    sd = obj  # preserve variable name for minimal diff below
 
     if s3_upload:
         if not is_s3_url(filepath):
@@ -458,5 +479,5 @@ __all__ = [
     "export_spikedata_to_hdf5",
     "export_spikedata_to_nwb",
     "export_spikedata_to_kilosort",
-    "export_spikedata_to_pickle",
+    "export_to_pickle",
 ]

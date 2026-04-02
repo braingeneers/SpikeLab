@@ -22,11 +22,7 @@ import warnings
 
 import numpy as np
 
-try:
-    import h5py
-except ImportError:
-    h5py = None  # type: ignore
-
+import h5py
 import pickle
 
 from ..spikedata import SpikeData
@@ -420,15 +416,19 @@ def load_spikedata_from_nwb(
                 metadata=meta,
                 neuron_attributes=neuron_attributes,
             )
+        except ImportError:  # pragma: no cover
+            pass  # pynwb not installed — fall back to h5py
         except (
-            ImportError,
             TypeError,
             ValueError,
             KeyError,
             AttributeError,
         ) as e:  # pragma: no cover
             warnings.warn(
-                f"Falling back to h5py for NWB reading ({type(e).__name__}: {e})"
+                f"pynwb failed to load NWB file ({type(e).__name__}: {e}); "
+                f"falling back to h5py. If this is unexpected, check the file "
+                f"format or report a bug.",
+                stacklevel=2,
             )
 
     ensure_h5py()
@@ -694,6 +694,12 @@ def load_spikedata_from_kilosort(
                             .isin(["good", "mua", "mua good"])
                         )  # permissive
                         keep_clusters = set(df.loc[mask, id_col].astype(int).tolist())
+            except ImportError:
+                warnings.warn(
+                    "pandas is required to parse cluster info TSV. "
+                    "Install with: pip install spikelab[io]. "
+                    "Keeping all clusters."
+                )
             except (IOError, ValueError, KeyError) as e:
                 warnings.warn(
                     f"Failed parsing cluster info TSV: {e}; keeping all clusters"
@@ -714,6 +720,8 @@ def load_spikedata_from_kilosort(
         attr: dict = {"unit_id": int(clu)}
         channel_idx = None
         int_clu = int(clu)
+        # channel_map is indexed by cluster ID — only correct when cluster
+        # IDs are sequential integers starting from 0.
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
@@ -1151,7 +1159,7 @@ def query_ibl_probes(
     except ImportError as e:
         raise ImportError(
             "pandas is required for query_ibl_probes. "
-            "Install with: pip install pandas"
+            "Install with: pip install spikelab[io]"
         ) from e
 
     # Authenticate against the public IBL server.

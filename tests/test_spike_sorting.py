@@ -1733,7 +1733,58 @@ class TestWaveformExtractorToSpikeData:
 
         return _waveform_extractor_to_spikedata
 
-    def test_basic_conversion(self, convert_fn):
+    @staticmethod
+    def _make_mock_we(
+        unit_ids,
+        spike_trains_dict,
+        num_channels=2,
+        sampling_frequency=20000.0,
+        template_len=30,
+        peak_ind=15,
+    ):
+        """Build a mock WaveformExtractor with all attributes needed by
+        _waveform_extractor_to_spikedata."""
+        sorting = _make_mock_sorting(
+            unit_ids, spike_trains_dict, sampling_frequency=sampling_frequency
+        )
+        recording = _make_mock_recording(
+            num_channels=num_channels, sampling_frequency=sampling_frequency
+        )
+
+        # chans_max_all: map each unit to channel 0
+        chans_max_all = {uid: 0 for uid in unit_ids}
+
+        # Templates: random (template_len, num_channels) per unit
+        rng = np.random.default_rng(42)
+        templates_avg = {
+            uid: rng.standard_normal((template_len, num_channels)) for uid in unit_ids
+        }
+        templates_std = {
+            uid: np.abs(rng.standard_normal((template_len, num_channels)))
+            for uid in unit_ids
+        }
+
+        we = SimpleNamespace()
+        we.sorting = sorting
+        we.recording = recording
+        we.sampling_frequency = sampling_frequency
+        we.chans_max_all = chans_max_all
+        we.peak_ind = peak_ind
+        we.return_scaled = True
+
+        def get_computed_template(unit_id, mode="average"):
+            return (
+                templates_avg[unit_id] if mode == "average" else templates_std[unit_id]
+            )
+
+        def ms_to_samples(ms):
+            return int(round(ms * sampling_frequency / 1000.0))
+
+        we.get_computed_template = get_computed_template
+        we.ms_to_samples = ms_to_samples
+        return we
+
+    def test_basic_conversion(self, convert_fn, monkeypatch):
         """
         Conversion produces SpikeData with correct trains and metadata.
 
@@ -1743,20 +1794,27 @@ class TestWaveformExtractorToSpikeData:
             (Test Case 3) Metadata fields are set.
             (Test Case 4) neuron_attributes have unit_id.
         """
+        from spikelab.spike_sorting import kilosort2
+
+        # Patch STD_AT_PEAK so template std path is predictable
+        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
+
         trains = {
-            0: np.array([200, 400, 600], dtype=np.int64),  # samples
+            0: np.array([200, 400, 600], dtype=np.int64),
             1: np.array([1000, 2000], dtype=np.int64),
         }
-        sorting = _make_mock_sorting([0, 1], trains, sampling_frequency=20000.0)
+        we = self._make_mock_we([0, 1], trains)
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        # Patch Curation.get_noise_levels to return simple noise array
+        monkeypatch.setattr(
+            kilosort2.Curation,
+            "get_noise_levels",
+            staticmethod(lambda rec, return_scaled=True, **kw: np.ones(2)),
+        )
 
         sd = convert_fn(we, "/fake/recording.h5")
 
         assert len(sd.train) == 2
-        # 200 samples / 20000 Hz * 1000 = 10 ms
         np.testing.assert_allclose(sd.train[0], [10.0, 20.0, 30.0])
         np.testing.assert_allclose(sd.train[1], [50.0, 100.0])
         assert sd.metadata["source_file"] == "/fake/recording.h5"
@@ -1765,58 +1823,71 @@ class TestWaveformExtractorToSpikeData:
         assert sd.neuron_attributes[0]["unit_id"] == 0
         assert sd.neuron_attributes[1]["unit_id"] == 1
 
-    def test_empty_unit(self, convert_fn):
+    def test_empty_unit(self, convert_fn, monkeypatch):
         """
         A unit with no spikes produces an empty train.
 
         Tests:
             (Test Case 1) Empty spike train becomes empty array in SpikeData.
         """
-        trains = {
-            0: np.array([], dtype=np.int64),
-        }
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        from spikelab.spike_sorting import kilosort2
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
+        monkeypatch.setattr(
+            kilosort2.Curation,
+            "get_noise_levels",
+            staticmethod(lambda rec, return_scaled=True, **kw: np.ones(2)),
+        )
+
+        trains = {0: np.array([], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 0
 
-    def test_single_unit_single_spike(self, convert_fn):
+    def test_single_unit_single_spike(self, convert_fn, monkeypatch):
         """
         Minimal valid input: one unit with one spike.
 
         Tests:
             (Test Case 1) Produces SpikeData with 1 unit and 1 spike time in ms.
         """
-        trains = {0: np.array([2000], dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        from spikelab.spike_sorting import kilosort2
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
+        monkeypatch.setattr(
+            kilosort2.Curation,
+            "get_noise_levels",
+            staticmethod(lambda rec, return_scaled=True, **kw: np.ones(2)),
+        )
+
+        trains = {0: np.array([2000], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 1
         np.testing.assert_allclose(sd.train[0], [100.0])
 
-    def test_unsorted_spikes_are_sorted(self, convert_fn):
+    def test_unsorted_spikes_are_sorted(self, convert_fn, monkeypatch):
         """
         Output spike times are sorted even if input samples are not.
 
         Tests:
             (Test Case 1) Source calls np.sort(), so output is monotonic.
         """
-        trains = {0: np.array([600, 200, 400], dtype=np.int64)}
-        sorting = _make_mock_sorting([0], trains, sampling_frequency=20000.0)
+        from spikelab.spike_sorting import kilosort2
 
-        we = SimpleNamespace()
-        we.sorting = sorting
-        we.sampling_frequency = 20000.0
+        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
+        monkeypatch.setattr(
+            kilosort2.Curation,
+            "get_noise_levels",
+            staticmethod(lambda rec, return_scaled=True, **kw: np.ones(2)),
+        )
+
+        trains = {0: np.array([600, 200, 400], dtype=np.int64)}
+        we = self._make_mock_we([0], trains)
 
         sd = convert_fn(we, "test.h5")
         times = sd.train[0]

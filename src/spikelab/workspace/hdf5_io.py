@@ -23,19 +23,7 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
-try:
-    import h5py
-
-    _H5PY_AVAILABLE = True
-except ImportError:
-    _H5PY_AVAILABLE = False
-
-
-def _require_h5py() -> None:
-    if not _H5PY_AVAILABLE:
-        raise ImportError(
-            "h5py is required for HDF5 workspace I/O. Install with: pip install h5py"
-        )
+import h5py
 
 
 class _NumpyEncoder(json.JSONEncoder):
@@ -65,7 +53,7 @@ def dump_workspace(ws, path: str) -> None:
         ws (AnalysisWorkspace): The workspace to serialise.
         path (str): Base path without file extension.
     """
-    _require_h5py()
+
     h5_path = f"{path}.h5"
     with h5py.File(h5_path, "w") as f:
         f.attrs["__workspace_id__"] = ws.workspace_id
@@ -91,7 +79,7 @@ def load_workspace_full(path: str):
         ws (AnalysisWorkspace): Reconstructed workspace with all items restored
             to their original IAT data class types.
     """
-    _require_h5py()
+
     from .workspace import AnalysisWorkspace
 
     h5_path = f"{path}.h5"
@@ -133,7 +121,7 @@ def load_workspace_item(path: str, namespace: str, key: str) -> Any:
     Returns:
         obj: Reconstructed IAT data object or numpy array.
     """
-    _require_h5py()
+
     h5_path = f"{path}.h5"
     with h5py.File(h5_path, "r") as f:
         if namespace not in f:
@@ -162,7 +150,7 @@ def dump_item_to_file(
         created_at (float): POSIX timestamp for the item.
         note (str | None): Optional annotation.
     """
-    _require_h5py()
+
     with h5py.File(h5_path, "a") as f:
         ns_grp = f.require_group(namespace)
         if key in ns_grp:
@@ -182,7 +170,7 @@ def load_item_from_file(h5_path: str, namespace: str, key: str) -> Any:
     Returns:
         obj: Reconstructed IAT data object or numpy array.
     """
-    _require_h5py()
+
     with h5py.File(h5_path, "r") as f:
         if namespace not in f:
             raise KeyError(f"Namespace '{namespace}' not found in workspace file.")
@@ -202,7 +190,7 @@ def delete_item_from_file(
         namespace (str): Namespace to delete from.
         key (str | None): Key to delete. If None, deletes the entire namespace.
     """
-    _require_h5py()
+
     with h5py.File(h5_path, "a") as f:
         if namespace not in f:
             return
@@ -636,6 +624,7 @@ def _dump_spikedata(grp, sd) -> None:
     _dump_metadata_json(grp, sd.metadata)
     if getattr(sd, "raw_data", None) is not None and sd.raw_data.size > 0:
         grp.create_dataset("raw_data", data=sd.raw_data)
+    if getattr(sd, "raw_time", None) is not None and np.asarray(sd.raw_time).size > 0:
         grp.create_dataset("raw_time", data=sd.raw_time)
     if sd.neuron_attributes is not None:
         _dump_neuron_attributes(grp, sd.neuron_attributes)
@@ -659,6 +648,10 @@ def _load_spikedata(grp):
 
     raw_data = np.array(grp["raw_data"]) if "raw_data" in grp else None
     raw_time = np.array(grp["raw_time"]) if "raw_time" in grp else None
+    # SpikeData requires both or neither; supply empty raw_data when only
+    # raw_time was persisted (e.g. original raw_data had size 0).
+    if raw_data is None and raw_time is not None:
+        raw_data = np.zeros((0, len(raw_time)))
     neuron_attributes = _load_neuron_attributes(grp)
 
     return SpikeData(

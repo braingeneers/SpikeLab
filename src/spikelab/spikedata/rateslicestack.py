@@ -388,6 +388,13 @@ class RateSliceStack:
             n_jobs (int): Number of threads for parallel computation. -1 uses
                 all cores (default), 1 disables parallelism, None is serial.
 
+        Notes:
+            When ``max_lag`` is 0 or None, the inner S x S loop is replaced by
+            a vectorized matrix multiplication, which is significantly faster
+            for large S. For non-zero ``max_lag``, the S x S comparisons are
+            computed in a serial loop per unit (parallelised across units).
+            This can be slow for large S (e.g. S > 100).
+
         Returns:
             all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise
                 correlation scores between all slice pairs for each unit.
@@ -430,42 +437,103 @@ class RateSliceStack:
 
         lower_tri_indices = np.tril_indices(num_slices, k=-1)
 
-        def _process_unit(unit):
-            unit_corr = np.full((num_slices, num_slices), np.nan)
-            counter = 0
-            for ref_b in range(num_slices):
-                ref_rate = event_stack[unit, :, ref_b]
-                if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
-                    counter += 1
+        effective_lag = 0 if max_lag is None else max_lag
+
+        if effective_lag == 0:
+            # --- Vectorized fast path (no lag search) -------------------------
+            # For each unit, compute the full S x S normalised dot-product
+            # matrix in one matrix multiply instead of an O(S^2) Python loop.
+            for unit in range(num_units):
+                rates = event_stack[unit, :, :]  # (T, S)
+                slice_means = np.mean(rates, axis=0)  # (S,)
+                valid = slice_means >= MIN_RATE_THRESHOLD
+                n_invalid = int(np.sum(~valid))
+
+                if np.sum(valid) < 2:
+                    # Not enough valid slices for pairwise comparison
+                    if frac_active is not None:
+                        unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
+                    else:
+                        unit_valid = n_invalid / num_slices <= MIN_FRAC
+                    av_slice_corr_scores[unit] = np.nan
                     continue
-                for comp_b in range(ref_b, num_slices):
-                    comp_rate = event_stack[unit, :, comp_b]
-                    if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
-                        continue
-                    max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
-                    unit_corr[comp_b, ref_b] = max_corr
-                    unit_corr[ref_b, comp_b] = max_corr
-            if frac_active is not None:
-                unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
-            else:
-                unit_valid = counter / num_slices <= MIN_FRAC
-            av = (
-                np.nanmean(unit_corr[lower_tri_indices[0], lower_tri_indices[1]])
-                if unit_valid
-                else np.nan
-            )
-            return unit, unit_corr, av
 
-        n_workers = _resolve_n_jobs(n_jobs)
-        if n_workers > 1 and num_units > 1:
-            with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                results = pool.map(_process_unit, range(num_units))
+                # Compute norms and normalised correlation for valid slices
+                norms = np.linalg.norm(rates, axis=0)  # (S,)
+                # Avoid division by zero for zero-norm slices
+                safe_norms = np.where(norms > 0, norms, 1.0)
+                normed = rates / safe_norms[np.newaxis, :]  # (T, S)
+                corr_matrix = normed.T @ normed  # (S, S)
+
+                # Build unit_corr: NaN for invalid slices, corr for valid pairs
+                unit_corr = np.full((num_slices, num_slices), np.nan)
+
+                # Handle zero-norm semantics: both zero → NaN, one zero → 0.0
+                valid_idx = np.where(valid)[0]
+                ix = np.ix_(valid_idx, valid_idx)
+                sub = corr_matrix[ix]
+
+                # Zero-norm handling within valid slices
+                zero_norm = norms[valid_idx] == 0
+                if np.any(zero_norm):
+                    both_zero = np.outer(zero_norm, zero_norm)
+                    one_zero = np.outer(zero_norm, ~zero_norm) | np.outer(
+                        ~zero_norm, zero_norm
+                    )
+                    sub[both_zero] = np.nan
+                    sub[one_zero] = 0.0
+
+                unit_corr[ix] = sub
+                all_slice_corr_scores[unit] = unit_corr
+
+                # Compute average
+                if frac_active is not None:
+                    unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
+                else:
+                    unit_valid = n_invalid / num_slices <= MIN_FRAC
+                av_slice_corr_scores[unit] = (
+                    np.nanmean(unit_corr[lower_tri_indices[0], lower_tri_indices[1]])
+                    if unit_valid
+                    else np.nan
+                )
         else:
-            results = map(_process_unit, range(num_units))
+            # --- Loop fallback (non-zero lag) ---------------------------------
+            def _process_unit(unit):
+                unit_corr = np.full((num_slices, num_slices), np.nan)
+                counter = 0
+                for ref_b in range(num_slices):
+                    ref_rate = event_stack[unit, :, ref_b]
+                    if np.mean(ref_rate) < MIN_RATE_THRESHOLD:
+                        counter += 1
+                        continue
+                    for comp_b in range(ref_b, num_slices):
+                        comp_rate = event_stack[unit, :, comp_b]
+                        if np.mean(comp_rate) < MIN_RATE_THRESHOLD:
+                            continue
+                        max_corr, _ = compare_func(ref_rate, comp_rate, max_lag)
+                        unit_corr[comp_b, ref_b] = max_corr
+                        unit_corr[ref_b, comp_b] = max_corr
+                if frac_active is not None:
+                    unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
+                else:
+                    unit_valid = counter / num_slices <= MIN_FRAC
+                av = (
+                    np.nanmean(unit_corr[lower_tri_indices[0], lower_tri_indices[1]])
+                    if unit_valid
+                    else np.nan
+                )
+                return unit, unit_corr, av
 
-        for unit, unit_corr, av in results:
-            all_slice_corr_scores[unit] = unit_corr
-            av_slice_corr_scores[unit] = av
+            n_workers = _resolve_n_jobs(n_jobs)
+            if n_workers > 1 and num_units > 1:
+                with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                    results = pool.map(_process_unit, range(num_units))
+            else:
+                results = map(_process_unit, range(num_units))
+
+            for unit, unit_corr, av in results:
+                all_slice_corr_scores[unit] = unit_corr
+                av_slice_corr_scores[unit] = av
         # Transpose from (U, S, S) to (S, S, U) for n×n×S convention
         all_slice_corr_scores = np.moveaxis(all_slice_corr_scores, 0, 2)
         # all_burst_corr_scores is now SxSxU and av_burst_corr_scores is U since its the mean correlation across all bursts.

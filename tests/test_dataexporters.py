@@ -648,7 +648,7 @@ class TestPickleExporters:
         sd = make_sd()
         path = str(tmp_path / "test.pkl")
 
-        exporters.export_spikedata_to_pickle(sd, path)
+        exporters.export_to_pickle(sd, path)
         sd2 = loaders.load_spikedata_from_pickle(path)
         for a, b in zip(sd.train, sd2.train):
             assert np.allclose(a, b)
@@ -664,7 +664,7 @@ class TestPickleExporters:
         sd = make_sd()
         path = str(tmp_path / "test.pkl")
 
-        exporters.export_spikedata_to_pickle(sd, path, protocol=2)
+        exporters.export_to_pickle(sd, path, protocol=2)
         sd2 = loaders.load_spikedata_from_pickle(path)
         for a, b in zip(sd.train, sd2.train):
             assert np.allclose(a, b)
@@ -681,7 +681,7 @@ class TestPickleExporters:
         sd = make_sd()
         s3_url = "s3://mybucket/path/output.pkl"
 
-        result = exporters.export_spikedata_to_pickle(sd, s3_url, s3_upload=True)
+        result = exporters.export_to_pickle(sd, s3_url, s3_upload=True)
 
         assert result == s3_url
         mock_upload.assert_called_once()
@@ -705,7 +705,7 @@ class TestPickleExporters:
 
         mock_upload.side_effect = capture_temp
 
-        exporters.export_spikedata_to_pickle(sd, "s3://bucket/key.pkl", s3_upload=True)
+        exporters.export_to_pickle(sd, "s3://bucket/key.pkl", s3_upload=True)
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
@@ -722,13 +722,13 @@ class TestPickleExporters:
 
         sd = SpikeData([], length=0.0)
         path = str(tmp_path / "empty.pkl")
-        exporters.export_spikedata_to_pickle(sd, path)
+        exporters.export_to_pickle(sd, path)
         sd2 = loaders.load_spikedata_from_pickle(path)
         assert sd2.N == 0
 
     def test_s3_upload_with_non_s3_url(self):
         """
-        Verify that export_spikedata_to_pickle raises ValueError when
+        Verify that export_to_pickle raises ValueError when
         s3_upload=True but filepath is not an S3 URL.
 
         Tests:
@@ -738,18 +738,16 @@ class TestPickleExporters:
         sd = make_sd()
 
         with pytest.raises(ValueError, match="S3 URL"):
-            exporters.export_spikedata_to_pickle(
-                sd, "/tmp/local_file.pkl", s3_upload=True
-            )
+            exporters.export_to_pickle(sd, "/tmp/local_file.pkl", s3_upload=True)
 
         with pytest.raises(ValueError, match="S3 URL"):
-            exporters.export_spikedata_to_pickle(
+            exporters.export_to_pickle(
                 sd, "https://example.com/file.pkl", s3_upload=True
             )
 
     def test_pickle_export_to_nested_nonexistent_directory(self, tmp_path):
         """
-        Verify that export_spikedata_to_pickle creates intermediate directories
+        Verify that export_to_pickle creates intermediate directories
         when the target path includes nested directories that don't exist.
 
         Tests:
@@ -760,7 +758,7 @@ class TestPickleExporters:
         sd = make_sd()
         nested_path = str(tmp_path / "a" / "b" / "c" / "test.pkl")
 
-        result = exporters.export_spikedata_to_pickle(sd, nested_path)
+        result = exporters.export_to_pickle(sd, nested_path)
 
         assert result == nested_path
         assert os.path.exists(nested_path)
@@ -787,9 +785,7 @@ class TestPickleExporters:
         mock_upload.side_effect = failing_upload
 
         with pytest.raises(RuntimeError, match="Simulated S3 upload failure"):
-            exporters.export_spikedata_to_pickle(
-                sd, "s3://bucket/key.pkl", s3_upload=True
-            )
+            exporters.export_to_pickle(sd, "s3://bucket/key.pkl", s3_upload=True)
 
         assert len(temp_paths) == 1
         assert not os.path.exists(temp_paths[0])
@@ -1504,3 +1500,85 @@ class TestEdgeCaseScan:
         # unit 2 has 2 spikes -> cluster 999
         expected = np.array([0, 0, 100, 999, 999])
         np.testing.assert_array_equal(clusters, expected)
+
+    def test_pickle_ratedata_accepted(self, tmp_path):
+        """
+        export_to_pickle accepts RateData (not just SpikeData).
+
+        Tests:
+            (Test Case 1) RateData passes the isinstance check.
+            (Test Case 2) Roundtrip preserves data.
+        """
+        from spikelab.spikedata.ratedata import RateData
+
+        rd = RateData(
+            inst_Frate_data=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            times=np.array([0.0, 1.0]),
+        )
+        path = str(tmp_path / "rd.pkl")
+        exporters.export_to_pickle(rd, path)
+
+        import pickle
+
+        with open(path, "rb") as f:
+            rd2 = pickle.load(f)
+        assert rd2.inst_Frate_data.shape == (2, 2)
+
+    def test_pickle_unsupported_type_rejected(self, tmp_path):
+        """
+        export_to_pickle raises TypeError for unsupported types.
+
+        Tests:
+            (Test Case 1) Plain dict raises TypeError.
+        """
+        path = str(tmp_path / "bad.pkl")
+        with pytest.raises(TypeError, match="Expected a spikelab data object"):
+            exporters.export_to_pickle({"not": "spikedata"}, path)
+
+    def test_nwb_export_shared_electrode_ids(self, tmp_path):
+        """
+        NWB export deduplicates shared electrode IDs.
+
+        Tests:
+            (Test Case 1) Two units on same electrode produce one electrode entry.
+        """
+        import h5py
+
+        sd = SpikeData(
+            [[10.0, 20.0], [15.0, 25.0]],
+            length=30.0,
+            neuron_attributes=[
+                {"electrode": 0, "location": [1.0, 2.0]},
+                {"electrode": 0, "location": [1.0, 2.0]},
+            ],
+        )
+        path = str(tmp_path / "shared_elec.h5")
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            elec_ids = np.asarray(f["general/extracellular_ephys/electrodes/id"])
+            assert len(elec_ids) == 1  # deduplicated
+            assert elec_ids[0] == 0
+
+    @patch("spikelab.data_loaders.s3_utils.upload_to_s3")
+    def test_pickle_s3_temp_cleanup_oserror(self, mock_upload):
+        """
+        OSError during temp file cleanup after S3 upload is silently ignored.
+
+        Tests:
+            (Test Case 1) Function returns S3 URL despite cleanup failure.
+        """
+        sd = make_sd()
+        s3_url = "s3://bucket/key.pkl"
+
+        temp_paths = []
+
+        def capture_and_succeed(local_path, s3_url_arg, **kwargs):
+            temp_paths.append(local_path)
+
+        mock_upload.side_effect = capture_and_succeed
+
+        with patch("os.remove", side_effect=OSError("file locked")):
+            result = exporters.export_to_pickle(sd, s3_url, s3_upload=True)
+
+        assert result == s3_url
