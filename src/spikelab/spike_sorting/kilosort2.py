@@ -4227,8 +4227,9 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
             When provided, used instead of loading from *rec_path*.
 
     Returns:
-        result (SpikeData or Exception): The curated SpikeData on
-            success.  Returns the caught exception if any stage failed.
+        result (tuple or Exception): ``(sd_raw, sd_curated)`` on success
+            when ``SAVE_RAW_PKL`` is True, otherwise just ``sd_curated``.
+            Returns the caught exception if any stage failed.
     """
     create_folder(inter_path)
     with Tee(Path(inter_path) / OUT_FILE, "a"):
@@ -4374,6 +4375,8 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
         print(f"Recording: {rec_path}")
         stopwatch.log_time("Total")
 
+        if SAVE_RAW_PKL:
+            return sd, sd_curated
         return sd_curated
 
 
@@ -4524,6 +4527,7 @@ def sort_with_kilosort2(
     std_over_window_ms_after=1.5,
     save_electrodes=True,
     save_spike_times=True,
+    save_raw_pkl=False,
     save_dl_data=False,
     compile_single_recording=True,
     compile_to_mat=False,
@@ -4644,6 +4648,9 @@ def sort_with_kilosort2(
 
         save_electrodes (bool, optional): Whether to save electrode information in the result files. Defaults to True.
         save_spike_times (bool, optional): Whether to save spike times in result files. Defaults to True.
+        save_raw_pkl (bool, optional): Save a pickle of the raw (pre-curation)
+            SpikeData to ``sorted_spikedata.pkl`` in the results folder.
+            Defaults to False.
         save_dl_data (bool, optional): Whether to save additional data for machine learning applications. Defaults to True.
 
         compile_single_recording (bool, optional): Whether to compile the results of a single recording. Defaults to True.
@@ -4843,6 +4850,8 @@ def sort_with_kilosort2(
     STD_OVER_WINDOW_MS_AFTER = std_over_window_ms_after
     SAVE_ELECTRODES = save_electrodes
     SAVE_SPIKE_TIMES = save_spike_times
+    global SAVE_RAW_PKL
+    SAVE_RAW_PKL = save_raw_pkl
     SAVE_DL_DATA = save_dl_data
     COMPILE_SINGLE_RECORDING = compile_single_recording
     COMPILE_TO_MAT = compile_to_mat
@@ -4933,12 +4942,22 @@ def sort_with_kilosort2(
         if isinstance(result, BaseException):
             continue
 
-        sd_curated = result
+        if SAVE_RAW_PKL:
+            sd_raw, sd_curated = result
+        else:
+            sd_curated = result
 
-        # Save curated SpikeData as pickle
+        # Save SpikeData as pickle
         import pickle
 
         results_path = Path(results_path)
+
+        if SAVE_RAW_PKL:
+            raw_pkl = results_path / "sorted_spikedata.pkl"
+            with open(raw_pkl, "wb") as f:
+                pickle.dump(sd_raw, f)
+            print(f"Saved {sd_raw.N} raw units to {raw_pkl}")
+
         curated_pkl = results_path / "sorted_spikedata_curated.pkl"
         with open(curated_pkl, "wb") as f:
             pickle.dump(sd_curated, f)

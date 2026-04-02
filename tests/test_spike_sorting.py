@@ -1520,6 +1520,127 @@ class TestSortWithKilosort2Validation:
             )
             assert ks_mod.USE_DOCKER is False
 
+    def test_save_raw_pkl_sets_global(self, sort_fn):
+        """
+        save_raw_pkl=True sets the SAVE_RAW_PKL global.
+
+        Tests:
+            (Test Case 1) Global is True after calling with save_raw_pkl=True.
+            (Test Case 2) Global is False after calling with save_raw_pkl=False.
+        """
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+            sort_fn(
+                recording_files=["fake.h5"],
+                kilosort_path="/fake/kilosort",
+                save_raw_pkl=True,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+            assert ks_mod.SAVE_RAW_PKL is True
+
+            sort_fn(
+                recording_files=["fake.h5"],
+                kilosort_path="/fake/kilosort",
+                save_raw_pkl=False,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+            assert ks_mod.SAVE_RAW_PKL is False
+
+    def test_save_raw_pkl_writes_file(self, sort_fn, tmp_path):
+        """
+        When save_raw_pkl=True, both raw and curated pkl files are saved.
+
+        Tests:
+            (Test Case 1) sorted_spikedata.pkl is created.
+            (Test Case 2) sorted_spikedata_curated.pkl is created.
+            (Test Case 3) Raw pkl has more units than curated pkl.
+        """
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab import SpikeData
+
+        sd_raw = SpikeData(
+            [np.array([10.0, 20.0]), np.array([30.0]), np.array([50.0, 60.0, 70.0])],
+            length=100.0,
+        )
+        sd_curated = SpikeData(
+            [np.array([10.0, 20.0]), np.array([50.0, 60.0, 70.0])],
+            length=100.0,
+        )
+
+        results_dir = tmp_path / "results"
+        results_dir.mkdir()
+
+        with patch.object(
+            ks_mod, "process_recording", return_value=(sd_raw, sd_curated)
+        ):
+            result = sort_fn(
+                recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter")],
+                results_folders=[str(results_dir)],
+                kilosort_path="/fake/kilosort",
+                save_raw_pkl=True,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+
+        raw_pkl = results_dir / "sorted_spikedata.pkl"
+        curated_pkl = results_dir / "sorted_spikedata_curated.pkl"
+        assert raw_pkl.exists(), "Raw pkl not saved"
+        assert curated_pkl.exists(), "Curated pkl not saved"
+
+        import pickle
+
+        with open(raw_pkl, "rb") as f:
+            loaded_raw = pickle.load(f)
+        with open(curated_pkl, "rb") as f:
+            loaded_curated = pickle.load(f)
+        assert loaded_raw.N == 3
+        assert loaded_curated.N == 2
+
+    def test_save_raw_pkl_false_skips_raw(self, sort_fn, tmp_path):
+        """
+        When save_raw_pkl=False (default), only the curated pkl is saved.
+
+        Tests:
+            (Test Case 1) sorted_spikedata.pkl is NOT created.
+            (Test Case 2) sorted_spikedata_curated.pkl IS created.
+        """
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab import SpikeData
+
+        sd_curated = SpikeData(
+            [np.array([10.0, 20.0]), np.array([50.0, 60.0, 70.0])],
+            length=100.0,
+        )
+
+        results_dir = tmp_path / "results"
+        results_dir.mkdir()
+
+        with patch.object(ks_mod, "process_recording", return_value=sd_curated):
+            result = sort_fn(
+                recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter")],
+                results_folders=[str(results_dir)],
+                kilosort_path="/fake/kilosort",
+                save_raw_pkl=False,
+                compile_all_recordings=False,
+                delete_inter=False,
+                create_figures=False,
+            )
+
+        raw_pkl = results_dir / "sorted_spikedata.pkl"
+        curated_pkl = results_dir / "sorted_spikedata_curated.pkl"
+        assert (
+            not raw_pkl.exists()
+        ), "Raw pkl should not be saved when save_raw_pkl=False"
+        assert curated_pkl.exists(), "Curated pkl not saved"
+
 
 # ===========================================================================
 # _spike_sort_docker and Docker branch in spike_sort
