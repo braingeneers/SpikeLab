@@ -41,8 +41,10 @@ from spikeinterface.extractors.extractor_classes import (
     MaxwellRecordingExtractor,
     NwbRecordingExtractor,
 )
+from spikeinterface.core import write_binary_recording
 from spikeinterface.preprocessing import bandpass_filter
 from spikeinterface.preprocessing.preprocessing_classes import ScaleRecording
+from spikeinterface.sorters import run_sorter
 
 __all__ = ["sort_with_kilosort2"]
 
@@ -57,6 +59,7 @@ def print_stage(text):
         text: Message to display. Converted to ``str`` if not already.
     """
     text = str(text)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     num_chars = 70
     char = "="
@@ -64,6 +67,7 @@ def print_stage(text):
 
     print("\n" + num_chars * char)
     print(indent * " " + text)
+    print(f"  [{timestamp}]".center(num_chars))
     print(num_chars * char)
 
 
@@ -4632,13 +4636,116 @@ def write_recording(recording_filtered, recording_dat_path, verbose=True):
     stopwatch.log_time("Done converting recording.")
 
 
+def _spike_sort_docker(recording, output_folder):
+    """Run Kilosort2 inside a Docker container via SpikeInterface.
+
+    Uses the ``spikeinterface/kilosort2-compiled-base`` image which bundles a
+    compiled MATLAB Runtime — no MATLAB license or local installation required.
+    Requires Docker with NVIDIA GPU support (``--gpus all``).
+
+    The recording is first written to a binary ``.dat`` file on the host so
+    that the Docker container does not need vendor-specific HDF5 plugins
+    (e.g. Maxwell compression).  A lightweight
+    ``BinaryRecordingExtractor`` pointing at the ``.dat`` is then passed
+    to ``run_sorter``.
+
+    Parameters:
+        recording (BaseRecording): Scaled and filtered SpikeInterface recording.
+        output_folder (Path): Directory for Kilosort2 output files.
+
+    Returns:
+        sorting (KilosortSortingExtractor): The sorting result loaded from the
+            Docker output folder.
+    """
+    # Pre-convert recording to int16 binary on the host so that:
+    # 1. The container doesn't need vendor-specific HDF5 plugins (e.g. Maxwell)
+    # 2. SI's kilosortbase._setup_recording skips the redundant copy (it checks
+    #    binary_compatible_with(dtype="int16")) — saves ~22 GB of disk I/O
+    # Write to a sibling directory so it's not inside the sorter folder
+    # (which run_sorter may delete/recreate).
+    dat_dir = output_folder.parent / (output_folder.name + "_binary")
+    dat_dir.mkdir(exist_ok=True, parents=True)
+    dat_path = dat_dir / "recording.dat"
+    if not dat_path.exists():
+        print("Writing binary recording for Docker container...")
+        write_binary_recording(recording, file_paths=[str(dat_path)], dtype="int16")
+    else:
+        print(f"Reusing existing binary recording at {dat_path}")
+
+    bin_recording = BinaryRecordingExtractor(
+        file_paths=[str(dat_path)],
+        sampling_frequency=recording.get_sampling_frequency(),
+        num_channels=recording.get_num_channels(),
+        dtype="int16",
+    )
+    bin_recording.set_channel_locations(recording.get_channel_locations())
+
+    # Map KILOSORT_PARAMS to SpikeInterface's run_sorter kwargs.
+    si_params = {k: v for k, v in KILOSORT_PARAMS.items()}
+
+    print("Running Kilosort2 via Docker container")
+
+    # Inject MW_CUDA_FORWARD_COMPATIBILITY=1 into the Docker container so
+    # that the compiled MATLAB Runtime supports newer GPU architectures
+    # (e.g. RTX 5090 / compute capability 12.0).
+    from spikeinterface.sorters.container_tools import ContainerClient
+
+    _orig_init = ContainerClient.__init__
+
+    def _patched_init(self, mode, container_image, volumes, py_user_base, extra_kwargs):
+        if mode == "docker":
+            extra_kwargs.setdefault("environment", {})
+            extra_kwargs["environment"]["MW_CUDA_FORWARD_COMPATIBILITY"] = "1"
+            # Cap container memory to 80% of system RAM to prevent OOM crashes
+            import os
+
+            try:
+                total_mem = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+                extra_kwargs["mem_limit"] = int(total_mem * 0.8)
+            except (ValueError, OSError):
+                pass
+        _orig_init(self, mode, container_image, volumes, py_user_base, extra_kwargs)
+
+    ContainerClient.__init__ = _patched_init
+    try:
+        si_sorting = run_sorter(
+            sorter_name="kilosort2",
+            recording=bin_recording,
+            folder=str(output_folder),
+            docker_image="spikeinterface/kilosort2-compiled-base:py310-si0.104",
+            verbose=True,
+            raise_error=True,
+            remove_existing_folder=True,
+            with_output=False,  # We load results ourselves via KilosortSortingExtractor
+            installation_mode="no-install",
+            **si_params,
+        )
+    finally:
+        ContainerClient.__init__ = _orig_init
+
+    # Keep the pre-converted binary for potential reuse (recompute_recording=False).
+    # It will be cleaned up with the rest of the intermediates if delete_inter=True.
+    if dat_path.exists():
+        print(
+            f"Keeping pre-converted binary for reuse ({dat_path.stat().st_size / 1e9:.1f} GB)"
+        )
+
+    # SI places sorter output in a subfolder; locate the Phy output files
+    sorter_output = output_folder / "sorter_output"
+    if not (sorter_output / "spike_times.npy").exists():
+        # Fallback: some SI versions put output directly in the folder
+        sorter_output = output_folder
+
+    return KilosortSortingExtractor(folder_path=sorter_output)
+
+
 def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
     """Run Kilosort2 on a single recording and return the sorting result.
 
     Converts the recording to ``.dat`` format (if needed), launches
-    Kilosort2 via MATLAB, and returns the detected units as a
-    ``KilosortSortingExtractor``. Skips re-sorting when
-    ``RECOMPUTE_SORTING`` is False and results already exist.
+    Kilosort2 via MATLAB (or Docker when ``USE_DOCKER`` is True), and
+    returns the detected units as a ``KilosortSortingExtractor``. Skips
+    re-sorting when ``RECOMPUTE_SORTING`` is False and results already exist.
 
     Parameters:
         rec_cache (BaseRecording): Scaled and filtered recording.
@@ -4653,13 +4760,17 @@ def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
     print_stage("SPIKE SORTING")
     stopwatch = Stopwatch()
 
-    kilosort = RunKilosort()
     try:
         if not RECOMPUTE_SORTING and (output_folder / "spike_times.npy").exists():
             print("Loading Kilosort2's sorting results")
-            sorting = kilosort.get_result_from_folder(output_folder)
+            sorting = KilosortSortingExtractor(folder_path=output_folder)
+        elif USE_DOCKER:
+            # Docker: SpikeInterface handles .dat conversion internally
+            create_folder(output_folder)
+            sorting = _spike_sort_docker(rec_cache, output_folder)
         else:
-            # Filter and writing .dat for input to Kilosort2
+            # Local MATLAB
+            kilosort = RunKilosort()
             try:
                 write_recording(rec_cache, recording_dat_path, verbose=True)
             except Exception as e:
@@ -5128,7 +5239,7 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
         print(f"Recording: {rec_path}")
         stopwatch.log_time("Total")
 
-        return w_e_curated
+        return sorting, w_e_curated
 
 
 def copy_script(path):
@@ -5257,6 +5368,7 @@ def sort_with_kilosort2(
     kilosort_path=None,  # "/path/to/Kilosort2"
     stream_id=None,  # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
     kilosort_params=None,
+    use_docker=False,
     recompute_recording=False,
     recompute_sorting=False,
     reextract_waveforms=False,
@@ -5294,7 +5406,7 @@ def sort_with_kilosort2(
     std_over_window_ms_after=1.5,
     save_electrodes=True,
     save_spike_times=True,
-    save_dl_data=True,
+    save_dl_data=False,
     compile_single_recording=True,
     compile_to_mat=False,
     compile_to_npz=True,
@@ -5348,6 +5460,11 @@ def sort_with_kilosort2(
             the extractor uses its default stream. Defaults to None.
 
         kilosort_params (dict, optional): Kilosort2 configuration parameters. Defaults to preset values.
+
+        use_docker (bool, optional): Run Kilosort2 inside a Docker container
+            (``spikeinterface/kilosort2-compiled-base``) instead of a local MATLAB
+            installation. Requires Docker with NVIDIA GPU support. When True,
+            ``kilosort_path`` is not required. Defaults to False.
 
         recompute_recording (bool, optional): Whether to recompute the reformatted ``.dat`` file
             and delete all downstream results (sorting, waveforms, curation). Defaults to False.
@@ -5501,7 +5618,7 @@ def sort_with_kilosort2(
                 "'compile_all_recordings' is set to True, so you must specify where the results will be stored with 'compiled_results_folder'"
             )
     global RECORDING_FILES, INTERMEDIATE_FOLDERS, OUT_FILE, RESULTS_FOLDERS
-    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID
+    global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID, USE_DOCKER
     global RECOMPUTE_RECORDING, RECOMPUTE_SORTING, REEXTRACT_WAVEFORMS, RECURATE_FIRST, RECURATE_SECOND
     global RECOMPILE_SINGLE_RECORDING, RECOMPILE_ALL_RECORDINGS, SAVE_SCRIPT, N_JOBS, TOTAL_MEMORY
     global USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION, FIRST_N_MINS, MEA_Y_MAX, GAIN_TO_UV, OFFSET_TO_UV, REC_CHUNKS
@@ -5526,6 +5643,7 @@ def sort_with_kilosort2(
     COMPILED_RESULTS_FOLDER = compiled_results_folder
     KILOSORT_PARAMS = kilosort_params
     STREAM_ID = stream_id
+    USE_DOCKER = use_docker
     RECOMPUTE_RECORDING = recompute_recording
     RECOMPUTE_SORTING = recompute_sorting
     REEXTRACT_WAVEFORMS = reextract_waveforms
@@ -5647,14 +5765,53 @@ def sort_with_kilosort2(
         else:
             rec_loaded = None
         rec_name = str(rec_path).split(r"/")[-1].split(".")[0]
-        w_e = process_recording(
+        result = process_recording(
             rec_name, rec_path, inter_path, results_path, rec_loaded=rec_loaded
         )
 
-        if isinstance(w_e, BaseException):
+        if isinstance(result, BaseException):
             continue
 
-        spikedata_results.append(_waveform_extractor_to_spikedata(w_e, rec_path))
+        sorting_raw, w_e_curated = result
+
+        # Build SpikeData objects and save as pickle
+        import pickle
+        from spikelab.spikedata import SpikeData
+
+        results_path = Path(results_path)
+        fs_Hz = float(sorting_raw.sampling_frequency)
+
+        # Raw: all units from the sorter (pre-curation)
+        raw_trains = []
+        raw_neuron_attributes = []
+        for uid in sorting_raw.unit_ids:
+            spike_samples = sorting_raw.get_unit_spike_train(uid)
+            spike_times_ms = np.sort(spike_samples.astype(float) / fs_Hz * 1000.0)
+            raw_trains.append(spike_times_ms)
+            raw_neuron_attributes.append({"unit_id": int(uid)})
+        sd_raw = SpikeData(
+            raw_trains,
+            metadata={
+                "source_file": str(rec_path),
+                "source_format": "Kilosort2",
+                "fs_Hz": fs_Hz,
+            },
+            neuron_attributes=raw_neuron_attributes,
+        )
+
+        # Curated: units that passed both curation stages
+        sd_curated = _waveform_extractor_to_spikedata(w_e_curated, rec_path)
+
+        raw_pkl = results_path / "sorted_spikedata.pkl"
+        curated_pkl = results_path / "sorted_spikedata_curated.pkl"
+        with open(raw_pkl, "wb") as f:
+            pickle.dump(sd_raw, f)
+        with open(curated_pkl, "wb") as f:
+            pickle.dump(sd_curated, f)
+        print(f"Saved {sd_raw.N} raw units to {raw_pkl}")
+        print(f"Saved {sd_curated.N} curated units to {curated_pkl}")
+
+        spikedata_results.append(sd_curated)
 
         if (
             not compiled_results_folder.exists() and delete_inter

@@ -739,6 +739,75 @@ def load_spikedata_from_kilosort(
 
 
 # ----------------------------
+# SpikeLab sorted .npz -> SpikeData
+# ----------------------------
+
+
+def load_spikedata_from_spikelab_sorted_npz(
+    filepath: str,
+    *,
+    length_ms: Optional[float] = None,
+) -> SpikeData:
+    """Load a SpikeLab compiled sorting result (``.npz``) into SpikeData.
+
+    These ``.npz`` files are produced by :func:`sort_with_kilosort2`'s
+    ``compile_results`` step and contain per-unit spike trains, electrode
+    locations, waveform templates, and quality metrics.
+
+    Parameters:
+        filepath (str): Path to the ``.npz`` file.
+        length_ms (float | None): Recording duration in milliseconds.
+            Inferred from the latest spike time when *None*.
+
+    Returns:
+        sd (SpikeData): The loaded spike train data with neuron attributes
+            (unit_id, location, electrode, template, amplitudes, etc.).
+    """
+    data = np.load(filepath, allow_pickle=True)
+
+    units = data["units"]
+    fs_Hz = float(data["fs"])
+    locations = data.get("locations", None)
+
+    trains: List[np.ndarray] = []
+    neuron_attributes: List[dict] = []
+
+    for unit in units:
+        spike_samples = unit["spike_train"]
+        spike_times_ms = np.sort(spike_samples.astype(float) / fs_Hz * 1000.0)
+        trains.append(spike_times_ms)
+
+        attr: dict = {"unit_id": int(unit["unit_id"])}
+        if "x_max" in unit and "y_max" in unit:
+            attr["location"] = [float(unit["x_max"]), float(unit["y_max"])]
+        if "electrode" in unit:
+            attr["electrode"] = int(unit["electrode"])
+        if "template" in unit:
+            attr["template"] = np.asarray(unit["template"])
+        if "amplitudes" in unit:
+            attr["amplitudes"] = np.asarray(unit["amplitudes"])
+        if "std_norms" in unit:
+            attr["std_norms"] = np.asarray(unit["std_norms"])
+        if "peak_sign" in unit:
+            attr["peak_sign"] = str(unit["peak_sign"])
+        if "max_channel_id" in unit:
+            attr["max_channel_id"] = str(unit["max_channel_id"])
+        neuron_attributes.append(attr)
+
+    meta = {
+        "source_file": os.path.abspath(filepath),
+        "source_format": "SpikeLab_npz",
+        "fs_Hz": fs_Hz,
+    }
+    if locations is not None:
+        meta["channel_locations"] = locations
+
+    return _build_spikedata(
+        trains, length_ms=length_ms, metadata=meta, neuron_attributes=neuron_attributes
+    )
+
+
+# ----------------------------
 # SpikeInterface BaseRecording -> SpikeData via thresholding
 # ----------------------------
 
