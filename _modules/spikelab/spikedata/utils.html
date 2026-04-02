@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -351,10 +348,7 @@
 <span class="p">]</span>
 <span class="n">TimeUnit</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="s2">&quot;samples&quot;</span><span class="p">]</span>
 
-<span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for HDF5/NWB exporters</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>  <span class="c1"># type: ignore</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
-    <span class="n">h5py</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
 
 <span class="c1"># Optional dependencies for manifold learning and graph-based clustering.</span>
 <span class="k">try</span><span class="p">:</span>  <span class="c1"># optional, only needed for UMAP-based reductions</span>
@@ -410,7 +404,10 @@
 <span class="sd">        tB (list): List of spike times for the second spike train.</span>
 <span class="sd">        delt (float): Time window in milliseconds (default: 20.0).</span>
 <span class="sd">        length (float or None): Total duration in milliseconds. If None,</span>
-<span class="sd">            inferred from the latest spike time after shifting.</span>
+<span class="sd">            inferred from the latest spike time after shifting, which may</span>
+<span class="sd">            underestimate the true recording duration if the last spike does</span>
+<span class="sd">            not fall near the end. Pass the actual recording length for</span>
+<span class="sd">            unbiased STTC.</span>
 <span class="sd">        start_time (float): Time origin of the spike trains (default 0.0).</span>
 <span class="sd">            Spike times are shifted by ``-start_time`` before computation so</span>
 <span class="sd">            that the STTC edge corrections work correctly for event-centered</span>
@@ -552,7 +549,9 @@
     <span class="n">n_bins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="n">t_end</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt_ms</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="n">isi_rate_temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_bins</span><span class="p">)</span>
 
-    <span class="c1"># Assign rates to bins between spikes (piece 1 logic)</span>
+    <span class="c1"># Assign rates to bins between spikes.</span>
+    <span class="c1"># Note: int(round(...)) bin assignment can shift spikes at exact bin</span>
+    <span class="c1"># boundaries to adjacent bins — a known sub-ms precision limitation.</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)):</span>
         <span class="n">start_bin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="n">spikes</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt_ms</span><span class="p">))</span>
         <span class="n">end_bin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="n">spikes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt_ms</span><span class="p">))</span>
@@ -796,13 +795,14 @@
         <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span>
     <span class="n">norm_product</span> <span class="o">=</span> <span class="n">ref_norm</span> <span class="o">*</span> <span class="n">comp_norm</span>
 
-    <span class="c1"># Fast path for zero lag (no time shift)</span>
+    <span class="c1"># Fast path for zero lag: direct dot-product normalisation (equivalent to</span>
+    <span class="c1"># the general path below with max_lag=0, but avoids scipy.signal overhead).</span>
     <span class="k">if</span> <span class="n">max_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">max_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ref_rate</span> <span class="o">*</span> <span class="n">comp_rate</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm_product</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">max_corr</span><span class="p">,</span> <span class="mi">0</span>
-    <span class="c1"># r is the correlation between ref and comp. Each value is sum of elementwise products</span>
-    <span class="c1"># for each possible lag and it is normalized so each value is between -1 and 1</span>
-    <span class="c1"># Normalization: autocorrelation at zero lag for each signal</span>
+    <span class="c1"># General path: use scipy.signal.correlate and normalise by the geometric</span>
+    <span class="c1"># mean of the zero-lag autocorrelations (equivalent to dividing by the</span>
+    <span class="c1"># product of L2 norms, but computed via correlate for consistency).</span>
     <span class="n">auto_ref</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">ref_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">len</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
     <span class="n">auto_comp</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)[</span><span class="nb">len</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
     <span class="n">denom</span> <span class="o">=</span> <span class="n">auto_ref</span> <span class="o">*</span> <span class="n">auto_comp</span>
@@ -1110,11 +1110,8 @@
 <div class="viewcode-block" id="ensure_h5py">
 <a class="viewcode-back" href="../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">ensure_h5py</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure h5py is available for HDF5-based exporters.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">h5py</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="s2">&quot;h5py is required for HDF5/NWB exporters. `pip install h5py`.&quot;</span>
-        <span class="p">)</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;No-op — h5py is a hard dependency. Kept for backwards compatibility.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
 
 
 
@@ -1132,7 +1129,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">fs_Hz</span> <span class="ow">or</span> <span class="n">fs_Hz</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fs_Hz must be provided and &gt; 0 when unit=&#39;samples&#39;&quot;</span><span class="p">)</span>
         <span class="c1"># Use round-to-nearest to produce integer samples</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">times_ms</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">times_ms</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">fs_Hz</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown time unit &#39;</span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">&#39; (expected &#39;s&#39;,&#39;ms&#39;,&#39;samples&#39;)&quot;</span><span class="p">)</span></div>
 
 

@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -690,7 +687,9 @@
 <span class="sd">                spikes are offset by its absolute start time from self.times,</span>
 <span class="sd">                so bin indices reflect the original recording position. The T</span>
 <span class="sd">                dimension is sized to cover the full time span from the</span>
-<span class="sd">                earliest slice start to the latest slice end.</span>
+<span class="sd">                earliest slice start to the latest slice end. **Caution:**</span>
+<span class="sd">                this can produce very large arrays when the recording span is</span>
+<span class="sd">                long and bin_size is small.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            raster_stack (np.ndarray): 3D array of shape (N, T, S) with</span>
@@ -1422,13 +1421,18 @@
 <span class="sd">            color_vals (np.ndarray or None): Per-slice colour values.</span>
 <span class="sd">            color_label (str): Colorbar label.</span>
 <span class="sd">            cmap (str): Matplotlib colormap name.</span>
-<span class="sd">            time_offset (float): Value subtracted from spike times for display.</span>
+<span class="sd">            time_offset (float): Value subtracted from every spike time</span>
+<span class="sd">                before plotting. Slices from ``align_to_events`` are</span>
+<span class="sd">                already event-centered (spike times in</span>
+<span class="sd">                ``[-pre_ms, +post_ms]``), so use the default</span>
+<span class="sd">                ``time_offset=0``. Only set a non-zero value when spike</span>
+<span class="sd">                times are not already centered on the event.</span>
 <span class="sd">            xlabel (str): X-axis label.</span>
 <span class="sd">            ylabel (str): Y-axis label.</span>
 <span class="sd">            x_range (tuple or None): ``(xmin, xmax)`` for the x-axis.</span>
 <span class="sd">            vlines (list[dict] or None): Vertical reference lines. Each dict</span>
-<span class="sd">                may contain ``&#39;x&#39;``, ``&#39;color&#39;``, ``&#39;linestyle&#39;``,</span>
-<span class="sd">                ``&#39;linewidth&#39;``.</span>
+<span class="sd">                must contain ``&#39;x&#39;`` and may optionally include ``&#39;color&#39;``,</span>
+<span class="sd">                ``&#39;linestyle&#39;``, ``&#39;linewidth&#39;``.</span>
 <span class="sd">            show_colorbar (bool): Add a colorbar when color_vals is provided.</span>
 <span class="sd">            marker_size (float): Scatter marker size.</span>
 <span class="sd">            font_size (int or None): Font size for labels/ticks.</span>

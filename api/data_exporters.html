@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -404,7 +401,7 @@ provenance.</p></li>
 round-tripping.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> and <code class="docutils literal notranslate"><span class="pre">metadata</span></code> are not persisted in the
 generic HDF5 format. Use <code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace.save</span></code> (workspace
-HDF5) or <code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle</span></code> for full-fidelity
+HDF5) or <code class="docutils literal notranslate"><span class="pre">export_to_pickle</span></code> for full-fidelity
 round-trips.</p></li>
 </ul>
 </dd></dl>
@@ -500,13 +497,15 @@ sequential.</p></li>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="spikelab.data_loaders.data_exporters.export_spikedata_to_pickle">
-<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_spikedata_to_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_upload</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_access_key_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_secret_access_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_session_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_exporters.html#export_spikedata_to_pickle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle" title="Link to this definition"></a></dt>
-<dd><p>Export a SpikeData object to a pickle file.</p>
+<dt class="sig sig-object py" id="spikelab.data_loaders.data_exporters.export_to_pickle">
+<span class="sig-prename descclassname"><span class="pre">spikelab.data_loaders.data_exporters.</span></span><span class="sig-name descname"><span class="pre">export_to_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s3_upload</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_access_key_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_secret_access_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aws_session_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/data_loaders/data_exporters.html#export_to_pickle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.data_loaders.data_exporters.export_to_pickle" title="Link to this definition"></a></dt>
+<dd><p>Export a spikelab data object to a pickle file.</p>
+<p>Supported types: <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code>, <code class="docutils literal notranslate"><span class="pre">RateData</span></code>, <code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code>,
+<code class="docutils literal notranslate"><span class="pre">PairwiseCompMatrixStack</span></code>, <code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code>, <code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – The SpikeData object to export.</p></li>
+<li><p><strong>obj</strong> – The spikelab data object to export.</p></li>
 <li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the pickle file will be created
 (overwrites existing). If s3_upload=True, this should be an
 S3 URL (s3://bucket/key).</p></li>

@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -692,6 +689,12 @@
                     <span class="sa">f</span><span class="s2">&quot;instead of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> items.&quot;</span>
                 <span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;SpikeData(N=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2">, length=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;start_time=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">times</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1297,6 +1300,7 @@
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - The two SpikeData objects must have the same number of neurons.</span>
+<span class="sd">            - On metadata key collision, values from ``self`` take precedence.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span> <span class="o">!=</span> <span class="n">spikeData</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot concatenate SpikeData with different N&quot;</span><span class="p">)</span>
@@ -3269,6 +3273,233 @@
             <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">avg_rate</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Curation</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="SpikeData.curate_by_min_spikes">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_min_spikes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_min_spikes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove units with fewer than *min_spikes* spikes.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_min_spikes`` for</span>
+<span class="sd">        full documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_min_spikes</span>
+
+        <span class="k">return</span> <span class="n">curate_by_min_spikes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate_by_firing_rate">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_firing_rate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_firing_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="mf">0.05</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove units whose firing rate is below *min_rate_hz*.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_firing_rate`` for</span>
+<span class="sd">        full documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_firing_rate</span>
+
+        <span class="k">return</span> <span class="n">curate_by_firing_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="n">min_rate_hz</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate_by_isi_violations">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_isi_violations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_isi_violations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove units with excessive ISI violations.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_isi_violations``</span>
+<span class="sd">        for full documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_isi_violations</span>
+
+        <span class="k">return</span> <span class="n">curate_by_isi_violations</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">max_violation</span><span class="o">=</span><span class="n">max_violation</span><span class="p">,</span>
+            <span class="n">threshold_ms</span><span class="o">=</span><span class="n">threshold_ms</span><span class="p">,</span>
+            <span class="n">min_isi_ms</span><span class="o">=</span><span class="n">min_isi_ms</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate_by_snr">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_snr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_snr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_snr</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove units whose SNR is below *min_snr*.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_snr`` for full</span>
+<span class="sd">        documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_snr</span>
+
+        <span class="k">return</span> <span class="n">curate_by_snr</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">min_snr</span><span class="o">=</span><span class="n">min_snr</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate_by_std_norm">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_std_norm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_std_norm</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">max_std_norm</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+        <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove units whose normalized waveform STD exceeds *max_std_norm*.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_std_norm`` for full</span>
+<span class="sd">        documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_std_norm</span>
+
+        <span class="k">return</span> <span class="n">curate_by_std_norm</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">max_std_norm</span><span class="o">=</span><span class="n">max_std_norm</span><span class="p">,</span>
+            <span class="n">at_peak</span><span class="o">=</span><span class="n">at_peak</span><span class="p">,</span>
+            <span class="n">window_ms_before</span><span class="o">=</span><span class="n">window_ms_before</span><span class="p">,</span>
+            <span class="n">window_ms_after</span><span class="o">=</span><span class="n">window_ms_after</span><span class="p">,</span>
+            <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
+            <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.compute_waveform_metrics">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.compute_waveform_metrics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_waveform_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute average waveforms, SNR, and normalized STD for all units.</span>
+
+<span class="sd">        Stores results in ``neuron_attributes``.  See</span>
+<span class="sd">        ``spikelab.spikedata.curation.compute_waveform_metrics`` for</span>
+<span class="sd">        full documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_waveform_metrics</span>
+
+        <span class="k">return</span> <span class="n">compute_waveform_metrics</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
+            <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span><span class="p">,</span>
+            <span class="n">at_peak</span><span class="o">=</span><span class="n">at_peak</span><span class="p">,</span>
+            <span class="n">window_ms_before</span><span class="o">=</span><span class="n">window_ms_before</span><span class="p">,</span>
+            <span class="n">window_ms_after</span><span class="o">=</span><span class="n">window_ms_after</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply multiple curation criteria in sequence (intersection).</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate`` for full</span>
+<span class="sd">        documentation and supported keyword arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate</span>
+
+        <span class="k">return</span> <span class="n">curate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.build_curation_history">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.build_curation_history">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_curation_history</span><span class="p">(</span><span class="n">sd_original</span><span class="p">,</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Translate curation results into a serializable history dict.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.build_curation_history`` for</span>
+<span class="sd">        full documentation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_curation_history</span>
+
+        <span class="k">return</span> <span class="n">build_curation_history</span><span class="p">(</span>
+            <span class="n">sd_original</span><span class="p">,</span>
+            <span class="n">sd_curated</span><span class="p">,</span>
+            <span class="n">results</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.split_epochs">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.split_epochs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Split a concatenated SpikeData into per-epoch SpikeData objects.</span>
+
+<span class="sd">        Uses ``metadata[&quot;rec_chunks_ms&quot;]`` (list of ``(start_ms, end_ms)``</span>
+<span class="sd">        tuples) to slice this SpikeData via ``subtime``.  Each resulting</span>
+<span class="sd">        SpikeData receives the corresponding epoch template from</span>
+<span class="sd">        ``neuron_attributes[&quot;epoch_templates&quot;]`` as its ``&quot;template&quot;``</span>
+<span class="sd">        attribute.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            None.  Epoch boundaries and names are read from ``metadata``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            epochs (list[SpikeData]): One SpikeData per epoch, time-shifted</span>
+<span class="sd">                so each starts at t=0.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Requires ``metadata[&quot;rec_chunks_ms&quot;]``.  Raises ``ValueError``</span>
+<span class="sd">              if not present.</span>
+<span class="sd">            - ``metadata[&quot;rec_chunk_names&quot;]`` (optional) is stored as</span>
+<span class="sd">              ``metadata[&quot;source_file&quot;]`` on each output SpikeData.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chunks_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_chunks_ms&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">chunks_ms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunks_ms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No epoch boundaries found in metadata[&#39;rec_chunks_ms&#39;]. &quot;</span>
+                <span class="s2">&quot;This SpikeData was not created from concatenated recordings.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Pre-read epoch templates from the original before subtime</span>
+        <span class="c1"># shares the neuron_attributes dicts by reference.</span>
+        <span class="n">epoch_templates_per_unit</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
+                <span class="n">epoch_templates_per_unit</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;epoch_templates&quot;</span><span class="p">))</span>
+
+        <span class="n">chunk_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_chunk_names&quot;</span><span class="p">)</span>
+        <span class="n">epochs</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">start_ms</span><span class="p">,</span> <span class="n">end_ms</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">chunks_ms</span><span class="p">):</span>
+            <span class="n">sd_epoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtime</span><span class="p">(</span><span class="n">start_ms</span><span class="p">,</span> <span class="n">end_ms</span><span class="p">)</span>
+
+            <span class="c1"># Give each epoch its own copy of neuron_attributes and metadata</span>
+            <span class="c1"># since subtime shares them by reference.</span>
+            <span class="k">if</span> <span class="n">sd_epoch</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">sd_epoch</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="nb">dict</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sd_epoch</span><span class="o">.</span><span class="n">neuron_attributes</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd_epoch</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">epoch_templates_per_unit</span><span class="p">):</span>
+                        <span class="n">et</span> <span class="o">=</span> <span class="n">epoch_templates_per_unit</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">et</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">et</span><span class="p">):</span>
+                            <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;template&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">et</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;epoch_templates&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="c1"># Remove concatenation metadata from individual epochs</span>
+            <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;rec_chunks_ms&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;rec_chunks_frames&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;rec_chunk_names&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">chunk_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk_names</span><span class="p">):</span>
+                <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;source_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">sd_epoch</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;epoch_index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+            <span class="n">epochs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd_epoch</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">epochs</span></div>
 </div>
 
 </pre></div>

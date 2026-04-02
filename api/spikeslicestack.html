@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -530,7 +527,9 @@ to the start of each slice (0-based). If True, each slice’s
 spikes are offset by its absolute start time from self.times,
 so bin indices reflect the original recording position. The T
 dimension is sized to cover the full time span from the
-earliest slice start to the latest slice end.</p></li>
+earliest slice start to the latest slice end. <strong>Caution:</strong>
+this can produce very large arrays when the recording span is
+long and bin_size is small.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -916,13 +915,18 @@ figure and axes are created.</p></li>
 <li><p><strong>color_vals</strong> (<em>np.ndarray</em><em> or </em><em>None</em>) – Per-slice colour values.</p></li>
 <li><p><strong>color_label</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Colorbar label.</p></li>
 <li><p><strong>cmap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Matplotlib colormap name.</p></li>
-<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from spike times for display.</p></li>
+<li><p><strong>time_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Value subtracted from every spike time
+before plotting. Slices from <code class="docutils literal notranslate"><span class="pre">align_to_events</span></code> are
+already event-centered (spike times in
+<code class="docutils literal notranslate"><span class="pre">[-pre_ms,</span> <span class="pre">+post_ms]</span></code>), so use the default
+<code class="docutils literal notranslate"><span class="pre">time_offset=0</span></code>. Only set a non-zero value when spike
+times are not already centered on the event.</p></li>
 <li><p><strong>xlabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – X-axis label.</p></li>
 <li><p><strong>ylabel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Y-axis label.</p></li>
 <li><p><strong>x_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code> for the x-axis.</p></li>
 <li><p><strong>vlines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>] or </em><em>None</em>) – Vertical reference lines. Each dict
-may contain <code class="docutils literal notranslate"><span class="pre">'x'</span></code>, <code class="docutils literal notranslate"><span class="pre">'color'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code>.</p></li>
+must contain <code class="docutils literal notranslate"><span class="pre">'x'</span></code> and may optionally include <code class="docutils literal notranslate"><span class="pre">'color'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'linestyle'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linewidth'</span></code>.</p></li>
 <li><p><strong>show_colorbar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Add a colorbar when color_vals is provided.</p></li>
 <li><p><strong>marker_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Scatter marker size.</p></li>
 <li><p><strong>font_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Font size for labels/ticks.</p></li>

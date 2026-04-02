@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -712,6 +709,13 @@
 <span class="sd">            n_jobs (int): Number of threads for parallel computation. -1 uses</span>
 <span class="sd">                all cores (default), 1 disables parallelism, None is serial.</span>
 
+<span class="sd">        Notes:</span>
+<span class="sd">            When ``max_lag`` is 0 or None, the inner S x S loop is replaced by</span>
+<span class="sd">            a vectorized matrix multiplication, which is significantly faster</span>
+<span class="sd">            for large S. For non-zero ``max_lag``, the S x S comparisons are</span>
+<span class="sd">            computed in a serial loop per unit (parallelised across units).</span>
+<span class="sd">            This can be slow for large S (e.g. S &gt; 100).</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            all_slice_corr_scores (PairwiseCompMatrixStack): Pairwise</span>
 <span class="sd">                correlation scores between all slice pairs for each unit.</span>
@@ -754,42 +758,103 @@
 
         <span class="n">lower_tri_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tril_indices</span><span class="p">(</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">_process_unit</span><span class="p">(</span><span class="n">unit</span><span class="p">):</span>
-            <span class="n">unit_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-            <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">ref_b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slices</span><span class="p">):</span>
-                <span class="n">ref_rate</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="n">ref_b</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="p">:</span>
-                    <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">effective_lag</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">max_lag</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">max_lag</span>
+
+        <span class="k">if</span> <span class="n">effective_lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># --- Vectorized fast path (no lag search) -------------------------</span>
+            <span class="c1"># For each unit, compute the full S x S normalised dot-product</span>
+            <span class="c1"># matrix in one matrix multiply instead of an O(S^2) Python loop.</span>
+            <span class="k">for</span> <span class="n">unit</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">):</span>
+                <span class="n">rates</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>  <span class="c1"># (T, S)</span>
+                <span class="n">slice_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rates</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (S,)</span>
+                <span class="n">valid</span> <span class="o">=</span> <span class="n">slice_means</span> <span class="o">&gt;=</span> <span class="n">MIN_RATE_THRESHOLD</span>
+                <span class="n">n_invalid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">valid</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="c1"># Not enough valid slices for pairwise comparison</span>
+                    <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">MIN_FRAC</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">n_invalid</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="o">&lt;=</span> <span class="n">MIN_FRAC</span>
+                    <span class="n">av_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
                     <span class="k">continue</span>
-                <span class="k">for</span> <span class="n">comp_b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ref_b</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
-                    <span class="n">comp_rate</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="n">comp_b</span><span class="p">]</span>
-                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="n">max_corr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">compare_func</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">max_lag</span><span class="p">)</span>
-                    <span class="n">unit_corr</span><span class="p">[</span><span class="n">comp_b</span><span class="p">,</span> <span class="n">ref_b</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
-                    <span class="n">unit_corr</span><span class="p">[</span><span class="n">ref_b</span><span class="p">,</span> <span class="n">comp_b</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
-            <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">MIN_FRAC</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="o">&lt;=</span> <span class="n">MIN_FRAC</span>
-            <span class="n">av</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_corr</span><span class="p">[</span><span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
-                <span class="k">if</span> <span class="n">unit_valid</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">av</span>
 
-        <span class="n">n_workers</span> <span class="o">=</span> <span class="n">_resolve_n_jobs</span><span class="p">(</span><span class="n">n_jobs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">n_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_units</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-                <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+                <span class="c1"># Compute norms and normalised correlation for valid slices</span>
+                <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rates</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (S,)</span>
+                <span class="c1"># Avoid division by zero for zero-norm slices</span>
+                <span class="n">safe_norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">norms</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">norms</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+                <span class="n">normed</span> <span class="o">=</span> <span class="n">rates</span> <span class="o">/</span> <span class="n">safe_norms</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>  <span class="c1"># (T, S)</span>
+                <span class="n">corr_matrix</span> <span class="o">=</span> <span class="n">normed</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">normed</span>  <span class="c1"># (S, S)</span>
+
+                <span class="c1"># Build unit_corr: NaN for invalid slices, corr for valid pairs</span>
+                <span class="n">unit_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+                <span class="c1"># Handle zero-norm semantics: both zero → NaN, one zero → 0.0</span>
+                <span class="n">valid_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">valid</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">ix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ix_</span><span class="p">(</span><span class="n">valid_idx</span><span class="p">,</span> <span class="n">valid_idx</span><span class="p">)</span>
+                <span class="n">sub</span> <span class="o">=</span> <span class="n">corr_matrix</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+
+                <span class="c1"># Zero-norm handling within valid slices</span>
+                <span class="n">zero_norm</span> <span class="o">=</span> <span class="n">norms</span><span class="p">[</span><span class="n">valid_idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">zero_norm</span><span class="p">):</span>
+                    <span class="n">both_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">zero_norm</span><span class="p">,</span> <span class="n">zero_norm</span><span class="p">)</span>
+                    <span class="n">one_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">zero_norm</span><span class="p">,</span> <span class="o">~</span><span class="n">zero_norm</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span>
+                        <span class="o">~</span><span class="n">zero_norm</span><span class="p">,</span> <span class="n">zero_norm</span>
+                    <span class="p">)</span>
+                    <span class="n">sub</span><span class="p">[</span><span class="n">both_zero</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                    <span class="n">sub</span><span class="p">[</span><span class="n">one_zero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+                <span class="n">unit_corr</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub</span>
+                <span class="n">all_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_corr</span>
+
+                <span class="c1"># Compute average</span>
+                <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">MIN_FRAC</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">n_invalid</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="o">&lt;=</span> <span class="n">MIN_FRAC</span>
+                <span class="n">av_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_corr</span><span class="p">[</span><span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+                    <span class="k">if</span> <span class="n">unit_valid</span>
+                    <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">results</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+            <span class="c1"># --- Loop fallback (non-zero lag) ---------------------------------</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">_process_unit</span><span class="p">(</span><span class="n">unit</span><span class="p">):</span>
+                <span class="n">unit_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+                <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">ref_b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_slices</span><span class="p">):</span>
+                    <span class="n">ref_rate</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="n">ref_b</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="p">:</span>
+                        <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="k">continue</span>
+                    <span class="k">for</span> <span class="n">comp_b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ref_b</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
+                        <span class="n">comp_rate</span> <span class="o">=</span> <span class="n">event_stack</span><span class="p">[</span><span class="n">unit</span><span class="p">,</span> <span class="p">:,</span> <span class="n">comp_b</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">comp_rate</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">MIN_RATE_THRESHOLD</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                        <span class="n">max_corr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">compare_func</span><span class="p">(</span><span class="n">ref_rate</span><span class="p">,</span> <span class="n">comp_rate</span><span class="p">,</span> <span class="n">max_lag</span><span class="p">)</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">comp_b</span><span class="p">,</span> <span class="n">ref_b</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
+                        <span class="n">unit_corr</span><span class="p">[</span><span class="n">ref_b</span><span class="p">,</span> <span class="n">comp_b</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_corr</span>
+                <span class="k">if</span> <span class="n">frac_active</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">frac_active</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">MIN_FRAC</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">unit_valid</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">/</span> <span class="n">num_slices</span> <span class="o">&lt;=</span> <span class="n">MIN_FRAC</span>
+                <span class="n">av</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">unit_corr</span><span class="p">[</span><span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lower_tri_indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+                    <span class="k">if</span> <span class="n">unit_valid</span>
+                    <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">av</span>
 
-        <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">av</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-            <span class="n">all_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_corr</span>
-            <span class="n">av_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">av</span>
+            <span class="n">n_workers</span> <span class="o">=</span> <span class="n">_resolve_n_jobs</span><span class="p">(</span><span class="n">n_jobs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">n_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_units</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+                    <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">_process_unit</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_units</span><span class="p">))</span>
+
+            <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">unit_corr</span><span class="p">,</span> <span class="n">av</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                <span class="n">all_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_corr</span>
+                <span class="n">av_slice_corr_scores</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">av</span>
         <span class="c1"># Transpose from (U, S, S) to (S, S, U) for n×n×S convention</span>
         <span class="n">all_slice_corr_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">all_slice_corr_scores</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="c1"># all_burst_corr_scores is now SxSxU and av_burst_corr_scores is U since its the mean correlation across all bursts.</span>

@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -1359,6 +1356,12 @@
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ordered_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ordered_data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Trace &#39;</span><span class="si">{</span><span class="n">ordered_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; has length &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ordered_data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="si">}</span><span class="s2"> but x has length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
 
     <span class="c1"># --- Resolve colours --------------------------------------------------</span>
     <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1826,15 +1829,19 @@
 <span class="sd">            all spikes are drawn in black.</span>
 <span class="sd">        color_label (str): Colorbar label.</span>
 <span class="sd">        cmap (str): Matplotlib colormap name.</span>
-<span class="sd">        time_offset (float): Value subtracted from spike times for display.</span>
+<span class="sd">        time_offset (float): Value subtracted from every spike time before</span>
+<span class="sd">            plotting. Slices from ``align_to_events`` are already</span>
+<span class="sd">            event-centered (spike times in ``[-pre_ms, +post_ms]``), so</span>
+<span class="sd">            use the default ``time_offset=0``. Only set a non-zero value</span>
+<span class="sd">            when spike times are not already centered on the event.</span>
 <span class="sd">        xlabel (str): X-axis label.</span>
 <span class="sd">        ylabel (str): Y-axis label.</span>
 <span class="sd">        x_range (tuple or None): ``(xmin, xmax)`` for the x-axis. If None,</span>
 <span class="sd">            auto-scales to the data.</span>
 <span class="sd">        vlines (list[dict] or None): Vertical reference lines. Each dict</span>
-<span class="sd">            may contain ``&#39;x&#39;`` (required), ``&#39;color&#39;`` (default ``&#39;red&#39;``),</span>
-<span class="sd">            ``&#39;linestyle&#39;`` (default ``&#39;--&#39;``), ``&#39;linewidth&#39;`` (default</span>
-<span class="sd">            ``1.5``).</span>
+<span class="sd">            must contain ``&#39;x&#39;`` (required) and may optionally include</span>
+<span class="sd">            ``&#39;color&#39;`` (default ``&#39;red&#39;``), ``&#39;linestyle&#39;`` (default</span>
+<span class="sd">            ``&#39;--&#39;``), and ``&#39;linewidth&#39;`` (default ``1.5``).</span>
 <span class="sd">        show_colorbar (bool): Add a colorbar when color_vals is provided.</span>
 <span class="sd">        marker_size (float): Scatter marker size (only used when</span>
 <span class="sd">            ``style=&quot;scatter&quot;``).</span>
@@ -1897,6 +1904,8 @@
     <span class="c1"># --- Vertical reference lines -----------------------------------------</span>
     <span class="k">if</span> <span class="n">vlines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">vl</span> <span class="ow">in</span> <span class="n">vlines</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">vl</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each vlines dict must contain an &#39;x&#39; key.&quot;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
                 <span class="n">x</span><span class="o">=</span><span class="n">vl</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
                 <span class="n">color</span><span class="o">=</span><span class="n">vl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="s2">&quot;red&quot;</span><span class="p">),</span>
@@ -2035,6 +2044,8 @@
 
     <span class="k">if</span> <span class="n">vlines</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">vl</span> <span class="ow">in</span> <span class="n">vlines</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;x&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">vl</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each vlines dict must contain an &#39;x&#39; key.&quot;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
                 <span class="n">x</span><span class="o">=</span><span class="n">vl</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
                 <span class="n">color</span><span class="o">=</span><span class="n">vl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="s2">&quot;green&quot;</span><span class="p">),</span>
@@ -2100,6 +2111,7 @@
     <span class="n">raster_vmax</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
     <span class="n">burst_times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">burst_edges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">burst_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="c1"># --- heatmap options ---</span>
     <span class="n">vmin_heatmap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">vmax_heatmap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2164,11 +2176,17 @@
 <span class="sd">        sort_indices (np.ndarray or None): Unit reordering indices applied to</span>
 <span class="sd">            the raster and firing-rate heatmap.</span>
 <span class="sd">        raster_style (str): ``&#39;eventplot&#39;`` (default) or ``&#39;imshow&#39;``. Controls</span>
-<span class="sd">            how the raster panel is rendered.</span>
+<span class="sd">            how the raster panel is rendered. Both styles display unit 0 at the</span>
+<span class="sd">            top, but achieve this differently: ``&#39;imshow&#39;`` uses</span>
+<span class="sd">            ``origin=&#39;upper&#39;`` while ``&#39;eventplot&#39;`` inverts the y-axis. As a</span>
+<span class="sd">            result, y-coordinates are reversed in eventplot mode (ylim goes</span>
+<span class="sd">            from N to 0). Keep this in mind when overlaying custom artists.</span>
 <span class="sd">        raster_bin_size_ms (float): Bin size in ms for the raster (used for</span>
-<span class="sd">            both eventplot and imshow styles).</span>
+<span class="sd">            both eventplot and imshow styles). When ``absolute_xticks=True``,</span>
+<span class="sd">            tick values are computed as ``bin_index * raster_bin_size_ms +</span>
+<span class="sd">            offset``, which is exact only when ``raster_bin_size_ms=1.0``.</span>
 <span class="sd">        raster_vmax (int): Maximum spike count for colormap when</span>
-<span class="sd">            ``raster_style=&#39;imshow&#39;``.</span>
+<span class="sd">            ``raster_style=&#39;imshow&#39;``. Default is 5.</span>
 <span class="sd">        burst_times (np.ndarray or None): Burst peak positions as raster bin</span>
 <span class="sd">            indices (as returned by ``get_bursts``), plotted as markers on the</span>
 <span class="sd">            population-rate panel. With the default ``raster_bin_size_ms=1.0``,</span>
@@ -2176,6 +2194,11 @@
 <span class="sd">        burst_edges (np.ndarray or None): Per-burst ``[start_bin, end_bin]``</span>
 <span class="sd">            boundaries as raster bin indices, shape ``(B, 2)``. Plotted as</span>
 <span class="sd">            shaded spans on the population-rate panel.</span>
+<span class="sd">        burst_colors (array-like or None): Per-burst color values, one per</span>
+<span class="sd">            burst (length B, matching ``burst_times`` / ``burst_edges``).</span>
+<span class="sd">            When provided, each burst span and peak marker is drawn in its</span>
+<span class="sd">            assigned color. When None, spans default to blue and peaks to</span>
+<span class="sd">            black.</span>
 <span class="sd">        vmin_heatmap (float or None): Colormap minimum for the FR heatmap.</span>
 <span class="sd">        vmax_heatmap (float or None): Colormap maximum for the FR heatmap.</span>
 <span class="sd">            When None, clipped to ``heatmap_clip_pct`` percentile of the data.</span>
@@ -2342,19 +2365,29 @@
 
     <span class="c1"># Burst peaks: keep those inside range, shift to window coords</span>
     <span class="n">burst_times_view</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">burst_colors_times_view</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">burst_times</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">burst_times</span> <span class="o">&gt;=</span> <span class="n">start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">burst_times</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">)</span>
         <span class="n">burst_times_view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">burst_times</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">burst_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">burst_colors_times_view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">burst_colors</span><span class="p">)[</span><span class="n">mask</span><span class="p">]</span>
 
     <span class="c1"># Burst edges: clip to range, skip fully-outside bursts</span>
     <span class="n">burst_edges_view</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">burst_colors_edges_view</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">burst_edges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">clipped</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span> <span class="ow">in</span> <span class="n">burst_edges</span><span class="p">:</span>
+        <span class="n">edge_color_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">colors_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">burst_colors</span><span class="p">)</span> <span class="k">if</span> <span class="n">burst_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">burst_edges</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">t1</span> <span class="o">&lt;</span> <span class="n">start</span> <span class="ow">or</span> <span class="n">t0</span> <span class="o">&gt;</span> <span class="n">end</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="n">clipped</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">max</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">start</span><span class="p">)</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">colors_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">edge_color_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">colors_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
         <span class="n">burst_edges_view</span> <span class="o">=</span> <span class="n">clipped</span> <span class="k">if</span> <span class="n">clipped</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">colors_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">edge_color_list</span><span class="p">:</span>
+            <span class="n">burst_colors_edges_view</span> <span class="o">=</span> <span class="n">edge_color_list</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 4. Create figure with two-column GridSpec (panels + colorbars)</span>
@@ -2474,11 +2507,25 @@
             <span class="n">valid</span> <span class="o">=</span> <span class="n">bt_scaled</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">pop_rate_hz</span><span class="p">)</span>
             <span class="n">bt_scaled</span> <span class="o">=</span> <span class="n">bt_scaled</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
             <span class="n">bt_plot</span> <span class="o">=</span> <span class="n">burst_times_view</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>  <span class="c1"># x position in raster coords</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">bt_plot</span><span class="p">,</span> <span class="n">pop_rate_hz</span><span class="p">[</span><span class="n">bt_scaled</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">burst_colors_times_view</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+                    <span class="n">bt_plot</span><span class="p">,</span>
+                    <span class="n">pop_rate_hz</span><span class="p">[</span><span class="n">bt_scaled</span><span class="p">],</span>
+                    <span class="n">c</span><span class="o">=</span><span class="n">burst_colors_times_view</span><span class="p">[</span><span class="n">valid</span><span class="p">],</span>
+                    <span class="n">s</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+                    <span class="n">zorder</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">bt_plot</span><span class="p">,</span> <span class="n">pop_rate_hz</span><span class="p">[</span><span class="n">bt_scaled</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">burst_edges_view</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span> <span class="ow">in</span> <span class="n">burst_edges_view</span><span class="p">:</span>
-                <span class="n">ax</span><span class="o">.</span><span class="n">axvspan</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">burst_edges_view</span><span class="p">):</span>
+                <span class="n">color</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">burst_colors_edges_view</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">burst_colors_edges_view</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="s2">&quot;b&quot;</span>
+                <span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">axvspan</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
 
         <span class="n">_style_axes</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span>
         <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">font_size</span><span class="p">)</span>
@@ -2552,23 +2599,38 @@
     <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">main_axes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">setp</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">get_xticklabels</span><span class="p">(),</span> <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">main_axes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Time (s)&quot;</span><span class="p">)</span>
-    <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">main_axes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">font_size</span><span class="p">)</span>
 
-    <span class="c1"># Shift tick labels to absolute recording time when requested</span>
-    <span class="c1"># Convert bin indices back to seconds for tick labels.</span>
+    <span class="c1"># Choose x-axis unit: ms when the plotted range is &lt; 1000 ms, else seconds.</span>
     <span class="c1"># Bin 0 in the view corresponds to ms = sd.start_time + start * raster_bin_size_ms.</span>
     <span class="n">ms_offset</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">start</span> <span class="o">*</span> <span class="n">raster_bin_size_ms</span>
-    <span class="n">bin_to_s</span> <span class="o">=</span> <span class="n">raster_bin_size_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
-    <span class="k">if</span> <span class="n">absolute_xticks</span><span class="p">:</span>
-        <span class="n">s_offset</span> <span class="o">=</span> <span class="n">ms_offset</span> <span class="o">/</span> <span class="mf">1000.0</span>
-        <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">bin_to_s</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">s_offset</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">main_axes</span><span class="p">:</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
+    <span class="n">range_ms</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">*</span> <span class="n">raster_bin_size_ms</span>
+    <span class="n">use_ms</span> <span class="o">=</span> <span class="n">range_ms</span> <span class="o">&lt;</span> <span class="mf">1000.0</span>
+
+    <span class="k">if</span> <span class="n">use_ms</span><span class="p">:</span>
+        <span class="n">xlabel</span> <span class="o">=</span> <span class="s2">&quot;Time (ms)&quot;</span>
+        <span class="k">if</span> <span class="n">absolute_xticks</span><span class="p">:</span>
+            <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">raster_bin_size_ms</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">ms_offset</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">raster_bin_size_ms</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">bin_to_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">main_axes</span><span class="p">:</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
+        <span class="n">xlabel</span> <span class="o">=</span> <span class="s2">&quot;Time (s)&quot;</span>
+        <span class="n">bin_to_s</span> <span class="o">=</span> <span class="n">raster_bin_size_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
+        <span class="k">if</span> <span class="n">absolute_xticks</span><span class="p">:</span>
+            <span class="n">s_offset</span> <span class="o">=</span> <span class="n">ms_offset</span> <span class="o">/</span> <span class="mf">1000.0</span>
+            <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">bin_to_s</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">s_offset</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">formatter</span> <span class="o">=</span> <span class="n">mticker</span><span class="o">.</span><span class="n">FuncFormatter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">bin_to_s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">main_axes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+    <span class="n">_apply_font_size</span><span class="p">(</span><span class="n">main_axes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">font_size</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">main_axes</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 10. Output</span>

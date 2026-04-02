@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -330,7 +327,10 @@ manipulation helpers, time conversion, and validation functions.</p>
 <li><p><strong>tB</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – List of spike times for the second spike train.</p></li>
 <li><p><strong>delt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time window in milliseconds (default: 20.0).</p></li>
 <li><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>None</em>) – Total duration in milliseconds. If None,
-inferred from the latest spike time after shifting.</p></li>
+inferred from the latest spike time after shifting, which may
+underestimate the true recording duration if the last spike does
+not fall near the end. Pass the actual recording length for
+unbiased STTC.</p></li>
 <li><p><strong>start_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time origin of the spike trains (default 0.0).
 Spike times are shifted by <code class="docutils literal notranslate"><span class="pre">-start_time</span></code> before computation so
 that the STTC edge corrections work correctly for event-centered
@@ -447,7 +447,7 @@ per bin.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.spikedata.utils.ensure_h5py">
 <span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.utils.</span></span><span class="sig-name descname"><span class="pre">ensure_h5py</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/utils.html#ensure_h5py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.utils.ensure_h5py" title="Link to this definition"></a></dt>
-<dd><p>Ensure h5py is available for HDF5-based exporters.</p>
+<dd><p>No-op — h5py is a hard dependency. Kept for backwards compatibility.</p>
 </dd></dl>
 
 <dl class="py function">

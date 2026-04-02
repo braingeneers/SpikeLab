@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -1034,6 +1031,7 @@ of the appended data.</p></li>
 <p class="rubric">Notes</p>
 <ul class="simple">
 <li><p>The two SpikeData objects must have the same number of neurons.</p></li>
+<li><p>On metadata key collision, values from <code class="docutils literal notranslate"><span class="pre">self</span></code> take precedence.</p></li>
 </ul>
 </dd></dl>
 
@@ -2055,6 +2053,104 @@ None, uses current rcParams.</p></li>
 condition on the same <code class="docutils literal notranslate"><span class="pre">ax</span></code>. Each call draws its own trace
 with its own <code class="docutils literal notranslate"><span class="pre">color</span></code> and <code class="docutils literal notranslate"><span class="pre">label</span></code>; add <code class="docutils literal notranslate"><span class="pre">ax.legend()</span></code>
 after the last call.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate_by_min_spikes">
+<span class="sig-name descname"><span class="pre">curate_by_min_spikes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_spikes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate_by_min_spikes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate_by_min_spikes" title="Link to this definition"></a></dt>
+<dd><p>Remove units with fewer than <em>min_spikes</em> spikes.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate_by_min_spikes</span></code> for
+full documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate_by_firing_rate">
+<span class="sig-name descname"><span class="pre">curate_by_firing_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_rate_hz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate_by_firing_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate_by_firing_rate" title="Link to this definition"></a></dt>
+<dd><p>Remove units whose firing rate is below <em>min_rate_hz</em>.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate_by_firing_rate</span></code> for
+full documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate_by_isi_violations">
+<span class="sig-name descname"><span class="pre">curate_by_isi_violations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_violation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_isi_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'percent'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate_by_isi_violations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate_by_isi_violations" title="Link to this definition"></a></dt>
+<dd><p>Remove units with excessive ISI violations.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate_by_isi_violations</span></code>
+for full documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate_by_snr">
+<span class="sig-name descname"><span class="pre">curate_by_snr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_snr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms_before</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate_by_snr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate_by_snr" title="Link to this definition"></a></dt>
+<dd><p>Remove units whose SNR is below <em>min_snr</em>.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate_by_snr</span></code> for full
+documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate_by_std_norm">
+<span class="sig-name descname"><span class="pre">curate_by_std_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_std_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_peak</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms_before</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms_before</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate_by_std_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate_by_std_norm" title="Link to this definition"></a></dt>
+<dd><p>Remove units whose normalized waveform STD exceeds <em>max_std_norm</em>.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate_by_std_norm</span></code> for full
+documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.compute_waveform_metrics">
+<span class="sig-name descname"><span class="pre">compute_waveform_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ms_before</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ms_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">at_peak</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms_before</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_ms_after</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.compute_waveform_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.compute_waveform_metrics" title="Link to this definition"></a></dt>
+<dd><p>Compute average waveforms, SNR, and normalized STD for all units.</p>
+<p>Stores results in <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>.  See
+<code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.compute_waveform_metrics</span></code> for
+full documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.curate">
+<span class="sig-name descname"><span class="pre">curate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.curate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.curate" title="Link to this definition"></a></dt>
+<dd><p>Apply multiple curation criteria in sequence (intersection).</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.curate</span></code> for full
+documentation and supported keyword arguments.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.build_curation_history">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build_curation_history</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_original</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_curated</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.build_curation_history"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.build_curation_history" title="Link to this definition"></a></dt>
+<dd><p>Translate curation results into a serializable history dict.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">spikelab.spikedata.curation.build_curation_history</span></code> for
+full documentation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.split_epochs">
+<span class="sig-name descname"><span class="pre">split_epochs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.split_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.split_epochs" title="Link to this definition"></a></dt>
+<dd><p>Split a concatenated SpikeData into per-epoch SpikeData objects.</p>
+<p>Uses <code class="docutils literal notranslate"><span class="pre">metadata[&quot;rec_chunks_ms&quot;]</span></code> (list of <code class="docutils literal notranslate"><span class="pre">(start_ms,</span> <span class="pre">end_ms)</span></code>
+tuples) to slice this SpikeData via <code class="docutils literal notranslate"><span class="pre">subtime</span></code>.  Each resulting
+SpikeData receives the corresponding epoch template from
+<code class="docutils literal notranslate"><span class="pre">neuron_attributes[&quot;epoch_templates&quot;]</span></code> as its <code class="docutils literal notranslate"><span class="pre">&quot;template&quot;</span></code>
+attribute.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>metadata.</strong> (<em>None.  Epoch boundaries and names are read from</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>One SpikeData per epoch, time-shifted</dt><dd><p>so each starts at t=0.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>epochs (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference internal" href="#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>])</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">metadata[&quot;rec_chunks_ms&quot;]</span></code>.  Raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>
+if not present.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata[&quot;rec_chunk_names&quot;]</span></code> (optional) is stored as
+<code class="docutils literal notranslate"><span class="pre">metadata[&quot;source_file&quot;]</span></code> on each output SpikeData.</p></li>
 </ul>
 </dd></dl>
 

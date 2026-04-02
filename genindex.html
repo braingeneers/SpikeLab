@@ -246,7 +246,7 @@
 <li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="api/s3_utils.html">S3 Utilities</a><ul>
@@ -277,10 +277,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -385,9 +382,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned">binned() (spikelab.spikedata.SpikeData method)</a>
 </li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned_meanrate">binned_meanrate() (spikelab.spikedata.SpikeData method)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.binned_meanrate">binned_meanrate() (spikelab.spikedata.SpikeData method)</a>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.build_curation_history">build_curation_history() (spikelab.spikedata.SpikeData static method)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.burst_sensitivity">burst_sensitivity() (spikelab.spikedata.SpikeData method)</a>
 </li>
@@ -407,19 +406,33 @@
 </li>
       <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack.compute_frac_active">compute_frac_active() (spikelab.spikedata.spikeslicestack.SpikeSliceStack method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.compute_spike_trig_pop_rate">compute_spike_trig_pop_rate() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.compute_waveform_metrics">compute_waveform_metrics() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.concatenate_spike_data">concatenate_spike_data() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/utilities.html#spikelab.spikedata.utils.consecutive_durations">consecutive_durations() (in module spikelab.spikedata.utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack.convert_to_list_of_RateData">convert_to_list_of_RateData() (spikelab.spikedata.rateslicestack.RateSliceStack method)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.WorkspaceManager.create_workspace">create_workspace() (spikelab.workspace.workspace.WorkspaceManager method)</a>
 </li>
       <li><a href="api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace.created_at">created_at (spikelab.workspace.workspace.AnalysisWorkspace attribute)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate">curate() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_firing_rate">curate_by_firing_rate() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_isi_violations">curate_by_isi_violations() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_min_spikes">curate_by_min_spikes() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_snr">curate_by_snr() (spikelab.spikedata.SpikeData method)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_std_norm">curate_by_std_norm() (spikelab.spikedata.SpikeData method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -467,7 +480,7 @@
 </li>
       <li><a href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb">export_spikedata_to_nwb() (in module spikelab.data_loaders.data_exporters)</a>
 </li>
-      <li><a href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle">export_spikedata_to_pickle() (in module spikelab.data_loaders.data_exporters)</a>
+      <li><a href="api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle">export_to_pickle() (in module spikelab.data_loaders.data_exporters)</a>
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.extract_lower_triangle">extract_lower_triangle() (spikelab.spikedata.pairwise.PairwiseCompMatrix method)</a>
 </li>
@@ -649,8 +662,6 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/mcp_server.html#spikelab.mcp_server.server.main">main() (in module spikelab.mcp_server.server)</a>
-</li>
       <li><a href="api/pairwise.html#id0">matrix (spikelab.spikedata.pairwise.PairwiseCompMatrix attribute)</a>, <a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.matrix">[1]</a>
 </li>
       <li><a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.mean">mean() (spikelab.spikedata.pairwise.PairwiseCompMatrixStack method)</a>
@@ -674,8 +685,6 @@
         <li><a href="api/data_loaders.html#module-spikelab.data_loaders.data_loaders">spikelab.data_loaders.data_loaders</a>
 </li>
         <li><a href="api/s3_utils.html#module-spikelab.data_loaders.s3_utils">spikelab.data_loaders.s3_utils</a>
-</li>
-        <li><a href="api/mcp_server.html#module-spikelab.mcp_server.server">spikelab.mcp_server.server</a>
 </li>
         <li><a href="api/plot_utils.html#module-spikelab.spikedata.plot_utils">spikelab.spikedata.plot_utils</a>
 </li>
@@ -898,21 +907,12 @@
 </li>
       </ul></li>
       <li>
-    spikelab.mcp_server.server
-
-      <ul>
-        <li><a href="api/mcp_server.html#module-spikelab.mcp_server.server">module</a>
-</li>
-      </ul></li>
-      <li>
     spikelab.spikedata.plot_utils
 
       <ul>
         <li><a href="api/plot_utils.html#module-spikelab.spikedata.plot_utils">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.spikedata.stat_utils
 
@@ -920,6 +920,8 @@
         <li><a href="api/stat_utils.html#module-spikelab.spikedata.stat_utils">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     spikelab.spikedata.utils
 
@@ -935,6 +937,8 @@
 </li>
       </ul></li>
       <li><a href="api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack">SpikeSliceStack (class in spikelab.spikedata.spikeslicestack)</a>
+</li>
+      <li><a href="api/spikedata.html#spikelab.spikedata.SpikeData.split_epochs">split_epochs() (spikelab.spikedata.SpikeData method)</a>
 </li>
       <li><a href="api/pairwise.html#id3">stack (spikelab.spikedata.pairwise.PairwiseCompMatrixStack attribute)</a>, <a href="api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.stack">[1]</a>
 </li>

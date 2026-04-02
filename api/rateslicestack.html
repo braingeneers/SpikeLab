@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -505,8 +502,16 @@ SpikeData.get_frac_active (frac_per_unit output).</p></li>
 all cores (default), 1 disables parallelism, None is serial.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
+</dl>
+<p class="rubric">Notes</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">max_lag</span></code> is 0 or None, the inner S x S loop is replaced by
+a vectorized matrix multiplication, which is significantly faster
+for large S. For non-zero <code class="docutils literal notranslate"><span class="pre">max_lag</span></code>, the S x S comparisons are
+computed in a serial loop per unit (parallelised across units).
+This can be slow for large S (e.g. S &gt; 100).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
 <dt>Pairwise</dt><dd><p>correlation scores between all slice pairs for each unit.
 Shape is (S, S, U) in the stack attribute.</p>
 </dd>
@@ -515,8 +520,8 @@ Shape is (S, S, U) in the stack attribute.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>all_slice_corr_scores (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>all_slice_corr_scores (<a class="reference internal" href="pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack" title="spikelab.spikedata.pairwise.PairwiseCompMatrixStack">PairwiseCompMatrixStack</a>)</p>
 </dd>
 </dl>
 </dd></dl>

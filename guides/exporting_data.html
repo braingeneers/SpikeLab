@@ -249,7 +249,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/s3_utils.html">S3 Utilities</a><ul>
@@ -280,10 +280,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/mcp_server.html">MCP Server</a></li>
 </ul>
 </li>
 </ul>
@@ -446,13 +443,13 @@ the target time unit (samples by default).</p>
 <h2>To pickle<a class="headerlink" href="#to-pickle" title="Link to this heading"></a></h2>
 <p>Save a <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object as a pickle file. Supports optional upload to
 Amazon S3.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_spikedata_to_pickle</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_exporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_to_pickle</span>
 
 <span class="c1"># Local file</span>
-<span class="n">path</span> <span class="o">=</span> <span class="n">export_spikedata_to_pickle</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;my_data.pkl&quot;</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">export_to_pickle</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;my_data.pkl&quot;</span><span class="p">)</span>
 
 <span class="c1"># Upload to S3</span>
-<span class="n">s3_url</span> <span class="o">=</span> <span class="n">export_spikedata_to_pickle</span><span class="p">(</span>
+<span class="n">s3_url</span> <span class="o">=</span> <span class="n">export_to_pickle</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span>
     <span class="s2">&quot;s3://my-bucket/my_data.pkl&quot;</span><span class="p">,</span>
     <span class="n">s3_upload</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
