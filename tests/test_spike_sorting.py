@@ -2366,8 +2366,9 @@ class TestSpikeSortDocker:
 
         Tests:
             (Test Case 1) run_sorter is called with sorter_name='kilosort2'.
-            (Test Case 2) docker_image=True is passed.
+            (Test Case 2) A specific docker_image tag is passed.
             (Test Case 3) KILOSORT_PARAMS are forwarded as kwargs.
+            (Test Case 4) installation_mode='no-install' is passed.
         """
         from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
 
@@ -2378,16 +2379,19 @@ class TestSpikeSortDocker:
         recording = _make_mock_recording()
         mock_rs = MagicMock(return_value=None)
 
-        with patch.dict(
-            sys.modules,
-            {"spikeinterface.sorters": MagicMock(run_sorter=mock_rs)},
+        with (
+            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
+            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.kilosort2.run_sorter", mock_rs),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
         mock_rs.assert_called_once()
         _, call_kwargs = mock_rs.call_args
         assert call_kwargs["sorter_name"] == "kilosort2"
-        assert call_kwargs["docker_image"] is True
+        assert isinstance(call_kwargs["docker_image"], str)
+        assert "kilosort2" in call_kwargs["docker_image"]
+        assert call_kwargs["installation_mode"] == "no-install"
         assert call_kwargs["detect_threshold"] == 6
 
         assert hasattr(result, "unit_ids")
@@ -2408,9 +2412,10 @@ class TestSpikeSortDocker:
 
         recording = _make_mock_recording()
 
-        with patch.dict(
-            sys.modules,
-            {"spikeinterface.sorters": MagicMock(run_sorter=MagicMock())},
+        with (
+            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
+            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.kilosort2.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -2430,9 +2435,10 @@ class TestSpikeSortDocker:
 
         recording = _make_mock_recording()
 
-        with patch.dict(
-            sys.modules,
-            {"spikeinterface.sorters": MagicMock(run_sorter=MagicMock())},
+        with (
+            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
+            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.kilosort2.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -2454,11 +2460,12 @@ class TestSpikeSortDocker:
 
         mock_kse = SimpleNamespace(unit_ids=[0, 1])
 
-        with patch.object(
-            self._ks_mod, "_spike_sort_docker", return_value=mock_kse
-        ) as mock_docker, patch.object(
-            self._ks_mod, "RunKilosort"
-        ) as mock_rk:
+        with (
+            patch.object(
+                self._ks_mod, "_spike_sort_docker", return_value=mock_kse
+            ) as mock_docker,
+            patch.object(self._ks_mod, "RunKilosort") as mock_rk,
+        ):
             result = spike_sort(
                 recording, "fake.h5", tmp_path / "rec.dat", output_folder
             )
@@ -2485,12 +2492,12 @@ class TestSpikeSortDocker:
         mock_ks_instance = MagicMock()
         mock_ks_instance.run.return_value = mock_sorting
 
-        with patch.object(
-            self._ks_mod, "RunKilosort", return_value=mock_ks_instance
-        ) as mock_rk, patch.object(
-            self._ks_mod, "_spike_sort_docker"
-        ) as mock_docker, patch.object(
-            self._ks_mod, "write_recording"
+        with (
+            patch.object(
+                self._ks_mod, "RunKilosort", return_value=mock_ks_instance
+            ) as mock_rk,
+            patch.object(self._ks_mod, "_spike_sort_docker") as mock_docker,
+            patch.object(self._ks_mod, "write_recording"),
         ):
             result = spike_sort(
                 recording, "fake.h5", tmp_path / "rec.dat", output_folder
