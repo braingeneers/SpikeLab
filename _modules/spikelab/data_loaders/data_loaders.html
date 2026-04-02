@@ -1068,6 +1068,75 @@
 
 
 <span class="c1"># ----------------------------</span>
+<span class="c1"># SpikeLab sorted .npz -&gt; SpikeData</span>
+<span class="c1"># ----------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_spikelab_sorted_npz</span><span class="p">(</span>
+    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpikeData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a SpikeLab compiled sorting result (``.npz``) into SpikeData.</span>
+
+<span class="sd">    These ``.npz`` files are produced by :func:`sort_with_kilosort2`&#39;s</span>
+<span class="sd">    ``compile_results`` step and contain per-unit spike trains, electrode</span>
+<span class="sd">    locations, waveform templates, and quality metrics.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        filepath (str): Path to the ``.npz`` file.</span>
+<span class="sd">        length_ms (float | None): Recording duration in milliseconds.</span>
+<span class="sd">            Inferred from the latest spike time when *None*.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The loaded spike train data with neuron attributes</span>
+<span class="sd">            (unit_id, location, electrode, template, amplitudes, etc.).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">units</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
+    <span class="n">fs_Hz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;fs&quot;</span><span class="p">])</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;locations&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">units</span><span class="p">:</span>
+        <span class="n">spike_samples</span> <span class="o">=</span> <span class="n">unit</span><span class="p">[</span><span class="s2">&quot;spike_train&quot;</span><span class="p">]</span>
+        <span class="n">spike_times_ms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">spike_samples</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">fs_Hz</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">)</span>
+        <span class="n">trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">spike_times_ms</span><span class="p">)</span>
+
+        <span class="n">attr</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;unit_id&quot;</span><span class="p">])}</span>
+        <span class="k">if</span> <span class="s2">&quot;x_max&quot;</span> <span class="ow">in</span> <span class="n">unit</span> <span class="ow">and</span> <span class="s2">&quot;y_max&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;x_max&quot;</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;y_max&quot;</span><span class="p">])]</span>
+        <span class="k">if</span> <span class="s2">&quot;electrode&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s2">&quot;template&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;template&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;template&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s2">&quot;amplitudes&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;amplitudes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;amplitudes&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s2">&quot;std_norms&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;std_norms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;std_norms&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s2">&quot;peak_sign&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;peak_sign&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;peak_sign&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s2">&quot;max_channel_id&quot;</span> <span class="ow">in</span> <span class="n">unit</span><span class="p">:</span>
+            <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;max_channel_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">unit</span><span class="p">[</span><span class="s2">&quot;max_channel_id&quot;</span><span class="p">])</span>
+        <span class="n">neuron_attributes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span>
+        <span class="s2">&quot;source_format&quot;</span><span class="p">:</span> <span class="s2">&quot;SpikeLab_npz&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fs_Hz&quot;</span><span class="p">:</span> <span class="n">fs_Hz</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">locations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;channel_locations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">locations</span>
+
+    <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
+        <span class="n">trains</span><span class="p">,</span> <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># ----------------------------</span>
 <span class="c1"># SpikeInterface BaseRecording -&gt; SpikeData via thresholding</span>
 <span class="c1"># ----------------------------</span>
 
