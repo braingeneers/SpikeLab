@@ -646,7 +646,11 @@ def process_recording(
 
         # Extract waveforms
         w_e_raw = backend.extract_waveforms(
-            recording_filtered, sorting, waveforms_root_folder, curation_initial_folder
+            recording_filtered,
+            sorting,
+            waveforms_root_folder,
+            curation_initial_folder,
+            rec_path=rec_path,
         )
 
         # Convert to SpikeData

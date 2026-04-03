@@ -148,7 +148,9 @@ class Kilosort2Backend(SorterBackend):
             output_folder=output_folder,
         )
 
-    def extract_waveforms(self, recording, sorting, waveforms_folder, curation_folder):
+    def extract_waveforms(
+        self, recording, sorting, waveforms_folder, curation_folder, rec_path=None
+    ):
         """Extract waveforms via the custom WaveformExtractor.
 
         Uses the legacy extraction pipeline with per-spike centering.
@@ -156,7 +158,7 @@ class Kilosort2Backend(SorterBackend):
         from .. import kilosort2 as ks2
 
         return ks2.extract_waveforms(
-            recording_path=None,
+            recording_path=rec_path,
             recording=recording,
             sorting=sorting,
             root_folder=waveforms_folder,

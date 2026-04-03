@@ -66,7 +66,9 @@ class SorterBackend(ABC):
         """
 
     @abstractmethod
-    def extract_waveforms(self, recording, sorting, waveforms_folder, curation_folder):
+    def extract_waveforms(
+        self, recording, sorting, waveforms_folder, curation_folder, rec_path=None
+    ):
         """Extract per-unit waveforms and compute templates.
 
         Parameters:
