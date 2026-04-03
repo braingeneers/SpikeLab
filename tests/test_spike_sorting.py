@@ -192,60 +192,31 @@ class TestLazyImport:
         with pytest.raises(AttributeError, match="has no attribute"):
             _ = pkg.totally_nonexistent_symbol
 
-    def test_all_contains_sort_with_kilosort2(self):
+    def test_all_contains_sort_recording(self):
         """
-        The __all__ list advertises sort_with_kilosort2.
+        The __all__ list advertises sort_recording and sort_multistream.
 
         Tests:
-            (Test Case 1) __all__ contains exactly one expected entry.
+            (Test Case 1) sort_recording is in __all__.
+            (Test Case 2) sort_multistream is in __all__.
         """
         import spikelab.spike_sorting as pkg
 
-        assert "sort_with_kilosort2" in pkg.__all__
+        assert "sort_recording" in pkg.__all__
+        assert "sort_multistream" in pkg.__all__
 
     @skip_no_spikeinterface
     def test_lazy_import_succeeds_when_deps_available(self):
         """
-        sort_with_kilosort2 is importable when spikeinterface is present.
+        sort_recording is importable when spikeinterface is present.
 
         Tests:
             (Test Case 1) Attribute access returns a callable.
         """
         import spikelab.spike_sorting as pkg
 
-        fn = pkg.sort_with_kilosort2
+        fn = pkg.sort_recording
         assert callable(fn)
-
-    def test_lazy_import_raises_import_error_when_deps_missing(self):
-        """
-        sort_with_kilosort2 raises ImportError when dependencies are absent.
-
-        Tests:
-            (Test Case 1) ImportError is raised with a helpful message.
-        """
-        import spikelab.spike_sorting as pkg
-
-        # Force a fresh lookup by removing cached attribute if present
-        pkg_globals = vars(pkg)
-        had_cached = "sort_with_kilosort2" in pkg_globals
-        cached_val = pkg_globals.pop("sort_with_kilosort2", None)
-
-        try:
-            with patch.dict(sys.modules, {"spikelab.spike_sorting.kilosort2": None}):
-                # Also block the relative import by making it raise
-                original_getattr = pkg.__getattr__
-
-                def patched_getattr(name):
-                    if name == "sort_with_kilosort2":
-                        raise ImportError("mocked missing dep")
-                    return original_getattr(name)
-
-                with patch.object(pkg, "__getattr__", patched_getattr):
-                    with pytest.raises(ImportError, match="mocked missing dep"):
-                        _ = pkg.sort_with_kilosort2
-        finally:
-            if had_cached:
-                pkg_globals["sort_with_kilosort2"] = cached_val
 
 
 # ===========================================================================
@@ -1371,299 +1342,6 @@ class TestUtilsReadPython:
 
 
 # ===========================================================================
-# sort_with_kilosort2 validation
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestSortWithKilosort2Validation:
-    """
-    Tests for sort_with_kilosort2 parameter validation and defaults.
-
-    Tests:
-        (Test Case 1) compile_all_recordings=True without folder raises ValueError.
-        (Test Case 2) Mismatched list lengths raise AssertionError.
-        (Test Case 3) Default kilosort_params are applied when None.
-    """
-
-    @pytest.fixture()
-    def sort_fn(self):
-        from spikelab.spike_sorting.kilosort2 import sort_with_kilosort2
-
-        return sort_with_kilosort2
-
-    def test_compile_all_without_folder_raises(self, sort_fn):
-        """
-        compile_all_recordings=True without compiled_results_folder raises ValueError.
-
-        Tests:
-            (Test Case 1) ValueError with descriptive message.
-        """
-        with pytest.raises(ValueError, match="compile_all_recordings"):
-            sort_fn(
-                recording_files=["fake.h5"],
-                compile_all_recordings=True,
-                compiled_results_folder=None,
-            )
-
-    def test_mismatched_list_lengths_raises(self, sort_fn, tmp_path):
-        """
-        Mismatched lengths of recording_files and intermediate_folders
-        raise ValueError.
-
-        Tests:
-            (Test Case 1) 2 recordings but 1 intermediate folder.
-        """
-        with pytest.raises(ValueError, match="same length"):
-            sort_fn(
-                recording_files=["fake1.h5", "fake2.h5"],
-                intermediate_folders=[str(tmp_path / "inter1")],
-                results_folders=[str(tmp_path / "res1"), str(tmp_path / "res2")],
-            )
-
-    def test_default_kilosort_params(self, sort_fn, tmp_path):
-        """
-        Default kilosort_params contain expected keys when None is passed.
-
-        Tests:
-            (Test Case 1) Defaults include detect_threshold, car, NT, etc.
-
-        Notes:
-            - This test patches process_recording to prevent actual execution.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-        import spikelab.spike_sorting.pipeline as pipe_mod
-
-        with patch.object(
-            pipe_mod, "process_recording", return_value=Exception("skip")
-        ):
-            sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter")],
-                results_folders=[str(tmp_path / "res")],
-                kilosort_path="/fake/kilosort",
-                kilosort_params=None,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            # After calling, the global KILOSORT_PARAMS should have defaults
-            params = ks_mod.KILOSORT_PARAMS
-            assert params["detect_threshold"] == 6
-            assert params["car"] in (True, 1)
-            assert "NT" in params
-            assert "nPCs" in params
-
-    def test_custom_params_override_defaults(self, sort_fn, tmp_path):
-        """
-        User-provided kilosort_params override the default values.
-
-        Tests:
-            (Test Case 1) detect_threshold=10 overrides default of 6.
-            (Test Case 2) Other defaults are preserved.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-        import spikelab.spike_sorting.pipeline as pipe_mod
-
-        with patch.object(
-            pipe_mod, "process_recording", return_value=Exception("skip")
-        ):
-            sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter")],
-                results_folders=[str(tmp_path / "res")],
-                kilosort_path="/fake/kilosort",
-                kilosort_params={"detect_threshold": 10},
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            params = ks_mod.KILOSORT_PARAMS
-            assert params["detect_threshold"] == 10
-            assert params["preclust_threshold"] == 8
-
-    def test_empty_recording_files(self, sort_fn):
-        """
-        An empty recording_files list returns an empty result list.
-
-        Tests:
-            (Test Case 1) No recordings => no SpikeData objects returned.
-        """
-        result = sort_fn(
-            recording_files=[],
-            intermediate_folders=[],
-            results_folders=[],
-            kilosort_path="/fake/kilosort",
-            compile_all_recordings=False,
-            delete_inter=False,
-            create_figures=False,
-        )
-        assert result == []
-
-    def test_use_docker_sets_global(self, sort_fn, tmp_path):
-        """
-        use_docker=True sets the USE_DOCKER global.
-
-        Tests:
-            (Test Case 1) Global is True after calling with use_docker=True.
-            (Test Case 2) Global is False after calling with use_docker=False.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-        import spikelab.spike_sorting.pipeline as pipe_mod
-
-        with patch.object(
-            pipe_mod, "process_recording", return_value=Exception("skip")
-        ):
-            sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter")],
-                results_folders=[str(tmp_path / "res")],
-                kilosort_path="/fake/kilosort",
-                use_docker=True,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            assert ks_mod.USE_DOCKER is True
-
-            sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter2")],
-                results_folders=[str(tmp_path / "res2")],
-                kilosort_path="/fake/kilosort",
-                use_docker=False,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            assert ks_mod.USE_DOCKER is False
-
-    def test_save_raw_pkl_sets_global(self, sort_fn):
-        """
-        save_raw_pkl=True sets the SAVE_RAW_PKL global via config.
-
-        Tests:
-            (Test Case 1) Global is True after calling with save_raw_pkl=True.
-            (Test Case 2) Global is False after calling with save_raw_pkl=False.
-        """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
-        import spikelab.spike_sorting.pipeline as pipe_mod
-
-        with patch.object(
-            pipe_mod, "process_recording", return_value=Exception("skip")
-        ):
-            sort_fn(
-                recording_files=["fake.h5"],
-                kilosort_path="/fake/kilosort",
-                save_raw_pkl=True,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            assert ks_mod.SAVE_RAW_PKL is True
-
-            sort_fn(
-                recording_files=["fake.h5"],
-                kilosort_path="/fake/kilosort",
-                save_raw_pkl=False,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            assert ks_mod.SAVE_RAW_PKL is False
-
-    def test_save_raw_pkl_writes_file(self, sort_fn, tmp_path):
-        """
-        When save_raw_pkl=True, both raw and curated pkl files are saved.
-
-        Tests:
-            (Test Case 1) sorted_spikedata.pkl is created.
-            (Test Case 2) sorted_spikedata_curated.pkl is created.
-            (Test Case 3) Raw pkl has more units than curated pkl.
-        """
-        import spikelab.spike_sorting.pipeline as pipe_mod
-        from spikelab import SpikeData
-
-        sd_raw = SpikeData(
-            [np.array([10.0, 20.0]), np.array([30.0]), np.array([50.0, 60.0, 70.0])],
-            length=100.0,
-        )
-        sd_curated = SpikeData(
-            [np.array([10.0, 20.0]), np.array([50.0, 60.0, 70.0])],
-            length=100.0,
-        )
-
-        results_dir = tmp_path / "results"
-        results_dir.mkdir()
-
-        with patch.object(
-            pipe_mod, "process_recording", return_value=(sd_raw, sd_curated)
-        ):
-            result = sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter")],
-                results_folders=[str(results_dir)],
-                kilosort_path="/fake/kilosort",
-                save_raw_pkl=True,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-
-        raw_pkl = results_dir / "sorted_spikedata.pkl"
-        curated_pkl = results_dir / "sorted_spikedata_curated.pkl"
-        assert raw_pkl.exists(), "Raw pkl not saved"
-        assert curated_pkl.exists(), "Curated pkl not saved"
-
-        import pickle
-
-        with open(raw_pkl, "rb") as f:
-            loaded_raw = pickle.load(f)
-        with open(curated_pkl, "rb") as f:
-            loaded_curated = pickle.load(f)
-        assert loaded_raw.N == 3
-        assert loaded_curated.N == 2
-
-    def test_save_raw_pkl_false_skips_raw(self, sort_fn, tmp_path):
-        """
-        When save_raw_pkl=False (default), only the curated pkl is saved.
-
-        Tests:
-            (Test Case 1) sorted_spikedata.pkl is NOT created.
-            (Test Case 2) sorted_spikedata_curated.pkl IS created.
-        """
-        import spikelab.spike_sorting.pipeline as pipe_mod
-        from spikelab import SpikeData
-
-        sd_curated = SpikeData(
-            [np.array([10.0, 20.0]), np.array([50.0, 60.0, 70.0])],
-            length=100.0,
-        )
-
-        results_dir = tmp_path / "results"
-        results_dir.mkdir()
-
-        with patch.object(pipe_mod, "process_recording", return_value=sd_curated):
-            result = sort_fn(
-                recording_files=["fake.h5"],
-                intermediate_folders=[str(tmp_path / "inter")],
-                results_folders=[str(results_dir)],
-                kilosort_path="/fake/kilosort",
-                save_raw_pkl=False,
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-
-        raw_pkl = results_dir / "sorted_spikedata.pkl"
-        curated_pkl = results_dir / "sorted_spikedata_curated.pkl"
-        assert (
-            not raw_pkl.exists()
-        ), "Raw pkl should not be saved when save_raw_pkl=False"
-        assert curated_pkl.exists(), "Curated pkl not saved"
-
-
-# ===========================================================================
 # _spike_sort_docker and Docker branch in spike_sort
 # ===========================================================================
 
@@ -2158,67 +1836,6 @@ class TestConcatenateRecordingsValidation:
 
 
 # ===========================================================================
-# sort_maxtwo_multiwell validation
-# ===========================================================================
-
-
-@skip_no_spikeinterface
-class TestSortMaxtwoMultiwellValidation:
-    """
-    Tests for parameter validation in sort_maxtwo_multiwell.
-    """
-
-    @pytest.fixture()
-    def multiwell_fn(self):
-        from spikelab.spike_sorting.kilosort2 import sort_maxtwo_multiwell
-
-        return sort_maxtwo_multiwell
-
-    def test_stream_id_kwarg_raises(self, multiwell_fn):
-        """
-        Passing stream_id directly raises ValueError.
-
-        Tests:
-            (Test Case 1) stream_id in kwargs is rejected with a
-                helpful message.
-        """
-        with pytest.raises(ValueError, match="Do not pass 'stream_id'"):
-            multiwell_fn(
-                recording="fake.raw.h5",
-                stream_ids=["well000"],
-                stream_id="well000",
-            )
-
-    def test_intermediate_folders_kwarg_raises(self, multiwell_fn):
-        """
-        Passing intermediate_folders raises ValueError.
-
-        Tests:
-            (Test Case 1) Custom intermediate_folders is rejected.
-        """
-        with pytest.raises(ValueError, match="intermediate_folders"):
-            multiwell_fn(
-                recording="fake.raw.h5",
-                stream_ids=["well000"],
-                intermediate_folders=["/tmp/inter"],
-            )
-
-    def test_results_folders_kwarg_raises(self, multiwell_fn):
-        """
-        Passing results_folders raises ValueError.
-
-        Tests:
-            (Test Case 1) Custom results_folders is rejected.
-        """
-        with pytest.raises(ValueError, match="results_folders"):
-            multiwell_fn(
-                recording="fake.raw.h5",
-                stream_ids=["well000"],
-                results_folders=["/tmp/results"],
-            )
-
-
-# ===========================================================================
 # Backend registry
 # ===========================================================================
 
@@ -2323,6 +1940,58 @@ class TestSortingPipelineConfig:
 
         with pytest.raises(TypeError, match="Unknown parameter"):
             SortingPipelineConfig.from_kwargs(bogus_param=True)
+
+    def test_override(self):
+        """
+        override returns a new config with selected fields changed.
+
+        Tests:
+            (Test Case 1) Override changes the specified field.
+            (Test Case 2) Original config is unchanged.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        original = SortingPipelineConfig()
+        modified = original.override(snr_min=8.0, use_docker=True)
+        assert modified.curation.snr_min == 8.0
+        assert modified.sorter.use_docker is True
+        assert original.curation.snr_min == 5.0
+        assert original.sorter.use_docker is False
+
+    def test_presets_exist(self):
+        """
+        Preset configs are importable and have correct sorter names.
+
+        Tests:
+            (Test Case 1) KILOSORT2_MAXWELL has sorter_name kilosort2.
+            (Test Case 2) KILOSORT2_MAXWELL_DOCKER has use_docker=True.
+        """
+        from spikelab.spike_sorting.config import (
+            KILOSORT2_MAXWELL,
+            KILOSORT2_MAXWELL_DOCKER,
+        )
+
+        assert KILOSORT2_MAXWELL.sorter.sorter_name == "kilosort2"
+        assert KILOSORT2_MAXWELL.sorter.use_docker is False
+        assert KILOSORT2_MAXWELL_DOCKER.sorter.use_docker is True
+
+    def test_sort_recording_with_config(self):
+        """
+        sort_recording accepts a config= parameter.
+
+        Tests:
+            (Test Case 1) Empty recording list with config returns empty.
+        """
+        from spikelab.spike_sorting.config import KILOSORT2_MAXWELL
+        from spikelab.spike_sorting.pipeline import sort_recording
+
+        result = sort_recording(
+            recording_files=[],
+            config=KILOSORT2_MAXWELL,
+            intermediate_folders=[],
+            results_folders=[],
+        )
+        assert result == []
 
 
 # ===========================================================================

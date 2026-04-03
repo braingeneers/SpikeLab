@@ -72,35 +72,34 @@ class Tee:
     """
 
     def __init__(self, file_path, file_mode="a"):
-        self.file_path = Path(file_path)
-        self.file_mode = file_mode
-        self.log_file = None
-        self._original_stdout = None
+        from types import MethodType
+
+        _file = open(file_path, file_mode)
+        _file.stdout = sys.stdout
+        _file.file_write = _file.write
+        _file.write = MethodType(Tee._write, _file)
+        self._file = _file
 
     def __enter__(self):
-        self._original_stdout = sys.stdout
-        self.log_file = open(self.file_path, self.file_mode)
-        sys.stdout = self._TeeWriter(self._original_stdout, self.log_file)
-        return self
+        sys.stdout = self._file
+        return self._file
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_val is not None:
-            self.log_file.write(f"\nException: {exc_val}\n")
-        sys.stdout = self._original_stdout
-        self.log_file.close()
-        return False
+        import traceback
 
-    class _TeeWriter:
-        def __init__(self, *writers):
-            self.writers = writers
+        if exc_type:
+            self._file.write = self._file.file_write
+            print("Traceback (most recent call last):")
+            traceback.print_tb(exc_tb, file=self._file)
+            print(f"{exc_type}: {exc_val}")
+        sys.stdout = self._file.stdout
+        self._file.close()
 
-        def write(self, data):
-            for w in self.writers:
-                w.write(data)
-
-        def flush(self):
-            for w in self.writers:
-                w.flush()
+    @staticmethod
+    def _write(self, s):
+        self.file_write(s)
+        if s != "\n" and s != " ":
+            print(s, file=self.stdout)
 
 
 def create_folder(folder, parents=True):
@@ -108,20 +107,28 @@ def create_folder(folder, parents=True):
 
     Parameters:
         folder (str or Path): Directory path to create.
-        parents (bool): Create parent directories as needed.
+        parents (bool): Create parent directories as needed (default True).
     """
-    Path(folder).mkdir(parents=parents, exist_ok=True)
+    folder = Path(folder)
+    if not folder.exists():
+        folder.mkdir(parents=parents)
+        print(f"Created folder: {folder}")
 
 
 def delete_folder(folder):
-    """Delete a directory tree if it exists.
+    """Delete a file or directory tree if it exists.
 
     Parameters:
-        folder (str or Path): Directory path to delete.
+        folder (str or Path): Path to the file or directory to delete.
     """
     folder = Path(folder)
     if folder.exists():
-        shutil.rmtree(folder)
+        if folder.is_dir():
+            shutil.rmtree(folder)
+            print(f"Deleted folder: {folder}")
+        else:
+            folder.unlink()
+            print(f"Deleted file: {folder}")
 
 
 def get_paths(rec_path, inter_path, results_path, execution_config=None):

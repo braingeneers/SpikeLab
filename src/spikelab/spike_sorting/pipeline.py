@@ -787,6 +787,7 @@ def compile_results(
 
 def sort_recording(
     recording_files,
+    config=None,
     sorter="kilosort2",
     intermediate_folders=None,
     results_folders=None,
@@ -796,29 +797,30 @@ def sort_recording(
     """Run spike sorting on one or more recordings using any registered backend.
 
     This is the primary entry point for the modular sorting pipeline.
-    It constructs a ``SortingPipelineConfig`` from keyword arguments,
-    instantiates the appropriate ``SorterBackend``, and processes each
-    recording through loading → sorting → waveform extraction →
-    SpikeData conversion → curation → compilation.
 
     Parameters:
         recording_files (list): Paths to recording files or directories.
             Each entry is sorted independently. Directories have their
             contents concatenated before sorting and split back into
             per-file SpikeData afterward.
-        sorter (str): Registered sorter backend name.  Currently
-            available: ``"kilosort2"``.  Use
-            ``spikelab.spike_sorting.backends.list_sorters()`` to see
-            all registered backends.
+        config (SortingPipelineConfig or None): Pre-built configuration.
+            When provided, ``**kwargs`` are applied as overrides via
+            ``config.override()``.  When None, a fresh config is built
+            from ``sorter`` + ``**kwargs``.  Preset configs are
+            available in ``spikelab.spike_sorting.config`` (e.g.
+            ``KILOSORT2_MAXWELL``).
+        sorter (str): Registered sorter backend name.  Only used when
+            ``config`` is None.  Currently available: ``"kilosort2"``.
         intermediate_folders (list or None): Intermediate result
             directories, one per recording.  Auto-generated if None.
         results_folders (list or None): Output directories, one per
             recording.  Auto-generated if None.
         compiled_results_folder (str or None): Directory for
             multi-recording compiled results.
-        **kwargs: All remaining keyword arguments are forwarded to
-            ``SortingPipelineConfig.from_kwargs()``.  See
-            ``SortingPipelineConfig`` for the full list of parameters.
+        **kwargs: Override individual config fields.  When ``config``
+            is provided, these are applied on top.  When ``config`` is
+            None, these are passed to
+            ``SortingPipelineConfig.from_kwargs()``.
 
     Returns:
         results (list[SpikeData]): One SpikeData per original recording
@@ -837,7 +839,12 @@ def sort_recording(
     from .backends import get_backend_class
     from .config import SortingPipelineConfig
 
-    config = SortingPipelineConfig.from_kwargs(**kwargs)
+    if config is not None:
+        if kwargs:
+            config = config.override(**kwargs)
+        sorter = config.sorter.sorter_name
+    else:
+        config = SortingPipelineConfig.from_kwargs(**kwargs)
     backend_cls = get_backend_class(sorter)
     backend = backend_cls(config)
 
@@ -989,7 +996,7 @@ def sort_recording(
     return spikedata_results
 
 
-def sort_multistream(recording, stream_ids, sorter="kilosort2", **kwargs):
+def sort_multistream(recording, stream_ids, config=None, sorter="kilosort2", **kwargs):
     """Sort a multi-stream recording across multiple stream IDs.
 
     Calls ``sort_recording`` once per stream ID, routing each stream
@@ -1003,13 +1010,15 @@ def sort_multistream(recording, stream_ids, sorter="kilosort2", **kwargs):
             concatenated per stream.
         stream_ids (list of str): Stream identifiers to sort, e.g.
             ``["well000", "well001", "well002"]``.
+        config (SortingPipelineConfig or None): Pre-built configuration.
+            When provided, ``**kwargs`` are applied as overrides.
         sorter (str): Registered sorter backend name (default
-            ``"kilosort2"``).
-        **kwargs: All remaining keyword arguments are forwarded to
-            ``sort_recording``.  The following are handled specially:
+            ``"kilosort2"``).  Only used when ``config`` is None.
+        **kwargs: Override individual config fields.  The following
+            must not be provided:
 
             - ``intermediate_folders`` and ``results_folders`` are
-              auto-generated per stream and must not be provided.
+              auto-generated per stream.
             - ``stream_id`` is set automatically per iteration.
 
     Returns:
@@ -1092,6 +1101,7 @@ def sort_multistream(recording, stream_ids, sorter="kilosort2", **kwargs):
 
         stream_results = sort_recording(
             recording_files=[str(recording)],
+            config=config,
             sorter=sorter,
             intermediate_folders=inter,
             results_folders=res,

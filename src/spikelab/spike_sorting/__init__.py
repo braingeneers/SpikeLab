@@ -1,17 +1,11 @@
 __all__ = [
     "sort_recording",
     "sort_multistream",
-    "sort_with_kilosort2",
-    "sort_maxtwo_multiwell",
 ]
 
 _LAZY_IMPORTS = {
-    # New generic entry points (no sorter-specific dependencies)
     "sort_recording": ("pipeline", "sort_recording"),
     "sort_multistream": ("pipeline", "sort_multistream"),
-    # Legacy entry points (Kilosort2-specific, kept for backward compat)
-    "sort_with_kilosort2": ("kilosort2", "sort_with_kilosort2"),
-    "sort_maxtwo_multiwell": ("kilosort2", "sort_maxtwo_multiwell"),
 }
 
 

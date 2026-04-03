@@ -182,8 +182,71 @@ class SortingPipelineConfig:
         Returns:
             config (SortingPipelineConfig): Populated configuration.
         """
-        # Map flat kwarg names → (sub-config class, field name)
-        _FLAT_MAP = {
+        flat_map = cls._build_flat_map()
+
+        sub_kwargs = {
+            "recording": {},
+            "sorter": {},
+            "waveform": {},
+            "curation": {},
+            "compilation": {},
+            "figures": {},
+            "execution": {},
+        }
+
+        for key, value in kwargs.items():
+            if key in flat_map:
+                group, field_name = flat_map[key]
+                sub_kwargs[group][field_name] = value
+            else:
+                raise TypeError(
+                    f"Unknown parameter '{key}'. Check spelling or see "
+                    "SortingPipelineConfig for valid fields."
+                )
+
+        return cls(
+            recording=RecordingConfig(**sub_kwargs["recording"]),
+            sorter=SorterConfig(**sub_kwargs["sorter"]),
+            waveform=WaveformConfig(**sub_kwargs["waveform"]),
+            curation=CurationConfig(**sub_kwargs["curation"]),
+            compilation=CompilationConfig(**sub_kwargs["compilation"]),
+            figures=FigureConfig(**sub_kwargs["figures"]),
+            execution=ExecutionConfig(**sub_kwargs["execution"]),
+        )
+
+    def override(self, **kwargs):
+        """Return a copy of this config with selected fields overridden.
+
+        Accepts the same flat keyword arguments as ``from_kwargs()``.
+        Unspecified fields retain their current values.
+
+        Parameters:
+            **kwargs: Flat keyword arguments to override.
+
+        Returns:
+            config (SortingPipelineConfig): New config with overrides.
+        """
+        from copy import deepcopy
+
+        new = deepcopy(self)
+        flat_map = self._build_flat_map()
+
+        for key, value in kwargs.items():
+            if key not in flat_map:
+                raise TypeError(
+                    f"Unknown parameter '{key}'. Check spelling or see "
+                    "SortingPipelineConfig for valid fields."
+                )
+            group, field_name = flat_map[key]
+            sub_config = getattr(new, group)
+            setattr(sub_config, field_name, value)
+
+        return new
+
+    @staticmethod
+    def _build_flat_map():
+        """Return the flat kwarg → (group, field) mapping."""
+        return {
             # RecordingConfig
             "stream_id": ("recording", "stream_id"),
             "hdf5_plugin_path": ("recording", "hdf5_plugin_path"),
@@ -266,7 +329,10 @@ class SortingPipelineConfig:
                 "figures",
                 "templates_line_ms_before",
             ),
-            "all_templates_line_ms_after_peak": ("figures", "templates_line_ms_after"),
+            "all_templates_line_ms_after_peak": (
+                "figures",
+                "templates_line_ms_after",
+            ),
             "all_templates_x_label": ("figures", "templates_x_label"),
             # ExecutionConfig
             "n_jobs": ("execution", "n_jobs"),
@@ -290,32 +356,16 @@ class SortingPipelineConfig:
             "delete_inter": ("execution", "delete_inter"),
         }
 
-        sub_kwargs = {
-            "recording": {},
-            "sorter": {},
-            "waveform": {},
-            "curation": {},
-            "compilation": {},
-            "figures": {},
-            "execution": {},
-        }
 
-        for key, value in kwargs.items():
-            if key in _FLAT_MAP:
-                group, field_name = _FLAT_MAP[key]
-                sub_kwargs[group][field_name] = value
-            else:
-                raise TypeError(
-                    f"Unknown parameter '{key}'. Check spelling or see "
-                    "SortingPipelineConfig for valid fields."
-                )
+# ---------------------------------------------------------------------------
+# Presets
+# ---------------------------------------------------------------------------
 
-        return cls(
-            recording=RecordingConfig(**sub_kwargs["recording"]),
-            sorter=SorterConfig(**sub_kwargs["sorter"]),
-            waveform=WaveformConfig(**sub_kwargs["waveform"]),
-            curation=CurationConfig(**sub_kwargs["curation"]),
-            compilation=CompilationConfig(**sub_kwargs["compilation"]),
-            figures=FigureConfig(**sub_kwargs["figures"]),
-            execution=ExecutionConfig(**sub_kwargs["execution"]),
-        )
+#: Default configuration for Kilosort2 on Maxwell MEA recordings.
+#: All parameters match the defaults previously used by ``sort_with_kilosort2()``.
+KILOSORT2_MAXWELL = SortingPipelineConfig()
+
+#: Kilosort2 on Maxwell with Docker (no local MATLAB needed).
+KILOSORT2_MAXWELL_DOCKER = SortingPipelineConfig(
+    sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
+)

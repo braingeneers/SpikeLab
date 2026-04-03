@@ -15,6 +15,24 @@ import os
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
 
+DEFAULT_KILOSORT2_PARAMS = {
+    "detect_threshold": 6,
+    "projection_threshold": [10, 4],
+    "preclust_threshold": 8,
+    "car": True,
+    "minFR": 0.1,
+    "minfr_goodchannels": 0.1,
+    "freq_min": 150,
+    "sigmaMask": 30,
+    "nPCs": 3,
+    "ntbuff": 64,
+    "nfilt_factor": 4,
+    "NT": None,
+    "keep_good_only": False,
+}
+"""Default Kilosort2 parameters. Used by both the backend and
+``sort_with_kilosort2`` to populate missing values."""
+
 
 class Kilosort2Backend(SorterBackend):
     """SorterBackend implementation for Kilosort2.
@@ -59,22 +77,10 @@ class Kilosort2Backend(SorterBackend):
 
         # Sorter
         ks2.KILOSORT_PATH = sor.sorter_path
-        _default_ks2_params = {
-            "detect_threshold": 6,
-            "projection_threshold": [10, 4],
-            "preclust_threshold": 8,
-            "car": True,
-            "minFR": 0.1,
-            "minfr_goodchannels": 0.1,
-            "freq_min": 150,
-            "sigmaMask": 30,
-            "nPCs": 3,
-            "ntbuff": 64,
-            "nfilt_factor": 4,
-            "NT": None,
-            "keep_good_only": False,
+        ks2.KILOSORT_PARAMS = {
+            **DEFAULT_KILOSORT2_PARAMS,
+            **(sor.sorter_params or {}),
         }
-        ks2.KILOSORT_PARAMS = {**_default_ks2_params, **(sor.sorter_params or {})}
         ks2.USE_DOCKER = sor.use_docker
 
         # Waveforms
