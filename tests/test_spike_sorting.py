@@ -1421,7 +1421,7 @@ class TestSortWithKilosort2Validation:
                 results_folders=[str(tmp_path / "res1"), str(tmp_path / "res2")],
             )
 
-    def test_default_kilosort_params(self, sort_fn):
+    def test_default_kilosort_params(self, sort_fn, tmp_path):
         """
         Default kilosort_params contain expected keys when None is passed.
 
@@ -1432,10 +1432,15 @@ class TestSortWithKilosort2Validation:
             - This test patches process_recording to prevent actual execution.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
 
-        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+        with patch.object(
+            pipe_mod, "process_recording", return_value=Exception("skip")
+        ):
             sort_fn(
                 recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter")],
+                results_folders=[str(tmp_path / "res")],
                 kilosort_path="/fake/kilosort",
                 kilosort_params=None,
                 compile_all_recordings=False,
@@ -1449,7 +1454,7 @@ class TestSortWithKilosort2Validation:
             assert "NT" in params
             assert "nPCs" in params
 
-    def test_custom_params_override_defaults(self, sort_fn):
+    def test_custom_params_override_defaults(self, sort_fn, tmp_path):
         """
         User-provided kilosort_params override the default values.
 
@@ -1458,10 +1463,15 @@ class TestSortWithKilosort2Validation:
             (Test Case 2) Other defaults are preserved.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
 
-        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+        with patch.object(
+            pipe_mod, "process_recording", return_value=Exception("skip")
+        ):
             sort_fn(
                 recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter")],
+                results_folders=[str(tmp_path / "res")],
                 kilosort_path="/fake/kilosort",
                 kilosort_params={"detect_threshold": 10},
                 compile_all_recordings=False,
@@ -1479,21 +1489,18 @@ class TestSortWithKilosort2Validation:
         Tests:
             (Test Case 1) No recordings => no SpikeData objects returned.
         """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        result = sort_fn(
+            recording_files=[],
+            intermediate_folders=[],
+            results_folders=[],
+            kilosort_path="/fake/kilosort",
+            compile_all_recordings=False,
+            delete_inter=False,
+            create_figures=False,
+        )
+        assert result == []
 
-        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
-            result = sort_fn(
-                recording_files=[],
-                intermediate_folders=[],
-                results_folders=[],
-                kilosort_path="/fake/kilosort",
-                compile_all_recordings=False,
-                delete_inter=False,
-                create_figures=False,
-            )
-            assert result == []
-
-    def test_use_docker_sets_global(self, sort_fn):
+    def test_use_docker_sets_global(self, sort_fn, tmp_path):
         """
         use_docker=True sets the USE_DOCKER global.
 
@@ -1502,10 +1509,15 @@ class TestSortWithKilosort2Validation:
             (Test Case 2) Global is False after calling with use_docker=False.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
 
-        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+        with patch.object(
+            pipe_mod, "process_recording", return_value=Exception("skip")
+        ):
             sort_fn(
                 recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter")],
+                results_folders=[str(tmp_path / "res")],
                 kilosort_path="/fake/kilosort",
                 use_docker=True,
                 compile_all_recordings=False,
@@ -1516,6 +1528,8 @@ class TestSortWithKilosort2Validation:
 
             sort_fn(
                 recording_files=["fake.h5"],
+                intermediate_folders=[str(tmp_path / "inter2")],
+                results_folders=[str(tmp_path / "res2")],
                 kilosort_path="/fake/kilosort",
                 use_docker=False,
                 compile_all_recordings=False,
@@ -2198,6 +2212,246 @@ class TestSortMaxtwoMultiwellValidation:
         """
         with pytest.raises(ValueError, match="results_folders"):
             multiwell_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                results_folders=["/tmp/results"],
+            )
+
+
+# ===========================================================================
+# Backend registry
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestBackendRegistry:
+    """
+    Tests for the sorter backend registry.
+    """
+
+    def test_list_sorters(self):
+        """
+        list_sorters returns available backend names.
+
+        Tests:
+            (Test Case 1) kilosort2 is in the list.
+        """
+        from spikelab.spike_sorting.backends import list_sorters
+
+        sorters = list_sorters()
+        assert "kilosort2" in sorters
+
+    def test_get_backend_class_valid(self):
+        """
+        get_backend_class returns the correct class for a registered sorter.
+
+        Tests:
+            (Test Case 1) kilosort2 returns Kilosort2Backend.
+        """
+        from spikelab.spike_sorting.backends import get_backend_class
+
+        cls = get_backend_class("kilosort2")
+        assert cls.__name__ == "Kilosort2Backend"
+
+    def test_get_backend_class_unknown_raises(self):
+        """
+        get_backend_class raises ValueError for unregistered sorter names.
+
+        Tests:
+            (Test Case 1) Error message lists available sorters.
+        """
+        from spikelab.spike_sorting.backends import get_backend_class
+
+        with pytest.raises(ValueError, match="Unknown sorter"):
+            get_backend_class("nonexistent_sorter")
+
+
+# ===========================================================================
+# SortingPipelineConfig
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortingPipelineConfig:
+    """
+    Tests for the SortingPipelineConfig dataclass.
+    """
+
+    def test_default_construction(self):
+        """
+        Default config has expected default values.
+
+        Tests:
+            (Test Case 1) Default sorter name is kilosort2.
+            (Test Case 2) Default snr_min is 5.0.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        assert cfg.sorter.sorter_name == "kilosort2"
+        assert cfg.curation.snr_min == 5.0
+        assert cfg.execution.n_jobs == 8
+
+    def test_from_kwargs(self):
+        """
+        from_kwargs maps flat parameter names to nested sub-configs.
+
+        Tests:
+            (Test Case 1) kilosort_path maps to sorter.sorter_path.
+            (Test Case 2) snr_min maps to curation.snr_min.
+            (Test Case 3) n_jobs maps to execution.n_jobs.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(
+            kilosort_path="/opt/ks2",
+            snr_min=3.0,
+            n_jobs=4,
+        )
+        assert cfg.sorter.sorter_path == "/opt/ks2"
+        assert cfg.curation.snr_min == 3.0
+        assert cfg.execution.n_jobs == 4
+
+    def test_from_kwargs_unknown_raises(self):
+        """
+        from_kwargs raises TypeError for unknown parameter names.
+
+        Tests:
+            (Test Case 1) Bogus parameter is rejected.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        with pytest.raises(TypeError, match="Unknown parameter"):
+            SortingPipelineConfig.from_kwargs(bogus_param=True)
+
+
+# ===========================================================================
+# sort_recording validation
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortRecordingValidation:
+    """
+    Tests for sort_recording parameter validation.
+    """
+
+    @pytest.fixture()
+    def sort_fn(self):
+        from spikelab.spike_sorting.pipeline import sort_recording
+
+        return sort_recording
+
+    def test_unknown_sorter_raises(self, sort_fn):
+        """
+        Unknown sorter name raises ValueError.
+
+        Tests:
+            (Test Case 1) Error message lists available sorters.
+        """
+        with pytest.raises(ValueError, match="Unknown sorter"):
+            sort_fn(
+                recording_files=["fake.h5"],
+                sorter="nonexistent_sorter",
+            )
+
+    def test_mismatched_list_lengths_raises(self, sort_fn, tmp_path):
+        """
+        Mismatched folder list lengths raise ValueError.
+
+        Tests:
+            (Test Case 1) 2 recordings but 1 intermediate folder.
+        """
+        with pytest.raises(ValueError, match="same length"):
+            sort_fn(
+                recording_files=["fake1.h5", "fake2.h5"],
+                intermediate_folders=[str(tmp_path / "inter1")],
+                results_folders=[str(tmp_path / "r1"), str(tmp_path / "r2")],
+            )
+
+    def test_compile_all_without_folder_raises(self, sort_fn):
+        """
+        compile_all_recordings=True without folder raises ValueError.
+
+        Tests:
+            (Test Case 1) Error message mentions compiled_results_folder.
+        """
+        with pytest.raises(ValueError, match="compile_all_recordings"):
+            sort_fn(
+                recording_files=["fake.h5"],
+                compile_all_recordings=True,
+                compiled_results_folder=None,
+            )
+
+    def test_empty_recording_files(self, sort_fn):
+        """
+        Empty recording_files returns empty result list.
+
+        Tests:
+            (Test Case 1) No recordings => empty list.
+        """
+        result = sort_fn(
+            recording_files=[],
+            intermediate_folders=[],
+            results_folders=[],
+        )
+        assert result == []
+
+
+# ===========================================================================
+# sort_multistream validation
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortMultistreamValidation:
+    """
+    Tests for sort_multistream parameter validation.
+    """
+
+    @pytest.fixture()
+    def multistream_fn(self):
+        from spikelab.spike_sorting.pipeline import sort_multistream
+
+        return sort_multistream
+
+    def test_stream_id_kwarg_raises(self, multistream_fn):
+        """
+        Passing stream_id directly raises ValueError.
+
+        Tests:
+            (Test Case 1) Error message tells user to use stream_ids.
+        """
+        with pytest.raises(ValueError, match="Do not pass 'stream_id'"):
+            multistream_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                stream_id="well000",
+            )
+
+    def test_intermediate_folders_kwarg_raises(self, multistream_fn):
+        """
+        Passing intermediate_folders raises ValueError.
+
+        Tests:
+            (Test Case 1) Auto-generated folders cannot be overridden.
+        """
+        with pytest.raises(ValueError, match="intermediate_folders"):
+            multistream_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                intermediate_folders=["/tmp/inter"],
+            )
+
+    def test_results_folders_kwarg_raises(self, multistream_fn):
+        """
+        Passing results_folders raises ValueError.
+
+        Tests:
+            (Test Case 1) Auto-generated folders cannot be overridden.
+        """
+        with pytest.raises(ValueError, match="results_folders"):
+            multistream_fn(
                 recording="fake.raw.h5",
                 stream_ids=["well000"],
                 results_folders=["/tmp/results"],
