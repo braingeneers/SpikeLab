@@ -11,9 +11,10 @@ import sys
 import time
 import warnings
 from pathlib import Path
+from typing import Any, Optional, Tuple, Union
 
 
-def print_stage(text):
+def print_stage(text: Any) -> None:
     """Print a centered banner message framed by ``=`` lines.
 
     Parameters:
@@ -42,7 +43,9 @@ class Stopwatch:
             with the ``print_stage`` banner; otherwise use plain ``print``.
     """
 
-    def __init__(self, start_msg=None, use_print_stage=True):
+    def __init__(
+        self, start_msg: Optional[str] = None, use_print_stage: bool = True
+    ) -> None:
         if start_msg is not None:
             if use_print_stage:
                 print_stage(start_msg)
@@ -51,7 +54,7 @@ class Stopwatch:
 
         self._time_start = time.time()
 
-    def log_time(self, text=None):
+    def log_time(self, text: Optional[str] = None) -> None:
         if text is None:
             print(f"Time: {time.time() - self._time_start:.2f}s")
         else:
@@ -71,7 +74,7 @@ class Tee:
         file_mode (str): File open mode (e.g. ``'w'`` or ``'a'``).
     """
 
-    def __init__(self, file_path, file_mode="a"):
+    def __init__(self, file_path: Union[str, Path], file_mode: str = "a") -> None:
         from types import MethodType
 
         _file = open(file_path, file_mode)
@@ -80,11 +83,11 @@ class Tee:
         _file.write = MethodType(Tee._write, _file)
         self._file = _file
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         sys.stdout = self._file
         return self._file
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         import traceback
 
         if exc_type:
@@ -96,13 +99,13 @@ class Tee:
         self._file.close()
 
     @staticmethod
-    def _write(self, s):
+    def _write(self, s: str) -> None:
         self.file_write(s)
         if s != "\n" and s != " ":
             print(s, file=self.stdout)
 
 
-def create_folder(folder, parents=True):
+def create_folder(folder: Union[str, Path], parents: bool = True) -> None:
     """Create a directory if it does not already exist.
 
     Parameters:
@@ -115,7 +118,7 @@ def create_folder(folder, parents=True):
         print(f"Created folder: {folder}")
 
 
-def delete_folder(folder):
+def delete_folder(folder: Union[str, Path]) -> None:
     """Delete a file or directory tree if it exists.
 
     Parameters:
@@ -131,7 +134,9 @@ def delete_folder(folder):
             print(f"Deleted file: {folder}")
 
 
-def get_paths(rec_path, inter_path, results_path, execution_config=None):
+def get_paths(
+    rec_path: Any, inter_path: Any, results_path: Any, execution_config: Any = None
+) -> Tuple[Path, Path, Path, Path, Path, Path, Path, Path, Path]:
     """Resolve and prepare all directory paths for one recording run.
 
     Derives paths for the binary ``.dat`` file, sorter output,

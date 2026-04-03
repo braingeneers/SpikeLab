@@ -11,6 +11,7 @@ global-setting logic will be removed.
 """
 
 import os
+from typing import Any
 
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
@@ -41,11 +42,11 @@ class Kilosort2Backend(SorterBackend):
         config (SortingPipelineConfig): Full pipeline configuration.
     """
 
-    def __init__(self, config: SortingPipelineConfig):
+    def __init__(self, config: SortingPipelineConfig) -> None:
         super().__init__(config)
         self._sync_globals()
 
-    def _sync_globals(self):
+    def _sync_globals(self) -> None:
         """Set module-level globals in kilosort2.py from the config.
 
         This bridges the config-based architecture with the legacy
@@ -134,7 +135,7 @@ class Kilosort2Backend(SorterBackend):
         ks2.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
         ks2.RECOMPILE_ALL_RECORDINGS = exe.recompile_all_recordings
 
-    def load_recording(self, rec_path):
+    def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the legacy loader.
 
         Handles Maxwell ``.h5``, NWB, directories (concatenation),
@@ -154,7 +155,9 @@ class Kilosort2Backend(SorterBackend):
 
         return recording
 
-    def sort(self, recording, rec_path, recording_dat_path, output_folder):
+    def sort(
+        self, recording: Any, rec_path: Any, recording_dat_path: Any, output_folder: Any
+    ) -> Any:
         """Run Kilosort2 spike sorting.
 
         Delegates to the legacy ``spike_sort`` function which handles
@@ -170,8 +173,13 @@ class Kilosort2Backend(SorterBackend):
         )
 
     def extract_waveforms(
-        self, recording, sorting, waveforms_folder, curation_folder, rec_path=None
-    ):
+        self,
+        recording: Any,
+        sorting: Any,
+        waveforms_folder: Any,
+        curation_folder: Any,
+        rec_path: Any = None,
+    ) -> Any:
         """Extract waveforms via the custom WaveformExtractor.
 
         Uses the legacy extraction pipeline with per-spike centering.

@@ -8,10 +8,14 @@ All functions operate on plain numpy arrays or SpikeInterface objects —
 they do not depend on any specific sorter's output format.
 """
 
+from typing import Any, Dict
+
 import numpy as np
 
 
-def classify_polarity(templates, pos_peak_thresh=2.0):
+def classify_polarity(
+    templates: np.ndarray, pos_peak_thresh: float = 2.0
+) -> np.ndarray:
     """Classify each unit as positive-peak or negative-peak.
 
     Compares the maximum positive deflection against the maximum negative
@@ -40,7 +44,7 @@ def classify_polarity(templates, pos_peak_thresh=2.0):
     return pos_values >= pos_peak_thresh * np.abs(neg_values)
 
 
-def get_max_channels(templates, use_pos_peak):
+def get_max_channels(templates: np.ndarray, use_pos_peak: np.ndarray) -> np.ndarray:
     """Find the channel with the largest amplitude per unit.
 
     For positive-peak units, selects the channel with the highest
@@ -66,7 +70,9 @@ def get_max_channels(templates, use_pos_peak):
     return np.where(use_pos_peak, pos_chans, neg_chans)
 
 
-def compute_half_window_sizes(templates, chans_max, window_size_scale=0.75):
+def compute_half_window_sizes(
+    templates: np.ndarray, chans_max: np.ndarray, window_size_scale: float = 0.75
+) -> np.ndarray:
     """Compute the half-window size for per-spike peak finding.
 
     For each unit, measures the distance from the template center to the
@@ -109,13 +115,13 @@ def compute_half_window_sizes(templates, chans_max, window_size_scale=0.75):
 
 
 def center_spike_times(
-    recording,
-    spike_times_by_unit,
-    chans_max,
-    use_pos_peak,
-    half_window_sizes,
-    segment_index=0,
-):
+    recording: Any,
+    spike_times_by_unit: Dict[int, np.ndarray],
+    chans_max: Any,
+    use_pos_peak: Any,
+    half_window_sizes: Any,
+    segment_index: int = 0,
+) -> Dict[int, np.ndarray]:
     """Refine spike times by recentering each spike on the actual voltage peak.
 
     For each spike, reads the raw voltage trace on the unit's max channel

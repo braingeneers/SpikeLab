@@ -13,6 +13,7 @@ handled by the ``SorterBackend`` subclass passed to
 import json
 import os
 import pickle
+from typing import Any, Dict, List, Optional, Tuple, Union
 import shutil
 import warnings
 from pathlib import Path
@@ -36,8 +37,12 @@ from .sorting_utils import (
 
 
 def _get_noise_levels(
-    recording, return_scaled=True, num_chunks=20, chunk_size=10000, seed=0
-):
+    recording: Any,
+    return_scaled: bool = True,
+    num_chunks: int = 20,
+    chunk_size: int = 10000,
+    seed: int = 0,
+) -> np.ndarray:
     """Estimate per-channel noise using MAD on random recording chunks.
 
     Parameters:
@@ -67,7 +72,13 @@ def _get_noise_levels(
     return np.median(np.abs(data - med), axis=0) / 0.6745
 
 
-def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None):
+def build_spikedata(
+    w_e: Any,
+    rec_path: Any,
+    config: Any,
+    rec_chunks: Optional[list] = None,
+    rec_chunk_names: Optional[list] = None,
+) -> Any:
     """Convert a waveform extractor to a SpikeData with rich neuron attributes.
 
     This is the bridge between any sorter backend's waveform extractor
@@ -242,7 +253,9 @@ def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None
 # ---------------------------------------------------------------------------
 
 
-def curate_spikedata(sd, curation_folder, config, recurate=False):
+def curate_spikedata(
+    sd: Any, curation_folder: Any, config: Any, recurate: bool = False
+) -> Tuple[Any, dict]:
     """Curate a SpikeData with disk caching.
 
     Reads curation thresholds from *config* and applies them via
@@ -326,7 +339,7 @@ class Compiler:
         config (SortingPipelineConfig): Pipeline configuration.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         fig = config.figures
         comp = config.compilation
@@ -343,7 +356,9 @@ class Compiler:
         self.save_electrodes = comp.save_electrodes
         self.recs_cache = []
 
-    def add_recording(self, rec_name, sd, curation_history=None):
+    def add_recording(
+        self, rec_name: str, sd: Any, curation_history: Optional[dict] = None
+    ) -> None:
         """Queue a recording for compilation.
 
         Parameters:
@@ -353,7 +368,7 @@ class Compiler:
         """
         self.recs_cache.append((rec_name, sd, curation_history))
 
-    def save_results(self, folder):
+    def save_results(self, folder: Any) -> None:
         """Compile and save results from all queued recordings.
 
         Parameters:

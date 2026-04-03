@@ -112,7 +112,7 @@ class FigureConfig:
     templates_line_ms_after: Optional[float] = 4.0
     templates_x_label: str = "Time Rel. to Peak (ms)"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.scatter_recording_colors is None:
             self.scatter_recording_colors = [
                 "#f74343",

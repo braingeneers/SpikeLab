@@ -25,7 +25,7 @@ import traceback
 from math import ceil
 from pathlib import Path
 from types import MethodType
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -65,14 +65,14 @@ from .sorting_utils import (  # noqa: E402
 
 # region Save traces
 def save_traces(
-    recording,
-    inter_path,
-    start_ms=0,
-    end_ms=None,
-    num_processes=None,
-    dtype="float16",
-    verbose=True,
-):
+    recording: Any,
+    inter_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    num_processes: Optional[int] = None,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled voltage traces to a ``.npy`` file for fast downstream access.
 
     Dispatches to a Maxwell-optimised path (direct HDF5 reads via ``h5py``)
@@ -131,13 +131,13 @@ def save_traces(
 
 def save_traces_si(
     recording: BaseRecording,
-    scaled_traces_path,
-    start_ms=0,
-    end_ms=None,
-    num_processes=16,
-    dtype="float16",
-    verbose=True,
-):
+    scaled_traces_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    num_processes: int = 16,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled traces from a SpikeInterface recording to a ``.npy`` file.
 
     Each channel is extracted in parallel and written into a pre-allocated
@@ -191,7 +191,7 @@ def save_traces_si(
                 pass
 
 
-def _save_traces_si(task):
+def _save_traces_si(task: tuple) -> None:
     """Worker function for ``save_traces_si``.
 
     Extracts traces for a single channel and writes them into the
@@ -218,17 +218,17 @@ def _save_traces_si(task):
 
 
 def save_traces_mea(
-    rec_path,
-    save_path,
-    start_ms=0,
-    end_ms=None,
-    samp_freq=20,  # kHz
-    default_gain=1,
-    chunk_size=100000,
-    num_processes=2,
-    dtype="float16",
-    verbose=True,
-):
+    rec_path: Union[str, Path],
+    save_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    samp_freq: float = 20,  # kHz
+    default_gain: float = 1,
+    chunk_size: int = 100000,
+    num_processes: int = 2,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled traces from a Maxwell MEA recording to a ``.npy`` file.
 
     Reads the HDF5 file directly with ``h5py`` instead of SpikeInterface's
@@ -318,7 +318,7 @@ def save_traces_mea(
             pass
 
 
-def _get_traces_mea_old(rec_path):
+def _get_traces_mea_old(rec_path: Union[str, Path]) -> Any:
     """Return the raw signal dataset from an old-format Maxwell HDF5 file.
 
     Parameters:
@@ -330,7 +330,7 @@ def _get_traces_mea_old(rec_path):
     return h5py.File(rec_path, "r")["sig"]
 
 
-def _get_traces_mea_new(rec_path):
+def _get_traces_mea_new(rec_path: Union[str, Path]) -> Any:
     """Return the raw signal dataset from a new-format Maxwell HDF5 file.
 
     Parameters:
@@ -345,7 +345,7 @@ def _get_traces_mea_new(rec_path):
     ]["raw"]
 
 
-def _save_traces_mea(task):
+def _save_traces_mea(task: tuple) -> None:
     """Worker function for ``save_traces_mea``.
 
     Reads one chunk of frames from the HDF5 file, scales by gain, and
@@ -1020,7 +1020,7 @@ class KilosortSortingExtractor:
 
         return half_windows_sizes
 
-    def ms_to_samples(self, ms):
+    def ms_to_samples(self, ms: float) -> int:
         return round(ms * self.sampling_frequency / 1000.0)
 
 
@@ -1424,13 +1424,13 @@ class WaveformExtractor:
         we.load_units()
         return we
 
-    def ms_to_samples(self, ms):
+    def ms_to_samples(self, ms: float) -> int:
         return int(ms * self.sampling_frequency / 1000.0)
 
     # endregion
 
     # region Extract waveforms
-    def run_extract_waveforms(self, **job_kwargs):
+    def run_extract_waveforms(self, **job_kwargs: Any) -> None:
         self.templates_half_windows_sizes = (
             self.sorting.get_templates_half_windows_sizes(self.chans_max_kilosort)
         )
@@ -1509,7 +1509,7 @@ class WaveformExtractor:
                 spike_times[spike_time_to_ind[st]] = st_cen
         np.save(self.sorting.folder / "spike_times.npy", spike_times)
 
-    def sample_spikes(self):
+    def sample_spikes(self) -> dict:
         """
         Uniform random selection of spikes per unit and save to .npy
 
@@ -1545,7 +1545,7 @@ class WaveformExtractor:
 
         return selected_spikes
 
-    def select_random_spikes_uniformly(self):
+    def select_random_spikes_uniformly(self) -> dict:
         """
         Uniform random selection of spikes per unit.
 
@@ -1746,8 +1746,12 @@ class WaveformExtractor:
 
     # region Get waveforms and templates
     def get_waveforms(
-        self, unit_id, with_index=False, cache=False, memmap=True
-    ):  # SpikeInterface has cache=True by default
+        self,
+        unit_id: int,
+        with_index: bool = False,
+        cache: bool = False,
+        memmap: bool = True,
+    ) -> Any:  # SpikeInterface has cache=True by default
         """
         Return waveforms for the specified unit id.
 
@@ -1792,7 +1796,7 @@ class WaveformExtractor:
         else:
             return wfs
 
-    def get_sampled_indices(self, unit_id):
+    def get_sampled_indices(self, unit_id: int) -> list:
         """
         Return sampled spike indices of extracted waveforms
         (which waveforms correspond to which spikes if "max_spikes_per_unit" is not None)
@@ -1820,7 +1824,7 @@ class WaveformExtractor:
             sampled_index_without_segment_index.append(index[0])
         return sampled_index_without_segment_index
 
-    def get_computed_template(self, unit_id, mode):
+    def get_computed_template(self, unit_id: int, mode: str) -> np.ndarray:
         """
         Return template (average waveform).
 
@@ -1942,12 +1946,12 @@ class WaveformExtractor:
             np.save(str(template_file), templates)
         stopwatch.log_time("Done computing and saving templates.")
 
-    def load_units(self):
+    def load_units(self) -> None:
         self.sorting.unit_ids = np.load(str(self.folder / "unit_ids.npy")).tolist()
         self.sorting.spike_times = np.load(str(self.folder / "spike_times.npy"))
         self.sorting.spike_clusters = np.load(str(self.folder / "spike_clusters.npy"))
 
-    def get_curation_history(self):
+    def get_curation_history(self) -> Optional[dict]:
         path = self.folder / "curation_history.json"
         if path.exists():
             with open(self.folder / "curation_history.json", "r") as f:
@@ -2393,7 +2397,9 @@ class Compiler:
 
         self.recs_cache = []
 
-    def add_recording(self, rec_name, sd, curation_history=None):
+    def add_recording(
+        self, rec_name: str, sd: Any, curation_history: Optional[dict] = None
+    ) -> None:
         """Queue a recording for compilation.
 
         Parameters:
@@ -2405,7 +2411,7 @@ class Compiler:
         """
         self.recs_cache.append((rec_name, sd, curation_history))
 
-    def save_results(self, folder):
+    def save_results(self, folder: Union[str, Path]) -> None:
         """Compile and save results from all queued recordings.
 
         Parameters:
@@ -2637,7 +2643,7 @@ class Compiler:
 # create_folder and delete_folder are imported from sorting_utils.
 
 
-def load_recording(rec_path):
+def load_recording(rec_path: Any) -> BaseRecording:
     """Load a recording, apply optional truncation and coordinate transforms.
 
     Loads a single recording file via ``load_single_recording``, or all
@@ -2718,8 +2724,12 @@ def load_recording(rec_path):
 
 
 def _get_noise_levels(
-    recording, return_scaled=True, num_chunks=20, chunk_size=10000, seed=0
-):
+    recording: Any,
+    return_scaled: bool = True,
+    num_chunks: int = 20,
+    chunk_size: int = 10000,
+    seed: int = 0,
+) -> np.ndarray:
     """Estimate per-channel noise using MAD on random recording chunks.
 
     Parameters:
@@ -2749,7 +2759,9 @@ def _get_noise_levels(
     return np.median(np.abs(data - med), axis=0) / 0.6745
 
 
-def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
+def _waveform_extractor_to_spikedata(
+    w_e: Any, rec_path: Any, rec_chunks: Optional[list] = None
+) -> Any:
     """Convert a WaveformExtractor to a SpikeData with rich neuron attributes.
 
     Extracts spike trains, full waveform templates, channel locations,
@@ -2944,7 +2956,12 @@ def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
     return SpikeData(trains, metadata=metadata, neuron_attributes=neuron_attributes)
 
 
-def _curate_spikedata(sd, curation_folder, recurate=False, **curate_kwargs):
+def _curate_spikedata(
+    sd: Any,
+    curation_folder: Union[str, Path],
+    recurate: bool = False,
+    **curate_kwargs: Any,
+) -> Tuple[Any, dict]:
     """Curate a SpikeData with disk caching for the sorting pipeline.
 
     If cached results exist and *recurate* is False, loads the cached
@@ -3007,7 +3024,7 @@ def _curate_spikedata(sd, curation_folder, recurate=False, **curate_kwargs):
     return sd_curated, history
 
 
-def load_single_recording(rec_path):
+def load_single_recording(rec_path: Any) -> BaseRecording:
     """Load one recording file and return a scaled, bandpass-filtered recording.
 
     Supports Maxwell ``.h5`` files, NWB ``.nwb`` files, and pre-loaded
@@ -3093,7 +3110,7 @@ Setup options (choose one):
     return rec
 
 
-def concatenate_recordings(rec_path):
+def concatenate_recordings(rec_path: Path) -> BaseRecording:
     """Load and concatenate all recordings in a directory.
 
     Scans *rec_path* for ``.raw.h5`` and ``.nwb`` files, loads each via
@@ -3212,7 +3229,7 @@ def concatenate_recordings(rec_path):
     return rec
 
 
-def get_paths(rec_path, inter_path, results_path):
+def get_paths(rec_path: Any, inter_path: Any, results_path: Any) -> tuple:
     """Resolve and prepare all directory paths for one recording run.
 
     Derives paths for the binary ``.dat`` file, Kilosort2 output,
@@ -3289,7 +3306,9 @@ def get_paths(rec_path, inter_path, results_path):
     )
 
 
-def write_recording(recording_filtered, recording_dat_path, verbose=True):
+def write_recording(
+    recording_filtered: BaseRecording, recording_dat_path: Path, verbose: bool = True
+) -> None:
     """Convert a filtered recording to the binary ``.dat`` format for Kilosort2.
 
     Writes an ``int16`` binary file using SpikeInterface's
@@ -3334,7 +3353,7 @@ def write_recording(recording_filtered, recording_dat_path, verbose=True):
     stopwatch.log_time("Done converting recording.")
 
 
-def _spike_sort_docker(recording, output_folder):
+def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
     """Run Kilosort2 inside a Docker container via SpikeInterface.
 
     Uses the ``spikeinterface/kilosort2-compiled-base`` image which bundles a
@@ -3437,7 +3456,12 @@ def _spike_sort_docker(recording, output_folder):
     return KilosortSortingExtractor(folder_path=sorter_output)
 
 
-def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
+def spike_sort(
+    rec_cache: BaseRecording,
+    rec_path: Any,
+    recording_dat_path: Path,
+    output_folder: Path,
+) -> Any:
     """Run Kilosort2 on a single recording and return the sorting result.
 
     Converts the recording to ``.dat`` format (if needed), launches
@@ -3495,8 +3519,13 @@ def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
 
 
 def extract_waveforms(
-    recording_path, recording, sorting, root_folder, initial_folder, **job_kwargs
-):
+    recording_path: Any,
+    recording: BaseRecording,
+    sorting: Any,
+    root_folder: Path,
+    initial_folder: Path,
+    **job_kwargs: Any,
+) -> Any:
     """
     Extracts waveform on paired Recording-Sorting objects.
     Waveforms are persistent on disk and cached in memory.
@@ -3544,7 +3573,13 @@ def extract_waveforms(
     return we
 
 
-def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=None):
+def process_recording(
+    rec_name: str,
+    rec_path: Any,
+    inter_path: Any,
+    results_path: Any,
+    rec_loaded: Any = None,
+) -> Any:
     """Run the full sorting pipeline on a single recording.
 
     Orchestrates path setup, recording loading, spike sorting, waveform
@@ -3714,7 +3749,7 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
         return sd_curated
 
 
-def copy_script(path):
+def copy_script(path: Path) -> None:
     """Save a timestamped copy of this module to the given directory.
 
     Parameters:
@@ -3728,7 +3763,13 @@ def copy_script(path):
     print(f"Saved a copy of script to {copied_path}")
 
 
-def compile_results(rec_name, rec_path, results_path, sd, curation_history=None):
+def compile_results(
+    rec_name: str,
+    rec_path: Any,
+    results_path: Any,
+    sd: Any,
+    curation_history: Optional[dict] = None,
+) -> None:
     """Compile and export sorting results for a single recording.
 
     Saves spike times, electrode information, and optionally ``.npz`` /

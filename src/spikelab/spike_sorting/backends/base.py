@@ -28,7 +28,7 @@ class SorterBackend(ABC):
             ``config.sorter``, ``config.waveform``, ``config.execution``).
     """
 
-    def __init__(self, config: SortingPipelineConfig):
+    def __init__(self, config: SortingPipelineConfig) -> None:
         self.config = config
 
     @abstractmethod
@@ -101,7 +101,7 @@ class SorterBackend(ABC):
               ``WaveformExtractor`` (future backends).
         """
 
-    def write_recording(self, recording, dat_path):
+    def write_recording(self, recording: Any, dat_path: Any) -> None:
         """Convert a recording to the binary format needed by the sorter.
 
         Not all sorters need this (some read recordings directly via
