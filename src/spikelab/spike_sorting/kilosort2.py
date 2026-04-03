@@ -1846,7 +1846,9 @@ class WaveformExtractor:
             template = np.std(wfs, axis=0)
         return template
 
-    def compute_templates(self, modes=("average", "std"), unit_ids=None, folder=None):
+    def compute_templates(
+        self, modes=("average", "std"), unit_ids=None, folder=None, n_jobs=1
+    ):
         """
         Compute all template for different "modes":
           * average
@@ -1866,6 +1868,10 @@ class WaveformExtractor:
         folder: None or Path
             Folder to save templates to
             If None-> use self.folder
+        n_jobs: int
+            Number of threads for parallel template computation.
+            Default 1 (sequential). Values > 1 use a thread pool
+            which speeds up I/O-bound waveform loading from disk.
         """
         print_stage("COMPUTING TEMPLATES")
         print("Template modes: " + ", ".join(modes))
@@ -1886,8 +1892,8 @@ class WaveformExtractor:
             )
             self.template_cache[mode] = templates
 
-        print(f"Computing templates for {len(unit_ids)} units")
-        for unit_id in tqdm(unit_ids):
+        def _compute_unit_template(unit_id):
+            """Load waveforms and compute templates for a single unit."""
             wfs = self.get_waveforms(unit_id, cache=False)
             for mode in modes:
                 if mode == "median":
@@ -1898,8 +1904,24 @@ class WaveformExtractor:
                     arr = np.std(wfs, axis=0)
                 else:
                     raise ValueError("mode must in median/average/std")
-
                 self.template_cache[mode][unit_id, :, :] = arr
+
+        n_units = len(unit_ids)
+        n_workers = min(n_jobs, n_units) if n_jobs > 1 else 1
+        print(f"Computing templates for {n_units} units (n_jobs={n_workers})")
+
+        if n_workers > 1:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                futures = {
+                    pool.submit(_compute_unit_template, uid): uid for uid in unit_ids
+                }
+                for _ in tqdm(as_completed(futures), total=n_units, desc="Templates"):
+                    pass
+        else:
+            for unit_id in tqdm(unit_ids):
+                _compute_unit_template(unit_id)
 
         create_folder(folder)
         print("Saving templates to .npy")
@@ -3499,7 +3521,9 @@ def extract_waveforms(
         we.run_extract_waveforms(**job_kwargs)
         stopwatch.log_time("Done extracting waveforms.")
 
-        we.compute_templates(modes=("average", "std"))
+        we.compute_templates(
+            modes=("average", "std"), n_jobs=job_kwargs.get("n_jobs", 1)
+        )
     return we
 
 
