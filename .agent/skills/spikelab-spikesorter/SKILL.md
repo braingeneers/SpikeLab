@@ -65,7 +65,7 @@ with open("data/sorted/recording_a/sorted_spikedata_curated.pkl", "rb") as f:
 
 ### Analysis boundaries
 
-Use SpikeLab methods for all neuroscience analyses. Do not implement custom spike train analysis logic — if SpikeLab does not provide a method, tell the user. Simple post-processing using standard packages (numpy, scipy, matplotlib) is fine for summary statistics and visualization.
+This skill is limited to **assessing spike sorting quality** — unit counts, SNR distributions, waveform templates, curation outcomes, and basic recording-level summaries. For any further analysis (firing rate computation, correlations, burst detection, population dynamics, event alignment, etc.), direct the user to the `spikelab-analysis-implementer` skill and point them to the `sorted_spikedata_curated.pkl` file(s) as the starting data.
 
 ### Never assume — ask if unsure
 
@@ -272,7 +272,9 @@ with open("curation_history.json", "w") as f:
 
 ---
 
-## Visualizing Results
+## Assessing Sorting Quality
+
+This skill supports **sorting QC only** — verifying that the sorting and curation produced reasonable results. For any deeper analysis, direct the user to `spikelab-analysis-implementer`.
 
 ### QC figures (generated during sorting)
 
@@ -293,24 +295,11 @@ from spikelab.spike_sorting.figures import (
 
 All accept an optional `ax` parameter for embedding in custom figure layouts.
 
-### Recording visualization
+### Unit quality summary
 
 ```python
-# Raster + population rate
-fig = sd.plot(show_raster=True, show_pop_rate=True, time_range=(0, 60000))
-
-# With burst overlays
-tburst, edges, amp = sd.get_bursts(thr_burst=1.75, min_burst_diff=4000)
-fig = sd.plot(
-    show_raster=True, show_pop_rate=True,
-    burst_times=tburst, burst_edges=edges,
-    burst_colors=["blue"] * len(tburst),  # per-burst colors
-)
-```
-
-### Unit quality plots
-
-```python
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -323,29 +312,33 @@ axes[0].set_xlabel("SNR")
 axes[0].set_ylabel("Count")
 axes[0].axvline(5.0, color='red', linestyle='--', label='threshold')
 
-# Firing rate distribution
-rates = sd.rates(unit="Hz")
-axes[1].hist(rates, bins=30)
-axes[1].set_xlabel("Firing rate (Hz)")
+# Spike count distribution
+spike_counts = [len(t) for t in sd.train]
+axes[1].hist(spike_counts, bins=30)
+axes[1].set_xlabel("Spike count")
 
-# Waveform templates
+# Waveform templates (first 10 units)
 for i in range(min(10, sd.N)):
     template = sd.neuron_attributes[i]['template']
     axes[2].plot(template, alpha=0.5)
 axes[2].set_xlabel("Sample")
 axes[2].set_ylabel("Amplitude")
 
-fig.savefig("unit_quality.png", dpi=150, bbox_inches="tight")
+fig.savefig("figures/unit_quality.png", dpi=150, bbox_inches="tight")
 plt.close(fig)
 ```
 
-### Spatial network
+### Quick recording overview
+
+A brief raster + population rate plot to verify the sorting looks reasonable:
 
 ```python
-# Plot units on MEA positions with pairwise connections
-sttc_matrix = sd.spike_time_tilings(delt=20.0)
-sd.plot_spatial_network(ax, sttc_matrix, top_pct=5)
+fig = sd.plot(show_raster=True, show_pop_rate=True, time_range=(0, 60000))
+fig.savefig("figures/recording_overview.png", dpi=150, bbox_inches="tight")
+plt.close(fig)
 ```
+
+For further analysis (correlations, burst detection, event alignment, population dynamics, etc.), use the `spikelab-analysis-implementer` skill with the `sorted_spikedata_curated.pkl` file as input.
 
 ---
 
