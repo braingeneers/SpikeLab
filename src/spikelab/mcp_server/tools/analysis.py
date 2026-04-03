@@ -558,6 +558,31 @@ async def get_frac_active(
     }
 
 
+async def get_frac_spikes_in_burst(
+    workspace_id: str,
+    namespace: str,
+    edges_key: str,
+    key: str,
+) -> Dict[str, Any]:
+    """Compute fraction of each unit's spikes inside burst windows and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    edges_obj = ws.get(namespace, edges_key)
+    if edges_obj is None or not isinstance(edges_obj, np.ndarray):
+        raise ValueError(
+            f"No edges array found at ({namespace!r}, {edges_key!r}). "
+            "Run get_bursts first to compute burst edges."
+        )
+    frac = sd.get_frac_spikes_in_burst(edges_obj)
+    ws.store(namespace, key, np.asarray(frac, dtype=np.float64))
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "info": ws.get_info(namespace, key),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Metadata queries — return inline (no large arrays)
 # ---------------------------------------------------------------------------

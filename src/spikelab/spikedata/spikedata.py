@@ -1648,6 +1648,46 @@ class SpikeData:
         backbone_units = np.where(frac_per_unit >= backbone_threshold)[0]
         return frac_per_unit, frac_per_burst, backbone_units
 
+    def get_frac_spikes_in_burst(self, edges, bin_size=1.0):
+        """Compute the fraction of each unit's spikes that fall inside burst windows.
+
+        Parameters:
+            edges (numpy.ndarray): Array of shape (B, 2) containing
+                [start, end] indices for each burst. Indices are in raster
+                bin coordinates (bin index = time_ms / bin_size).
+            bin_size (float): Raster bin size in milliseconds (default 1.0).
+                Must match the bin size used to compute ``edges``.
+
+        Returns:
+            frac_spikes_in_burst (numpy.ndarray): 1D array of shape (N,)
+                where each value is the fraction of the unit's total spikes
+                that fall inside any burst window. NaN for units with zero
+                spikes.
+        """
+        t_spk_mat = self.sparse_raster(bin_size=bin_size).toarray()
+        n_units = t_spk_mat.shape[0]
+        n_bursts = edges.shape[0]
+
+        total_spikes = t_spk_mat.sum(axis=1)
+        frac = np.full(n_units, np.nan)
+
+        if n_bursts == 0:
+            return frac
+
+        spikes_in_burst = np.zeros(n_units)
+        for unit in range(n_units):
+            unit_spk_times = np.where(t_spk_mat[unit, :])[0]
+            for burst in range(n_bursts):
+                in_burst = unit_spk_times[
+                    (unit_spk_times >= edges[burst, 0])
+                    & (unit_spk_times <= edges[burst, 1])
+                ]
+                spikes_in_burst[unit] += len(in_burst)
+
+        has_spikes = total_spikes > 0
+        frac[has_spikes] = spikes_in_burst[has_spikes] / total_spikes[has_spikes]
+        return frac
+
     def spike_shuffle(self, swap_per_spike=5, seed=None, bin_size=1):
         """Shuffle the spike matrix using degree-preserving double-edge swaps.
 
