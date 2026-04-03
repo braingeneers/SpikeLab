@@ -774,3 +774,326 @@ def compile_results(
             "Skipping compiling results because 'compile_single_recording' "
             "is set to False"
         )
+
+
+# ---------------------------------------------------------------------------
+# Generic entry points
+# ---------------------------------------------------------------------------
+
+
+def sort_recording(
+    recording_files,
+    sorter="kilosort2",
+    intermediate_folders=None,
+    results_folders=None,
+    compiled_results_folder=None,
+    **kwargs,
+):
+    """Run spike sorting on one or more recordings using any registered backend.
+
+    This is the primary entry point for the modular sorting pipeline.
+    It constructs a ``SortingPipelineConfig`` from keyword arguments,
+    instantiates the appropriate ``SorterBackend``, and processes each
+    recording through loading → sorting → waveform extraction →
+    SpikeData conversion → curation → compilation.
+
+    Parameters:
+        recording_files (list): Paths to recording files or directories.
+            Each entry is sorted independently. Directories have their
+            contents concatenated before sorting and split back into
+            per-file SpikeData afterward.
+        sorter (str): Registered sorter backend name.  Currently
+            available: ``"kilosort2"``.  Use
+            ``spikelab.spike_sorting.backends.list_sorters()`` to see
+            all registered backends.
+        intermediate_folders (list or None): Intermediate result
+            directories, one per recording.  Auto-generated if None.
+        results_folders (list or None): Output directories, one per
+            recording.  Auto-generated if None.
+        compiled_results_folder (str or None): Directory for
+            multi-recording compiled results.
+        **kwargs: All remaining keyword arguments are forwarded to
+            ``SortingPipelineConfig.from_kwargs()``.  See
+            ``SortingPipelineConfig`` for the full list of parameters.
+
+    Returns:
+        results (list[SpikeData]): One SpikeData per original recording
+            file.  For directory inputs, the concatenated recording is
+            split back into per-file SpikeData objects.
+
+    Notes:
+        - Pickle files (``sorted_spikedata_curated.pkl`` and optionally
+          ``sorted_spikedata.pkl``) are saved to each results folder.
+        - When ``compiled_results_folder`` is provided and
+          ``compile_all_recordings`` is True, a combined compilation
+          is produced across all recordings.
+    """
+    import datetime
+
+    from .backends import get_backend_class
+    from .config import SortingPipelineConfig
+
+    config = SortingPipelineConfig.from_kwargs(**kwargs)
+    backend_cls = get_backend_class(sorter)
+    backend = backend_cls(config)
+
+    # Auto-generate folder paths
+    if intermediate_folders is None:
+        cur_dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
+        intermediate_folders = [
+            Path(rec).parent / f"inter_{sorter}_{cur_dt}" for rec in recording_files
+        ]
+    if results_folders is None:
+        results_folders = [
+            Path(rec).parent / f"sorted_{sorter}" for rec in recording_files
+        ]
+    if compiled_results_folder is None:
+        compiled_results_folder = "None"
+        if config.compilation.compile_all_recordings:
+            raise ValueError(
+                "'compile_all_recordings' is True — specify "
+                "'compiled_results_folder'."
+            )
+
+    # Validate
+    if not (len(recording_files) == len(intermediate_folders) == len(results_folders)):
+        raise ValueError(
+            f"recording_files ({len(recording_files)}), "
+            f"intermediate_folders ({len(intermediate_folders)}), and "
+            f"results_folders ({len(results_folders)}) must all have "
+            "the same length."
+        )
+
+    if (
+        config.figures.create_figures
+        and config.compilation.compile_all_recordings
+        and len(config.figures.scatter_recording_colors) < len(recording_files)
+    ):
+        raise ValueError(
+            f"scatter_recording_colors has "
+            f"{len(config.figures.scatter_recording_colors)} entries but "
+            f"there are {len(recording_files)} recordings."
+        )
+
+    # Figure settings
+    try:
+        import matplotlib as mpl
+
+        if config.figures.create_figures:
+            if config.figures.dpi is not None:
+                mpl.rcParams["figure.dpi"] = config.figures.dpi
+            if config.figures.font_size is not None:
+                mpl.rcParams["font.size"] = config.figures.font_size
+    except ImportError:
+        pass
+
+    np.random.seed(1)
+
+    # Multi-recording compiler
+    compiled_path = Path(compiled_results_folder)
+    all_recs_compiler = None
+    if config.compilation.compile_all_recordings:
+        if not compiled_path.exists() or config.execution.recompile_all_recordings:
+            all_recs_compiler = Compiler(config)
+            create_folder(compiled_path)
+
+    # Main loop
+    spikedata_results = []
+    for rec_path, inter_path, res_path in zip(
+        recording_files, intermediate_folders, results_folders
+    ):
+        try:
+            from spikeinterface.core import BaseRecording
+        except ImportError:
+            BaseRecording = None
+
+        rec_loaded = None
+        if BaseRecording is not None and isinstance(rec_path, BaseRecording):
+            rec_loaded = rec_path
+            if "file_path" in rec_loaded._kwargs:
+                rec_path = rec_loaded._kwargs["file_path"]
+            else:
+                rec_path = rec_loaded._kwargs["file_paths"][0]
+
+        rec_name = str(rec_path).split("/")[-1].split("\\")[-1].split(".")[0]
+
+        result = process_recording(
+            backend,
+            config,
+            rec_name,
+            rec_path,
+            inter_path,
+            res_path,
+            rec_loaded=rec_loaded,
+            rec_chunks=config.recording.rec_chunks or None,
+            rec_chunk_names=getattr(backend, "rec_chunk_names", None),
+        )
+
+        if isinstance(result, BaseException):
+            continue
+
+        if config.compilation.save_raw_pkl:
+            sd_raw, sd_curated = result
+        else:
+            sd_curated = result
+
+        # Save pickle
+        import pickle as _pkl
+
+        res_path = Path(res_path)
+
+        if config.compilation.save_raw_pkl:
+            raw_pkl = res_path / "sorted_spikedata.pkl"
+            with open(raw_pkl, "wb") as f:
+                _pkl.dump(sd_raw, f)
+            print(f"Saved {sd_raw.N} raw units to {raw_pkl}")
+
+        curated_pkl = res_path / "sorted_spikedata_curated.pkl"
+        with open(curated_pkl, "wb") as f:
+            _pkl.dump(sd_curated, f)
+        print(f"Saved {sd_curated.N} curated units to {curated_pkl}")
+
+        # Epoch splitting
+        if sd_curated.metadata.get("rec_chunks_ms"):
+            epoch_sds = sd_curated.split_epochs()
+            spikedata_results.extend(epoch_sds)
+        else:
+            spikedata_results.append(sd_curated)
+
+        if not compiled_path.exists() and config.execution.delete_inter:
+            import shutil as _shutil
+
+            _shutil.rmtree(inter_path)
+
+        if all_recs_compiler is not None:
+            all_recs_compiler.add_recording(rec_name, sd_curated)
+
+    if all_recs_compiler is not None and compiled_path.exists():
+        from .sorting_utils import Tee as _Tee
+
+        with _Tee(compiled_path / "log.out", "w"):
+            stopwatch = Stopwatch("COMPILING DATA FROM ALL RECORDINGS")
+            all_recs_compiler.save_results(compiled_path)
+            print_stage("DONE COMPILING DATA FROM ALL RECORDINGS")
+            stopwatch.log_time()
+        if config.execution.delete_inter:
+            import shutil as _shutil
+
+            for ip in intermediate_folders:
+                _shutil.rmtree(ip)
+
+    return spikedata_results
+
+
+def sort_multistream(recording, stream_ids, sorter="kilosort2", **kwargs):
+    """Sort a multi-stream recording across multiple stream IDs.
+
+    Calls ``sort_recording`` once per stream ID, routing each stream
+    to its own intermediate and results folders. Validates that the
+    requested stream IDs exist in the recording file before sorting.
+
+    Parameters:
+        recording (str or Path): Path to a single multi-stream
+            recording file (e.g. MaxTwo ``.raw.h5``) or a directory of
+            such files.  When a directory is given, all files are
+            concatenated per stream.
+        stream_ids (list of str): Stream identifiers to sort, e.g.
+            ``["well000", "well001", "well002"]``.
+        sorter (str): Registered sorter backend name (default
+            ``"kilosort2"``).
+        **kwargs: All remaining keyword arguments are forwarded to
+            ``sort_recording``.  The following are handled specially:
+
+            - ``intermediate_folders`` and ``results_folders`` are
+              auto-generated per stream and must not be provided.
+            - ``stream_id`` is set automatically per iteration.
+
+    Returns:
+        results (dict): ``{stream_id: list[SpikeData]}``.
+
+    Notes:
+        - Stream ID validation uses SpikeInterface's extractor for the
+          recording format.  Currently supports Maxwell ``.h5`` files.
+          For other formats, validation is skipped and invalid stream
+          IDs will produce errors at loading time.
+        - When *recording* is a directory of files, each file is
+          concatenated per stream before sorting.  Channel count and
+          sampling frequency must match across files (raises
+          ``ValueError``); mismatched channel IDs or locations produce
+          warnings.
+    """
+    import datetime
+
+    if "stream_id" in kwargs:
+        raise ValueError(
+            "Do not pass 'stream_id' to sort_multistream — it is set "
+            "automatically for each stream. Pass stream IDs via the "
+            "'stream_ids' parameter instead."
+        )
+    if kwargs.get("intermediate_folders") is not None:
+        raise ValueError(
+            "'intermediate_folders' cannot be specified for "
+            "sort_multistream — folders are auto-generated per stream."
+        )
+    if kwargs.get("results_folders") is not None:
+        raise ValueError(
+            "'results_folders' cannot be specified for "
+            "sort_multistream — folders are auto-generated per stream."
+        )
+
+    recording = Path(recording)
+
+    # Validate stream IDs against the recording file
+    h5_files = []
+    if recording.is_dir():
+        try:
+            from natsort import natsorted
+        except ImportError:
+            natsorted = sorted
+        h5_files = [
+            recording / name
+            for name in natsorted(
+                p.name for p in recording.iterdir() if p.name.endswith(".raw.h5")
+            )
+        ]
+    elif str(recording).endswith(".h5"):
+        h5_files = [recording]
+
+    if h5_files:
+        try:
+            from spikeinterface.extractors import MaxwellRecordingExtractor
+
+            _, available_ids = MaxwellRecordingExtractor.get_streams(str(h5_files[0]))
+            missing = [sid for sid in stream_ids if sid not in available_ids]
+            if missing:
+                raise ValueError(
+                    f"Stream ID(s) {missing} not found in "
+                    f"{h5_files[0].name}. Available streams: {available_ids}"
+                )
+        except ImportError:
+            pass  # SI not available — skip validation
+
+    results = {}
+    for sid in stream_ids:
+        print_stage(f"SORTING STREAM: {sid}")
+
+        if recording.is_dir():
+            base = recording
+        else:
+            base = recording.parent
+
+        cur_dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
+        inter = [str(base / f"inter_{sorter}_{sid}_{cur_dt}")]
+        res = [str(base / f"sorted_{sorter}_{sid}")]
+
+        stream_results = sort_recording(
+            recording_files=[str(recording)],
+            sorter=sorter,
+            intermediate_folders=inter,
+            results_folders=res,
+            stream_id=sid,
+            **kwargs,
+        )
+        results[sid] = stream_results
+
+    return results
