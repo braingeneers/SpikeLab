@@ -139,6 +139,9 @@ def _make_mock_recording(
     """Return a lightweight object mimicking a SpikeInterface recording."""
     mock = SimpleNamespace()
     mock.get_num_samples = lambda: num_samples
+    mock.get_num_frames = lambda: num_samples
+    mock.get_total_samples = lambda: num_samples
+    mock.get_total_duration = lambda: num_samples / sampling_frequency
     mock.get_sampling_frequency = lambda: sampling_frequency
     mock.get_num_channels = lambda: num_channels
     mock.get_dtype = lambda: np.dtype("int16")
@@ -1280,12 +1283,12 @@ class TestUtilsMemToInt:
 
     def test_invalid_suffix_raises(self, Utils):
         """
-        An unrecognized suffix raises an AssertionError.
+        An unrecognized suffix raises ValueError.
 
         Tests:
             (Test Case 1) 'T' suffix is not recognized.
         """
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Invalid memory suffix"):
             Utils._mem_to_int("4T")
 
     def test_zero_value(self, Utils):
@@ -1358,12 +1361,12 @@ class TestUtilsReadPython:
 
     def test_nonexistent_file_raises(self, Utils):
         """
-        A non-existent file raises an AssertionError.
+        A non-existent file raises FileNotFoundError.
 
         Tests:
-            (Test Case 1) Path that does not exist triggers assertion.
+            (Test Case 1) Path that does not exist triggers error.
         """
-        with pytest.raises(AssertionError):
+        with pytest.raises(FileNotFoundError, match="parameter file not found"):
             Utils.read_python("/nonexistent/params.py")
 
 
@@ -1405,12 +1408,13 @@ class TestSortWithKilosort2Validation:
 
     def test_mismatched_list_lengths_raises(self, sort_fn, tmp_path):
         """
-        Mismatched lengths of recording_files and intermediate_folders raise AssertionError.
+        Mismatched lengths of recording_files and intermediate_folders
+        raise ValueError.
 
         Tests:
             (Test Case 1) 2 recordings but 1 intermediate folder.
         """
-        with pytest.raises(AssertionError, match="same length"):
+        with pytest.raises(ValueError, match="same length"):
             sort_fn(
                 recording_files=["fake1.h5", "fake2.h5"],
                 intermediate_folders=[str(tmp_path / "inter1")],
@@ -1942,3 +1946,256 @@ class TestPrintStage:
         print_stage(42)
         captured = capsys.readouterr().out
         assert "42" in captured
+
+
+# ===========================================================================
+# concatenate_recordings validation
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestConcatenateRecordingsValidation:
+    """
+    Tests for electrode configuration validation in concatenate_recordings.
+    """
+
+    @pytest.fixture()
+    def concat_fn(self, monkeypatch):
+        from spikelab.spike_sorting import kilosort2
+
+        monkeypatch.setattr(kilosort2, "REC_CHUNKS", [], raising=False)
+        monkeypatch.setattr(kilosort2, "_REC_CHUNK_NAMES", [], raising=False)
+        monkeypatch.setattr(kilosort2, "STREAM_ID", None, raising=False)
+        monkeypatch.setattr(kilosort2, "GAIN_TO_UV", None, raising=False)
+        monkeypatch.setattr(kilosort2, "OFFSET_TO_UV", None, raising=False)
+        monkeypatch.setattr(kilosort2, "FREQ_MIN", 300, raising=False)
+        monkeypatch.setattr(kilosort2, "FREQ_MAX", 6000, raising=False)
+        monkeypatch.setattr(kilosort2, "FIRST_N_MINS", None, raising=False)
+        monkeypatch.setattr(kilosort2, "MEA_Y_MAX", None, raising=False)
+        return kilosort2.concatenate_recordings
+
+    def test_channel_count_mismatch_raises(self, concat_fn, tmp_path, monkeypatch):
+        """
+        Recordings with different channel counts raise ValueError.
+
+        Tests:
+            (Test Case 1) Two files with 4 vs 2 channels cannot be
+                concatenated.
+        """
+        from spikelab.spike_sorting import kilosort2
+
+        rec_a = _make_mock_recording(num_channels=4)
+        rec_b = _make_mock_recording(num_channels=2)
+
+        # Create dummy .raw.h5 files so the directory scan finds them
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+
+        call_count = [0]
+        recordings = [rec_a, rec_b]
+
+        def mock_load(path):
+            rec = recordings[call_count[0]]
+            call_count[0] += 1
+            return rec
+
+        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+
+        with pytest.raises(ValueError, match="channels"):
+            concat_fn(tmp_path)
+
+    def test_sampling_frequency_mismatch_raises(self, concat_fn, tmp_path, monkeypatch):
+        """
+        Recordings with different sampling frequencies raise ValueError.
+
+        Tests:
+            (Test Case 1) 20 kHz vs 30 kHz cannot be concatenated.
+        """
+        from spikelab.spike_sorting import kilosort2
+
+        rec_a = _make_mock_recording(sampling_frequency=20000.0)
+        rec_b = _make_mock_recording(sampling_frequency=30000.0)
+
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+
+        call_count = [0]
+        recordings = [rec_a, rec_b]
+
+        def mock_load(path):
+            rec = recordings[call_count[0]]
+            call_count[0] += 1
+            return rec
+
+        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+
+        with pytest.raises(ValueError, match="sampling frequency"):
+            concat_fn(tmp_path)
+
+    def test_channel_ids_mismatch_warns(self, concat_fn, tmp_path, monkeypatch):
+        """
+        Recordings with different channel IDs produce a warning.
+
+        Tests:
+            (Test Case 1) Different channel IDs warn but don't raise.
+        """
+        from spikelab.spike_sorting import kilosort2
+
+        rec_a = _make_mock_recording(num_channels=4)
+        rec_b = _make_mock_recording(num_channels=4)
+        rec_b.get_channel_ids = lambda: np.array([10, 11, 12, 13])
+
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+
+        call_count = [0]
+        recordings = [rec_a, rec_b]
+
+        def mock_load(path):
+            rec = recordings[call_count[0]]
+            call_count[0] += 1
+            return rec
+
+        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        # Also mock si_segmentutils.concatenate_recordings to avoid real SI call
+        monkeypatch.setattr(
+            kilosort2.si_segmentutils,
+            "concatenate_recordings",
+            lambda recs: rec_a,
+        )
+
+        with pytest.warns(UserWarning, match="different channel IDs"):
+            concat_fn(tmp_path)
+
+    def test_channel_locations_mismatch_warns(self, concat_fn, tmp_path, monkeypatch):
+        """
+        Recordings with different channel locations produce a warning.
+
+        Tests:
+            (Test Case 1) Different electrode layouts warn but don't raise.
+        """
+        from spikelab.spike_sorting import kilosort2
+
+        rec_a = _make_mock_recording(num_channels=4)
+        rec_b = _make_mock_recording(num_channels=4)
+        rec_b.get_channel_locations = lambda: np.column_stack(
+            [np.arange(4) * 100.0, np.ones(4) * 50.0]
+        )
+
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+
+        call_count = [0]
+        recordings = [rec_a, rec_b]
+
+        def mock_load(path):
+            rec = recordings[call_count[0]]
+            call_count[0] += 1
+            return rec
+
+        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(
+            kilosort2.si_segmentutils,
+            "concatenate_recordings",
+            lambda recs: rec_a,
+        )
+
+        with pytest.warns(UserWarning, match="different channel locations"):
+            concat_fn(tmp_path)
+
+    def test_compatible_recordings_no_warning(
+        self, concat_fn, tmp_path, monkeypatch, recwarn
+    ):
+        """
+        Compatible recordings concatenate without warnings.
+
+        Tests:
+            (Test Case 1) Two identical-config recordings produce no warnings.
+        """
+        from spikelab.spike_sorting import kilosort2
+
+        rec_a = _make_mock_recording(num_channels=4)
+        rec_b = _make_mock_recording(num_channels=4)
+
+        (tmp_path / "a.raw.h5").touch()
+        (tmp_path / "b.raw.h5").touch()
+
+        call_count = [0]
+        recordings = [rec_a, rec_b]
+
+        def mock_load(path):
+            rec = recordings[call_count[0]]
+            call_count[0] += 1
+            return rec
+
+        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(
+            kilosort2.si_segmentutils,
+            "concatenate_recordings",
+            lambda recs: rec_a,
+        )
+
+        concat_fn(tmp_path)
+        user_warnings = [w for w in recwarn if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+
+# ===========================================================================
+# sort_maxtwo_multiwell validation
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortMaxtwoMultiwellValidation:
+    """
+    Tests for parameter validation in sort_maxtwo_multiwell.
+    """
+
+    @pytest.fixture()
+    def multiwell_fn(self):
+        from spikelab.spike_sorting.kilosort2 import sort_maxtwo_multiwell
+
+        return sort_maxtwo_multiwell
+
+    def test_stream_id_kwarg_raises(self, multiwell_fn):
+        """
+        Passing stream_id directly raises ValueError.
+
+        Tests:
+            (Test Case 1) stream_id in kwargs is rejected with a
+                helpful message.
+        """
+        with pytest.raises(ValueError, match="Do not pass 'stream_id'"):
+            multiwell_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                stream_id="well000",
+            )
+
+    def test_intermediate_folders_kwarg_raises(self, multiwell_fn):
+        """
+        Passing intermediate_folders raises ValueError.
+
+        Tests:
+            (Test Case 1) Custom intermediate_folders is rejected.
+        """
+        with pytest.raises(ValueError, match="intermediate_folders"):
+            multiwell_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                intermediate_folders=["/tmp/inter"],
+            )
+
+    def test_results_folders_kwarg_raises(self, multiwell_fn):
+        """
+        Passing results_folders raises ValueError.
+
+        Tests:
+            (Test Case 1) Custom results_folders is rejected.
+        """
+        with pytest.raises(ValueError, match="results_folders"):
+            multiwell_fn(
+                recording="fake.raw.h5",
+                stream_ids=["well000"],
+                results_folders=["/tmp/results"],
+            )

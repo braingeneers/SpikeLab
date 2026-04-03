@@ -3074,6 +3074,67 @@ class TestSpikeDataBursts:
         frac_unit, frac_burst, backbone = sd.get_frac_active(edges, 1, 0.5)
         assert len(frac_burst) == 2
 
+    def test_get_frac_spikes_in_burst(self):
+        """
+        Tests get_frac_spikes_in_burst for computing fraction of spikes inside bursts.
+
+        Tests:
+            (Test Case 1) Correct fraction when some spikes are inside bursts.
+            (Test Case 2) Unit with all spikes inside bursts returns 1.0.
+            (Test Case 3) Unit with no spikes inside bursts returns 0.0.
+            (Test Case 4) Silent unit returns NaN.
+        """
+        spike_trains = [
+            np.array([2.0, 5.0, 8.0, 15.0]),  # Unit 0: 2 of 4 in burst
+            np.array([3.0, 4.0]),  # Unit 1: 2 of 2 in burst
+            np.array([15.0, 20.0]),  # Unit 2: 0 of 2 in burst
+            np.array([]),  # Unit 3: silent
+        ]
+        sd = SpikeData(spike_trains, length=25.0)
+
+        # Burst from bin 1 to bin 9 (covers spikes at t=2,3,4,5,8)
+        edges = np.array([[1, 9]])
+
+        frac = sd.get_frac_spikes_in_burst(edges)
+
+        assert frac.shape == (4,)
+        assert np.isclose(frac[0], 3 / 4)  # t=2,5,8 in burst; t=15 outside
+        assert np.isclose(frac[1], 1.0)  # both spikes in burst
+        assert np.isclose(frac[2], 0.0)  # both spikes outside
+        assert np.isnan(frac[3])  # silent unit
+
+    def test_get_frac_spikes_in_burst_empty_edges(self):
+        """
+        get_frac_spikes_in_burst with empty burst edges.
+
+        Tests:
+            (Test Case 1) All units return NaN when no bursts exist.
+        """
+        sd = SpikeData([[10.0, 20.0]], length=30.0)
+        edges = np.empty((0, 2))
+        frac = sd.get_frac_spikes_in_burst(edges)
+        assert frac.shape == (1,)
+        assert np.isnan(frac[0])
+
+    def test_get_frac_spikes_in_burst_multiple_bursts(self):
+        """
+        get_frac_spikes_in_burst with multiple burst windows.
+
+        Tests:
+            (Test Case 1) Spikes in different bursts are counted correctly.
+            (Test Case 2) Spike between bursts is not counted.
+        """
+        spike_trains = [np.array([2.0, 7.0, 12.0, 17.0])]
+        sd = SpikeData(spike_trains, length=20.0)
+
+        # Two bursts: bins [1,4] and [10,14]
+        edges = np.array([[1, 4], [10, 14]])
+        frac = sd.get_frac_spikes_in_burst(edges)
+
+        # t=2→bin1 (in burst1), t=7→bin6 (outside), t=12→bin11 (in burst2),
+        # t=17→bin16 (outside) → 2/4
+        assert np.isclose(frac[0], 0.5)
+
     def test_get_bursts_pop_rms_override_zero(self):
         """
         get_bursts with pop_rms_override=0.

@@ -18,6 +18,7 @@ import os
 import shutil
 import signal
 import subprocess
+import warnings
 import tempfile
 import time
 import traceback
@@ -276,12 +277,15 @@ def save_traces_mea(
         get_traces = _get_traces_mea_old
     else:
         # Check that h5py matches rec_si
-        assert rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
+        raw_shape = rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
             "raw"
-        ].shape == (
-            rec_si.get_num_channels(),
-            rec_si.get_total_samples(),
-        ), "h5py file doesn't match what spikeinterface loads"
+        ].shape
+        expected_shape = (rec_si.get_num_channels(), rec_si.get_total_samples())
+        if raw_shape != expected_shape:
+            raise ValueError(
+                f"HDF5 raw data shape {raw_shape} does not match "
+                f"SpikeInterface shape {expected_shape}."
+            )
         chan_ind = list(range(rec_si.get_num_channels()))
         get_traces = _get_traces_mea_new
     if rec_si.has_scaleable_traces():
@@ -892,9 +896,11 @@ class KilosortSortingExtractor:
 
         # If pandas column for the unit_ids uses different name
         if "cluster_id" not in cluster_info.columns:
-            assert (
-                "id" in cluster_info.columns
-            ), "Couldn't find cluster ids in the tsv files!"
+            if "id" not in cluster_info.columns:
+                raise ValueError(
+                    "Couldn't find cluster IDs in the TSV file. Expected a "
+                    f"'cluster_id' or 'id' column, found: {list(cluster_info.columns)}"
+                )
             cluster_info["cluster_id"] = cluster_info["id"]
             del cluster_info["id"]
 
@@ -1142,9 +1148,11 @@ class ShellScript:
     def wait(self, timeout=None) -> Optional[int]:
         if not self.isRunning():
             return self.returnCode()
-        assert (
-            self._process is not None
-        ), "Unexpected self._process is None even though it is running."
+        if self._process is None:
+            raise RuntimeError(
+                "ShellScript process is None — start() was not called or "
+                "the process has already been cleaned up."
+            )
         try:
             retcode = self._process.wait(timeout=timeout)
             return retcode
@@ -1160,9 +1168,11 @@ class ShellScript:
     def stop(self) -> None:
         if not self.isRunning():
             return
-        assert (
-            self._process is not None
-        ), "Unexpected self._process is None even though it is running."
+        if self._process is None:
+            raise RuntimeError(
+                "ShellScript process is None — start() was not called or "
+                "the process has already been cleaned up."
+            )
 
         signals = [signal.SIGINT] * 10 + [signal.SIGTERM] * 10 + [signal.SIGKILL] * 10
 
@@ -1178,9 +1188,11 @@ class ShellScript:
         if not self.isRunning():
             return
 
-        assert (
-            self._process is not None
-        ), "Unexpected self._process is None even though it is running."
+        if self._process is None:
+            raise RuntimeError(
+                "ShellScript process is None — start() was not called or "
+                "the process has already been cleaned up."
+            )
         self._process.send_signal(signal.SIGKILL)
         try:
             self._process.wait(timeout=1)
@@ -1192,9 +1204,11 @@ class ShellScript:
         if not self.isRunning():
             return True
 
-        assert (
-            self._process is not None
-        ), "Unexpected self._process is None even though it is running."
+        if self._process is None:
+            raise RuntimeError(
+                "ShellScript process is None — start() was not called or "
+                "the process has already been cleaned up."
+            )
         self._process.send_signal(sig)
         try:
             self._process.wait(timeout=timeout)
@@ -1224,9 +1238,11 @@ class ShellScript:
     def returnCode(self) -> Optional[int]:
         if not self.isFinished():
             raise Exception("Cannot get return code before process is finished.")
-        assert (
-            self._process is not None
-        ), "Unexpected self._process is None even though it is finished."
+        if self._process is None:
+            raise RuntimeError(
+                "ShellScript process is None — start() was not called or "
+                "the process has already been cleaned up."
+            )
         return self._process.returncode
 
     def scriptPath(self) -> Optional[str]:
@@ -1569,7 +1585,11 @@ class WaveformExtractor:
 
                 if MAX_WAVEFORMS_PER_UNIT is not None:
                     # clean border when sub selection
-                    assert self.nafter is not None
+                    if self.nafter is None:
+                        raise RuntimeError(
+                            "nafter is not set — waveform extraction parameters "
+                            "were not initialized."
+                        )
                     spike_times = sorting.get_unit_spike_train(
                         unit_id=unit_id, segment_index=segment_index
                     )
@@ -1815,7 +1835,10 @@ class WaveformExtractor:
         """
 
         _possible_template_modes = {"average", "std", "median"}
-        assert mode in _possible_template_modes
+        if mode not in _possible_template_modes:
+            raise ValueError(
+                f"mode must be one of {_possible_template_modes}, got '{mode}'"
+            )
 
         if mode in self.template_cache:
             # already in the global cache
@@ -2951,7 +2974,8 @@ class Utils:
         import re
 
         path = Path(path).absolute()
-        assert path.is_file()
+        if not path.is_file():
+            raise FileNotFoundError(f"Kilosort2 parameter file not found: {path}")
         with path.open("r") as f:
             contents = f.read()
         contents = re.sub(r"range\(([\d,]*)\)", r"list(range(\1))", contents)
@@ -3015,7 +3039,11 @@ class Utils:
             # manual setting
             chunk_size = int(chunk_size)
         elif chunk_memory is not None:
-            assert total_memory is None
+            if total_memory is not None:
+                raise ValueError(
+                    "Cannot specify both 'chunk_memory' and 'total_memory'. "
+                    "Provide only one."
+                )
             # set by memory per worker size
             chunk_memory = Utils._mem_to_int(chunk_memory)
             n_bytes = np.dtype(recording.get_dtype()).itemsize
@@ -3045,7 +3073,11 @@ class Utils:
         _exponents = {"k": 1e3, "M": 1e6, "G": 1e9}
 
         suffix = mem[-1]
-        assert suffix in _exponents
+        if suffix not in _exponents:
+            raise ValueError(
+                f"Invalid memory suffix '{suffix}' in '{mem}'. "
+                f"Expected one of: {list(_exponents.keys())} (e.g. '4G', '500M')"
+            )
         mem = int(float(mem[:-1]) * _exponents[suffix])
         return mem
 
@@ -3766,15 +3798,10 @@ The internal compression requires a custom plugin.
 Please visit this page and install the missing decompression libraries:
 https://share.mxwbio.com/d/4742248b2e674a85be97/
 
-Then, you have 3 options to setup the plugin:
-    1. Follow the instructions in https://share.mxwbio.com/d/4742248b2e674a85be97/files/?p=%2FMxW%20Decompressing%20raw%20data%20in%20MATLAB.pdf.
-            It is not required to confirm the installation with MATLAB.
-    2. Add the following lines of code BEFORE importing this module, spikeinterface, or h5py:
-            import os
-            os.environ['HDF5_PLUGIN_PATH'] = '/your/path/to/custom/hdf5/plugin/'  # '/your/path/to/custom/hdf5/plugin/' is the folder containing the decompression file
-    3. Add the code from option 2 to the very first lines of spikelab/spike_sorting/kilosort2.py
-
-*This message was adapted from SpikeInterface
+Setup options (choose one):
+    1. Pass hdf5_plugin_path='/path/to/plugin/' to sort_with_kilosort2().
+    2. Set os.environ['HDF5_PLUGIN_PATH'] BEFORE importing this module.
+    3. Follow the Maxwell instructions at the link above.
 """)
                 print("*" * 10)
                 raise (exception)
@@ -3789,9 +3816,11 @@ Then, you have 3 options to setup the plugin:
             f"https://spikeinterface.readthedocs.io/en/latest/modules/extractors.html"
         )
 
-    assert (
-        rec.get_num_segments() == 1
-    ), "Recording has multiple segments. Divide recording into multiple recordings"
+    if rec.get_num_segments() != 1:
+        raise ValueError(
+            f"Recording has {rec.get_num_segments()} segments — expected 1. "
+            "Divide the recording into separate single-segment recordings."
+        )
 
     if GAIN_TO_UV is not None:
         gain = GAIN_TO_UV
@@ -3834,6 +3863,19 @@ def concatenate_recordings(rec_path):
 
     Returns:
         rec (BaseRecording): The concatenated recording.
+
+    Notes:
+        Before concatenation, all recordings are validated for
+        compatibility:
+
+        - **Channel count** and **sampling frequency** must match
+          across all files — a ``ValueError`` is raised otherwise.
+        - **Channel IDs** and **channel locations** are compared
+          against the first file.  Mismatches produce a warning but
+          do not block concatenation, since the user may intentionally
+          combine recordings with different routing configurations.
+          However, differing electrode layouts will likely produce
+          unreliable sorting results.
     """
     print("Concatenating recordings")
     recordings = []
@@ -3860,6 +3902,53 @@ def concatenate_recordings(rec_path):
         end_frame = start_frame + rec.get_total_samples()
         new_rec_chunks.append((start_frame, end_frame))
         start_frame = end_frame
+
+    # Validate compatibility before concatenation
+    if len(recordings) > 1:
+        ref = recordings[0]
+        ref_name = recording_names[0]
+        ref_n_ch = ref.get_num_channels()
+        ref_fs = ref.get_sampling_frequency()
+        ref_ids = list(ref.get_channel_ids())
+        ref_locs = ref.get_channel_locations()
+
+        for i, (rec_i, name_i) in enumerate(
+            zip(recordings[1:], recording_names[1:]), start=1
+        ):
+            # Hard error: channel count or sampling frequency mismatch
+            n_ch = rec_i.get_num_channels()
+            if n_ch != ref_n_ch:
+                raise ValueError(
+                    f"Cannot concatenate: {name_i} has {n_ch} channels "
+                    f"but {ref_name} has {ref_n_ch}."
+                )
+            fs = rec_i.get_sampling_frequency()
+            if fs != ref_fs:
+                raise ValueError(
+                    f"Cannot concatenate: {name_i} has sampling frequency "
+                    f"{fs} Hz but {ref_name} has {ref_fs} Hz."
+                )
+
+            # Warning: channel IDs differ
+            ids_i = list(rec_i.get_channel_ids())
+            if ids_i != ref_ids:
+                warnings.warn(
+                    f"{name_i} has different channel IDs than {ref_name}. "
+                    "Concatenation will proceed but results may be unreliable "
+                    "if the electrode configurations differ.",
+                    stacklevel=2,
+                )
+
+            # Warning: channel locations differ
+            locs_i = rec_i.get_channel_locations()
+            if not np.array_equal(ref_locs, locs_i):
+                warnings.warn(
+                    f"{name_i} has different channel locations than "
+                    f"{ref_name}. This likely means different electrode "
+                    "configurations — concatenation will proceed but "
+                    "sorting results may be unreliable.",
+                    stacklevel=2,
+                )
 
     if len(recordings) == 1:
         rec = recordings[0]
@@ -4487,6 +4576,7 @@ def sort_with_kilosort2(
     out_file="sort_with_kilosort2.out",
     kilosort_path=None,  # "/path/to/Kilosort2"
     stream_id=None,  # stream_id for MaxwellRecordingExtractor (multi-stream .h5 files)
+    hdf5_plugin_path=None,  # path to custom HDF5 decompression plugin (Maxwell new-format .h5)
     kilosort_params=None,
     use_docker=False,
     recompute_recording=False,
@@ -4580,6 +4670,12 @@ def sort_with_kilosort2(
         stream_id (str, optional): Stream identifier passed to ``MaxwellRecordingExtractor``
             when loading ``.h5`` files that contain multiple recording streams. If ``None``
             the extractor uses its default stream. Defaults to None.
+        hdf5_plugin_path (str or None): Path to a folder containing the
+            custom HDF5 decompression plugin required by new-format Maxwell
+            ``.h5`` files.  When provided, ``os.environ['HDF5_PLUGIN_PATH']``
+            is set automatically before any file is opened, removing the
+            need for manual environment variable configuration.  Defaults
+            to None (no change to the environment).
 
         kilosort_params (dict, optional): Kilosort2 configuration parameters. Defaults to preset values.
 
@@ -4732,6 +4828,14 @@ def sort_with_kilosort2(
         return list will be ``[sd_a, sd_b, sd_c, sd_single]`` — four
         SpikeData objects, three from the directory and one from the
         standalone file.
+
+        **Concatenation compatibility checks.** Before concatenation,
+        recordings in a directory are validated: channel count and
+        sampling frequency must match (raises ``ValueError``).
+        Mismatched channel IDs or channel locations produce warnings
+        but do not block concatenation — this allows intentional
+        combination of differently-routed recordings, though results
+        will likely be unreliable if the electrode layout differs.
     """
 
     _default_kilosort_params = {
@@ -4807,6 +4911,8 @@ def sort_with_kilosort2(
     COMPILED_RESULTS_FOLDER = compiled_results_folder
     KILOSORT_PARAMS = kilosort_params
     STREAM_ID = stream_id
+    if hdf5_plugin_path is not None:
+        os.environ["HDF5_PLUGIN_PATH"] = str(hdf5_plugin_path)
     USE_DOCKER = use_docker
     RECOMPUTE_RECORDING = recompute_recording
     RECOMPUTE_SORTING = recompute_sorting
@@ -4906,21 +5012,22 @@ def sort_with_kilosort2(
     else:
         all_recs_compiler = "Skipping compiling results from all recordings because 'COMPILE_ALL_RECORDINGS' is set to False"
 
-    assert len(RECORDING_FILES) == len(INTERMEDIATE_FOLDERS) == len(RESULTS_FOLDERS), (
-        "'RECORDING_FILES'"
-        " 'INTERMEDIATE_FOLDERS' "
-        "and 'RESULTS_FOLDERS' "
-        "should all have the same length"
-    )
-
-    if CREATE_FIGURES:
-        assert (
-            len(SCATTER_RECORDING_COLORS) >= len(RECORDING_FILES)
-            or not COMPILE_ALL_RECORDINGS
-        ), (
-            "The length of 'SCATTER_RECORDING_COLORS' must be at "
-            "least the length of 'RECORDING_FILES' if 'COMPILE_ALL_RECORDINGS' is True"
+    if not (len(RECORDING_FILES) == len(INTERMEDIATE_FOLDERS) == len(RESULTS_FOLDERS)):
+        raise ValueError(
+            f"recording_files ({len(RECORDING_FILES)}), "
+            f"intermediate_folders ({len(INTERMEDIATE_FOLDERS)}), and "
+            f"results_folders ({len(RESULTS_FOLDERS)}) must all have "
+            "the same length."
         )
+
+    if CREATE_FIGURES and COMPILE_ALL_RECORDINGS:
+        if len(SCATTER_RECORDING_COLORS) < len(RECORDING_FILES):
+            raise ValueError(
+                f"scatter_recording_colors has {len(SCATTER_RECORDING_COLORS)} "
+                f"entries but there are {len(RECORDING_FILES)} recordings. "
+                "Provide at least as many colors as recordings when "
+                "compile_all_recordings is True."
+            )
 
     spikedata_results = []
     for rec_path, inter_path, results_path in zip(
@@ -4993,3 +5100,154 @@ def sort_with_kilosort2(
                 shutil.rmtree(inter_path)
 
     return spikedata_results
+
+
+def sort_maxtwo_multiwell(recording, stream_ids, **kwargs):
+    """Sort a MaxTwo multi-well recording across multiple stream IDs.
+
+    Calls ``sort_with_kilosort2`` once per stream ID, routing each
+    stream to its own intermediate and results folders. All other
+    parameters are forwarded unchanged.
+
+    Parameters:
+        recording (str or Path): Path to a single MaxTwo ``.raw.h5``
+            file or a directory of ``.raw.h5`` files. When a directory
+            is given, all files inside it are concatenated per stream
+            (same behavior as ``sort_with_kilosort2`` with a directory
+            entry in ``recording_files``).
+        stream_ids (list of str): Stream identifiers to sort, e.g.
+            ``["well000", "well001", "well002"]``. Each stream is
+            sorted independently with its own Kilosort2 run.
+        **kwargs: All remaining keyword arguments are forwarded to
+            ``sort_with_kilosort2``. The following are handled
+            specially:
+
+            - ``intermediate_folders`` — if not provided, auto-generated
+              with a ``_<stream_id>`` suffix per stream. If provided,
+              must be None (auto-generated per stream) or omitted.
+            - ``results_folders`` — if not provided, auto-generated
+              with a ``_<stream_id>`` suffix per stream.
+            - ``stream_id`` — **must not be provided**; it is set
+              automatically per iteration.
+
+    Returns:
+        results (dict): ``{stream_id: list[SpikeData]}``. Each value
+            is the list of SpikeData objects returned by
+            ``sort_with_kilosort2`` for that stream. For a single file,
+            each list contains one SpikeData. For a directory of N
+            files, each list contains N SpikeData objects (one per
+            original file, after epoch splitting).
+
+    Notes:
+        - Each stream is sorted as a completely independent run.
+          Kilosort2 sees only the data from that stream.
+        - Intermediate and results folders are kept separate by
+          appending the stream ID as a suffix (e.g.
+          ``sorted_kilosort2_well000/``).
+        - The ``hdf5_plugin_path`` parameter (if needed for Maxwell
+          new-format files) should be passed via ``**kwargs`` and is
+          forwarded to each ``sort_with_kilosort2`` call.
+        - ``compile_all_recordings`` is not supported across streams.
+          Set it to False (the default) or compile manually after
+          sorting.
+        - When *recording* is a directory of files, each file is
+          concatenated per stream and sorted together. Before
+          concatenation, channel count and sampling frequency are
+          validated (raises ``ValueError`` on mismatch). Mismatched
+          channel IDs or locations produce warnings but do not block
+          concatenation.
+
+    Examples:
+        Sort a single multi-well file::
+
+            from spikelab.spike_sorting import sort_maxtwo_multiwell
+
+            results = sort_maxtwo_multiwell(
+                recording="multiwell.raw.h5",
+                stream_ids=["well000", "well001", "well002"],
+                kilosort_path="/opt/Kilosort2",
+            )
+            sd_well0 = results["well000"][0]  # SpikeData for well000
+
+        Sort a directory of files per well (files are concatenated
+        within each well, then split back into per-file SpikeData)::
+
+            results = sort_maxtwo_multiwell(
+                recording="recordings_dir/",
+                stream_ids=["well000", "well001"],
+                kilosort_path="/opt/Kilosort2",
+            )
+            # results["well000"] has one SpikeData per file in the dir
+    """
+    if "stream_id" in kwargs:
+        raise ValueError(
+            "Do not pass 'stream_id' to sort_maxtwo_multiwell — it is "
+            "set automatically for each stream. Pass stream IDs via the "
+            "'stream_ids' parameter instead."
+        )
+
+    recording = Path(recording)
+
+    # Ensure intermediate/results folders are auto-generated per stream
+    if kwargs.get("intermediate_folders") is not None:
+        raise ValueError(
+            "'intermediate_folders' cannot be specified for "
+            "sort_maxtwo_multiwell — folders are auto-generated per "
+            "stream ID to avoid collisions."
+        )
+    if kwargs.get("results_folders") is not None:
+        raise ValueError(
+            "'results_folders' cannot be specified for "
+            "sort_maxtwo_multiwell — folders are auto-generated per "
+            "stream ID to avoid collisions."
+        )
+
+    # Validate that all requested stream IDs exist in the recording(s)
+    h5_files = []
+    if recording.is_dir():
+        from natsort import natsorted
+
+        h5_files = [
+            recording / name
+            for name in natsorted(
+                p.name for p in recording.iterdir() if p.name.endswith(".raw.h5")
+            )
+        ]
+    elif str(recording).endswith(".h5"):
+        h5_files = [recording]
+
+    if h5_files:
+        # Check the first file for available streams (all files in a
+        # MaxTwo experiment share the same well layout)
+        _, available_ids = MaxwellRecordingExtractor.get_streams(str(h5_files[0]))
+        missing = [sid for sid in stream_ids if sid not in available_ids]
+        if missing:
+            raise ValueError(
+                f"Stream ID(s) {missing} not found in {h5_files[0].name}. "
+                f"Available streams: {available_ids}"
+            )
+
+    results = {}
+    for sid in stream_ids:
+        print_stage(f"SORTING STREAM: {sid}")
+
+        # Build per-stream folder paths
+        if recording.is_dir():
+            base = recording
+        else:
+            base = recording.parent
+
+        cur_datetime = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
+        inter = [base / f"inter_kilosort2_{sid}_{cur_datetime}"]
+        res = [base / f"sorted_kilosort2_{sid}"]
+
+        stream_results = sort_with_kilosort2(
+            recording_files=[str(recording)],
+            intermediate_folders=[str(p) for p in inter],
+            results_folders=[str(p) for p in res],
+            stream_id=sid,
+            **kwargs,
+        )
+        results[sid] = stream_results
+
+    return results

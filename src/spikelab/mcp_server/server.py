@@ -978,6 +978,34 @@ async def _list_tools() -> list[types.Tool]:
                     ],
                 },
             ),
+            types.Tool(
+                name="get_frac_spikes_in_burst",
+                description=(
+                    "Calculate fraction of each unit's spikes that fall inside burst "
+                    "windows. Loads burst edges from edges_key (output of get_bursts). "
+                    "Stores per-unit fraction at key."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "edges_key": {
+                            "type": "string",
+                            "description": "Workspace key of the burst edges (B, 2) array — use key_edges from get_bursts",
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Output key for per-unit fraction of spikes in bursts (U,)",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "edges_key",
+                        "key",
+                    ],
+                },
+            ),
         ]
     )
 
@@ -3240,6 +3268,7 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "get_bursts": analysis.get_bursts,
     "burst_sensitivity": analysis.burst_sensitivity,
     "get_frac_active": analysis.get_frac_active,
+    "get_frac_spikes_in_burst": analysis.get_frac_spikes_in_burst,
     # Metadata query tools
     "get_data_info": analysis.get_data_info,
     "list_neurons": analysis.list_neurons,
