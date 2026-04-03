@@ -1321,8 +1321,13 @@ class WaveformExtractor:
         )  # Total number of samples in waveform
         self.peak_ind = parameters["peak_ind"]
 
-        self.return_scaled = False
-        self.dtype = parameters["dtype"]
+        # Extract waveforms as µV when the recording supports scaling
+        if recording.has_scaleable_traces():
+            self.return_scaled = True
+            self.dtype = "float32"
+        else:
+            self.return_scaled = False
+            self.dtype = parameters["dtype"]
 
         self.chans_max_folder = root_folder / "channels_max"
         self.use_pos_peak = None
@@ -1337,6 +1342,12 @@ class WaveformExtractor:
         root_folder = Path(root_folder)
         create_folder(root_folder / "waveforms")
 
+        # Use float32 when the recording supports µV scaling
+        if recording.has_scaleable_traces():
+            waveform_dtype = "float32"
+        else:
+            waveform_dtype = str(recording.get_dtype())
+
         parameters = {
             "recording_path": str(recording_path.absolute()),
             "sampling_frequency": recording.get_sampling_frequency(),
@@ -1345,7 +1356,7 @@ class WaveformExtractor:
             "peak_ind": sorting.ms_to_samples(WAVEFORMS_MS_BEFORE),
             "pos_peak_thresh": POS_PEAK_THRESH,
             "max_waveforms_per_unit": MAX_WAVEFORMS_PER_UNIT,
-            "dtype": str(recording.get_dtype()),
+            "dtype": waveform_dtype,
             "n_jobs": N_JOBS,
             "total_memory": TOTAL_MEMORY,
         }
@@ -2813,12 +2824,18 @@ def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
         template_std = w_e.get_computed_template(unit_id=uid, mode="std")
         peak_ind_full = w_e.peak_ind
 
-        # Optionally un-scale templates
-        if not SCALE_COMPILED_WAVEFORMS and w_e.recording.has_scaleable_traces():
+        # When SCALE_COMPILED_WAVEFORMS is False, convert µV templates
+        # back to raw ADC counts.  Waveforms are now extracted as µV by
+        # default (return_scaled=True), so this inverts the scaling.
+        if not SCALE_COMPILED_WAVEFORMS and w_e.return_scaled:
             gain = w_e.recording.get_channel_gains()
             offset = w_e.recording.get_channel_offsets()
-            template_mean = ((template_mean - offset) / gain).astype("float32")
-            template_std = ((template_std - offset) / gain).astype("float32")
+            template_mean = ((template_mean - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
+            template_std = ((template_std - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
 
         # Windowed template (for compile_dict)
         template_windowed = template_mean[

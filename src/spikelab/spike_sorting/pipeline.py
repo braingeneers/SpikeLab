@@ -126,11 +126,17 @@ def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None
         template_std = w_e.get_computed_template(unit_id=uid, mode="std")
         peak_ind_full = w_e.peak_ind
 
-        if not wf_cfg.scale_compiled_waveforms and w_e.recording.has_scaleable_traces():
+        # When scale_compiled_waveforms is False, convert µV templates
+        # back to raw ADC counts for users who want raw values.
+        if not wf_cfg.scale_compiled_waveforms and getattr(w_e, "return_scaled", False):
             gain = w_e.recording.get_channel_gains()
             offset = w_e.recording.get_channel_offsets()
-            template_mean = ((template_mean - offset) / gain).astype("float32")
-            template_std = ((template_std - offset) / gain).astype("float32")
+            template_mean = ((template_mean - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
+            template_std = ((template_std - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
 
         template_windowed = template_mean[
             peak_ind_full - nbefore_compiled : peak_ind_full + nafter_compiled, :
