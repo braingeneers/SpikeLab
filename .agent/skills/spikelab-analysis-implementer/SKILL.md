@@ -67,6 +67,13 @@ Both files are located alongside this skill file in `.agent/skills/spikelab-anal
 ### Step 2: Inspect the data
 
 - Ask the user where their data files are located.
+- **Sorting outputs from `spikelab-spikesorter`:** If the data was spike-sorted using the `spikelab-spikesorter` skill, look for `sorted_spikedata_curated.pkl` files in the sorted results directory (typically `data/sorted/<recording_name>/`). These contain curated `SpikeData` objects ready for analysis:
+  ```python
+  import pickle
+  with open("data/sorted/recording_a/sorted_spikedata_curated.pkl", "rb") as f:
+      sd = pickle.load(f)
+  ```
+  Each sorted SpikeData has enriched `neuron_attributes` (SNR, channel, electrode position, waveform template, etc.) and `metadata` (source file, sampling frequency).
 - **`spikedata.pkl` files:** Files named `spikedata.pkl` are likely to contain pickled `SpikeData` objects. Load and verify with:
   ```python
   import pickle

@@ -73,10 +73,16 @@ For "how is this actually computed?" questions, read the relevant source files i
 | `spikedata/ratedata.py` | RateData class — instantaneous firing rate matrix, pairwise FR correlations |
 | `spikedata/pairwise.py` | PairwiseCompMatrix, PairwiseCompMatrixStack — pairwise comparison storage, graph conversion |
 | `spikedata/slice_stacks.py` | RateSliceStack, SpikeSliceStack — event-aligned analysis, burst correlations, rank-order |
+| `spikedata/curation.py` | Unit curation — spike count, firing rate, ISI violation, SNR, and STD filters |
 | `spikedata/utils.py` | Utility functions — PCA, UMAP, smoothing kernels |
 | `spikedata/plot_utils.py` | Plotting functions — rasters, heatmaps, scatter, violins, networks |
 | `data_loaders/` | File I/O — loaders for various formats, exporters, S3 access |
 | `workspace/workspace.py` | AnalysisWorkspace — result storage and HDF5 serialization |
+| `spike_sorting/pipeline.py` | Sorting pipeline — `sort_recording`, `sort_multistream`, `Compiler`, curation |
+| `spike_sorting/config.py` | `SortingPipelineConfig` — 7 sub-configs for all pipeline parameters |
+| `spike_sorting/waveform_utils.py` | Per-spike centering, polarity classification, max-channel detection |
+| `spike_sorting/figures.py` | QC plot functions — curation bar, STD scatter, template overview |
+| `spike_sorting/backends/` | Sorter backend interface and Kilosort2 implementation |
 
 ### 4. Jupyter notebook — worked examples
 
@@ -151,6 +157,19 @@ Use these definitions as a starting point when explaining concepts. Adapt depth 
 - **Spike-triggered population rate (stPR)**: The average population firing rate centered on each spike of a given unit. Reveals how much the network rate deviates when a specific neuron fires — i.e., how coupled that unit is to the population.
 - **Coupling strength**: The amplitude of the stPR at zero lag (`coupling_zero`) or at the peak lag (`coupling_max`). High coupling means the unit fires preferentially during population-wide activity.
 
+### Spike sorting
+
+- **Spike sorting**: The process of detecting spikes in raw extracellular voltage recordings and assigning them to individual neurons (units). In SpikeLab, sorting is performed by external algorithms (e.g., Kilosort2) via the modular backend architecture, and the results are returned as `SpikeData` objects.
+- **Sorter backend**: A pluggable implementation that wraps a specific sorting algorithm. Each backend implements three steps: load recording, run sorter, extract waveforms. SpikeLab's pipeline handles everything downstream (SpikeData conversion, curation, compilation) in a sorter-agnostic way.
+- **Waveform template**: The average voltage trace around spike times for a single unit, typically on the channel with the largest amplitude. Used for quality assessment (SNR, waveform consistency) and polarity classification.
+- **Per-spike centering**: A refinement step where each spike's timing is adjusted to the actual voltage peak on the max-amplitude channel, rather than trusting the sorter's initial detection time. This corrects spike-to-spike jitter and produces sharper average templates.
+- **Polarity classification**: Units are classified as positive-peak or negative-peak based on whether the maximum positive deflection exceeds a threshold ratio of the maximum negative deflection (`pos_peak_thresh`). Most neurons have negative-peak waveforms; positive peaks may indicate axonal or artifact signals.
+- **Unit curation**: Quality-control filtering that removes unreliable units based on metrics such as minimum spike count, firing rate, ISI violations, signal-to-noise ratio (SNR), and waveform consistency (normalized STD). SpikeLab applies curation criteria in sequence (intersection) and returns only passing units.
+- **SNR (signal-to-noise ratio)**: Peak waveform amplitude divided by the channel's noise level (estimated via median absolute deviation). Units with low SNR are difficult to distinguish from noise.
+- **ISI violation**: Spikes that occur within the biophysical refractory period (~1.5 ms) of the same unit. A high violation rate suggests the unit contains spikes from multiple neurons (contamination). Computed as a percentage (violation count / total spikes × 100) or as a ratio (Hill et al. 2011).
+- **Normalized waveform STD**: The standard deviation of the waveform across spikes, normalized by amplitude. High values indicate inconsistent waveform shape — the unit may be unstable or contaminated.
+- **Epoch splitting**: For concatenated multi-file recordings, the sorted SpikeData is split back into per-file objects, each with its own average waveform template computed from that file's spikes only.
+
 ### Workspace
 
 - **AnalysisWorkspace**: A key-value store for intermediate and final analysis results. Items are addressed by `(namespace, key)`. Supports HDF5 serialization for persistence across sessions. Stores SpikeData, RateData, pairwise matrices, stacks, arrays, and nested dicts.
@@ -180,6 +199,13 @@ When users ask what a result means, use these as starting points:
 | PCA clusters separate by condition | The feature space used for PCA captures systematic differences between conditions — interpretation depends on what was projected (e.g., pairwise correlations, firing rate profiles, etc.) |
 | High population coupling | The unit fires preferentially during population-active periods — a network-embedded cell |
 | Low population coupling | The unit fires independently of the population — may be functionally isolated |
+| High SNR (>10) | Clean, well-isolated unit with a large waveform clearly distinguishable from noise |
+| Low SNR (<3) | Borderline unit — waveform is barely above noise floor; may be unreliable |
+| High ISI violation rate (>5%) | Likely contaminated — the unit contains spikes from multiple neurons |
+| Low ISI violation rate (<0.5%) | Clean isolation — very few refractory period violations |
+| High normalized STD (>1) | Inconsistent waveform shape across spikes — unit may be unstable or contain multiple sources |
+| Many units removed by curation | Consider relaxing thresholds, or the recording quality may be poor |
+| Few units after sorting | May indicate low signal quality, incorrect filter settings, or overly strict detection threshold |
 
 ---
 
@@ -207,5 +233,7 @@ When answering a question, point the user to relevant resources for further read
 | Workspace | `docs/source/guides/workspace.rst` | Section 6 | `src/spikelab/workspace/workspace.py` |
 | Plotting | -- | All sections | `src/spikelab/spikedata/plot_utils.py` |
 | MCP server | `docs/source/guides/mcp_server.rst` | -- | `src/spikelab/mcp_server/` |
+| Spike sorting | `docs/source/guides/spike_sorting.rst` | -- | `src/spikelab/spike_sorting/` |
+| Curation | -- | -- | `src/spikelab/spikedata/curation.py` |
 
 The Jupyter notebook is at `examples/manuscript_analysis.ipynb`.
