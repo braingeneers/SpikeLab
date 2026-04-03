@@ -48,7 +48,7 @@ class SorterBackend(ABC):
         """
 
     @abstractmethod
-    def sort(self, recording, rec_path, output_folder):
+    def sort(self, recording, rec_path, recording_dat_path, output_folder):
         """Run the spike sorter on a preprocessed recording.
 
         Parameters:
@@ -56,6 +56,8 @@ class SorterBackend(ABC):
                 ``load_recording``.
             rec_path: Original recording file path (for binary
                 conversion or metadata).
+            recording_dat_path (Path): Path for the binary ``.dat``
+                file (used by sorters that require pre-converted input).
             output_folder (Path): Directory for sorter output files.
 
         Returns:

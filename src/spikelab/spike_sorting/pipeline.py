@@ -21,11 +21,7 @@ import numpy as np
 
 from .config import SortingPipelineConfig
 
-# ---------------------------------------------------------------------------
-# Pipeline utilities (imported from kilosort2 until fully extracted)
-# ---------------------------------------------------------------------------
-# These will move to a dedicated utils module in a future phase.
-from .kilosort2 import (
+from .sorting_utils import (
     Stopwatch,
     Tee,
     print_stage,
@@ -629,7 +625,7 @@ def process_recording(
             curation_first_folder,
             curation_second_folder,
             results_path,
-        ) = get_paths(rec_path, inter_path, results_path)
+        ) = get_paths(rec_path, inter_path, results_path, exe)
 
         # Load Recording
         try:
@@ -642,7 +638,9 @@ def process_recording(
             return e
 
         # Spike sorting
-        sorting = backend.sort(recording_filtered, rec_path, output_folder)
+        sorting = backend.sort(
+            recording_filtered, rec_path, recording_dat_path, output_folder
+        )
         if isinstance(sorting, BaseException):
             return sorting
 

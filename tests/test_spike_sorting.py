@@ -1526,15 +1526,18 @@ class TestSortWithKilosort2Validation:
 
     def test_save_raw_pkl_sets_global(self, sort_fn):
         """
-        save_raw_pkl=True sets the SAVE_RAW_PKL global.
+        save_raw_pkl=True sets the SAVE_RAW_PKL global via config.
 
         Tests:
             (Test Case 1) Global is True after calling with save_raw_pkl=True.
             (Test Case 2) Global is False after calling with save_raw_pkl=False.
         """
         import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
 
-        with patch.object(ks_mod, "process_recording", return_value=Exception("skip")):
+        with patch.object(
+            pipe_mod, "process_recording", return_value=Exception("skip")
+        ):
             sort_fn(
                 recording_files=["fake.h5"],
                 kilosort_path="/fake/kilosort",
@@ -1564,7 +1567,7 @@ class TestSortWithKilosort2Validation:
             (Test Case 2) sorted_spikedata_curated.pkl is created.
             (Test Case 3) Raw pkl has more units than curated pkl.
         """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
         from spikelab import SpikeData
 
         sd_raw = SpikeData(
@@ -1580,7 +1583,7 @@ class TestSortWithKilosort2Validation:
         results_dir.mkdir()
 
         with patch.object(
-            ks_mod, "process_recording", return_value=(sd_raw, sd_curated)
+            pipe_mod, "process_recording", return_value=(sd_raw, sd_curated)
         ):
             result = sort_fn(
                 recording_files=["fake.h5"],
@@ -1615,7 +1618,7 @@ class TestSortWithKilosort2Validation:
             (Test Case 1) sorted_spikedata.pkl is NOT created.
             (Test Case 2) sorted_spikedata_curated.pkl IS created.
         """
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting.pipeline as pipe_mod
         from spikelab import SpikeData
 
         sd_curated = SpikeData(
@@ -1626,7 +1629,7 @@ class TestSortWithKilosort2Validation:
         results_dir = tmp_path / "results"
         results_dir.mkdir()
 
-        with patch.object(ks_mod, "process_recording", return_value=sd_curated):
+        with patch.object(pipe_mod, "process_recording", return_value=sd_curated):
             result = sort_fn(
                 recording_files=["fake.h5"],
                 intermediate_folders=[str(tmp_path / "inter")],

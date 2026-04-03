@@ -4855,18 +4855,100 @@ def sort_with_kilosort2(
     }
     kilosort_params = {**_default_kilosort_params, **(kilosort_params or {})}
     rec_chunks = list(rec_chunks or [])
-    scatter_recording_colors = list(
-        scatter_recording_colors
-        or [
-            "#f74343",  # red
-            "#fccd56",  # yellow
-            "#74fc56",  # green
-            "#56fcf6",  # light blue
-            "#1e1efa",  # dark blue
-            "#fa1ed2",  # pink
-        ]
+
+    # --- Build config and backend ---
+    from .config import SortingPipelineConfig
+    from .backends.kilosort2 import Kilosort2Backend
+    from .pipeline import (
+        Compiler as PipelineCompiler,
+        process_recording as pipeline_process_recording,
     )
 
+    config = SortingPipelineConfig.from_kwargs(
+        stream_id=stream_id,
+        hdf5_plugin_path=hdf5_plugin_path,
+        first_n_mins=first_n_mins,
+        mea_y_max=mea_y_max,
+        gain_to_uv=gain_to_uv,
+        offset_to_uv=offset_to_uv,
+        rec_chunks=rec_chunks,
+        freq_min=freq_min,
+        freq_max=freq_max,
+        kilosort_path=kilosort_path,
+        kilosort_params=kilosort_params,
+        use_docker=use_docker,
+        waveforms_ms_before=waveforms_ms_before,
+        waveforms_ms_after=waveforms_ms_after,
+        pos_peak_thresh=pos_peak_thresh,
+        max_waveforms_per_unit=max_waveforms_per_unit,
+        compiled_waveforms_ms_before=compiled_waveforms_ms_before,
+        compiled_waveforms_ms_after=compiled_waveforms_ms_after,
+        scale_compiled_waveforms=scale_compiled_waveforms,
+        std_at_peak=std_at_peak,
+        std_over_window_ms_before=std_over_window_ms_before,
+        std_over_window_ms_after=std_over_window_ms_after,
+        curate_first=curate_first,
+        curate_second=curate_second,
+        curation_epoch=curation_epoch,
+        fr_min=fr_min,
+        isi_viol_max=isi_viol_max,
+        isi_violation_method=isi_violation_method,
+        snr_min=snr_min,
+        spikes_min_first=spikes_min_first,
+        spikes_min_second=spikes_min_second,
+        std_norm_max=std_norm_max,
+        compile_single_recording=compile_single_recording,
+        compile_to_mat=compile_to_mat,
+        compile_to_npz=compile_to_npz,
+        compile_waveforms=compile_waveforms,
+        compile_all_recordings=compile_all_recordings,
+        save_electrodes=save_electrodes,
+        save_spike_times=save_spike_times,
+        save_raw_pkl=save_raw_pkl,
+        save_dl_data=save_dl_data,
+        create_figures=create_figures,
+        figures_dpi=figures_dpi,
+        figures_font_size=figures_font_size,
+        bar_x_label=bar_x_label,
+        bar_y_label=bar_y_label,
+        bar_label_rotation=bar_label_rotation,
+        bar_total_label=bar_total_label,
+        bar_selected_label=bar_selected_label,
+        scatter_std_max_units_per_recording=scatter_std_max_units_per_recording,
+        scatter_recording_colors=scatter_recording_colors,
+        scatter_recording_alpha=scatter_recording_alpha,
+        scatter_x_label=scatter_x_label,
+        scatter_y_label=scatter_y_label,
+        scatter_x_max_buffer=scatter_x_max_buffer,
+        scatter_y_max_buffer=scatter_y_max_buffer,
+        all_templates_color_curated=all_templates_color_curated,
+        all_templates_color_failed=all_templates_color_failed,
+        all_templates_per_column=all_templates_per_column,
+        all_templates_y_spacing=all_templates_y_spacing,
+        all_templates_y_lim_buffer=all_templates_y_lim_buffer,
+        all_templates_window_ms_before_peak=all_templates_window_ms_before_peak,
+        all_templates_window_ms_after_peak=all_templates_window_ms_after_peak,
+        all_templates_line_ms_before_peak=all_templates_line_ms_before_peak,
+        all_templates_line_ms_after_peak=all_templates_line_ms_after_peak,
+        all_templates_x_label=all_templates_x_label,
+        n_jobs=n_jobs,
+        total_memory=total_memory,
+        use_parallel_processing_for_raw_conversion=use_parallel_processing_for_raw_conversion,
+        save_script=save_script,
+        out_file=out_file,
+        recompute_recording=recompute_recording,
+        recompute_sorting=recompute_sorting,
+        reextract_waveforms=reextract_waveforms,
+        recurate_first=recurate_first,
+        recurate_second=recurate_second,
+        recompile_single_recording=recompile_single_recording,
+        recompile_all_recordings=recompile_all_recordings,
+        delete_inter=delete_inter,
+    )
+
+    backend = Kilosort2Backend(config)
+
+    # --- Folder setup ---
     if intermediate_folders is None:
         cur_datetime = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
         intermediate_folders = [
@@ -4878,12 +4960,11 @@ def sort_with_kilosort2(
             Path(rec).parent / "sorted_kilosort2" for rec in recording_files
         ]
     if compiled_results_folder is None:
-        compiled_results_folder = (
-            "None"  # Set this to a string to prevent error later on
-        )
+        compiled_results_folder = "None"
         if compile_all_recordings:
             raise ValueError(
-                "'compile_all_recordings' is set to True, so you must specify where the results will be stored with 'compiled_results_folder'"
+                "'compile_all_recordings' is set to True, so you must "
+                "specify 'compiled_results_folder'"
             )
     global RECORDING_FILES, INTERMEDIATE_FOLDERS, OUT_FILE, RESULTS_FOLDERS
     global KILOSORT_PATH, COMPILED_RESULTS_FOLDER, KILOSORT_PARAMS, STREAM_ID, USE_DOCKER
@@ -5005,7 +5086,7 @@ def sort_with_kilosort2(
     compiled_results_folder = Path(COMPILED_RESULTS_FOLDER)
     if COMPILE_ALL_RECORDINGS:
         if not compiled_results_folder.exists() or RECOMPILE_ALL_RECORDINGS:
-            all_recs_compiler = Compiler()
+            all_recs_compiler = PipelineCompiler(config)
             create_folder(compiled_results_folder)
         else:
             all_recs_compiler = "Skipping compiling results from all recordings because 'RECOMPILE_ALL_RECORDINGS' is set to False and already compiled"
@@ -5042,8 +5123,16 @@ def sort_with_kilosort2(
         else:
             rec_loaded = None
         rec_name = str(rec_path).split(r"/")[-1].split(".")[0]
-        result = process_recording(
-            rec_name, rec_path, inter_path, results_path, rec_loaded=rec_loaded
+        result = pipeline_process_recording(
+            backend,
+            config,
+            rec_name,
+            rec_path,
+            inter_path,
+            results_path,
+            rec_loaded=rec_loaded,
+            rec_chunks=config.recording.rec_chunks or None,
+            rec_chunk_names=getattr(backend, "rec_chunk_names", None),
         )
 
         if isinstance(result, BaseException):
@@ -5069,6 +5158,12 @@ def sort_with_kilosort2(
         with open(curated_pkl, "wb") as f:
             pickle.dump(sd_curated, f)
         print(f"Saved {sd_curated.N} curated units to {curated_pkl}")
+
+        # Save scaled traces for training detection model
+        if SAVE_DL_DATA:
+            dl_stopwatch = Stopwatch("SAVING TRACES FOR DETECTION MODEL")
+            save_traces(rec_path if rec_loaded is None else rec_loaded, results_path)
+            dl_stopwatch.log_time()
 
         # If the recording was concatenated from multiple files, split
         # back into per-epoch SpikeData objects with per-epoch templates.
