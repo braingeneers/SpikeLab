@@ -1440,6 +1440,35 @@ Must match the bin size used to compute <code class="docutils literal notranslat
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.get_frac_spikes_in_burst">
+<span class="sig-name descname"><span class="pre">get_frac_spikes_in_burst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.get_frac_spikes_in_burst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.get_frac_spikes_in_burst" title="Link to this definition"></a></dt>
+<dd><p>Compute the fraction of each unit’s spikes that fall inside burst windows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Array of shape (B, 2) containing
+[start, end] indices for each burst. Indices are in raster
+bin coordinates (bin index = time_ms / bin_size).</p></li>
+<li><p><strong>bin_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Raster bin size in milliseconds (default 1.0).
+Must match the bin size used to compute <code class="docutils literal notranslate"><span class="pre">edges</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>1D array of shape (N,)</dt><dd><p>where each value is the fraction of the unit’s total spikes
+that fall inside any burst window. NaN for units with zero
+spikes.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>frac_spikes_in_burst (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.spike_shuffle">
 <span class="sig-name descname"><span class="pre">spike_shuffle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">swap_per_spike</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.spike_shuffle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.spike_shuffle" title="Link to this definition"></a></dt>
 <dd><p>Shuffle the spike matrix using degree-preserving double-edge swaps.</p>
