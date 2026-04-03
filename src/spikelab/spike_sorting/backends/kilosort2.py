@@ -59,7 +59,22 @@ class Kilosort2Backend(SorterBackend):
 
         # Sorter
         ks2.KILOSORT_PATH = sor.sorter_path
-        ks2.KILOSORT_PARAMS = sor.sorter_params
+        _default_ks2_params = {
+            "detect_threshold": 6,
+            "projection_threshold": [10, 4],
+            "preclust_threshold": 8,
+            "car": True,
+            "minFR": 0.1,
+            "minfr_goodchannels": 0.1,
+            "freq_min": 150,
+            "sigmaMask": 30,
+            "nPCs": 3,
+            "ntbuff": 64,
+            "nfilt_factor": 4,
+            "NT": None,
+            "keep_good_only": False,
+        }
+        ks2.KILOSORT_PARAMS = {**_default_ks2_params, **(sor.sorter_params or {})}
         ks2.USE_DOCKER = sor.use_docker
 
         # Waveforms
