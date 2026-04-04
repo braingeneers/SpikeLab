@@ -113,7 +113,6 @@ class Kilosort2Backend(SorterBackend):
         ks2.COMPILE_TO_MAT = comp.compile_to_mat
         ks2.COMPILE_TO_NPZ = comp.compile_to_npz
         ks2.COMPILE_WAVEFORMS = comp.compile_waveforms
-        ks2.COMPILE_ALL_RECORDINGS = comp.compile_all_recordings
         ks2.SAVE_ELECTRODES = comp.save_electrodes
         ks2.SAVE_SPIKE_TIMES = comp.save_spike_times
         ks2.SAVE_RAW_PKL = comp.save_raw_pkl
@@ -133,7 +132,6 @@ class Kilosort2Backend(SorterBackend):
         ks2.RECURATE_FIRST = exe.recurate_first
         ks2.RECURATE_SECOND = exe.recurate_second
         ks2.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
-        ks2.RECOMPILE_ALL_RECORDINGS = exe.recompile_all_recordings
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the legacy loader.

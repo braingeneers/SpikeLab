@@ -75,7 +75,7 @@ class CompilationConfig:
     compile_to_mat: bool = False
     compile_to_npz: bool = True
     compile_waveforms: bool = False
-    compile_all_recordings: bool = False
+
     save_electrodes: bool = True
     save_spike_times: bool = True
     save_raw_pkl: bool = False
@@ -139,7 +139,7 @@ class ExecutionConfig:
     recurate_first: bool = False
     recurate_second: bool = False
     recompile_single_recording: bool = False
-    recompile_all_recordings: bool = False
+
     delete_inter: bool = True
 
 
@@ -288,7 +288,6 @@ class SortingPipelineConfig:
             "compile_to_mat": ("compilation", "compile_to_mat"),
             "compile_to_npz": ("compilation", "compile_to_npz"),
             "compile_waveforms": ("compilation", "compile_waveforms"),
-            "compile_all_recordings": ("compilation", "compile_all_recordings"),
             "save_electrodes": ("compilation", "save_electrodes"),
             "save_spike_times": ("compilation", "save_spike_times"),
             "save_raw_pkl": ("compilation", "save_raw_pkl"),
@@ -352,7 +351,6 @@ class SortingPipelineConfig:
                 "execution",
                 "recompile_single_recording",
             ),
-            "recompile_all_recordings": ("execution", "recompile_all_recordings"),
             "delete_inter": ("execution", "delete_inter"),
         }
 

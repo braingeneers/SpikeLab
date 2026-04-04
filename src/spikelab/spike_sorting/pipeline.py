@@ -812,7 +812,6 @@ def sort_recording(
     sorter="kilosort2",
     intermediate_folders=None,
     results_folders=None,
-    compiled_results_folder=None,
     **kwargs,
 ):
     """Run spike sorting on one or more recordings using any registered backend.
@@ -836,8 +835,6 @@ def sort_recording(
             directories, one per recording.  Auto-generated if None.
         results_folders (list or None): Output directories, one per
             recording.  Auto-generated if None.
-        compiled_results_folder (str or None): Directory for
-            multi-recording compiled results.
         **kwargs: Override individual config fields.  When ``config``
             is provided, these are applied on top.  When ``config`` is
             None, these are passed to
@@ -851,9 +848,6 @@ def sort_recording(
     Notes:
         - Pickle files (``sorted_spikedata_curated.pkl`` and optionally
           ``sorted_spikedata.pkl``) are saved to each results folder.
-        - When ``compiled_results_folder`` is provided and
-          ``compile_all_recordings`` is True, a combined compilation
-          is produced across all recordings.
     """
     import datetime
 
@@ -879,14 +873,6 @@ def sort_recording(
         results_folders = [
             Path(rec).parent / f"sorted_{sorter}" for rec in recording_files
         ]
-    if compiled_results_folder is None:
-        compiled_results_folder = "None"
-        if config.compilation.compile_all_recordings:
-            raise ValueError(
-                "'compile_all_recordings' is True — specify "
-                "'compiled_results_folder'."
-            )
-
     # Validate
     if not (len(recording_files) == len(intermediate_folders) == len(results_folders)):
         raise ValueError(
@@ -894,17 +880,6 @@ def sort_recording(
             f"intermediate_folders ({len(intermediate_folders)}), and "
             f"results_folders ({len(results_folders)}) must all have "
             "the same length."
-        )
-
-    if (
-        config.figures.create_figures
-        and config.compilation.compile_all_recordings
-        and len(config.figures.scatter_recording_colors) < len(recording_files)
-    ):
-        raise ValueError(
-            f"scatter_recording_colors has "
-            f"{len(config.figures.scatter_recording_colors)} entries but "
-            f"there are {len(recording_files)} recordings."
         )
 
     # Figure settings
@@ -920,14 +895,6 @@ def sort_recording(
         pass
 
     np.random.seed(1)
-
-    # Multi-recording compiler
-    compiled_path = Path(compiled_results_folder)
-    all_recs_compiler = None
-    if config.compilation.compile_all_recordings:
-        if not compiled_path.exists() or config.execution.recompile_all_recordings:
-            all_recs_compiler = Compiler(config)
-            create_folder(compiled_path)
 
     # Main loop
     spikedata_results = []
@@ -992,27 +959,10 @@ def sort_recording(
         else:
             spikedata_results.append(sd_curated)
 
-        if not compiled_path.exists() and config.execution.delete_inter:
-            import shutil as _shutil
-
-            _shutil.rmtree(inter_path)
-
-        if all_recs_compiler is not None:
-            all_recs_compiler.add_recording(rec_name, sd_curated)
-
-    if all_recs_compiler is not None and compiled_path.exists():
-        from .sorting_utils import Tee as _Tee
-
-        with _Tee(compiled_path / "log.out", "w"):
-            stopwatch = Stopwatch("COMPILING DATA FROM ALL RECORDINGS")
-            all_recs_compiler.save_results(compiled_path)
-            print_stage("DONE COMPILING DATA FROM ALL RECORDINGS")
-            stopwatch.log_time()
         if config.execution.delete_inter:
             import shutil as _shutil
 
-            for ip in intermediate_folders:
-                _shutil.rmtree(ip)
+            _shutil.rmtree(inter_path)
 
     return spikedata_results
 

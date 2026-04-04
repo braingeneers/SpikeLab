@@ -2038,20 +2038,6 @@ class TestSortRecordingValidation:
                 results_folders=[str(tmp_path / "r1"), str(tmp_path / "r2")],
             )
 
-    def test_compile_all_without_folder_raises(self, sort_fn):
-        """
-        compile_all_recordings=True without folder raises ValueError.
-
-        Tests:
-            (Test Case 1) Error message mentions compiled_results_folder.
-        """
-        with pytest.raises(ValueError, match="compile_all_recordings"):
-            sort_fn(
-                recording_files=["fake.h5"],
-                compile_all_recordings=True,
-                compiled_results_folder=None,
-            )
-
     def test_empty_recording_files(self, sort_fn):
         """
         Empty recording_files returns empty result list.
