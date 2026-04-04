@@ -1,42 +1,50 @@
-"""Kilosort2 sorter backend.
+"""Kilosort4 sorter backend.
 
-Implements the ``SorterBackend`` interface by delegating to the existing
-functions in ``spikelab.spike_sorting.kilosort2``.  The legacy functions
-still read module-level globals, so this backend sets those globals from
-the ``SortingPipelineConfig`` on construction.
+Implements the ``SorterBackend`` interface using Kilosort4 (pure Python,
+PyTorch-based) via SpikeInterface's ``run_sorter("kilosort4", ...)``.
+Uses the same custom ``WaveformExtractor`` and per-spike centering as
+the Kilosort2 backend.
 
-This is a transitional design.  In a future cleanup, the underlying
-functions will be refactored to accept the config directly, and the
-global-setting logic will be removed.
+Requirements:
+    pip install kilosort
+    # Plus PyTorch with CUDA — see https://pytorch.org/get-started/locally/
 """
 
-import os
 from typing import Any
 
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
 
-DEFAULT_KILOSORT2_PARAMS = {
-    "detect_threshold": 6,
-    "projection_threshold": [10, 4],
-    "preclust_threshold": 8,
-    "car": True,
-    "minFR": 0.1,
-    "minfr_goodchannels": 0.1,
-    "freq_min": 150,
-    "sigmaMask": 30,
-    "nPCs": 3,
-    "ntbuff": 64,
-    "nfilt_factor": 4,
-    "NT": None,
+DEFAULT_KILOSORT4_PARAMS = {
+    "do_CAR": True,
+    "invert_sign": False,
+    "save_extra_vars": False,
+    "save_preprocessed_copy": False,
+    "torch_device": "auto",
+    "bad_channels": None,
+    "clear_cache": False,
+    "do_correction": True,
+    "skip_kilosort_preprocessing": False,
     "keep_good_only": False,
+    "use_binary_file": True,
+    "delete_recording_dat": True,
 }
-"""Default Kilosort2 parameters. Used by both the backend and
-``sort_with_kilosort2`` to populate missing values."""
+"""Default Kilosort4 parameters.  Originally tuned for Neuropixels probes.
+Used by the backend and ``KILOSORT4_NEUROPIXELS`` preset config."""
 
 
-class Kilosort2Backend(SorterBackend):
-    """SorterBackend implementation for Kilosort2.
+class Kilosort4Backend(SorterBackend):
+    """SorterBackend implementation for Kilosort4.
+
+    Kilosort4 is a pure Python spike sorter (no MATLAB required).  It
+    runs via SpikeInterface's ``run_sorter("kilosort4", ...)`` interface,
+    which handles binary conversion, parameter passing, and result
+    loading.
+
+    Waveform extraction uses the same custom ``WaveformExtractor`` from
+    ``kilosort2.py`` with per-spike centering, since the output format
+    (``spike_times.npy``, ``spike_clusters.npy``, ``templates.npy``) is
+    compatible.
 
     Parameters:
         config (SortingPipelineConfig): Full pipeline configuration.
@@ -49,9 +57,9 @@ class Kilosort2Backend(SorterBackend):
     def _sync_globals(self) -> None:
         """Set module-level globals in kilosort2.py from the config.
 
-        This bridges the config-based architecture with the legacy
-        global-reading functions.  Will be removed once all functions
-        accept config directly.
+        The legacy WaveformExtractor, load_recording, and related
+        functions still read globals.  This bridges the config-based
+        architecture with those functions.
         """
         from .. import kilosort2 as ks2
 
@@ -65,7 +73,6 @@ class Kilosort2Backend(SorterBackend):
 
         # Recording
         ks2.STREAM_ID = rec.stream_id
-        # HDF5 plugin path is now set upstream in pipeline.sort_recording()
         ks2.FIRST_N_MINS = rec.first_n_mins
         ks2.MEA_Y_MAX = rec.mea_y_max
         ks2.GAIN_TO_UV = rec.gain_to_uv
@@ -75,10 +82,11 @@ class Kilosort2Backend(SorterBackend):
         ks2.FREQ_MIN = rec.freq_min
         ks2.FREQ_MAX = rec.freq_max
 
-        # Sorter
+        # Sorter — KS4 params are passed directly to SI, but we store
+        # them in the global for the KilosortSortingExtractor to read
         ks2.KILOSORT_PATH = sor.sorter_path
         ks2.KILOSORT_PARAMS = {
-            **DEFAULT_KILOSORT2_PARAMS,
+            **DEFAULT_KILOSORT4_PARAMS,
             **(sor.sorter_params or {}),
         }
         ks2.USE_DOCKER = sor.use_docker
@@ -133,41 +141,82 @@ class Kilosort2Backend(SorterBackend):
         ks2.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
 
     def load_recording(self, rec_path: Any) -> Any:
-        """Load and preprocess a recording via the legacy loader.
+        """Load and preprocess a recording via the shared loader.
 
-        Handles Maxwell ``.h5``, NWB, directories (concatenation),
-        and pre-loaded BaseRecording objects.
-
-        After loading, ``self.rec_chunk_names`` and
-        ``self.config.recording.rec_chunks`` are updated if the
-        recording was concatenated from multiple files.
+        Uses the same Maxwell/NWB loader as the Kilosort2 backend.
         """
         from .. import kilosort2 as ks2
 
         recording = ks2.load_recording(rec_path)
 
-        # Capture concatenation state set by load_recording/concatenate_recordings
         self.rec_chunk_names = getattr(ks2, "_REC_CHUNK_NAMES", []) or []
         self.config.recording.rec_chunks = list(getattr(ks2, "REC_CHUNKS", []) or [])
 
         return recording
 
     def sort(
-        self, recording: Any, rec_path: Any, recording_dat_path: Any, output_folder: Any
+        self,
+        recording: Any,
+        rec_path: Any,
+        recording_dat_path: Any,
+        output_folder: Any,
     ) -> Any:
-        """Run Kilosort2 spike sorting.
+        """Run Kilosort4 spike sorting via SpikeInterface.
 
-        Delegates to the legacy ``spike_sort`` function which handles
-        binary conversion, MATLAB/Docker execution, and result loading.
+        Uses ``spikeinterface.sorters.run_sorter("kilosort4", ...)``
+        which handles binary conversion and parameter passing.  When
+        ``use_docker=True``, runs in a Docker container.
         """
+        import spikeinterface.sorters as ss
         from .. import kilosort2 as ks2
+        from ..sorting_utils import Stopwatch, print_stage
 
-        return ks2.spike_sort(
-            rec_cache=recording,
-            rec_path=rec_path,
-            recording_dat_path=recording_dat_path,
-            output_folder=output_folder,
-        )
+        print_stage("SPIKE SORTING WITH KILOSORT4")
+        stopwatch = Stopwatch()
+
+        sorter_params = dict(ks2.KILOSORT_PARAMS)
+
+        # Check if KS4 results already exist
+        output_folder_path = output_folder
+        if hasattr(output_folder, "__fspath__"):
+            from pathlib import Path
+
+            output_folder_path = Path(output_folder)
+
+        if (
+            not ks2.RECOMPUTE_SORTING
+            and output_folder_path.exists()
+            and (output_folder_path / "spike_times.npy").exists()
+        ):
+            print("Loading existing Kilosort4 results")
+            sorting = ks2.KilosortSortingExtractor(folder_path=output_folder_path)
+            stopwatch.log_time("Done loading existing results.")
+            return sorting
+
+        try:
+            sorting = ss.run_sorter(
+                "kilosort4",
+                recording,
+                output_folder=str(output_folder),
+                docker_image=ks2.USE_DOCKER if ks2.USE_DOCKER else None,
+                verbose=True,
+                **sorter_params,
+            )
+        except Exception as e:
+            print(f"Kilosort4 sorting failed: {e}")
+            stopwatch.log_time("Sorting failed.")
+            return e
+
+        # Load results using the shared KilosortSortingExtractor
+        # (KS4 output format is compatible: spike_times.npy, spike_clusters.npy)
+        sorter_output = output_folder_path
+        if (output_folder_path / "sorter_output").exists():
+            sorter_output = output_folder_path / "sorter_output"
+
+        sorting = ks2.KilosortSortingExtractor(folder_path=sorter_output)
+
+        stopwatch.log_time("Done sorting with Kilosort4.")
+        return sorting
 
     def extract_waveforms(
         self,
@@ -179,7 +228,8 @@ class Kilosort2Backend(SorterBackend):
     ) -> Any:
         """Extract waveforms via the custom WaveformExtractor.
 
-        Uses the legacy extraction pipeline with per-spike centering.
+        Uses the same extraction pipeline and per-spike centering as
+        the Kilosort2 backend.
         """
         from .. import kilosort2 as ks2
 

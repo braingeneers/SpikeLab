@@ -830,15 +830,19 @@ def sort_recording(
             available in ``spikelab.spike_sorting.config`` (e.g.
             ``KILOSORT2_MAXWELL``).
         sorter (str): Registered sorter backend name.  Only used when
-            ``config`` is None.  Currently available: ``"kilosort2"``.
+            ``config`` is None.  Available: ``"kilosort2"``,
+            ``"kilosort4"``.
         intermediate_folders (list or None): Intermediate result
             directories, one per recording.  Auto-generated if None.
         results_folders (list or None): Output directories, one per
             recording.  Auto-generated if None.
-        **kwargs: Override individual config fields.  When ``config``
-            is provided, these are applied on top.  When ``config`` is
-            None, these are passed to
-            ``SortingPipelineConfig.from_kwargs()``.
+        **kwargs: Override individual config fields (e.g.
+            ``snr_min=5.0``, ``use_docker=True``, ``fr_min=0.05``).
+            See ``spikelab.spike_sorting.config`` for all available
+            parameters, grouped by: ``RecordingConfig``,
+            ``SorterConfig``, ``WaveformConfig``, ``CurationConfig``,
+            ``CompilationConfig``, ``FigureConfig``,
+            ``ExecutionConfig``.
 
     Returns:
         results (list[SpikeData]): One SpikeData per original recording
@@ -848,6 +852,10 @@ def sort_recording(
     Notes:
         - Pickle files (``sorted_spikedata_curated.pkl`` and optionally
           ``sorted_spikedata.pkl``) are saved to each results folder.
+        - ``hdf5_plugin_path`` (passed via config or kwargs) sets
+          ``os.environ['HDF5_PLUGIN_PATH']`` before any recording is
+          loaded.  This is needed for Maxwell ``.h5`` files and
+          applies to all backends.
     """
     import datetime
 
@@ -860,6 +868,13 @@ def sort_recording(
         sorter = config.sorter.sorter_name
     else:
         config = SortingPipelineConfig.from_kwargs(**kwargs)
+
+    # Set HDF5 plugin path before any recording is loaded (affects all backends)
+    if config.recording.hdf5_plugin_path is not None:
+        import os
+
+        os.environ["HDF5_PLUGIN_PATH"] = str(config.recording.hdf5_plugin_path)
+
     backend_cls = get_backend_class(sorter)
     backend = backend_cls(config)
 

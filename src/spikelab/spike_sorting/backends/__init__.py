@@ -7,6 +7,7 @@ lazily to avoid requiring all sorter dependencies at import time.
 # Registry: sorter name → (module_path, class_name)
 _BACKEND_REGISTRY = {
     "kilosort2": (".kilosort2", "Kilosort2Backend"),
+    "kilosort4": (".kilosort4", "Kilosort4Backend"),
 }
 
 
