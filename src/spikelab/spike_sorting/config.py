@@ -368,13 +368,16 @@ KILOSORT2_MAXWELL_DOCKER = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
 )
 
-#: Default configuration for Kilosort4 on Neuropixels probes.
+#: Default configuration for Kilosort4.
 #: Kilosort4 is pure Python (PyTorch) — no MATLAB required.
-KILOSORT4_NEUROPIXELS = SortingPipelineConfig(
+#: Default parameters are tuned for Neuropixels probes but work for
+#: other probe types.  Hardware-specific presets (e.g. for Maxwell
+#: MEAs) can be created by overriding detection/filtering parameters.
+KILOSORT4 = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort4"),
 )
 
-#: Kilosort4 on Neuropixels with Docker.
-KILOSORT4_NEUROPIXELS_DOCKER = SortingPipelineConfig(
+#: Kilosort4 with Docker.
+KILOSORT4_DOCKER = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort4", use_docker=True),
 )
