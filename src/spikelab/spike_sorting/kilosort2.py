@@ -1013,10 +1013,12 @@ class KilosortSortingExtractor:
         half_windows_sizes = []
         for i in range(n_templates):
             template = templates_all[i, :]
-            size = (
-                template_mid
-                - np.flatnonzero(np.isclose(template[:template_mid], 0))[-1]
-            )
+            zero_indices = np.flatnonzero(np.isclose(template[:template_mid], 0))
+            if zero_indices.size > 0:
+                size = template_mid - zero_indices[-1]
+            else:
+                # No zeros before midpoint (e.g. KS4 templates) — use full half
+                size = template_mid
             half_windows_sizes.append(int(size * window_size_scale))
 
         return half_windows_sizes
