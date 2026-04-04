@@ -2661,9 +2661,7 @@ async def shuffle_z_score(
     ws = _get_workspace(workspace_id)
     observed = ws.get(namespace, observed_key)
     if observed is None or not isinstance(observed, np.ndarray):
-        raise ValueError(
-            f"No ndarray found at ({namespace!r}, {observed_key!r})."
-        )
+        raise ValueError(f"No ndarray found at ({namespace!r}, {observed_key!r}).")
     shuffle_dist = ws.get(namespace, shuffle_key)
     if shuffle_dist is None or not isinstance(shuffle_dist, np.ndarray):
         raise ValueError(
@@ -2691,9 +2689,7 @@ async def shuffle_percentile(
     ws = _get_workspace(workspace_id)
     observed = ws.get(namespace, observed_key)
     if observed is None or not isinstance(observed, np.ndarray):
-        raise ValueError(
-            f"No ndarray found at ({namespace!r}, {observed_key!r})."
-        )
+        raise ValueError(f"No ndarray found at ({namespace!r}, {observed_key!r}).")
     shuffle_dist = ws.get(namespace, shuffle_key)
     if shuffle_dist is None or not isinstance(shuffle_dist, np.ndarray):
         raise ValueError(
@@ -2784,9 +2780,7 @@ async def pairwise_tests(
             raise ValueError(f"No ndarray found at ({namespace!r}, {k!r}).")
         groups[lbl] = arr
 
-    result = _pairwise_tests(
-        groups, test=test, correction=correction, alpha=alpha
-    )
+    result = _pairwise_tests(groups, test=test, correction=correction, alpha=alpha)
 
     if out_key:
         ws.store(namespace, out_key, result["pval_matrix"])
