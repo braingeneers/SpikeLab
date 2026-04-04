@@ -23,8 +23,12 @@ import warnings
 
 import numpy as np
 
-import h5py
 import pickle
+
+try:
+    import h5py
+except ImportError:  # pragma: no cover
+    h5py = None  # type: ignore
 
 if TYPE_CHECKING:  # avoid runtime circular import
     from ..spikedata import SpikeData  # noqa: F401

@@ -203,6 +203,16 @@ class SpikeSliceStack:
             for sd in self.spike_stack:
                 sd.neuron_attributes = None
 
+    def __repr__(self) -> str:
+        S = len(self.spike_stack)
+        return f"SpikeSliceStack(N={self.N}, S={S})"
+
+    def __len__(self) -> int:
+        return len(self.spike_stack)
+
+    def __iter__(self):
+        return iter(self.spike_stack)
+
     def subslice(self, slices):
         """Extract a subset of slices from the spike stack.
 

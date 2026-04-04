@@ -39,14 +39,14 @@ Use these sources to answer questions, in order of priority:
 
 ### 1. Repo maps — API-level questions
 
-For "what does this method do?" or "what parameters does X take?" questions, read the repo maps located alongside the analysis implementer skill:
+For "what does this method do?" or "what parameters does X take?" questions, read the repo maps:
 
 ```
-.agent/skills/spikelab-analysis-implementer/REPO_MAP.md
-.agent/skills/spikelab-analysis-implementer/REPO_MAP_DETAILED.md
+.agent/skills/spikelab-map-updater/REPO_MAP.md
+.agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
 ```
 
-If the repo maps do not exist, fall back to reading the source code directly.
+If the repo maps are not present, run the `spikelab-map-updater` skill to generate them. If that is not possible, fall back to reading the source code directly.
 
 ### 2. Sphinx guides — narrative explanations
 

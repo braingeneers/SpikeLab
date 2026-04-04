@@ -9,9 +9,9 @@ from typing import Any, Dict
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage, signal, sparse
+from scipy.stats import norm
 from .ratedata import RateData
 from .pairwise import PairwiseCompMatrix
-from scipy.stats import norm
 
 
 from .utils import (

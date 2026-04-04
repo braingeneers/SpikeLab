@@ -2111,3 +2111,1351 @@ class TestSortMultistreamValidation:
                 stream_ids=["well000"],
                 results_folders=["/tmp/results"],
             )
+
+
+# ===========================================================================
+# Docker utilities
+# ===========================================================================
+
+
+class TestDockerUtilsGetHostCudaDriverVersion:
+    """
+    Tests for get_host_cuda_driver_version.
+
+    Tests:
+        (Test Case 1) Parses typical nvidia-smi output.
+        (Test Case 2) Returns None when nvidia-smi is not found.
+        (Test Case 3) Returns None when nvidia-smi times out.
+        (Test Case 4) Parses multi-GPU output (first line).
+    """
+
+    def test_parses_typical_output(self):
+        """
+        Parses a typical nvidia-smi driver version string.
+
+        Tests:
+            (Test Case 1) "590.44.01" → 590.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            return_value="590.44.01\n",
+        ):
+            assert get_host_cuda_driver_version() == 590
+
+    def test_returns_none_when_nvidia_smi_missing(self):
+        """
+        Returns None when nvidia-smi is not installed.
+
+        Tests:
+            (Test Case 1) FileNotFoundError → None.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            side_effect=FileNotFoundError,
+        ):
+            assert get_host_cuda_driver_version() is None
+
+    def test_returns_none_on_timeout(self):
+        """
+        Returns None when nvidia-smi times out.
+
+        Tests:
+            (Test Case 1) subprocess.TimeoutExpired → None.
+        """
+        import subprocess as sp
+
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            side_effect=sp.TimeoutExpired(cmd="nvidia-smi", timeout=10),
+        ):
+            assert get_host_cuda_driver_version() is None
+
+    def test_returns_none_on_malformed_output(self):
+        """
+        Returns None when nvidia-smi output is not parseable.
+
+        Tests:
+            (Test Case 1) Non-numeric output → None.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            return_value="N/A\n",
+        ):
+            assert get_host_cuda_driver_version() is None
+
+
+class TestDockerUtilsGetHostCudaTag:
+    """
+    Tests for get_host_cuda_tag.
+
+    Tests:
+        (Test Case 1) Driver version maps to the correct CUDA tag.
+        (Test Case 2) Returns None when driver is too old.
+        (Test Case 3) Returns None when no GPU detected.
+    """
+
+    def test_driver_560_maps_to_cu130(self):
+        """
+        Driver 560+ maps to cu130.
+
+        Tests:
+            (Test Case 1) Exact boundary at 560.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=560,
+        ):
+            assert get_host_cuda_tag() == "cu130"
+
+    def test_driver_550_maps_to_cu126(self):
+        """
+        Driver 550-559 maps to cu126.
+
+        Tests:
+            (Test Case 1) Driver 550 is below cu130 threshold.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=550,
+        ):
+            assert get_host_cuda_tag() == "cu126"
+
+    def test_driver_525_maps_to_cu118(self):
+        """
+        Driver 525 maps to cu118 (lowest supported).
+
+        Tests:
+            (Test Case 1) Boundary at 525.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=525,
+        ):
+            assert get_host_cuda_tag() == "cu118"
+
+    def test_driver_too_old_returns_none(self):
+        """
+        Driver below all thresholds returns None.
+
+        Tests:
+            (Test Case 1) Driver 500 has no match.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=500,
+        ):
+            assert get_host_cuda_tag() is None
+
+    def test_no_gpu_returns_none(self):
+        """
+        Returns None when no GPU is detected.
+
+        Tests:
+            (Test Case 1) get_host_cuda_driver_version returns None.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=None,
+        ):
+            assert get_host_cuda_tag() is None
+
+
+class TestDockerUtilsGetDockerImage:
+    """
+    Tests for get_docker_image.
+
+    Tests:
+        (Test Case 1) KS2 returns default image regardless of CUDA tag.
+        (Test Case 2) KS4 exact CUDA tag match.
+        (Test Case 3) KS4 auto-detects CUDA from host.
+        (Test Case 4) KS4 falls back to newest tag with warning.
+        (Test Case 5) Unknown sorter raises ValueError.
+        (Test Case 6) No compatible image raises RuntimeError.
+        (Test Case 7) Auto-detect fails (no GPU) raises RuntimeError.
+    """
+
+    def test_ks2_returns_default(self):
+        """
+        KS2 always returns its single default image.
+
+        Tests:
+            (Test Case 1) CUDA tag is ignored for KS2.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        image = get_docker_image("kilosort2", cuda_tag="cu118")
+        assert "kilosort2" in image
+        assert image == get_docker_image("kilosort2")
+
+    def test_ks4_exact_cuda_match(self):
+        """
+        KS4 with an exact CUDA tag returns the matching image.
+
+        Tests:
+            (Test Case 1) cu130 matches the registered image.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        image = get_docker_image("kilosort4", cuda_tag="cu130")
+        assert "kilosort4" in image
+
+    def test_ks4_auto_detects_cuda(self):
+        """
+        KS4 auto-detects CUDA when no tag is provided.
+
+        Tests:
+            (Test Case 1) Host with driver 560 → cu130 image.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_tag",
+            return_value="cu130",
+        ):
+            image = get_docker_image("kilosort4")
+            assert "kilosort4" in image
+
+    def test_ks4_fallback_to_newest_with_warning(self):
+        """
+        KS4 falls back to newest available image when exact match missing.
+
+        Tests:
+            (Test Case 1) cu118 has no KS4 image; falls back to cu130 with warning.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        with pytest.warns(UserWarning, match="No Docker image.*cu118"):
+            image = get_docker_image("kilosort4", cuda_tag="cu118")
+        assert "kilosort4" in image
+
+    def test_unknown_sorter_raises(self):
+        """
+        Unknown sorter name raises ValueError.
+
+        Tests:
+            (Test Case 1) "mountainsort" is not registered.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        with pytest.raises(ValueError, match="No Docker images registered"):
+            get_docker_image("mountainsort")
+
+    def test_no_gpu_auto_detect_raises(self):
+        """
+        Auto-detect raises RuntimeError when no GPU is found.
+
+        Tests:
+            (Test Case 1) get_host_cuda_tag returns None → RuntimeError.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_tag",
+            return_value=None,
+        ):
+            with pytest.raises(RuntimeError, match="Could not detect CUDA"):
+                get_docker_image("kilosort4")
+
+    def test_no_compatible_image_raises(self):
+        """
+        Raises RuntimeError when no image matches and newest fallback is absent.
+
+        Tests:
+            (Test Case 1) Registry with no matching or fallback tags.
+        """
+        from spikelab.spike_sorting import docker_utils
+
+        original_registry = docker_utils._IMAGE_REGISTRY
+        try:
+            # Registry where newest tag (cu130) has no entry
+            docker_utils._IMAGE_REGISTRY = {
+                "test_sorter": {"cu118": "test:cu118"},
+            }
+            with pytest.raises(RuntimeError, match="No compatible Docker image"):
+                docker_utils.get_docker_image("test_sorter", cuda_tag="cu121")
+        finally:
+            docker_utils._IMAGE_REGISTRY = original_registry
+
+
+# ===========================================================================
+# KS4 Docker branch
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestKilosort4BackendDockerBranch:
+    """
+    Tests for Kilosort4Backend._run_sorting Docker branch.
+
+    Tests:
+        (Test Case 1) Docker kwargs are constructed correctly when USE_DOCKER=True.
+        (Test Case 2) Custom docker image string is passed through.
+        (Test Case 3) No docker kwargs when USE_DOCKER is falsy.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _set_globals(self):
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        self._ks_mod = ks_mod
+        self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
+        self._old_recompute = getattr(ks_mod, "RECOMPUTE_SORTING", None)
+        self._old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        ks_mod.KILOSORT_PARAMS = {}
+        ks_mod.RECOMPUTE_SORTING = True
+        yield
+        if self._old_docker is not None:
+            ks_mod.USE_DOCKER = self._old_docker
+        if self._old_recompute is not None:
+            ks_mod.RECOMPUTE_SORTING = self._old_recompute
+        if self._old_params is not None:
+            ks_mod.KILOSORT_PARAMS = self._old_params
+
+    def _write_fake_phy_output(self, folder):
+        """Write minimal Phy output files so KilosortSortingExtractor can load."""
+        folder.mkdir(parents=True, exist_ok=True)
+        spike_times = np.array([100, 200, 300, 400], dtype=np.int64)
+        spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
+        np.save(str(folder / "spike_times.npy"), spike_times)
+        np.save(str(folder / "spike_clusters.npy"), spike_clusters)
+        (folder / "params.py").write_text(
+            "dat_path = 'recording.dat'\n"
+            "n_channels_dat = 4\n"
+            "dtype = 'int16'\n"
+            "offset = 0\n"
+            "sample_rate = 20000.0\n"
+            "hp_filtered = True\n"
+        )
+
+    @pytest.fixture()
+    def ks4_backend(self):
+        """Create a Kilosort4Backend with a default config."""
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        config = SortingPipelineConfig()
+        return Kilosort4Backend(config)
+
+    def test_use_docker_true_passes_image_and_no_install(self, tmp_path, ks4_backend):
+        """
+        When USE_DOCKER=True, run_sorter receives docker_image and installation_mode.
+
+        Tests:
+            (Test Case 1) docker_image is auto-detected via get_docker_image.
+            (Test Case 2) installation_mode is 'no-install'.
+        """
+        self._ks_mod.USE_DOCKER = True
+        output_folder = tmp_path / "ks4_output"
+        sorter_output = output_folder / "sorter_output"
+        self._write_fake_phy_output(sorter_output)
+
+        recording = _make_mock_recording()
+        mock_rs = MagicMock(return_value=None)
+
+        with (
+            patch(
+                "spikeinterface.sorters.run_sorter",
+                mock_rs,
+            ),
+            patch(
+                "spikelab.spike_sorting.docker_utils.get_docker_image",
+                return_value="spikeinterface/kilosort4-base:test",
+            ),
+        ):
+            ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)
+
+        _, call_kwargs = mock_rs.call_args
+        assert call_kwargs["docker_image"] == "spikeinterface/kilosort4-base:test"
+        assert call_kwargs["installation_mode"] == "no-install"
+
+    def test_use_docker_custom_string(self, tmp_path, ks4_backend):
+        """
+        When USE_DOCKER is a string, it is passed directly as docker_image.
+
+        Tests:
+            (Test Case 1) Custom image string bypasses auto-detection.
+        """
+        self._ks_mod.USE_DOCKER = "my-custom-image:latest"
+        output_folder = tmp_path / "ks4_output"
+        sorter_output = output_folder / "sorter_output"
+        self._write_fake_phy_output(sorter_output)
+
+        recording = _make_mock_recording()
+        mock_rs = MagicMock(return_value=None)
+
+        with patch(
+            "spikeinterface.sorters.run_sorter",
+            mock_rs,
+        ):
+            ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)
+
+        _, call_kwargs = mock_rs.call_args
+        assert call_kwargs["docker_image"] == "my-custom-image:latest"
+
+    def test_no_docker_kwargs_when_disabled(self, tmp_path, ks4_backend):
+        """
+        When USE_DOCKER is falsy, no docker_image or installation_mode is passed.
+
+        Tests:
+            (Test Case 1) docker_image not in kwargs.
+            (Test Case 2) installation_mode not in kwargs.
+        """
+        self._ks_mod.USE_DOCKER = False
+        output_folder = tmp_path / "ks4_output"
+        sorter_output = output_folder / "sorter_output"
+        self._write_fake_phy_output(sorter_output)
+
+        recording = _make_mock_recording()
+        mock_rs = MagicMock(return_value=None)
+
+        with patch(
+            "spikeinterface.sorters.run_sorter",
+            mock_rs,
+        ):
+            ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)
+
+        _, call_kwargs = mock_rs.call_args
+        assert "docker_image" not in call_kwargs
+        assert "installation_mode" not in call_kwargs
+
+
+# ===========================================================================
+# Updated half-window-sizes logic (KS4-style dense templates)
+# ===========================================================================
+
+
+class TestTemplateHalfWindowDenseTemplates:
+    """
+    Tests for _get_templates_half_windows_sizes with dense (non-zero-edge) templates.
+
+    The updated logic uses a 1%-of-peak threshold instead of searching for
+    exact zeros. This test covers the KS4-style case where template edges
+    are non-zero.
+
+    Tests:
+        (Test Case 1) Dense template with no zeros still produces a valid window.
+        (Test Case 2) Template with uniform small values gives full half-window.
+    """
+
+    def test_dense_template_nonzero_edges(self, tmp_path):
+        """
+        Dense template with all pre-mid amplitudes above 1% of peak.
+
+        Tests:
+            (Test Case 1) No small_indices found → size = template_mid.
+            (Test Case 2) Result is int(template_mid * 0.75) = 22.
+        """
+        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        spike_times = np.array([10, 20], dtype=np.int64)
+        spike_clusters = np.array([0, 0], dtype=np.int64)
+
+        # 1 template, 61 samples, 2 channels — dense non-zero background
+        # Background of 2.0 is above 1% of peak (100 * 0.01 = 1.0)
+        templates = np.full((1, 61, 2), 2.0, dtype=np.float32)
+        # Large peak at midpoint on channel 0
+        templates[0, 30, 0] = -100.0
+
+        channel_map = np.array([0, 1])
+        folder = tmp_path / "dense_template"
+        _write_ks_folder(
+            folder,
+            spike_times,
+            spike_clusters,
+            write_templates=True,
+            templates=templates,
+            channel_map=channel_map,
+        )
+
+        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        old_pos_peak = getattr(ks_mod, "POS_PEAK_THRESH", None)
+        ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
+        ks_mod.POS_PEAK_THRESH = 2.0
+
+        try:
+            kse = KilosortSortingExtractor(folder)
+            _, chans_ks, _ = kse.get_chans_max()
+            hw_sizes = kse.get_templates_half_windows_sizes(chans_ks)
+            assert len(hw_sizes) == 1
+            # All pre-mid values (abs=2.0) are above threshold (1.0),
+            # so no small_indices → size = template_mid = 30
+            # Result: int(30 * 0.75) = 22
+            assert hw_sizes[0] == 22
+        finally:
+            if old_params is not None:
+                ks_mod.KILOSORT_PARAMS = old_params
+            if old_pos_peak is not None:
+                ks_mod.POS_PEAK_THRESH = old_pos_peak
+
+    def test_template_with_small_nonzero_edges(self, tmp_path):
+        """
+        Template with small but non-zero edges produces a tight window.
+
+        Tests:
+            (Test Case 1) Edges below 1% of peak are treated like zeros.
+            (Test Case 2) Window is smaller than template_mid.
+        """
+        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        spike_times = np.array([10, 20], dtype=np.int64)
+        spike_clusters = np.array([0, 0], dtype=np.int64)
+
+        # 1 template, 61 samples, 2 channels
+        # Small background with a sharp peak — mimics a real waveform
+        templates = np.full((1, 61, 2), 0.001, dtype=np.float32)
+        templates[0, 30, 0] = -10.0  # peak at mid
+        # Ramp up to peak in last 5 samples before mid
+        templates[0, 25:30, 0] = np.linspace(-0.5, -10.0, 5)
+
+        channel_map = np.array([0, 1])
+        folder = tmp_path / "small_edge_template"
+        _write_ks_folder(
+            folder,
+            spike_times,
+            spike_clusters,
+            write_templates=True,
+            templates=templates,
+            channel_map=channel_map,
+        )
+
+        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        old_pos_peak = getattr(ks_mod, "POS_PEAK_THRESH", None)
+        ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
+        ks_mod.POS_PEAK_THRESH = 2.0
+
+        try:
+            kse = KilosortSortingExtractor(folder)
+            _, chans_ks, _ = kse.get_chans_max()
+            hw_sizes = kse.get_templates_half_windows_sizes(chans_ks)
+            assert len(hw_sizes) == 1
+            assert hw_sizes[0] > 0
+            # Edge values (0.001) are below 1% of 10.0 = 0.1, so they're "small".
+            # The ramp starts at index 25 with -0.5 which is above threshold.
+            # So the last small index should be 24, giving size = 30 - 24 = 6.
+            assert hw_sizes[0] < 30  # tighter than full half
+        finally:
+            if old_params is not None:
+                ks_mod.KILOSORT_PARAMS = old_params
+            if old_pos_peak is not None:
+                ks_mod.POS_PEAK_THRESH = old_pos_peak
+
+
+# ===========================================================================
+# Edge case tests — docker_utils
+# ===========================================================================
+
+
+class TestDockerUtilsEdgeCases:
+    """
+    Edge case tests for docker_utils functions.
+
+    Tests:
+        (Test Case 1) Multi-GPU nvidia-smi output with multiple lines.
+        (Test Case 2) Two-part driver version string (e.g. "470.82").
+        (Test Case 3) Empty string sorter name raises ValueError.
+        (Test Case 4) High future driver version maps to newest tag.
+    """
+
+    def test_multi_gpu_output_parses_first_line(self):
+        """
+        Multi-GPU nvidia-smi output returns the first GPU's driver version.
+
+        Tests:
+            (Test Case 1) Two-line output "590.44.01\\n590.44.01" → 590.
+
+        Notes:
+            - nvidia-smi returns one line per GPU. strip() removes trailing
+              newline, and split(".")[0] takes the major from the first line.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            return_value="590.44.01\n590.44.01\n",
+        ):
+            assert get_host_cuda_driver_version() == 590
+
+    def test_two_part_driver_version(self):
+        """
+        Two-part driver version string (no patch number) parses correctly.
+
+        Tests:
+            (Test Case 1) "470.82" → 470.
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_driver_version
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.subprocess.check_output",
+            return_value="470.82\n",
+        ):
+            assert get_host_cuda_driver_version() == 470
+
+    def test_empty_string_sorter_raises(self):
+        """
+        Empty string sorter name raises ValueError.
+
+        Tests:
+            (Test Case 1) get_docker_image("") raises ValueError.
+        """
+        from spikelab.spike_sorting.docker_utils import get_docker_image
+
+        with pytest.raises(ValueError, match="No Docker images registered"):
+            get_docker_image("")
+
+    def test_high_future_driver_maps_to_newest(self):
+        """
+        A very high driver version (future hardware) maps to the newest CUDA tag.
+
+        Tests:
+            (Test Case 1) Driver 700 → cu130 (newest entry).
+        """
+        from spikelab.spike_sorting.docker_utils import get_host_cuda_tag
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_host_cuda_driver_version",
+            return_value=700,
+        ):
+            assert get_host_cuda_tag() == "cu130"
+
+
+# ===========================================================================
+# Edge case tests — _get_templates_half_windows_sizes
+# ===========================================================================
+
+
+class TestTemplateHalfWindowEdgeCases:
+    """
+    Edge case tests for _get_templates_half_windows_sizes.
+
+    Tests:
+        (Test Case 1) Zero-amplitude (flat) template.
+        (Test Case 2) Single-sample template.
+        (Test Case 3) window_size_scale = 0.
+    """
+
+    def _make_kse_with_templates(self, tmp_path, templates, folder_name="ec_template"):
+        """Helper to create a KSE from given templates array."""
+        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        n_templates = templates.shape[0]
+        n_channels = templates.shape[2]
+        spike_times = np.array([10, 20], dtype=np.int64)
+        spike_clusters = np.array([0, 0], dtype=np.int64)
+
+        channel_map = np.arange(n_channels)
+        folder = tmp_path / folder_name
+        _write_ks_folder(
+            folder,
+            spike_times,
+            spike_clusters,
+            write_templates=True,
+            templates=templates,
+            channel_map=channel_map,
+        )
+
+        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        old_pos_peak = getattr(ks_mod, "POS_PEAK_THRESH", None)
+        ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
+        ks_mod.POS_PEAK_THRESH = 2.0
+
+        kse = KilosortSortingExtractor(folder)
+
+        return kse, ks_mod, old_params, old_pos_peak
+
+    def _restore(self, ks_mod, old_params, old_pos_peak):
+        if old_params is not None:
+            ks_mod.KILOSORT_PARAMS = old_params
+        if old_pos_peak is not None:
+            ks_mod.POS_PEAK_THRESH = old_pos_peak
+
+    def test_zero_amplitude_template(self, tmp_path):
+        """
+        Flat zero template produces non-zero window size (full half-window).
+
+        Tests:
+            (Test Case 1) All-zero template → peak_amp=0, threshold=0,
+                no indices below threshold → size=template_mid.
+
+        Notes:
+            - A dead channel with a flat zero template gets a full half-window
+              because abs(0) < 0 is always False. This is arguably wrong but
+              matches the current implementation.
+        """
+        templates = np.zeros((1, 61, 2), dtype=np.float32)
+        kse, ks_mod, old_p, old_pp = self._make_kse_with_templates(
+            tmp_path, templates, "zero_amp"
+        )
+        try:
+            _, chans_ks, _ = kse.get_chans_max()
+            hw_sizes = kse.get_templates_half_windows_sizes(chans_ks)
+            assert len(hw_sizes) == 1
+            # All-zero template: peak_amp=0, threshold=0,
+            # abs(0) < 0 is False for all → no small_indices → size = template_mid
+            assert hw_sizes[0] == int(30 * 0.75)  # 22
+        finally:
+            self._restore(ks_mod, old_p, old_pp)
+
+    def test_single_sample_template(self, tmp_path):
+        """
+        Template with a single time sample produces window size 0.
+
+        Tests:
+            (Test Case 1) 1-sample template → template_mid=0,
+                template[:0] is empty → size=0 → result 0.
+        """
+        # 1 template, 1 sample, 2 channels
+        templates = np.array([[[5.0, 0.0]]], dtype=np.float32)
+        kse, ks_mod, old_p, old_pp = self._make_kse_with_templates(
+            tmp_path, templates, "single_sample"
+        )
+        try:
+            _, chans_ks, _ = kse.get_chans_max()
+            hw_sizes = kse.get_templates_half_windows_sizes(chans_ks)
+            assert len(hw_sizes) == 1
+            assert hw_sizes[0] == 0
+        finally:
+            self._restore(ks_mod, old_p, old_pp)
+
+    def test_window_size_scale_zero(self, tmp_path):
+        """
+        window_size_scale=0 produces all-zero window sizes.
+
+        Tests:
+            (Test Case 1) Non-trivial template with scale=0 → size 0.
+        """
+        templates = np.zeros((1, 61, 2), dtype=np.float32)
+        templates[0, 30, 0] = -10.0
+        kse, ks_mod, old_p, old_pp = self._make_kse_with_templates(
+            tmp_path, templates, "scale_zero"
+        )
+        try:
+            _, chans_ks, _ = kse.get_chans_max()
+            hw_sizes = kse.get_templates_half_windows_sizes(
+                chans_ks, window_size_scale=0.0
+            )
+            assert len(hw_sizes) == 1
+            assert hw_sizes[0] == 0
+        finally:
+            self._restore(ks_mod, old_p, old_pp)
+
+
+# ===========================================================================
+# Edge case tests — KS4 Docker branch
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestKilosort4BackendDockerEdgeCases:
+    """
+    Edge case tests for Kilosort4Backend.sort() Docker branch.
+
+    Tests:
+        (Test Case 1) get_docker_image raises RuntimeError → returned as object.
+        (Test Case 2) run_sorter raises → exception returned as object.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _set_globals(self):
+        import spikelab.spike_sorting.kilosort2 as ks_mod
+
+        self._ks_mod = ks_mod
+        self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
+        self._old_recompute = getattr(ks_mod, "RECOMPUTE_SORTING", None)
+        self._old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
+        ks_mod.KILOSORT_PARAMS = {}
+        ks_mod.RECOMPUTE_SORTING = True
+        yield
+        if self._old_docker is not None:
+            ks_mod.USE_DOCKER = self._old_docker
+        if self._old_recompute is not None:
+            ks_mod.RECOMPUTE_SORTING = self._old_recompute
+        if self._old_params is not None:
+            ks_mod.KILOSORT_PARAMS = self._old_params
+
+    @pytest.fixture()
+    def ks4_backend(self):
+        """Create a Kilosort4Backend with a default config."""
+        from spikelab.spike_sorting.backends.kilosort4 import Kilosort4Backend
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        return Kilosort4Backend(SortingPipelineConfig())
+
+    def test_get_docker_image_failure_returned_as_object(self, tmp_path, ks4_backend):
+        """
+        When get_docker_image raises RuntimeError, it is caught and returned.
+
+        Tests:
+            (Test Case 1) USE_DOCKER=True with no GPU → RuntimeError returned,
+                not raised.
+
+        Notes:
+            - The KS4 sort() method wraps run_sorter in try/except Exception
+              and returns the exception. A failure in get_docker_image (called
+              before run_sorter) is caught by the same handler.
+        """
+        self._ks_mod.USE_DOCKER = True
+        output_folder = tmp_path / "ks4_fail"
+        output_folder.mkdir()
+
+        recording = _make_mock_recording()
+
+        with patch(
+            "spikelab.spike_sorting.docker_utils.get_docker_image",
+            side_effect=RuntimeError("Could not detect CUDA"),
+        ):
+            result = ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)
+
+        assert isinstance(result, RuntimeError)
+        assert "CUDA" in str(result)
+
+    def test_run_sorter_failure_returned_as_object(self, tmp_path, ks4_backend):
+        """
+        When run_sorter raises an exception, it is returned as an object.
+
+        Tests:
+            (Test Case 1) run_sorter raises ValueError → returned, not raised.
+        """
+        self._ks_mod.USE_DOCKER = False
+        output_folder = tmp_path / "ks4_sorter_fail"
+        output_folder.mkdir()
+
+        recording = _make_mock_recording()
+
+        with patch(
+            "spikeinterface.sorters.run_sorter",
+            side_effect=ValueError("Sorting failed"),
+        ):
+            result = ks4_backend.sort(
+                recording, "fake.raw", "fake.dat", output_folder
+            )
+
+        assert isinstance(result, ValueError)
+        assert "Sorting failed" in str(result)
+
+
+# ---------------------------------------------------------------------------
+# Spike-sorting figure tests
+# ---------------------------------------------------------------------------
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.figure
+
+from spikelab.spike_sorting.figures import (
+    plot_curation_bar,
+    plot_std_scatter,
+    plot_templates,
+)
+
+
+class TestSpikeSortingFigures:
+    """Tests for plot_curation_bar, plot_std_scatter, and plot_templates."""
+
+    @pytest.fixture(autouse=True)
+    def close_figs(self):
+        """Close all matplotlib figures after each test."""
+        yield
+        plt.close("all")
+
+    # -- plot_curation_bar ---------------------------------------------------
+
+    def test_curation_bar_returns_figure(self):
+        """Happy path: valid data returns a matplotlib Figure."""
+        fig = plot_curation_bar(
+            rec_names=["rec1", "rec2", "rec3"],
+            n_total=[100, 80, 120],
+            n_selected=[60, 50, 90],
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_curation_bar_on_existing_axes(self):
+        """Passing an existing Axes draws onto it and returns its Figure."""
+        fig_ext, ax_ext = plt.subplots()
+        fig = plot_curation_bar(
+            rec_names=["a", "b"],
+            n_total=[10, 20],
+            n_selected=[5, 15],
+            ax=ax_ext,
+        )
+        assert fig is fig_ext
+
+    def test_curation_bar_custom_labels(self):
+        """Custom axis labels and legend labels are applied."""
+        fig = plot_curation_bar(
+            rec_names=["r1"],
+            n_total=[50],
+            n_selected=[30],
+            total_label="All",
+            selected_label="Good",
+            x_label="Rec",
+            y_label="Count",
+            label_rotation=45,
+        )
+        ax = fig.axes[0]
+        assert ax.get_xlabel() == "Rec"
+        assert ax.get_ylabel() == "Count"
+
+    def test_curation_bar_single_recording(self):
+        """Works with a single recording."""
+        fig = plot_curation_bar(
+            rec_names=["only"],
+            n_total=[10],
+            n_selected=[5],
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    # -- plot_std_scatter ----------------------------------------------------
+
+    def test_std_scatter_returns_figure(self):
+        """Happy path: valid nested dicts produce a Figure."""
+        n_spikes = {"rec1": {"u1": 500, "u2": 300}}
+        std_norms = {"rec1": {"u1": 0.3, "u2": 0.5}}
+        fig = plot_std_scatter(n_spikes, std_norms)
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_std_scatter_on_existing_axes(self):
+        """Drawing onto a pre-existing Axes returns its Figure."""
+        fig_ext, ax_ext = plt.subplots()
+        n_spikes = {"rec1": {"u1": 100}}
+        std_norms = {"rec1": {"u1": 0.2}}
+        fig = plot_std_scatter(n_spikes, std_norms, ax=ax_ext)
+        assert fig is fig_ext
+
+    def test_std_scatter_with_thresholds(self):
+        """Threshold lines do not cause errors."""
+        n_spikes = {"rec1": {"u1": 500, "u2": 200}}
+        std_norms = {"rec1": {"u1": 0.3, "u2": 0.6}}
+        fig = plot_std_scatter(
+            n_spikes,
+            std_norms,
+            spikes_thresh=250,
+            std_thresh=0.5,
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_std_scatter_multiple_recordings(self):
+        """Multiple recordings get different colours and a legend."""
+        n_spikes = {
+            "rec1": {"u1": 100},
+            "rec2": {"u2": 200},
+        }
+        std_norms = {
+            "rec1": {"u1": 0.4},
+            "rec2": {"u2": 0.3},
+        }
+        fig = plot_std_scatter(n_spikes, std_norms)
+        ax = fig.axes[0]
+        legend = ax.get_legend()
+        assert legend is not None
+
+    def test_std_scatter_empty_data(self):
+        """Empty dicts produce a figure without errors."""
+        fig = plot_std_scatter({}, {})
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_std_scatter_custom_colors(self):
+        """Custom colour list is accepted."""
+        n_spikes = {"rec1": {"u1": 100}}
+        std_norms = {"rec1": {"u1": 0.2}}
+        fig = plot_std_scatter(
+            n_spikes, std_norms, colors=["#00FF00"]
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    # -- plot_templates ------------------------------------------------------
+
+    def _make_template_data(self, n_units=5, n_samples=60, fs_Hz=20000.0):
+        """Create minimal template data for testing."""
+        rng = np.random.default_rng(42)
+        templates = [rng.standard_normal(n_samples) for _ in range(n_units)]
+        peak_indices = [n_samples // 2] * n_units
+        is_curated = [True, False, True, True, False][:n_units]
+        has_pos_peak = [False, False, True, False, True][:n_units]
+        return templates, peak_indices, fs_Hz, is_curated, has_pos_peak
+
+    def test_templates_returns_figure(self):
+        """Happy path: valid template data returns a Figure."""
+        templates, peaks, fs, curated, pos_peak = self._make_template_data()
+        fig = plot_templates(templates, peaks, fs, curated, pos_peak)
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_on_existing_axes(self):
+        """Drawing onto a pre-existing Axes returns its Figure."""
+        fig_ext, ax_ext = plt.subplots()
+        templates, peaks, fs, curated, pos_peak = self._make_template_data()
+        fig = plot_templates(
+            templates, peaks, fs, curated, pos_peak, ax=ax_ext
+        )
+        assert fig is fig_ext
+
+    def test_templates_sort_by_amplitude(self):
+        """sort_by_amplitude=True does not error."""
+        templates, peaks, fs, curated, pos_peak = self._make_template_data()
+        fig = plot_templates(
+            templates, peaks, fs, curated, pos_peak,
+            sort_by_amplitude=True,
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_all_negative_peak(self):
+        """All units with negative peaks produce a single-polarity layout."""
+        templates, peaks, fs, curated, _ = self._make_template_data()
+        has_pos_peak = [False] * len(templates)
+        fig = plot_templates(templates, peaks, fs, curated, has_pos_peak)
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_all_positive_peak(self):
+        """All units with positive peaks produce a single-polarity layout."""
+        templates, peaks, fs, curated, _ = self._make_template_data()
+        has_pos_peak = [True] * len(templates)
+        fig = plot_templates(templates, peaks, fs, curated, has_pos_peak)
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_no_reference_lines(self):
+        """Setting line_ms_before/after to None skips reference lines."""
+        templates, peaks, fs, curated, pos_peak = self._make_template_data()
+        fig = plot_templates(
+            templates, peaks, fs, curated, pos_peak,
+            line_ms_before=None,
+            line_ms_after=None,
+        )
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_single_unit(self):
+        """Works with a single unit."""
+        templates, peaks, fs, curated, pos_peak = self._make_template_data(
+            n_units=1
+        )
+        fig = plot_templates(templates, peaks, fs, curated, pos_peak)
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+    def test_templates_empty_units(self):
+        """Empty template list produces a figure without errors."""
+        fig = plot_templates([], [], 20000.0, [], [])
+        assert isinstance(fig, matplotlib.figure.Figure)
+
+
+# ---------------------------------------------------------------------------
+# center_spike_times tests
+# ---------------------------------------------------------------------------
+
+
+def _make_fake_recording(traces: np.ndarray, n_samples: int | None = None):
+    """Build a minimal mock recording for center_spike_times.
+
+    Parameters
+    ----------
+    traces : np.ndarray
+        2-D array (n_samples, n_channels) returned by ``get_traces``.
+    n_samples : int or None
+        Total number of samples; defaults to ``traces.shape[0]``.
+    """
+    if n_samples is None:
+        n_samples = traces.shape[0]
+    rec = MagicMock()
+    rec.get_num_samples.return_value = n_samples
+
+    def _get_traces(start_frame, end_frame, segment_index=0):
+        return traces[start_frame:end_frame]
+
+    rec.get_traces.side_effect = _get_traces
+    return rec
+
+
+class TestCenterSpikeTimes:
+    """Tests for center_spike_times in waveform_utils.
+
+    Uses a mock recording that returns a controlled voltage trace so the
+    expected peak positions are deterministic.
+    """
+
+    def _import_fn(self):
+        from spikelab.spike_sorting.waveform_utils import center_spike_times
+
+        return center_spike_times
+
+    # -- Happy path -----------------------------------------------------------
+
+    def test_basic_negative_peak_centering(self):
+        """Spike is shifted to the negative peak within the search window."""
+        center_spike_times = self._import_fn()
+
+        # 100-sample trace on 1 channel, baseline 0
+        traces = np.zeros((100, 1), dtype=np.float32)
+        # True negative peak at sample 52 (sorter reports 50)
+        traces[52, 0] = -10.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert 0 in result
+        assert len(result[0]) == 1
+        # The spike should move toward sample 52
+        assert result[0][0] != 50
+
+    def test_basic_positive_peak_centering(self):
+        """Spike is shifted to the positive peak for a positive-peak unit."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        # True positive peak at sample 48 (sorter reports 50)
+        traces[48, 0] = 15.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: True}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert 0 in result
+        assert len(result[0]) == 1
+        assert result[0][0] != 50
+
+    def test_multiple_units(self):
+        """Each unit is centered independently."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((200, 2), dtype=np.float32)
+        # Unit 0 (neg peak) — true peak at 52 on channel 0
+        traces[52, 0] = -20.0
+        # Unit 1 (pos peak) — true peak at 103 on channel 1
+        traces[103, 1] = 30.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50]), 1: np.array([100])}
+        chans_max = {0: 0, 1: 1}
+        use_pos_peak = {0: False, 1: True}
+        half_window_sizes = {0: 5, 1: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert set(result.keys()) == {0, 1}
+        assert len(result[0]) == 1
+        assert len(result[1]) == 1
+
+    def test_multiple_spikes_per_unit(self):
+        """Multiple spikes within one unit are each corrected independently."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((200, 1), dtype=np.float32)
+        traces[52, 0] = -10.0  # peak near spike at 50
+        traces[101, 0] = -15.0  # peak near spike at 100
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50, 100])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert len(result[0]) == 2
+
+    # -- Edge cases -----------------------------------------------------------
+
+    def test_empty_spike_array(self):
+        """Unit with zero spikes returns an empty array."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        rec = _make_fake_recording(traces)
+
+        spike_times_by_unit = {0: np.array([], dtype=np.int64)}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert 0 in result
+        assert len(result[0]) == 0
+
+    def test_single_spike(self):
+        """Single spike is handled without error."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        traces[50, 0] = -5.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 3}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert len(result[0]) == 1
+
+    def test_no_shift_needed(self):
+        """Spike already at peak position stays unchanged."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        # Peak exactly at the reported spike time
+        traces[50, 0] = -10.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([50])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        # When the peak is at the center of the window, no correction needed
+        assert result[0][0] == 50
+
+    def test_spike_near_recording_start(self):
+        """Spike near sample 0 is handled without out-of-bounds errors."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        traces[2, 0] = -10.0
+
+        rec = _make_fake_recording(traces)
+        spike_times_by_unit = {0: np.array([2])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert 0 in result
+        assert len(result[0]) == 1
+
+    def test_spike_near_recording_end(self):
+        """Spike near the last sample is handled without out-of-bounds errors."""
+        center_spike_times = self._import_fn()
+
+        n_total = 100
+        traces = np.zeros((n_total, 1), dtype=np.float32)
+        traces[97, 0] = -10.0
+
+        rec = _make_fake_recording(traces, n_samples=n_total)
+        spike_times_by_unit = {0: np.array([97])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert 0 in result
+        assert len(result[0]) == 1
+
+    def test_preserves_dict_keys(self):
+        """Output dict has the same keys as input, including non-contiguous IDs."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((200, 1), dtype=np.float32)
+        rec = _make_fake_recording(traces)
+
+        spike_times_by_unit = {
+            3: np.array([50]),
+            7: np.array([100]),
+            12: np.array([], dtype=np.int64),
+        }
+        chans_max = {3: 0, 7: 0, 12: 0}
+        use_pos_peak = {3: False, 7: False, 12: False}
+        half_window_sizes = {3: 5, 7: 5, 12: 5}
+
+        result = center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        assert set(result.keys()) == {3, 7, 12}
+        assert len(result[12]) == 0
+
+    def test_segment_index_passed_through(self):
+        """The segment_index argument is forwarded to the recording."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        rec = _make_fake_recording(traces)
+
+        spike_times_by_unit = {0: np.array([50])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 3}
+
+        center_spike_times(
+            rec,
+            spike_times_by_unit,
+            chans_max,
+            use_pos_peak,
+            half_window_sizes,
+            segment_index=2,
+        )
+
+        rec.get_num_samples.assert_called_with(segment_index=2)
+        # get_traces should also have received segment_index=2
+        call_kwargs = rec.get_traces.call_args[1]
+        assert call_kwargs["segment_index"] == 2
+
+    def test_original_spike_times_not_mutated(self):
+        """The input arrays are not modified in place."""
+        center_spike_times = self._import_fn()
+
+        traces = np.zeros((100, 1), dtype=np.float32)
+        traces[52, 0] = -10.0
+
+        rec = _make_fake_recording(traces)
+        original = np.array([50])
+        spike_times_by_unit = {0: original.copy()}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 5}
+
+        center_spike_times(
+            rec, spike_times_by_unit, chans_max, use_pos_peak, half_window_sizes
+        )
+
+        np.testing.assert_array_equal(spike_times_by_unit[0], original)

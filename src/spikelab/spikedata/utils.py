@@ -37,7 +37,10 @@ __all__ = [
 ]
 TimeUnit = Literal["ms", "s", "samples"]
 
-import h5py
+try:
+    import h5py
+except ImportError:  # pragma: no cover
+    h5py = None  # type: ignore
 
 # Optional dependencies for manifold learning and graph-based clustering.
 try:  # optional, only needed for UMAP-based reductions
@@ -344,13 +347,13 @@ def swap(ar, idxs, rng):
         success (bool): True if a swap was performed.
 
     Notes:
+        Both ``ar`` and ``idxs`` are mutated in-place for performance.
+
         The swap chooses two existing spike positions (i0, j0) and (i1, j1)
         and, if the off-diagonal positions (i0, j1) and (i1, j0) are both
         empty and the indices are distinct, swaps them so that spikes move
         to those positions.
     """
-    # idx0 = np.random.randint(len(idxs[0]))
-    # idx1 = np.random.randint(len(idxs[0]))
     idx0 = rng.integers(len(idxs[0]))
     idx1 = rng.integers(len(idxs[0]))
     i0, j0 = idxs[0][idx0], idxs[1][idx0]
@@ -785,8 +788,12 @@ def UMAP_graph_communities(
 
 
 def ensure_h5py():
-    """No-op — h5py is a hard dependency. Kept for backwards compatibility."""
-    pass
+    """Raise ``ImportError`` if *h5py* is not installed."""
+    if h5py is None:
+        raise ImportError(
+            "h5py is required for this operation. "
+            "Install it with: pip install h5py"
+        )
 
 
 def times_from_ms(

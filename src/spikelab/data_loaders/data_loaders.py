@@ -22,8 +22,12 @@ import warnings
 
 import numpy as np
 
-import h5py
 import pickle
+
+try:
+    import h5py
+except ImportError:  # pragma: no cover
+    h5py = None  # type: ignore
 
 from ..spikedata import SpikeData
 
@@ -37,6 +41,7 @@ __all__ = [
     "load_spikedata_from_pickle",
     "load_spikedata_from_ibl",
     "query_ibl_probes",
+    "load_spikedata_from_spikelab_sorted_npz",
 ]
 
 from ..spikedata.utils import ensure_h5py, to_ms
@@ -103,6 +108,14 @@ def _maybe_with_raw(
             raw_data=raw_data,
             raw_time=raw_time,
             neuron_attributes=sd.neuron_attributes,
+        )
+    if (raw_data is None) != (raw_time is None):
+        present = "raw_data" if raw_data is not None else "raw_time"
+        missing = "raw_time" if raw_data is not None else "raw_data"
+        warnings.warn(
+            f"{present} was provided but {missing} is None — "
+            f"raw data will not be attached to the SpikeData.",
+            UserWarning,
         )
     return sd
 

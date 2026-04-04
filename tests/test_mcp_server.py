@@ -5094,6 +5094,194 @@ class TestFetchWorkspaceItemEdgeCases2:
 
 
 @pytest.mark.skipif(not MCP_SERVER_AVAILABLE, reason="MCP server not available")
+class TestCurateAndFracSpikesInBurst:
+    """Tests for curate_spikedata and get_frac_spikes_in_burst MCP tools."""
+
+    # ------------------------------------------------------------------
+    # curate_spikedata
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_curate_spikedata_min_spikes(self, loaded_ws):
+        """
+        Happy path: curate with min_spikes removes units with too few spikes.
+
+        Tests:
+            (Test Case 1) Curated SpikeData has fewer units than the original.
+            (Test Case 2) Result contains correct workspace_id and namespace.
+            (Test Case 3) Curation history reports the criteria applied.
+            (Test Case 4) Curated SpikeData is stored in the workspace.
+        """
+        ws_id, ns = loaded_ws
+        # sample_spikedata has 3 units with 4, 3, 2 spikes respectively.
+        # min_spikes=3 should keep only the first two units.
+        result = await analysis.curate_spikedata(
+            workspace_id=ws_id,
+            namespace=ns,
+            min_spikes=3,
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["namespace"] == ns + "_curated"
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["num_neurons_before"] == 3
+        assert result["info"]["num_neurons_after"] == 2
+        assert len(result["info"]["criteria_applied"]) > 0
+        # Verify stored in workspace
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_curated = ws.get(ns + "_curated", "spikedata")
+        assert sd_curated is not None
+        assert sd_curated.N == 2
+
+    @pytest.mark.asyncio
+    async def test_curate_spikedata_custom_out_namespace(self, loaded_ws):
+        """
+        Happy path: curate stores result at custom out_namespace.
+
+        Tests:
+            (Test Case 1) Result namespace matches the provided out_namespace.
+            (Test Case 2) Curated SpikeData is stored at the custom namespace.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.curate_spikedata(
+            workspace_id=ws_id,
+            namespace=ns,
+            out_namespace="my_curated",
+            min_spikes=3,
+        )
+        assert result["namespace"] == "my_curated"
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_curated = ws.get("my_curated", "spikedata")
+        assert sd_curated is not None
+        assert sd_curated.N == 2
+
+    @pytest.mark.asyncio
+    async def test_curate_spikedata_no_criteria(self, loaded_ws):
+        """
+        Edge case: no curation criteria returns original data unchanged.
+
+        Tests:
+            (Test Case 1) All units are retained when no criteria are specified.
+            (Test Case 2) Curated SpikeData has the same number of units as original.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.curate_spikedata(
+            workspace_id=ws_id,
+            namespace=ns,
+        )
+        assert result["info"]["num_neurons_before"] == 3
+        assert result["info"]["num_neurons_after"] == 3
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_curated = ws.get(ns + "_curated", "spikedata")
+        assert sd_curated.N == 3
+
+    @pytest.mark.asyncio
+    async def test_curate_spikedata_strict_removes_all(self, loaded_ws):
+        """
+        Edge case: strict criteria remove all units.
+
+        Tests:
+            (Test Case 1) Curated SpikeData has zero units when threshold exceeds all.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.curate_spikedata(
+            workspace_id=ws_id,
+            namespace=ns,
+            min_spikes=100,
+        )
+        assert result["info"]["num_neurons_after"] == 0
+
+    # ------------------------------------------------------------------
+    # get_frac_spikes_in_burst
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_get_frac_spikes_in_burst_happy_path(self, loaded_ws):
+        """
+        Happy path: compute fraction of spikes in burst windows.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, key.
+            (Test Case 2) Stored fractions array has shape (N,).
+            (Test Case 3) Fractions are between 0 and 1 for units with spikes.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        # Create burst edges that span part of the recording.
+        # Edges are in bin coordinates (bin_size=1.0 by default).
+        # One burst from bin 10 to bin 30 — covers some spikes.
+        edges = np.array([[10, 30]], dtype=np.float64)
+        ws.store(ns, "burst_edges", edges)
+
+        result = await analysis.get_frac_spikes_in_burst(
+            workspace_id=ws_id,
+            namespace=ns,
+            edges_key="burst_edges",
+            key="frac_burst",
+        )
+        assert result["workspace_id"] == ws_id
+        assert result["namespace"] == ns
+        assert result["key"] == "frac_burst"
+        # Verify stored array
+        frac = ws.get(ns, "frac_burst")
+        assert isinstance(frac, np.ndarray)
+        assert frac.shape == (3,)
+        # All units have spikes, so fractions should be finite and in [0, 1]
+        assert np.all(np.isfinite(frac))
+        assert np.all(frac >= 0.0)
+        assert np.all(frac <= 1.0)
+
+    @pytest.mark.asyncio
+    async def test_get_frac_spikes_in_burst_empty_edges(self, loaded_ws):
+        """
+        Edge case: empty edges array (0 bursts) returns NaN for all units.
+
+        Tests:
+            (Test Case 1) Stored fractions are all NaN when no bursts exist.
+            (Test Case 2) Result info is returned.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        # Empty edges: shape (0, 2)
+        edges = np.empty((0, 2), dtype=np.float64)
+        ws.store(ns, "no_edges", edges)
+
+        result = await analysis.get_frac_spikes_in_burst(
+            workspace_id=ws_id,
+            namespace=ns,
+            edges_key="no_edges",
+            key="frac_empty",
+        )
+        assert result["key"] == "frac_empty"
+        frac = ws.get(ns, "frac_empty")
+        assert isinstance(frac, np.ndarray)
+        assert frac.shape == (3,)
+        # With zero bursts, get_frac_spikes_in_burst returns NaN for all units
+        assert np.all(np.isnan(frac))
+
+    @pytest.mark.asyncio
+    async def test_get_frac_spikes_in_burst_missing_edges_key(self, loaded_ws):
+        """
+        Edge case: missing edges key raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError raised when edges_key does not exist in workspace.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="No edges array found"):
+            await analysis.get_frac_spikes_in_burst(
+                workspace_id=ws_id,
+                namespace=ns,
+                edges_key="nonexistent_edges",
+                key="frac_missing",
+            )
+
+
+@pytest.mark.skipif(not MCP_SERVER_AVAILABLE, reason="MCP server not available")
 class TestCoverageGaps:
     """Tests for MCP tool coverage gaps."""
 
