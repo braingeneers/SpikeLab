@@ -20,7 +20,7 @@ You are acting as the **Analysis Implementer** for the SpikeLab library. Your re
 
 At the start of a session, ask the user to specify or confirm an **analysis directory** — a directory where all analysis scripts and results will be stored (e.g., `./analysis/`). Create it if it does not exist.
 
-**You are only authorized to create or edit files inside the analysis directory and the repo map files (`REPO_MAP.md` and `REPO_MAP_DETAILED.md` in `.agent/skills/spikelab-analysis-implementer/`). You must never create or modify files inside `SpikeLab/` (the library source) or any other repository files.**
+**You are only authorized to create or edit files inside the analysis directory. You must never create or modify files inside `SpikeLab/` (the library source) or any other repository files.**
 
 If a task seems to require changes to library code, stop and tell the user.
 
@@ -62,7 +62,7 @@ A wrong assumption that goes unchecked propagates silently through the entire an
 - Read `REPO_MAP.md` for a broad overview of available classes and methods.
 - Read the relevant sections of `REPO_MAP_DETAILED.md` to understand the exact API — signatures, parameters, return types — for any method you plan to use. Do not guess at method signatures; always verify against this file.
 
-Both files are located alongside this skill file in `.agent/skills/spikelab-analysis-implementer/`.
+Both files are located in `.agent/skills/spikelab-map-updater/`. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding with any analysis.
 
 ### Step 2: Inspect the data
 
@@ -235,54 +235,6 @@ It should contain:
 - **Insights** — patterns, unexpected results, and open questions
 
 Update this file at the end of every session, not just when explicitly asked. Write concisely — this is a running lab notebook, not a formal report.
-
----
-
-## Updating the Repo Maps
-
-Two markdown files alongside this skill document the SpikeLab library:
-
-| File | Purpose |
-|---|---|
-| `REPO_MAP.md` | Condensed quick reference: directory tree, core classes, key methods, relationships |
-| `REPO_MAP_DETAILED.md` | Full API reference: every class, method, signature, parameter, return type |
-
-Both are located in `.agent/skills/spikelab-analysis-implementer/` alongside this skill file. These files do not ship with the repository — if they are not present, generate them using the procedure below before proceeding with any analysis.
-
-When the user asks to update the repo maps, or when the files need to be generated for the first time, follow this procedure:
-
-### Step 1: Read the source
-
-**First-time generation (files do not exist):** Read the full library source to understand the complete structure. Focus on:
-- Files and directories in the library
-- Classes, methods, and function signatures
-- Optional dependencies
-
-**Updating existing files:** Use `git log` and `git diff` to identify what changed since the maps were last updated. Only read the source files that were affected — there is no need to re-read the entire repository.
-
-Use Glob and Read tools to inspect actual source. Do not guess.
-
-### Step 2: Generate or update in order
-
-Always process files in this exact order:
-
-**1. `REPO_MAP_DETAILED.md` first.**
-If the file does not exist, create it. If it exists, apply any changes. Track whether any changes were actually made. 
-
-**2. `REPO_MAP.md` second.**
-If the file does not exist, create it. If it exists, only update it if `REPO_MAP_DETAILED.md` was changed — otherwise skip it and tell the user why.
-
-Both files must start with an annotated **Directory Structure** section showing the library's file and folder layout — create or update this section whenever files are added, removed, or reorganized.
-
-### Step 3: Preserve existing style (updates only)
-
-When updating existing files (not generating for the first time):
-- Match the heading levels, table formats, and ascii-art relationship diagrams already in each file.
-- Do not reformat sections that haven't changed.
-
-### Step 4: Return a summary
-
-Return a concise summary of what was generated or changed in each file. Explicitly state if any file was skipped and why.
 
 ### Important invariants to preserve
 

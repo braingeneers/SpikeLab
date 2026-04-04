@@ -2123,7 +2123,7 @@ def plot_recording(
                 for i in range(spk_mat_view.shape[0])
             ]
             ax.eventplot(spike_times_list, colors="black", linewidths=0.5)
-        ax.set_ylim([0, spk_mat_view.shape[0]])
+        ax.set_ylim([-0.5, spk_mat_view.shape[0] - 0.5])
         if raster_style != "imshow":
             ax.invert_yaxis()
         ax.set_ylabel("Unit")

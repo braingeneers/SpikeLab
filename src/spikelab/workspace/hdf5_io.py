@@ -38,6 +38,8 @@ class _NumpyEncoder(json.JSONEncoder):
             return float(obj)
         if isinstance(obj, np.bool_):
             return bool(obj)
+        if isinstance(obj, np.str_):
+            return str(obj)
         return super().default(obj)
 
 
@@ -722,6 +724,7 @@ def _load_rateslicestack(grp):
 
 
 def _dump_spikeslicestack(grp, sss) -> None:
+    grp.attrs["N"] = sss.N
     _dump_times_tuples(grp, sss.times)
     slices_grp = grp.create_group("spike_stack")
     for i, sd in enumerate(sss.spike_stack):
@@ -745,7 +748,11 @@ def _load_spikeslicestack(grp):
     sss = SpikeSliceStack.__new__(SpikeSliceStack)
     sss.spike_stack = spike_stack
     sss.times = times
-    sss.N = spike_stack[0].N if spike_stack else 0
+    sss.N = (
+        int(grp.attrs["N"])
+        if "N" in grp.attrs
+        else (spike_stack[0].N if spike_stack else 0)
+    )
     sss.neuron_attributes = neuron_attributes
     return sss
 

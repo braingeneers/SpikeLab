@@ -67,6 +67,17 @@ with open("data/sorted/recording_a/sorted_spikedata_curated.pkl", "rb") as f:
 
 This skill is limited to **assessing spike sorting quality** — unit counts, SNR distributions, waveform templates, curation outcomes, and basic recording-level summaries. For any further analysis (firing rate computation, correlations, burst detection, population dynamics, event alignment, etc.), direct the user to the `spikelab-analysis-implementer` skill and point them to the `sorted_spikedata_curated.pkl` file(s) as the starting data.
 
+### Repo maps
+
+Before writing sorting scripts, read the repo maps for the spike sorting API:
+
+```
+.agent/skills/spikelab-map-updater/REPO_MAP.md
+.agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
+```
+
+If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
+
 ### Never assume — ask if unsure
 
 Do not make assumptions about recording formats, electrode configurations, or sorting parameters. Always ask for clarification when:

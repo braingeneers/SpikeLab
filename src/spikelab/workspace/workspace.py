@@ -815,7 +815,8 @@ class WorkspaceManager:
         Notes:
             - Raises KeyError if workspace_id is not registered.
         """
-        ws = self._workspaces[workspace_id]
+        with self._lock:
+            ws = self._workspaces[workspace_id]
         ws.save(path)
 
     def load_workspace(self, path: str) -> str:

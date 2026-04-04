@@ -215,8 +215,8 @@ class Kilosort4Backend(SorterBackend):
                 folder=str(output_folder),
                 remove_existing_folder=True,
                 verbose=True,
-                **docker_kwargs,
                 **sorter_params,
+                **docker_kwargs,
             )
         except Exception as e:
             print(f"Kilosort4 sorting failed: {e}")

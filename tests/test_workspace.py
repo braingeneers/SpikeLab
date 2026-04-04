@@ -4331,8 +4331,7 @@ class TestEdgeCaseScan:
         Tests: Create SpikeSliceStack with N=3 but 0 slices. Roundtrip
         through workspace.
 
-        (Test Case 1) N is lost on reload (becomes 0) since the loader
-            derives N from spike_stack[0].N, and empty stack yields N=0.
+        (Test Case 1) N is preserved on roundtrip via the HDF5 'N' attribute.
         """
         # Bypass constructor (it rejects empty spike_stack)
         sss = SpikeSliceStack.__new__(SpikeSliceStack)
@@ -4351,8 +4350,8 @@ class TestEdgeCaseScan:
 
         assert isinstance(loaded, SpikeSliceStack)
         assert len(loaded.spike_stack) == 0
-        # N is lost: loader sets N = spike_stack[0].N if spike_stack else 0
-        assert loaded.N == 0
+        # N is preserved via HDF5 attribute
+        assert loaded.N == 3
 
     # ------------------------------------------------------------------
     # 13. RateSliceStack with NaN in event_stack roundtrip

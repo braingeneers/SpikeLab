@@ -727,6 +727,16 @@ class RateSliceStack:
             av_max_corr_lag,
         )
 
+    def __repr__(self) -> str:
+        U, T, S = self.event_stack.shape
+        return f"RateSliceStack(U={U}, T={T}, S={S})"
+
+    def __len__(self) -> int:
+        return self.event_stack.shape[2]
+
+    def __iter__(self):
+        return iter(self.convert_to_list_of_RateData())
+
     def subset(self, units, by=None):
         """Extract a subset of units/neurons from the rate slice stack.
 
