@@ -2460,7 +2460,7 @@ class TestKilosort4BackendDockerBranch:
 
         Tests:
             (Test Case 1) docker_image is auto-detected via get_docker_image.
-            (Test Case 2) installation_mode is 'no-install'.
+            (Test Case 2) installation_mode is 'pypi' (SI 0.104 workaround).
         """
         self._ks_mod.USE_DOCKER = True
         output_folder = tmp_path / "ks4_output"
@@ -2484,7 +2484,7 @@ class TestKilosort4BackendDockerBranch:
 
         _, call_kwargs = mock_rs.call_args
         assert call_kwargs["docker_image"] == "spikeinterface/kilosort4-base:test"
-        assert call_kwargs["installation_mode"] == "no-install"
+        assert call_kwargs["installation_mode"] == "pypi"
 
     def test_use_docker_custom_string(self, tmp_path, ks4_backend):
         """
