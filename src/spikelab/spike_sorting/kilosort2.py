@@ -1687,18 +1687,24 @@ class WaveformExtractor:
                     )  # Convert the spike time defined by all the samples in recording to only samples in "traces"
 
                     peak_window_left = max(st_trace - half_window_size, 0)
-                    peak_window_right = min(st_trace + half_window_size, max_trace_ind)
-                    peak_window_size = peak_window_right - peak_window_left + 1
+                    peak_window_right = min(
+                        st_trace + half_window_size + 1, max_trace_ind + 1
+                    )
                     traces_peak_window = traces[
                         peak_window_left:peak_window_right, chan_max
                     ]
+                    if traces_peak_window.size == 0:
+                        # Spike at chunk boundary — skip recentering
+                        spike_times_centered[st] = st
+                        continue
                     if use_pos_peak[unit_id]:
                         peak_value = np.max(traces_peak_window)
                     else:
                         peak_value = np.min(traces_peak_window)
                     peak_indices = np.flatnonzero(traces_peak_window == peak_value)
                     st_offset = (
-                        peak_indices[peak_indices.size // 2] - peak_window_size // 2
+                        peak_indices[peak_indices.size // 2]
+                        - traces_peak_window.size // 2
                     )
                     st_trace += st_offset
 
