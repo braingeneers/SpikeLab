@@ -240,6 +240,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/data_exporters.html">Data Exporters</a><ul>
@@ -333,8 +334,12 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">h5py</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
 
@@ -348,6 +353,7 @@
     <span class="s2">&quot;load_spikedata_from_pickle&quot;</span><span class="p">,</span>
     <span class="s2">&quot;load_spikedata_from_ibl&quot;</span><span class="p">,</span>
     <span class="s2">&quot;query_ibl_probes&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_spikedata_from_spikelab_sorted_npz&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensure_h5py</span><span class="p">,</span> <span class="n">to_ms</span>
@@ -414,6 +420,14 @@
             <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span>
             <span class="n">raw_time</span><span class="o">=</span><span class="n">raw_time</span><span class="p">,</span>
             <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">raw_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">raw_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">present</span> <span class="o">=</span> <span class="s2">&quot;raw_data&quot;</span> <span class="k">if</span> <span class="n">raw_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;raw_time&quot;</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="s2">&quot;raw_time&quot;</span> <span class="k">if</span> <span class="n">raw_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;raw_data&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">present</span><span class="si">}</span><span class="s2"> was provided but </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2"> is None — &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;raw data will not be attached to the SpikeData.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">sd</span>
 
@@ -1077,6 +1091,8 @@
 <span class="c1"># ----------------------------</span>
 
 
+<div class="viewcode-block" id="load_spikedata_from_spikelab_sorted_npz">
+<a class="viewcode-back" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_spikedata_from_spikelab_sorted_npz</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -1138,7 +1154,8 @@
 
     <span class="k">return</span> <span class="n">_build_spikedata</span><span class="p">(</span>
         <span class="n">trains</span><span class="p">,</span> <span class="n">length_ms</span><span class="o">=</span><span class="n">length_ms</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">neuron_attributes</span>
-    <span class="p">)</span>
+    <span class="p">)</span></div>
+
 
 
 <span class="c1"># ----------------------------</span>
