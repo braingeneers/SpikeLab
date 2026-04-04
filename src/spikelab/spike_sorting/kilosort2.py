@@ -1013,11 +1013,15 @@ class KilosortSortingExtractor:
         half_windows_sizes = []
         for i in range(n_templates):
             template = templates_all[i, :]
-            zero_indices = np.flatnonzero(np.isclose(template[:template_mid], 0))
-            if zero_indices.size > 0:
-                size = template_mid - zero_indices[-1]
+            # Find where the template amplitude drops below 1% of peak
+            # before the midpoint.  Works for both KS2 (zero-padded) and
+            # KS4 (dense, non-zero edges) templates.
+            peak_amp = np.abs(template).max()
+            threshold = peak_amp * 0.01
+            small_indices = np.flatnonzero(np.abs(template[:template_mid]) < threshold)
+            if small_indices.size > 0:
+                size = template_mid - small_indices[-1]
             else:
-                # No zeros before midpoint (e.g. KS4 templates) — use full half
                 size = template_mid
             half_windows_sizes.append(int(size * window_size_scale))
 
