@@ -828,7 +828,7 @@ def sort_recording(
             ``config.override()``.  When None, a fresh config is built
             from ``sorter`` + ``**kwargs``.  Preset configs are
             available in ``spikelab.spike_sorting.config`` (e.g.
-            ``KILOSORT2_MAXWELL``).
+            ``KILOSORT2``).
         sorter (str): Registered sorter backend name.  Only used when
             ``config`` is None.  Available: ``"kilosort2"``,
             ``"kilosort4"``.

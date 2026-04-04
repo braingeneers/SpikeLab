@@ -359,12 +359,13 @@ class SortingPipelineConfig:
 # Presets
 # ---------------------------------------------------------------------------
 
-#: Default configuration for Kilosort2 on Maxwell MEA recordings.
-#: All parameters match the defaults previously used by ``sort_with_kilosort2()``.
-KILOSORT2_MAXWELL = SortingPipelineConfig()
+#: Default configuration for Kilosort2.
+#: Parameters are compatible with Maxwell MEA and other probe types.
+#: Hardware-specific presets can be created by overriding parameters.
+KILOSORT2 = SortingPipelineConfig()
 
-#: Kilosort2 on Maxwell with Docker (no local MATLAB needed).
-KILOSORT2_MAXWELL_DOCKER = SortingPipelineConfig(
+#: Kilosort2 with Docker (no local MATLAB needed).
+KILOSORT2_DOCKER = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
 )
 

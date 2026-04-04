@@ -93,7 +93,7 @@ Ask the user:
 |---|---|
 | Single or multiple recordings, any sorter | `sort_recording(recording_files, sorter=...)` |
 | Multi-well Maxwell (multiple stream IDs) | `sort_multistream(recording, stream_ids, sorter=...)` |
-| With a preset config | `sort_recording(recording_files, config=KILOSORT2_MAXWELL)` |
+| With a preset config | `sort_recording(recording_files, config=KILOSORT2)` |
 
 ### Step 3: Configure parameters
 
@@ -131,7 +131,7 @@ Key parameters to discuss with the user:
 
 ```python
 from spikelab.spike_sorting import sort_recording
-from spikelab.spike_sorting.config import KILOSORT2_MAXWELL
+from spikelab.spike_sorting.config import KILOSORT2
 
 RAW_DIR = "data/raw"
 RESULTS_DIR = "data/sorted"

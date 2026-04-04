@@ -1963,17 +1963,17 @@ class TestSortingPipelineConfig:
         Preset configs are importable and have correct sorter names.
 
         Tests:
-            (Test Case 1) KILOSORT2_MAXWELL has sorter_name kilosort2.
-            (Test Case 2) KILOSORT2_MAXWELL_DOCKER has use_docker=True.
+            (Test Case 1) KILOSORT2 has sorter_name kilosort2.
+            (Test Case 2) KILOSORT2_DOCKER has use_docker=True.
         """
         from spikelab.spike_sorting.config import (
-            KILOSORT2_MAXWELL,
-            KILOSORT2_MAXWELL_DOCKER,
+            KILOSORT2,
+            KILOSORT2_DOCKER,
         )
 
-        assert KILOSORT2_MAXWELL.sorter.sorter_name == "kilosort2"
-        assert KILOSORT2_MAXWELL.sorter.use_docker is False
-        assert KILOSORT2_MAXWELL_DOCKER.sorter.use_docker is True
+        assert KILOSORT2.sorter.sorter_name == "kilosort2"
+        assert KILOSORT2.sorter.use_docker is False
+        assert KILOSORT2_DOCKER.sorter.use_docker is True
 
     def test_sort_recording_with_config(self):
         """
@@ -1982,12 +1982,12 @@ class TestSortingPipelineConfig:
         Tests:
             (Test Case 1) Empty recording list with config returns empty.
         """
-        from spikelab.spike_sorting.config import KILOSORT2_MAXWELL
+        from spikelab.spike_sorting.config import KILOSORT2
         from spikelab.spike_sorting.pipeline import sort_recording
 
         result = sort_recording(
             recording_files=[],
-            config=KILOSORT2_MAXWELL,
+            config=KILOSORT2,
             intermediate_folders=[],
             results_folders=[],
         )
