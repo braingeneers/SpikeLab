@@ -194,11 +194,18 @@ class Kilosort4Backend(SorterBackend):
             return sorting
 
         try:
+            docker_image = None
+            if ks2.USE_DOCKER:
+                docker_image = (
+                    ks2.USE_DOCKER if isinstance(ks2.USE_DOCKER, str) else True
+                )
+
             sorting = ss.run_sorter(
                 "kilosort4",
                 recording,
-                output_folder=str(output_folder),
-                docker_image=ks2.USE_DOCKER if ks2.USE_DOCKER else None,
+                folder=str(output_folder),
+                docker_image=docker_image,
+                remove_existing_folder=True,
                 verbose=True,
                 **sorter_params,
             )
