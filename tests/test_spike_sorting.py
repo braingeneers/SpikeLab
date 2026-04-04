@@ -2946,9 +2946,7 @@ class TestKilosort4BackendDockerEdgeCases:
             "spikeinterface.sorters.run_sorter",
             side_effect=ValueError("Sorting failed"),
         ):
-            result = ks4_backend.sort(
-                recording, "fake.raw", "fake.dat", output_folder
-            )
+            result = ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)
 
         assert isinstance(result, ValueError)
         assert "Sorting failed" in str(result)
@@ -3080,9 +3078,7 @@ class TestSpikeSortingFigures:
         """Custom colour list is accepted."""
         n_spikes = {"rec1": {"u1": 100}}
         std_norms = {"rec1": {"u1": 0.2}}
-        fig = plot_std_scatter(
-            n_spikes, std_norms, colors=["#00FF00"]
-        )
+        fig = plot_std_scatter(n_spikes, std_norms, colors=["#00FF00"])
         assert isinstance(fig, matplotlib.figure.Figure)
 
     # -- plot_templates ------------------------------------------------------
@@ -3106,16 +3102,18 @@ class TestSpikeSortingFigures:
         """Drawing onto a pre-existing Axes returns its Figure."""
         fig_ext, ax_ext = plt.subplots()
         templates, peaks, fs, curated, pos_peak = self._make_template_data()
-        fig = plot_templates(
-            templates, peaks, fs, curated, pos_peak, ax=ax_ext
-        )
+        fig = plot_templates(templates, peaks, fs, curated, pos_peak, ax=ax_ext)
         assert fig is fig_ext
 
     def test_templates_sort_by_amplitude(self):
         """sort_by_amplitude=True does not error."""
         templates, peaks, fs, curated, pos_peak = self._make_template_data()
         fig = plot_templates(
-            templates, peaks, fs, curated, pos_peak,
+            templates,
+            peaks,
+            fs,
+            curated,
+            pos_peak,
             sort_by_amplitude=True,
         )
         assert isinstance(fig, matplotlib.figure.Figure)
@@ -3138,7 +3136,11 @@ class TestSpikeSortingFigures:
         """Setting line_ms_before/after to None skips reference lines."""
         templates, peaks, fs, curated, pos_peak = self._make_template_data()
         fig = plot_templates(
-            templates, peaks, fs, curated, pos_peak,
+            templates,
+            peaks,
+            fs,
+            curated,
+            pos_peak,
             line_ms_before=None,
             line_ms_after=None,
         )
@@ -3146,9 +3148,7 @@ class TestSpikeSortingFigures:
 
     def test_templates_single_unit(self):
         """Works with a single unit."""
-        templates, peaks, fs, curated, pos_peak = self._make_template_data(
-            n_units=1
-        )
+        templates, peaks, fs, curated, pos_peak = self._make_template_data(n_units=1)
         fig = plot_templates(templates, peaks, fs, curated, pos_peak)
         assert isinstance(fig, matplotlib.figure.Figure)
 

@@ -791,8 +791,7 @@ def ensure_h5py():
     """Raise ``ImportError`` if *h5py* is not installed."""
     if h5py is None:
         raise ImportError(
-            "h5py is required for this operation. "
-            "Install it with: pip install h5py"
+            "h5py is required for this operation. " "Install it with: pip install h5py"
         )
 
 
