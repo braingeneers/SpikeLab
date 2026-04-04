@@ -3026,6 +3026,590 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
+    # Shuffling and stack builders
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="spike_shuffle",
+                description=(
+                    "Create a degree-preserving shuffled copy of SpikeData. "
+                    "Preserves per-unit spike counts and per-bin population rates. "
+                    "Stores the shuffled SpikeData at (out_namespace, 'spikedata')."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_namespace": {
+                            "type": "string",
+                            "description": "Namespace for the shuffled copy. Defaults to '<namespace>_shuffled'.",
+                        },
+                        "swap_per_spike": {
+                            "type": "integer",
+                            "description": "Number of swap attempts per spike",
+                            "default": 5,
+                        },
+                        "seed": {
+                            "type": "integer",
+                            "description": "Random seed for reproducibility",
+                        },
+                        "bin_size": {
+                            "type": "integer",
+                            "description": "Raster bin size for binarization",
+                            "default": 1,
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
+            types.Tool(
+                name="spike_shuffle_stack",
+                description=(
+                    "Generate multiple degree-preserving shuffles as a "
+                    "SpikeSliceStack for null distributions. "
+                    "Stores the stack at (namespace, out_key)."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key for the output SpikeSliceStack",
+                        },
+                        "n_shuffles": {
+                            "type": "integer",
+                            "description": "Number of shuffled copies to generate",
+                        },
+                        "seed": {
+                            "type": "integer",
+                            "description": "Random seed; each shuffle uses seed+i",
+                        },
+                        "swap_per_spike": {
+                            "type": "integer",
+                            "description": "Swap attempts per spike",
+                            "default": 5,
+                        },
+                        "bin_size": {
+                            "type": "integer",
+                            "description": "Raster bin size for binarization",
+                            "default": 1,
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "out_key", "n_shuffles"],
+                },
+            ),
+            types.Tool(
+                name="subset_stack",
+                description=(
+                    "Generate random unit subsets as a SpikeSliceStack for "
+                    "sensitivity analysis. Stores at (namespace, out_key)."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key for the output SpikeSliceStack",
+                        },
+                        "n_subsets": {
+                            "type": "integer",
+                            "description": "Number of random subsets",
+                        },
+                        "units_per_subset": {
+                            "type": "integer",
+                            "description": "Number of units per subset",
+                        },
+                        "seed": {
+                            "type": "integer",
+                            "description": "Random seed for reproducibility",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "out_key",
+                        "n_subsets",
+                        "units_per_subset",
+                    ],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Waveform metrics
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="compute_waveform_metrics",
+                description=(
+                    "Compute SNR and normalized STD from raw waveforms. "
+                    "Stores 'snr' and 'std_norm' in neuron_attributes. "
+                    "Requires non-empty raw_data on the SpikeData."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "ms_before": {
+                            "type": "number",
+                            "description": "Waveform extraction window before spike (ms)",
+                            "default": 1.0,
+                        },
+                        "ms_after": {
+                            "type": "number",
+                            "description": "Waveform extraction window after spike (ms)",
+                            "default": 2.0,
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Epoch splitting
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="split_epochs",
+                description=(
+                    "Split a concatenated SpikeData into per-epoch objects "
+                    "using metadata['rec_chunks_ms']. Each epoch is stored at "
+                    "(<prefix>_epoch_<i>, 'spikedata')."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_namespace_prefix": {
+                            "type": "string",
+                            "description": "Prefix for epoch namespaces. Defaults to source namespace.",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # RateData selection tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="ratedata_subset",
+                description=(
+                    "Select units from a stored RateData and store the result."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the RateData in the workspace",
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of unit indices (or attribute values if 'by' is set)",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key (overwrite).",
+                        },
+                        "by": {
+                            "type": "string",
+                            "description": "Key in neuron_attributes to match against 'units'",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "units"],
+                },
+            ),
+            types.Tool(
+                name="ratedata_subtime",
+                description=(
+                    "Select a time window from a stored RateData. "
+                    "Original time values are preserved (no shift to 0)."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the RateData in the workspace",
+                        },
+                        "start": {
+                            "type": "number",
+                            "description": "Start time in ms (inclusive). null = no left clip.",
+                        },
+                        "end": {
+                            "type": "number",
+                            "description": "End time in ms (exclusive). null = no right clip.",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key (overwrite).",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # RateSliceStack selection tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="rate_slice_subset",
+                description="Select units from a RateSliceStack and store the result.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the RateSliceStack in the workspace",
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of unit indices",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key.",
+                        },
+                        "by": {
+                            "type": "string",
+                            "description": "Key in neuron_attributes to match against 'units'",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "units"],
+                },
+            ),
+            types.Tool(
+                name="rate_slice_subtime",
+                description=(
+                    "Trim the time axis of a RateSliceStack by bin index. "
+                    "start_idx inclusive, end_idx exclusive. Supports negative indexing."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the RateSliceStack",
+                        },
+                        "start_idx": {
+                            "type": "integer",
+                            "description": "Start bin index (inclusive)",
+                        },
+                        "end_idx": {
+                            "type": "integer",
+                            "description": "End bin index (exclusive)",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key.",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "key",
+                        "start_idx",
+                        "end_idx",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="rate_slice_subslice",
+                description="Select slices from a RateSliceStack by index.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the RateSliceStack",
+                        },
+                        "slices": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of slice indices to keep",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key.",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "slices"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # PairwiseCompMatrixStack manipulation tools
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="pcm_stack_subslice",
+                description="Select slices from a PairwiseCompMatrixStack by index.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the PairwiseCompMatrixStack",
+                        },
+                        "indices": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "description": "List of slice indices to keep",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key.",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "indices"],
+                },
+            ),
+            types.Tool(
+                name="pcm_stack_mean",
+                description=(
+                    "Average a PairwiseCompMatrixStack across slices, "
+                    "producing a single PairwiseCompMatrix."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the PairwiseCompMatrixStack",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key for the averaged PairwiseCompMatrix",
+                        },
+                        "ignore_nan": {
+                            "type": "boolean",
+                            "description": "Use nanmean (default true)",
+                            "default": True,
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "out_key"],
+                },
+            ),
+            types.Tool(
+                name="pcm_stack_threshold",
+                description=(
+                    "Apply a binary threshold to a PairwiseCompMatrixStack. "
+                    "Values become 1 where |v| > threshold, else 0."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the PairwiseCompMatrixStack",
+                        },
+                        "threshold": {
+                            "type": "number",
+                            "description": "Threshold value",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Output key. Defaults to input key.",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key", "threshold"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
+    # Shuffle statistics and slice analysis utilities
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="shuffle_z_score",
+                description=(
+                    "Z-score an observed value against a shuffle null distribution. "
+                    "Both must be ndarrays in the workspace."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "observed_key": {
+                            "type": "string",
+                            "description": "Key of the observed value (ndarray)",
+                        },
+                        "shuffle_key": {
+                            "type": "string",
+                            "description": "Key of the shuffle distribution (ndarray)",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key for the z-scored result",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "observed_key",
+                        "shuffle_key",
+                        "out_key",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="shuffle_percentile",
+                description=(
+                    "Compute percentile rank of observed value within a "
+                    "shuffle distribution. Non-parametric alternative to z-score."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "observed_key": {
+                            "type": "string",
+                            "description": "Key of the observed value (ndarray)",
+                        },
+                        "shuffle_key": {
+                            "type": "string",
+                            "description": "Key of the shuffle distribution (ndarray)",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key for the percentile result",
+                        },
+                    },
+                    "required": [
+                        "workspace_id",
+                        "namespace",
+                        "observed_key",
+                        "shuffle_key",
+                        "out_key",
+                    ],
+                },
+            ),
+            types.Tool(
+                name="slice_trend",
+                description=(
+                    "Fit a linear trend to a metric computed across ordered slices. "
+                    "Returns slope and p-value inline (no workspace write)."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the 1-D values (ndarray) in the workspace",
+                        },
+                        "times_key": {
+                            "type": "string",
+                            "description": (
+                                "Key of the slice midpoints (ndarray) in the workspace. "
+                                "If omitted, integer indices are used."
+                            ),
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key"],
+                },
+            ),
+            types.Tool(
+                name="slice_stability",
+                description=(
+                    "Compute coefficient of variation (std / |mean|) of a metric "
+                    "across slices. Returns CV inline."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "key": {
+                            "type": "string",
+                            "description": "Key of the values (ndarray) in the workspace",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "key"],
+                },
+            ),
+            types.Tool(
+                name="pairwise_tests",
+                description=(
+                    "Run pairwise statistical tests across groups with "
+                    "multiple-comparison correction. Each key should point "
+                    "to a 1-D ndarray in the workspace. Requires scipy."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "keys": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Workspace keys of the group arrays",
+                        },
+                        "labels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Labels for each group. Defaults to keys.",
+                        },
+                        "out_key": {
+                            "type": "string",
+                            "description": "Key to store the p-value matrix (optional)",
+                        },
+                        "test": {
+                            "type": "string",
+                            "enum": ["welch_t", "student_t", "mann_whitney"],
+                            "description": "Statistical test to use",
+                            "default": "welch_t",
+                        },
+                        "correction": {
+                            "type": "string",
+                            "enum": ["bonferroni"],
+                            "description": "Multiple-comparison correction. null for none.",
+                            "default": "bonferroni",
+                        },
+                        "alpha": {
+                            "type": "number",
+                            "description": "Significance level",
+                            "default": 0.05,
+                        },
+                    },
+                    "required": ["workspace_id", "namespace", "keys"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
     # Export tools
     # -----------------------------------------------------------------------
     tools.extend(
@@ -3340,6 +3924,31 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "load_workspace_item": analysis.load_workspace_item,
     "merge_workspace": analysis.merge_workspace,
     "fetch_workspace_item": analysis.fetch_workspace_item,
+    # Shuffling and stack builders
+    "spike_shuffle": analysis.spike_shuffle,
+    "spike_shuffle_stack": analysis.spike_shuffle_stack,
+    "subset_stack": analysis.subset_stack,
+    # Waveform metrics
+    "compute_waveform_metrics": analysis.compute_waveform_metrics,
+    # Epoch splitting
+    "split_epochs": analysis.split_epochs,
+    # RateData selection tools
+    "ratedata_subset": analysis.ratedata_subset,
+    "ratedata_subtime": analysis.ratedata_subtime,
+    # RateSliceStack selection tools
+    "rate_slice_subset": analysis.rate_slice_subset,
+    "rate_slice_subtime": analysis.rate_slice_subtime,
+    "rate_slice_subslice": analysis.rate_slice_subslice,
+    # PairwiseCompMatrixStack manipulation tools
+    "pcm_stack_subslice": analysis.pcm_stack_subslice,
+    "pcm_stack_mean": analysis.pcm_stack_mean,
+    "pcm_stack_threshold": analysis.pcm_stack_threshold,
+    # Shuffle statistics and slice analysis
+    "shuffle_z_score": analysis.shuffle_z_score,
+    "shuffle_percentile": analysis.shuffle_percentile,
+    "slice_trend": analysis.slice_trend,
+    "slice_stability": analysis.slice_stability,
+    "pairwise_tests": analysis.pairwise_tests,
     # Export tools
     "export_to_hdf5_raster": exporters.export_to_hdf5_raster,
     "export_to_hdf5_ragged": exporters.export_to_hdf5_ragged,

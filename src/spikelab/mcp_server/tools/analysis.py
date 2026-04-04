@@ -22,6 +22,10 @@ from ...spikedata.utils import (
     gplvm_average_state_probability,
     gplvm_continuity_prob,
     gplvm_state_entropy,
+    shuffle_z_score as _shuffle_z_score,
+    shuffle_percentile as _shuffle_percentile,
+    slice_trend as _slice_trend,
+    slice_stability as _slice_stability,
 )
 from ...workspace.workspace import AnalysisWorkspace, get_workspace_manager
 from ._helpers import (
@@ -2296,3 +2300,505 @@ async def compute_gplvm_consecutive_durations(
         result["mean_duration"] = float(np.mean(durations))
         result["median_duration"] = float(np.median(durations))
     return result
+
+
+# ---------------------------------------------------------------------------
+# SpikeData shuffling and stack builders
+# ---------------------------------------------------------------------------
+
+
+async def spike_shuffle(
+    workspace_id: str,
+    namespace: str,
+    out_namespace: str = "",
+    swap_per_spike: int = 5,
+    seed: Optional[int] = None,
+    bin_size: int = 1,
+) -> Dict[str, Any]:
+    """Create a degree-preserving shuffled copy of SpikeData and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    shuffled = sd.spike_shuffle(
+        swap_per_spike=swap_per_spike, seed=seed, bin_size=bin_size
+    )
+    target_ns = out_namespace if out_namespace else namespace + "_shuffled"
+    ws.store(target_ns, _SPIKEDATA_KEY, shuffled)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": target_ns,
+        "workspace_key": _SPIKEDATA_KEY,
+        "info": ws.get_info(target_ns, _SPIKEDATA_KEY),
+    }
+
+
+async def spike_shuffle_stack(
+    workspace_id: str,
+    namespace: str,
+    out_key: str,
+    n_shuffles: int,
+    seed: Optional[int] = None,
+    swap_per_spike: int = 5,
+    bin_size: int = 1,
+) -> Dict[str, Any]:
+    """Generate multiple degree-preserving shuffles as a SpikeSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    stack = sd.spike_shuffle_stack(
+        n_shuffles=n_shuffles,
+        seed=seed,
+        swap_per_spike=swap_per_spike,
+        bin_size=bin_size,
+    )
+    ws.store(namespace, out_key, stack)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "n_shuffles": n_shuffles,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def subset_stack(
+    workspace_id: str,
+    namespace: str,
+    out_key: str,
+    n_subsets: int,
+    units_per_subset: int,
+    seed: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Generate random unit subsets as a SpikeSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    stack = sd.subset_stack(
+        n_subsets=n_subsets,
+        units_per_subset=units_per_subset,
+        seed=seed,
+    )
+    ws.store(namespace, out_key, stack)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "n_subsets": n_subsets,
+        "units_per_subset": units_per_subset,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def compute_waveform_metrics(
+    workspace_id: str,
+    namespace: str,
+    ms_before: float = 1.0,
+    ms_after: float = 2.0,
+) -> Dict[str, Any]:
+    """Compute SNR and normalized STD from raw waveforms and store in neuron_attributes."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    sd_new, metrics = sd.compute_waveform_metrics(
+        ms_before=ms_before, ms_after=ms_after
+    )
+    ws.store(namespace, _SPIKEDATA_KEY, sd_new)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "workspace_key": _SPIKEDATA_KEY,
+        "snr_summary": {
+            "mean": float(np.nanmean(metrics["snr"])),
+            "median": float(np.nanmedian(metrics["snr"])),
+            "min": float(np.nanmin(metrics["snr"])),
+            "max": float(np.nanmax(metrics["snr"])),
+        },
+        "std_norm_summary": {
+            "mean": float(np.nanmean(metrics["std_norm"])),
+            "median": float(np.nanmedian(metrics["std_norm"])),
+            "min": float(np.nanmin(metrics["std_norm"])),
+            "max": float(np.nanmax(metrics["std_norm"])),
+        },
+    }
+
+
+async def split_epochs(
+    workspace_id: str,
+    namespace: str,
+    out_namespace_prefix: str = "",
+) -> Dict[str, Any]:
+    """Split a concatenated SpikeData into per-epoch objects and store each to workspace."""
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+    epochs = sd.split_epochs()
+    prefix = out_namespace_prefix if out_namespace_prefix else namespace
+    stored = []
+    for i, epoch_sd in enumerate(epochs):
+        ns = f"{prefix}_epoch_{i}"
+        ws.store(ns, _SPIKEDATA_KEY, epoch_sd)
+        stored.append(
+            {
+                "namespace": ns,
+                "workspace_key": _SPIKEDATA_KEY,
+                "info": ws.get_info(ns, _SPIKEDATA_KEY),
+            }
+        )
+    return {
+        "workspace_id": workspace_id,
+        "n_epochs": len(epochs),
+        "epochs": stored,
+    }
+
+
+# ---------------------------------------------------------------------------
+# RateData selection tools
+# ---------------------------------------------------------------------------
+
+
+async def ratedata_subset(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    units: List[int],
+    out_key: str = "",
+    by: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Select units from a stored RateData and store the result to workspace."""
+    ws = _get_workspace(workspace_id)
+    rd = _get_ratedata(ws, namespace, key)
+    new_rd = rd.subset(units, by=by)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_rd)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+async def ratedata_subtime(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    start: Optional[float] = None,
+    end: Optional[float] = None,
+    out_key: str = "",
+) -> Dict[str, Any]:
+    """Select a time window from a stored RateData and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    rd = _get_ratedata(ws, namespace, key)
+    new_rd = rd.subtime(start, end)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_rd)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# RateSliceStack selection tools
+# ---------------------------------------------------------------------------
+
+
+async def rate_slice_subset(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    units: List[int],
+    out_key: str = "",
+    by: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Select units from a RateSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, key)
+    new_rss = rss.subset(units, by=by)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_rss)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+async def rate_slice_subtime(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    start_idx: int,
+    end_idx: int,
+    out_key: str = "",
+) -> Dict[str, Any]:
+    """Trim the time axis of a RateSliceStack by bin index and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, key)
+    new_rss = rss.subtime_by_index(start_idx, end_idx)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_rss)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+async def rate_slice_subslice(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    slices: List[int],
+    out_key: str = "",
+) -> Dict[str, Any]:
+    """Select slices from a RateSliceStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    rss = _get_rateslicestack(ws, namespace, key)
+    new_rss = rss.subslice(slices)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_rss)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrixStack manipulation tools
+# ---------------------------------------------------------------------------
+
+
+def _get_pcm_stack(ws, namespace: str, key: str) -> PairwiseCompMatrixStack:
+    """Load PairwiseCompMatrixStack from workspace."""
+    obj = ws.get(namespace, key)
+    if obj is None or not isinstance(obj, PairwiseCompMatrixStack):
+        raise ValueError(
+            f"No PairwiseCompMatrixStack found at ({namespace!r}, {key!r}). "
+            "Compute a pairwise stack first using: "
+            "spike_unit_to_unit_comparison, compute_rate_slice_unit_corr, "
+            "or similar."
+        )
+    return obj
+
+
+async def pcm_stack_subslice(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    indices: List[int],
+    out_key: str = "",
+) -> Dict[str, Any]:
+    """Select slices from a PairwiseCompMatrixStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    stack = _get_pcm_stack(ws, namespace, key)
+    new_stack = stack.subslice(indices)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_stack)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+async def pcm_stack_mean(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    out_key: str,
+    ignore_nan: bool = True,
+) -> Dict[str, Any]:
+    """Average a PairwiseCompMatrixStack across slices and store the resulting PairwiseCompMatrix."""
+    ws = _get_workspace(workspace_id)
+    stack = _get_pcm_stack(ws, namespace, key)
+    mean_pcm = stack.mean(ignore_nan=ignore_nan)
+    ws.store(namespace, out_key, mean_pcm)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def pcm_stack_threshold(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    threshold: float,
+    out_key: str = "",
+) -> Dict[str, Any]:
+    """Apply a binary threshold to a PairwiseCompMatrixStack and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    stack = _get_pcm_stack(ws, namespace, key)
+    new_stack = stack.threshold(threshold)
+    target_key = out_key if out_key else key
+    ws.store(namespace, target_key, new_stack)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": target_key,
+        "info": ws.get_info(namespace, target_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Shuffle statistics and slice analysis utilities
+# ---------------------------------------------------------------------------
+
+
+async def shuffle_z_score(
+    workspace_id: str,
+    namespace: str,
+    observed_key: str,
+    shuffle_key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    """Z-score an observed value against a shuffle distribution and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    observed = ws.get(namespace, observed_key)
+    if observed is None or not isinstance(observed, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {observed_key!r})."
+        )
+    shuffle_dist = ws.get(namespace, shuffle_key)
+    if shuffle_dist is None or not isinstance(shuffle_dist, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {shuffle_key!r}). "
+            "Compute a shuffle distribution first using: spike_shuffle_stack."
+        )
+    z = _shuffle_z_score(observed, shuffle_dist)
+    ws.store(namespace, out_key, z)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def shuffle_percentile(
+    workspace_id: str,
+    namespace: str,
+    observed_key: str,
+    shuffle_key: str,
+    out_key: str,
+) -> Dict[str, Any]:
+    """Compute percentile rank of observed vs shuffle distribution and store to workspace."""
+    ws = _get_workspace(workspace_id)
+    observed = ws.get(namespace, observed_key)
+    if observed is None or not isinstance(observed, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {observed_key!r})."
+        )
+    shuffle_dist = ws.get(namespace, shuffle_key)
+    if shuffle_dist is None or not isinstance(shuffle_dist, np.ndarray):
+        raise ValueError(
+            f"No ndarray found at ({namespace!r}, {shuffle_key!r}). "
+            "Compute a shuffle distribution first using: spike_shuffle_stack."
+        )
+    pct = _shuffle_percentile(observed, shuffle_dist)
+    ws.store(namespace, out_key, pct)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": out_key,
+        "info": ws.get_info(namespace, out_key),
+    }
+
+
+async def slice_trend(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+    times_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Fit a linear trend across ordered slices. Returns slope and p-value inline."""
+    ws = _get_workspace(workspace_id)
+    values = ws.get(namespace, key)
+    if values is None or not isinstance(values, np.ndarray):
+        raise ValueError(f"No ndarray found at ({namespace!r}, {key!r}).")
+    times = None
+    if times_key is not None:
+        times = ws.get(namespace, times_key)
+        if times is not None:
+            times = np.asarray(times)
+    slope, p_value = _slice_trend(values, times=times)
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+        "slope": float(slope),
+        "p_value": float(p_value),
+    }
+
+
+async def slice_stability(
+    workspace_id: str,
+    namespace: str,
+    key: str,
+) -> Dict[str, Any]:
+    """Compute coefficient of variation across slices. Returns CV inline."""
+    ws = _get_workspace(workspace_id)
+    values = ws.get(namespace, key)
+    if values is None or not isinstance(values, np.ndarray):
+        raise ValueError(f"No ndarray found at ({namespace!r}, {key!r}).")
+    cv = _slice_stability(values)
+    result: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "key": key,
+    }
+    if isinstance(cv, np.ndarray):
+        result["cv"] = _to_list(cv)
+    else:
+        result["cv"] = float(cv)
+    return result
+
+
+async def pairwise_tests(
+    workspace_id: str,
+    namespace: str,
+    keys: List[str],
+    labels: Optional[List[str]] = None,
+    out_key: str = "",
+    test: str = "welch_t",
+    correction: Optional[str] = "bonferroni",
+    alpha: float = 0.05,
+) -> Dict[str, Any]:
+    """Run pairwise statistical tests across groups stored in workspace.
+
+    Each key should point to a 1-D ndarray in the given namespace.
+    """
+    from ...spikedata.stat_utils import pairwise_tests as _pairwise_tests
+
+    ws = _get_workspace(workspace_id)
+    groups = {}
+    group_labels = labels if labels else keys
+    for lbl, k in zip(group_labels, keys):
+        arr = ws.get(namespace, k)
+        if arr is None or not isinstance(arr, np.ndarray):
+            raise ValueError(f"No ndarray found at ({namespace!r}, {k!r}).")
+        groups[lbl] = arr
+
+    result = _pairwise_tests(
+        groups, test=test, correction=correction, alpha=alpha
+    )
+
+    if out_key:
+        ws.store(namespace, out_key, result["pval_matrix"])
+
+    response: Dict[str, Any] = {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "labels": result["labels"],
+        "n_comparisons": result["n_comparisons"],
+        "pval_matrix": _to_list(result["pval_matrix"]),
+        "sig_matrix": _to_list(result["sig_matrix"]),
+    }
+    if out_key:
+        response["key"] = out_key
+    return response
