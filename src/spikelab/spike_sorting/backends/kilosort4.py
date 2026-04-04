@@ -203,7 +203,11 @@ class Kilosort4Backend(SorterBackend):
                     if isinstance(ks2.USE_DOCKER, str)
                     else get_docker_image("kilosort4")
                 )
-                docker_kwargs["installation_mode"] = "no-install"
+                # Use "pypi" instead of "no-install" to work around an SI
+                # 0.104 bug where extra_requirements triggers an undefined
+                # 'cmd' variable when installation_mode="no-install".
+                # SI will detect the pre-installed version and skip the install.
+                docker_kwargs["installation_mode"] = "pypi"
 
             sorting = ss.run_sorter(
                 "kilosort4",
