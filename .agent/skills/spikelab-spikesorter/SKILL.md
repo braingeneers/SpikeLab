@@ -354,6 +354,57 @@ For further analysis (correlations, burst detection, event alignment, population
 
 ---
 
+## Docker GPU Compatibility
+
+When `use_docker=True`, SpikeLab automatically selects a Docker image compatible with the host GPU:
+
+1. Queries the NVIDIA driver version via `nvidia-smi`
+2. Maps the driver to the highest supported CUDA toolkit version
+3. Selects a pre-built image from the registry
+
+**Pre-built images:**
+
+| Sorter | Image | CUDA | Notes |
+|--------|-------|------|-------|
+| Kilosort2 | `kilosort2-compiled-base:py310-si0.104` | Any | MATLAB Runtime; `MW_CUDA_FORWARD_COMPATIBILITY` handles all GPUs |
+| Kilosort4 | `kilosort4-base:py311-si0.104` | 12.6+ | PyTorch 2.11+cu130; requires NVIDIA driver ≥ 550 |
+
+**Building custom images:**
+
+Dockerfiles are in `SpikeLab/docker/kilosort2/` and `SpikeLab/docker/kilosort4/`. To rebuild:
+
+```bash
+docker build -t spikeinterface/kilosort2-compiled-base:py310-si0.104 \
+    -f docker/kilosort2/Dockerfile docker/kilosort2/
+
+docker build -t spikeinterface/kilosort4-base:py311-si0.104 \
+    -f docker/kilosort4/Dockerfile docker/kilosort4/
+```
+
+**Custom images:** Pass a specific image string instead of `True`:
+
+```python
+sort_recording(..., use_docker="my-registry/my-image:tag")
+```
+
+This bypasses auto-detection and uses the specified image directly.
+
+**Auto-detection API:**
+
+```python
+from spikelab.spike_sorting.docker_utils import (
+    get_host_cuda_driver_version,
+    get_host_cuda_tag,
+    get_docker_image,
+)
+
+print(get_host_cuda_driver_version())  # e.g. 590
+print(get_host_cuda_tag())             # e.g. "cu130"
+print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py311-si0.104"
+```
+
+---
+
 ## Troubleshooting
 
 | Issue | Cause | Fix |
@@ -363,6 +414,8 @@ For further analysis (correlations, burst detection, event alignment, population
 | `Cannot concatenate: N channels` | Different electrode configs | Ensure all files in directory share the same MEA layout |
 | `Recording has N segments` | Multi-segment recording | Split into single-segment recordings first |
 | Docker sorting fails | GPU/Docker config | Check `nvidia-smi`, ensure `nvidia-docker` is installed |
+| `CUDA error: no kernel image` | Docker image CUDA too old for GPU | SpikeLab auto-detects the host CUDA driver and selects a compatible image. If auto-detection fails, pass a custom image: `use_docker="my-image:tag"` |
+| `Could not detect CUDA driver` | `nvidia-smi` not on PATH | Install NVIDIA drivers, or pass a specific `docker_image` string |
 | `ValueError: Unknown sorter` | Unregistered backend | Check `spikelab.spike_sorting.backends.list_sorters()` |
 
 ### Inspecting intermediate files
