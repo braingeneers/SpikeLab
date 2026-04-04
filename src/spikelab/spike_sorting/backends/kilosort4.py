@@ -194,12 +194,24 @@ class Kilosort4Backend(SorterBackend):
             return sorting
 
         try:
+            docker_kwargs = {}
+            if ks2.USE_DOCKER:
+                from ..docker_utils import get_docker_image
+
+                docker_kwargs["docker_image"] = (
+                    ks2.USE_DOCKER
+                    if isinstance(ks2.USE_DOCKER, str)
+                    else get_docker_image("kilosort4")
+                )
+                docker_kwargs["installation_mode"] = "no-install"
+
             sorting = ss.run_sorter(
                 "kilosort4",
                 recording,
-                output_folder=str(output_folder),
-                docker_image=ks2.USE_DOCKER if ks2.USE_DOCKER else None,
+                folder=str(output_folder),
+                remove_existing_folder=True,
                 verbose=True,
+                **docker_kwargs,
                 **sorter_params,
             )
         except Exception as e:

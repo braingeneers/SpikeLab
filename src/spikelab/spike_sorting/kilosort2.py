@@ -18,6 +18,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import warnings
 import tempfile
 import time
@@ -1012,10 +1013,16 @@ class KilosortSortingExtractor:
         half_windows_sizes = []
         for i in range(n_templates):
             template = templates_all[i, :]
-            size = (
-                template_mid
-                - np.flatnonzero(np.isclose(template[:template_mid], 0))[-1]
-            )
+            # Find where the template amplitude drops below 1% of peak
+            # before the midpoint.  Works for both KS2 (zero-padded) and
+            # KS4 (dense, non-zero edges) templates.
+            peak_amp = np.abs(template).max()
+            threshold = peak_amp * 0.01
+            small_indices = np.flatnonzero(np.abs(template[:template_mid]) < threshold)
+            if small_indices.size > 0:
+                size = template_mid - small_indices[-1]
+            else:
+                size = template_mid
             half_windows_sizes.append(int(size * window_size_scale))
 
         return half_windows_sizes
@@ -3374,6 +3381,8 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
         sorting (KilosortSortingExtractor): The sorting result loaded from the
             Docker output folder.
     """
+    from .docker_utils import get_docker_image
+
     # Pre-convert recording to int16 binary on the host so that:
     # 1. The container doesn't need vendor-specific HDF5 plugins (e.g. Maxwell)
     # 2. SI's kilosortbase._setup_recording skips the redundant copy (it checks
@@ -3429,7 +3438,7 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
             sorter_name="kilosort2",
             recording=bin_recording,
             folder=str(output_folder),
-            docker_image="spikeinterface/kilosort2-compiled-base:py310-si0.104",
+            docker_image=get_docker_image("kilosort2"),
             verbose=True,
             raise_error=True,
             remove_existing_folder=True,
