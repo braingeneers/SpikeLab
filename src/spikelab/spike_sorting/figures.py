@@ -6,12 +6,12 @@ a pre-existing axes instead of creating a new figure.
 """
 
 from math import ceil
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 
-def _import_matplotlib():
+def _import_matplotlib() -> Any:
     """Lazy import of matplotlib; mirrors spikedata/plot_utils.py."""
     try:
         import matplotlib.pyplot as plt
@@ -380,8 +380,14 @@ def plot_templates(
 
 
 def _draw_templates_on_axes(
-    axes, units, fs_Hz, y_spacing, color_curated, color_failed, templates_per_column
-):
+    axes: list,
+    units: list,
+    fs_Hz: float,
+    y_spacing: float,
+    color_curated: str,
+    color_failed: str,
+    templates_per_column: int,
+) -> Tuple[float, float]:
     """Draw stacked templates onto one or more axes columns.
 
     Returns (y_min, y_max) across all drawn templates.

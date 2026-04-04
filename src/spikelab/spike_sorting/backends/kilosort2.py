@@ -11,6 +11,7 @@ global-setting logic will be removed.
 """
 
 import os
+from typing import Any
 
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
@@ -41,11 +42,11 @@ class Kilosort2Backend(SorterBackend):
         config (SortingPipelineConfig): Full pipeline configuration.
     """
 
-    def __init__(self, config: SortingPipelineConfig):
+    def __init__(self, config: SortingPipelineConfig) -> None:
         super().__init__(config)
         self._sync_globals()
 
-    def _sync_globals(self):
+    def _sync_globals(self) -> None:
         """Set module-level globals in kilosort2.py from the config.
 
         This bridges the config-based architecture with the legacy
@@ -64,8 +65,7 @@ class Kilosort2Backend(SorterBackend):
 
         # Recording
         ks2.STREAM_ID = rec.stream_id
-        if rec.hdf5_plugin_path is not None:
-            os.environ["HDF5_PLUGIN_PATH"] = str(rec.hdf5_plugin_path)
+        # HDF5 plugin path is now set upstream in pipeline.sort_recording()
         ks2.FIRST_N_MINS = rec.first_n_mins
         ks2.MEA_Y_MAX = rec.mea_y_max
         ks2.GAIN_TO_UV = rec.gain_to_uv
@@ -112,7 +112,6 @@ class Kilosort2Backend(SorterBackend):
         ks2.COMPILE_TO_MAT = comp.compile_to_mat
         ks2.COMPILE_TO_NPZ = comp.compile_to_npz
         ks2.COMPILE_WAVEFORMS = comp.compile_waveforms
-        ks2.COMPILE_ALL_RECORDINGS = comp.compile_all_recordings
         ks2.SAVE_ELECTRODES = comp.save_electrodes
         ks2.SAVE_SPIKE_TIMES = comp.save_spike_times
         ks2.SAVE_RAW_PKL = comp.save_raw_pkl
@@ -132,9 +131,8 @@ class Kilosort2Backend(SorterBackend):
         ks2.RECURATE_FIRST = exe.recurate_first
         ks2.RECURATE_SECOND = exe.recurate_second
         ks2.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
-        ks2.RECOMPILE_ALL_RECORDINGS = exe.recompile_all_recordings
 
-    def load_recording(self, rec_path):
+    def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the legacy loader.
 
         Handles Maxwell ``.h5``, NWB, directories (concatenation),
@@ -154,7 +152,9 @@ class Kilosort2Backend(SorterBackend):
 
         return recording
 
-    def sort(self, recording, rec_path, recording_dat_path, output_folder):
+    def sort(
+        self, recording: Any, rec_path: Any, recording_dat_path: Any, output_folder: Any
+    ) -> Any:
         """Run Kilosort2 spike sorting.
 
         Delegates to the legacy ``spike_sort`` function which handles
@@ -170,8 +170,13 @@ class Kilosort2Backend(SorterBackend):
         )
 
     def extract_waveforms(
-        self, recording, sorting, waveforms_folder, curation_folder, rec_path=None
-    ):
+        self,
+        recording: Any,
+        sorting: Any,
+        waveforms_folder: Any,
+        curation_folder: Any,
+        rec_path: Any = None,
+    ) -> Any:
         """Extract waveforms via the custom WaveformExtractor.
 
         Uses the legacy extraction pipeline with per-spike centering.

@@ -18,6 +18,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import warnings
 import tempfile
 import time
@@ -25,7 +26,7 @@ import traceback
 from math import ceil
 from pathlib import Path
 from types import MethodType
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -65,14 +66,14 @@ from .sorting_utils import (  # noqa: E402
 
 # region Save traces
 def save_traces(
-    recording,
-    inter_path,
-    start_ms=0,
-    end_ms=None,
-    num_processes=None,
-    dtype="float16",
-    verbose=True,
-):
+    recording: Any,
+    inter_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    num_processes: Optional[int] = None,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled voltage traces to a ``.npy`` file for fast downstream access.
 
     Dispatches to a Maxwell-optimised path (direct HDF5 reads via ``h5py``)
@@ -131,13 +132,13 @@ def save_traces(
 
 def save_traces_si(
     recording: BaseRecording,
-    scaled_traces_path,
-    start_ms=0,
-    end_ms=None,
-    num_processes=16,
-    dtype="float16",
-    verbose=True,
-):
+    scaled_traces_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    num_processes: int = 16,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled traces from a SpikeInterface recording to a ``.npy`` file.
 
     Each channel is extracted in parallel and written into a pre-allocated
@@ -191,7 +192,7 @@ def save_traces_si(
                 pass
 
 
-def _save_traces_si(task):
+def _save_traces_si(task: tuple) -> None:
     """Worker function for ``save_traces_si``.
 
     Extracts traces for a single channel and writes them into the
@@ -218,17 +219,17 @@ def _save_traces_si(task):
 
 
 def save_traces_mea(
-    rec_path,
-    save_path,
-    start_ms=0,
-    end_ms=None,
-    samp_freq=20,  # kHz
-    default_gain=1,
-    chunk_size=100000,
-    num_processes=2,
-    dtype="float16",
-    verbose=True,
-):
+    rec_path: Union[str, Path],
+    save_path: Union[str, Path],
+    start_ms: float = 0,
+    end_ms: Optional[float] = None,
+    samp_freq: float = 20,  # kHz
+    default_gain: float = 1,
+    chunk_size: int = 100000,
+    num_processes: int = 2,
+    dtype: str = "float16",
+    verbose: bool = True,
+) -> None:
     """Save scaled traces from a Maxwell MEA recording to a ``.npy`` file.
 
     Reads the HDF5 file directly with ``h5py`` instead of SpikeInterface's
@@ -318,7 +319,7 @@ def save_traces_mea(
             pass
 
 
-def _get_traces_mea_old(rec_path):
+def _get_traces_mea_old(rec_path: Union[str, Path]) -> Any:
     """Return the raw signal dataset from an old-format Maxwell HDF5 file.
 
     Parameters:
@@ -330,7 +331,7 @@ def _get_traces_mea_old(rec_path):
     return h5py.File(rec_path, "r")["sig"]
 
 
-def _get_traces_mea_new(rec_path):
+def _get_traces_mea_new(rec_path: Union[str, Path]) -> Any:
     """Return the raw signal dataset from a new-format Maxwell HDF5 file.
 
     Parameters:
@@ -345,7 +346,7 @@ def _get_traces_mea_new(rec_path):
     ]["raw"]
 
 
-def _save_traces_mea(task):
+def _save_traces_mea(task: tuple) -> None:
     """Worker function for ``save_traces_mea``.
 
     Reads one chunk of frames from the HDF5 file, scales by gain, and
@@ -1012,15 +1013,21 @@ class KilosortSortingExtractor:
         half_windows_sizes = []
         for i in range(n_templates):
             template = templates_all[i, :]
-            size = (
-                template_mid
-                - np.flatnonzero(np.isclose(template[:template_mid], 0))[-1]
-            )
+            # Find where the template amplitude drops below 1% of peak
+            # before the midpoint.  Works for both KS2 (zero-padded) and
+            # KS4 (dense, non-zero edges) templates.
+            peak_amp = np.abs(template).max()
+            threshold = peak_amp * 0.01
+            small_indices = np.flatnonzero(np.abs(template[:template_mid]) < threshold)
+            if small_indices.size > 0:
+                size = template_mid - small_indices[-1]
+            else:
+                size = template_mid
             half_windows_sizes.append(int(size * window_size_scale))
 
         return half_windows_sizes
 
-    def ms_to_samples(self, ms):
+    def ms_to_samples(self, ms: float) -> int:
         return round(ms * self.sampling_frequency / 1000.0)
 
 
@@ -1321,8 +1328,13 @@ class WaveformExtractor:
         )  # Total number of samples in waveform
         self.peak_ind = parameters["peak_ind"]
 
-        self.return_scaled = False
-        self.dtype = parameters["dtype"]
+        # Extract waveforms as µV when the recording supports scaling
+        if recording.has_scaleable_traces():
+            self.return_scaled = True
+            self.dtype = "float32"
+        else:
+            self.return_scaled = False
+            self.dtype = parameters["dtype"]
 
         self.chans_max_folder = root_folder / "channels_max"
         self.use_pos_peak = None
@@ -1337,6 +1349,12 @@ class WaveformExtractor:
         root_folder = Path(root_folder)
         create_folder(root_folder / "waveforms")
 
+        # Use float32 when the recording supports µV scaling
+        if recording.has_scaleable_traces():
+            waveform_dtype = "float32"
+        else:
+            waveform_dtype = str(recording.get_dtype())
+
         parameters = {
             "recording_path": str(recording_path.absolute()),
             "sampling_frequency": recording.get_sampling_frequency(),
@@ -1345,7 +1363,7 @@ class WaveformExtractor:
             "peak_ind": sorting.ms_to_samples(WAVEFORMS_MS_BEFORE),
             "pos_peak_thresh": POS_PEAK_THRESH,
             "max_waveforms_per_unit": MAX_WAVEFORMS_PER_UNIT,
-            "dtype": str(recording.get_dtype()),
+            "dtype": waveform_dtype,
             "n_jobs": N_JOBS,
             "total_memory": TOTAL_MEMORY,
         }
@@ -1413,13 +1431,13 @@ class WaveformExtractor:
         we.load_units()
         return we
 
-    def ms_to_samples(self, ms):
+    def ms_to_samples(self, ms: float) -> int:
         return int(ms * self.sampling_frequency / 1000.0)
 
     # endregion
 
     # region Extract waveforms
-    def run_extract_waveforms(self, **job_kwargs):
+    def run_extract_waveforms(self, **job_kwargs: Any) -> None:
         self.templates_half_windows_sizes = (
             self.sorting.get_templates_half_windows_sizes(self.chans_max_kilosort)
         )
@@ -1498,7 +1516,7 @@ class WaveformExtractor:
                 spike_times[spike_time_to_ind[st]] = st_cen
         np.save(self.sorting.folder / "spike_times.npy", spike_times)
 
-    def sample_spikes(self):
+    def sample_spikes(self) -> dict:
         """
         Uniform random selection of spikes per unit and save to .npy
 
@@ -1534,7 +1552,7 @@ class WaveformExtractor:
 
         return selected_spikes
 
-    def select_random_spikes_uniformly(self):
+    def select_random_spikes_uniformly(self) -> dict:
         """
         Uniform random selection of spikes per unit.
 
@@ -1669,18 +1687,24 @@ class WaveformExtractor:
                     )  # Convert the spike time defined by all the samples in recording to only samples in "traces"
 
                     peak_window_left = max(st_trace - half_window_size, 0)
-                    peak_window_right = min(st_trace + half_window_size, max_trace_ind)
-                    peak_window_size = peak_window_right - peak_window_left + 1
+                    peak_window_right = min(
+                        st_trace + half_window_size + 1, max_trace_ind + 1
+                    )
                     traces_peak_window = traces[
                         peak_window_left:peak_window_right, chan_max
                     ]
+                    if traces_peak_window.size == 0:
+                        # Spike at chunk boundary — skip recentering
+                        spike_times_centered[st] = st
+                        continue
                     if use_pos_peak[unit_id]:
                         peak_value = np.max(traces_peak_window)
                     else:
                         peak_value = np.min(traces_peak_window)
                     peak_indices = np.flatnonzero(traces_peak_window == peak_value)
                     st_offset = (
-                        peak_indices[peak_indices.size // 2] - peak_window_size // 2
+                        peak_indices[peak_indices.size // 2]
+                        - traces_peak_window.size // 2
                     )
                     st_trace += st_offset
 
@@ -1735,8 +1759,12 @@ class WaveformExtractor:
 
     # region Get waveforms and templates
     def get_waveforms(
-        self, unit_id, with_index=False, cache=False, memmap=True
-    ):  # SpikeInterface has cache=True by default
+        self,
+        unit_id: int,
+        with_index: bool = False,
+        cache: bool = False,
+        memmap: bool = True,
+    ) -> Any:  # SpikeInterface has cache=True by default
         """
         Return waveforms for the specified unit id.
 
@@ -1781,7 +1809,7 @@ class WaveformExtractor:
         else:
             return wfs
 
-    def get_sampled_indices(self, unit_id):
+    def get_sampled_indices(self, unit_id: int) -> list:
         """
         Return sampled spike indices of extracted waveforms
         (which waveforms correspond to which spikes if "max_spikes_per_unit" is not None)
@@ -1809,7 +1837,7 @@ class WaveformExtractor:
             sampled_index_without_segment_index.append(index[0])
         return sampled_index_without_segment_index
 
-    def get_computed_template(self, unit_id, mode):
+    def get_computed_template(self, unit_id: int, mode: str) -> np.ndarray:
         """
         Return template (average waveform).
 
@@ -1846,7 +1874,9 @@ class WaveformExtractor:
             template = np.std(wfs, axis=0)
         return template
 
-    def compute_templates(self, modes=("average", "std"), unit_ids=None, folder=None):
+    def compute_templates(
+        self, modes=("average", "std"), unit_ids=None, folder=None, n_jobs=1
+    ):
         """
         Compute all template for different "modes":
           * average
@@ -1866,6 +1896,10 @@ class WaveformExtractor:
         folder: None or Path
             Folder to save templates to
             If None-> use self.folder
+        n_jobs: int
+            Number of threads for parallel template computation.
+            Default 1 (sequential). Values > 1 use a thread pool
+            which speeds up I/O-bound waveform loading from disk.
         """
         print_stage("COMPUTING TEMPLATES")
         print("Template modes: " + ", ".join(modes))
@@ -1886,8 +1920,8 @@ class WaveformExtractor:
             )
             self.template_cache[mode] = templates
 
-        print(f"Computing templates for {len(unit_ids)} units")
-        for unit_id in tqdm(unit_ids):
+        def _compute_unit_template(unit_id):
+            """Load waveforms and compute templates for a single unit."""
             wfs = self.get_waveforms(unit_id, cache=False)
             for mode in modes:
                 if mode == "median":
@@ -1898,8 +1932,24 @@ class WaveformExtractor:
                     arr = np.std(wfs, axis=0)
                 else:
                     raise ValueError("mode must in median/average/std")
-
                 self.template_cache[mode][unit_id, :, :] = arr
+
+        n_units = len(unit_ids)
+        n_workers = min(n_jobs, n_units) if n_jobs > 1 else 1
+        print(f"Computing templates for {n_units} units (n_jobs={n_workers})")
+
+        if n_workers > 1:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                futures = {
+                    pool.submit(_compute_unit_template, uid): uid for uid in unit_ids
+                }
+                for _ in tqdm(as_completed(futures), total=n_units, desc="Templates"):
+                    pass
+        else:
+            for unit_id in tqdm(unit_ids):
+                _compute_unit_template(unit_id)
 
         create_folder(folder)
         print("Saving templates to .npy")
@@ -1909,12 +1959,12 @@ class WaveformExtractor:
             np.save(str(template_file), templates)
         stopwatch.log_time("Done computing and saving templates.")
 
-    def load_units(self):
+    def load_units(self) -> None:
         self.sorting.unit_ids = np.load(str(self.folder / "unit_ids.npy")).tolist()
         self.sorting.spike_times = np.load(str(self.folder / "spike_times.npy"))
         self.sorting.spike_clusters = np.load(str(self.folder / "spike_clusters.npy"))
 
-    def get_curation_history(self):
+    def get_curation_history(self) -> Optional[dict]:
         path = self.folder / "curation_history.json"
         if path.exists():
             with open(self.folder / "curation_history.json", "r") as f:
@@ -2189,747 +2239,9 @@ class ChunkRecordingExecutor:
 
 global _worker_ctx
 global _func
-# region ProcessPoolExecutor
-# Used for parallel processing in ChunkRecordingExecutor
-# Copyright 2009 Brian Quinlan. All Rights Reserved.
-# Licensed to PSF under a Contributor Agreement.
+# ProcessPoolExecutor: using stdlib concurrent.futures instead of vendored copy
+from concurrent.futures import ProcessPoolExecutor  # noqa: F401
 
-"""Implements ProcessPoolExecutor.
-
-The following diagram and text describe the data-flow through the system:
-
-|======================= In-process =====================|== Out-of-process ==|
-
-+----------+     +----------+       +--------+     +-----------+    +---------+
-|          |  => | Work Ids |       |        |     | Call Q    |    | Process |
-|          |     +----------+       |        |     +-----------+    |  Pool   |
-|          |     | ...      |       |        |     | ...       |    +---------+
-|          |     | 6        |    => |        |  => | 5, call() | => |         |
-|          |     | 7        |       |        |     | ...       |    |         |
-| Process  |     | ...      |       | Local  |     +-----------+    | Process |
-|  Pool    |     +----------+       | Worker |                      |  #1..n  |
-| Executor |                        | Thread |                      |         |
-|          |     +----------- +     |        |     +-----------+    |         |
-|          | <=> | Work Items | <=> |        | <=  | Result Q  | <= |         |
-|          |     +------------+     |        |     +-----------+    |         |
-|          |     | 6: call()  |     |        |     | ...       |    |         |
-|          |     |    future  |     |        |     | 4, result |    |         |
-|          |     | ...        |     |        |     | 3, except |    |         |
-+----------+     +------------+     +--------+     +-----------+    +---------+
-
-Executor.submit() called:
-- creates a uniquely numbered _WorkItem and adds it to the "Work Items" dict
-- adds the id of the _WorkItem to the "Work Ids" queue
-
-Local worker thread:
-- reads work ids from the "Work Ids" queue and looks up the corresponding
-  WorkItem from the "Work Items" dict: if the work item has been cancelled then
-  it is simply removed from the dict, otherwise it is repackaged as a
-  _CallItem and put in the "Call Q". New _CallItems are put in the "Call Q"
-  until "Call Q" is full. NOTE: the size of the "Call Q" is kept small because
-  calls placed in the "Call Q" can no longer be cancelled with Future.cancel().
-- reads _ResultItems from "Result Q", updates the future stored in the
-  "Work Items" dict and deletes the dict entry
-
-Process #1..n:
-- reads _CallItems from "Call Q", executes the calls, and puts the resulting
-  _ResultItems in "Result Q"
-"""
-
-__author__ = "Brian Quinlan (brian@sweetapp.com)"
-
-import atexit
-import os
-from concurrent.futures import _base
-import queue
-from queue import Full
-import multiprocessing as mp
-import multiprocessing.connection
-from multiprocessing.queues import Queue
-import threading
-import weakref
-from functools import partial
-import itertools
-import sys
-import traceback
-
-# Workers are created as daemon threads and processes. This is done to allow the
-# interpreter to exit when there are still idle processes in a
-# ProcessPoolExecutor's process pool (i.e. shutdown() was not called). However,
-# allowing workers to die with the interpreter has two undesirable properties:
-#   - The workers would still be running during interpreter shutdown,
-#     meaning that they would fail in unpredictable ways.
-#   - The workers could be killed while evaluating a work item, which could
-#     be bad if the callable being evaluated has external side-effects e.g.
-#     writing to a file.
-#
-# To work around this problem, an exit handler is installed which tells the
-# workers to exit when their work queues are empty and then waits until the
-# threads/processes finish.
-
-_threads_wakeups = weakref.WeakKeyDictionary()
-_global_shutdown = False
-
-
-class _ThreadWakeup:
-    def __init__(self):
-        self._reader, self._writer = mp.Pipe(duplex=False)
-
-    def close(self):
-        self._writer.close()
-        self._reader.close()
-
-    def wakeup(self):
-        self._writer.send_bytes(b"")
-
-    def clear(self):
-        while self._reader.poll():
-            self._reader.recv_bytes()
-
-
-def _python_exit():
-    global _global_shutdown
-    _global_shutdown = True
-    items = list(_threads_wakeups.items())
-    for _, thread_wakeup in items:
-        thread_wakeup.wakeup()
-    for t, _ in items:
-        t.join()
-
-
-# Controls how many more calls than processes will be queued in the call queue.
-# A smaller number will mean that processes spend more time idle waiting for
-# work while a larger number will make Future.cancel() succeed less frequently
-# (Futures in the call queue cannot be cancelled).
-EXTRA_QUEUED_CALLS = 1
-
-# On Windows, WaitForMultipleObjects is used to wait for processes to finish.
-# It can wait on, at most, 63 objects. There is an overhead of two objects:
-# - the result queue reader
-# - the thread wakeup reader
-_MAX_WINDOWS_WORKERS = 63 - 2
-
-
-# Hack to embed stringification of remote traceback in local traceback
-
-
-class _RemoteTraceback(Exception):
-    def __init__(self, tb):
-        self.tb = tb
-
-    def __str__(self):
-        return self.tb
-
-
-class _ExceptionWithTraceback:
-    def __init__(self, exc, tb):
-        tb = traceback.format_exception(type(exc), exc, tb)
-        tb = "".join(tb)
-        self.exc = exc
-        self.tb = '\n"""\n%s"""' % tb
-
-    def __reduce__(self):
-        return _rebuild_exc, (self.exc, self.tb)
-
-
-def _rebuild_exc(exc, tb):
-    exc.__cause__ = _RemoteTraceback(tb)
-    return exc
-
-
-class _WorkItem(object):
-    def __init__(self, future, fn, args, kwargs):
-        self.future = future
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-
-
-class _ResultItem(object):
-    def __init__(self, work_id, exception=None, result=None):
-        self.work_id = work_id
-        self.exception = exception
-        self.result = result
-
-
-class _CallItem(object):
-    def __init__(self, work_id, fn, args, kwargs):
-        self.work_id = work_id
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-
-
-class _SafeQueue(Queue):
-    """Safe Queue set exception to the future object linked to a job"""
-
-    def __init__(self, max_size=0, *, ctx, pending_work_items):
-        self.pending_work_items = pending_work_items
-        super().__init__(max_size, ctx=ctx)
-
-    def _on_queue_feeder_error(self, e, obj):
-        if isinstance(obj, _CallItem):
-            tb = traceback.format_exception(type(e), e, e.__traceback__)
-            e.__cause__ = _RemoteTraceback('\n"""\n{}"""'.format("".join(tb)))
-            work_item = self.pending_work_items.pop(obj.work_id, None)
-            # work_item can be None if another process terminated. In this case,
-            # the queue_manager_thread fails all work_items with BrokenProcessPool
-            if work_item is not None:
-                work_item.future.set_exception(e)
-        else:
-            super()._on_queue_feeder_error(e, obj)
-
-
-def _get_chunks(*iterables, chunksize):
-    """Iterates over zip()ed iterables in chunks."""
-    it = zip(*iterables)
-    while True:
-        chunk = tuple(itertools.islice(it, chunksize))
-        if not chunk:
-            return
-        yield chunk
-
-
-def _process_chunk(fn, chunk):
-    """Processes a chunk of an iterable passed to map.
-
-    Runs the function passed to map() on a chunk of the
-    iterable passed to map.
-
-    This function is run in a separate process.
-
-    """
-    return [fn(*args) for args in chunk]
-
-
-def _sendback_result(result_queue, work_id, result=None, exception=None):
-    """Safely send back the given result or exception"""
-    try:
-        result_queue.put(_ResultItem(work_id, result=result, exception=exception))
-    except BaseException as e:
-        exc = _ExceptionWithTraceback(e, e.__traceback__)
-        result_queue.put(_ResultItem(work_id, exception=exc))
-
-
-def _process_worker(call_queue, result_queue, initializer, initargs):
-    """Evaluates calls from call_queue and places the results in result_queue.
-
-    This worker is run in a separate process.
-
-    Args:
-        call_queue: A ctx.Queue of _CallItems that will be read and
-            evaluated by the worker.
-        result_queue: A ctx.Queue of _ResultItems that will written
-            to by the worker.
-        initializer: A callable initializer, or None
-        initargs: A tuple of args for the initializer
-    """
-    if initializer is not None:
-        try:
-            initializer(*initargs)
-        except BaseException:
-            _base.LOGGER.critical("Exception in initializer:", exc_info=True)
-            # The parent will notice that the process stopped and
-            # mark the pool broken
-            return
-    while True:
-        call_item = call_queue.get(block=True)
-        if call_item is None:
-            # Wake up queue management thread
-            result_queue.put(os.getpid())
-            return
-        try:
-            r = call_item.fn(*call_item.args, **call_item.kwargs)
-        except BaseException as e:
-            exc = _ExceptionWithTraceback(e, e.__traceback__)
-            _sendback_result(result_queue, call_item.work_id, exception=exc)
-        else:
-            _sendback_result(result_queue, call_item.work_id, result=r)
-            del r
-
-        # Liberate the resource as soon as possible, to avoid holding onto
-        # open files or shared memory that is not needed anymore
-        del call_item
-
-
-def _add_call_item_to_queue(pending_work_items, work_ids, call_queue):
-    """Fills call_queue with _WorkItems from pending_work_items.
-
-    This function never blocks.
-
-    Args:
-        pending_work_items: A dict mapping work ids to _WorkItems e.g.
-            {5: <_WorkItem...>, 6: <_WorkItem...>, ...}
-        work_ids: A queue.Queue of work ids e.g. Queue([5, 6, ...]). Work ids
-            are consumed and the corresponding _WorkItems from
-            pending_work_items are transformed into _CallItems and put in
-            call_queue.
-        call_queue: A multiprocessing.Queue that will be filled with _CallItems
-            derived from _WorkItems.
-    """
-    while True:
-        if call_queue.full():
-            return
-        try:
-            work_id = work_ids.get(block=False)
-        except queue.Empty:
-            return
-        else:
-            work_item = pending_work_items[work_id]
-
-            if work_item.future.set_running_or_notify_cancel():
-                call_queue.put(
-                    _CallItem(work_id, work_item.fn, work_item.args, work_item.kwargs),
-                    block=True,
-                )
-            else:
-                del pending_work_items[work_id]
-                continue
-
-
-def _queue_management_worker(
-    executor_reference,
-    processes,
-    pending_work_items,
-    work_ids_queue,
-    call_queue,
-    result_queue,
-    thread_wakeup,
-):
-    """Manages the communication between this process and the worker processes.
-
-    This function is run in a local thread.
-
-    Args:
-        executor_reference: A weakref.ref to the ProcessPoolExecutor that owns
-            this thread. Used to determine if the ProcessPoolExecutor has been
-            garbage collected and that this function can exit.
-        process: A list of the ctx.Process instances used as
-            workers.
-        pending_work_items: A dict mapping work ids to _WorkItems e.g.
-            {5: <_WorkItem...>, 6: <_WorkItem...>, ...}
-        work_ids_queue: A queue.Queue of work ids e.g. Queue([5, 6, ...]).
-        call_queue: A ctx.Queue that will be filled with _CallItems
-            derived from _WorkItems for processing by the process workers.
-        result_queue: A ctx.SimpleQueue of _ResultItems generated by the
-            process workers.
-        thread_wakeup: A _ThreadWakeup to allow waking up the
-            queue_manager_thread from the main Thread and avoid deadlocks
-            caused by permanently locked queues.
-    """
-    executor = None
-
-    def shutting_down():
-        return _global_shutdown or executor is None or executor._shutdown_thread
-
-    def shutdown_worker():
-        # This is an upper bound on the number of children alive.
-        n_children_alive = sum(p.is_alive() for p in processes.values())
-        n_children_to_stop = n_children_alive
-        n_sentinels_sent = 0
-        # Send the right number of sentinels, to make sure all children are
-        # properly terminated.
-        while n_sentinels_sent < n_children_to_stop and n_children_alive > 0:
-            for i in range(n_children_to_stop - n_sentinels_sent):
-                try:
-                    call_queue.put_nowait(None)
-                    n_sentinels_sent += 1
-                except Full:
-                    break
-            n_children_alive = sum(p.is_alive() for p in processes.values())
-
-        # Release the queue's resources as soon as possible.
-        call_queue.close()
-        # If .join() is not called on the created processes then
-        # some ctx.Queue methods may deadlock on Mac OS X.
-        for p in processes.values():
-            p.join()
-
-    result_reader = result_queue._reader
-    wakeup_reader = thread_wakeup._reader
-    readers = [result_reader, wakeup_reader]
-
-    while True:
-        _add_call_item_to_queue(pending_work_items, work_ids_queue, call_queue)
-
-        # Wait for a result to be ready in the result_queue while checking
-        # that all worker processes are still running, or for a wake up
-        # signal send. The wake up signals come either from new tasks being
-        # submitted, from the executor being shutdown/gc-ed, or from the
-        # shutdown of the python interpreter.
-        worker_sentinels = [p.sentinel for p in processes.values()]
-        ready = mp.connection.wait(readers + worker_sentinels)
-
-        cause = None
-        is_broken = True
-        if result_reader in ready:
-            try:
-                result_item = result_reader.recv()
-                is_broken = False
-            except BaseException as e:
-                cause = traceback.format_exception(type(e), e, e.__traceback__)
-
-        elif wakeup_reader in ready:
-            is_broken = False
-            result_item = None
-        thread_wakeup.clear()
-        if is_broken:
-            # Mark the process pool broken so that submits fail right now.
-            executor = executor_reference()
-            if executor is not None:
-                executor._broken = (
-                    "A child process terminated "
-                    "abruptly, the process pool is not "
-                    "usable anymore"
-                )
-                executor._shutdown_thread = True
-                executor = None
-            bpe = BrokenProcessPool(
-                "A process in the process pool was "
-                "terminated abruptly while the future was "
-                "running or pending."
-            )
-            if cause is not None:
-                bpe.__cause__ = _RemoteTraceback(f"\n'''\n{''.join(cause)}'''")
-            # All futures in flight must be marked failed
-            for work_id, work_item in pending_work_items.items():
-                work_item.future.set_exception(bpe)
-                # Delete references to object. See issue16284
-                del work_item
-            pending_work_items.clear()
-            # Terminate remaining workers forcibly: the queues or their
-            # locks may be in a dirty state and block forever.
-            for p in processes.values():
-                p.terminate()
-            shutdown_worker()
-            return
-        if isinstance(result_item, int):
-            # Clean shutdown of a worker using its PID
-            # (avoids marking the executor broken)
-            assert shutting_down()
-            p = processes.pop(result_item)
-            p.join()
-            if not processes:
-                shutdown_worker()
-                return
-        elif result_item is not None:
-            work_item = pending_work_items.pop(result_item.work_id, None)
-            # work_item can be None if another process terminated (see above)
-            if work_item is not None:
-                if result_item.exception:
-                    work_item.future.set_exception(result_item.exception)
-                else:
-                    work_item.future.set_result(result_item.result)
-                # Delete references to object. See issue16284
-                del work_item
-            # Delete reference to result_item
-            del result_item
-
-        # Check whether we should start shutting down.
-        executor = executor_reference()
-        # No more work items can be added if:
-        #   - The interpreter is shutting down OR
-        #   - The executor that owns this worker has been collected OR
-        #   - The executor that owns this worker has been shutdown.
-        if shutting_down():
-            try:
-                # Flag the executor as shutting down as early as possible if it
-                # is not gc-ed yet.
-                if executor is not None:
-                    executor._shutdown_thread = True
-                # Since no new work items can be added, it is safe to shutdown
-                # this thread if there are no pending work items.
-                if not pending_work_items:
-                    shutdown_worker()
-                    return
-            except Full:
-                # This is not a problem: we will eventually be woken up (in
-                # result_queue.get()) and be able to send a sentinel again.
-                pass
-        executor = None
-
-
-_system_limits_checked = False
-_system_limited = None
-
-
-def _check_system_limits():
-    global _system_limits_checked, _system_limited
-    if _system_limits_checked:
-        if _system_limited:
-            raise NotImplementedError(_system_limited)
-    _system_limits_checked = True
-    try:
-        nsems_max = os.sysconf("SC_SEM_NSEMS_MAX")
-    except (AttributeError, ValueError):
-        # sysconf not available or setting not available
-        return
-    if nsems_max == -1:
-        # indetermined limit, assume that limit is determined
-        # by available memory only
-        return
-    if nsems_max >= 256:
-        # minimum number of semaphores available
-        # according to POSIX
-        return
-    _system_limited = (
-        "system provides too few semaphores (%d"
-        " available, 256 necessary)" % nsems_max
-    )
-    raise NotImplementedError(_system_limited)
-
-
-def _chain_from_iterable_of_lists(iterable):
-    """
-    Specialized implementation of itertools.chain.from_iterable.
-    Each item in *iterable* should be a list.  This function is
-    careful not to keep references to yielded objects.
-    """
-    for element in iterable:
-        element.reverse()
-        while element:
-            yield element.pop()
-
-
-class BrokenProcessPool(_base.BrokenExecutor):
-    """
-    Raised when a process in a ProcessPoolExecutor terminated abruptly
-    while a future was in the running state.
-    """
-
-
-class ProcessPoolExecutor(_base.Executor):
-    def __init__(
-        self, max_workers=None, mp_context=None, initializer=None, initargs=()
-    ):
-        """Initializes a new ProcessPoolExecutor instance.
-
-        Args:
-            max_workers: The maximum number of processes that can be used to
-                execute the given calls. If None or not given then as many
-                worker processes will be created as the machine has processors.
-            mp_context: A multiprocessing context to launch the workers. This
-                object should provide SimpleQueue, Queue and Process.
-            initializer: A callable used to initialize worker processes.
-            initargs: A tuple of arguments to pass to the initializer.
-        """
-        _check_system_limits()
-
-        if max_workers is None:
-            self._max_workers = os.cpu_count() or 1
-            if sys.platform == "win32":
-                self._max_workers = min(_MAX_WINDOWS_WORKERS, self._max_workers)
-        else:
-            if max_workers <= 0:
-                raise ValueError("max_workers must be greater than 0")
-            elif sys.platform == "win32" and max_workers > _MAX_WINDOWS_WORKERS:
-                raise ValueError(f"max_workers must be <= {_MAX_WINDOWS_WORKERS}")
-
-            self._max_workers = max_workers
-
-        if mp_context is None:
-            mp_context = mp.get_context()
-        self._mp_context = mp_context
-
-        if initializer is not None and not callable(initializer):
-            raise TypeError("initializer must be a callable")
-        self._initializer = initializer
-        self._initargs = initargs
-
-        # Management thread
-        self._queue_management_thread = None
-
-        # Map of pids to processes
-        self._processes = {}
-
-        # Shutdown is a two-step process.
-        self._shutdown_thread = False
-        self._shutdown_lock = threading.Lock()
-        self._broken = False
-        self._queue_count = 0
-        self._pending_work_items = {}
-
-        # Create communication channels for the executor
-        # Make the call queue slightly larger than the number of processes to
-        # prevent the worker processes from idling. But don't make it too big
-        # because futures in the call queue cannot be cancelled.
-        queue_size = self._max_workers + EXTRA_QUEUED_CALLS
-        self._call_queue = _SafeQueue(
-            max_size=queue_size,
-            ctx=self._mp_context,
-            pending_work_items=self._pending_work_items,
-        )
-        # Killed worker processes can produce spurious "broken pipe"
-        # tracebacks in the queue's own worker thread. But we detect killed
-        # processes anyway, so silence the tracebacks.
-        self._call_queue._ignore_epipe = True
-        self._result_queue = mp_context.SimpleQueue()
-        self._work_ids = queue.Queue()
-
-        # _ThreadWakeup is a communication channel used to interrupt the wait
-        # of the main loop of queue_manager_thread from another thread (e.g.
-        # when calling executor.submit or executor.shutdown). We do not use the
-        # _result_queue to send the wakeup signal to the queue_manager_thread
-        # as it could result in a deadlock if a worker process dies with the
-        # _result_queue write lock still acquired.
-        self._queue_management_thread_wakeup = _ThreadWakeup()
-
-    def _start_queue_management_thread(self):
-        if self._queue_management_thread is None:
-            # When the executor gets garbarge collected, the weakref callback
-            # will wake up the queue management thread so that it can terminate
-            # if there is no pending work item.
-            def weakref_cb(_, thread_wakeup=self._queue_management_thread_wakeup):
-                mp.util.debug(
-                    "Executor collected: triggering callback for" " QueueManager wakeup"
-                )
-                thread_wakeup.wakeup()
-
-            # Start the processes so that their sentinels are known.
-            self._adjust_process_count()
-            self._queue_management_thread = threading.Thread(
-                target=_queue_management_worker,
-                args=(
-                    weakref.ref(self, weakref_cb),
-                    self._processes,
-                    self._pending_work_items,
-                    self._work_ids,
-                    self._call_queue,
-                    self._result_queue,
-                    self._queue_management_thread_wakeup,
-                ),
-                name="QueueManagerThread",
-            )
-            self._queue_management_thread.daemon = True
-            self._queue_management_thread.start()
-            _threads_wakeups[self._queue_management_thread] = (
-                self._queue_management_thread_wakeup
-            )
-
-    def _adjust_process_count(self):
-        for _ in range(len(self._processes), self._max_workers):
-            p = self._mp_context.Process(
-                target=_process_worker,
-                args=(
-                    self._call_queue,
-                    self._result_queue,
-                    self._initializer,
-                    self._initargs,
-                ),
-            )
-            p.start()
-            self._processes[p.pid] = p
-
-    def submit(*args, **kwargs):
-        if len(args) >= 2:
-            self, fn, *args = args
-        elif not args:
-            raise TypeError(
-                "descriptor 'submit' of 'ProcessPoolExecutor' object "
-                "needs an argument"
-            )
-        elif "fn" in kwargs:
-            fn = kwargs.pop("fn")
-            self, *args = args
-            import warnings
-
-            warnings.warn(
-                "Passing 'fn' as keyword argument is deprecated",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            raise TypeError(
-                "submit expected at least 1 positional argument, "
-                "got %d" % (len(args) - 1)
-            )
-
-        with self._shutdown_lock:
-            if self._broken:
-                raise BrokenProcessPool(self._broken)
-            if self._shutdown_thread:
-                raise RuntimeError("cannot schedule new futures after shutdown")
-            if _global_shutdown:
-                raise RuntimeError(
-                    "cannot schedule new futures after " "interpreter shutdown"
-                )
-
-            f = _base.Future()
-            w = _WorkItem(f, fn, args, kwargs)
-
-            self._pending_work_items[self._queue_count] = w
-            self._work_ids.put(self._queue_count)
-            self._queue_count += 1
-            # Wake up queue management thread
-            self._queue_management_thread_wakeup.wakeup()
-
-            self._start_queue_management_thread()
-            return f
-
-    # submit.__text_signature__ = _base.Executor.submit.__text_signature__
-    submit.__doc__ = _base.Executor.submit.__doc__
-
-    def map(self, fn, *iterables, timeout=None, chunksize=1):
-        """Returns an iterator equivalent to map(fn, iter).
-
-        Args:
-            fn: A callable that will take as many arguments as there are
-                passed iterables.
-            timeout: The maximum number of seconds to wait. If None, then there
-                is no limit on the wait time.
-            chunksize: If greater than one, the iterables will be chopped into
-                chunks of size chunksize and submitted to the process pool.
-                If set to one, the items in the list will be sent one at a time.
-
-        Returns:
-            An iterator equivalent to: map(func, *iterables) but the calls may
-            be evaluated out-of-order.
-
-        Raises:
-            TimeoutError: If the entire result iterator could not be generated
-                before the given timeout.
-            Exception: If fn(*args) raises for any values.
-        """
-        if chunksize < 1:
-            raise ValueError("chunksize must be >= 1.")
-
-        results = super().map(
-            partial(_process_chunk, fn),
-            _get_chunks(*iterables, chunksize=chunksize),
-            timeout=timeout,
-        )
-        return _chain_from_iterable_of_lists(results)
-
-    def shutdown(self, wait=True):
-        with self._shutdown_lock:
-            self._shutdown_thread = True
-        if self._queue_management_thread:
-            # Wake up queue management thread
-            self._queue_management_thread_wakeup.wakeup()
-            if wait:
-                self._queue_management_thread.join()
-        # To reduce the risk of opening too many files, remove references to
-        # objects that use file descriptors.
-        self._queue_management_thread = None
-        if self._call_queue is not None:
-            self._call_queue.close()
-            if wait:
-                self._call_queue.join_thread()
-            self._call_queue = None
-        self._result_queue = None
-        self._processes = None
-
-        if self._queue_management_thread_wakeup:
-            self._queue_management_thread_wakeup.close()
-            self._queue_management_thread_wakeup = None
-
-    shutdown.__doc__ = _base.Executor.shutdown.__doc__
-
-
-atexit.register(_python_exit)
-
-
-# endregion
 # endregion
 
 
@@ -3098,7 +2410,9 @@ class Compiler:
 
         self.recs_cache = []
 
-    def add_recording(self, rec_name, sd, curation_history=None):
+    def add_recording(
+        self, rec_name: str, sd: Any, curation_history: Optional[dict] = None
+    ) -> None:
         """Queue a recording for compilation.
 
         Parameters:
@@ -3110,7 +2424,7 @@ class Compiler:
         """
         self.recs_cache.append((rec_name, sd, curation_history))
 
-    def save_results(self, folder):
+    def save_results(self, folder: Union[str, Path]) -> None:
         """Compile and save results from all queued recordings.
 
         Parameters:
@@ -3342,7 +2656,7 @@ class Compiler:
 # create_folder and delete_folder are imported from sorting_utils.
 
 
-def load_recording(rec_path):
+def load_recording(rec_path: Any) -> BaseRecording:
     """Load a recording, apply optional truncation and coordinate transforms.
 
     Loads a single recording file via ``load_single_recording``, or all
@@ -3423,8 +2737,12 @@ def load_recording(rec_path):
 
 
 def _get_noise_levels(
-    recording, return_scaled=True, num_chunks=20, chunk_size=10000, seed=0
-):
+    recording: Any,
+    return_scaled: bool = True,
+    num_chunks: int = 20,
+    chunk_size: int = 10000,
+    seed: int = 0,
+) -> np.ndarray:
     """Estimate per-channel noise using MAD on random recording chunks.
 
     Parameters:
@@ -3454,7 +2772,9 @@ def _get_noise_levels(
     return np.median(np.abs(data - med), axis=0) / 0.6745
 
 
-def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
+def _waveform_extractor_to_spikedata(
+    w_e: Any, rec_path: Any, rec_chunks: Optional[list] = None
+) -> Any:
     """Convert a WaveformExtractor to a SpikeData with rich neuron attributes.
 
     Extracts spike trains, full waveform templates, channel locations,
@@ -3529,12 +2849,18 @@ def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
         template_std = w_e.get_computed_template(unit_id=uid, mode="std")
         peak_ind_full = w_e.peak_ind
 
-        # Optionally un-scale templates
-        if not SCALE_COMPILED_WAVEFORMS and w_e.recording.has_scaleable_traces():
+        # When SCALE_COMPILED_WAVEFORMS is False, convert µV templates
+        # back to raw ADC counts.  Waveforms are now extracted as µV by
+        # default (return_scaled=True), so this inverts the scaling.
+        if not SCALE_COMPILED_WAVEFORMS and w_e.return_scaled:
             gain = w_e.recording.get_channel_gains()
             offset = w_e.recording.get_channel_offsets()
-            template_mean = ((template_mean - offset) / gain).astype("float32")
-            template_std = ((template_std - offset) / gain).astype("float32")
+            template_mean = ((template_mean - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
+            template_std = ((template_std - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
 
         # Windowed template (for compile_dict)
         template_windowed = template_mean[
@@ -3643,7 +2969,12 @@ def _waveform_extractor_to_spikedata(w_e, rec_path, rec_chunks=None):
     return SpikeData(trains, metadata=metadata, neuron_attributes=neuron_attributes)
 
 
-def _curate_spikedata(sd, curation_folder, recurate=False, **curate_kwargs):
+def _curate_spikedata(
+    sd: Any,
+    curation_folder: Union[str, Path],
+    recurate: bool = False,
+    **curate_kwargs: Any,
+) -> Tuple[Any, dict]:
     """Curate a SpikeData with disk caching for the sorting pipeline.
 
     If cached results exist and *recurate* is False, loads the cached
@@ -3706,7 +3037,7 @@ def _curate_spikedata(sd, curation_folder, recurate=False, **curate_kwargs):
     return sd_curated, history
 
 
-def load_single_recording(rec_path):
+def load_single_recording(rec_path: Any) -> BaseRecording:
     """Load one recording file and return a scaled, bandpass-filtered recording.
 
     Supports Maxwell ``.h5`` files, NWB ``.nwb`` files, and pre-loaded
@@ -3792,7 +3123,7 @@ Setup options (choose one):
     return rec
 
 
-def concatenate_recordings(rec_path):
+def concatenate_recordings(rec_path: Path) -> BaseRecording:
     """Load and concatenate all recordings in a directory.
 
     Scans *rec_path* for ``.raw.h5`` and ``.nwb`` files, loads each via
@@ -3911,7 +3242,7 @@ def concatenate_recordings(rec_path):
     return rec
 
 
-def get_paths(rec_path, inter_path, results_path):
+def get_paths(rec_path: Any, inter_path: Any, results_path: Any) -> tuple:
     """Resolve and prepare all directory paths for one recording run.
 
     Derives paths for the binary ``.dat`` file, Kilosort2 output,
@@ -3988,7 +3319,9 @@ def get_paths(rec_path, inter_path, results_path):
     )
 
 
-def write_recording(recording_filtered, recording_dat_path, verbose=True):
+def write_recording(
+    recording_filtered: BaseRecording, recording_dat_path: Path, verbose: bool = True
+) -> None:
     """Convert a filtered recording to the binary ``.dat`` format for Kilosort2.
 
     Writes an ``int16`` binary file using SpikeInterface's
@@ -4033,7 +3366,7 @@ def write_recording(recording_filtered, recording_dat_path, verbose=True):
     stopwatch.log_time("Done converting recording.")
 
 
-def _spike_sort_docker(recording, output_folder):
+def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
     """Run Kilosort2 inside a Docker container via SpikeInterface.
 
     Uses the ``spikeinterface/kilosort2-compiled-base`` image which bundles a
@@ -4054,6 +3387,8 @@ def _spike_sort_docker(recording, output_folder):
         sorting (KilosortSortingExtractor): The sorting result loaded from the
             Docker output folder.
     """
+    from .docker_utils import get_docker_image
+
     # Pre-convert recording to int16 binary on the host so that:
     # 1. The container doesn't need vendor-specific HDF5 plugins (e.g. Maxwell)
     # 2. SI's kilosortbase._setup_recording skips the redundant copy (it checks
@@ -4109,7 +3444,7 @@ def _spike_sort_docker(recording, output_folder):
             sorter_name="kilosort2",
             recording=bin_recording,
             folder=str(output_folder),
-            docker_image="spikeinterface/kilosort2-compiled-base:py310-si0.104",
+            docker_image=get_docker_image("kilosort2"),
             verbose=True,
             raise_error=True,
             remove_existing_folder=True,
@@ -4136,7 +3471,12 @@ def _spike_sort_docker(recording, output_folder):
     return KilosortSortingExtractor(folder_path=sorter_output)
 
 
-def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
+def spike_sort(
+    rec_cache: BaseRecording,
+    rec_path: Any,
+    recording_dat_path: Path,
+    output_folder: Path,
+) -> Any:
     """Run Kilosort2 on a single recording and return the sorting result.
 
     Converts the recording to ``.dat`` format (if needed), launches
@@ -4194,8 +3534,13 @@ def spike_sort(rec_cache, rec_path, recording_dat_path, output_folder):
 
 
 def extract_waveforms(
-    recording_path, recording, sorting, root_folder, initial_folder, **job_kwargs
-):
+    recording_path: Any,
+    recording: BaseRecording,
+    sorting: Any,
+    root_folder: Path,
+    initial_folder: Path,
+    **job_kwargs: Any,
+) -> Any:
     """
     Extracts waveform on paired Recording-Sorting objects.
     Waveforms are persistent on disk and cached in memory.
@@ -4237,11 +3582,19 @@ def extract_waveforms(
         we.run_extract_waveforms(**job_kwargs)
         stopwatch.log_time("Done extracting waveforms.")
 
-        we.compute_templates(modes=("average", "std"))
+        we.compute_templates(
+            modes=("average", "std"), n_jobs=job_kwargs.get("n_jobs", 1)
+        )
     return we
 
 
-def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=None):
+def process_recording(
+    rec_name: str,
+    rec_path: Any,
+    inter_path: Any,
+    results_path: Any,
+    rec_loaded: Any = None,
+) -> Any:
     """Run the full sorting pipeline on a single recording.
 
     Orchestrates path setup, recording loading, spike sorting, waveform
@@ -4411,7 +3764,7 @@ def process_recording(rec_name, rec_path, inter_path, results_path, rec_loaded=N
         return sd_curated
 
 
-def copy_script(path):
+def copy_script(path: Path) -> None:
     """Save a timestamped copy of this module to the given directory.
 
     Parameters:
@@ -4425,7 +3778,13 @@ def copy_script(path):
     print(f"Saved a copy of script to {copied_path}")
 
 
-def compile_results(rec_name, rec_path, results_path, sd, curation_history=None):
+def compile_results(
+    rec_name: str,
+    rec_path: Any,
+    results_path: Any,
+    sd: Any,
+    curation_history: Optional[dict] = None,
+) -> None:
     """Compile and export sorting results for a single recording.
 
     Saves spike times, electrode information, and optionally ``.npz`` /

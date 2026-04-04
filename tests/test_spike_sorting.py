@@ -1963,17 +1963,17 @@ class TestSortingPipelineConfig:
         Preset configs are importable and have correct sorter names.
 
         Tests:
-            (Test Case 1) KILOSORT2_MAXWELL has sorter_name kilosort2.
-            (Test Case 2) KILOSORT2_MAXWELL_DOCKER has use_docker=True.
+            (Test Case 1) KILOSORT2 has sorter_name kilosort2.
+            (Test Case 2) KILOSORT2_DOCKER has use_docker=True.
         """
         from spikelab.spike_sorting.config import (
-            KILOSORT2_MAXWELL,
-            KILOSORT2_MAXWELL_DOCKER,
+            KILOSORT2,
+            KILOSORT2_DOCKER,
         )
 
-        assert KILOSORT2_MAXWELL.sorter.sorter_name == "kilosort2"
-        assert KILOSORT2_MAXWELL.sorter.use_docker is False
-        assert KILOSORT2_MAXWELL_DOCKER.sorter.use_docker is True
+        assert KILOSORT2.sorter.sorter_name == "kilosort2"
+        assert KILOSORT2.sorter.use_docker is False
+        assert KILOSORT2_DOCKER.sorter.use_docker is True
 
     def test_sort_recording_with_config(self):
         """
@@ -1982,12 +1982,12 @@ class TestSortingPipelineConfig:
         Tests:
             (Test Case 1) Empty recording list with config returns empty.
         """
-        from spikelab.spike_sorting.config import KILOSORT2_MAXWELL
+        from spikelab.spike_sorting.config import KILOSORT2
         from spikelab.spike_sorting.pipeline import sort_recording
 
         result = sort_recording(
             recording_files=[],
-            config=KILOSORT2_MAXWELL,
+            config=KILOSORT2,
             intermediate_folders=[],
             results_folders=[],
         )
@@ -2036,20 +2036,6 @@ class TestSortRecordingValidation:
                 recording_files=["fake1.h5", "fake2.h5"],
                 intermediate_folders=[str(tmp_path / "inter1")],
                 results_folders=[str(tmp_path / "r1"), str(tmp_path / "r2")],
-            )
-
-    def test_compile_all_without_folder_raises(self, sort_fn):
-        """
-        compile_all_recordings=True without folder raises ValueError.
-
-        Tests:
-            (Test Case 1) Error message mentions compiled_results_folder.
-        """
-        with pytest.raises(ValueError, match="compile_all_recordings"):
-            sort_fn(
-                recording_files=["fake.h5"],
-                compile_all_recordings=True,
-                compiled_results_folder=None,
             )
 
     def test_empty_recording_files(self, sort_fn):

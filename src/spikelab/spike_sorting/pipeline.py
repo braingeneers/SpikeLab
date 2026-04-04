@@ -13,6 +13,7 @@ handled by the ``SorterBackend`` subclass passed to
 import json
 import os
 import pickle
+from typing import Any, Dict, List, Optional, Tuple, Union
 import shutil
 import warnings
 from pathlib import Path
@@ -36,8 +37,12 @@ from .sorting_utils import (
 
 
 def _get_noise_levels(
-    recording, return_scaled=True, num_chunks=20, chunk_size=10000, seed=0
-):
+    recording: Any,
+    return_scaled: bool = True,
+    num_chunks: int = 20,
+    chunk_size: int = 10000,
+    seed: int = 0,
+) -> np.ndarray:
     """Estimate per-channel noise using MAD on random recording chunks.
 
     Parameters:
@@ -67,7 +72,13 @@ def _get_noise_levels(
     return np.median(np.abs(data - med), axis=0) / 0.6745
 
 
-def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None):
+def build_spikedata(
+    w_e: Any,
+    rec_path: Any,
+    config: Any,
+    rec_chunks: Optional[list] = None,
+    rec_chunk_names: Optional[list] = None,
+) -> Any:
     """Convert a waveform extractor to a SpikeData with rich neuron attributes.
 
     This is the bridge between any sorter backend's waveform extractor
@@ -126,11 +137,17 @@ def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None
         template_std = w_e.get_computed_template(unit_id=uid, mode="std")
         peak_ind_full = w_e.peak_ind
 
-        if not wf_cfg.scale_compiled_waveforms and w_e.recording.has_scaleable_traces():
+        # When scale_compiled_waveforms is False, convert µV templates
+        # back to raw ADC counts for users who want raw values.
+        if not wf_cfg.scale_compiled_waveforms and getattr(w_e, "return_scaled", False):
             gain = w_e.recording.get_channel_gains()
             offset = w_e.recording.get_channel_offsets()
-            template_mean = ((template_mean - offset) / gain).astype("float32")
-            template_std = ((template_std - offset) / gain).astype("float32")
+            template_mean = ((template_mean - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
+            template_std = ((template_std - offset) / gain).astype(
+                w_e.recording.get_dtype()
+            )
 
         template_windowed = template_mean[
             peak_ind_full - nbefore_compiled : peak_ind_full + nafter_compiled, :
@@ -236,7 +253,9 @@ def build_spikedata(w_e, rec_path, config, rec_chunks=None, rec_chunk_names=None
 # ---------------------------------------------------------------------------
 
 
-def curate_spikedata(sd, curation_folder, config, recurate=False):
+def curate_spikedata(
+    sd: Any, curation_folder: Any, config: Any, recurate: bool = False
+) -> Tuple[Any, dict]:
     """Curate a SpikeData with disk caching.
 
     Reads curation thresholds from *config* and applies them via
@@ -320,7 +339,7 @@ class Compiler:
         config (SortingPipelineConfig): Pipeline configuration.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         fig = config.figures
         comp = config.compilation
@@ -337,7 +356,9 @@ class Compiler:
         self.save_electrodes = comp.save_electrodes
         self.recs_cache = []
 
-    def add_recording(self, rec_name, sd, curation_history=None):
+    def add_recording(
+        self, rec_name: str, sd: Any, curation_history: Optional[dict] = None
+    ) -> None:
         """Queue a recording for compilation.
 
         Parameters:
@@ -347,7 +368,7 @@ class Compiler:
         """
         self.recs_cache.append((rec_name, sd, curation_history))
 
-    def save_results(self, folder):
+    def save_results(self, folder: Any) -> None:
         """Compile and save results from all queued recordings.
 
         Parameters:
@@ -791,7 +812,6 @@ def sort_recording(
     sorter="kilosort2",
     intermediate_folders=None,
     results_folders=None,
-    compiled_results_folder=None,
     **kwargs,
 ):
     """Run spike sorting on one or more recordings using any registered backend.
@@ -808,19 +828,21 @@ def sort_recording(
             ``config.override()``.  When None, a fresh config is built
             from ``sorter`` + ``**kwargs``.  Preset configs are
             available in ``spikelab.spike_sorting.config`` (e.g.
-            ``KILOSORT2_MAXWELL``).
+            ``KILOSORT2``).
         sorter (str): Registered sorter backend name.  Only used when
-            ``config`` is None.  Currently available: ``"kilosort2"``.
+            ``config`` is None.  Available: ``"kilosort2"``,
+            ``"kilosort4"``.
         intermediate_folders (list or None): Intermediate result
             directories, one per recording.  Auto-generated if None.
         results_folders (list or None): Output directories, one per
             recording.  Auto-generated if None.
-        compiled_results_folder (str or None): Directory for
-            multi-recording compiled results.
-        **kwargs: Override individual config fields.  When ``config``
-            is provided, these are applied on top.  When ``config`` is
-            None, these are passed to
-            ``SortingPipelineConfig.from_kwargs()``.
+        **kwargs: Override individual config fields (e.g.
+            ``snr_min=5.0``, ``use_docker=True``, ``fr_min=0.05``).
+            See ``spikelab.spike_sorting.config`` for all available
+            parameters, grouped by: ``RecordingConfig``,
+            ``SorterConfig``, ``WaveformConfig``, ``CurationConfig``,
+            ``CompilationConfig``, ``FigureConfig``,
+            ``ExecutionConfig``.
 
     Returns:
         results (list[SpikeData]): One SpikeData per original recording
@@ -830,9 +852,10 @@ def sort_recording(
     Notes:
         - Pickle files (``sorted_spikedata_curated.pkl`` and optionally
           ``sorted_spikedata.pkl``) are saved to each results folder.
-        - When ``compiled_results_folder`` is provided and
-          ``compile_all_recordings`` is True, a combined compilation
-          is produced across all recordings.
+        - ``hdf5_plugin_path`` (passed via config or kwargs) sets
+          ``os.environ['HDF5_PLUGIN_PATH']`` before any recording is
+          loaded.  This is needed for Maxwell ``.h5`` files and
+          applies to all backends.
     """
     import datetime
 
@@ -845,6 +868,13 @@ def sort_recording(
         sorter = config.sorter.sorter_name
     else:
         config = SortingPipelineConfig.from_kwargs(**kwargs)
+
+    # Set HDF5 plugin path before any recording is loaded (affects all backends)
+    if config.recording.hdf5_plugin_path is not None:
+        import os
+
+        os.environ["HDF5_PLUGIN_PATH"] = str(config.recording.hdf5_plugin_path)
+
     backend_cls = get_backend_class(sorter)
     backend = backend_cls(config)
 
@@ -858,14 +888,6 @@ def sort_recording(
         results_folders = [
             Path(rec).parent / f"sorted_{sorter}" for rec in recording_files
         ]
-    if compiled_results_folder is None:
-        compiled_results_folder = "None"
-        if config.compilation.compile_all_recordings:
-            raise ValueError(
-                "'compile_all_recordings' is True — specify "
-                "'compiled_results_folder'."
-            )
-
     # Validate
     if not (len(recording_files) == len(intermediate_folders) == len(results_folders)):
         raise ValueError(
@@ -873,17 +895,6 @@ def sort_recording(
             f"intermediate_folders ({len(intermediate_folders)}), and "
             f"results_folders ({len(results_folders)}) must all have "
             "the same length."
-        )
-
-    if (
-        config.figures.create_figures
-        and config.compilation.compile_all_recordings
-        and len(config.figures.scatter_recording_colors) < len(recording_files)
-    ):
-        raise ValueError(
-            f"scatter_recording_colors has "
-            f"{len(config.figures.scatter_recording_colors)} entries but "
-            f"there are {len(recording_files)} recordings."
         )
 
     # Figure settings
@@ -899,14 +910,6 @@ def sort_recording(
         pass
 
     np.random.seed(1)
-
-    # Multi-recording compiler
-    compiled_path = Path(compiled_results_folder)
-    all_recs_compiler = None
-    if config.compilation.compile_all_recordings:
-        if not compiled_path.exists() or config.execution.recompile_all_recordings:
-            all_recs_compiler = Compiler(config)
-            create_folder(compiled_path)
 
     # Main loop
     spikedata_results = []
@@ -971,27 +974,10 @@ def sort_recording(
         else:
             spikedata_results.append(sd_curated)
 
-        if not compiled_path.exists() and config.execution.delete_inter:
-            import shutil as _shutil
-
-            _shutil.rmtree(inter_path)
-
-        if all_recs_compiler is not None:
-            all_recs_compiler.add_recording(rec_name, sd_curated)
-
-    if all_recs_compiler is not None and compiled_path.exists():
-        from .sorting_utils import Tee as _Tee
-
-        with _Tee(compiled_path / "log.out", "w"):
-            stopwatch = Stopwatch("COMPILING DATA FROM ALL RECORDINGS")
-            all_recs_compiler.save_results(compiled_path)
-            print_stage("DONE COMPILING DATA FROM ALL RECORDINGS")
-            stopwatch.log_time()
         if config.execution.delete_inter:
             import shutil as _shutil
 
-            for ip in intermediate_folders:
-                _shutil.rmtree(ip)
+            _shutil.rmtree(inter_path)
 
     return spikedata_results
 

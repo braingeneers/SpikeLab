@@ -75,7 +75,7 @@ class CompilationConfig:
     compile_to_mat: bool = False
     compile_to_npz: bool = True
     compile_waveforms: bool = False
-    compile_all_recordings: bool = False
+
     save_electrodes: bool = True
     save_spike_times: bool = True
     save_raw_pkl: bool = False
@@ -112,7 +112,7 @@ class FigureConfig:
     templates_line_ms_after: Optional[float] = 4.0
     templates_x_label: str = "Time Rel. to Peak (ms)"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.scatter_recording_colors is None:
             self.scatter_recording_colors = [
                 "#f74343",
@@ -139,7 +139,7 @@ class ExecutionConfig:
     recurate_first: bool = False
     recurate_second: bool = False
     recompile_single_recording: bool = False
-    recompile_all_recordings: bool = False
+
     delete_inter: bool = True
 
 
@@ -288,7 +288,6 @@ class SortingPipelineConfig:
             "compile_to_mat": ("compilation", "compile_to_mat"),
             "compile_to_npz": ("compilation", "compile_to_npz"),
             "compile_waveforms": ("compilation", "compile_waveforms"),
-            "compile_all_recordings": ("compilation", "compile_all_recordings"),
             "save_electrodes": ("compilation", "save_electrodes"),
             "save_spike_times": ("compilation", "save_spike_times"),
             "save_raw_pkl": ("compilation", "save_raw_pkl"),
@@ -352,7 +351,6 @@ class SortingPipelineConfig:
                 "execution",
                 "recompile_single_recording",
             ),
-            "recompile_all_recordings": ("execution", "recompile_all_recordings"),
             "delete_inter": ("execution", "delete_inter"),
         }
 
@@ -361,11 +359,26 @@ class SortingPipelineConfig:
 # Presets
 # ---------------------------------------------------------------------------
 
-#: Default configuration for Kilosort2 on Maxwell MEA recordings.
-#: All parameters match the defaults previously used by ``sort_with_kilosort2()``.
-KILOSORT2_MAXWELL = SortingPipelineConfig()
+#: Default configuration for Kilosort2.
+#: Parameters are compatible with Maxwell MEA and other probe types.
+#: Hardware-specific presets can be created by overriding parameters.
+KILOSORT2 = SortingPipelineConfig()
 
-#: Kilosort2 on Maxwell with Docker (no local MATLAB needed).
-KILOSORT2_MAXWELL_DOCKER = SortingPipelineConfig(
+#: Kilosort2 with Docker (no local MATLAB needed).
+KILOSORT2_DOCKER = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort2", use_docker=True),
+)
+
+#: Default configuration for Kilosort4.
+#: Kilosort4 is pure Python (PyTorch) — no MATLAB required.
+#: Default parameters are tuned for Neuropixels probes but work for
+#: other probe types.  Hardware-specific presets (e.g. for Maxwell
+#: MEAs) can be created by overriding detection/filtering parameters.
+KILOSORT4 = SortingPipelineConfig(
+    sorter=SorterConfig(sorter_name="kilosort4"),
+)
+
+#: Kilosort4 with Docker.
+KILOSORT4_DOCKER = SortingPipelineConfig(
+    sorter=SorterConfig(sorter_name="kilosort4", use_docker=True),
 )

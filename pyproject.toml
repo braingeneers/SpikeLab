@@ -86,6 +86,11 @@ spike-sorting = [
   "six>=1.16",
   "pandas>=1.3",
 ]
+kilosort4 = [
+  "kilosort>=4.0",
+  # PyTorch with CUDA must be installed separately — see:
+  # https://pytorch.org/get-started/locally/
+]
 all = [
   "pandas>=1.3",
   "mcp>=0.9.0",
