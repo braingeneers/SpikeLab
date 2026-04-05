@@ -399,6 +399,91 @@ plt.close(fig)
 
 For further analysis (correlations, burst detection, event alignment, population dynamics, etc.), use the `spikelab-analysis-implementer` skill with the `sorted_spikedata_curated.pkl` file as input.
 
+### Post-sorting report
+
+After every successful sorting run, write a Markdown report summarizing the run to `<results_folder>/report.md`. The report should combine information from:
+
+1. **The sorting script** that launched the job — extract the actual call to `sort_recording`/`sort_multistream` and list every parameter passed (sorter, use_docker, curation thresholds, time slicing, etc.). Do not infer defaults; only list what the user explicitly set.
+2. **The log file** (`<results_folder>/sorting_*.log`) — parse these fields:
+   - Environment header: host, Python/SI/SpikeLab versions, Docker image, GPU name + memory, RAM total, disk available, memory limit
+   - Recording info: path, file size, sampling rate, channel count, duration, time slicing applied
+   - Pipeline stages with timestamps (from the `[YYYY-MM-DD HH:MM:SS]` banners)
+   - Curation line: `Curation: N_raw → N_curated units (N_removed removed)`
+   - Final status line, wall time, resources at finish (RAM/GPU/disk)
+3. **The results files** — load `sorted_spikedata_curated.pkl` and report:
+   - Unit count (raw and curated), total spike count, mean/median firing rate
+   - SNR distribution (mean, median, min, max)
+   - Spikes-per-unit distribution (mean, median, min, max)
+   - ISI violation percentages (mean, max)
+
+**Report structure** (adapt as needed):
+
+```markdown
+# Sorting Report — <rec_name>
+
+## Overview
+- Recording: `<path>` (<channels> ch, <fs> Hz, <duration> min)
+- Sorter: `<sorter>` (Docker: <yes/no>)
+- Status: <COMPLETED | FAILED | KILLED>
+- Wall time: <X> min <Y> s
+
+## Script Settings
+- Script: `<script_path>`
+- Parameters explicitly set:
+  - `sorter="kilosort2"`
+  - `use_docker=True`
+  - `snr_min=5.0`
+  - ...
+
+## Environment
+| Field | Value |
+|---|---|
+| Host | ... |
+| Python | ... |
+| SI version | ... |
+| SpikeLab | ... |
+| Docker image | ... |
+| GPU | ... |
+| RAM total | ... |
+| Memory limit | ... |
+
+## Pipeline Timing
+| Stage | Timestamp |
+|---|---|
+| LOADING RECORDING | ... |
+| SPIKE SORTING | ... |
+| EXTRACTING WAVEFORMS | ... |
+| CURATION | ... |
+| COMPILING RESULTS | ... |
+| DONE | ... |
+
+## Curation Outcome
+- Raw units: N
+- Curated units: N (N removed)
+- Mean FR: X.XX Hz
+- Median spikes/unit: N
+- Mean SNR: X.X
+
+## Unit Quality Distributions
+(include brief tables or bullet lists — refer to unit_quality.png figure if generated)
+
+## Resources at Finish
+| Metric | Value |
+|---|---|
+| RAM available | ... |
+| GPU memory | ... |
+| Disk avail | ... |
+
+## Output Files
+- `sorted_spikedata_curated.pkl` — <size>
+- `sorted.npz` — <size>
+- `figures/` — <list of generated QC figures if any>
+```
+
+Keep the report factual — don't interpret whether the results are "good" unless specific thresholds were clearly violated (e.g., zero curated units, extreme ISI violations). For interpretation, direct the user to review the QC figures and the unit quality distributions.
+
+If the user asks for a report after a sorting run, locate the latest `sorting_*.log` in the results folder (most recent mtime), identify the script path from the log header (`Script:` line), load the pkl, and generate `report.md` in the same folder.
+
 ---
 
 ## Figure Output Conventions
