@@ -90,6 +90,18 @@ RECURATE_SECOND: bool = False
 RECOMPILE_SINGLE_RECORDING: bool = False
 
 # ---------------------------------------------------------------------------
+# RT-Sort (used by RTSortBackend and rt_sort_runner)
+# ---------------------------------------------------------------------------
+RT_SORT_MODEL_PATH: Optional[str] = None
+RT_SORT_DEVICE: str = "cuda"
+RT_SORT_NUM_PROCESSES: Optional[int] = None
+RT_SORT_RECORDING_WINDOW_MS: Optional[Any] = None
+RT_SORT_PARAMS: Optional[Dict[str, Any]] = None
+RT_SORT_SAVE_PICKLE: bool = True
+RT_SORT_DELETE_INTER: bool = False
+RT_SORT_VERBOSE: bool = True
+
+# ---------------------------------------------------------------------------
 # Paths (set per-run by sort_with_kilosort2 / sort_recording)
 # ---------------------------------------------------------------------------
 RECORDING_FILES: List = []
