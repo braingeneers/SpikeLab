@@ -125,6 +125,10 @@ Key parameters to discuss with the user:
 - `stream_id` — Maxwell well/stream identifier
 - `hdf5_plugin_path` — Maxwell HDF5 decompression plugin path
 - `freq_min` / `freq_max` — bandpass filter range (default: 300–6000 Hz)
+- `first_n_mins` — sort only the first N minutes of the recording
+- `start_time_s` / `end_time_s` — sort a specific time window in seconds (see "Sorting a time slice" below)
+- `rec_chunks_s` — list of `(start_s, end_s)` tuples to sort multiple disjoint time windows
+- `rec_chunks` — frame-based version of `rec_chunks_s` (advanced; requires manual sample-rate math)
 
 **Curation:**
 - `curate_first` / `curate_second` — enable curation stages
@@ -223,6 +227,23 @@ results = sort_recording(
 ```
 
 **Concatenation compatibility:** Channel count and sampling frequency must match across files (raises `ValueError`). Mismatched channel IDs or channel locations produce warnings but do not block concatenation.
+
+### Sorting a time slice
+
+Pass times in seconds — the sampling rate is read from the recording:
+
+```python
+# Single window
+sort_recording(..., start_time_s=180, end_time_s=300)
+
+# First N minutes (shortcut)
+sort_recording(..., first_n_mins=5)
+
+# Multiple disjoint windows (concatenated; split later via sd.split_epochs())
+sort_recording(..., rec_chunks_s=[(0, 60), (300, 360), (600, 660)])
+```
+
+`start_time_s` defaults to 0 and `end_time_s` to the recording duration. Time-based params cannot be combined with the frame-based `rec_chunks`.
 
 ---
 
