@@ -401,7 +401,7 @@ For further analysis (correlations, burst detection, event alignment, population
 
 ### Post-sorting report
 
-After every successful sorting run, write a Markdown report summarizing the run to `<results_folder>/report.md`. The report should combine information from:
+**Always generate a Markdown report after every sorting run** and write it to `<results_folder>/sorting_report.md`. This is part of the default workflow — do not wait for the user to ask. The report should combine information from:
 
 1. **The sorting script** that launched the job — extract the actual call to `sort_recording`/`sort_multistream` and list every parameter passed (sorter, use_docker, curation thresholds, time slicing, etc.). Do not infer defaults; only list what the user explicitly set.
 2. **The log file** (`<results_folder>/sorting_*.log`) — parse these fields:
@@ -416,16 +416,27 @@ After every successful sorting run, write a Markdown report summarizing the run 
    - Spikes-per-unit distribution (mean, median, min, max)
    - ISI violation percentages (mean, max)
 
-**Report structure** (adapt as needed):
+The report must reference the **full path to the source log file** so the user can dig into raw output if needed.
+
+**Report structure** (adapt as needed, but keep Curation Outcome at the top so it's the first thing the user sees):
 
 ```markdown
 # Sorting Report — <rec_name>
+
+## Curation Outcome
+- Raw units: N
+- Curated units: N (N removed)
+- Total spikes: N
+- Mean FR: X.XX Hz
+- Median spikes/unit: N
+- Mean SNR: X.X
 
 ## Overview
 - Recording: `<path>` (<channels> ch, <fs> Hz, <duration> min)
 - Sorter: `<sorter>` (Docker: <yes/no>)
 - Status: <COMPLETED | FAILED | KILLED>
 - Wall time: <X> min <Y> s
+- Log file: `<absolute_path_to_sorting_YYMMDD_HHMMSS.log>`
 
 ## Script Settings
 - Script: `<script_path>`
@@ -457,13 +468,6 @@ After every successful sorting run, write a Markdown report summarizing the run 
 | COMPILING RESULTS | ... |
 | DONE | ... |
 
-## Curation Outcome
-- Raw units: N
-- Curated units: N (N removed)
-- Mean FR: X.XX Hz
-- Median spikes/unit: N
-- Mean SNR: X.X
-
 ## Unit Quality Distributions
 (include brief tables or bullet lists — refer to unit_quality.png figure if generated)
 
@@ -482,7 +486,7 @@ After every successful sorting run, write a Markdown report summarizing the run 
 
 Keep the report factual — don't interpret whether the results are "good" unless specific thresholds were clearly violated (e.g., zero curated units, extreme ISI violations). For interpretation, direct the user to review the QC figures and the unit quality distributions.
 
-If the user asks for a report after a sorting run, locate the latest `sorting_*.log` in the results folder (most recent mtime), identify the script path from the log header (`Script:` line), load the pkl, and generate `report.md` in the same folder.
+Locate the latest `sorting_*.log` in the results folder (most recent mtime), identify the script path from the log header (`Script:` line), load the pkl, and write `sorting_report.md` in the same folder.
 
 ---
 
