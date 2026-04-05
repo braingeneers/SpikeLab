@@ -304,6 +304,70 @@ class Compiler:
 # create_folder and delete_folder are imported from sorting_utils.
 
 
+def _time_chunks_to_frames(
+    start_time_s: Optional[float],
+    end_time_s: Optional[float],
+    rec_chunks_s: List[Tuple[float, float]],
+    fs: float,
+    total_duration_s: float,
+) -> List[Tuple[int, int]]:
+    """Convert time-based slicing parameters to frame tuples.
+
+    Combines ``start_time_s``/``end_time_s`` (single range) and
+    ``rec_chunks_s`` (multiple ranges) into a single list of
+    ``(start_frame, end_frame)`` tuples in samples.
+
+    Parameters:
+        start_time_s: Start time in seconds, or ``None``.
+        end_time_s: End time in seconds, or ``None``.
+        rec_chunks_s: List of ``(start_s, end_s)`` ranges in seconds.
+        fs: Sampling frequency in Hz.
+        total_duration_s: Full recording duration in seconds (used to
+            clip ``end_time_s`` if it exceeds the recording).
+
+    Returns:
+        List of ``(start_frame, end_frame)`` tuples. Empty list when
+        no time-based parameters are provided.
+
+    Raises:
+        ValueError: If a time range is invalid (negative start or
+            start >= end).
+    """
+    chunks: List[Tuple[int, int]] = []
+
+    if start_time_s is not None or end_time_s is not None:
+        start_s = start_time_s if start_time_s is not None else 0.0
+        end_s = end_time_s if end_time_s is not None else total_duration_s
+        if end_s > total_duration_s:
+            print(
+                f"'end_time_s' ({end_s}) exceeds recording duration "
+                f"({total_duration_s:.2f}s); clipping to the end."
+            )
+            end_s = total_duration_s
+        if start_s < 0 or start_s >= end_s:
+            raise ValueError(
+                f"Invalid time range: start_time_s={start_s}, "
+                f"end_time_s={end_s}. Must satisfy 0 <= start < end."
+            )
+        chunks.append((int(round(start_s * fs)), int(round(end_s * fs))))
+
+    for start_s, end_s in rec_chunks_s:
+        if start_s < 0 or start_s >= end_s:
+            raise ValueError(
+                f"Invalid chunk in rec_chunks_s: ({start_s}, {end_s}). "
+                f"Must satisfy 0 <= start < end."
+            )
+        if end_s > total_duration_s:
+            print(
+                f"'rec_chunks_s' entry ({start_s}, {end_s}) exceeds "
+                f"recording duration ({total_duration_s:.2f}s); clipping."
+            )
+            end_s = total_duration_s
+        chunks.append((int(round(start_s * fs)), int(round(end_s * fs))))
+
+    return chunks
+
+
 def load_recording(rec_path: Any) -> BaseRecording:
     """Load a recording, apply optional truncation and coordinate transforms.
 
@@ -332,6 +396,24 @@ def load_recording(rec_path: Any) -> BaseRecording:
         rec = load_single_recording(rec_path)
 
     print(f"Recording has {rec.get_num_channels()} channels")
+
+    # Convert time-based slicing parameters (seconds) to frame tuples.
+    time_chunks = _time_chunks_to_frames(
+        start_time_s=_globals.START_TIME_S,
+        end_time_s=_globals.END_TIME_S,
+        rec_chunks_s=_globals.REC_CHUNKS_S,
+        fs=rec.get_sampling_frequency(),
+        total_duration_s=rec.get_total_duration(),
+    )
+    if time_chunks:
+        if len(_globals.REC_CHUNKS) > 0:
+            raise ValueError(
+                "Cannot combine frame-based 'rec_chunks' with time-based "
+                "'start_time_s'/'end_time_s'/'rec_chunks_s'. Use one or the "
+                "other."
+            )
+        _globals.REC_CHUNKS = time_chunks
+
     if _globals.FIRST_N_MINS is not None:
         end_frame = _globals.FIRST_N_MINS * 60 * rec.get_sampling_frequency()
         if end_frame > rec.get_num_samples():

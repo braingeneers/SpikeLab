@@ -1646,6 +1646,161 @@ class TestPrintStage:
 
 
 # ===========================================================================
+# _time_chunks_to_frames
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestTimeChunksToFrames:
+    """
+    Tests for the time-to-frame conversion helper used by load_recording.
+
+    Tests:
+        (Test Case 1) start_time_s/end_time_s produces a single frame range.
+        (Test Case 2) end_time_s exceeding duration is clipped.
+        (Test Case 3) Invalid range (start >= end) raises ValueError.
+        (Test Case 4) rec_chunks_s produces multiple frame ranges.
+        (Test Case 5) Empty inputs produce an empty list.
+        (Test Case 6) start_time_s defaults to 0 when only end_time_s given.
+        (Test Case 7) end_time_s defaults to total_duration_s when only start_time_s given.
+    """
+
+    @pytest.fixture()
+    def helper(self):
+        from spikelab.spike_sorting.recording_io import _time_chunks_to_frames
+
+        return _time_chunks_to_frames
+
+    def test_single_range(self, helper):
+        chunks = helper(
+            start_time_s=3 * 60,
+            end_time_s=5 * 60,
+            rec_chunks_s=[],
+            fs=20000.0,
+            total_duration_s=600.0,
+        )
+        assert chunks == [(3 * 60 * 20000, 5 * 60 * 20000)]
+
+    def test_end_time_clipped_to_duration(self, helper, capsys):
+        chunks = helper(
+            start_time_s=0.0,
+            end_time_s=100.0,
+            rec_chunks_s=[],
+            fs=1000.0,
+            total_duration_s=50.0,
+        )
+        assert chunks == [(0, 50000)]
+        assert "clipping" in capsys.readouterr().out
+
+    def test_invalid_range_raises(self, helper):
+        with pytest.raises(ValueError, match="Invalid time range"):
+            helper(
+                start_time_s=10.0,
+                end_time_s=5.0,
+                rec_chunks_s=[],
+                fs=1000.0,
+                total_duration_s=100.0,
+            )
+
+    def test_negative_start_raises(self, helper):
+        with pytest.raises(ValueError, match="Invalid time range"):
+            helper(
+                start_time_s=-1.0,
+                end_time_s=5.0,
+                rec_chunks_s=[],
+                fs=1000.0,
+                total_duration_s=100.0,
+            )
+
+    def test_rec_chunks_s_multiple_ranges(self, helper):
+        chunks = helper(
+            start_time_s=None,
+            end_time_s=None,
+            rec_chunks_s=[(0.0, 10.0), (30.0, 40.0)],
+            fs=1000.0,
+            total_duration_s=60.0,
+        )
+        assert chunks == [(0, 10000), (30000, 40000)]
+
+    def test_empty_inputs_return_empty(self, helper):
+        chunks = helper(
+            start_time_s=None,
+            end_time_s=None,
+            rec_chunks_s=[],
+            fs=1000.0,
+            total_duration_s=60.0,
+        )
+        assert chunks == []
+
+    def test_start_time_defaults_to_zero(self, helper):
+        chunks = helper(
+            start_time_s=None,
+            end_time_s=5.0,
+            rec_chunks_s=[],
+            fs=1000.0,
+            total_duration_s=60.0,
+        )
+        assert chunks == [(0, 5000)]
+
+    def test_end_time_defaults_to_duration(self, helper):
+        chunks = helper(
+            start_time_s=10.0,
+            end_time_s=None,
+            rec_chunks_s=[],
+            fs=1000.0,
+            total_duration_s=60.0,
+        )
+        assert chunks == [(10000, 60000)]
+
+    def test_combined_start_end_and_rec_chunks_s(self, helper):
+        """start_time_s/end_time_s and rec_chunks_s can coexist — both are included."""
+        chunks = helper(
+            start_time_s=0.0,
+            end_time_s=10.0,
+            rec_chunks_s=[(20.0, 30.0)],
+            fs=1000.0,
+            total_duration_s=60.0,
+        )
+        assert chunks == [(0, 10000), (20000, 30000)]
+
+
+# ===========================================================================
+# SortingPipelineConfig time-slicing kwargs
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestSortingConfigTimeSlicingKwargs:
+    """
+    Tests that start_time_s / end_time_s / rec_chunks_s are accepted by
+    SortingPipelineConfig.from_kwargs() and stored on the recording config.
+    """
+
+    def test_start_and_end_time_s_accepted(self):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(start_time_s=60.0, end_time_s=120.0)
+        assert cfg.recording.start_time_s == 60.0
+        assert cfg.recording.end_time_s == 120.0
+
+    def test_rec_chunks_s_accepted(self):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(
+            rec_chunks_s=[(0.0, 30.0), (60.0, 90.0)]
+        )
+        assert cfg.recording.rec_chunks_s == [(0.0, 30.0), (60.0, 90.0)]
+
+    def test_defaults_are_none_and_empty(self):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        assert cfg.recording.start_time_s is None
+        assert cfg.recording.end_time_s is None
+        assert cfg.recording.rec_chunks_s == []
+
+
+# ===========================================================================
 # concatenate_recordings validation
 # ===========================================================================
 

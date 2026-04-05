@@ -77,6 +77,9 @@ class Kilosort4Backend(SorterBackend):
         _globals.GAIN_TO_UV = rec.gain_to_uv
         _globals.OFFSET_TO_UV = rec.offset_to_uv
         _globals.REC_CHUNKS = list(rec.rec_chunks)
+        _globals.REC_CHUNKS_S = list(rec.rec_chunks_s)
+        _globals.START_TIME_S = rec.start_time_s
+        _globals.END_TIME_S = rec.end_time_s
         _globals._REC_CHUNK_NAMES = []
         _globals.FREQ_MIN = rec.freq_min
         _globals.FREQ_MAX = rec.freq_max
