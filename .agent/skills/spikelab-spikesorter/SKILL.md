@@ -125,6 +125,10 @@ Key parameters to discuss with the user:
 - `stream_id` — Maxwell well/stream identifier
 - `hdf5_plugin_path` — Maxwell HDF5 decompression plugin path
 - `freq_min` / `freq_max` — bandpass filter range (default: 300–6000 Hz)
+- `first_n_mins` — sort only the first N minutes of the recording
+- `start_time_s` / `end_time_s` — sort a specific time window in seconds (see "Sorting a time slice" below)
+- `rec_chunks_s` — list of `(start_s, end_s)` tuples to sort multiple disjoint time windows
+- `rec_chunks` — frame-based version of `rec_chunks_s` (advanced; requires manual sample-rate math)
 
 **Curation:**
 - `curate_first` / `curate_second` — enable curation stages
@@ -223,6 +227,23 @@ results = sort_recording(
 ```
 
 **Concatenation compatibility:** Channel count and sampling frequency must match across files (raises `ValueError`). Mismatched channel IDs or channel locations produce warnings but do not block concatenation.
+
+### Sorting a time slice
+
+Pass times in seconds — the sampling rate is read from the recording:
+
+```python
+# Single window
+sort_recording(..., start_time_s=180, end_time_s=300)
+
+# First N minutes (shortcut)
+sort_recording(..., first_n_mins=5)
+
+# Multiple disjoint windows (concatenated; split later via sd.split_epochs())
+sort_recording(..., rec_chunks_s=[(0, 60), (300, 360), (600, 660)])
+```
+
+`start_time_s` defaults to 0 and `end_time_s` to the recording duration. Time-based params cannot be combined with the frame-based `rec_chunks`.
 
 ---
 
@@ -377,6 +398,95 @@ plt.close(fig)
 ```
 
 For further analysis (correlations, burst detection, event alignment, population dynamics, etc.), use the `spikelab-analysis-implementer` skill with the `sorted_spikedata_curated.pkl` file as input.
+
+### Post-sorting report
+
+**Always generate a Markdown report after every sorting run** and write it to `<results_folder>/sorting_report.md`. This is part of the default workflow — do not wait for the user to ask. The report should combine information from:
+
+1. **The sorting script** that launched the job — extract the actual call to `sort_recording`/`sort_multistream` and list every parameter passed (sorter, use_docker, curation thresholds, time slicing, etc.). Do not infer defaults; only list what the user explicitly set.
+2. **The log file** (`<results_folder>/sorting_*.log`) — parse these fields:
+   - Environment header: host, Python/SI/SpikeLab versions, Docker image, GPU name + memory, RAM total, disk available, memory limit
+   - Recording info: path, file size, sampling rate, channel count, duration, time slicing applied
+   - Pipeline stages with timestamps (from the `[YYYY-MM-DD HH:MM:SS]` banners)
+   - Curation line: `Curation: N_raw → N_curated units (N_removed removed)`
+   - Final status line, wall time, resources at finish (RAM/GPU/disk)
+3. **The results files** — load `sorted_spikedata_curated.pkl` and report:
+   - Unit count (raw and curated), total spike count, mean/median firing rate
+   - SNR distribution (mean, median, min, max)
+   - Spikes-per-unit distribution (mean, median, min, max)
+   - ISI violation percentages (mean, max)
+
+The report must reference the **full path to the source log file** so the user can dig into raw output if needed.
+
+**Report structure** (adapt as needed, but keep Curation Outcome at the top so it's the first thing the user sees):
+
+```markdown
+# Sorting Report — <rec_name>
+
+## Curation Outcome
+- Raw units: N
+- Curated units: N (N removed)
+- Total spikes: N
+- Mean FR: X.XX Hz
+- Median spikes/unit: N
+- Mean SNR: X.X
+
+## Overview
+- Recording: `<path>` (<channels> ch, <fs> Hz, <duration> min)
+- Sorter: `<sorter>` (Docker: <yes/no>)
+- Status: <COMPLETED | FAILED | KILLED>
+- Wall time: <X> min <Y> s
+- Log file: `<absolute_path_to_sorting_YYMMDD_HHMMSS.log>`
+
+## Script Settings
+- Script: `<script_path>`
+- Parameters explicitly set:
+  - `sorter="kilosort2"`
+  - `use_docker=True`
+  - `snr_min=5.0`
+  - ...
+
+## Environment
+| Field | Value |
+|---|---|
+| Host | ... |
+| Python | ... |
+| SI version | ... |
+| SpikeLab | ... |
+| Docker image | ... |
+| GPU | ... |
+| RAM total | ... |
+| Memory limit | ... |
+
+## Pipeline Timing
+| Stage | Timestamp |
+|---|---|
+| LOADING RECORDING | ... |
+| SPIKE SORTING | ... |
+| EXTRACTING WAVEFORMS | ... |
+| CURATION | ... |
+| COMPILING RESULTS | ... |
+| DONE | ... |
+
+## Unit Quality Distributions
+(include brief tables or bullet lists — refer to unit_quality.png figure if generated)
+
+## Resources at Finish
+| Metric | Value |
+|---|---|
+| RAM available | ... |
+| GPU memory | ... |
+| Disk avail | ... |
+
+## Output Files
+- `sorted_spikedata_curated.pkl` — <size>
+- `sorted.npz` — <size>
+- `figures/` — <list of generated QC figures if any>
+```
+
+Keep the report factual — don't interpret whether the results are "good" unless specific thresholds were clearly violated (e.g., zero curated units, extreme ISI violations). For interpretation, direct the user to review the QC figures and the unit quality distributions.
+
+Locate the latest `sorting_*.log` in the results folder (most recent mtime), identify the script path from the log header (`Script:` line), load the pkl, and write `sorting_report.md` in the same folder.
 
 ---
 

@@ -21,6 +21,9 @@ class RecordingConfig:
     gain_to_uv: Optional[float] = None
     offset_to_uv: Optional[float] = None
     rec_chunks: List[Tuple[int, int]] = field(default_factory=list)
+    rec_chunks_s: List[Tuple[float, float]] = field(default_factory=list)
+    start_time_s: Optional[float] = None
+    end_time_s: Optional[float] = None
     freq_min: int = 300
     freq_max: int = 6000
 
@@ -255,6 +258,9 @@ class SortingPipelineConfig:
             "gain_to_uv": ("recording", "gain_to_uv"),
             "offset_to_uv": ("recording", "offset_to_uv"),
             "rec_chunks": ("recording", "rec_chunks"),
+            "rec_chunks_s": ("recording", "rec_chunks_s"),
+            "start_time_s": ("recording", "start_time_s"),
+            "end_time_s": ("recording", "end_time_s"),
             "freq_min": ("recording", "freq_min"),
             "freq_max": ("recording", "freq_max"),
             # SorterConfig
