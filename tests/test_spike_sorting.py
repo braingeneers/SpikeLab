@@ -243,7 +243,7 @@ class TestKilosortSortingExtractor:
 
     @pytest.fixture()
     def ks_module(self):
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
 
         return SimpleNamespace(
             KilosortSortingExtractor=KilosortSortingExtractor,
@@ -262,7 +262,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(tmp_path, spike_times, spike_clusters, sample_rate=30000.0)
 
         # Need to set KILOSORT_PARAMS global for init
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -286,7 +286,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1], "group": ["good", "noise"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -311,7 +311,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1, 2], "group": ["good", "noise", "mua"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -340,7 +340,7 @@ class TestKilosortSortingExtractor:
         }
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
@@ -363,7 +363,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1, 2], "group": ["good", "good", "good"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -389,7 +389,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0, 0, 0, 0, 0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -436,7 +436,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters, sample_rate=20000.0)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -460,7 +460,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "no_tsv"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -485,7 +485,7 @@ class TestKilosortSortingExtractor:
         spike_clusters = np.array([0], dtype=np.int64)
         _write_ks_folder(tmp_path, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -512,7 +512,7 @@ class TestKilosortSortingExtractor:
         csv_text = "cluster_id,group\n0,good\n1,noise"
         (folder / "cluster_info.csv").write_text(csv_text)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -538,7 +538,7 @@ class TestKilosortSortingExtractor:
         _write_ks_folder(folder, spike_times, spike_clusters)
         (folder / "cluster_info.tsv").write_text("id\tgroup\n0\tgood\n1\tgood")
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -561,7 +561,7 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1], "group": ["good", "noise"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -590,7 +590,7 @@ class TestKilosortSortingExtractor:
             "cluster_id\tKSLabel\n0\tgood\n1\tmua"
         )
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
@@ -613,7 +613,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "start_eq_end"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -638,7 +638,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "beyond_bounds"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -662,7 +662,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "at_end"
         _write_ks_folder(folder, spike_times, spike_clusters)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -686,7 +686,7 @@ class TestKilosortSortingExtractor:
         folder = tmp_path / "ms_zero"
         _write_ks_folder(folder, spike_times, spike_clusters, sample_rate=44100.0)
 
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
@@ -718,8 +718,8 @@ class TestKilosortSortingExtractorGetChansMax:
     @pytest.fixture()
     def kse_with_templates(self, tmp_path):
         """Create a KSE with known templates."""
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
+        import spikelab.spike_sorting._globals as ks_mod
 
         spike_times = np.array([10, 20, 100, 200], dtype=np.int64)
         spike_clusters = np.array([0, 0, 1, 1], dtype=np.int64)
@@ -777,8 +777,8 @@ class TestKilosortSortingExtractorGetChansMax:
         Tests:
             (Test Case 1) Unit with large positive peak uses positive channel.
         """
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
+        import spikelab.spike_sorting._globals as ks_mod
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -844,7 +844,7 @@ class TestWaveformExtractorToSpikeData:
 
     @pytest.fixture()
     def convert_fn(self):
-        from spikelab.spike_sorting.kilosort2 import _waveform_extractor_to_spikedata
+        from spikelab.spike_sorting.recording_io import _waveform_extractor_to_spikedata
 
         return _waveform_extractor_to_spikedata
 
@@ -909,17 +909,17 @@ class TestWaveformExtractorToSpikeData:
     @staticmethod
     def _patch_globals(monkeypatch):
         """Patch module globals needed by _waveform_extractor_to_spikedata."""
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import _globals, recording_io
 
-        monkeypatch.setattr(kilosort2, "STD_AT_PEAK", True, raising=False)
-        monkeypatch.setattr(kilosort2, "COMPILED_WAVEFORMS_MS_BEFORE", 2, raising=False)
-        monkeypatch.setattr(kilosort2, "COMPILED_WAVEFORMS_MS_AFTER", 2, raising=False)
-        monkeypatch.setattr(kilosort2, "SCALE_COMPILED_WAVEFORMS", True, raising=False)
-        monkeypatch.setattr(kilosort2, "STD_OVER_WINDOW_MS_BEFORE", 0.5, raising=False)
-        monkeypatch.setattr(kilosort2, "STD_OVER_WINDOW_MS_AFTER", 1.5, raising=False)
+        monkeypatch.setattr(_globals, "STD_AT_PEAK", True, raising=False)
+        monkeypatch.setattr(_globals, "COMPILED_WAVEFORMS_MS_BEFORE", 2, raising=False)
+        monkeypatch.setattr(_globals, "COMPILED_WAVEFORMS_MS_AFTER", 2, raising=False)
+        monkeypatch.setattr(_globals, "SCALE_COMPILED_WAVEFORMS", True, raising=False)
+        monkeypatch.setattr(_globals, "STD_OVER_WINDOW_MS_BEFORE", 0.5, raising=False)
+        monkeypatch.setattr(_globals, "STD_OVER_WINDOW_MS_AFTER", 1.5, raising=False)
         # Patch _get_noise_levels to return simple noise array
         monkeypatch.setattr(
-            kilosort2,
+            recording_io,
             "_get_noise_levels",
             lambda rec, return_scaled=True, **kw: np.ones(2),
         )
@@ -1050,7 +1050,7 @@ class TestShellScriptTextProcessing:
 
     @pytest.fixture()
     def ShellScript(self):
-        from spikelab.spike_sorting.kilosort2 import ShellScript
+        from spikelab.spike_sorting.ks2_runner import ShellScript
 
         return ShellScript
 
@@ -1212,7 +1212,7 @@ class TestUtilsMemToInt:
 
     @pytest.fixture()
     def Utils(self):
-        from spikelab.spike_sorting.kilosort2 import Utils
+        from spikelab.spike_sorting.waveform_extractor import Utils
 
         return Utils
 
@@ -1292,7 +1292,7 @@ class TestUtilsReadPython:
 
     @pytest.fixture()
     def Utils(self):
-        from spikelab.spike_sorting.kilosort2 import Utils
+        from spikelab.spike_sorting.waveform_extractor import Utils
 
         return Utils
 
@@ -1367,9 +1367,11 @@ class TestSpikeSortDocker:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
+        import spikelab.spike_sorting.ks2_runner as ks_runner_mod
 
         self._ks_mod = ks_mod
+        self._ks_runner_mod = ks_runner_mod
         self._old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
         self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
         self._old_recompute = getattr(ks_mod, "RECOMPUTE_SORTING", None)
@@ -1423,7 +1425,7 @@ class TestSpikeSortDocker:
             (Test Case 3) KILOSORT_PARAMS are forwarded as kwargs.
             (Test Case 4) installation_mode='no-install' is passed.
         """
-        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+        from spikelab.spike_sorting.ks2_runner import _spike_sort_docker
 
         output_folder = tmp_path / "ks_output"
         sorter_output = output_folder / "sorter_output"
@@ -1433,9 +1435,9 @@ class TestSpikeSortDocker:
         mock_rs = MagicMock(return_value=None)
 
         with (
-            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
-            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.kilosort2.run_sorter", mock_rs),
+            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
+            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.ks2_runner.run_sorter", mock_rs),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -1457,7 +1459,7 @@ class TestSpikeSortDocker:
         Tests:
             (Test Case 1) Phy files in sorter_output/ are found.
         """
-        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+        from spikelab.spike_sorting.ks2_runner import _spike_sort_docker
 
         output_folder = tmp_path / "ks_output"
         sorter_output = output_folder / "sorter_output"
@@ -1466,9 +1468,9 @@ class TestSpikeSortDocker:
         recording = _make_mock_recording()
 
         with (
-            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
-            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.kilosort2.run_sorter", MagicMock()),
+            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
+            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.ks2_runner.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -1481,7 +1483,7 @@ class TestSpikeSortDocker:
         Tests:
             (Test Case 1) Phy files directly in output_folder are found.
         """
-        from spikelab.spike_sorting.kilosort2 import _spike_sort_docker
+        from spikelab.spike_sorting.ks2_runner import _spike_sort_docker
 
         output_folder = tmp_path / "ks_output"
         self._write_fake_phy_output(output_folder)
@@ -1489,9 +1491,9 @@ class TestSpikeSortDocker:
         recording = _make_mock_recording()
 
         with (
-            patch("spikelab.spike_sorting.kilosort2.write_binary_recording"),
-            patch("spikelab.spike_sorting.kilosort2.BinaryRecordingExtractor"),
-            patch("spikelab.spike_sorting.kilosort2.run_sorter", MagicMock()),
+            patch("spikelab.spike_sorting.ks2_runner.write_binary_recording"),
+            patch("spikelab.spike_sorting.ks2_runner.BinaryRecordingExtractor"),
+            patch("spikelab.spike_sorting.ks2_runner.run_sorter", MagicMock()),
         ):
             result = _spike_sort_docker(recording, output_folder)
 
@@ -1505,7 +1507,7 @@ class TestSpikeSortDocker:
             (Test Case 1) _spike_sort_docker is called instead of RunKilosort.
             (Test Case 2) RunKilosort is never instantiated.
         """
-        from spikelab.spike_sorting.kilosort2 import spike_sort
+        from spikelab.spike_sorting.ks2_runner import spike_sort
 
         self._ks_mod.USE_DOCKER = True
         output_folder = tmp_path / "ks_output"
@@ -1515,9 +1517,9 @@ class TestSpikeSortDocker:
 
         with (
             patch.object(
-                self._ks_mod, "_spike_sort_docker", return_value=mock_kse
+                self._ks_runner_mod, "_spike_sort_docker", return_value=mock_kse
             ) as mock_docker,
-            patch.object(self._ks_mod, "RunKilosort") as mock_rk,
+            patch.object(self._ks_runner_mod, "RunKilosort") as mock_rk,
         ):
             result = spike_sort(
                 recording, "fake.h5", tmp_path / "rec.dat", output_folder
@@ -1535,7 +1537,7 @@ class TestSpikeSortDocker:
             (Test Case 1) RunKilosort is instantiated.
             (Test Case 2) _spike_sort_docker is not called.
         """
-        from spikelab.spike_sorting.kilosort2 import spike_sort
+        from spikelab.spike_sorting.ks2_runner import spike_sort
 
         self._ks_mod.USE_DOCKER = False
         output_folder = tmp_path / "ks_output"
@@ -1547,10 +1549,10 @@ class TestSpikeSortDocker:
 
         with (
             patch.object(
-                self._ks_mod, "RunKilosort", return_value=mock_ks_instance
+                self._ks_runner_mod, "RunKilosort", return_value=mock_ks_instance
             ) as mock_rk,
-            patch.object(self._ks_mod, "_spike_sort_docker") as mock_docker,
-            patch.object(self._ks_mod, "write_recording"),
+            patch.object(self._ks_runner_mod, "_spike_sort_docker") as mock_docker,
+            patch.object(self._ks_runner_mod, "write_recording"),
         ):
             result = spike_sort(
                 recording, "fake.h5", tmp_path / "rec.dat", output_folder
@@ -1567,14 +1569,14 @@ class TestSpikeSortDocker:
         Tests:
             (Test Case 1) Exception from _spike_sort_docker is caught and returned.
         """
-        from spikelab.spike_sorting.kilosort2 import spike_sort
+        from spikelab.spike_sorting.ks2_runner import spike_sort
 
         self._ks_mod.USE_DOCKER = True
         output_folder = tmp_path / "ks_output"
         recording = _make_mock_recording()
 
         with patch.object(
-            self._ks_mod,
+            self._ks_runner_mod,
             "_spike_sort_docker",
             side_effect=RuntimeError("Docker failed"),
         ):
@@ -1604,7 +1606,7 @@ class TestPrintStage:
 
     @pytest.fixture()
     def print_stage(self):
-        from spikelab.spike_sorting.kilosort2 import print_stage
+        from spikelab.spike_sorting.sorting_utils import print_stage
 
         return print_stage
 
@@ -1656,18 +1658,18 @@ class TestConcatenateRecordingsValidation:
 
     @pytest.fixture()
     def concat_fn(self, monkeypatch):
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import _globals, recording_io
 
-        monkeypatch.setattr(kilosort2, "REC_CHUNKS", [], raising=False)
-        monkeypatch.setattr(kilosort2, "_REC_CHUNK_NAMES", [], raising=False)
-        monkeypatch.setattr(kilosort2, "STREAM_ID", None, raising=False)
-        monkeypatch.setattr(kilosort2, "GAIN_TO_UV", None, raising=False)
-        monkeypatch.setattr(kilosort2, "OFFSET_TO_UV", None, raising=False)
-        monkeypatch.setattr(kilosort2, "FREQ_MIN", 300, raising=False)
-        monkeypatch.setattr(kilosort2, "FREQ_MAX", 6000, raising=False)
-        monkeypatch.setattr(kilosort2, "FIRST_N_MINS", None, raising=False)
-        monkeypatch.setattr(kilosort2, "MEA_Y_MAX", None, raising=False)
-        return kilosort2.concatenate_recordings
+        monkeypatch.setattr(_globals, "REC_CHUNKS", [], raising=False)
+        monkeypatch.setattr(_globals, "_REC_CHUNK_NAMES", [], raising=False)
+        monkeypatch.setattr(_globals, "STREAM_ID", None, raising=False)
+        monkeypatch.setattr(_globals, "GAIN_TO_UV", None, raising=False)
+        monkeypatch.setattr(_globals, "OFFSET_TO_UV", None, raising=False)
+        monkeypatch.setattr(_globals, "FREQ_MIN", 300, raising=False)
+        monkeypatch.setattr(_globals, "FREQ_MAX", 6000, raising=False)
+        monkeypatch.setattr(_globals, "FIRST_N_MINS", None, raising=False)
+        monkeypatch.setattr(_globals, "MEA_Y_MAX", None, raising=False)
+        return recording_io.concatenate_recordings
 
     def test_channel_count_mismatch_raises(self, concat_fn, tmp_path, monkeypatch):
         """
@@ -1677,7 +1679,7 @@ class TestConcatenateRecordingsValidation:
             (Test Case 1) Two files with 4 vs 2 channels cannot be
                 concatenated.
         """
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import recording_io
 
         rec_a = _make_mock_recording(num_channels=4)
         rec_b = _make_mock_recording(num_channels=2)
@@ -1694,7 +1696,7 @@ class TestConcatenateRecordingsValidation:
             call_count[0] += 1
             return rec
 
-        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(recording_io, "load_single_recording", mock_load)
 
         with pytest.raises(ValueError, match="channels"):
             concat_fn(tmp_path)
@@ -1706,7 +1708,7 @@ class TestConcatenateRecordingsValidation:
         Tests:
             (Test Case 1) 20 kHz vs 30 kHz cannot be concatenated.
         """
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import recording_io
 
         rec_a = _make_mock_recording(sampling_frequency=20000.0)
         rec_b = _make_mock_recording(sampling_frequency=30000.0)
@@ -1722,7 +1724,7 @@ class TestConcatenateRecordingsValidation:
             call_count[0] += 1
             return rec
 
-        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(recording_io, "load_single_recording", mock_load)
 
         with pytest.raises(ValueError, match="sampling frequency"):
             concat_fn(tmp_path)
@@ -1734,7 +1736,7 @@ class TestConcatenateRecordingsValidation:
         Tests:
             (Test Case 1) Different channel IDs warn but don't raise.
         """
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import recording_io
 
         rec_a = _make_mock_recording(num_channels=4)
         rec_b = _make_mock_recording(num_channels=4)
@@ -1751,10 +1753,10 @@ class TestConcatenateRecordingsValidation:
             call_count[0] += 1
             return rec
 
-        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(recording_io, "load_single_recording", mock_load)
         # Also mock si_segmentutils.concatenate_recordings to avoid real SI call
         monkeypatch.setattr(
-            kilosort2.si_segmentutils,
+            recording_io.si_segmentutils,
             "concatenate_recordings",
             lambda recs: rec_a,
         )
@@ -1769,7 +1771,7 @@ class TestConcatenateRecordingsValidation:
         Tests:
             (Test Case 1) Different electrode layouts warn but don't raise.
         """
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import recording_io
 
         rec_a = _make_mock_recording(num_channels=4)
         rec_b = _make_mock_recording(num_channels=4)
@@ -1788,9 +1790,9 @@ class TestConcatenateRecordingsValidation:
             call_count[0] += 1
             return rec
 
-        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(recording_io, "load_single_recording", mock_load)
         monkeypatch.setattr(
-            kilosort2.si_segmentutils,
+            recording_io.si_segmentutils,
             "concatenate_recordings",
             lambda recs: rec_a,
         )
@@ -1807,7 +1809,7 @@ class TestConcatenateRecordingsValidation:
         Tests:
             (Test Case 1) Two identical-config recordings produce no warnings.
         """
-        from spikelab.spike_sorting import kilosort2
+        from spikelab.spike_sorting import recording_io
 
         rec_a = _make_mock_recording(num_channels=4)
         rec_b = _make_mock_recording(num_channels=4)
@@ -1823,9 +1825,9 @@ class TestConcatenateRecordingsValidation:
             call_count[0] += 1
             return rec
 
-        monkeypatch.setattr(kilosort2, "load_single_recording", mock_load)
+        monkeypatch.setattr(recording_io, "load_single_recording", mock_load)
         monkeypatch.setattr(
-            kilosort2.si_segmentutils,
+            recording_io.si_segmentutils,
             "concatenate_recordings",
             lambda recs: rec_a,
         )
@@ -2413,7 +2415,7 @@ class TestKilosort4BackendDockerBranch:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         self._ks_mod = ks_mod
         self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
@@ -2563,8 +2565,8 @@ class TestTemplateHalfWindowDenseTemplates:
             (Test Case 1) No small_indices found → size = template_mid.
             (Test Case 2) Result is int(template_mid * 0.75) = 22.
         """
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
+        import spikelab.spike_sorting._globals as ks_mod
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -2614,8 +2616,8 @@ class TestTemplateHalfWindowDenseTemplates:
             (Test Case 1) Edges below 1% of peak are treated like zeros.
             (Test Case 2) Window is smaller than template_mid.
         """
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
+        import spikelab.spike_sorting._globals as ks_mod
 
         spike_times = np.array([10, 20], dtype=np.int64)
         spike_clusters = np.array([0, 0], dtype=np.int64)
@@ -2755,8 +2757,8 @@ class TestTemplateHalfWindowEdgeCases:
 
     def _make_kse_with_templates(self, tmp_path, templates, folder_name="ec_template"):
         """Helper to create a KSE from given templates array."""
-        from spikelab.spike_sorting.kilosort2 import KilosortSortingExtractor
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        from spikelab.spike_sorting.sorting_extractor import KilosortSortingExtractor
+        import spikelab.spike_sorting._globals as ks_mod
 
         n_templates = templates.shape[0]
         n_channels = templates.shape[2]
@@ -2877,7 +2879,7 @@ class TestKilosort4BackendDockerEdgeCases:
 
     @pytest.fixture(autouse=True)
     def _set_globals(self):
-        import spikelab.spike_sorting.kilosort2 as ks_mod
+        import spikelab.spike_sorting._globals as ks_mod
 
         self._ks_mod = ks_mod
         self._old_docker = getattr(ks_mod, "USE_DOCKER", None)
@@ -2921,7 +2923,7 @@ class TestKilosort4BackendDockerEdgeCases:
         recording = _make_mock_recording()
 
         with patch(
-            "spikelab.spike_sorting.docker_utils.get_docker_image",
+            "spikelab.spike_sorting.ks4_runner.get_docker_image",
             side_effect=RuntimeError("Could not detect CUDA"),
         ):
             result = ks4_backend.sort(recording, "fake.raw", "fake.dat", output_folder)

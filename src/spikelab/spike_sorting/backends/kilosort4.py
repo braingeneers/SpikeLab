@@ -12,6 +12,7 @@ Requirements:
 
 from typing import Any
 
+from .. import _globals
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
 
@@ -41,8 +42,8 @@ class Kilosort4Backend(SorterBackend):
     which handles binary conversion, parameter passing, and result
     loading.
 
-    Waveform extraction uses the same custom ``WaveformExtractor`` from
-    ``kilosort2.py`` with per-spike centering, since the output format
+    Waveform extraction uses the same custom ``WaveformExtractor``
+    with per-spike centering, since the output format
     (``spike_times.npy``, ``spike_clusters.npy``, ``templates.npy``) is
     compatible.
 
@@ -55,14 +56,12 @@ class Kilosort4Backend(SorterBackend):
         self._sync_globals()
 
     def _sync_globals(self) -> None:
-        """Set module-level globals in kilosort2.py from the config.
+        """Set module-level globals in _globals.py from the config.
 
-        The legacy WaveformExtractor, load_recording, and related
-        functions still read globals.  This bridges the config-based
-        architecture with those functions.
+        The shared WaveformExtractor and recording loader still read
+        globals. This bridges the config-based architecture with those
+        functions.
         """
-        from .. import kilosort2 as ks2
-
         cfg = self.config
         rec = cfg.recording
         sor = cfg.sorter
@@ -72,85 +71,85 @@ class Kilosort4Backend(SorterBackend):
         exe = cfg.execution
 
         # Recording
-        ks2.STREAM_ID = rec.stream_id
-        ks2.FIRST_N_MINS = rec.first_n_mins
-        ks2.MEA_Y_MAX = rec.mea_y_max
-        ks2.GAIN_TO_UV = rec.gain_to_uv
-        ks2.OFFSET_TO_UV = rec.offset_to_uv
-        ks2.REC_CHUNKS = list(rec.rec_chunks)
-        ks2._REC_CHUNK_NAMES = []
-        ks2.FREQ_MIN = rec.freq_min
-        ks2.FREQ_MAX = rec.freq_max
+        _globals.STREAM_ID = rec.stream_id
+        _globals.FIRST_N_MINS = rec.first_n_mins
+        _globals.MEA_Y_MAX = rec.mea_y_max
+        _globals.GAIN_TO_UV = rec.gain_to_uv
+        _globals.OFFSET_TO_UV = rec.offset_to_uv
+        _globals.REC_CHUNKS = list(rec.rec_chunks)
+        _globals._REC_CHUNK_NAMES = []
+        _globals.FREQ_MIN = rec.freq_min
+        _globals.FREQ_MAX = rec.freq_max
 
         # Sorter — KS4 params are passed directly to SI, but we store
         # them in the global for the KilosortSortingExtractor to read
-        ks2.KILOSORT_PATH = sor.sorter_path
-        ks2.KILOSORT_PARAMS = {
+        _globals.KILOSORT_PATH = sor.sorter_path
+        _globals.KILOSORT_PARAMS = {
             **DEFAULT_KILOSORT4_PARAMS,
             **(sor.sorter_params or {}),
         }
-        ks2.USE_DOCKER = sor.use_docker
+        _globals.USE_DOCKER = sor.use_docker
 
         # Waveforms
-        ks2.WAVEFORMS_MS_BEFORE = wf.ms_before
-        ks2.WAVEFORMS_MS_AFTER = wf.ms_after
-        ks2.POS_PEAK_THRESH = wf.pos_peak_thresh
-        ks2.MAX_WAVEFORMS_PER_UNIT = wf.max_waveforms_per_unit
-        ks2.COMPILED_WAVEFORMS_MS_BEFORE = wf.compiled_ms_before
-        ks2.COMPILED_WAVEFORMS_MS_AFTER = wf.compiled_ms_after
-        ks2.SCALE_COMPILED_WAVEFORMS = wf.scale_compiled_waveforms
-        ks2.STD_AT_PEAK = wf.std_at_peak
-        ks2.STD_OVER_WINDOW_MS_BEFORE = wf.std_over_window_ms_before
-        ks2.STD_OVER_WINDOW_MS_AFTER = wf.std_over_window_ms_after
+        _globals.WAVEFORMS_MS_BEFORE = wf.ms_before
+        _globals.WAVEFORMS_MS_AFTER = wf.ms_after
+        _globals.POS_PEAK_THRESH = wf.pos_peak_thresh
+        _globals.MAX_WAVEFORMS_PER_UNIT = wf.max_waveforms_per_unit
+        _globals.COMPILED_WAVEFORMS_MS_BEFORE = wf.compiled_ms_before
+        _globals.COMPILED_WAVEFORMS_MS_AFTER = wf.compiled_ms_after
+        _globals.SCALE_COMPILED_WAVEFORMS = wf.scale_compiled_waveforms
+        _globals.STD_AT_PEAK = wf.std_at_peak
+        _globals.STD_OVER_WINDOW_MS_BEFORE = wf.std_over_window_ms_before
+        _globals.STD_OVER_WINDOW_MS_AFTER = wf.std_over_window_ms_after
 
         # Curation
-        ks2.CURATE_FIRST = cur.curate_first
-        ks2.CURATE_SECOND = cur.curate_second
-        ks2.CURATION_EPOCH = cur.curation_epoch
-        ks2.FR_MIN = cur.fr_min
-        ks2.ISI_VIOL_MAX = cur.isi_viol_max
-        ks2.ISI_VIOLATION_METHOD = cur.isi_violation_method
-        ks2.SNR_MIN = cur.snr_min
-        ks2.SPIKES_MIN_FIRST = cur.spikes_min_first
-        ks2.SPIKES_MIN_SECOND = cur.spikes_min_second
-        ks2.STD_NORM_MAX = cur.std_norm_max
+        _globals.CURATE_FIRST = cur.curate_first
+        _globals.CURATE_SECOND = cur.curate_second
+        _globals.CURATION_EPOCH = cur.curation_epoch
+        _globals.FR_MIN = cur.fr_min
+        _globals.ISI_VIOL_MAX = cur.isi_viol_max
+        _globals.ISI_VIOLATION_METHOD = cur.isi_violation_method
+        _globals.SNR_MIN = cur.snr_min
+        _globals.SPIKES_MIN_FIRST = cur.spikes_min_first
+        _globals.SPIKES_MIN_SECOND = cur.spikes_min_second
+        _globals.STD_NORM_MAX = cur.std_norm_max
 
         # Compilation
-        ks2.COMPILE_SINGLE_RECORDING = comp.compile_single_recording
-        ks2.COMPILE_TO_MAT = comp.compile_to_mat
-        ks2.COMPILE_TO_NPZ = comp.compile_to_npz
-        ks2.COMPILE_WAVEFORMS = comp.compile_waveforms
-        ks2.SAVE_ELECTRODES = comp.save_electrodes
-        ks2.SAVE_SPIKE_TIMES = comp.save_spike_times
-        ks2.SAVE_RAW_PKL = comp.save_raw_pkl
-        ks2.SAVE_DL_DATA = comp.save_dl_data
+        _globals.COMPILE_SINGLE_RECORDING = comp.compile_single_recording
+        _globals.COMPILE_TO_MAT = comp.compile_to_mat
+        _globals.COMPILE_TO_NPZ = comp.compile_to_npz
+        _globals.COMPILE_WAVEFORMS = comp.compile_waveforms
+        _globals.SAVE_ELECTRODES = comp.save_electrodes
+        _globals.SAVE_SPIKE_TIMES = comp.save_spike_times
+        _globals.SAVE_RAW_PKL = comp.save_raw_pkl
+        _globals.SAVE_DL_DATA = comp.save_dl_data
 
         # Execution
-        ks2.N_JOBS = exe.n_jobs
-        ks2.TOTAL_MEMORY = exe.total_memory
-        ks2.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION = (
+        _globals.N_JOBS = exe.n_jobs
+        _globals.TOTAL_MEMORY = exe.total_memory
+        _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION = (
             exe.use_parallel_processing_for_raw_conversion
         )
-        ks2.SAVE_SCRIPT = exe.save_script
-        ks2.OUT_FILE = exe.out_file
-        ks2.RECOMPUTE_RECORDING = exe.recompute_recording
-        ks2.RECOMPUTE_SORTING = exe.recompute_sorting
-        ks2.REEXTRACT_WAVEFORMS = exe.reextract_waveforms
-        ks2.RECURATE_FIRST = exe.recurate_first
-        ks2.RECURATE_SECOND = exe.recurate_second
-        ks2.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
+        _globals.SAVE_SCRIPT = exe.save_script
+        _globals.OUT_FILE = exe.out_file
+        _globals.RECOMPUTE_RECORDING = exe.recompute_recording
+        _globals.RECOMPUTE_SORTING = exe.recompute_sorting
+        _globals.REEXTRACT_WAVEFORMS = exe.reextract_waveforms
+        _globals.RECURATE_FIRST = exe.recurate_first
+        _globals.RECURATE_SECOND = exe.recurate_second
+        _globals.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the shared loader.
 
         Uses the same Maxwell/NWB loader as the Kilosort2 backend.
         """
-        from .. import kilosort2 as ks2
+        from ..recording_io import load_recording as _load_recording
 
-        recording = ks2.load_recording(rec_path)
+        recording = _load_recording(rec_path)
 
-        self.rec_chunk_names = getattr(ks2, "_REC_CHUNK_NAMES", []) or []
-        self.config.recording.rec_chunks = list(getattr(ks2, "REC_CHUNKS", []) or [])
+        self.rec_chunk_names = list(_globals._REC_CHUNK_NAMES or [])
+        self.config.recording.rec_chunks = list(_globals.REC_CHUNKS or [])
 
         return recording
 
@@ -161,78 +160,15 @@ class Kilosort4Backend(SorterBackend):
         recording_dat_path: Any,
         output_folder: Any,
     ) -> Any:
-        """Run Kilosort4 spike sorting via SpikeInterface.
+        """Run Kilosort4 spike sorting via ks4_runner."""
+        from ..ks4_runner import spike_sort
 
-        Uses ``spikeinterface.sorters.run_sorter("kilosort4", ...)``
-        which handles binary conversion and parameter passing.  When
-        ``use_docker=True``, runs in a Docker container.
-        """
-        import spikeinterface.sorters as ss
-        from .. import kilosort2 as ks2
-        from ..sorting_utils import Stopwatch, print_stage
-
-        print_stage("SPIKE SORTING WITH KILOSORT4")
-        stopwatch = Stopwatch()
-
-        sorter_params = dict(ks2.KILOSORT_PARAMS)
-
-        # Check if KS4 results already exist
-        output_folder_path = output_folder
-        if hasattr(output_folder, "__fspath__"):
-            from pathlib import Path
-
-            output_folder_path = Path(output_folder)
-
-        if (
-            not ks2.RECOMPUTE_SORTING
-            and output_folder_path.exists()
-            and (output_folder_path / "spike_times.npy").exists()
-        ):
-            print("Loading existing Kilosort4 results")
-            sorting = ks2.KilosortSortingExtractor(folder_path=output_folder_path)
-            stopwatch.log_time("Done loading existing results.")
-            return sorting
-
-        try:
-            docker_kwargs = {}
-            if ks2.USE_DOCKER:
-                from ..docker_utils import get_docker_image
-
-                docker_kwargs["docker_image"] = (
-                    ks2.USE_DOCKER
-                    if isinstance(ks2.USE_DOCKER, str)
-                    else get_docker_image("kilosort4")
-                )
-                # Use "pypi" instead of "no-install" to work around an SI
-                # 0.104 bug where extra_requirements triggers an undefined
-                # 'cmd' variable when installation_mode="no-install".
-                # SI will detect the pre-installed version and skip the install.
-                docker_kwargs["installation_mode"] = "pypi"
-
-            sorting = ss.run_sorter(
-                "kilosort4",
-                recording,
-                folder=str(output_folder),
-                remove_existing_folder=True,
-                verbose=True,
-                **sorter_params,
-                **docker_kwargs,
-            )
-        except Exception as e:
-            print(f"Kilosort4 sorting failed: {e}")
-            stopwatch.log_time("Sorting failed.")
-            return e
-
-        # Load results using the shared KilosortSortingExtractor
-        # (KS4 output format is compatible: spike_times.npy, spike_clusters.npy)
-        sorter_output = output_folder_path
-        if (output_folder_path / "sorter_output").exists():
-            sorter_output = output_folder_path / "sorter_output"
-
-        sorting = ks2.KilosortSortingExtractor(folder_path=sorter_output)
-
-        stopwatch.log_time("Done sorting with Kilosort4.")
-        return sorting
+        return spike_sort(
+            rec_cache=recording,
+            rec_path=rec_path,
+            recording_dat_path=recording_dat_path,
+            output_folder=output_folder,
+        )
 
     def extract_waveforms(
         self,
@@ -247,9 +183,9 @@ class Kilosort4Backend(SorterBackend):
         Uses the same extraction pipeline and per-spike centering as
         the Kilosort2 backend.
         """
-        from .. import kilosort2 as ks2
+        from ..recording_io import extract_waveforms as _extract_waveforms
 
-        return ks2.extract_waveforms(
+        return _extract_waveforms(
             recording_path=rec_path,
             recording=recording,
             sorting=sorting,
