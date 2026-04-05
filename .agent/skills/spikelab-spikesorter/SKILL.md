@@ -104,16 +104,22 @@ Ask the user:
 |---|---|
 | Single or multiple recordings, any sorter | `sort_recording(recording_files, sorter=...)` |
 | Multi-well Maxwell (multiple stream IDs) | `sort_multistream(recording, stream_ids, sorter=...)` |
-| With a preset config | `sort_recording(recording_files, config=KILOSORT2)` |
+
+Available sorters (see `spikelab.spike_sorting.backends.list_sorters()`):
+- `"kilosort2"` — MATLAB-based. Runs locally with a real MATLAB + Kilosort2 install (pass `kilosort_path`), or in Docker using a pre-built image that bundles the compiled MATLAB Runtime (no MATLAB license needed).
+- `"kilosort4"` — Pure Python via PyTorch. Runs locally (`pip install kilosort` + CUDA-enabled PyTorch) or in Docker.
+
+Preset configs (from `spikelab.spike_sorting.config`): `KILOSORT2`, `KILOSORT2_DOCKER`, `KILOSORT4`, `KILOSORT4_DOCKER`.
 
 ### Step 3: Configure parameters
 
 Key parameters to discuss with the user:
 
 **Sorter:**
-- `kilosort_path` — path to Kilosort2 installation (not needed with Docker)
-- `use_docker` — run Kilosort2 in Docker container
-- `kilosort_params` — override default Kilosort2 parameters
+- `sorter` — `"kilosort2"` or `"kilosort4"`
+- `use_docker` — run the sorter inside a Docker container (auto-selects compatible image)
+- `kilosort_path` — path to a local Kilosort2 source installation (only for `sorter="kilosort2"` without Docker)
+- `kilosort_params` — override default sorter parameters (passed as-is to the underlying sorter)
 
 **Recording:**
 - `stream_id` — Maxwell well/stream identifier
@@ -138,11 +144,10 @@ Key parameters to discuss with the user:
 
 ## Running a Sorting Job
 
-### Basic example
+### Basic example (Kilosort2 via Docker)
 
 ```python
 from spikelab.spike_sorting import sort_recording
-from spikelab.spike_sorting.config import KILOSORT2
 
 RAW_DIR = "data/raw"
 RESULTS_DIR = "data/sorted"
@@ -162,6 +167,27 @@ results = sort_recording(
 sd = results[0]
 print(f"Found {sd.N} curated units over {sd.length:.0f} ms")
 # Curated pickle saved at: data/sorted/recording_a/sorted_spikedata_curated.pkl
+```
+
+### Kilosort4 (local or Docker)
+
+```python
+# Local — requires `pip install kilosort` and PyTorch with CUDA
+results = sort_recording(
+    recording_files=[f"{RAW_DIR}/recording_a.raw.h5"],
+    results_folders=[f"{RESULTS_DIR}/recording_a_ks4"],
+    sorter="kilosort4",
+    snr_min=5.0,
+    compile_to_npz=True,
+)
+
+# Docker — no local KS4 / PyTorch installation needed
+results = sort_recording(
+    recording_files=[f"{RAW_DIR}/recording_a.raw.h5"],
+    results_folders=[f"{RESULTS_DIR}/recording_a_ks4"],
+    sorter="kilosort4",
+    use_docker=True,
+)
 ```
 
 ### Multi-well Maxwell
