@@ -142,7 +142,10 @@ Key parameters to discuss with the user:
 **Compilation:**
 - `compile_to_npz` / `compile_to_mat` — output formats
 - `save_raw_pkl` — save pre-curation SpikeData pickle
-- `create_figures` — generate QC figures
+
+**Figures:**
+- `create_figures` — generate QC figures: quality distributions (pre-curation), curation bar, STD scatter, all templates, raster + pop rate (default: False)
+- `create_unit_figures` — generate per-unit figures: ISI histogram, waveform footprint, max-channel overlay with individual traces; sorted into `curated/` and `failed/` subdirs after curation (default: False, requires `create_figures=True`)
 
 ---
 
