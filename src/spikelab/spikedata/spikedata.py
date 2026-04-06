@@ -31,6 +31,9 @@ from .utils import (
     compute_cross_correlation_with_lag,
     compute_cosine_similarity_with_lag,
     _resolve_n_jobs,
+    _compute_agreement_score,
+    _compute_footprint,
+    _compute_footprint_similarity,
 )
 from concurrent.futures import ThreadPoolExecutor
 
@@ -3063,3 +3066,128 @@ class SpikeData:
             epochs.append(sd_epoch)
 
         return epochs
+
+    def compare_sorter(
+        self,
+        other: "SpikeData",
+        comparison_type: Literal["spike_times", "waveforms"] = "spike_times",
+        delta_ms: float = 0.4,
+        f_rel_to_trough: Tuple[int, int] = (20, 40),
+        max_lag: int = 5,
+    ) -> Dict[str, Any]:
+        """Compare this sorter output against another SpikeData object.
+
+        Parameters:
+            other (SpikeData): SpikeData from a different sorter to compare
+                against.
+            comparison_type: ``"spike_times"`` for spike-train agreement or
+                ``"waveforms"`` for template footprint similarity.
+            delta_ms (float): Maximum temporal distance (ms) for a spike
+                match (spike_times only).
+            f_rel_to_trough (tuple[int, int]): ``(pre, post)`` sample window
+                around the trough for footprint construction (waveforms only).
+            max_lag (int): Maximum lag in samples for footprint cosine
+                similarity search (waveforms only).
+
+        Returns:
+            result (dict): Comparison output dictionary containing:
+                - ``labels_1`` / ``labels_2``: unit indices
+                - ``metadata``: comparison settings
+                - For ``spike_times``: ``agreement``, ``frac_1``, ``frac_2``
+                - For ``waveforms``: ``similarity``
+        """
+        labels_1 = list(range(self.N))
+        labels_2 = list(range(other.N))
+
+        if comparison_type == "spike_times":
+            M, N = self.N, other.N
+            agreement = np.zeros((M, N))
+            frac_1 = np.zeros((M, N))
+            frac_2 = np.zeros((M, N))
+
+            for i in range(M):
+                for j in range(N):
+                    a, r1, r2 = _compute_agreement_score(
+                        self.train[i], other.train[j], delta_ms
+                    )
+                    agreement[i, j] = a
+                    frac_1[i, j] = r1
+                    frac_2[i, j] = r2
+
+            return {
+                "labels_1": labels_1,
+                "labels_2": labels_2,
+                "agreement": agreement,
+                "frac_1": frac_1,
+                "frac_2": frac_2,
+                "metadata": {
+                    "comparison_type": "spike_times",
+                    "delta_ms": delta_ms,
+                },
+            }
+
+        if comparison_type == "waveforms":
+            required = (
+                "template",
+                "neighbor_templates",
+                "channel",
+                "neighbor_channels",
+            )
+            for label, sd in [("self", self), ("other", other)]:
+                if sd.neuron_attributes is None:
+                    raise ValueError(
+                        f"{label}.neuron_attributes is None. Waveform comparison "
+                        "requires 'template', 'neighbor_templates', 'channel', "
+                        "and 'neighbor_channels' per unit."
+                    )
+                for idx, attrs in enumerate(sd.neuron_attributes):
+                    for key in required:
+                        if key not in attrs:
+                            raise ValueError(
+                                f"{label}.neuron_attributes[{idx}] is missing "
+                                f"required key '{key}'."
+                            )
+
+            all_channels: List[int] = []
+            for sd in (self, other):
+                assert sd.neuron_attributes is not None
+                for attrs in sd.neuron_attributes:
+                    all_channels.append(int(attrs["channel"]))
+                    all_channels.extend(
+                        int(c) for c in np.asarray(attrs["neighbor_channels"])
+                    )
+            n_channels = max(all_channels) + 1
+
+            M, N = self.N, other.N
+            similarity = np.zeros((M, N))
+
+            fp_cache_1 = [
+                _compute_footprint(self.neuron_attributes[i], f_rel_to_trough, n_channels)  # type: ignore[index]
+                for i in range(M)
+            ]
+            fp_cache_2 = [
+                _compute_footprint(other.neuron_attributes[j], f_rel_to_trough, n_channels)  # type: ignore[index]
+                for j in range(N)
+            ]
+
+            for i in range(M):
+                for j in range(N):
+                    similarity[i, j] = _compute_footprint_similarity(
+                        fp_cache_1[i], fp_cache_2[j], max_lag
+                    )
+
+            return {
+                "labels_1": labels_1,
+                "labels_2": labels_2,
+                "similarity": similarity,
+                "metadata": {
+                    "comparison_type": "waveforms",
+                    "f_rel_to_trough": f_rel_to_trough,
+                    "max_lag": max_lag,
+                },
+            }
+
+        raise ValueError(
+            f"Unknown comparison_type '{comparison_type}'. "
+            "Expected 'spike_times' or 'waveforms'."
+        )
