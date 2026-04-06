@@ -3127,6 +3127,20 @@ class SpikeData:
             }
 
         if comparison_type == "waveforms":
+            M, N = self.N, other.N
+            similarity = np.zeros((M, N))
+            if M == 0 or N == 0:
+                return {
+                    "labels_1": labels_1,
+                    "labels_2": labels_2,
+                    "similarity": similarity,
+                    "metadata": {
+                        "comparison_type": "waveforms",
+                        "f_rel_to_trough": f_rel_to_trough,
+                        "max_lag": max_lag,
+                    },
+                }
+
             required = (
                 "template",
                 "neighbor_templates",
@@ -3156,10 +3170,11 @@ class SpikeData:
                     all_channels.extend(
                         int(c) for c in np.asarray(attrs["neighbor_channels"])
                     )
+            if not all_channels:
+                raise ValueError(
+                    "No channels found in neuron_attributes for waveform comparison."
+                )
             n_channels = max(all_channels) + 1
-
-            M, N = self.N, other.N
-            similarity = np.zeros((M, N))
 
             fp_cache_1 = [
                 _compute_footprint(self.neuron_attributes[i], f_rel_to_trough, n_channels)  # type: ignore[index]

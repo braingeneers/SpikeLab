@@ -1679,6 +1679,8 @@ def _count_matching_spikes(times1, times2, delta):
             j += 1
 
     return n_matches
+
+
 def _compute_agreement_score(train1, train2, delta):
     """Compute spike-train agreement between two spike trains.
 

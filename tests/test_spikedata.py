@@ -5754,3 +5754,142 @@ class TestCoverageGaps:
             sd.plot_spatial_network(ax, matrix, edge_threshold=0.1)
 
         plt.close("all")
+
+
+class TestCompareSorter:
+    """Tests for SpikeData.compare_sorter modes and edge cases."""
+
+    @staticmethod
+    def _unit_attrs(template, channel=0, neighbor_channel=1):
+        """Build minimal neuron_attributes entry for waveform comparison."""
+        template = np.asarray(template, dtype=float)
+        return {
+            "template": template,
+            "neighbor_templates": np.vstack(
+                [
+                    np.zeros_like(template),
+                    0.5 * template,
+                ]
+            ),
+            "channel": int(channel),
+            "neighbor_channels": np.array([channel, neighbor_channel], dtype=int),
+        }
+
+    def test_compare_sorter_spike_times_shape_metadata_and_empty_trains(self):
+        """
+        Tests: compare_sorter(comparison_type="spike_times") output structure.
+
+        (Test Case 1) Returned dict has expected keys for spike-time mode.
+        (Test Case 2) Matrix shapes match (self.N, other.N) with labels.
+        (Test Case 3) Empty-vs-empty and empty-vs-nonempty train comparisons are zero.
+        """
+        sd1 = SpikeData([[], [10.0, 20.0]], length=30.0)
+        sd2 = SpikeData([[], [10.1, 20.1]], length=30.0)
+
+        out = sd1.compare_sorter(sd2, comparison_type="spike_times", delta_ms=0.4)
+
+        assert set(out.keys()) == {
+            "labels_1",
+            "labels_2",
+            "agreement",
+            "frac_1",
+            "frac_2",
+            "metadata",
+        }
+        assert out["labels_1"] == [0, 1]
+        assert out["labels_2"] == [0, 1]
+        assert out["agreement"].shape == (2, 2)
+        assert out["frac_1"].shape == (2, 2)
+        assert out["frac_2"].shape == (2, 2)
+        assert out["metadata"] == {"comparison_type": "spike_times", "delta_ms": 0.4}
+
+        assert out["agreement"][0, 0] == 0.0
+        assert out["agreement"][0, 1] == 0.0
+        assert out["frac_1"][0, 1] == 0.0
+        assert out["frac_2"][0, 1] == 0.0
+
+    def test_compare_sorter_spike_times_delta_ms_sensitivity(self):
+        """
+        Tests: delta_ms parameter changes spike-time agreement outcomes.
+
+        (Test Case 1) Small delta yields no matches.
+        (Test Case 2) Larger delta yields expected partial agreement.
+        """
+        sd1 = SpikeData([[10.0, 20.0]], length=30.0)
+        sd2 = SpikeData([[10.3, 20.6]], length=30.0)
+
+        out_small = sd1.compare_sorter(sd2, comparison_type="spike_times", delta_ms=0.2)
+        out_large = sd1.compare_sorter(sd2, comparison_type="spike_times", delta_ms=0.4)
+
+        assert out_small["agreement"][0, 0] == 0.0
+        assert out_small["frac_1"][0, 0] == 0.0
+        assert out_small["frac_2"][0, 0] == 0.0
+
+        assert out_large["agreement"][0, 0] == pytest.approx(1 / 3)
+        assert out_large["frac_1"][0, 0] == pytest.approx(0.5)
+        assert out_large["frac_2"][0, 0] == pytest.approx(0.5)
+
+    def test_compare_sorter_waveforms_shape_metadata_and_similarity(self):
+        """
+        Tests: compare_sorter(comparison_type="waveforms") output structure.
+
+        (Test Case 1) Returned dict has expected keys for waveform mode.
+        (Test Case 2) Similarity matrix shape matches unit counts.
+        (Test Case 3) Identical footprints produce high self-similarity.
+        """
+        template = np.array([0.0, -1.0, -2.0, -1.0, 0.0], dtype=float)
+        sd1 = SpikeData(
+            [[], []],
+            length=30.0,
+            neuron_attributes=[
+                self._unit_attrs(template, channel=0, neighbor_channel=1),
+                self._unit_attrs(template * 0.4, channel=2, neighbor_channel=3),
+            ],
+        )
+        sd2 = SpikeData(
+            [[], []],
+            length=30.0,
+            neuron_attributes=[
+                self._unit_attrs(template, channel=0, neighbor_channel=1),
+                self._unit_attrs(template * -1.0, channel=2, neighbor_channel=3),
+            ],
+        )
+
+        out = sd1.compare_sorter(
+            sd2,
+            comparison_type="waveforms",
+            f_rel_to_trough=(2, 2),
+            max_lag=0,
+        )
+
+        assert set(out.keys()) == {"labels_1", "labels_2", "similarity", "metadata"}
+        assert out["labels_1"] == [0, 1]
+        assert out["labels_2"] == [0, 1]
+        assert out["similarity"].shape == (2, 2)
+        assert out["metadata"] == {
+            "comparison_type": "waveforms",
+            "f_rel_to_trough": (2, 2),
+            "max_lag": 0,
+        }
+
+        assert out["similarity"][0, 0] == pytest.approx(1.0, abs=1e-12)
+        assert out["similarity"][1, 1] < 0.0
+
+    def test_compare_sorter_waveforms_zero_units(self):
+        """
+        Tests: waveform comparison gracefully handles zero-unit SpikeData.
+
+        (Test Case 1) Similarity matrix is empty with shape (0, 0).
+        (Test Case 2) Labels are empty and metadata reflects waveform mode.
+        """
+        sd1 = SpikeData([], neuron_attributes=[], length=20.0)
+        sd2 = SpikeData([], neuron_attributes=[], length=20.0)
+
+        out = sd1.compare_sorter(sd2, comparison_type="waveforms")
+
+        assert out["labels_1"] == []
+        assert out["labels_2"] == []
+        assert out["similarity"].shape == (0, 0)
+        assert out["metadata"]["comparison_type"] == "waveforms"
+        assert out["metadata"]["f_rel_to_trough"] == (20, 40)
+        assert out["metadata"]["max_lag"] == 5
