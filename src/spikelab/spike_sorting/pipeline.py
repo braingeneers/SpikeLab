@@ -31,6 +31,13 @@ from .sorting_utils import (
     get_paths,
 )
 
+# Display names for the source_format metadata field.
+_SORTER_DISPLAY_NAMES = {
+    "kilosort2": "Kilosort2",
+    "kilosort4": "Kilosort4",
+    "rt_sort": "RT-Sort",
+}
+
 # ---------------------------------------------------------------------------
 # SpikeData conversion
 # ---------------------------------------------------------------------------
@@ -233,7 +240,9 @@ def build_spikedata(
 
     metadata = {
         "source_file": str(rec_path),
-        "source_format": "Kilosort2",
+        "source_format": _SORTER_DISPLAY_NAMES.get(
+            config.sorter.sorter_name, config.sorter.sorter_name
+        ),
         "fs_Hz": fs_Hz,
         "channel_locations": rec_locations.copy(),
         "n_samples": int(w_e.recording.get_num_samples()),
@@ -683,6 +692,68 @@ def process_recording(
             rec_chunk_names=rec_chunk_names,
         )
 
+        # Generate per-unit figures (before curation, while waveforms are
+        # available on disk). These are saved to a temp dir and sorted
+        # into curated/failed subdirs after curation completes.
+        unit_figures_dir = Path(results_path) / "figures" / "units"
+        unit_figures_dir.mkdir(parents=True, exist_ok=True)
+        _fig_mod = None
+        try:
+            from scripts.generate_sorting_figures import (
+                generate_per_unit_figures,
+                generate_quality_distributions,
+            )
+
+            _fig_mod = True
+        except ImportError:
+            import importlib.util
+
+            _script = (
+                Path(__file__).parents[2] / "scripts" / "generate_sorting_figures.py"
+            )
+            if _script.exists():
+                _spec = importlib.util.spec_from_file_location(
+                    "generate_sorting_figures", _script
+                )
+                _mod = importlib.util.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                generate_per_unit_figures = _mod.generate_per_unit_figures
+                generate_quality_distributions = _mod.generate_quality_distributions
+                _fig_mod = True
+            else:
+                generate_per_unit_figures = None
+                generate_quality_distributions = None
+
+        figures_dir = Path(results_path) / "figures"
+        figures_dir.mkdir(parents=True, exist_ok=True)
+
+        if _fig_mod and generate_per_unit_figures is not None:
+            print_stage("GENERATING PER-UNIT FIGURES")
+            generate_per_unit_figures(
+                sd,
+                unit_figures_dir,
+                amp_thresh_uv=8.0,
+                w_e_raw=w_e_raw,
+            )
+
+        # Generate quality distributions from all pre-curation units
+        if _fig_mod and generate_quality_distributions is not None:
+            print_stage("GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)")
+            # Parse thresholds from config
+            _thresholds = {
+                "fr_min": cur.fr_min,
+                "isi_viol_max": cur.isi_viol_max,
+                "snr_min": cur.snr_min,
+                "spikes_min_second": cur.spikes_min_second,
+                "std_norm_max": cur.std_norm_max,
+            }
+            generate_quality_distributions(
+                sd,
+                is_pre_curation=True,
+                thresholds=_thresholds,
+                out_dir=figures_dir,
+            )
+
         # Curate
         has_epochs = bool(sd.metadata.get("rec_chunks_ms"))
         if cur.curation_epoch is not None and has_epochs:
@@ -731,6 +802,35 @@ def process_recording(
             f"Curation: {n_before} -> {n_after} units "
             f"({n_before - n_after} removed)"
         )
+
+        # Sort per-unit figures into curated/failed subdirectories
+        if unit_figures_dir.exists() and any(unit_figures_dir.glob("unit_*.png")):
+            curated_ids = set()
+            if sd_curated.neuron_attributes is not None:
+                for attrs in sd_curated.neuron_attributes:
+                    uid = attrs.get("unit_id")
+                    if uid is not None:
+                        curated_ids.add(int(uid))
+
+            curated_dir = unit_figures_dir / "curated"
+            failed_dir = unit_figures_dir / "failed"
+            curated_dir.mkdir(exist_ok=True)
+            failed_dir.mkdir(exist_ok=True)
+
+            for png in unit_figures_dir.glob("unit_*.png"):
+                try:
+                    uid = int(png.stem.split("_")[1])
+                except (IndexError, ValueError):
+                    continue
+                dest = curated_dir if uid in curated_ids else failed_dir
+                shutil.move(str(png), str(dest / png.name))
+
+            n_curated_figs = len(list(curated_dir.glob("*.png")))
+            n_failed_figs = len(list(failed_dir.glob("*.png")))
+            print(
+                f"Per-unit figures sorted: {n_curated_figs} curated, "
+                f"{n_failed_figs} failed"
+            )
 
         # Compile results
         compile_results(

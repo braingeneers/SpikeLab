@@ -329,98 +329,135 @@ def generate_raster_overview(sd_curated, out_dir: Path):
 
 
 # ---------------------------------------------------------------------------
-# Figure 6: per-unit ISI histogram + waveform footprint
+# Figure 6: per-unit ISI histogram + waveform footprint + single-channel overlay
 # ---------------------------------------------------------------------------
 
 
-def generate_per_unit_figures(sd_curated, out_dir: Path, amp_thresh_uv: float = 5.0):
-    """For each unit, plot an ISI histogram (0-50 ms) and a waveform footprint.
+def _estimate_channel_spacing(channel_locations: np.ndarray) -> float:
+    """Estimate median nearest-neighbour distance from channel positions."""
+    if channel_locations.shape[0] < 2:
+        return 20.0
+    sample = channel_locations[:: max(1, len(channel_locations) // 100)]
+    dists = []
+    for i in range(len(sample)):
+        d = np.linalg.norm(sample - sample[i], axis=1)
+        d = d[d > 0]
+        if d.size:
+            dists.append(d.min())
+    return float(np.median(dists)) if dists else 20.0
 
-    The footprint shows the average waveform on all channels where the
-    absolute peak of the average waveform exceeds ``amp_thresh_uv`` µV.
-    Channel positions come from the recording's channel_locations.
+
+def generate_per_unit_figures(
+    sd,
+    out_dir: Path,
+    amp_thresh_uv: float = 8.0,
+    w_e_raw=None,
+    max_overlay_spikes: int = 100,
+):
+    """For each unit, generate a 3-panel figure:
+
+    1. ISI histogram (0–100 ms)
+    2. Waveform footprint: average waveforms at electrode positions for
+       channels where |peak| > ``amp_thresh_uv`` µV
+    3. Single-channel overlay: individual spike traces (light grey) with
+       the average waveform (bold) on the max-amplitude channel
+
+    When ``w_e_raw`` (WaveformExtractor) is provided, individual spike
+    waveforms are loaded from it. Otherwise the overlay panel shows only
+    the average template.
+
+    Parameters:
+        sd: SpikeData with neuron_attributes containing ``template_full``.
+        out_dir (Path): Output directory for per-unit PNGs.
+        amp_thresh_uv (float): Minimum |peak amplitude| in µV for a
+            channel to be included in the footprint plot.
+        w_e_raw: WaveformExtractor with ``get_waveforms(unit_id)`` method.
+            Optional — when None, the overlay subplot shows only the
+            average waveform.
+        max_overlay_spikes (int): Maximum number of individual spike
+            traces to draw in the overlay subplot (default 100).
     """
-    fs_Hz = float(sd_curated.metadata.get("fs_Hz", 20000.0))
-    channel_locations = sd_curated.metadata.get("channel_locations")
+    fs_Hz = float(sd.metadata.get("fs_Hz", 20000.0))
+    channel_locations = sd.metadata.get("channel_locations")
     if channel_locations is None:
         print("  (skipping per-unit figures: no channel_locations in metadata)")
         return
     channel_locations = np.asarray(channel_locations)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    t_isi_edges = np.linspace(0, 50, 51)  # 1 ms bins
-    t_isi_centers = 0.5 * (t_isi_edges[:-1] + t_isi_edges[1:])
+    t_isi_edges = np.linspace(0, 100, 101)  # 1 ms bins, 0-100 ms
+    chan_spacing = _estimate_channel_spacing(channel_locations)
+    # Use 2x channel spacing for the footprint so waveforms don't overlap
+    footprint_spacing_scale = 2.0
 
-    n_units = sd_curated.N
+    n_units = sd.N
     print(f"  generating per-unit figures for {n_units} units...")
 
     for idx in range(n_units):
-        attr = sd_curated.neuron_attributes[idx]
+        attr = sd.neuron_attributes[idx]
         unit_id = attr.get("unit_id", idx)
-        spike_times_ms = sd_curated.train[idx]
+        spike_times_ms = sd.train[idx]
         template_full = attr.get("template_full")
         if template_full is None:
             continue
 
-        # --- ISI histogram (0-50 ms) ---
-        if len(spike_times_ms) > 1:
-            isis = np.diff(spike_times_ms)
-            isis = isis[isis <= 50.0]
-        else:
-            isis = np.array([])
-
-        # --- Footprint: channels where |avg waveform peak| > threshold ---
-        peak_per_chan = np.max(np.abs(template_full), axis=0)  # (n_channels,)
-        active_mask = peak_per_chan > amp_thresh_uv
-        active_channels = np.where(active_mask)[0]
-        if active_channels.size == 0:
-            # Fall back to the single max-amplitude channel so there's
-            # something to show
-            active_channels = np.array([int(np.argmax(peak_per_chan))])
-
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-        # Left: ISI histogram
-        ax = axes[0]
-        if isis.size > 0:
-            ax.hist(isis, bins=t_isi_edges, color="#4477aa", edgecolor="none")
-        ax.axvline(2.0, color="red", linestyle="--", linewidth=0.8, label="2 ms")
-        ax.set_xlim(0, 50)
-        ax.set_xlabel("ISI (ms)")
-        ax.set_ylabel("Count")
-        ax.set_title(f"Unit {unit_id} — ISI (n={len(spike_times_ms)} spikes)")
-        ax.legend(loc="upper right")
-        ax.spines[["top", "right"]].set_visible(False)
-
-        # Right: waveform footprint on active channels
-        ax = axes[1]
-        chan_xy = channel_locations[active_channels]
-        # Use position-based drawing: each channel's waveform is placed at
-        # its (x, y) location, scaled to fit.
+        n_spikes = len(spike_times_ms)
         n_samples = template_full.shape[0]
         t_wf_ms = (np.arange(n_samples) - n_samples / 2) / fs_Hz * 1000.0
 
-        # Normalize scaling based on the largest waveform peak across
-        # displayed channels
-        max_amp = peak_per_chan[active_channels].max()
-        if channel_locations.shape[0] >= 2:
-            # Estimate channel spacing from nearest-neighbour distances
-            xy_all = channel_locations
-            # Sample up to 100 channels to estimate spacing
-            sample = xy_all[:: max(1, len(xy_all) // 100)]
-            dists = []
-            for i in range(len(sample)):
-                d = np.linalg.norm(sample - sample[i], axis=1)
-                d = d[d > 0]
-                if d.size:
-                    dists.append(d.min())
-            chan_spacing = float(np.median(dists)) if dists else 20.0
+        # --- ISI histogram (0-100 ms) ---
+        if n_spikes > 1:
+            isis = np.diff(spike_times_ms)
+            isis_plot = isis[isis <= 100.0]
         else:
-            chan_spacing = 20.0
+            isis_plot = np.array([])
 
-        # Time axis scaling so the waveform fits within one channel pitch
-        time_scale = chan_spacing / (t_wf_ms.max() - t_wf_ms.min())
-        amp_scale = chan_spacing / max_amp * 0.8 if max_amp > 0 else 1.0
+        # --- Active channels for footprint ---
+        peak_per_chan = np.max(np.abs(template_full), axis=0)
+        active_mask = peak_per_chan > amp_thresh_uv
+        active_channels = np.where(active_mask)[0]
+        if active_channels.size == 0:
+            active_channels = np.array([int(np.argmax(peak_per_chan))])
+
+        max_channel = int(np.argmax(peak_per_chan))
+
+        # --- Load individual waveforms if available ---
+        individual_wfs = None
+        if w_e_raw is not None:
+            try:
+                all_wfs = w_e_raw.get_waveforms(unit_id)  # (n_spk, n_samples, n_ch)
+                if all_wfs.shape[0] > max_overlay_spikes:
+                    rng = np.random.default_rng(unit_id)
+                    sel = rng.choice(
+                        all_wfs.shape[0], max_overlay_spikes, replace=False
+                    )
+                    individual_wfs = all_wfs[sel, :, max_channel]
+                else:
+                    individual_wfs = all_wfs[:, :, max_channel]
+            except Exception:
+                pass
+
+        # --- Figure: 3 subplots ---
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+        # Panel 1: ISI histogram
+        ax = axes[0]
+        if isis_plot.size > 0:
+            ax.hist(isis_plot, bins=t_isi_edges, color="#4477aa", edgecolor="none")
+        ax.axvline(2.0, color="red", linestyle="--", linewidth=0.8, label="2 ms")
+        ax.set_xlim(0, 100)
+        ax.set_xlabel("ISI (ms)")
+        ax.set_ylabel("Count")
+        ax.set_title(f"Unit {unit_id} — ISI (n={n_spikes} spikes)")
+        ax.legend(loc="upper right")
+        ax.spines[["top", "right"]].set_visible(False)
+
+        # Panel 2: waveform footprint (average traces only, no dots)
+        ax = axes[1]
+        max_amp = peak_per_chan[active_channels].max()
+        effective_spacing = chan_spacing * footprint_spacing_scale
+        time_scale = effective_spacing / (t_wf_ms.max() - t_wf_ms.min())
+        amp_scale = effective_spacing / max_amp * 0.8 if max_amp > 0 else 1.0
 
         for ch_idx in active_channels:
             cx, cy = channel_locations[ch_idx]
@@ -432,35 +469,29 @@ def generate_per_unit_figures(sd_curated, out_dir: Path, amp_thresh_uv: float = 
                 linewidth=0.8,
             )
 
-        # Mark all displayed channel positions with a small dot
-        ax.scatter(
-            chan_xy[:, 0],
-            chan_xy[:, 1],
-            s=6,
-            c="#cc0000",
-            zorder=3,
-        )
-        # Mark the unit's max channel with a star
-        unit_x = attr.get("x", None)
-        unit_y = attr.get("y", None)
-        if unit_x is not None and unit_y is not None:
-            ax.scatter(
-                [unit_x],
-                [unit_y],
-                s=80,
-                marker="*",
-                c="#ffaa00",
-                edgecolor="black",
-                zorder=4,
-            )
-
         ax.set_xlabel("x (µm)")
         ax.set_ylabel("y (µm)")
         ax.set_title(
-            f"Unit {unit_id} — footprint ({active_channels.size} channels, "
-            f"|peak| > {amp_thresh_uv:g} µV)"
+            f"Footprint ({active_channels.size} ch, |peak| > {amp_thresh_uv:g} µV)"
         )
         ax.set_aspect("equal", adjustable="datalim")
+        ax.spines[["top", "right"]].set_visible(False)
+
+        # Panel 3: single-channel waveform overlay (individual traces + average)
+        ax = axes[2]
+        if individual_wfs is not None:
+            for i in range(individual_wfs.shape[0]):
+                ax.plot(t_wf_ms, individual_wfs[i], color="#cccccc", linewidth=0.3)
+        avg_wf = template_full[:, max_channel]
+        ax.plot(t_wf_ms, avg_wf, color="#cc0000", linewidth=1.5, label="mean")
+        ax.set_xlabel("Time (ms)")
+        ax.set_ylabel("Amplitude (µV)")
+        n_overlay = individual_wfs.shape[0] if individual_wfs is not None else 0
+        ax.set_title(
+            f"Ch {max_channel} — {n_spikes} total spikes"
+            + (f" ({n_overlay} shown)" if n_overlay > 0 else "")
+        )
+        ax.legend(loc="upper right")
         ax.spines[["top", "right"]].set_visible(False)
 
         fig.tight_layout()
@@ -487,8 +518,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--amp-thresh-uv",
         type=float,
-        default=5.0,
-        help="Amplitude threshold (µV) for including a channel in the unit footprint plot (default: 5.0)",
+        default=8.0,
+        help="Amplitude threshold (µV) for including a channel in the unit footprint plot (default: 8.0)",
     )
     parser.add_argument(
         "--skip-per-unit",
