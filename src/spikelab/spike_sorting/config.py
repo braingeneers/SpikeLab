@@ -140,6 +140,7 @@ class FigureConfig:
     """Parameters for QC figure generation."""
 
     create_figures: bool = False
+    create_unit_figures: bool = False
     dpi: Optional[int] = None
     font_size: int = 12
     bar_x_label: str = "Recording"
@@ -365,6 +366,7 @@ class SortingPipelineConfig:
             "save_dl_data": ("compilation", "save_dl_data"),
             # FigureConfig
             "create_figures": ("figures", "create_figures"),
+            "create_unit_figures": ("figures", "create_unit_figures"),
             "figures_dpi": ("figures", "dpi"),
             "figures_font_size": ("figures", "font_size"),
             "bar_x_label": ("figures", "bar_x_label"),

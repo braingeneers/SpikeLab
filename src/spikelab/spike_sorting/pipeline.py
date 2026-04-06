@@ -740,7 +740,10 @@ def process_recording(
                 ):
                     _fig[name] = getattr(_fmod, name, None)
 
-            if _fig.get("generate_per_unit_figures") is not None:
+            if (
+                config.figures.create_unit_figures
+                and _fig.get("generate_per_unit_figures") is not None
+            ):
                 print_stage("GENERATING PER-UNIT FIGURES")
                 _fig["generate_per_unit_figures"](
                     sd,
@@ -748,6 +751,8 @@ def process_recording(
                     amp_thresh_uv=15.0,
                     w_e_raw=w_e_raw,
                 )
+            elif not config.figures.create_unit_figures:
+                print("Skipping per-unit figures (create_unit_figures=False)")
 
             if _fig.get("generate_quality_distributions") is not None:
                 print_stage("GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)")
