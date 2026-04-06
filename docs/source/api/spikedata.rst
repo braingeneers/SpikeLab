@@ -1,30 +1,14 @@
-spikedata module
-================
+=========
+SpikeData
+=========
 
-.. automodule:: spikedata
+The ``SpikeData`` class is the primary data structure in SpikeLab. It holds
+spike trains for one or more units (neurons or electrodes), where each spike
+train is a sequence of spike times. All analysis methods assume spike times are
+in milliseconds. Most analysis workflows start by creating or loading a
+``SpikeData`` object.
+
+.. autoclass:: spikelab.spikedata.SpikeData
    :members:
-   :undoc-members:
-   :show-inheritance:
-
-SpikeData Class
----------------
-
-.. autoclass:: spikedata.SpikeData
-   :members:
-   :undoc-members:
    :show-inheritance:
    :special-members: __init__
-
-Standalone Functions
---------------------
-
-.. autofunction:: spikedata.spike_time_tiling
-
-.. autofunction:: spikedata.randomize
-
-.. autofunction:: spikedata.get_pop_rate
-
-.. autofunction:: spikedata.get_bursts
-
-.. autofunction:: spikedata.swap
-

@@ -1,4 +1,4 @@
-name: integrated-analysis-tools
+name: spikelab
 channels:
   - conda-forge
   - defaults
@@ -9,6 +9,11 @@ dependencies:
   - scikit-learn
   - networkx
   - matplotlib>=3.5
+  - pandas>=1.3
+  - h5py>=3.0.0
+  # Install umap from conda so numba/llvmlite are binaries; pip+umap often
+  # builds llvmlite from source and fails (setuptools spawn/dry_run).
+  - umap-learn>=0.5.0
   - pip
   - pip:
     - mcp>=0.9.0
@@ -19,9 +24,7 @@ dependencies:
     - sphinx>=7.0
     - sphinx-rtd-theme>=2.0
     - sphinx-autodoc-typehints>=1.25
-    - h5py>=3.0.0
-    # Optional extras — guarded in source with try/except ImportError
-    - umap-learn>=0.5.0
+    # Optional — guarded in source with try/except ImportError
     - neo>=0.12.0
     - quantities>=0.14.0
 
