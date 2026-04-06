@@ -1661,23 +1661,24 @@ def _count_matching_spikes(times1, times2, delta):
     if len(times1) == 0 or len(times2) == 0:
         return 0
 
-    times_concat = np.concatenate((times1, times2))
-    membership = np.concatenate(
-        (np.ones(len(times1), dtype=int), 2 * np.ones(len(times2), dtype=int))
-    )
-    indices = times_concat.argsort(kind="stable")
-    times_concat_sorted = times_concat[indices]
-    membership_sorted = membership[indices]
-    diffs = np.diff(times_concat_sorted)
-    inds = np.where(
-        (diffs <= delta) & (membership_sorted[:-1] != membership_sorted[1:])
-    )[0]
-    if len(inds) == 0:
-        return 0
-    inds2 = np.where(np.diff(inds) > 1)[0]
-    return len(inds2) + 1
+    i = 0
+    j = 0
+    n_matches = 0
+    n1 = len(times1)
+    n2 = len(times2)
 
+    while i < n1 and j < n2:
+        dt = times1[i] - times2[j]
+        if abs(dt) <= delta:
+            n_matches += 1
+            i += 1
+            j += 1
+        elif dt < 0:
+            i += 1
+        else:
+            j += 1
 
+    return n_matches
 def _compute_agreement_score(train1, train2, delta):
     """Compute spike-train agreement between two spike trains.
 
