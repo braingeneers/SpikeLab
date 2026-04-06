@@ -677,6 +677,8 @@ class SpikeData:
         sampling_rate=None,
         t_start=None,
         t_end=None,
+        gauss_sigma=0.0,
+        apply_square=True,
     ):
         """
         Compute continuous firing rate of each unit using a sliding-window average.
@@ -695,6 +697,11 @@ class SpikeData:
                 Default: start_time - window_size/2.
             t_end (float, optional): End of output time range in ms.
                 Default: start_time + length + window_size/2.
+            gauss_sigma (float, optional): Gaussian smoothing sigma in ms.
+                If 0, Gaussian smoothing is disabled.
+            apply_square (bool, optional): If True, applies the square-window
+                smoothing defined by window_size. If False, computes per-bin
+                rates first and then applies optional Gaussian smoothing.
 
         Returns:
             RateData: Object with inst_Frate_data (N, T) and times;
@@ -715,6 +722,8 @@ class SpikeData:
                 sampling_rate=sampling_rate,
                 t_start=t_start,
                 t_end=t_end,
+                gauss_sigma=gauss_sigma,
+                apply_square=apply_square,
             )
             rate_arr = rd.inst_Frate_data[0]
             tvec = rd.times

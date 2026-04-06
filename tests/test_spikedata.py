@@ -1811,6 +1811,57 @@ class TestSpikeDataRates:
         isi_rates = sd.resampled_isi(time_vector, sigma_ms=0)
         self.assertEqual(rate_array.shape, isi_rates.inst_Frate_data.shape)
 
+    def test_sliding_rate_gaussian_only(self):
+        """
+        Tests Gaussian-only smoothing path for sliding_rate helper.
+
+        Test Case 1: Gaussian-only smoothing returns non-negative rates and
+        preserves output length.
+        """
+        spikes = np.array([5.0, 10.0, 20.0, 40.0, 60.0])
+        rd = _sliding_rate_single_train(
+            spikes,
+            window_size=10,
+            step_size=1.0,
+            t_start=0,
+            t_end=80,
+            gauss_sigma=2.0,
+            apply_square=False,
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        assert rate_arr.shape[0] == len(rd.times)
+        assert np.all(rate_arr >= 0)
+
+    def test_spikedata_sliding_rate_square_and_gaussian(self):
+        """
+        Tests that sliding_rate supports combined square + Gaussian smoothing.
+
+        Test Case 1: Combined smoothing preserves shape and changes values
+        relative to square-only smoothing.
+        """
+        trains = [[0, 1, 2, 3, 4, 5], [1, 3, 5, 7], [2, 4]]
+        sd = SpikeData(trains, length=10)
+        square_only = sd.sliding_rate(
+            window_size=2,
+            step_size=1,
+            t_start=0,
+            t_end=10,
+            gauss_sigma=0.0,
+            apply_square=True,
+        )
+        square_plus_gauss = sd.sliding_rate(
+            window_size=2,
+            step_size=1,
+            t_start=0,
+            t_end=10,
+            gauss_sigma=1.5,
+            apply_square=True,
+        )
+        assert square_only.inst_Frate_data.shape == square_plus_gauss.inst_Frate_data.shape
+        assert not np.allclose(
+            square_only.inst_Frate_data, square_plus_gauss.inst_Frate_data
+        )
+
     def test_latencies(self):
         """
         Tests latencies() for correct calculation of spike latencies relative to reference times.
