@@ -335,12 +335,28 @@ with open("curation_history.json", "w") as f:
 
 This skill supports **sorting QC only** — verifying that the sorting and curation produced reasonable results. For any deeper analysis, direct the user to `spikelab-analysis-implementer`.
 
-### QC figures (generated during sorting)
+### QC figures script
 
-When `create_figures=True`, three figures are saved to `<results_folder>/figures/`:
-- `curation_bar_plot.png` — total vs. curated unit counts
-- `std_scatter_plot.png` — normalized STD vs. spike count with threshold lines
-- `all_templates_plot.png` — stacked waveform templates by polarity
+After sorting completes, **always run the figure generation script**:
+
+```bash
+conda run -n spikelab python SpikeLab/scripts/generate_sorting_figures.py <results_folder>
+```
+
+This generates all QC figures in `<results_folder>/figures/`:
+
+| Figure | Description |
+|---|---|
+| `curation_bar_plot.png` | Total vs. curated unit counts |
+| `std_scatter_plot.png` | Normalized STD vs. spike count with curation thresholds |
+| `all_templates_plot.png` | Stacked waveform templates by polarity |
+| `quality_distributions.png` | 4-panel histogram: SNR, firing rate, spike count, ISI violations (all units, with threshold lines) |
+| `raster_pop_rate_first30s.png` | Raster + population rate for the first 30 s |
+| `units/unit_NNNN.png` | Per-unit: ISI histogram (0–50 ms) + waveform footprint on channels with |peak| > 5 µV |
+
+When `sorted_spikedata.pkl` (raw, pre-curation) is available, the quality distributions show all units from before curation. Otherwise they show curated units only (noted in the title).
+
+The script auto-reads curation thresholds from the sorting script referenced in the log header. Use `--skip-per-unit` to skip the (slower) per-unit figures, or `--amp-thresh-uv N` to change the footprint amplitude threshold.
 
 ### Standalone QC figure functions
 
