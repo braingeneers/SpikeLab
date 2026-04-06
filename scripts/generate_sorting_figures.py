@@ -350,7 +350,7 @@ def _estimate_channel_spacing(channel_locations: np.ndarray) -> float:
 def generate_per_unit_figures(
     sd,
     out_dir: Path,
-    amp_thresh_uv: float = 8.0,
+    amp_thresh_uv: float = 15.0,
     w_e_raw=None,
     max_overlay_spikes: int = 100,
 ):
@@ -387,8 +387,6 @@ def generate_per_unit_figures(
     out_dir.mkdir(parents=True, exist_ok=True)
     t_isi_edges = np.linspace(0, 100, 101)  # 1 ms bins, 0-100 ms
     chan_spacing = _estimate_channel_spacing(channel_locations)
-    # Use 2x channel spacing for the footprint so waveforms don't overlap
-    footprint_spacing_scale = 2.0
 
     n_units = sd.N
     print(f"  generating per-unit figures for {n_units} units...")
@@ -453,11 +451,12 @@ def generate_per_unit_figures(
         ax.spines[["top", "right"]].set_visible(False)
 
         # Panel 2: waveform footprint (average traces only, no dots)
+        # Scale so the tallest waveform spans half the electrode spacing,
+        # preventing overlap regardless of absolute amplitude.
         ax = axes[1]
         max_amp = peak_per_chan[active_channels].max()
-        effective_spacing = chan_spacing * footprint_spacing_scale
-        time_scale = effective_spacing / (t_wf_ms.max() - t_wf_ms.min())
-        amp_scale = effective_spacing / max_amp * 0.8 if max_amp > 0 else 1.0
+        time_scale = (chan_spacing * 0.4) / (t_wf_ms.max() - t_wf_ms.min())
+        amp_scale = (chan_spacing * 0.45) / max_amp if max_amp > 0 else 1.0
 
         for ch_idx in active_channels:
             cx, cy = channel_locations[ch_idx]
@@ -518,8 +517,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--amp-thresh-uv",
         type=float,
-        default=8.0,
-        help="Amplitude threshold (µV) for including a channel in the unit footprint plot (default: 8.0)",
+        default=15.0,
+        help="Amplitude threshold (µV) for including a channel in the unit footprint plot (default: 15.0)",
     )
     parser.add_argument(
         "--skip-per-unit",

@@ -697,14 +697,9 @@ def process_recording(
         # into curated/failed subdirs after curation completes.
         unit_figures_dir = Path(results_path) / "figures" / "units"
         unit_figures_dir.mkdir(parents=True, exist_ok=True)
-        _fig_mod = None
+        _fig = {}
         try:
-            from scripts.generate_sorting_figures import (
-                generate_per_unit_figures,
-                generate_quality_distributions,
-            )
-
-            _fig_mod = True
+            from scripts import generate_sorting_figures as _fmod
         except ImportError:
             import importlib.util
 
@@ -715,39 +710,43 @@ def process_recording(
                 _spec = importlib.util.spec_from_file_location(
                     "generate_sorting_figures", _script
                 )
-                _mod = importlib.util.module_from_spec(_spec)
-                _spec.loader.exec_module(_mod)
-                generate_per_unit_figures = _mod.generate_per_unit_figures
-                generate_quality_distributions = _mod.generate_quality_distributions
-                _fig_mod = True
+                _fmod = importlib.util.module_from_spec(_spec)
+                _spec.loader.exec_module(_fmod)
             else:
-                generate_per_unit_figures = None
-                generate_quality_distributions = None
+                _fmod = None
+
+        if _fmod is not None:
+            for name in (
+                "generate_per_unit_figures",
+                "generate_quality_distributions",
+                "generate_builtin_figures",
+                "generate_raster_overview",
+            ):
+                _fig[name] = getattr(_fmod, name, None)
 
         figures_dir = Path(results_path) / "figures"
         figures_dir.mkdir(parents=True, exist_ok=True)
 
-        if _fig_mod and generate_per_unit_figures is not None:
+        _thresholds = {
+            "fr_min": cur.fr_min,
+            "isi_viol_max": cur.isi_viol_max,
+            "snr_min": cur.snr_min,
+            "spikes_min_second": cur.spikes_min_second,
+            "std_norm_max": cur.std_norm_max,
+        }
+
+        if _fig.get("generate_per_unit_figures") is not None:
             print_stage("GENERATING PER-UNIT FIGURES")
-            generate_per_unit_figures(
+            _fig["generate_per_unit_figures"](
                 sd,
                 unit_figures_dir,
-                amp_thresh_uv=8.0,
+                amp_thresh_uv=15.0,
                 w_e_raw=w_e_raw,
             )
 
-        # Generate quality distributions from all pre-curation units
-        if _fig_mod and generate_quality_distributions is not None:
+        if _fig.get("generate_quality_distributions") is not None:
             print_stage("GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)")
-            # Parse thresholds from config
-            _thresholds = {
-                "fr_min": cur.fr_min,
-                "isi_viol_max": cur.isi_viol_max,
-                "snr_min": cur.snr_min,
-                "spikes_min_second": cur.spikes_min_second,
-                "std_norm_max": cur.std_norm_max,
-            }
-            generate_quality_distributions(
+            _fig["generate_quality_distributions"](
                 sd,
                 is_pre_curation=True,
                 thresholds=_thresholds,
@@ -831,6 +830,14 @@ def process_recording(
                 f"Per-unit figures sorted: {n_curated_figs} curated, "
                 f"{n_failed_figs} failed"
             )
+
+        # Generate remaining figures (need curated SpikeData)
+        if _fig.get("generate_builtin_figures") is not None:
+            print_stage("GENERATING QC FIGURES")
+            _fig["generate_builtin_figures"](sd_curated, _thresholds, figures_dir)
+        if _fig.get("generate_raster_overview") is not None:
+            generate_raster_overview = _fig["generate_raster_overview"]
+            generate_raster_overview(sd_curated, figures_dir)
 
         # Compile results
         compile_results(
