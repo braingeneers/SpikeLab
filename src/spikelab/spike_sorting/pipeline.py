@@ -692,41 +692,13 @@ def process_recording(
             rec_chunk_names=rec_chunk_names,
         )
 
-        # Generate per-unit figures (before curation, while waveforms are
-        # available on disk). These are saved to a temp dir and sorted
-        # into curated/failed subdirs after curation completes.
+        # Generate figures if create_figures is enabled.
+        # Per-unit figures are generated before curation (while individual
+        # waveforms are still on disk), then sorted into curated/failed
+        # subdirs after curation completes.
         unit_figures_dir = Path(results_path) / "figures" / "units"
-        unit_figures_dir.mkdir(parents=True, exist_ok=True)
         _fig = {}
-        try:
-            from scripts import generate_sorting_figures as _fmod
-        except ImportError:
-            import importlib.util
-
-            _script = (
-                Path(__file__).parents[2] / "scripts" / "generate_sorting_figures.py"
-            )
-            if _script.exists():
-                _spec = importlib.util.spec_from_file_location(
-                    "generate_sorting_figures", _script
-                )
-                _fmod = importlib.util.module_from_spec(_spec)
-                _spec.loader.exec_module(_fmod)
-            else:
-                _fmod = None
-
-        if _fmod is not None:
-            for name in (
-                "generate_per_unit_figures",
-                "generate_quality_distributions",
-                "generate_builtin_figures",
-                "generate_raster_overview",
-            ):
-                _fig[name] = getattr(_fmod, name, None)
-
         figures_dir = Path(results_path) / "figures"
-        figures_dir.mkdir(parents=True, exist_ok=True)
-
         _thresholds = {
             "fr_min": cur.fr_min,
             "isi_viol_max": cur.isi_viol_max,
@@ -735,23 +707,56 @@ def process_recording(
             "std_norm_max": cur.std_norm_max,
         }
 
-        if _fig.get("generate_per_unit_figures") is not None:
-            print_stage("GENERATING PER-UNIT FIGURES")
-            _fig["generate_per_unit_figures"](
-                sd,
-                unit_figures_dir,
-                amp_thresh_uv=15.0,
-                w_e_raw=w_e_raw,
-            )
+        if not config.figures.create_figures:
+            print("Skipping figure generation (create_figures=False)")
+        else:
+            unit_figures_dir.mkdir(parents=True, exist_ok=True)
+            figures_dir.mkdir(parents=True, exist_ok=True)
 
-        if _fig.get("generate_quality_distributions") is not None:
-            print_stage("GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)")
-            _fig["generate_quality_distributions"](
-                sd,
-                is_pre_curation=True,
-                thresholds=_thresholds,
-                out_dir=figures_dir,
-            )
+            _fmod = None
+            try:
+                from scripts import generate_sorting_figures as _fmod
+            except ImportError:
+                import importlib.util
+
+                _script = (
+                    Path(__file__).parents[2]
+                    / "scripts"
+                    / "generate_sorting_figures.py"
+                )
+                if _script.exists():
+                    _spec = importlib.util.spec_from_file_location(
+                        "generate_sorting_figures", _script
+                    )
+                    _fmod = importlib.util.module_from_spec(_spec)
+                    _spec.loader.exec_module(_fmod)
+
+            if _fmod is not None:
+                for name in (
+                    "generate_per_unit_figures",
+                    "generate_quality_distributions",
+                    "generate_builtin_figures",
+                    "generate_raster_overview",
+                ):
+                    _fig[name] = getattr(_fmod, name, None)
+
+            if _fig.get("generate_per_unit_figures") is not None:
+                print_stage("GENERATING PER-UNIT FIGURES")
+                _fig["generate_per_unit_figures"](
+                    sd,
+                    unit_figures_dir,
+                    amp_thresh_uv=15.0,
+                    w_e_raw=w_e_raw,
+                )
+
+            if _fig.get("generate_quality_distributions") is not None:
+                print_stage("GENERATING QUALITY DISTRIBUTIONS (ALL UNITS)")
+                _fig["generate_quality_distributions"](
+                    sd,
+                    is_pre_curation=True,
+                    thresholds=_thresholds,
+                    out_dir=figures_dir,
+                )
 
         # Curate
         has_epochs = bool(sd.metadata.get("rec_chunks_ms"))
