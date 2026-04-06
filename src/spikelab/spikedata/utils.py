@@ -200,7 +200,17 @@ def _resampled_isi(spikes, times, sigma_ms):
         # Need at least 2 spikes to do get inter-spike interval
         return np.zeros_like(times)
     if len(times) < 2:
-        raise ValueError("times has less than 2 values. Input more times")
+        # Single-time query: return unsmoothed ISI-derived rate at that time.
+        # If time is outside valid spike-interval support, rate is 0.
+        t = float(times[0])
+        spikes = np.array(spikes)
+        idx = np.searchsorted(spikes, t, side="right") - 1
+        if idx < 0 or idx >= len(spikes) - 1:
+            return np.zeros_like(times, dtype=float)
+        isi = spikes[idx + 1] - spikes[idx]
+        if isi <= 0:
+            return np.zeros_like(times, dtype=float)
+        return np.array([1.0 / isi], dtype=float)
 
     spikes = np.array(spikes)
     times = np.array(times)

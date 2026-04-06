@@ -1955,6 +1955,10 @@ def plot_recording(
         times_arr = np.arange(sd.start_time, sd.start_time + sd.length, 1.0)
         fr_rates = sd.resampled_isi(times_arr, sigma_ms=fr_rate_sigma_ms)
 
+    # resampled_isi now returns RateData; plotting expects array-like (U, T).
+    if fr_rates is not None and hasattr(fr_rates, "inst_Frate_data"):
+        fr_rates = fr_rates.inst_Frate_data
+
     # Apply unit reordering
     if sort_indices is not None:
         spk_mat = spk_mat[sort_indices, :]
