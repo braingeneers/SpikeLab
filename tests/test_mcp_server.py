@@ -3242,22 +3242,18 @@ class TestComputeResampledISIEdgeCases:
     @pytest.mark.asyncio
     async def test_single_time_point(self, loaded_ws):
         """
-        Single time point raises ValueError because resampled_isi requires
-        at least 2 time points for interpolation.
+        Single time point succeeds and returns a valid RateData.
 
         Tests:
-            (Test Case 1) compute_resampled_isi with times=[25.0] raises
-                ValueError.
-
-        Notes:
-            - The underlying _resampled_isi helper requires len(times) >= 2
-              for interpolation. Single time points are rejected.
+            (Test Case 1) compute_resampled_isi with times=[25.0] stores a
+                result with 1 time point.
         """
         ws_id, ns = loaded_ws
-        with pytest.raises(ValueError, match="less than 2"):
-            await analysis.compute_resampled_isi(
-                ws_id, ns, "rates_single", times=[25.0]
-            )
+        result = await analysis.compute_resampled_isi(
+            ws_id, ns, "rates_single", times=[25.0]
+        )
+        assert result["n_timepoints"] == 1
+        assert result["key"] == "rates_single"
 
 
 class TestComputeSpikeTimeTilingEdgeCases:

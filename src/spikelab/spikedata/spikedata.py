@@ -22,6 +22,7 @@ from .utils import (
     _sttc_na,
     _spike_time_tiling,
     _resampled_isi,
+    _sliding_rate_single_train,
     _train_from_i_t_list,
     swap,
     randomize,
@@ -660,9 +661,118 @@ class SpikeData:
                 milliseconds.
 
         Returns:
-            rates (numpy.ndarray): Array of the resampled firing rate.
+            RateData: Object with inst_Frate_data (N, T) and times;
+                units: Hz (spikes/s).
         """
-        return np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
+        times = np.atleast_1d(times)
+        rate_array = np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
+        if rate_array.ndim == 1:
+            rate_array = rate_array[:, np.newaxis]
+        return RateData(inst_Frate_data=rate_array, times=times)
+
+    def sliding_rate(
+        self,
+        window_size,
+        step_size=None,
+        sampling_rate=None,
+        t_start=None,
+        t_end=None,
+        gauss_sigma=0.0,
+        apply_square=True,
+    ):
+        """
+        Compute continuous firing rate of each unit using a sliding-window average.
+
+        For each time bin t, counts spikes in the centered window [t - W/2, t + W/2]
+        and returns rate R(t) = N / W (spikes per time unit, e.g. kHz).
+
+        Parameters:
+            window_size (float): Width of the sliding window in ms. Centered
+                window [t - W/2, t + W/2].
+            step_size (float, optional): Advance step for time bins in ms.
+                Mutually exclusive with sampling_rate.
+            sampling_rate (float, optional): Samples per ms;
+                step_size = 1 / sampling_rate. Mutually exclusive with step_size.
+            t_start (float, optional): Start of output time range in ms.
+                Default: start_time - window_size/2.
+            t_end (float, optional): End of output time range in ms.
+                Default: start_time + length + window_size/2.
+            gauss_sigma (float, optional): Gaussian smoothing sigma in ms.
+                If 0, Gaussian smoothing is disabled.
+            apply_square (bool, optional): If True, applies the square-window
+                smoothing defined by window_size. If False, computes per-bin
+                rates first and then applies optional Gaussian smoothing.
+
+        Returns:
+            RateData: Object with inst_Frate_data (N, T) and times;
+                units: spikes/ms (kHz).
+        """
+        # --- Validate parameters ---
+        if window_size <= 0:
+            raise ValueError(f"window_size must be positive, got {window_size}")
+        if step_size is None and sampling_rate is None:
+            raise ValueError("Must provide either step_size or sampling_rate")
+        if step_size is not None and sampling_rate is not None:
+            raise ValueError(
+                "step_size and sampling_rate are mutually exclusive; "
+                "provide one, not both"
+            )
+        if step_size is None:
+            if sampling_rate <= 0:
+                raise ValueError(f"sampling_rate must be positive, got {sampling_rate}")
+            step_size = 1.0 / sampling_rate
+        elif step_size <= 0:
+            raise ValueError(f"step_size must be positive, got {step_size}")
+        if gauss_sigma < 0:
+            raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
+
+        # --- Time range defaults ---
+        if t_start is None:
+            t_start = self.start_time - window_size / 2
+        if t_end is None:
+            t_end = self.start_time + self.length + window_size / 2
+        if t_end <= t_start:
+            raise ValueError(
+                f"t_end must be greater than t_start "
+                f"(got t_start={t_start}, t_end={t_end})"
+            )
+
+        # --- Compute bin edges and time vector ---
+        span = t_end - t_start
+        n_bins = int(np.ceil(span / step_size))
+        remainder = span % step_size
+        if remainder < 1e-12 or abs(remainder - step_size) < 1e-12:
+            n_bins += 1
+        bin_edges = t_start + np.arange(n_bins + 1) * step_size
+        time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        # --- Histogram all units at once ---
+        rate_array = np.zeros((self.N, n_bins), dtype=float)
+        for i, ts in enumerate(self.train):
+            if len(ts) == 0:
+                continue
+            hist, _ = np.histogram(ts, bins=bin_edges)
+            rate_array[i] = hist
+
+        # --- Smoothing ---
+        if apply_square:
+            window_bins = min(max(1, int(round(window_size / step_size))), n_bins)
+            effective_window = window_bins * step_size
+            kernel = np.ones(window_bins)
+            for i in range(self.N):
+                counts = np.convolve(rate_array[i], kernel, mode="same")
+                rate_array[i] = counts / effective_window
+        else:
+            rate_array /= step_size
+
+        if gauss_sigma > 0:
+            sigma_bins = gauss_sigma / step_size
+            for i in range(self.N):
+                rate_array[i] = ndimage.gaussian_filter1d(
+                    rate_array[i], sigma=sigma_bins
+                )
+
+        return RateData(inst_Frate_data=rate_array, times=time_vector)
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
         """Set an attribute across neurons in neuron_attributes.

@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from ...spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
-from ...spikedata.ratedata import RateData
 from ...spikedata.rateslicestack import RateSliceStack
 from ...spikedata.spikeslicestack import SpikeSliceStack
 from ...spikedata.spikedata import SpikeData
@@ -228,8 +227,7 @@ async def compute_resampled_isi(
     """
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    rate_matrix = sd.resampled_isi(times=np.array(times), sigma_ms=sigma_ms)
-    rd = RateData(rate_matrix, np.array(times))
+    rd = sd.resampled_isi(times=np.array(times), sigma_ms=sigma_ms)
     ws.store(namespace, key, rd)
     return {
         "workspace_id": workspace_id,
