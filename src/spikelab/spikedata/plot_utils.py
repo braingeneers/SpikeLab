@@ -1956,7 +1956,9 @@ def plot_recording(
         fr_rates = sd.resampled_isi(times_arr, sigma_ms=fr_rate_sigma_ms)
 
     # resampled_isi now returns RateData; plotting expects array-like (U, T).
-    if fr_rates is not None and hasattr(fr_rates, "inst_Frate_data"):
+    from .ratedata import RateData
+
+    if fr_rates is not None and isinstance(fr_rates, RateData):
         fr_rates = fr_rates.inst_Frate_data
 
     # Apply unit reordering

@@ -210,7 +210,7 @@ def _resampled_isi(spikes, times, sigma_ms):
         isi = spikes[idx + 1] - spikes[idx]
         if isi <= 0:
             return np.zeros_like(times, dtype=float)
-        return np.array([1.0 / isi], dtype=float)
+        return np.array([1.0 / isi * 1000], dtype=float)
 
     spikes = np.array(spikes)
     times = np.array(times)
@@ -322,6 +322,10 @@ def _sliding_rate_single_train(
 
     if step_size is None and sampling_rate is None:
         raise ValueError("Must provide either step_size or sampling_rate")
+    if step_size is not None and sampling_rate is not None:
+        raise ValueError(
+            "step_size and sampling_rate are mutually exclusive; provide one, not both"
+        )
     if step_size is None:
         if sampling_rate is None or sampling_rate <= 0:
             raise ValueError(
@@ -349,7 +353,8 @@ def _sliding_rate_single_train(
     # Use sparse_raster for binning (same rule as SpikeData)
     span = t_end - t_start
     n_bins_est = int(np.ceil(span / step_size))
-    if (span % step_size) == 0:
+    remainder = span % step_size
+    if remainder < 1e-12 or abs(remainder - step_size) < 1e-12:
         n_bins_est += 1
     t_last = t_start + n_bins_est * step_size
     mask = (spike_times >= t_start) & (spike_times < t_last)
@@ -366,7 +371,7 @@ def _sliding_rate_single_train(
     if apply_square:
         # Sliding window = convolution with uniform kernel: sums spike counts over
         # window_size worth of adjacent bins. mode='same' keeps output aligned with input.
-        window_bins = max(1, int(round(window_size / step_size)))
+        window_bins = min(max(1, int(round(window_size / step_size))), n_bins)
         effective_window = window_bins * step_size
         kernel = np.ones(window_bins)
         counts = np.convolve(hist, kernel, mode="same")
