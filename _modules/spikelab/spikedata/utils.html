@@ -515,7 +515,17 @@
         <span class="c1"># Need at least 2 spikes to do get inter-spike interval</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;times has less than 2 values. Input more times&quot;</span><span class="p">)</span>
+        <span class="c1"># Single-time query: return unsmoothed ISI-derived rate at that time.</span>
+        <span class="c1"># If time is outside valid spike-interval support, rate is 0.</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">spikes</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">isi</span> <span class="o">=</span> <span class="n">spikes</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">isi</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">isi</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
     <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
@@ -574,6 +584,126 @@
         <span class="k">return</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">gaussian_filter1d</span><span class="p">(</span><span class="n">fr</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">fr</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sliding_rate_single_train</span><span class="p">(</span>
+    <span class="n">spike_times</span><span class="p">,</span>
+    <span class="n">window_size</span><span class="p">,</span>
+    <span class="n">step_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">t_start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">t_end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">gauss_sigma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">apply_square</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute continuous firing rate from spike times using square and/or Gaussian smoothing.</span>
+
+<span class="sd">    For each time bin t, this can apply:</span>
+<span class="sd">    - square smoothing: counts spikes in centered window [t - W/2, t + W/2], rate R(t)=N/W</span>
+<span class="sd">    - Gaussian smoothing: 1D Gaussian filter over the rate trace</span>
+<span class="sd">    - both: square smoothing followed by Gaussian smoothing</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    spike_times (array_like): array_like</span>
+<span class="sd">        1D array of spike timestamps (time units consistent with other args).</span>
+<span class="sd">    window_size (float): Width of the sliding window W. Centered window [t - W/2, t + W/2].</span>
+<span class="sd">    step_size (float, optional): Advance step for time bins. If both step_size and sampling_rate</span>
+<span class="sd">        are provided, step_size takes precedence and sampling_rate is ignored.</span>
+<span class="sd">    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate if</span>
+<span class="sd">        step_size is not provided.</span>
+<span class="sd">    t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.</span>
+<span class="sd">    t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.</span>
+<span class="sd">    gauss_sigma (float, optional): Gaussian smoothing sigma in ms. If 0, Gaussian smoothing is disabled.</span>
+<span class="sd">    apply_square (bool, optional): If True, apply square-window smoothing (existing behavior).</span>
+<span class="sd">        If False, skip square smoothing and compute rates from per-bin spike counts before optional Gaussian smoothing.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    RateData: Single-unit rate object with inst_Frate_data (1, T) and times; units: spikes per time (e.g. kHz).</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    Uses zero-padding at boundaries for square smoothing (mode=&#39;same&#39;). Rate near edges</span>
+<span class="sd">    may be lower when the effective window extends beyond the data.</span>
+<span class="sd">    - Assumes spike_times are sorted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">spike_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spike_times</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">spike_times</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.ratedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateData</span>
+
+        <span class="k">return</span> <span class="n">RateData</span><span class="p">(</span><span class="n">inst_Frate_data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">times</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
+
+    <span class="k">if</span> <span class="n">window_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;window_size must be positive, got </span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">step_size</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sampling_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must provide either step_size or sampling_rate&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">step_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sampling_rate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;step_size and sampling_rate are mutually exclusive; provide one, not both&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">step_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">sampling_rate</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sampling_rate</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;sampling_rate must be positive when step_size is not provided, got </span><span class="si">{</span><span class="n">sampling_rate</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">step_size</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">sampling_rate</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">step_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step_size must be positive, got </span><span class="si">{</span><span class="n">step_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">gauss_sigma</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gauss_sigma must be non-negative, got </span><span class="si">{</span><span class="n">gauss_sigma</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Default time range extends half-window beyond first/last spike so edges are covered</span>
+    <span class="n">half_window</span> <span class="o">=</span> <span class="n">window_size</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">if</span> <span class="n">t_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">spike_times</span><span class="p">))</span> <span class="o">-</span> <span class="n">half_window</span>
+    <span class="k">if</span> <span class="n">t_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">t_end</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">spike_times</span><span class="p">))</span> <span class="o">+</span> <span class="n">half_window</span>
+
+    <span class="k">if</span> <span class="n">t_end</span> <span class="o">&lt;=</span> <span class="n">t_start</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;t_end must be greater than t_start (got t_start=</span><span class="si">{</span><span class="n">t_start</span><span class="si">}</span><span class="s2">, t_end=</span><span class="si">{</span><span class="n">t_end</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Use sparse_raster for binning (same rule as SpikeData)</span>
+    <span class="n">span</span> <span class="o">=</span> <span class="n">t_end</span> <span class="o">-</span> <span class="n">t_start</span>
+    <span class="n">n_bins_est</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">span</span> <span class="o">/</span> <span class="n">step_size</span><span class="p">))</span>
+    <span class="n">remainder</span> <span class="o">=</span> <span class="n">span</span> <span class="o">%</span> <span class="n">step_size</span>
+    <span class="k">if</span> <span class="n">remainder</span> <span class="o">&lt;</span> <span class="mf">1e-12</span> <span class="ow">or</span> <span class="nb">abs</span><span class="p">(</span><span class="n">remainder</span> <span class="o">-</span> <span class="n">step_size</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">:</span>
+        <span class="n">n_bins_est</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">t_last</span> <span class="o">=</span> <span class="n">t_start</span> <span class="o">+</span> <span class="n">n_bins_est</span> <span class="o">*</span> <span class="n">step_size</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">spike_times</span> <span class="o">&gt;=</span> <span class="n">t_start</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">spike_times</span> <span class="o">&lt;</span> <span class="n">t_last</span><span class="p">)</span>
+    <span class="n">spike_times_filtered</span> <span class="o">=</span> <span class="n">spike_times</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_start</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+    <span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">([</span><span class="n">spike_times_filtered</span><span class="p">],</span> <span class="n">length</span><span class="o">=</span><span class="n">span</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">sparse_raster</span><span class="p">(</span><span class="n">step_size</span><span class="p">)</span>
+    <span class="n">hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">toarray</span><span class="p">())</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">n_bins</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">t_start</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">step_size</span>
+
+    <span class="k">if</span> <span class="n">apply_square</span><span class="p">:</span>
+        <span class="c1"># Sliding window = convolution with uniform kernel: sums spike counts over</span>
+        <span class="c1"># window_size worth of adjacent bins. mode=&#39;same&#39; keeps output aligned with input.</span>
+        <span class="n">window_bins</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">window_size</span> <span class="o">/</span> <span class="n">step_size</span><span class="p">))),</span> <span class="n">n_bins</span><span class="p">)</span>
+        <span class="n">effective_window</span> <span class="o">=</span> <span class="n">window_bins</span> <span class="o">*</span> <span class="n">step_size</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">window_bins</span><span class="p">)</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">convolve</span><span class="p">(</span><span class="n">hist</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;same&quot;</span><span class="p">)</span>
+        <span class="c1"># Rate = spike count in window / effective window duration (spikes per time unit)</span>
+        <span class="n">rate_array</span> <span class="o">=</span> <span class="n">counts</span> <span class="o">/</span> <span class="n">effective_window</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># No square smoothing: convert per-bin counts directly to rates.</span>
+        <span class="n">rate_array</span> <span class="o">=</span> <span class="n">hist</span> <span class="o">/</span> <span class="n">step_size</span>
+
+    <span class="k">if</span> <span class="n">gauss_sigma</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">sigma_bins</span> <span class="o">=</span> <span class="n">gauss_sigma</span> <span class="o">/</span> <span class="n">step_size</span>
+        <span class="n">rate_array</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">gaussian_filter1d</span><span class="p">(</span><span class="n">rate_array</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma_bins</span><span class="p">)</span>
+
+    <span class="n">time_vector</span> <span class="o">=</span> <span class="p">(</span><span class="n">bin_edges</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">bin_edges</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">/</span> <span class="mi">2</span>  <span class="c1"># Bin centers</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.ratedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateData</span>
+
+    <span class="k">return</span> <span class="n">RateData</span><span class="p">(</span><span class="n">inst_Frate_data</span><span class="o">=</span><span class="n">rate_array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">times</span><span class="o">=</span><span class="n">time_vector</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_train_from_i_t_list</span><span class="p">(</span><span class="n">idces</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>

@@ -2299,6 +2299,12 @@
         <span class="n">times_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">start_time</span> <span class="o">+</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
         <span class="n">fr_rates</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">times_arr</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="o">=</span><span class="n">fr_rate_sigma_ms</span><span class="p">)</span>
 
+    <span class="c1"># resampled_isi now returns RateData; plotting expects array-like (U, T).</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.ratedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateData</span>
+
+    <span class="k">if</span> <span class="n">fr_rates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fr_rates</span><span class="p">,</span> <span class="n">RateData</span><span class="p">):</span>
+        <span class="n">fr_rates</span> <span class="o">=</span> <span class="n">fr_rates</span><span class="o">.</span><span class="n">inst_Frate_data</span>
+
     <span class="c1"># Apply unit reordering</span>
     <span class="k">if</span> <span class="n">sort_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">spk_mat</span> <span class="o">=</span> <span class="n">spk_mat</span><span class="p">[</span><span class="n">sort_indices</span><span class="p">,</span> <span class="p">:]</span>
