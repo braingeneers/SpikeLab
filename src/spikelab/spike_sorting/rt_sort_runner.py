@@ -17,6 +17,8 @@ attributed to van der Molen, Lim et al. 2024 (PLOS ONE, DOI
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from . import _globals
 from .sorting_utils import Stopwatch, print_stage
 
@@ -99,8 +101,10 @@ def spike_sort(
         print("Loading existing RT-Sort results")
         try:
             sorting = _load_cached_sorting(cached_sorting_npz, rec_cache)
+            root_elecs_path = output_folder / "root_elecs.npy"
+            root_elecs = list(np.load(str(root_elecs_path))) if root_elecs_path.exists() else None
             stopwatch.log_time("Done loading existing results.")
-            return sorting
+            return sorting, root_elecs
         except Exception as exc:
             print(f"Failed to load cached sorting ({exc}); recomputing.")
 
@@ -147,18 +151,23 @@ def spike_sort(
         stopwatch.log_time("Offline sorting failed.")
         return exc
 
-    # Persist the trained sequences for Phase 2 reuse
+    # Persist the trained sequences for Phase 2 reuse.
+    # RTSort.save() strips the unpicklable compiled model before
+    # serialization and restores it in-memory afterward.  The compiled
+    # model is already cached at output_folder / "compiled.ts" by
+    # detect_sequences, so load_rt_sort() can reattach it on load.
     if _globals.RT_SORT_SAVE_PICKLE:
-        import pickle
-
-        with open(rt_sort_pickle, "wb") as f:
-            pickle.dump(rt_sort, f)
+        rt_sort.save(rt_sort_pickle)
 
     # Cache the sorting for fast reload on subsequent runs
     _save_sorting_cache(sorting, cached_sorting_npz)
 
+    # Save root electrodes for the KilosortSortingExtractor conversion
+    root_elecs = list(rt_sort._seq_root_elecs)
+    np.save(str(output_folder / "root_elecs.npy"), np.array(root_elecs))
+
     stopwatch.log_time("Done sorting with RT-Sort.")
-    return sorting
+    return sorting, root_elecs
 
 
 def _save_sorting_cache(sorting, path):
@@ -190,3 +199,52 @@ def _load_cached_sorting(path, recording):
         spikes_by_unit = {uid: data[f"u{uid}"] for uid in unit_ids}
 
     return NumpySorting.from_unit_dict([spikes_by_unit], sampling_frequency=fs)
+
+
+def load_rt_sort(pickle_path, model=None, model_path=None):
+    """Load a saved RTSort object and reattach its detection model.
+
+    ``RTSort.save()`` strips the compiled model before pickling because
+    TensorRT/TorchScript modules are not picklable.  This function
+    reattaches the model so the returned object is ready for
+    ``sort_offline()`` or Phase 2 stim-aware sorting.
+
+    The model can be supplied in three ways (checked in order):
+
+    1. *model* — an already-loaded ``ModelSpikeSorter`` instance.
+    2. *model_path* — path to a folder containing ``init_dict.json``
+       and ``state_dict.pt`` (loads and compiles fresh).
+    3. If neither is given, the function looks for ``compiled.ts`` in
+       the same directory as *pickle_path* (the default location where
+       ``detect_sequences`` caches the compiled model).
+
+    Parameters:
+        pickle_path (str or Path): Path to the ``rt_sort.pickle`` file
+            written by ``RTSort.save()``.
+        model (ModelSpikeSorter or None): Pre-loaded detection model.
+        model_path (str or Path or None): Path to a model folder.
+
+    Returns:
+        rt_sort (RTSort): The loaded RTSort object with model attached.
+    """
+    from .rt_sort._algorithm import RTSort as _RTSort
+
+    pickle_path = Path(pickle_path)
+
+    if model is not None:
+        return _RTSort.load_from_file(pickle_path, model=model)
+
+    if model_path is not None:
+        return _RTSort.load_from_file(pickle_path, model=model_path)
+
+    # Try the compiled model cached alongside the pickle
+    compiled_ts = pickle_path.parent / "compiled.ts"
+    if compiled_ts.exists():
+        from .rt_sort.model import ModelSpikeSorter
+
+        rt_sort = _RTSort.load_from_file(pickle_path, model=None)
+        rt_sort.model = ModelSpikeSorter.load_compiled(pickle_path.parent)
+        return rt_sort
+
+    # Fall back to loading without a model — caller must set it later
+    return _RTSort.load_from_file(pickle_path, model=None)

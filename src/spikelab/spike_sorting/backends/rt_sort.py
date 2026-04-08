@@ -19,11 +19,100 @@ Requirements:
     # see https://pytorch.org/get-started/locally/
 """
 
+from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from .. import _globals
 from ..config import SortingPipelineConfig
 from .base import SorterBackend
+
+
+def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder,
+                                    root_elecs=None):
+    """Convert a SpikeInterface NumpySorting to a KilosortSortingExtractor.
+
+    Writes the Kilosort-format files that ``KilosortSortingExtractor``
+    expects (``spike_times.npy``, ``spike_clusters.npy``,
+    ``templates.npy``, ``channel_map.npy``, ``params.py``) to
+    *output_folder*, then returns a ``KilosortSortingExtractor`` that
+    reads them.
+
+    Parameters:
+        sorting: SpikeInterface NumpySorting.
+        recording: SpikeInterface BaseRecording.
+        output_folder: Path for Kilosort-format output files.
+        root_elecs (list or None): Per-unit root electrode indices from
+            RTSort._seq_root_elecs.  Used to set the peak channel in
+            synthetic templates so that get_chans_max() returns the
+            correct channel for each unit.
+    """
+    from ..sorting_extractor import KilosortSortingExtractor
+
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    fs = recording.get_sampling_frequency()
+    n_channels = recording.get_num_channels()
+    unit_ids = sorting.get_unit_ids()
+
+    # Build spike_times and spike_clusters arrays
+    all_times = []
+    all_clusters = []
+    for uid in unit_ids:
+        train = sorting.get_unit_spike_train(uid)
+        all_times.append(train)
+        all_clusters.append(np.full(len(train), uid, dtype=np.int64))
+
+    if all_times:
+        spike_times = np.concatenate(all_times)
+        spike_clusters = np.concatenate(all_clusters)
+        order = np.argsort(spike_times)
+        spike_times = spike_times[order]
+        spike_clusters = spike_clusters[order]
+    else:
+        spike_times = np.array([], dtype=np.int64)
+        spike_clusters = np.array([], dtype=np.int64)
+
+    np.save(str(output_folder / "spike_times.npy"), spike_times)
+    np.save(str(output_folder / "spike_clusters.npy"), spike_clusters)
+
+    # Channel map: identity mapping (all channels)
+    channel_map = np.arange(n_channels, dtype=np.int32)
+    np.save(str(output_folder / "channel_map.npy"), channel_map)
+
+    # Synthetic templates: (n_units, n_samples, n_channels).
+    # The WaveformExtractor uses get_chans_max() on these templates to
+    # determine the peak channel per unit.  RT-Sort knows each unit's
+    # root electrode (_seq_root_elecs), so we place a negative peak
+    # marker on the correct channel for each unit.  The actual waveform
+    # templates are recomputed from raw data during extraction.
+    n_template_samples = 82  # KS2 default template length
+    max_uid = max(unit_ids) + 1 if len(unit_ids) else 0
+    templates = np.zeros(
+        (max_uid, n_template_samples, n_channels),
+        dtype=np.float32,
+    )
+    mid = n_template_samples // 2
+    for i, uid in enumerate(unit_ids):
+        chan = 0
+        if root_elecs is not None and i < len(root_elecs):
+            re = root_elecs[i]
+            chan = re if re < n_channels else 0
+        templates[uid, mid, chan] = -1.0
+
+    np.save(str(output_folder / "templates.npy"), templates)
+
+    # params.py — minimal, only sample_rate is read by
+    # KilosortSortingExtractor
+    with open(output_folder / "params.py", "w") as f:
+        f.write(f"sample_rate = {fs}\n")
+        f.write(f"n_channels_dat = {n_channels}\n")
+        f.write(f"dtype = 'float32'\n")
+        f.write(f"hp_filtered = True\n")
+
+    return KilosortSortingExtractor(folder_path=output_folder)
 
 
 class RTSortBackend(SorterBackend):
@@ -191,14 +280,32 @@ class RTSortBackend(SorterBackend):
         recording_dat_path: Any,
         output_folder: Any,
     ) -> Any:
-        """Run the RT-Sort offline pipeline via rt_sort_runner."""
+        """Run the RT-Sort offline pipeline via rt_sort_runner.
+
+        RT-Sort returns a SpikeInterface ``NumpySorting``.  The
+        downstream ``WaveformExtractor`` expects a
+        ``KilosortSortingExtractor``, so we convert the result by
+        writing Kilosort-format files (``spike_times.npy``,
+        ``spike_clusters.npy``, ``templates.npy``, ``channel_map.npy``,
+        ``params.py``) to the output folder and returning a
+        ``KilosortSortingExtractor`` that reads them.
+        """
         from ..rt_sort_runner import spike_sort
 
-        return spike_sort(
+        result = spike_sort(
             rec_cache=recording,
             rec_path=rec_path,
             recording_dat_path=recording_dat_path,
             output_folder=output_folder,
+        )
+
+        if isinstance(result, BaseException):
+            return result
+
+        sorting, root_elecs = result
+
+        return _numpy_sorting_to_ks_extractor(
+            sorting, recording, output_folder, root_elecs=root_elecs,
         )
 
     def extract_waveforms(
