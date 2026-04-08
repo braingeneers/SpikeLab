@@ -449,6 +449,12 @@ class WaveformExtractor:
 
                     spike_times_centered[st] = st + st_offset
 
+                    # Skip spikes whose recentered position is too
+                    # close to the recording edge to extract a full
+                    # waveform window.
+                    if st_trace - nbefore < 0 or st_trace + nafter > traces.shape[0]:
+                        continue
+
                     pos = (
                         unit_cum_sum[unit_id][segment_index] + i0 + i
                     )  # Index for waveform along 0th axis in .npy waveforms file
