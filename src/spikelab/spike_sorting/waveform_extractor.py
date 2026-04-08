@@ -95,7 +95,11 @@ class WaveformExtractor:
             "sampling_frequency": recording.get_sampling_frequency(),
             "ms_before": _globals.WAVEFORMS_MS_BEFORE,
             "ms_after": _globals.WAVEFORMS_MS_AFTER,
-            "peak_ind": int(_globals.WAVEFORMS_MS_BEFORE * recording.get_sampling_frequency() / 1000.0),
+            "peak_ind": int(
+                _globals.WAVEFORMS_MS_BEFORE
+                * recording.get_sampling_frequency()
+                / 1000.0
+            ),
             "pos_peak_thresh": _globals.POS_PEAK_THRESH,
             "max_waveforms_per_unit": _globals.MAX_WAVEFORMS_PER_UNIT,
             "dtype": waveform_dtype,

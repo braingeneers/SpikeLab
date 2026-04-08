@@ -102,7 +102,11 @@ def spike_sort(
         try:
             sorting = _load_cached_sorting(cached_sorting_npz, rec_cache)
             root_elecs_path = output_folder / "root_elecs.npy"
-            root_elecs = list(np.load(str(root_elecs_path))) if root_elecs_path.exists() else None
+            root_elecs = (
+                list(np.load(str(root_elecs_path)))
+                if root_elecs_path.exists()
+                else None
+            )
             stopwatch.log_time("Done loading existing results.")
             return sorting, root_elecs
         except Exception as exc:

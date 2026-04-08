@@ -29,8 +29,7 @@ from ..config import SortingPipelineConfig
 from .base import SorterBackend
 
 
-def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder,
-                                    root_elecs=None):
+def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder, root_elecs=None):
     """Convert a SpikeInterface NumpySorting to a KilosortSortingExtractor.
 
     Writes the Kilosort-format files that ``KilosortSortingExtractor``
@@ -305,7 +304,10 @@ class RTSortBackend(SorterBackend):
         sorting, root_elecs = result
 
         return _numpy_sorting_to_ks_extractor(
-            sorting, recording, output_folder, root_elecs=root_elecs,
+            sorting,
+            recording,
+            output_folder,
+            root_elecs=root_elecs,
         )
 
     def extract_waveforms(

@@ -101,12 +101,21 @@ class ModelSpikeSorter(nn.Module):
     _perf_report = "{}: Loss: {:.3f} | Accuracy: {:.1f}% | Recall: {:.1f}% | Precision: {:.1f}% | F1 Score: {:.1f}% | Loc MAD: {:.2f} frames = {:.4f} ms"
     compiled_name = "compiled.ts"
 
-    def __init__(self, num_channels_in: int,
-                 sample_size: int, buffer_front_sample: int, buffer_end_sample: int,
-                 loc_prob_thresh: float = 35, buffer_front_loc: int = 0, buffer_end_loc: int = 0,
-                 input_scale=0.01, samp_freq=None,
-                 device: str = "cuda", dtype=torch.float16,
-                 architecture_params=None):
+    def __init__(
+        self,
+        num_channels_in: int,
+        sample_size: int,
+        buffer_front_sample: int,
+        buffer_end_sample: int,
+        loc_prob_thresh: float = 35,
+        buffer_front_loc: int = 0,
+        buffer_end_loc: int = 0,
+        input_scale=0.01,
+        samp_freq=None,
+        device: str = "cuda",
+        dtype=torch.float16,
+        architecture_params=None,
+    ):
         """
         :param num_channels_in: int
             Number of channels int inputs
@@ -127,7 +136,7 @@ class ModelSpikeSorter(nn.Module):
 
         :param input_scale:
             Multiply input by this factor after subtracting median
-            
+
         :param samp_freq:
             Needed in method perf to measure performance. Is None by default for backwards compatibility with models that are already trained and tested
 
@@ -154,20 +163,26 @@ class ModelSpikeSorter(nn.Module):
         # Cache for plotting localization
         # First frame in input that has a probability score for localization
         self.loc_first_frame = self.buffer_front_sample - self.buffer_front_loc
-        self.loc_last_frame = sample_size - buffer_end_sample + buffer_end_loc - 1  # Last frame in input that has a probability score for localization
+        self.loc_last_frame = (
+            sample_size - buffer_end_sample + buffer_end_loc - 1
+        )  # Last frame in input that has a probability score for localization
 
         # Number of locations where model predicts a spike
-        assert buffer_front_loc == buffer_end_loc == 0, "num_output_locs may not be implemented correctly if these are not equal to 0"
-        self.num_output_locs = (sample_size - buffer_end_sample +
-                                buffer_end_loc) - (buffer_front_sample - buffer_front_loc)
+        assert (
+            buffer_front_loc == buffer_end_loc == 0
+        ), "num_output_locs may not be implemented correctly if these are not equal to 0"
+        self.num_output_locs = (sample_size - buffer_end_sample + buffer_end_loc) - (
+            buffer_front_sample - buffer_front_loc
+        )
 
         # region Tuning model 2
         self.architecture_params = architecture_params
         if architecture_params is not None:
             model = ModelTuning(*architecture_params)
         else:
-            model = RMSThresh(buffer_front=buffer_front_sample,
-                              buffer_end=buffer_end_sample)
+            model = RMSThresh(
+                buffer_front=buffer_front_sample, buffer_end=buffer_end_sample
+            )
         # endregion
 
         self.model = model
@@ -185,22 +200,25 @@ class ModelSpikeSorter(nn.Module):
         self.logs = {}  # {file_name: contents}
 
         # Loss function
-        self.loss_localize = nn.BCEWithLogitsLoss(reduction='none')
+        self.loss_localize = nn.BCEWithLogitsLoss(reduction="none")
 
         self.path = None
-        
-        self.samp_freq = samp_freq 
+
+        self.samp_freq = samp_freq
 
     def init_weights_and_biases(self, method: str, prelu_init=0.25):
         for module in self.modules():
             if isinstance(module, nn.Conv1d) or isinstance(module, nn.Linear):
                 if method == "kaiming":
-                    nn.init.kaiming_normal_(module.weight, a=prelu_init, nonlinearity="leaky_relu")
+                    nn.init.kaiming_normal_(
+                        module.weight, a=prelu_init, nonlinearity="leaky_relu"
+                    )
                 elif method == "xavier":
                     nn.init.xavier_normal_(module.weight)
                 else:
                     raise ValueError(
-                        f"'{method}' is not a valid argument for parameter 'method'")
+                        f"'{method}' is not a valid argument for parameter 'method'"
+                    )
                 nn.init.zeros_(module.bias)
 
     def init_final_bias(self, num_wfs_probs: list):
@@ -221,10 +239,11 @@ class ModelSpikeSorter(nn.Module):
         for i, prob in enumerate(num_wfs_probs):
             exp_prob += prob * (i + 1)
         # 50% chance of a waveform appearing at all, and 1/num_output_locs for waveform appearing at a output location
-        exp_prob *= 0.5 * 1/self.num_output_locs
+        exp_prob *= 0.5 * 1 / self.num_output_locs
         # torch.sigmoid(bias) = exp_prob
-        nn.init.constant_(last_weight_layer.bias, torch.logit(
-            torch.tensor(exp_prob)).item())
+        nn.init.constant_(
+            last_weight_layer.bias, torch.logit(torch.tensor(exp_prob)).item()
+        )
 
     # @property
     # def device(self):
@@ -238,10 +257,8 @@ class ModelSpikeSorter(nn.Module):
         # self.model(x*self.input_scale)
         return self.model(x * self.input_scale)
 
-        rms = torch.sqrt(torch.mean(torch.square(
-            x), dim=(1, 2), keepdim=True))  # - 1.3
-        x = torch.cat([self.model(x), rms.repeat(
-            1, 1, self.num_output_locs)], dim=1)
+        rms = torch.sqrt(torch.mean(torch.square(x), dim=(1, 2), keepdim=True))  # - 1.3
+        x = torch.cat([self.model(x), rms.repeat(1, 1, self.num_output_locs)], dim=1)
 
         return self.flatten(self.linear(x))
 
@@ -262,16 +279,20 @@ class ModelSpikeSorter(nn.Module):
 
         # Sigmoid for probability instead of softmax
         wf_samples_ind = torch.nonzero(wf_samples).flatten()
-        wf_logits = torch.clamp_min(
-            self.loc_to_logit(wf_locs[wf_samples, :]), -1)
+        wf_logits = torch.clamp_min(self.loc_to_logit(wf_locs[wf_samples, :]), -1)
         labels_loc = torch.zeros(
-            len(outputs), outputs.shape[1] + 1, dtype=torch.float32, device=outputs.device)
+            len(outputs),
+            outputs.shape[1] + 1,
+            dtype=torch.float32,
+            device=outputs.device,
+        )
         wf_row_ind = np.repeat(wf_samples_ind.cpu(), wf_logits.shape[1])
         wf_col_ind = wf_logits.to(torch.long).flatten()
         labels_loc[wf_row_ind, wf_col_ind] = 1
 
         localize = self.loss_localize(
-            outputs, labels_loc[:, :-1])  # Train on all samples
+            outputs, labels_loc[:, :-1]
+        )  # Train on all samples
 
         # Only train on samples with wf
         # localize = self.loss_localize(outputs_locs[wf_samples_ind], labels_loc[wf_samples_ind, :-1])
@@ -323,11 +344,21 @@ class ModelSpikeSorter(nn.Module):
             # print("d")
         self.train(False)
 
-    def fit(self, dataloader_train, dataloader_val=None, optim="adam",
-            num_epochs=100, epoch_patience=10, training_thresh=0.5,
-            lr=3e-4, momentum=0.9, 
-            lr_patience=5, lr_factor=0.1,
-            tune_thresh_every=10, save_best=True):
+    def fit(
+        self,
+        dataloader_train,
+        dataloader_val=None,
+        optim="adam",
+        num_epochs=100,
+        epoch_patience=10,
+        training_thresh=0.5,
+        lr=3e-4,
+        momentum=0.9,
+        lr_patience=5,
+        lr_factor=0.1,
+        tune_thresh_every=10,
+        save_best=True,
+    ):
         """
         Fit self to dataloader_train
 
@@ -351,47 +382,54 @@ class ModelSpikeSorter(nn.Module):
         :param tune_thresh_every:
             If not None, tune loc_prob_thresh every tune_thresh_every (int) epochs
         :param save_best:
-            If True, save model weights that give best loss (new best has to be less than old best - epoch_thresh) 
+            If True, save model weights that give best loss (new best has to be less than old best - epoch_thresh)
                      and reset to this after training ends
         """
         train_start = time.time()
 
         assert optim in {"adam", "momentum", "nesterov"}
-        if optim == 'adam':
+        if optim == "adam":
             optim = torch.optim.Adam(self.parameters(), lr=lr)
-        elif optim == 'momentum':
+        elif optim == "momentum":
             optim = torch.optim.SGD(
-                self.parameters(), lr=lr, momentum=momentum, nesterov=False)
-        elif optim == 'nesterov':
+                self.parameters(), lr=lr, momentum=momentum, nesterov=False
+            )
+        elif optim == "nesterov":
             optim = torch.optim.SGD(
-                self.parameters(), lr=lr, momentum=momentum, nesterov=True)
+                self.parameters(), lr=lr, momentum=momentum, nesterov=True
+            )
         else:
-            raise ValueError(
-                f"'{optim}' is not a valid argument for parameter 'optim'")
+            raise ValueError(f"'{optim}' is not a valid argument for parameter 'optim'")
 
         lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optim, mode="min", factor=lr_factor, patience=lr_patience-1,
-            threshold=training_thresh)
+            optimizer=optim,
+            mode="min",
+            factor=lr_factor,
+            patience=lr_patience - 1,
+            threshold=training_thresh,
+        )
 
-        # Get performance before any training        
+        # Get performance before any training
         train_log = f"\nBefore Training"
         print(train_log)
         train_perf_all = [self.perf(dataloader_train)]
         train_report_preface = "     Train" if dataloader_val is not None else None
         train_log += "\n" + self.perf_report(train_report_preface, train_perf_all[0])
-        
+
         if dataloader_val is not None:
             val_perf_all = [self.perf(dataloader_val)]
             train_log += "\n" + self.perf_report("Validation", val_perf_all[0])
             best_loss = val_perf_all[0][0]
         else:
             best_loss = train_perf_all[0][0]
-            
+
         epoch_patience_counter = 0  # Number of epochs since best loss
         if save_best:
             best_weights = self.state_dict()
 
-        last_lr = optim.param_groups[0]['lr']  # lr_scheduler.get_last_lr()  # AttributeError: 'ReduceLROnPlateau' object has no attribute '_last_lr'. Did you mean: 'get_last_lr'?
+        last_lr = optim.param_groups[0][
+            "lr"
+        ]  # lr_scheduler.get_last_lr()  # AttributeError: 'ReduceLROnPlateau' object has no attribute '_last_lr'. Did you mean: 'get_last_lr'?
         # Start training
         for epoch in range(1, num_epochs + 1):
             epoch_formatted = f"\nEpoch: {epoch}/{num_epochs}"
@@ -415,9 +453,9 @@ class ModelSpikeSorter(nn.Module):
                 cur_loss = val_perf[0]
             else:
                 cur_loss = train_perf[0]
-            
+
             lr_scheduler.step(cur_loss)
-            new_lr = optim.param_groups[0]['lr']  # lr_scheduler.get_last_lr()
+            new_lr = optim.param_groups[0]["lr"]  # lr_scheduler.get_last_lr()
             if new_lr != last_lr:
                 start = "Validation loss" if dataloader_val is not None else "Loss"
                 msg = f"{start} hasn't decreased in {lr_patience} epochs. Decreasing learning from {last_lr:.2e} to {new_lr:.2e}"
@@ -444,7 +482,9 @@ class ModelSpikeSorter(nn.Module):
                 print(f"\nTuning detection threshold ...")
                 thresh = self.get_loc_prob_thresh()
                 self.tune_loc_prob_thresh(dataloader_train, verbose=False)
-                train_log += f"Threshold: {thresh:.1f}% --> {self.get_loc_prob_thresh():.1f}%"
+                train_log += (
+                    f"Threshold: {thresh:.1f}% --> {self.get_loc_prob_thresh():.1f}%"
+                )
                 print(f"Threshold: {thresh:.1f}% --> {self.get_loc_prob_thresh():.1f}%")
 
             if epoch_patience is not None and epoch_patience_counter == epoch_patience:
@@ -467,58 +507,74 @@ class ModelSpikeSorter(nn.Module):
         train_log += "\n\n" + f"Tuning detection threshold ..."
         print(f"\nTuning detection threshold ...")
         thresh = self.get_loc_prob_thresh()
-        threshes, thresh_perfs = self.tune_loc_prob_thresh(dataloader_train, stop=100, verbose=False)
+        threshes, thresh_perfs = self.tune_loc_prob_thresh(
+            dataloader_train, stop=100, verbose=False
+        )
         best_thresh = self.get_loc_prob_thresh()
         train_log += f"Threshold: {thresh:.1f}% --> {best_thresh:.1f}%"
         print(f"Threshold: {thresh:.1f}% --> {best_thresh:.1f}%")
 
         train_end = time.time()
-        
+
         # Determine loose threshold
         ind = threshes <= best_thresh
         loose_perfs = thresh_perfs[ind]
         loose_threshes = threshes[ind]
         recall_minus_precision = loose_perfs[:, 0] - loose_perfs[:, 1]
-        closest_thresh_idx = np.argmin(np.abs(recall_minus_precision - 15)) # Find closes thresh so recall - precision = 15%
+        closest_thresh_idx = np.argmin(
+            np.abs(recall_minus_precision - 15)
+        )  # Find closes thresh so recall - precision = 15%
         loose_thresh = loose_threshes[closest_thresh_idx]
 
         train_log += "\n\nFinal performance:"
         print("\nFinal performance:")
-        dataloader_final = dataloader_val if dataloader_val is not None else dataloader_train
-        
+        dataloader_final = (
+            dataloader_val if dataloader_val is not None else dataloader_train
+        )
+
         perf = self.perf(dataloader_final, plot_preds=())
         perf_report_preface = f"With detection score = {best_thresh:.1f}%"
         perf_report = self.perf_report(perf_report_preface, perf)
         train_log += "\n" + perf_report
-        
+
         self.set_loc_prob_thresh(loose_thresh)
         perf = self.perf(dataloader_final, plot_preds=())
         perf_report_preface_2 = f"With detection score = {loose_thresh:.1f}%"
-        perf_report = self.perf_report(" " * (len(perf_report_preface) - len(perf_report_preface_2)) + perf_report_preface_2, perf)
+        perf_report = self.perf_report(
+            " " * (len(perf_report_preface) - len(perf_report_preface_2))
+            + perf_report_preface_2,
+            perf,
+        )
         train_log += "\n" + perf_report
         self.set_loc_prob_thresh(best_thresh)
-        
+
         msg = f"Recommended detection thresholds: stringent={best_thresh:.1f}%, loose={loose_thresh:.1f}%"
         train_log += "\n" + msg
         print(msg)
-            
+
         train_log += "\n\n" + f"Time: {train_end-train_start:.1f}s"
 
-        train_losses = self.logs['train_perf.npy'][:, 0]
+        train_losses = self.logs["train_perf.npy"][:, 0]
         plt.title("Loss throughout training", fontsize=14)
         plt.plot(train_losses, label="Train", color="#7542ff")
         if dataloader_val is not None:
-            plt.plot(self.logs['val_perf.npy'][:, 0], label="Validation", color="#42ccff")
+            plt.plot(
+                self.logs["val_perf.npy"][:, 0], label="Validation", color="#42ccff"
+            )
         plt.ylabel("Loss", fontsize=12)
         plt.xlabel("Number of epochs", fontsize=12)
-        plt.xlim(0, len(train_losses)-1)
-        plt.tick_params(axis='x', labelsize=12)
-        plt.tick_params(axis='y', labelsize=12)
-        plt.legend(prop={'size': 11})
+        plt.xlim(0, len(train_losses) - 1)
+        plt.tick_params(axis="x", labelsize=12)
+        plt.tick_params(axis="y", labelsize=12)
+        plt.legend(prop={"size": 11})
         plt.show()
-        
-        plt.title("F1 score, precision, and recall based on detection threshold", fontsize=14)
-        plt.axvline(loose_thresh, color="black", linestyle="dashed", label="Loose threshold")
+
+        plt.title(
+            "F1 score, precision, and recall based on detection threshold", fontsize=14
+        )
+        plt.axvline(
+            loose_thresh, color="black", linestyle="dashed", label="Loose threshold"
+        )
         plt.axvline(best_thresh, color="black", label="Stringent threshold")
         plt.plot(threshes, thresh_perfs[:, 0], label="Recall", color="#7b69d5")
         plt.plot(threshes, thresh_perfs[:, 1], label="Precision", color="#72bed2")
@@ -527,11 +583,11 @@ class ModelSpikeSorter(nn.Module):
         plt.xlabel("Detection threshold", fontsize=12)
         plt.xticks(range(0, 101, 10))
         plt.yticks(range(0, 101, 10))
-        plt.tick_params(axis='x', labelsize=12)
-        plt.tick_params(axis='y', labelsize=12)
-        plt.legend(prop={'size': 8})
+        plt.tick_params(axis="x", labelsize=12)
+        plt.tick_params(axis="y", labelsize=12)
+        plt.legend(prop={"size": 8})
         plt.show()
-        
+
         # val_f1_score_final = perf[5]
         # return train_perf_all, val_perf_all, val_f1_score_final
         return train_losses[-1]
@@ -542,7 +598,8 @@ class ModelSpikeSorter(nn.Module):
         internally, self.loc_prob_thresh_logit is (-inf, inf) since model's outputs are not from sigmoid
         """
         self.loc_prob_thresh_logit = torch.logit(
-            torch.tensor(loc_prob_thresh/100)).item()
+            torch.tensor(loc_prob_thresh / 100)
+        ).item()
 
     def get_loc_prob_thresh(self):
         """
@@ -553,7 +610,7 @@ class ModelSpikeSorter(nn.Module):
 
     def loc_to_logit(self, loc):
         # Normalize index of waveform to model's localization logit
-        return (loc - self.loc_first_frame)  # .to(torch.long)
+        return loc - self.loc_first_frame  # .to(torch.long)
 
     def logit_to_loc(self, logit):
         # Denormalize model's localization logit to index of waveform
@@ -584,8 +641,12 @@ class ModelSpikeSorter(nn.Module):
             preds = []
             wf_count = 0
             for i in range(len(outputs)):
-                peaks = self.logit_to_loc(find_peaks(np.concatenate(
-                    ((-np.inf,), (outputs[i]), (-np.inf,))), height=self.loc_prob_thresh_logit)[0])
+                peaks = self.logit_to_loc(
+                    find_peaks(
+                        np.concatenate(((-np.inf,), (outputs[i]), (-np.inf,))),
+                        height=self.loc_prob_thresh_logit,
+                    )[0]
+                )
                 peaks -= 1
                 preds.append(peaks)
                 wf_count += len(peaks)
@@ -596,8 +657,9 @@ class ModelSpikeSorter(nn.Module):
                     find_peaks(
                         # Pad beginning and end with -inf so that first location frame and last location frame can be identifed as peaks
                         np.concatenate(((-np.inf,), (outputs[i]), (-np.inf,))),
-                        height=self.loc_prob_thresh_logit
-                    )[0] - 1  # Subtract one to account for the np.concatenate
+                        height=self.loc_prob_thresh_logit,
+                    )[0]
+                    - 1  # Subtract one to account for the np.concatenate
                 )
                 for i in range(len(outputs))
             ]
@@ -613,9 +675,9 @@ class ModelSpikeSorter(nn.Module):
         #
         # preds[:, 2] = self.logit_to_alpha(outputs[:, self.idx_alpha])  # spike clustering (distinguishing between spikes)
 
-    def perf(self, dataloader, loc_buffer=8,
-             plot_preds=(), max_plots=10,
-             outputs_list=None):
+    def perf(
+        self, dataloader, loc_buffer=8, plot_preds=(), max_plots=10, outputs_list=None
+    ):
         """
         Get performance stats with data based on data in dataloader
 
@@ -658,10 +720,11 @@ class ModelSpikeSorter(nn.Module):
             7) Loc MAD (in ms)
         """
         if self.samp_freq is None:
-            raise AttributeError("Attribute samp_freq must be set to the sampling frequency of the recordings (in kHz) to use method perf.\nThis can be done with model.samp_freq = SAMP_FREQ or in the __init__ arguments")
-        
-        plot_preds = {plot_preds} if isinstance(
-            plot_preds, str) else set(plot_preds)
+            raise AttributeError(
+                "Attribute samp_freq must be set to the sampling frequency of the recordings (in kHz) to use method perf.\nThis can be done with model.samp_freq = SAMP_FREQ or in the __init__ arguments"
+            )
+
+        plot_preds = {plot_preds} if isinstance(plot_preds, str) else set(plot_preds)
         num_plots = 0
 
         self.train(False)
@@ -695,21 +758,33 @@ class ModelSpikeSorter(nn.Module):
                 # Performance when multiple waveforms can exist in a sample
                 preds = self.outputs_to_preds(outputs, return_wf_count=False)
 
-                for j, (loc_preds, num_wf, loc_labels) in enumerate(zip(preds, num_wfs, wf_locs.cpu().numpy())):
+                for j, (loc_preds, num_wf, loc_labels) in enumerate(
+                    zip(preds, num_wfs, wf_locs.cpu().numpy())
+                ):
                     wf_count = len(loc_preds)
                     num_wf_pred_all += wf_count
 
                     num_wf = num_wf.item()  # num_wf is the correct number of waveforms
                     num_wf_label += num_wf
 
-                    if ("all" in plot_preds) \
-                            or ("correct" in plot_preds and wf_count == num_wf) \
-                            or ("failed" in plot_preds and wf_count != num_wf) \
-                            or ("noise" in plot_preds and wf_count == 0):
-                        if max_plots is None or (max_plots is not None and num_plots < max_plots):
-                            self.plot_pred(inputs[j, 0, :], outputs[j], loc_preds,
-                                           num_wf, loc_labels, wf_alphas[j],
-                                           dataloader)
+                    if (
+                        ("all" in plot_preds)
+                        or ("correct" in plot_preds and wf_count == num_wf)
+                        or ("failed" in plot_preds and wf_count != num_wf)
+                        or ("noise" in plot_preds and wf_count == 0)
+                    ):
+                        if max_plots is None or (
+                            max_plots is not None and num_plots < max_plots
+                        ):
+                            self.plot_pred(
+                                inputs[j, 0, :],
+                                outputs[j],
+                                loc_preds,
+                                num_wf,
+                                loc_labels,
+                                wf_alphas[j],
+                                dataloader,
+                            )
                             num_plots += 1
 
                     # Store which pred waveforms have already been assigned to a label waveforms
@@ -717,13 +792,16 @@ class ModelSpikeSorter(nn.Module):
                     # Store which label waveforms have already been assigned to a pred waveform
                     labels_predicted = set()
 
-                    pairs_dists = []  # each element is distance between a loc_pred and loc_label
+                    pairs_dists = (
+                        []
+                    )  # each element is distance between a loc_pred and loc_label
                     # each element is (loc_pred_idx, loc_label_ind)
                     pairs_ind = []
                     for idx_pred in range(len(loc_preds)):
                         for idx_label in range(num_wf):
                             pairs_dists.append(
-                                np.abs(loc_preds[idx_pred] - loc_labels[idx_label]))
+                                np.abs(loc_preds[idx_pred] - loc_labels[idx_label])
+                            )
                             pairs_ind.append((idx_pred, idx_label))
 
                     # Mark as TP the predicted waveforms closest to label waveform
@@ -750,19 +828,20 @@ class ModelSpikeSorter(nn.Module):
                         if i_pred not in wf_true_positives:  # False positive
                             logit_frame = self.loc_to_logit(loc_preds[i_pred])
                             logit = outputs[j, logit_frame].item()
-                            dist = sigmoid(logit)*100 - self.get_loc_prob_thresh()
+                            dist = sigmoid(logit) * 100 - self.get_loc_prob_thresh()
                             above_dists.append(dist)
 
                     # Find distances of false negative probability predictions below prediction threshold
                     for i_label in range(num_wf):
                         if i_label not in labels_predicted:  # False negative
-                            logit_frame = self.loc_to_logit(
-                                loc_labels[i_label])
+                            logit_frame = self.loc_to_logit(loc_labels[i_label])
                             logit = outputs[j, logit_frame].item()
-                            dist = self.get_loc_prob_thresh() - sigmoid(logit)*100
+                            dist = self.get_loc_prob_thresh() - sigmoid(logit) * 100
                             below_dists.append(dist)
 
-            loc_mad_frames = np.mean(loc_deviations) if len(loc_deviations) > 0 else np.nan
+            loc_mad_frames = (
+                np.mean(loc_deviations) if len(loc_deviations) > 0 else np.nan
+            )
             # loc_mad_ms = utils.frames_to_ms(loc_mad_frames)
             loc_mad_ms = loc_mad_frames / self.samp_freq
 
@@ -770,15 +849,26 @@ class ModelSpikeSorter(nn.Module):
                 # Plot histogram of absolute deviation of locations
                 plot.plot_hist_loc_mad(
                     # utils.frames_to_ms(np.array(loc_deviations))
-                    np.array(loc_deviations) / self.samp_freq
+                    np.array(loc_deviations)
+                    / self.samp_freq
                 )
 
                 # Plot histogram of percent absolute error
                 # plot.plot_hist_percent_abs_error(alpha_percent_abs_errors)
 
-            recall = 100 * num_wf_pred_correct / num_wf_label if num_wf_label > 0 else np.nan
-            precision = 100 * num_wf_pred_correct / num_wf_pred_all if num_wf_pred_all > 0 else np.nan
-            f1_score = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else np.nan
+            recall = (
+                100 * num_wf_pred_correct / num_wf_label if num_wf_label > 0 else np.nan
+            )
+            precision = (
+                100 * num_wf_pred_correct / num_wf_pred_all
+                if num_wf_pred_all > 0
+                else np.nan
+            )
+            f1_score = (
+                2 * (precision * recall) / (precision + recall)
+                if precision + recall > 0
+                else np.nan
+            )
 
             # plt.hist(above_dists, bins=10)
             # print(np.median(above_dists))
@@ -800,22 +890,34 @@ class ModelSpikeSorter(nn.Module):
                 loss_total / num_samples,  # Loss
                 # Ratio of number of waveforms predicted by model to number of correct waveforms
                 # 100 * num_wf_pred_all / num_wf_label if num_wf_label > 0 else np.nan,
-                100 * (num_wf_pred_correct + num_frames_total - (num_wf_pred_all + \
-                       num_wf_label - num_wf_pred_correct)) / num_frames_total,  # Accuracy
+                100
+                * (
+                    num_wf_pred_correct
+                    + num_frames_total
+                    - (num_wf_pred_all + num_wf_label - num_wf_pred_correct)
+                )
+                / num_frames_total,  # Accuracy
                 recall,
                 precision,
                 f1_score,
                 loc_mad_frames,
-                loc_mad_ms
+                loc_mad_ms,
             )
             # return stats
 
-    def plot_pred(self, trace: torch.Tensor, output, pred,
-                  num_wf, wf_labels, wf_alphas,
-                  multi_rec=None):
+    def plot_pred(
+        self,
+        trace: torch.Tensor,
+        output,
+        pred,
+        num_wf,
+        wf_labels,
+        wf_alphas,
+        multi_rec=None,
+    ):
         """
         Plot models prediction for a sample
-        
+
         :param multi_rec: The MultiRecordingDataset (or dataloader) that generated sample
             If None: Don't plot underlying waveform in trace
             Else: Plot underlying waveform in trace
@@ -857,7 +959,9 @@ class ModelSpikeSorter(nn.Module):
                 if loc == -1 or alpha == np.inf:  # There is no wf
                     continue
 
-                if loc in false_positives:  # If label matches with a prediction, the prediction is a TP not a FP
+                if (
+                    loc in false_positives
+                ):  # If label matches with a prediction, the prediction is a TP not a FP
                     false_positives.remove(loc)
                     color = "green"
                 else:
@@ -878,16 +982,23 @@ class ModelSpikeSorter(nn.Module):
 
         # Plot location of predicted waveforms
         for i, loc in enumerate(false_positives):
-            a1.axvline(loc, alpha=ALPHA, color="red",
-                       linestyle=LINESTYLE, label="FP" if i == 0 else None)
+            a1.axvline(
+                loc,
+                alpha=ALPHA,
+                color="red",
+                linestyle=LINESTYLE,
+                label="FP" if i == 0 else None,
+            )
 
         # Create legend for labels for vertical lines if they are in plot
         if len(false_positives) < len(pred):
-            a1.axvline(-1000, alpha=ALPHA, color="green",
-                       linestyle=LINESTYLE, label="TP")
+            a1.axvline(
+                -1000, alpha=ALPHA, color="green", linestyle=LINESTYLE, label="TP"
+            )
         if plot_false_negative:
-            a1.axvline(-1000, alpha=ALPHA, color="blue",
-                       linestyle=LINESTYLE, label="FN")
+            a1.axvline(
+                -1000, alpha=ALPHA, color="blue", linestyle=LINESTYLE, label="FN"
+            )
 
         if num_wf > 0 and multi_rec is not None:
             a0.legend()
@@ -905,14 +1016,21 @@ class ModelSpikeSorter(nn.Module):
         # axis is a plt subplot
 
         output = torch.sigmoid(model_output.to(torch.float32))
-        axis.plot(np.arange(len(output)) + self.loc_first_frame,
-                  output.cpu() * 100, color="red")
-        axis.axhline(self.get_loc_prob_thresh(), linestyle="dashed",
-                     color="black", label="Detection Threshold", linewidth=1)
+        axis.plot(
+            np.arange(len(output)) + self.loc_first_frame,
+            output.cpu() * 100,
+            color="red",
+        )
+        axis.axhline(
+            self.get_loc_prob_thresh(),
+            linestyle="dashed",
+            color="black",
+            label="Detection Threshold",
+            linewidth=1,
+        )
         axis.set_title("Location probabilities")
         axis.set_ylim(0, 100)
-        axis.set_yticks(range(0, 101, 20), [
-                        f"{p}%" for p in range(0, 101, 20)])
+        axis.set_yticks(range(0, 101, 20), [f"{p}%" for p in range(0, 101, 20)])
         axis.legend()
 
     def save(self, folder, logs=(), verbose=True):
@@ -953,13 +1071,17 @@ class ModelSpikeSorter(nn.Module):
 
         init_dict = {
             "num_channels_in": self.num_channels_in,
-            "sample_size": self.sample_size, "buffer_front_sample": self.buffer_front_sample, "buffer_end_sample": self.buffer_end_sample,
-            "loc_prob_thresh": self.get_loc_prob_thresh(), "buffer_front_loc": self.buffer_front_loc, "buffer_end_loc": self.buffer_end_loc,
+            "sample_size": self.sample_size,
+            "buffer_front_sample": self.buffer_front_sample,
+            "buffer_end_sample": self.buffer_end_sample,
+            "loc_prob_thresh": self.get_loc_prob_thresh(),
+            "buffer_front_loc": self.buffer_front_loc,
+            "buffer_end_loc": self.buffer_end_loc,
             "input_scale": self.input_scale,
             "device": str(self.device),
             "architecture_params": self.architecture_params,
         }
-        with open(folder_model / "init_dict.json", 'w') as f:
+        with open(folder_model / "init_dict.json", "w") as f:
             json.dump(init_dict, f)
 
         # # Copy source code
@@ -989,8 +1111,9 @@ class ModelSpikeSorter(nn.Module):
 
         return name
 
-    def tune_loc_prob_thresh(self, dataloader, start=None, stop=50, step=2.5,
-                             verbose=True, outputs_list=None):
+    def tune_loc_prob_thresh(
+        self, dataloader, start=None, stop=50, step=2.5, verbose=True, outputs_list=None
+    ):
         """
         Set self.loc_prob_thresh to value that gives best weighted sum of recall and precision
 
@@ -1043,7 +1166,7 @@ class ModelSpikeSorter(nn.Module):
                 best_score = f1_score
                 best_thresh = thresh
             perfs.append(perf[2:5])
-                
+
         if verbose:
             print(f"Best thresh: {best_thresh:.1f}%")
         self.set_loc_prob_thresh(best_thresh)
@@ -1059,8 +1182,7 @@ class ModelSpikeSorter(nn.Module):
         """
 
         if self.path is None:
-            raise ValueError(
-                "model's path is not set. Set it with 'model.path = PATH'")
+            raise ValueError("model's path is not set. Set it with 'model.path = PATH'")
 
         path = Path(self.path) / "log" / path
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1070,20 +1192,25 @@ class ModelSpikeSorter(nn.Module):
         else:
             raise NotImplementedError("data format not implemented yet")
 
-    def compile(self, n_dim_0: int, model_save_path=None,
-                input_size=None,
-                dtype=torch.float16, device="cuda"):
+    def compile(
+        self,
+        n_dim_0: int,
+        model_save_path=None,
+        input_size=None,
+        dtype=torch.float16,
+        device="cuda",
+    ):
         """
-        Compile model with torch tensorrt 
-        
+        Compile model with torch tensorrt
+
         Params:
         n_dim_0
             Input to model should be (n_dim_0, self.num_channels_in, self.sample_size)
-            
+
         input_size: None or int
             If None, detection_model will expect input_size (num frames in input) as currently used
             Else, use input_size
-        
+
         model_save_path
             If not None, save compiled model to model_save_path/compiled.ts (useful to cache since compiling can take a long time)
         """
@@ -1098,8 +1225,18 @@ class ModelSpikeSorter(nn.Module):
 
         model = self.model.conv
         model.to(device=device, dtype=dtype)
-        model = torch.jit.trace(model, [torch.rand(
-            n_dim_0, self.num_channels_in, input_size, dtype=dtype, device=device)])
+        model = torch.jit.trace(
+            model,
+            [
+                torch.rand(
+                    n_dim_0,
+                    self.num_channels_in,
+                    input_size,
+                    dtype=dtype,
+                    device=device,
+                )
+            ],
+        )
         if not TENSORRT:
             print(
                 "torch_tensorrt is not installed — skipping TensorRT compilation.\n"
@@ -1108,16 +1245,20 @@ class ModelSpikeSorter(nn.Module):
                 "See https://pytorch.org/TensorRT/getting_started/installation.html"
             )
             return model
-        
-        model = torch_tensorrt.compile(model,
-                                       inputs=[torch_tensorrt.Input(
-                                           (n_dim_0, self.num_channels_in, input_size), dtype=dtype)],
-                                       enabled_precisions={dtype},
-                                       ir="ts")
+
+        model = torch_tensorrt.compile(
+            model,
+            inputs=[
+                torch_tensorrt.Input(
+                    (n_dim_0, self.num_channels_in, input_size), dtype=dtype
+                )
+            ],
+            enabled_precisions={dtype},
+            ir="ts",
+        )
 
         if model_save_path is not None:
-            torch.jit.save(model, model_save_path /
-                           ModelSpikeSorter.compiled_name)
+            torch.jit.save(model, model_save_path / ModelSpikeSorter.compiled_name)
         return model
 
     @staticmethod
@@ -1133,7 +1274,7 @@ class ModelSpikeSorter(nn.Module):
         Loads a model from the specified folder detection_model_path.
 
         Args:
-            detection_model_path (str or Path): The folder containing the model's data files. 
+            detection_model_path (str or Path): The folder containing the model's data files.
 
         Returns:
             ModelSpikeSorter: The loaded model with the initialized state dictionary and updated path.
@@ -1143,13 +1284,18 @@ class ModelSpikeSorter(nn.Module):
         """
 
         detection_model_path = Path(detection_model_path)
-        if not (detection_model_path / "init_dict.json").exists() or not (detection_model_path / "state_dict.pt").exists():
-            raise ValueError(f"The folder {detection_model_path} does not contain init_dict.json and state_dict.pt for loading a model")
+        if (
+            not (detection_model_path / "init_dict.json").exists()
+            or not (detection_model_path / "state_dict.pt").exists()
+        ):
+            raise ValueError(
+                f"The folder {detection_model_path} does not contain init_dict.json and state_dict.pt for loading a model"
+            )
 
-        with open(detection_model_path / "init_dict.json", 'r') as f:
+        with open(detection_model_path / "init_dict.json", "r") as f:
             init_dict = json.load(f)
         model = ModelSpikeSorter(**init_dict)
-        model.load_state_dict(torch.load(detection_model_path / 'state_dict.pt'))
+        model.load_state_dict(torch.load(detection_model_path / "state_dict.pt"))
         model.path = detection_model_path
         return model
 
@@ -1173,20 +1319,18 @@ class ModelSpikeSorter(nn.Module):
             remove_start = True
         else:
             remove_start = False
-            
+
         report = ModelSpikeSorter._perf_report.format(preface, *perf)
         if remove_start:
             report = report[2:]
-            
+
         print(report)
         return report
 
     @staticmethod
     def load_mea():
         """Load the pretrained MEA detection model bundled with SpikeLab."""
-        return ModelSpikeSorter.load(
-            Path(__file__).parent / "detection_models" / "mea"
-        )
+        return ModelSpikeSorter.load(Path(__file__).parent / "detection_models" / "mea")
 
     @staticmethod
     def load_neuropixels():
@@ -1197,20 +1341,30 @@ class ModelSpikeSorter(nn.Module):
 
 
 class ModelTuning(nn.Module):
-    def __init__(self, architecture, num_channels,
-                 relu, add_conv, bottleneck, noise, filter,
-                 sample_size=200):
+    def __init__(
+        self,
+        architecture,
+        num_channels,
+        relu,
+        add_conv,
+        bottleneck,
+        noise,
+        filter,
+        sample_size=200,
+    ):
         super().__init__()
 
-        if isinstance(architecture, str):  # architecture == sampling frequency as a str in kHz
+        if isinstance(
+            architecture, str
+        ):  # architecture == sampling frequency as a str in kHz
             # Force 4 layers with 4ms receptive field
             num_layers = 4
             kernel_size = int(architecture) + 1
         else:  # For backwards compatibility
             num_layers, kernel_size = self.parse_architecture(architecture)
 
-        def get_relu(num_parameters): return nn.ReLU(
-        ) if relu == "relu" else nn.PReLU(num_parameters)
+        def get_relu(num_parameters):
+            return nn.ReLU() if relu == "relu" else nn.PReLU(num_parameters)
 
         if num_layers is not None:
             conv = nn.Sequential()
@@ -1218,7 +1372,9 @@ class ModelTuning(nn.Module):
             out_channels = num_channels
             skip_relu = False
             for i in range(num_layers):
-                if i == num_layers-1 and not add_conv and bottleneck == 0:  # If last layer
+                if (
+                    i == num_layers - 1 and not add_conv and bottleneck == 0
+                ):  # If last layer
                     out_channels = 1
                     if noise == 0:
                         skip_relu = True
@@ -1235,8 +1391,7 @@ class ModelTuning(nn.Module):
                         if noise == 0:
                             skip_relu = True
 
-                    conv.append(
-                        nn.Conv1d(in_channels, out_channels, 3, padding=1))
+                    conv.append(nn.Conv1d(in_channels, out_channels, 3, padding=1))
                     if not skip_relu:
                         conv.append(get_relu(out_channels))
                     in_channels = out_channels
@@ -1267,7 +1422,7 @@ class ModelTuning(nn.Module):
                 )
                 noise_sequential = nn.Sequential(noise_conv, nn.Flatten())
                 self.noise = nn.ModuleList([noise_linear, noise_sequential])
-            elif noise == 0.75:   # Conv layers to model noise:
+            elif noise == 0.75:  # Conv layers to model noise:
                 pass
 
         self.filter = data.BandpassFilter((300, 3000)) if filter else None
@@ -1277,8 +1432,9 @@ class ModelTuning(nn.Module):
         if isinstance(self.noise, nn.Flatten):
             x2 = self.noise(x2)
         elif isinstance(self.noise, nn.Sequential):
-            rms = torch.sqrt(torch.mean(torch.square(x), dim=(
-                1, 2), keepdim=True)) - 1.3  # 1.3 is mean
+            rms = (
+                torch.sqrt(torch.mean(torch.square(x), dim=(1, 2), keepdim=True)) - 1.3
+            )  # 1.3 is mean
             x2 = torch.cat([x2, rms.repeat(1, 1, x2.shape[-1])], dim=1)
             x2 = self.noise(x2)
         elif isinstance(self.noise, nn.ModuleList):
@@ -1305,16 +1461,17 @@ class ModelTuning(nn.Module):
         for i, prob in enumerate(num_wfs_probs):
             exp_prob += prob * (i + 1)
         # 50% chance of a waveform appearing at all, and 1/num_output_locs for waveform appearing at a output location
-        exp_prob *= 0.5 * 1/num_output_locs
+        exp_prob *= 0.5 * 1 / num_output_locs
         # torch.sigmoid(bias) = exp_prob
-        nn.init.constant_(last_weight_layer.bias, torch.logit(
-            torch.tensor(exp_prob)).item())
+        nn.init.constant_(
+            last_weight_layer.bias, torch.logit(torch.tensor(exp_prob)).item()
+        )
 
     @staticmethod
     def parse_architecture(architecture):
         """
         Convert architecture number to num_layers and kernel_size
-        
+
         negative p:architecture: is for neuropixels (30kHz). positive is for MEA (20kHz)
         """
 
@@ -1415,11 +1572,9 @@ class ConvBlock(nn.Module):
 class ExpandBlock(nn.Module):
     def __init__(self, in_channels_x, kernel_size=3):
         super().__init__()
-        self.up_conv = nn.ConvTranspose1d(
-            in_channels_x, in_channels_x // 2, 2, 2)
+        self.up_conv = nn.ConvTranspose1d(in_channels_x, in_channels_x // 2, 2, 2)
         self.relu = nn.ReLU()
-        self.conv_block = ConvBlock(
-            in_channels_x, in_channels_x // 2, kernel_size)
+        self.conv_block = ConvBlock(in_channels_x, in_channels_x // 2, kernel_size)
 
     def forward(self, x, cat):
         up = self.relu(self.up_conv(x))
@@ -1431,7 +1586,7 @@ class ExpandBlock(nn.Module):
         size = x.shape[2]
         cropped = size - size_out
         left = int(cropped // 2)
-        return x[:, :, left:-left - cropped % 2]
+        return x[:, :, left : -left - cropped % 2]
 
 
 class RMSThresh(nn.Module):
@@ -1456,7 +1611,9 @@ class RMSThresh(nn.Module):
         x = torch.tensor(self.filter(x[:, 0, :]).copy())
         rms = torch.sqrt(torch.mean(torch.square(x), keepdim=True, dim=-1))
 
-        return (torch.abs(x[:, self.buffer_front:-self.buffer_end]) >= self.thresh * rms).to(dtype=dtype, device=device) * 200 - 100
+        return (
+            torch.abs(x[:, self.buffer_front : -self.buffer_end]) >= self.thresh * rms
+        ).to(dtype=dtype, device=device) * 200 - 100
 
 
 def sigmoid(x):
@@ -1465,7 +1622,7 @@ def sigmoid(x):
     #                 np.exp(x) / (1+np.exp(x))
     #                 )
     # Positive overflow is not an issue because DL does not output large positive values (only large negative)
-    return np.exp(x) / (1+np.exp(x))
+    return np.exp(x) / (1 + np.exp(x))
 
 
 def main():
@@ -1473,11 +1630,13 @@ def main():
     NUM_CHANNELS_IN = 1
     SAMPLE_SIZE = 80
 
-    inputs = torch.rand(BATCH_SIZE, NUM_CHANNELS_IN,
-                        SAMPLE_SIZE, device="cpu", dtype=torch.float32)
+    inputs = torch.rand(
+        BATCH_SIZE, NUM_CHANNELS_IN, SAMPLE_SIZE, device="cpu", dtype=torch.float32
+    )
 
-    model = ModelSpikeSorter(1, SAMPLE_SIZE, 0, 0, 35,
-                             0, 0, "cpu", (4, 1, "relu", 0, 0, 0, 0))
+    model = ModelSpikeSorter(
+        1, SAMPLE_SIZE, 0, 0, 35, 0, 0, "cpu", (4, 1, "relu", 0, 0, 0, 0)
+    )
 
     # model = ModelTuning(*ModelTuning.parse_architecture(4),
     #                     relu="prelu", add_conv=4, bottleneck=1, noise=0, filter=0,
