@@ -87,7 +87,8 @@ class KilosortSortingExtractor:
                         cluster_info = cluster_info.query(f"group != '{exclude_group}'")
 
         if (
-            _globals.KILOSORT_PARAMS["keep_good_only"]
+            _globals.KILOSORT_PARAMS is not None
+            and _globals.KILOSORT_PARAMS.get("keep_good_only")
             and "KSLabel" in cluster_info.columns
         ):
             cluster_info = cluster_info.query("KSLabel == 'good'")

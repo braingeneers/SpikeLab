@@ -1,0 +1,1 @@
+{"num_channels_in": 1, "sample_size": 200, "buffer_front_sample": 40, "buffer_end_sample": 40, "loc_prob_thresh": 27.500000596046448, "buffer_front_loc": 0, "buffer_end_loc": 0, "device": "cuda", "architecture_params": [4, 50, "relu", 0, 0, 0, 0], "input_scale":0.15887516}

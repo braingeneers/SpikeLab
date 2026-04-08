@@ -8,6 +8,7 @@ lazily to avoid requiring all sorter dependencies at import time.
 _BACKEND_REGISTRY = {
     "kilosort2": (".kilosort2", "Kilosort2Backend"),
     "kilosort4": (".kilosort4", "Kilosort4Backend"),
+    "rt_sort": (".rt_sort", "RTSortBackend"),
 }
 
 
