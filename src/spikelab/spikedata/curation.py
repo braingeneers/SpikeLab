@@ -16,6 +16,8 @@ These functions are bound as methods on ``SpikeData`` by
 
 import numpy as np
 
+from .utils import compute_cosine_similarity_with_lag
+
 
 def curate_by_min_spikes(sd, min_spikes=30):
     """Remove units with fewer than *min_spikes* spikes.
@@ -549,3 +551,537 @@ def _get_or_compute_waveform_metric(sd, metric_name, ms_before, ms_after, **kwar
         "neuron_attributes and raw_data is empty. Call "
         "compute_waveform_metrics() first, or attach raw voltage traces."
     )
+
+
+# ---------------------------------------------------------------------------
+# Merge-based deduplication
+# ---------------------------------------------------------------------------
+
+
+def find_nearby_unit_pairs(sd, dist_um=24.8):
+    """Return all pairs of units whose electrode positions are within distance.
+
+    Uses ``sd.unit_locations`` (which normalizes across ``"location"``,
+    ``"x"/"y"``, and ``"position"`` keys) so this works regardless of
+    which loader populated the SpikeData object.
+
+    Parameters:
+        sd (SpikeData): spike data
+        dist_um (float): Maximum inter-electrode distance in um.
+            Default 24.8 accounts for the 24.7 µm electrode neighbourhood
+            radius plus floating-point tolerance.
+
+    Returns:
+        pairs (set[tuple[int, int]]): Set of (i, j) index tuples with i < j.
+    """
+    locations = sd.unit_locations
+    if locations is None:
+        raise ValueError(
+            "sd.unit_locations is None. Position data is required to find nearby pairs."
+        )
+    pairs = set()
+    for i in range(sd.N):
+        for j in range(i + 1, sd.N):
+            pos_i, pos_j = locations[i], locations[j]
+            dist = np.sqrt(np.sum((pos_i[:2] - pos_j[:2]) ** 2))
+            if dist <= dist_um:
+                pairs.add((i, j))
+    return pairs
+
+
+def filter_pairs_by_isi_violations(
+    sd, pairs, max_violation_rate=0.04, threshold_ms=1.5
+):
+    """Remove pairs where either unit exceeds the ISI violation rate threshold.
+
+    ISI violation rate is n_violations / n_spikes where a violation is any
+    inter-spike interval shorter than threshold_ms.
+
+    Parameters:
+        sd (SpikeData): spike data
+        pairs (set[tuple[int, int]]): Candidate unit-index pairs.
+        max_violation_rate (float): Maximum allowed violation rate as a
+            fraction (not percent).  Default 0.04 (4 %).
+        threshold_ms (float): Refractory period threshold in ms.
+
+    Returns:
+        filtered_pairs (set[tuple[int, int]]): Pairs where both units pass.
+        violation_rates (dict[int, float]): Per-unit violation rates for
+            every unit that appeared in pairs.
+    """
+    if not pairs:
+        return set(), {}
+
+    units_in_pairs = {u for pair in pairs for u in pair}
+    violation_rates = {
+        u: _isi_violation_fraction(sd.train[u], threshold_ms) for u in units_in_pairs
+    }
+    filtered_pairs = {
+        (i, j)
+        for i, j in pairs
+        if violation_rates[i] <= max_violation_rate
+        and violation_rates[j] <= max_violation_rate
+    }
+    return filtered_pairs, violation_rates
+
+
+def compute_pairwise_similarity(sd, pairs, max_lag=10):
+    """Compute cosine similarity for candidate pairs using flat concatenated waveforms.
+
+    Each unit is represented as a single 1-D array built by concatenating
+    avg_waveform in a globally consistent channel order (sorted numerically).
+    Channels absent for a unit are zero-padded.  No spatial weighting or channel
+    selection is applied.
+
+    Parameters:
+        sd (SpikeData): Source spike data with neuron_attributes.
+        pairs (set[tuple[int, int]]): Candidate unit-index pairs to evaluate.
+        max_lag (int): Maximum lag in samples for cosine similarity alignment.
+            Pairs whose best match falls at the boundary (abs(lag) == max_lag)
+            are assigned 0 similarity.  Default 10.
+
+    Returns:
+        similarity_matrix (np.ndarray): Shape (N, N).  NaN for unevaluated
+            pairs; 1.0 on the diagonal.
+        lag_matrix (np.ndarray): Shape (N, N).  Best lag in samples; NaN
+            for unevaluated pairs; 0 on the diagonal.
+        unit_ids (list): neuron_attributes["unit_id"] or index fallback,
+            one entry per unit.
+    """
+    if sd.neuron_attributes is None:
+        raise ValueError(
+            "neuron_attributes is None. Waveform data is required for similarity computation."
+        )
+
+    n = sd.N
+    sim_mat = np.full((n, n), np.nan)
+    lag_mat = np.full((n, n), np.nan)
+    np.fill_diagonal(sim_mat, 1.0)
+    np.fill_diagonal(lag_mat, 0.0)
+
+    unit_ids = [attrs.get("unit_id", i) for i, attrs in enumerate(sd.neuron_attributes)]
+
+    if not pairs:
+        return sim_mat, lag_mat, unit_ids
+
+    # Build a single global channel list from all units, sorted numerically.
+    all_channels = set()
+    wf_lengths = []
+    for attrs in sd.neuron_attributes:
+        avg_wf = attrs.get("avg_waveform")
+        if avg_wf is None:
+            continue
+        wf_lengths.append(avg_wf.shape[1])
+        traces_meta = attrs.get("traces_meta", {})
+        for ch in traces_meta.get("channels", []):
+            all_channels.add(int(ch))
+
+    if not wf_lengths:
+        raise ValueError(
+            "No units have 'avg_waveform' in neuron_attributes. "
+            "Load waveform data before calling compute_pairwise_similarity()."
+        )
+
+    global_channels = sorted(all_channels)
+    template_len = max(wf_lengths)
+
+    # Pre-build a 1-D array for every unit using the shared channel order.
+    unit_arrays = {
+        i: _build_1d_array_for_channels(sd, i, global_channels, template_len)
+        for i in range(n)
+    }
+
+    for i, j in pairs:
+        arr_i = unit_arrays[i]
+        arr_j = unit_arrays[j]
+
+        if not np.any(arr_i) or not np.any(arr_j):
+            continue
+
+        sim, best_lag = compute_cosine_similarity_with_lag(
+            arr_i, arr_j, max_lag=max_lag
+        )
+        if abs(best_lag) == max_lag:
+            sim = 0.0
+
+        sim_mat[i, j] = sim_mat[j, i] = sim
+        lag_mat[i, j] = best_lag
+        lag_mat[j, i] = -best_lag
+
+    return sim_mat, lag_mat, unit_ids
+
+
+def filter_by_cosine_sim(pairs, similarity_matrix, threshold=0.9):
+    """Return the subset of pairs whose cosine similarity meets threshold.
+
+    Parameters:
+        pairs (set[tuple[int, int]]): Candidate unit-index pairs.
+        similarity_matrix (np.ndarray): Shape (N, N) similarity values,
+            e.g. from compute_pairwise_similarity().
+        threshold (float): Minimum cosine similarity to retain a pair.
+
+    Returns:
+        filtered_pairs (set[tuple[int, int]]): Pairs passing the threshold.
+    """
+    return {
+        (i, j)
+        for i, j in pairs
+        if not np.isnan(similarity_matrix[i, j])
+        and similarity_matrix[i, j] >= threshold
+    }
+
+
+def curate_by_merge_duplicates(
+    sd,
+    dist_um=24.8,
+    max_violation_rate=0.04,
+    isi_threshold_ms=1.5,
+    cosine_threshold=0.9,
+    max_lag=10,
+    delta_ms=0.4,
+    max_isi_increase=0.04,
+    verbose=False,
+):
+    """Remove duplicate units by merging nearby pairs with similar waveforms.
+
+    Runs the full merge-based deduplication pipeline:
+
+    1. Find spatially nearby unit pairs within dist_um.
+    2. Discard pairs where either unit exceeds the ISI violation threshold.
+    3. Compute pairwise cosine waveform similarity.
+    4. Discard pairs below cosine_threshold.
+    5. Greedily merge accepted pairs; a merge is rejected if the ISI
+       violation fraction increases by more than max_isi_increase.
+
+    Requires neuron_attributes with position and avg_waveform
+    entries.  Unlike other curate_by_* functions this merges spike
+    trains rather than simply removing units.
+
+    Parameters:
+        sd (SpikeData): Source spike data.
+        dist_um (float): Maximum inter-electrode distance in µm to consider
+            a pair as candidate duplicates.
+        max_violation_rate (float): Maximum ISI violation rate (fraction,
+            not percent) for a unit to participate in a merge.
+        isi_threshold_ms (float): Refractory period threshold in ms.
+        cosine_threshold (float): Minimum cosine similarity to merge a pair.
+        max_lag (int): Maximum lag in samples for cosine similarity alignment.
+        delta_ms (float): Spike deduplication window in ms when merging trains.
+        max_isi_increase (float): Maximum allowable absolute increase in ISI
+            violation fraction after merging.
+        verbose (bool): Print per-pair merge decisions.
+
+    Returns:
+        sd_out (SpikeData): SpikeData with merged units.
+        result (dict): {"metric": np.ndarray (N,), "passed": np.ndarray (N,)}.
+            metric[i] is the cosine similarity to the partner unit in the
+            accepted merge, or 0.0 if unit i was not involved in any merge.
+            passed[i] is True if unit i was retained (primary or
+            standalone), False if it was absorbed into another unit.
+    """
+    metric = np.zeros(sd.N, dtype=float)
+    passed = np.ones(sd.N, dtype=bool)
+
+    pairs = find_nearby_unit_pairs(sd, dist_um=dist_um)
+    if not pairs:
+        return sd, {"metric": metric, "passed": passed}
+
+    pairs, _ = filter_pairs_by_isi_violations(
+        sd, pairs, max_violation_rate=max_violation_rate, threshold_ms=isi_threshold_ms
+    )
+    if not pairs:
+        return sd, {"metric": metric, "passed": passed}
+
+    sim_mat, lag_mat, _ = compute_pairwise_similarity(sd, pairs, max_lag=max_lag)
+    pairs = filter_by_cosine_sim(pairs, sim_mat, threshold=cosine_threshold)
+    if not pairs:
+        return sd, {"metric": metric, "passed": passed}
+
+    sd_out, merge_result = merge_redundant_units(
+        sd,
+        pairs,
+        sim_mat,
+        lag_matrix=lag_mat,
+        delta_ms=delta_ms,
+        max_isi_increase=max_isi_increase,
+        isi_threshold_ms=isi_threshold_ms,
+        verbose=verbose,
+    )
+
+    for primary, secondary, sim in merge_result["merged_pairs"]:
+        passed[secondary] = False
+        metric[secondary] = sim
+        metric[primary] = max(metric[primary], sim)
+
+    return sd_out, {"metric": metric, "passed": passed}
+
+
+def merge_redundant_units(
+    sd,
+    pairs,
+    similarity_matrix,
+    lag_matrix=None,
+    delta_ms=0.4,
+    max_isi_increase=0.04,
+    isi_threshold_ms=1.5,
+    verbose=False,
+):
+    """Merge pre-filtered candidate duplicate unit pairs into a new SpikeData.
+
+    Pairs are processed in descending similarity order (greedy).  For each
+    pair the unit with more spikes is kept as primary; the unit with fewer
+    spikes is merged into it.  A merge is accepted only if the ISI violation
+    rate after merging does not exceed the pre-merge maximum by more than
+    max_isi_increase.  Units can be involved in multiple merges (e.g., A→B
+    then B→C results in a final unit containing spikes from A, B, and C).
+
+    Parameters:
+        sd (SpikeData): Source spike data.
+        pairs (set[tuple[int, int]] or list[tuple[int, int]]): Candidate
+            duplicate pairs, e.g. from filter_by_cosine_sim().
+        similarity_matrix (np.ndarray): Shape (N, N) similarity values
+            used to sort pairs and record scores.
+        lag_matrix (np.ndarray, optional): Shape (N, N) lag values in samples.
+            If provided, the secondary unit's spikes are shifted by the lag
+            before merging to correct for timing offsets.  Default None.
+        delta_ms (float): Spike deduplication window in ms.
+        max_isi_increase (float): Maximum allowable absolute increase in ISI
+            violation fraction after merging.  Default 0.04 (4 percentage points).
+        isi_threshold_ms (float): ISI violation threshold in ms.
+        verbose (bool): Print a line for each pair decision.
+
+    Returns:
+        sd_out (SpikeData): New SpikeData with merged units.
+        result (dict): {"merged_pairs": list[tuple], "n_removed": int}.
+            merged_pairs is a list of (primary, secondary, similarity)
+            tuples that were accepted.
+    """
+    if not pairs:
+        raise ValueError(
+            "pairs must be a non-empty collection. " "Run filter_by_cosine_sim() first."
+        )
+
+    sorted_pairs = sorted(
+        ((i, j, float(similarity_matrix[i, j])) for i, j in pairs),
+        key=lambda x: x[2],
+        reverse=True,
+    )
+
+    merge_chain: dict = (
+        {}
+    )  # unit_idx → primary_idx (maps each unit to its final primary)
+    current_train: dict = {}  # tracks merged-so-far train for each primary
+    accepted_pairs = []
+
+    def _resolve(unit):
+        """Follow merge_chain to its root (with path compression)."""
+        while unit in merge_chain:
+            nxt = merge_chain[unit]
+            if nxt in merge_chain:
+                merge_chain[unit] = merge_chain[nxt]
+            unit = nxt
+        return unit
+
+    for i, j, sim in sorted_pairs:
+
+        # Resolve which primary each unit is currently merged into (full chain)
+        prim_i = _resolve(i)
+        prim_j = _resolve(j)
+
+        # Skip if both units are already merged into the same primary
+        if prim_i == prim_j:
+            continue
+
+        primary, secondary = _choose_primary_unit(sd, i, j)
+        prim_primary = _resolve(primary)
+        prim_secondary = _resolve(secondary)
+
+        # Skip if already chained together via different paths
+        if prim_primary == prim_secondary:
+            continue
+
+        # Use the already-merged primary train if it has prior merges accepted
+        primary_train = current_train.get(prim_primary, sd.train[prim_primary])
+        secondary_train = current_train.get(prim_secondary, sd.train[prim_secondary])
+
+        # Apply lag correction only when secondary is fresh (not yet merged into another chain)
+        if lag_matrix is not None and prim_secondary == secondary:
+            lag_val = lag_matrix[primary, secondary]
+            if not np.isnan(lag_val) and lag_val != 0:
+                fs = sd.metadata.get("fs_Hz", 30000) if sd.metadata else 30000
+                secondary_train = secondary_train + float(lag_val) / (fs / 1000.0)
+
+        before_max = max(
+            _isi_violation_fraction(primary_train, isi_threshold_ms),
+            _isi_violation_fraction(secondary_train, isi_threshold_ms),
+        )
+        merged_train, _ = _merge_two_trains(primary_train, secondary_train, delta_ms)
+        after_rate = _isi_violation_fraction(merged_train, isi_threshold_ms)
+        isi_increase = after_rate - before_max
+
+        if isi_increase <= max_isi_increase:
+            # Accept the merge: prim_secondary is merged into prim_primary
+            merge_chain[prim_secondary] = prim_primary
+            current_train[prim_primary] = merged_train
+            accepted_pairs.append((primary, secondary, sim))
+            if verbose:
+                print(
+                    f"  Merge [{i},{j}]: sim={sim:.3f}, "
+                    f"ISI {before_max:.3f}→{after_rate:.3f} (Δ={isi_increase:+.3f})"
+                )
+        else:
+            if verbose:
+                print(
+                    f"  Skip  [{i},{j}]: sim={sim:.3f}, "
+                    f"ISI increase too high (Δ={isi_increase:+.3f} > {max_isi_increase})"
+                )
+
+    # Build a mapping: final_primary → list of original units that merged into it.
+    # Follow the chain for merges (e.g., A→B, B→C yields A,B→C).
+    primary_groups: dict = {}
+    for orig_unit in range(sd.N):
+        final_primary = merge_chain.get(orig_unit, orig_unit)
+        while final_primary in merge_chain:
+            final_primary = merge_chain[final_primary]
+        primary_groups.setdefault(final_primary, []).append(orig_unit)
+
+    new_trains = []
+    new_attrs = []
+    for primary in sorted(primary_groups.keys()):
+        constituent_units = primary_groups[primary]
+        # Reuse the pre-merged train from current_train if available
+        merged = current_train.get(primary, sd.train[primary])
+        original_spike_count = sum(len(sd.train[u]) for u in constituent_units)
+        total_dup = original_spike_count - len(merged)
+        new_trains.append(merged)
+        attrs = sd.neuron_attributes[primary].copy() if sd.neuron_attributes else {}
+        attrs["merged_from"] = [
+            (sd.neuron_attributes[u].get("unit_id", u) if sd.neuron_attributes else u)
+            for u in constituent_units
+        ]
+        attrs["n_duplicates_removed"] = total_dup
+        new_attrs.append(attrs)
+
+    from .spikedata import SpikeData
+
+    sd_out = SpikeData(
+        new_trains,
+        length=sd.length,
+        start_time=sd.start_time,
+        neuron_attributes=new_attrs,
+        metadata=sd.metadata.copy() if sd.metadata else {},
+        raw_data=sd.raw_data,
+        raw_time=sd.raw_time,
+    )
+
+    n_removed = sd.N - len(new_trains)
+    if verbose:
+        print(f"  {n_removed} units merged; " f"{sd.N} → {sd_out.N} units")
+
+    return sd_out, {"merged_pairs": accepted_pairs, "n_removed": n_removed}
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers (merge-based deduplication)
+# ---------------------------------------------------------------------------
+
+
+def _isi_violation_fraction(train, threshold_ms):
+    """Return the ISI violation rate as a fraction for a spike train.
+
+    ISI violation rate is n_violations / n_spikes.
+
+    Parameters:
+        train (np.ndarray): Spike times in milliseconds.
+        threshold_ms (float): Refractory period threshold in ms.
+
+    Returns:
+        rate (float): Violation rate as a fraction (0.0-1.0), or 0.0 for
+            fewer than 2 spikes.
+    """
+    if len(train) < 2:
+        return 0.0
+    isis = np.diff(train)
+    violation_count = np.sum(isis < threshold_ms)
+    return float(violation_count / len(train))
+
+
+def _build_1d_array_for_channels(sd, unit_idx, channels, template_len):
+    """Build a 1-D waveform vector for unit_idx on an explicit channel list.
+
+    Channels present in the unit's avg_waveform are copied in; missing
+    channels are zero-padded.
+
+    Parameters:
+        sd (SpikeData): Source spike data with neuron_attributes.
+        unit_idx (int): Index of the unit.
+        channels (list[int]): Ordered channel list (defines output layout).
+        template_len (int): Samples per channel slot.
+
+    Returns:
+        arr (np.ndarray): 1-D array of length len(channels) * template_len.
+    """
+    attrs = sd.neuron_attributes[unit_idx]
+    avg_wf = attrs.get("avg_waveform")
+    traces_meta = attrs.get("traces_meta", {})
+    channel_list = [int(c) for c in traces_meta.get("channels", [])]
+    ch_to_row = {ch: idx for idx, ch in enumerate(channel_list)}
+
+    arr = np.zeros(len(channels) * template_len)
+    if avg_wf is None:
+        return arr
+    for k, ch in enumerate(channels):
+        row = ch_to_row.get(ch)
+        if row is not None:
+            wf = avg_wf[row, :]
+            n = min(len(wf), template_len)
+            arr[k * template_len : k * template_len + n] = wf[:n]
+    return arr
+
+
+def _merge_two_trains(train1, train2, delta_ms=0.4):
+    """Merge two spike trains, removing duplicates within delta_ms.
+
+    Parameters:
+        train1 (np.ndarray): First spike train (ms).
+        train2 (np.ndarray): Second spike train (ms).
+        delta_ms (float): Deduplication window in ms.
+
+    Returns:
+        merged (np.ndarray): Sorted merged spike train.
+        n_duplicates (int): Number of spikes removed as duplicates.
+    """
+    if len(train1) == 0 and len(train2) == 0:
+        return np.array([]), 0
+    if len(train1) == 0:
+        return np.sort(train2), 0
+    if len(train2) == 0:
+        return np.sort(train1), 0
+
+    times = np.concatenate([train1, train2])
+    membership = np.concatenate(
+        [np.zeros(len(train1), dtype=np.int8), np.ones(len(train2), dtype=np.int8)]
+    )
+    idx = np.argsort(times, kind="mergesort")
+    times = times[idx]
+    membership = membership[idx]
+
+    diffs = np.diff(times)
+    cross_train = np.diff(membership) != 0
+    dup_mask = (diffs <= delta_ms) & cross_train
+
+    keep = np.ones(len(times), dtype=bool)
+    keep[1:][dup_mask] = False
+
+    merged = times[keep]
+    return merged, int(np.sum(~keep))
+
+
+def _choose_primary_unit(sd, i, j):
+    """Return (primary, secondary) based on spike count.
+
+    The unit with the larger number of spikes is kept as primary.
+    """
+    spike_count_i = len(sd.train[i])
+    spike_count_j = len(sd.train[j])
+    return (i, j) if spike_count_i >= spike_count_j else (j, i)

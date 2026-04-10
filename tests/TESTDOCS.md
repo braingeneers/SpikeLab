@@ -141,6 +141,68 @@ This document explains what each test does in detail and why it matters. It is i
 
 ---
 
+## Curation tests (`tests/test_curation.py`)
+
+### Merge-based deduplication helpers
+
+- **`_make_sd_with_positions(positions, spike_counts, length, seed)`**
+  - Builds a SpikeData with `"location"` in `neuron_attributes` for spatial tests.
+  - Used across all merge deduplication test classes.
+
+- **`_make_sd_with_waveforms(positions, waveforms, spike_counts, length, seed)`**
+  - Builds a SpikeData with `"location"`, `"avg_waveform"`, and `"traces_meta"` populated, matching the structure written by `sd.get_waveform_traces(store=True)`.
+
+- **`_make_duplicate_pair_sd()`**
+  - Three-unit SpikeData with units 0 and 1 as genuine duplicates (5 µm apart, identical waveforms, spike trains with <0.4 ms jitter) and unit 2 as an unrelated unit 500 µm away. Used for end-to-end merge tests.
+
+### `TestFindNearbyUnitPairs`
+
+- **test_nearby_pairs_detected** — Units within `dist_um` are returned; distant units are excluded. Verifies `i < j` invariant.
+- **test_all_nearby** — Three mutually nearby units yield all three pairs.
+- **test_no_pairs_when_all_far** — Units beyond threshold produce an empty set.
+- **test_no_locations_raises** — `ValueError` raised when `sd.unit_locations` is `None`.
+- **test_boundary_distance** — Distance exactly equal to `dist_um` is included (`<=`); distance `dist_um + ε` is excluded.
+- **test_2d_positions_only** — Only x/y coordinates are used; z component is ignored.
+
+### `TestFilterPairsByIsiViolations`
+
+- **test_filters_violating_units** — Pair containing a high-violation unit is removed; clean pair is retained. `violation_rates` dict covers all units appearing in input pairs.
+- **test_both_must_pass** — Both units must pass the threshold independently; violation on either side rejects the pair.
+
+### `TestComputePairwiseSimilarity`
+
+- **test_identical_waveforms_give_similarity_one** — Identical `avg_waveform` arrays produce cosine similarity of 1.0.
+- **test_orthogonal_waveforms_give_low_similarity** — Waveforms with energy on non-overlapping channels/samples produce near-zero similarity.
+- **test_output_shapes** — `sim_mat` and `lag_mat` are `(N, N)`; diagonal is 1.0 / 0.0; unevaluated pairs are NaN; `unit_ids` length matches N.
+- **test_no_avg_waveform_raises** — `ValueError` raised when no units have `avg_waveform`.
+- **test_no_neuron_attributes_raises** — `ValueError` raised when `neuron_attributes` is `None`.
+- **test_lag_boundary_sets_sim_to_zero** — Similarity is forced to 0 when the best lag hits the `max_lag` boundary.
+### `TestFilterByCosineSim`
+
+- **test_threshold_filtering** — Pairs at or above threshold are retained; pairs below are excluded.
+- **test_nan_excluded** — NaN similarity entries are always excluded regardless of threshold.
+
+### `TestMergeRedundantUnits`
+
+- **test_merges_duplicate_pair** — Output N decreases by 1; `merged_pairs` contains the accepted pair; `n_removed == 1`.
+- **test_merged_train_deduplicates_spikes** — Merged train has fewer spikes than naive concatenation; train is sorted.
+- **test_preserves_start_time** — `sd_out.start_time` matches `sd.start_time`.
+- **test_merged_from_attribute_set** — Primary unit's `merged_from` neuron attribute lists both original unit IDs.
+- **test_isi_guard_rejects_bad_merge** — Merge is rejected when `max_isi_increase=0.0` and the merge would increase ISI violations; `n_removed == 0`, `N` unchanged.
+- **test_empty_pairs_raises** — `ValueError` raised when `pairs` is empty.
+- **test_unrelated_unit_unchanged** — Train of a unit not involved in any merge is passed through unchanged.
+
+### `TestCurateByMergeDuplicates`
+
+- **test_merges_duplicate_pair** — Full pipeline detects and merges a genuine duplicate pair; output N is smaller; `result_dict` has correct structure with `passed == False` for the absorbed unit.
+- **test_no_nearby_pairs_returns_unchanged** — Returns original SpikeData unchanged when no pairs fall within `dist_um`; all units pass with metric 0.
+- **test_result_dict_structure** — `result_dict` always has `"metric"` and `"passed"` arrays of length N.
+- **test_metric_reflects_similarity** — Merged units have `metric > 0`; unrelated unit has `metric == 0`.
+- **test_spikedata_method_binding** — `sd.curate_by_merge_duplicates()` delegates correctly and returns the expected types.
+- **test_no_locations_raises** — `ValueError` propagates when SpikeData has no position data.
+
+---
+
 ## Data loader tests (`tests/test_dataloaders.py`)
 
 ### HDF5 loaders (`TestHDF5Loaders`)
