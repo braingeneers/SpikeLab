@@ -2152,6 +2152,190 @@ class TestSortingPipelineConfig:
 
 
 # ===========================================================================
+# CurationConfig — merge_spatial_duplicates fields
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestCurationConfigMergeSpatialDuplicates:
+    """
+    Tests for the merge_spatial_duplicates fields on CurationConfig.
+    """
+
+    def test_default_values(self):
+        """
+        merge_spatial_duplicates is disabled by default with sensible thresholds.
+
+        Tests:
+            (Test Case 1) merge_spatial_duplicates defaults to False.
+            (Test Case 2) All merge threshold defaults are set.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        assert cfg.curation.merge_spatial_duplicates is False
+        assert cfg.curation.merge_dist_um == pytest.approx(24.8)
+        assert cfg.curation.merge_max_isi_violation == pytest.approx(0.04)
+        assert cfg.curation.merge_cosine_threshold == pytest.approx(0.9)
+        assert cfg.curation.merge_delta_ms == pytest.approx(0.4)
+        assert cfg.curation.merge_max_isi_increase == pytest.approx(0.04)
+
+    def test_from_kwargs_merge_fields(self):
+        """
+        from_kwargs maps merge_spatial_duplicates fields to curation sub-config.
+
+        Tests:
+            (Test Case 1) merge_spatial_duplicates flat key sets curation field.
+            (Test Case 2) merge_dist_um flat key sets curation field.
+            (Test Case 3) merge_cosine_threshold flat key sets curation field.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(
+            merge_spatial_duplicates=True,
+            merge_dist_um=30.0,
+            merge_cosine_threshold=0.85,
+        )
+        assert cfg.curation.merge_spatial_duplicates is True
+        assert cfg.curation.merge_dist_um == pytest.approx(30.0)
+        assert cfg.curation.merge_cosine_threshold == pytest.approx(0.85)
+
+
+# ===========================================================================
+# curate_spikedata — merge_spatial_duplicates integration
+# ===========================================================================
+
+
+@skip_no_spikeinterface
+class TestCurateSpikedataMergeSpatialDuplicates:
+    """
+    Tests for the merge_spatial_duplicates step in curate_spikedata.
+    """
+
+    def _make_config(self, **kwargs):
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        return SortingPipelineConfig.from_kwargs(**kwargs)
+
+    def _make_duplicate_sd(self):
+        """Two nearly identical units on adjacent electrodes + one unrelated unit."""
+        import numpy as np
+        from spikelab.spikedata import SpikeData
+
+        rng = np.random.default_rng(0)
+        # Evenly-spaced trains guarantee ISI >> 1.5 ms (spacing ~33 ms),
+        # so all default quality filters pass without needing raw_data.
+        base = np.linspace(10.0, 4990.0, 150)
+        jitter = base + rng.uniform(-0.1, 0.1, size=150)
+        unrelated = np.linspace(5.0, 4995.0, 150)
+        n_samples = 30
+        avg_wf = rng.standard_normal((1, n_samples))
+        # Precompute snr/std_norm so curate_by_snr/std_norm don't need raw_data
+        return SpikeData(
+            [base, jitter, unrelated],
+            length=5000.0,
+            neuron_attributes=[
+                {
+                    "unit_id": 0,
+                    "location": [0.0, 0.0],
+                    "avg_waveform": avg_wf.copy(),
+                    "traces_meta": {"channels": [0]},
+                    "snr": 10.0,
+                    "std_norm": 0.1,
+                },
+                {
+                    "unit_id": 1,
+                    "location": [0.0, 16.0],
+                    "avg_waveform": avg_wf.copy(),
+                    "traces_meta": {"channels": [0]},
+                    "snr": 10.0,
+                    "std_norm": 0.1,
+                },
+                {
+                    "unit_id": 2,
+                    "location": [200.0, 0.0],
+                    "avg_waveform": rng.standard_normal((1, n_samples)),
+                    "traces_meta": {"channels": [1]},
+                    "snr": 10.0,
+                    "std_norm": 0.1,
+                },
+            ],
+        )
+
+    def test_merge_disabled_leaves_units_unchanged(self, tmp_path):
+        """
+        When merge_spatial_duplicates is False, unit count is not affected.
+
+        Tests:
+            (Test Case 1) curate_spikedata with no merge criteria returns all
+                units that pass quality filters.
+        """
+        from spikelab.spike_sorting.pipeline import curate_spikedata
+
+        sd = self._make_duplicate_sd()
+        cfg = self._make_config(merge_spatial_duplicates=False)
+        sd_out, history = curate_spikedata(sd, tmp_path, cfg)
+        assert sd_out.N == sd.N
+
+    def test_merge_enabled_reduces_duplicates(self, tmp_path):
+        """
+        Enabling merge_spatial_duplicates merges the near-duplicate pair.
+
+        Tests:
+            (Test Case 1) Unit count decreases after merging the duplicate pair.
+            (Test Case 2) The unrelated distant unit is not merged.
+        """
+        from spikelab.spike_sorting.pipeline import curate_spikedata
+
+        sd = self._make_duplicate_sd()
+        cfg = self._make_config(
+            merge_spatial_duplicates=True,
+            merge_dist_um=24.8,
+            merge_cosine_threshold=0.5,
+        )
+        sd_out, history = curate_spikedata(sd, tmp_path, cfg)
+        assert sd_out.N < sd.N
+
+    def test_merge_result_in_history(self, tmp_path):
+        """
+        merge_spatial_duplicates result is recorded in the curation results.
+
+        Tests:
+            (Test Case 1) results dict passed to build_curation_history
+                contains the merge_spatial_duplicates key.
+        """
+        from spikelab.spike_sorting.pipeline import curate_spikedata
+
+        sd = self._make_duplicate_sd()
+        cfg = self._make_config(
+            merge_spatial_duplicates=True,
+            merge_dist_um=24.8,
+            merge_cosine_threshold=0.5,
+        )
+        _, history = curate_spikedata(sd, tmp_path, cfg)
+        # build_curation_history records criterion names under "curations"
+        assert "merge_spatial_duplicates" in history.get("curations", [])
+
+    def test_merge_skipped_when_no_nearby_pairs(self, tmp_path):
+        """
+        No merge occurs when all units are far apart.
+
+        Tests:
+            (Test Case 1) Unit count unchanged when distance threshold
+                excludes all pairs.
+        """
+        from spikelab.spike_sorting.pipeline import curate_spikedata
+
+        sd = self._make_duplicate_sd()
+        cfg = self._make_config(
+            merge_spatial_duplicates=True,
+            merge_dist_um=1.0,  # too small to capture any pair
+        )
+        sd_out, _ = curate_spikedata(sd, tmp_path, cfg)
+        assert sd_out.N == sd.N
+
+
+# ===========================================================================
 # sort_recording validation
 # ===========================================================================
 

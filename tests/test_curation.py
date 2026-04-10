@@ -7,6 +7,7 @@ from spikelab.spikedata import SpikeData
 from spikelab.spikedata.curation import (
     build_curation_history,
     compute_pairwise_similarity,
+    compute_spk_sim,
     compute_waveform_metrics,
     curate,
     curate_by_firing_rate,
@@ -18,6 +19,8 @@ from spikelab.spikedata.curation import (
     filter_by_cosine_sim,
     filter_pairs_by_isi_violations,
     find_nearby_unit_pairs,
+    get_agreement_score,
+    get_num_matches,
     merge_redundant_units,
 )
 
@@ -1297,6 +1300,23 @@ class TestComputePairwiseSimilarity:
         with pytest.raises(ValueError, match="neuron_attributes is None"):
             compute_pairwise_similarity(sd, {(0, 1)})
 
+    def test_avg_waveform_without_traces_meta_raises(self):
+        """
+        ValueError raised when avg_waveform is set but traces_meta is absent.
+
+        Tests:
+            (Test Case 1) Manually setting avg_waveform without traces_meta
+                raises a clear error rather than silently returning zero
+                similarities.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [5.0, 0.0]])
+        rng = np.random.default_rng(0)
+        for attrs in sd.neuron_attributes:
+            attrs["avg_waveform"] = rng.standard_normal((2, 30))
+            # deliberately omit traces_meta
+        with pytest.raises(ValueError, match="traces_meta"):
+            compute_pairwise_similarity(sd, {(0, 1)})
+
     def test_lag_boundary_sets_sim_to_zero(self):
         """
         Similarity is set to 0 when best lag hits the max_lag boundary.
@@ -1327,6 +1347,7 @@ class TestComputePairwiseSimilarity:
         # max_lag=0 means no shifting allowed — best_lag will == max_lag
         sim_mat, _, _ = compute_pairwise_similarity(sd, {(0, 1)}, max_lag=0)
         assert sim_mat[0, 1] == pytest.approx(0.0)
+
 
 # ---------------------------------------------------------------------------
 # filter_by_cosine_sim
@@ -1363,6 +1384,7 @@ class TestFilterByCosineSim:
         sim_mat = np.full((2, 2), np.nan)
         filtered = filter_by_cosine_sim({(0, 1)}, sim_mat, threshold=0.0)
         assert filtered == set()
+
 
 # ---------------------------------------------------------------------------
 # merge_redundant_units
@@ -1608,3 +1630,301 @@ class TestCurateByMergeDuplicates:
         sd = _make_sd(n_units=3)
         with pytest.raises(ValueError, match="unit_locations is None"):
             curate_by_merge_duplicates(sd)
+
+
+# ---------------------------------------------------------------------------
+# get_num_matches
+# ---------------------------------------------------------------------------
+
+
+class TestGetNumMatches:
+    def test_basic_matching(self):
+        """
+        Matching spikes within delta are counted correctly.
+
+        Tests:
+            (Test Case 1) Identical trains shifted by less than delta all match.
+            (Test Case 2) Trains with no temporal overlap produce zero matches.
+        """
+        ref = np.array([10.0, 20.0, 30.0])
+        comp = np.array([10.1, 20.1, 30.1])  # all within delta=0.4
+        assert get_num_matches(ref, comp, delta=0.4) == 3
+
+        ref2 = np.array([10.0, 20.0])
+        comp2 = np.array([100.0, 200.0])
+        assert get_num_matches(ref2, comp2, delta=0.4) == 0
+
+    def test_partial_overlap(self):
+        """
+        Only spikes within the delta window are counted as matches.
+
+        Tests:
+            (Test Case 1) One spike within delta, others outside.
+        """
+        ref = np.array([10.0, 20.0, 30.0])
+        comp = np.array([10.2, 25.0, 50.0])  # only 10.0↔10.2 within delta=0.4
+        assert get_num_matches(ref, comp, delta=0.4) == 1
+
+    def test_empty_trains(self):
+        """
+        Empty trains return zero matches without error.
+
+        Tests:
+            (Test Case 1) Empty ref train.
+            (Test Case 2) Empty comp train.
+            (Test Case 3) Both trains empty.
+        """
+        assert get_num_matches(np.array([]), np.array([10.0]), delta=0.4) == 0
+        assert get_num_matches(np.array([10.0]), np.array([]), delta=0.4) == 0
+        assert get_num_matches(np.array([]), np.array([]), delta=0.4) == 0
+
+    def test_single_spike_match(self):
+        """
+        Single-spike trains within delta produce one match.
+
+        Tests:
+            (Test Case 1) One spike in each train, within delta.
+            (Test Case 2) One spike in each train, outside delta.
+        """
+        assert get_num_matches(np.array([5.0]), np.array([5.3]), delta=0.4) == 1
+        assert get_num_matches(np.array([5.0]), np.array([6.0]), delta=0.4) == 0
+
+    def test_each_spike_matches_at_most_once(self):
+        """
+        Each spike can only participate in one match pair.
+
+        Tests:
+            (Test Case 1) Two comp spikes close to one ref spike; only one match.
+        """
+        ref = np.array([10.0])
+        comp = np.array([10.1, 10.2])  # both within delta of ref[0]
+        # The algorithm counts adjacent cross-train pairs; should be 1
+        assert get_num_matches(ref, comp, delta=0.4) == 1
+
+    def test_list_input(self):
+        """
+        List inputs are accepted (converted to ndarray internally).
+
+        Tests:
+            (Test Case 1) Matching with list inputs produces same result.
+        """
+        assert get_num_matches([10.0, 20.0], [10.1, 20.1], delta=0.4) == 2
+
+
+# ---------------------------------------------------------------------------
+# get_agreement_score
+# ---------------------------------------------------------------------------
+
+
+class TestGetAgreementScore:
+    def test_perfect_agreement(self):
+        """
+        Identical trains shifted within delta produce agreement of 1.0.
+
+        Tests:
+            (Test Case 1) Symmetric score equals 1.0.
+            (Test Case 2) Both perspective scores equal 1.0.
+        """
+        ref = np.array([10.0, 20.0, 30.0])
+        comp = np.array([10.1, 20.1, 30.1])
+        agr, agr_ref, agr_comp = get_agreement_score(ref, comp, delta=0.4)
+        assert agr == pytest.approx(1.0)
+        assert agr_ref == pytest.approx(1.0)
+        assert agr_comp == pytest.approx(1.0)
+
+    def test_no_overlap(self):
+        """
+        Non-overlapping trains produce all-zero scores.
+
+        Tests:
+            (Test Case 1) Symmetric and both perspective scores are 0.
+        """
+        ref = np.array([10.0, 20.0])
+        comp = np.array([100.0, 200.0])
+        agr, agr_ref, agr_comp = get_agreement_score(ref, comp, delta=0.4)
+        assert agr == pytest.approx(0.0)
+        assert agr_ref == pytest.approx(0.0)
+        assert agr_comp == pytest.approx(0.0)
+
+    def test_asymmetric_perspective_scores(self):
+        """
+        Perspective scores differ when train lengths differ.
+
+        Tests:
+            (Test Case 1) ref has more spikes; agr_ref < agr_comp.
+        """
+        ref = np.array([10.0, 20.0, 30.0, 40.0])
+        comp = np.array([10.1, 20.1])  # 2 matches out of 4 ref, 2 comp
+        agr, agr_ref, agr_comp = get_agreement_score(ref, comp, delta=0.4)
+        assert agr_ref == pytest.approx(2 / 4)
+        assert agr_comp == pytest.approx(2 / 2)
+        # Jaccard: 2 / (4 + 2 - 2) = 2/4
+        assert agr == pytest.approx(2 / 4)
+
+    def test_empty_ref(self):
+        """
+        Empty ref train produces zero scores without error.
+
+        Tests:
+            (Test Case 1) agr_ref is 0.0 (no ref spikes).
+        """
+        agr, agr_ref, agr_comp = get_agreement_score(
+            np.array([]), np.array([10.0, 20.0]), delta=0.4
+        )
+        assert agr == pytest.approx(0.0)
+        assert agr_ref == pytest.approx(0.0)
+        assert agr_comp == pytest.approx(0.0)
+
+    def test_empty_comp(self):
+        """
+        Empty comp train produces zero scores without error.
+
+        Tests:
+            (Test Case 1) agr_comp is 0.0 (no comp spikes).
+        """
+        agr, agr_ref, agr_comp = get_agreement_score(
+            np.array([10.0, 20.0]), np.array([]), delta=0.4
+        )
+        assert agr == pytest.approx(0.0)
+        assert agr_comp == pytest.approx(0.0)
+
+    def test_symmetric_score_is_jaccard(self):
+        """
+        Symmetric score is matches / (len1 + len2 - matches).
+
+        Tests:
+            (Test Case 1) Manual Jaccard calculation matches returned value.
+        """
+        ref = np.array([1.0, 2.0, 3.0])
+        comp = np.array([1.05, 5.0, 6.0])  # 1 match
+        agr, _, _ = get_agreement_score(ref, comp, delta=0.4)
+        expected = 1 / (3 + 3 - 1)
+        assert agr == pytest.approx(expected)
+
+
+# ---------------------------------------------------------------------------
+# compute_spk_sim
+# ---------------------------------------------------------------------------
+
+
+class TestComputeSpkSim:
+    def test_within_recording_shape(self):
+        """
+        Within-recording mode returns square matrices of shape (N, N).
+
+        Tests:
+            (Test Case 1) All three returned arrays have shape (N, N).
+        """
+        sd = _make_sd(n_units=4, spikes_per_unit=50)
+        spk_sim, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd)
+        assert spk_sim.shape == (4, 4)
+        assert spk_sim_ref.shape == (4, 4)
+        assert spk_sim_comp.shape == (4, 4)
+
+    def test_within_recording_symmetry(self):
+        """
+        Within-recording spk_sim matrix is symmetric.
+
+        Tests:
+            (Test Case 1) spk_sim[i, j] == spk_sim[j, i] for all i, j.
+        """
+        sd = _make_sd(n_units=4, spikes_per_unit=50)
+        spk_sim, _, _ = compute_spk_sim(sd)
+        np.testing.assert_array_almost_equal(spk_sim, spk_sim.T)
+
+    def test_within_recording_ref_comp_perspective_mirror(self):
+        """
+        At symmetric positions spk_sim_ref and spk_sim_comp are swapped.
+
+        Tests:
+            (Test Case 1) spk_sim_ref[i, j] == spk_sim_comp[j, i] for i < j.
+        """
+        sd = _make_sd(n_units=4, spikes_per_unit=50)
+        _, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd)
+        n = sd.N
+        for i in range(n):
+            for j in range(i + 1, n):
+                assert spk_sim_ref[i, j] == pytest.approx(spk_sim_comp[j, i])
+                assert spk_sim_comp[i, j] == pytest.approx(spk_sim_ref[j, i])
+
+    def test_diagonal_is_zero_within_recording(self):
+        """
+        Self-comparisons are excluded; diagonal stays at 0.
+
+        Tests:
+            (Test Case 1) All diagonal entries are 0.
+        """
+        sd = _make_sd(n_units=3, spikes_per_unit=30)
+        spk_sim, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd)
+        np.testing.assert_array_equal(np.diag(spk_sim), np.zeros(3))
+
+    def test_cross_recording_shape(self):
+        """
+        Cross-recording mode returns matrices of shape (N_ref, N_comp).
+
+        Tests:
+            (Test Case 1) Shape is (N1, N2) when N1 != N2.
+        """
+        sd1 = _make_sd(n_units=3, spikes_per_unit=40)
+        sd2 = _make_sd(n_units=5, spikes_per_unit=40)
+        spk_sim, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd1, sd2=sd2)
+        assert spk_sim.shape == (3, 5)
+        assert spk_sim_ref.shape == (3, 5)
+        assert spk_sim_comp.shape == (3, 5)
+
+    def test_near_duplicate_units_high_score(self):
+        """
+        Nearly identical spike trains produce high agreement scores.
+
+        Tests:
+            (Test Case 1) Two units with trains shifted by << delta have
+                spk_sim close to 1.0.
+        """
+        rng = np.random.default_rng(0)
+        base = np.sort(rng.uniform(0, 1000, size=100))
+        jitter = base + rng.uniform(-0.1, 0.1, size=100)
+        sd = SpikeData(
+            [base, jitter, np.sort(rng.uniform(0, 1000, 100))], length=1000.0
+        )
+        spk_sim, _, _ = compute_spk_sim(sd, delta=0.4)
+        assert spk_sim[0, 1] > 0.8
+
+    def test_values_in_range(self):
+        """
+        All agreement scores are in [0, 1].
+
+        Tests:
+            (Test Case 1) spk_sim, spk_sim_ref, spk_sim_comp all bounded.
+        """
+        sd = _make_sd(n_units=5, spikes_per_unit=50)
+        spk_sim, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd, delta=0.4)
+        assert np.all(spk_sim >= 0) and np.all(spk_sim <= 1)
+        assert np.all(spk_sim_ref >= 0) and np.all(spk_sim_ref <= 1)
+        assert np.all(spk_sim_comp >= 0) and np.all(spk_sim_comp <= 1)
+
+    def test_single_unit(self):
+        """
+        Single-unit SpikeData returns 1x1 all-zero matrices.
+
+        Tests:
+            (Test Case 1) No pairs to compare; output is zeros.
+        """
+        sd = SpikeData([np.array([10.0, 20.0, 30.0])], length=100.0)
+        spk_sim, spk_sim_ref, spk_sim_comp = compute_spk_sim(sd, delta=0.4)
+        assert spk_sim.shape == (1, 1)
+        assert spk_sim[0, 0] == pytest.approx(0.0)
+
+    def test_spikedata_method_binding(self):
+        """
+        compute_spk_sim is accessible as sd.compute_spk_sim().
+
+        Tests:
+            (Test Case 1) Method returns identical results to the standalone
+                function call.
+        """
+        sd = _make_sd(n_units=3, spikes_per_unit=50)
+        spk_sim_fn, spk_sim_ref_fn, spk_sim_comp_fn = compute_spk_sim(sd, delta=0.4)
+        spk_sim_m, spk_sim_ref_m, spk_sim_comp_m = sd.compute_spk_sim(delta=0.4)
+        np.testing.assert_array_equal(spk_sim_fn, spk_sim_m)
+        np.testing.assert_array_equal(spk_sim_ref_fn, spk_sim_ref_m)
+        np.testing.assert_array_equal(spk_sim_comp_fn, spk_sim_comp_m)

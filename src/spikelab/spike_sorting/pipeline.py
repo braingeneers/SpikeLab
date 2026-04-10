@@ -322,6 +322,23 @@ def curate_spikedata(
 
     # Run curation
     sd_curated, results = sd.curate(**curate_kwargs)
+
+    # Merge spatially nearby duplicate units (distance → ISI → cosine → merge)
+    if cur.merge_spatial_duplicates:
+        from spikelab.spikedata.curation import curate_by_merge_duplicates
+
+        sd_curated, merge_result = curate_by_merge_duplicates(
+            sd_curated,
+            dist_um=cur.merge_dist_um,
+            max_violation_rate=cur.merge_max_isi_violation,
+            isi_threshold_ms=1.5,
+            cosine_threshold=cur.merge_cosine_threshold,
+            delta_ms=cur.merge_delta_ms,
+            max_isi_increase=cur.merge_max_isi_increase,
+            verbose=True,
+        )
+        results["merge_spatial_duplicates"] = merge_result
+
     history = build_curation_history(sd, sd_curated, results, parameters=curate_kwargs)
 
     # Save to disk

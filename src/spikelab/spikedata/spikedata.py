@@ -3089,6 +3089,26 @@ class SpikeData:
 
         return curate(self, **kwargs)
 
+    def curate_by_merge_duplicates(self, **kwargs):
+        """Remove duplicate units by merging nearby pairs with similar waveforms.
+
+        See ``spikelab.spikedata.curation.curate_by_merge_duplicates`` for
+        full documentation and supported keyword arguments.
+        """
+        from .curation import curate_by_merge_duplicates
+
+        return curate_by_merge_duplicates(self, **kwargs)
+
+    def compute_spk_sim(self, delta=0.4, sd2=None):
+        """Compute spike train agreement matrices between units.
+
+        See ``spikelab.spikedata.curation.compute_spk_sim`` for full
+        documentation.
+        """
+        from .curation import compute_spk_sim
+
+        return compute_spk_sim(self, delta=delta, sd2=sd2)
+
     @staticmethod
     def build_curation_history(sd_original, sd_curated, results, parameters=None):
         """Translate curation results into a serializable history dict.

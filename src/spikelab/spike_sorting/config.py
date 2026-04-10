@@ -118,6 +118,12 @@ class CurationConfig:
     spikes_min_first: Optional[int] = 30
     spikes_min_second: Optional[int] = 50
     std_norm_max: Optional[float] = 1.0
+    merge_spatial_duplicates: bool = False
+    merge_dist_um: float = 24.8
+    merge_max_isi_violation: float = 0.04
+    merge_cosine_threshold: float = 0.9
+    merge_delta_ms: float = 0.4
+    merge_max_isi_increase: float = 0.04
 
 
 @dataclass
@@ -355,6 +361,12 @@ class SortingPipelineConfig:
             "spikes_min_first": ("curation", "spikes_min_first"),
             "spikes_min_second": ("curation", "spikes_min_second"),
             "std_norm_max": ("curation", "std_norm_max"),
+            "merge_spatial_duplicates": ("curation", "merge_spatial_duplicates"),
+            "merge_dist_um": ("curation", "merge_dist_um"),
+            "merge_max_isi_violation": ("curation", "merge_max_isi_violation"),
+            "merge_cosine_threshold": ("curation", "merge_cosine_threshold"),
+            "merge_delta_ms": ("curation", "merge_delta_ms"),
+            "merge_max_isi_increase": ("curation", "merge_max_isi_increase"),
             # CompilationConfig
             "compile_single_recording": ("compilation", "compile_single_recording"),
             "compile_to_mat": ("compilation", "compile_to_mat"),

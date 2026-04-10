@@ -479,6 +479,136 @@ def build_curation_history(sd_original, sd_curated, results, parameters=None):
 
 
 # ---------------------------------------------------------------------------
+# Spike train agreement
+# ---------------------------------------------------------------------------
+
+
+def get_num_matches(ref_train, comp_train, delta=0.4):
+    """Count matching spikes between two spike trains.
+
+    Two spikes match if they are within *delta* milliseconds and belong
+    to different trains.  Adapted from SpikeInterface's
+    comparison tools.
+
+    Parameters:
+        ref_train (np.ndarray): Spike times in milliseconds.
+        comp_train (np.ndarray): Spike times in milliseconds.
+        delta (float): Time window in ms for a spike pair to be considered
+            a match (default: 0.4).
+
+    Returns:
+        num_matches (int): Number of matched spike pairs.
+    """
+    ref_train = np.asarray(ref_train)
+    comp_train = np.asarray(comp_train)
+    if len(ref_train) == 0 or len(comp_train) == 0:
+        return 0
+    times_concat = np.concatenate((ref_train, comp_train))
+    membership = np.concatenate(
+        (
+            np.ones(len(ref_train), dtype=np.int8),
+            np.full(len(comp_train), 2, dtype=np.int8),
+        )
+    )
+    indices = times_concat.argsort(kind="mergesort")
+    times_sorted = times_concat[indices]
+    membership_sorted = membership[indices]
+    diffs = times_sorted[1:] - times_sorted[:-1]
+    inds = np.where(
+        (diffs <= delta) & (membership_sorted[:-1] != membership_sorted[1:])
+    )[0]
+    if len(inds) == 0:
+        return 0
+    inds2 = np.where(inds[:-1] + 1 != inds[1:])[0]
+    return len(inds2) + 1
+
+
+def get_agreement_score(ref_train, comp_train, delta=10.0):
+    """Compute agreement scores between two spike trains.
+
+    Returns a symmetric Jaccard-like score and two asymmetric perspective
+    scores.  Adapted from SpikeInterface's comparison tools.
+
+    Parameters:
+        ref_train (np.ndarray): Spike times in milliseconds.
+        comp_train (np.ndarray): Spike times in milliseconds.
+        delta (float): Time window in ms for spike matching (default: 10.0).
+
+    Returns:
+        agr_score (float): Symmetric Jaccard-like agreement:
+            matches / (len_ref + len_comp - matches).
+        agr_score_ref (float): Agreement from reference perspective:
+            matches / len(ref_train).
+        agr_score_comp (float): Agreement from comparison perspective:
+            matches / len(comp_train).
+    """
+    num_matches = get_num_matches(ref_train, comp_train, delta)
+    denom = len(ref_train) + len(comp_train) - num_matches
+    agr_score = num_matches / denom if denom > 0 else 0.0
+    agr_score_ref = num_matches / len(ref_train) if len(ref_train) > 0 else 0.0
+    agr_score_comp = num_matches / len(comp_train) if len(comp_train) > 0 else 0.0
+    return agr_score, agr_score_ref, agr_score_comp
+
+
+def compute_spk_sim(sd, delta=0.4, sd2=None):
+    """Compute spike train agreement matrices between units.
+
+    Operates in two modes:
+    1. Single SpikeData: all pairwise agreements within one recording.
+    2. Two SpikeData objects: cross-recording agreements between units.
+
+    In single-SpikeData mode the diagonal is left at 0 (self-comparison
+    is excluded) and off-diagonal entries are symmetric.
+
+    Parameters:
+        sd (SpikeData): Reference spike data.
+        delta (float): Spike-matching window in ms (default: 0.4).
+        sd2 (SpikeData, optional): Comparison spike data.  If None,
+            within-recording pairwise comparison is performed.
+
+    Returns:
+        spk_sim (np.ndarray): Shape (N_ref, N_comp).  Symmetric Jaccard-like
+            agreement: matches / (len_ref + len_comp - matches).
+        spk_sim_ref (np.ndarray): Shape (N_ref, N_comp).  Entry [i, j] is
+            matches / len(ref_train_i).
+        spk_sim_comp (np.ndarray): Shape (N_ref, N_comp).  Entry [i, j] is
+            matches / len(comp_train_j).
+    """
+    ref_trains = sd.train
+    n_ref = sd.N
+    if sd2 is None:
+        comp_trains = sd.train
+        n_comp = sd.N
+        cross_mode = False
+    else:
+        comp_trains = sd2.train
+        n_comp = sd2.N
+        cross_mode = True
+
+    spk_sim = np.zeros((n_ref, n_comp))
+    spk_sim_ref = np.zeros((n_ref, n_comp))
+    spk_sim_comp = np.zeros((n_ref, n_comp))
+
+    for i in range(n_ref):
+        for j in range(n_comp):
+            if not cross_mode and j <= i:
+                continue
+            agr, agr_ref, agr_comp = get_agreement_score(
+                ref_trains[i], comp_trains[j], delta
+            )
+            spk_sim[i, j] = agr
+            spk_sim_ref[i, j] = agr_ref
+            spk_sim_comp[i, j] = agr_comp
+            if not cross_mode:
+                # Mirror symmetric matrix; swap ref/comp perspectives at [j,i]
+                spk_sim[j, i] = agr
+                spk_sim_ref[j, i] = agr_comp
+                spk_sim_comp[j, i] = agr_ref
+
+    return spk_sim, spk_sim_ref, spk_sim_comp
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -680,6 +810,13 @@ def compute_pairwise_similarity(sd, pairs, max_lag=10):
         raise ValueError(
             "No units have 'avg_waveform' in neuron_attributes. "
             "Load waveform data before calling compute_pairwise_similarity()."
+        )
+
+    if not all_channels:
+        raise ValueError(
+            "avg_waveform found in neuron_attributes but no unit has "
+            "traces_meta['channels']. Call compute_waveform_metrics() or "
+            "get_waveform_traces(store=True) to populate both keys together."
         )
 
     global_channels = sorted(all_channels)
