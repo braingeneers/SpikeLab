@@ -200,7 +200,17 @@ def _resampled_isi(spikes, times, sigma_ms):
         # Need at least 2 spikes to do get inter-spike interval
         return np.zeros_like(times)
     if len(times) < 2:
-        raise ValueError("times has less than 2 values. Input more times")
+        # Single-time query: return unsmoothed ISI-derived rate at that time.
+        # If time is outside valid spike-interval support, rate is 0.
+        t = float(times[0])
+        spikes = np.array(spikes)
+        idx = np.searchsorted(spikes, t, side="right") - 1
+        if idx < 0 or idx >= len(spikes) - 1:
+            return np.zeros_like(times, dtype=float)
+        isi = spikes[idx + 1] - spikes[idx]
+        if isi <= 0:
+            return np.zeros_like(times, dtype=float)
+        return np.array([1.0 / isi * 1000], dtype=float)
 
     spikes = np.array(spikes)
     times = np.array(times)
@@ -259,6 +269,126 @@ def _resampled_isi(spikes, times, sigma_ms):
         return ndimage.gaussian_filter1d(fr, sigma)
     else:
         return fr
+
+
+def _sliding_rate_single_train(
+    spike_times,
+    window_size,
+    step_size=None,
+    sampling_rate=None,
+    t_start=None,
+    t_end=None,
+    gauss_sigma=0.0,
+    apply_square=True,
+):
+    """
+    Compute continuous firing rate from spike times using square and/or Gaussian smoothing.
+
+    For each time bin t, this can apply:
+    - square smoothing: counts spikes in centered window [t - W/2, t + W/2], rate R(t)=N/W
+    - Gaussian smoothing: 1D Gaussian filter over the rate trace
+    - both: square smoothing followed by Gaussian smoothing
+
+    Parameters:
+    spike_times (array_like): array_like
+        1D array of spike timestamps (time units consistent with other args).
+    window_size (float): Width of the sliding window W. Centered window [t - W/2, t + W/2].
+    step_size (float, optional): Advance step for time bins. If both step_size and sampling_rate
+        are provided, step_size takes precedence and sampling_rate is ignored.
+    sampling_rate (float, optional): Samples per time unit; step_size = 1 / sampling_rate if
+        step_size is not provided.
+    t_start (float, optional): Start of output time range in ms. Default: 0 - window_size/2.
+    t_end (float, optional): End of output time range in ms. Default: self.length + window_size/2.
+    gauss_sigma (float, optional): Gaussian smoothing sigma in ms. If 0, Gaussian smoothing is disabled.
+    apply_square (bool, optional): If True, apply square-window smoothing (existing behavior).
+        If False, skip square smoothing and compute rates from per-bin spike counts before optional Gaussian smoothing.
+
+    Returns:
+    RateData: Single-unit rate object with inst_Frate_data (1, T) and times; units: spikes per time (e.g. kHz).
+
+    Notes:
+    Uses zero-padding at boundaries for square smoothing (mode='same'). Rate near edges
+    may be lower when the effective window extends beyond the data.
+    - Assumes spike_times are sorted.
+    """
+    spike_times = np.asarray(spike_times)
+    if len(spike_times) == 0:
+        from .ratedata import RateData
+
+        return RateData(inst_Frate_data=np.zeros((1, 0)), times=np.array([]))
+
+    if window_size <= 0:
+        raise ValueError(f"window_size must be positive, got {window_size}")
+
+    if step_size is None and sampling_rate is None:
+        raise ValueError("Must provide either step_size or sampling_rate")
+    if step_size is not None and sampling_rate is not None:
+        raise ValueError(
+            "step_size and sampling_rate are mutually exclusive; provide one, not both"
+        )
+    if step_size is None:
+        if sampling_rate is None or sampling_rate <= 0:
+            raise ValueError(
+                f"sampling_rate must be positive when step_size is not provided, got {sampling_rate}"
+            )
+        step_size = 1.0 / sampling_rate
+    else:
+        if step_size <= 0:
+            raise ValueError(f"step_size must be positive, got {step_size}")
+    if gauss_sigma < 0:
+        raise ValueError(f"gauss_sigma must be non-negative, got {gauss_sigma}")
+
+    # Default time range extends half-window beyond first/last spike so edges are covered
+    half_window = window_size / 2
+    if t_start is None:
+        t_start = float(np.min(spike_times)) - half_window
+    if t_end is None:
+        t_end = float(np.max(spike_times)) + half_window
+
+    if t_end <= t_start:
+        raise ValueError(
+            f"t_end must be greater than t_start (got t_start={t_start}, t_end={t_end})"
+        )
+
+    # Use sparse_raster for binning (same rule as SpikeData)
+    span = t_end - t_start
+    n_bins_est = int(np.ceil(span / step_size))
+    remainder = span % step_size
+    if remainder < 1e-12 or abs(remainder - step_size) < 1e-12:
+        n_bins_est += 1
+    t_last = t_start + n_bins_est * step_size
+    mask = (spike_times >= t_start) & (spike_times < t_last)
+    spike_times_filtered = spike_times[mask] - t_start
+
+    from .spikedata import SpikeData
+
+    sd = SpikeData([spike_times_filtered], length=span)
+    raster = sd.sparse_raster(step_size)
+    hist = np.asarray(raster.toarray()).ravel()
+    n_bins = hist.size
+    bin_edges = t_start + np.arange(n_bins + 1) * step_size
+
+    if apply_square:
+        # Sliding window = convolution with uniform kernel: sums spike counts over
+        # window_size worth of adjacent bins. mode='same' keeps output aligned with input.
+        window_bins = min(max(1, int(round(window_size / step_size))), n_bins)
+        effective_window = window_bins * step_size
+        kernel = np.ones(window_bins)
+        counts = np.convolve(hist, kernel, mode="same")
+        # Rate = spike count in window / effective window duration (spikes per time unit)
+        rate_array = counts / effective_window
+    else:
+        # No square smoothing: convert per-bin counts directly to rates.
+        rate_array = hist / step_size
+
+    if gauss_sigma > 0:
+        sigma_bins = gauss_sigma / step_size
+        rate_array = ndimage.gaussian_filter1d(rate_array, sigma=sigma_bins)
+
+    time_vector = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+    from .ratedata import RateData
+
+    return RateData(inst_Frate_data=rate_array.reshape(1, -1), times=time_vector)
 
 
 def _train_from_i_t_list(idces, times, N):

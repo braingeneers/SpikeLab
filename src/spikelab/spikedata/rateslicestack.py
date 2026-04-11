@@ -139,8 +139,7 @@ class RateSliceStack:
                     data_obj.start_time + data_obj.length,
                     resolution,
                 )
-                inst_Frate_matrix = data_obj.resampled_isi(all_times, sigma_ms)
-                data_obj = RateData(inst_Frate_matrix, all_times)
+                data_obj = data_obj.resampled_isi(all_times, sigma_ms)
 
             if len(data_obj.times) > 1:
                 self.step_size = data_obj.times[1] - data_obj.times[0]

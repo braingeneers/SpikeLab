@@ -684,7 +684,7 @@ def _waveform_extractor_to_spikedata(
 
     metadata = {
         "source_file": str(rec_path),
-        "source_format": "Kilosort2",
+        "source_format": "Kilosort2",  # Legacy path; only used by old non-modular pipeline
         "fs_Hz": fs_Hz,
         "channel_locations": rec_locations.copy(),
         "n_samples": int(w_e.recording.get_num_samples()),

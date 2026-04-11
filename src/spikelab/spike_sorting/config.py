@@ -39,6 +39,56 @@ class SorterConfig:
 
 
 @dataclass
+class RTSortConfig:
+    """Parameters for the RT-Sort detection and sorting backend.
+
+    RT-Sort is an action-potential-propagation-based spike sorter using
+    a deep learning detection model followed by codetection clustering
+    and template matching.  See van der Molen, Lim et al. 2024
+    (PLOS ONE, DOI: 10.1371/journal.pone.0312438) for algorithmic
+    details.
+
+    Parameters:
+        model_path (str or None): Path to a folder containing
+            ``init_dict.json`` and ``state_dict.pt`` for a pretrained
+            ``ModelSpikeSorter``.  When None, the bundled model
+            corresponding to ``probe`` is loaded.
+        probe (str): Which bundled pretrained model to use when
+            ``model_path`` is None.  ``"mea"`` or ``"neuropixels"``.
+        device (str): PyTorch device for inference.  ``"cuda"`` or
+            ``"cpu"``.
+        num_processes (int or None): Number of worker processes for
+            parallel detection/clustering stages.  None selects an
+            automatic value based on CPU count.
+        recording_window_ms (tuple or None): ``(start_ms, end_ms)``
+            window of the recording to process.  None processes the
+            entire recording.
+        save_rt_sort_pickle (bool): If True, serialize the final
+            ``RTSort`` object to the sorter output folder so the
+            trained sequences can be re-used in Phase 2 stim-aware
+            sorting.
+        delete_inter (bool): If True, delete the intermediate cache
+            directory after sorting completes.
+        verbose (bool): Print progress messages during sorting.
+        params (dict or None): Override dictionary merged into the
+            RT-Sort parameter set.  Takes precedence over the preset
+            defaults; useful for one-off tuning without editing a
+            preset.  Keys must match ``detect_sequences`` parameter
+            names.
+    """
+
+    model_path: Optional[str] = None
+    probe: str = "mea"
+    device: str = "cuda"
+    num_processes: Optional[int] = None
+    recording_window_ms: Optional[Any] = None
+    save_rt_sort_pickle: bool = True
+    delete_inter: bool = False
+    verbose: bool = True
+    params: Optional[Dict[str, Any]] = None
+
+
+@dataclass
 class WaveformConfig:
     """Parameters for waveform extraction and template computation."""
 
@@ -90,6 +140,7 @@ class FigureConfig:
     """Parameters for QC figure generation."""
 
     create_figures: bool = False
+    create_unit_figures: bool = False
     dpi: Optional[int] = None
     font_size: int = 12
     bar_x_label: str = "Recording"
@@ -156,6 +207,8 @@ class SortingPipelineConfig:
     Parameters:
         recording (RecordingConfig): Recording loading and preprocessing.
         sorter (SorterConfig): Spike sorter selection and parameters.
+        rt_sort (RTSortConfig): RT-Sort specific parameters (only used
+            when ``sorter.sorter_name == "rt_sort"``).
         waveform (WaveformConfig): Waveform extraction and templates.
         curation (CurationConfig): Unit quality-control filters.
         compilation (CompilationConfig): Result export options.
@@ -165,6 +218,7 @@ class SortingPipelineConfig:
 
     recording: RecordingConfig = field(default_factory=RecordingConfig)
     sorter: SorterConfig = field(default_factory=SorterConfig)
+    rt_sort: RTSortConfig = field(default_factory=RTSortConfig)
     waveform: WaveformConfig = field(default_factory=WaveformConfig)
     curation: CurationConfig = field(default_factory=CurationConfig)
     compilation: CompilationConfig = field(default_factory=CompilationConfig)
@@ -190,6 +244,7 @@ class SortingPipelineConfig:
         sub_kwargs = {
             "recording": {},
             "sorter": {},
+            "rt_sort": {},
             "waveform": {},
             "curation": {},
             "compilation": {},
@@ -210,6 +265,7 @@ class SortingPipelineConfig:
         return cls(
             recording=RecordingConfig(**sub_kwargs["recording"]),
             sorter=SorterConfig(**sub_kwargs["sorter"]),
+            rt_sort=RTSortConfig(**sub_kwargs["rt_sort"]),
             waveform=WaveformConfig(**sub_kwargs["waveform"]),
             curation=CurationConfig(**sub_kwargs["curation"]),
             compilation=CompilationConfig(**sub_kwargs["compilation"]),
@@ -267,6 +323,16 @@ class SortingPipelineConfig:
             "kilosort_path": ("sorter", "sorter_path"),
             "kilosort_params": ("sorter", "sorter_params"),
             "use_docker": ("sorter", "use_docker"),
+            # RTSortConfig
+            "rt_sort_model_path": ("rt_sort", "model_path"),
+            "rt_sort_probe": ("rt_sort", "probe"),
+            "rt_sort_device": ("rt_sort", "device"),
+            "rt_sort_num_processes": ("rt_sort", "num_processes"),
+            "rt_sort_recording_window_ms": ("rt_sort", "recording_window_ms"),
+            "rt_sort_save_pickle": ("rt_sort", "save_rt_sort_pickle"),
+            "rt_sort_delete_inter": ("rt_sort", "delete_inter"),
+            "rt_sort_verbose": ("rt_sort", "verbose"),
+            "rt_sort_params": ("rt_sort", "params"),
             # WaveformConfig
             "waveforms_ms_before": ("waveform", "ms_before"),
             "waveforms_ms_after": ("waveform", "ms_after"),
@@ -300,6 +366,7 @@ class SortingPipelineConfig:
             "save_dl_data": ("compilation", "save_dl_data"),
             # FigureConfig
             "create_figures": ("figures", "create_figures"),
+            "create_unit_figures": ("figures", "create_unit_figures"),
             "figures_dpi": ("figures", "dpi"),
             "figures_font_size": ("figures", "font_size"),
             "bar_x_label": ("figures", "bar_x_label"),
@@ -387,4 +454,33 @@ KILOSORT4 = SortingPipelineConfig(
 #: Kilosort4 with Docker.
 KILOSORT4_DOCKER = SortingPipelineConfig(
     sorter=SorterConfig(sorter_name="kilosort4", use_docker=True),
+)
+
+#: RT-Sort with the bundled MEA detection model.
+#: Uses the propagation-based RT-Sort algorithm (van der Molen, Lim et
+#: al. 2024, PLOS ONE) with the pretrained model tuned for Maxwell
+#: multi-electrode arrays.
+RT_SORT_MEA = SortingPipelineConfig(
+    sorter=SorterConfig(sorter_name="rt_sort"),
+    rt_sort=RTSortConfig(probe="mea"),
+)
+
+#: RT-Sort with the bundled Neuropixels detection model.
+#: Uses Neuropixels-tuned detection thresholds and merge parameters.
+RT_SORT_NEUROPIXELS = SortingPipelineConfig(
+    sorter=SorterConfig(sorter_name="rt_sort"),
+    rt_sort=RTSortConfig(
+        probe="neuropixels",
+        params={
+            "stringent_thresh": 0.175,
+            "loose_thresh": 0.075,
+            "inference_scaling_numerator": 15.4,
+            "min_amp_dist_p": 0.1,
+            "max_latency_diff_spikes": 2.5,
+            "max_amp_median_diff_spikes": 0.45,
+            "max_latency_diff_sequences": 2.5,
+            "max_amp_median_diff_sequences": 0.45,
+            "max_root_amp_median_std_sequences": 2.5,
+        },
+    ),
 )

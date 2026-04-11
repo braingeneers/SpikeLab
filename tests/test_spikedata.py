@@ -25,8 +25,10 @@ skip_no_pmgplvm = pytest.mark.skipif(
 
 import spikelab.spikedata.spikedata as spikedata
 from spikelab.spikedata import SpikeData
+from spikelab.spikedata.ratedata import RateData
 from spikelab.spikedata.spikeslicestack import SpikeSliceStack
 from spikelab.spikedata.utils import (
+    _sliding_rate_single_train,
     check_neuron_attributes,
     compute_avg_waveform,
     compute_cross_correlation_with_lag,
@@ -1672,6 +1674,393 @@ class TestSpikeDataRates:
             np.isclose(spikedata._resampled_isi(spikes, when, sigma_ms=0.0), 1000)
         )
 
+        # Also check that the rate is correctly calculated for some varying
+        # examples.
+        sd = SpikeData([[0, 1 / k, 10 + 1 / k] for k in np.arange(1, 100)])
+        assert np.all(
+            sd.resampled_isi(0).inst_Frate_data.squeeze().round(0)
+            == (np.arange(1, 100) * 1000)
+        )
+        assert np.all(sd.resampled_isi(10).inst_Frate_data.squeeze().round(0) == 100)
+
+    def test_sliding_rate_constant_spike_train(self):
+        """
+        Tests sliding_rate for a constant-rate spike train.
+
+        Setup: 10 spikes at t=0,1,...,9 ms (1 spike/ms = 1 kHz).
+        Window W=4 ms, step=1 ms, time range [2, 8] ms.
+
+        Test Case 1: Interior bins (where the window fully overlaps the spike
+        train) should yield rate = 1 kHz (N/W = 4 spikes / 4 ms).
+        """
+        # Setup: 10 spikes at t=0,1,...,9 ms → 1 spike/ms = 1 kHz
+        spikes = np.arange(10)
+        rd = _sliding_rate_single_train(
+            spikes, window_size=4, step_size=1, t_start=2, t_end=8
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        time_vec = rd.times
+        # Interior bins (away from edges) capture full window → rate = 1 kHz
+        interior_mask = (time_vec >= 4) & (time_vec <= 5)
+        assert np.all(
+            (rate_arr[interior_mask] >= 1.0) & (rate_arr[interior_mask] <= 1.25)
+        ), f"Interior bins should be near 1 kHz, got {rate_arr[interior_mask]}"
+
+    def test_sliding_rate_step_size_vs_sampling_rate(self):
+        """
+        Tests that step_size and sampling_rate are equivalent parameterizations.
+
+        Setup: 5 spikes; window W=2 ms; step_size=0.5 vs sampling_rate=2.0
+        (2 samples/ms implies step_size = 1/2 = 0.5 ms).
+
+        Test Case 1: Both calls produce identical time_vector length, time values,
+        and rate_array values.
+        """
+        spikes = np.array([1.0, 2.0, 3.0, 5.0, 7.0])
+        # Call with step_size=0.5 (advance 0.5 ms per bin)
+        rd1 = _sliding_rate_single_train(
+            spikes, window_size=2, step_size=0.5, t_start=0, t_end=10
+        )
+        # Call with sampling_rate=2.0 (2 samples/ms → step_size=0.5 ms)
+        rd2 = _sliding_rate_single_train(
+            spikes, window_size=2, sampling_rate=2.0, t_start=0, t_end=10
+        )
+        t1, t2 = rd1.times, rd2.times
+        rate1, rate2 = rd1.inst_Frate_data[0], rd2.inst_Frate_data[0]
+        assert len(t1) == len(t2)
+        assert np.allclose(t1, t2)
+        assert np.allclose(rate1, rate2)
+
+    def test_sliding_rate_empty_spikes(self):
+        """
+        Tests sliding_rate with an empty spike train.
+
+        Setup: Empty spike_times array with t_start=0, t_end=100.
+
+        Test Case 1: Returns empty RateData (1 row, 0 columns).
+        """
+        # No spikes → should return empty RateData
+        rd = _sliding_rate_single_train(
+            [], window_size=10, step_size=1, t_start=0, t_end=100
+        )
+        assert rd.inst_Frate_data.shape == (1, 0)
+        assert len(rd.times) == 0
+
+    def test_sliding_rate_single_spike(self):
+        """
+        Tests sliding_rate with a single spike.
+
+        Setup: One spike at t=50 ms; window W=20 ms. Max rate = 1/W = 0.05 kHz.
+
+        Test Case 1: Output has non-zero length; max rate equals 1/W; all rates
+        non-negative.
+        """
+        # Single spike at t=50; window W=20 → max rate = 1/20 ms = 0.05 kHz
+        spikes = np.array([50.0])
+        rd = _sliding_rate_single_train(
+            spikes, window_size=20, step_size=5, t_start=0, t_end=100
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        assert len(rate_arr) > 0
+        assert np.max(rate_arr) > 0
+        assert (1.0 / 20) == pytest.approx(np.max(rate_arr))
+        assert np.all(rate_arr >= 0)
+
+    def test_sliding_rate_edge_behavior(self):
+        """
+        Tests sliding_rate boundary handling at data edges.
+
+        Setup: Spikes from t=10 to 90 ms; output range [0, 100] ms. At t=0, the
+        window [-10, 10] sees fewer spikes than at center.
+
+        Test Case 1: No NaNs; rate and time arrays same length; non-negative.
+        Boundary bins show lower rate than interior bins.
+        """
+        # Spikes from t=10 to 90; window extends to t=0–100; boundaries at start/end
+        spikes = np.arange(10, 90)
+        rd = _sliding_rate_single_train(
+            spikes, window_size=20, step_size=2, t_start=0, t_end=100
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        time_vec = rd.times
+        # No NaNs; rate and time arrays same length; non-negative
+        assert not np.any(np.isnan(rate_arr))
+        assert len(rate_arr) == len(time_vec)
+        assert np.all(rate_arr >= 0)
+        # At boundary, window sees fewer spikes than at center → lower rate
+        assert rate_arr[0] < rate_arr[len(rate_arr) // 2]
+
+    def test_spikedata_sliding_rate(self):
+        """
+        Tests SpikeData.sliding_rate per-unit rate computation.
+
+        Setup: 3 units with different spike trains; window W=2 ms, step=1 ms.
+
+        Test Case 1: Returns rate_array shape (N=3, T); time_vector length T.
+        Same time_vector can be passed to resampled_isi for overlay plots.
+        """
+        # 3 units with different spike trains
+        trains = [[0, 1, 2, 3, 4, 5], [1, 3, 5, 7], [2, 4]]
+        sd = SpikeData(trains, length=10)
+        rate_data = sd.sliding_rate(window_size=2, step_size=1, t_start=0, t_end=10)
+        rate_array = rate_data.inst_Frate_data
+        time_vector = rate_data.times
+        # Shape (N=3 units, T time bins)
+        assert rate_array.shape[0] == 3
+        assert rate_array.shape[1] == len(time_vector)
+        # Same time_vector usable with resampled_isi for overlay plots
+        isi_rates = sd.resampled_isi(time_vector, sigma_ms=0)
+        assert rate_array.shape == isi_rates.inst_Frate_data.shape
+
+    def test_sliding_rate_gaussian_only(self):
+        """
+        Tests Gaussian-only smoothing path for sliding_rate helper.
+
+        Test Case 1: Gaussian-only smoothing returns non-negative rates and
+        preserves output length.
+        """
+        spikes = np.array([5.0, 10.0, 20.0, 40.0, 60.0])
+        rd = _sliding_rate_single_train(
+            spikes,
+            window_size=10,
+            step_size=1.0,
+            t_start=0,
+            t_end=80,
+            gauss_sigma=2.0,
+            apply_square=False,
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        assert rate_arr.shape[0] == len(rd.times)
+        assert np.all(rate_arr >= 0)
+
+    def test_spikedata_sliding_rate_square_and_gaussian(self):
+        """
+        Tests that sliding_rate supports combined square + Gaussian smoothing.
+
+        Test Case 1: Combined smoothing preserves shape and changes values
+        relative to square-only smoothing.
+        """
+        trains = [[0, 1, 2, 3, 4, 5], [1, 3, 5, 7], [2, 4]]
+        sd = SpikeData(trains, length=10)
+        square_only = sd.sliding_rate(
+            window_size=2,
+            step_size=1,
+            t_start=0,
+            t_end=10,
+            gauss_sigma=0.0,
+            apply_square=True,
+        )
+        square_plus_gauss = sd.sliding_rate(
+            window_size=2,
+            step_size=1,
+            t_start=0,
+            t_end=10,
+            gauss_sigma=1.5,
+            apply_square=True,
+        )
+        assert (
+            square_only.inst_Frate_data.shape == square_plus_gauss.inst_Frate_data.shape
+        )
+        assert not np.allclose(
+            square_only.inst_Frate_data, square_plus_gauss.inst_Frate_data
+        )
+
+    def test_latencies(self):
+        """
+        Tests latencies() for correct calculation of spike latencies relative to reference times.
+
+        Tests:
+        (Test Case 1) Tests that latencies are correct for shifted spike trains.
+        (Test Case 2) Tests that small windows yield no latencies and negative latencies are handled.
+        """
+        a = SpikeData([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+        b = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) - 0.2
+        # Make sure the latencies are correct, this is latencies relative
+        # to the input (b), so should all be .2 after
+        assert a.latencies(b)[0][0] == pytest.approx(0.2)
+        assert a.latencies(b)[0][-1] == pytest.approx(0.2)
+
+        # Small enough window, should be no latencies.
+        assert a.latencies(b, 0.1)[0] == []
+
+        # Can do negative
+        assert a.latencies([0.1])[0][0] == pytest.approx(-0.1)
+
+    # --- resampled_isi return type and shape tests ---
+
+    def test_resampled_isi_returns_ratedata(self):
+        """
+        Verifies resampled_isi returns a RateData instance with correct .times.
+
+        Tests:
+            (Test Case 1) Return type is RateData.
+            (Test Case 2) .times matches the input times array.
+            (Test Case 3) .inst_Frate_data shape is (N, len(times)).
+        """
+        sd = SpikeData([[0, 1, 2, 3, 4]], length=5.0)
+        times = np.array([0.5, 1.5, 2.5, 3.5])
+        rd = sd.resampled_isi(times, sigma_ms=1.0)
+        assert isinstance(rd, RateData)
+        np.testing.assert_array_equal(rd.times, times)
+        assert rd.inst_Frate_data.shape == (1, 4)
+
+    def test_resampled_isi_scalar_input_shape(self):
+        """
+        Verifies the ndim==1 reshape branch when a scalar time is passed.
+
+        Tests:
+            (Test Case 1) Scalar input produces RateData with shape (N, 1).
+            (Test Case 2) Multi-unit scalar query has correct shape.
+        """
+        sd = SpikeData([[0, 1, 5], [0, 2, 5]], length=6.0)
+        rd = sd.resampled_isi(0.5)
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape == (2, 1)
+        np.testing.assert_array_equal(rd.times, np.array([0.5]))
+
+    def test_resampled_isi_negative_start_time(self):
+        """
+        Verifies resampled_isi works with negative start_time (event-centered data).
+
+        Tests:
+            (Test Case 1) SpikeData with start_time=-100 and query at negative
+                time produces a valid RateData.
+        """
+        sd = SpikeData([[-90, -50, -10, 30, 70]], start_time=-100, length=200)
+        times = np.arange(-80, 80, 1.0)
+        rd = sd.resampled_isi(times, sigma_ms=5.0)
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape == (1, len(times))
+        assert np.all(np.isfinite(rd.inst_Frate_data))
+
+    def test_resampled_isi_zero_length_recording(self):
+        """
+        Verifies resampled_isi on a zero-length SpikeData returns zeros wrapped in RateData.
+
+        Tests:
+            (Test Case 1) Zero-length recording with empty train returns all-zero
+                RateData.
+        """
+        sd = SpikeData([[]], length=0.0)
+        rd = sd.resampled_isi(np.array([0.0, 1.0]))
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape == (1, 2)
+        np.testing.assert_array_equal(rd.inst_Frate_data, 0.0)
+
+    # --- sliding_rate tests via public SpikeData method ---
+
+    def test_sliding_rate_all_empty_trains(self):
+        """
+        Verifies sliding_rate with all-empty spike trains returns zeros.
+
+        Tests:
+            (Test Case 1) Shape is (N, T) with proper time vector.
+            (Test Case 2) All rate values are zero.
+        """
+        sd = SpikeData([[], [], []], length=10.0)
+        rd = sd.sliding_rate(window_size=2, step_size=1, t_start=0, t_end=10)
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape[0] == 3
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
+        assert len(rd.times) > 0
+        np.testing.assert_array_equal(rd.inst_Frate_data, 0.0)
+
+    def test_sliding_rate_mixed_empty_and_active_trains(self):
+        """
+        Verifies sliding_rate with a mix of empty and active units.
+
+        Tests:
+            (Test Case 1) Empty units get zero-filled rows.
+            (Test Case 2) Active units get non-zero rates.
+            (Test Case 3) All rows have the same length.
+        """
+        sd = SpikeData([[], [1, 2, 3, 4, 5], []], length=10.0)
+        rd = sd.sliding_rate(window_size=2, step_size=1, t_start=0, t_end=10)
+        assert rd.inst_Frate_data.shape[0] == 3
+        # Empty units are all zeros
+        np.testing.assert_array_equal(rd.inst_Frate_data[0], 0.0)
+        np.testing.assert_array_equal(rd.inst_Frate_data[2], 0.0)
+        # Active unit has non-zero rates
+        assert np.any(rd.inst_Frate_data[1] > 0)
+
+    def test_sliding_rate_default_time_range(self):
+        """
+        Verifies sliding_rate uses correct defaults for t_start and t_end.
+
+        Tests:
+            (Test Case 1) Default t_start = start_time - window_size/2.
+            (Test Case 2) Default t_end = start_time + length + window_size/2.
+            (Test Case 3) Time vector covers the expected range.
+        """
+        sd = SpikeData([[1, 3, 5, 7, 9]], length=10.0)
+        rd = sd.sliding_rate(window_size=4, step_size=1)
+        # Defaults: t_start = 0 - 2 = -2, t_end = 0 + 10 + 2 = 12
+        # Bin centers can extend up to half a step beyond t_start/t_end.
+        assert rd.times[0] >= -2.0 - 0.5
+        assert rd.times[-1] <= 12.0 + 0.5
+        assert len(rd.times) > 0
+
+    def test_sliding_rate_sampling_rate_param(self):
+        """
+        Verifies sliding_rate accepts sampling_rate via the public method.
+
+        Tests:
+            (Test Case 1) sampling_rate=2 produces same results as step_size=0.5.
+        """
+        sd = SpikeData([[1, 3, 5, 7]], length=10.0)
+        rd_step = sd.sliding_rate(window_size=2, step_size=0.5, t_start=0, t_end=10)
+        rd_rate = sd.sliding_rate(window_size=2, sampling_rate=2.0, t_start=0, t_end=10)
+        np.testing.assert_allclose(rd_step.times, rd_rate.times)
+        np.testing.assert_allclose(rd_step.inst_Frate_data, rd_rate.inst_Frate_data)
+
+    def test_sliding_rate_gaussian_only_public(self):
+        """
+        Verifies Gaussian-only smoothing via the public SpikeData method.
+
+        Tests:
+            (Test Case 1) apply_square=False with gauss_sigma>0 returns valid
+                non-negative rates.
+        """
+        sd = SpikeData([[5, 10, 20, 40]], length=50.0)
+        rd = sd.sliding_rate(
+            window_size=10,
+            step_size=1,
+            t_start=0,
+            t_end=50,
+            gauss_sigma=2.0,
+            apply_square=False,
+        )
+        assert isinstance(rd, RateData)
+        assert np.all(rd.inst_Frate_data >= 0)
+
+    def test_sliding_rate_single_unit(self):
+        """
+        Verifies sliding_rate on a single-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Returns shape (1, T).
+        """
+        sd = SpikeData([[0, 5, 10, 15, 20]], length=25.0)
+        rd = sd.sliding_rate(window_size=4, step_size=1, t_start=0, t_end=25)
+        assert rd.inst_Frate_data.shape[0] == 1
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
+
+    def test_sliding_rate_negative_start_time(self):
+        """
+        Verifies sliding_rate with negative start_time (event-centered data).
+
+        Tests:
+            (Test Case 1) Default t_start/t_end incorporate negative start_time.
+            (Test Case 2) Result is a valid RateData with correct shape.
+        """
+        sd = SpikeData([[-80, -40, 0, 40, 80]], start_time=-100, length=200)
+        rd = sd.sliding_rate(window_size=20, step_size=5)
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape[0] == 1
+        assert len(rd.times) > 0
+        assert np.all(np.isfinite(rd.inst_Frate_data))
+
+    # New utilities tests: randomize, get_pop_rate, get_bursts
     def test_randomize_preserves_marginals(self):
         """
         Tests that spikedata.randomize preserves row and column marginals.
@@ -1797,7 +2186,7 @@ class TestSpikeDataRates:
         train = [np.arange(0, 100, 1.0)]
         sd = SpikeData(train, length=100.0)
         times = np.arange(5, 95, 1.0)
-        rates = sd.resampled_isi(times, sigma_ms=5.0)
+        rates = sd.resampled_isi(times, sigma_ms=5.0).inst_Frate_data
         assert rates.shape == (1, len(times))
         # Rate should be approximately 1000 Hz (1 spike per ms, ISI=1ms, rate=1/ISI=1000 Hz)
         assert np.mean(rates[0]) == pytest.approx(1000.0, rel=0.2)
@@ -1932,7 +2321,7 @@ class TestSpikeDataRates:
         """
         sd = SpikeData([[50.0]], length=100.0)
         times = np.linspace(0, 100, 50)
-        result = sd.resampled_isi(times)
+        result = sd.resampled_isi(times).inst_Frate_data
         assert result.shape == (1, 50)
         np.testing.assert_array_equal(result[0], np.zeros(50))
 
@@ -1946,7 +2335,7 @@ class TestSpikeDataRates:
         """
         sd = SpikeData([[10.0, 30.0, 60.0]], length=100.0)
         times = np.linspace(0, 100, 50)
-        result = sd.resampled_isi(times, sigma_ms=0.0)
+        result = sd.resampled_isi(times, sigma_ms=0.0).inst_Frate_data
         assert result.shape == (1, 50)
         assert np.all(np.isfinite(result))
 
@@ -5444,6 +5833,337 @@ class TestSpikeDataRatesEdgeCases:
         r = sd.rates()
         assert r.shape == (3,)
         np.testing.assert_array_equal(r, 0.0)
+
+
+class TestResampledIsiSingleTimeEdgeCases:
+    """Edge case tests for the single-time query path in _resampled_isi."""
+
+    def test_single_time_zero_spikes(self):
+        """
+        Single-time query with zero spikes returns zero.
+
+        Tests:
+            (Test Case 1) Empty spike train returns np.zeros_like(times).
+        """
+        result = spikedata._resampled_isi([], [5.0], sigma_ms=1.0)
+        np.testing.assert_array_equal(result, [0.0])
+
+    def test_single_time_one_spike(self):
+        """
+        Single-time query with one spike returns zero (ISI undefined).
+
+        Tests:
+            (Test Case 1) Single spike returns zero since ISI requires >=2 spikes.
+        """
+        result = spikedata._resampled_isi([5.0], [5.0], sigma_ms=1.0)
+        np.testing.assert_array_equal(result, [0.0])
+
+    def test_single_time_before_first_spike(self):
+        """
+        Single-time query before the first spike returns zero.
+
+        Tests:
+            (Test Case 1) Query time t < spikes[0] triggers idx < 0 guard.
+        """
+        spikes = [10.0, 20.0, 30.0]
+        result = spikedata._resampled_isi(spikes, [5.0], sigma_ms=1.0)
+        np.testing.assert_array_equal(result, [0.0])
+
+    def test_single_time_after_last_spike(self):
+        """
+        Single-time query after the last spike returns zero.
+
+        Tests:
+            (Test Case 1) Query time t >= spikes[-1] triggers idx >= len-1 guard.
+        """
+        spikes = [10.0, 20.0, 30.0]
+        result = spikedata._resampled_isi(spikes, [30.0], sigma_ms=1.0)
+        np.testing.assert_array_equal(result, [0.0])
+
+    def test_single_time_at_exact_spike(self):
+        """
+        Single-time query at exactly a spike time uses the ISI after that spike.
+
+        Tests:
+            (Test Case 1) Query at spikes[1]=20 with ISI between spike 1 and 2
+                being 10ms returns rate = 1000/10 = 100 Hz.
+
+        Notes:
+            - searchsorted(side='right') at exact spike time t=spikes[k]
+              returns k+1, giving idx=k, so ISI = spikes[k+1] - spikes[k].
+        """
+        spikes = [10.0, 20.0, 30.0]
+        result = spikedata._resampled_isi(spikes, [20.0], sigma_ms=0.0)
+        # idx = searchsorted([10,20,30], 20, side='right') - 1 = 2 - 1 = 1
+        # ISI = 30 - 20 = 10; rate = 1000/10 = 100 Hz
+        assert result[0] == pytest.approx(100.0)
+
+    def test_single_time_between_spikes(self):
+        """
+        Single-time query between two spikes uses the enclosing ISI.
+
+        Tests:
+            (Test Case 1) Query at t=15 with spikes at 10, 20 uses ISI=10,
+                giving rate = 100 Hz.
+        """
+        spikes = [10.0, 20.0, 30.0]
+        result = spikedata._resampled_isi(spikes, [15.0], sigma_ms=0.0)
+        assert result[0] == pytest.approx(100.0)
+
+    def test_single_time_duplicate_spikes_returns_zero(self):
+        """
+        Single-time query near duplicate adjacent spikes.
+
+        Tests:
+            (Test Case 1) At t=10 with duplicates at 10, searchsorted picks the
+                ISI after the duplicates (10ms), giving 100 Hz.
+            (Test Case 2) At t=9.5, ISI between spikes 0 and 1 is 5ms,
+                giving 200 Hz.
+
+        Notes:
+            - The single-time path does not deduplicate or warn (unlike the
+              multi-time path). It silently returns 0 for zero-ISI intervals.
+        """
+        spikes = [5.0, 10.0, 10.0, 20.0]
+        # At t=10: searchsorted side='right' → idx after last 10.0 → idx=2
+        # idx=2, ISI = spikes[3] - spikes[2] = 20 - 10 = 10 → rate = 100 Hz
+        result = spikedata._resampled_isi(spikes, [10.0], sigma_ms=0.0)
+        assert result[0] == pytest.approx(100.0)
+        # At t=9.5: searchsorted([5,10,10,20], 9.5, side='right') = 1; idx=0
+        # ISI = spikes[1] - spikes[0] = 10 - 5 = 5 → rate = 200 Hz
+        result2 = spikedata._resampled_isi(spikes, [9.5], sigma_ms=0.0)
+        assert result2[0] == pytest.approx(200.0)
+
+
+class TestSlidingRateSingleTrainEdgeCases:
+    """Edge case tests for _sliding_rate_single_train helper."""
+
+    def test_validation_window_size_zero(self):
+        """
+        window_size=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) Zero window_size is rejected.
+        """
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            _sliding_rate_single_train([1, 2, 3], window_size=0, step_size=1)
+
+    def test_validation_window_size_negative(self):
+        """
+        Negative window_size raises ValueError.
+
+        Tests:
+            (Test Case 1) Negative window_size is rejected.
+        """
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            _sliding_rate_single_train([1, 2, 3], window_size=-5, step_size=1)
+
+    def test_validation_no_step_no_rate(self):
+        """
+        Neither step_size nor sampling_rate raises ValueError.
+
+        Tests:
+            (Test Case 1) Omitting both step_size and sampling_rate is rejected.
+        """
+        with pytest.raises(ValueError, match="Must provide either"):
+            _sliding_rate_single_train([1, 2, 3], window_size=2)
+
+    def test_validation_both_step_and_rate(self):
+        """
+        Providing both step_size and sampling_rate raises ValueError.
+
+        Tests:
+            (Test Case 1) Mutually exclusive parameters are rejected.
+        """
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            _sliding_rate_single_train(
+                [1, 2, 3], window_size=2, step_size=0.5, sampling_rate=2.0
+            )
+
+    def test_validation_negative_sampling_rate(self):
+        """
+        Negative sampling_rate raises ValueError.
+
+        Tests:
+            (Test Case 1) sampling_rate <= 0 is rejected.
+        """
+        with pytest.raises(ValueError, match="sampling_rate must be positive"):
+            _sliding_rate_single_train([1, 2, 3], window_size=2, sampling_rate=-1.0)
+
+    def test_validation_negative_step_size(self):
+        """
+        Negative step_size raises ValueError.
+
+        Tests:
+            (Test Case 1) step_size <= 0 is rejected.
+        """
+        with pytest.raises(ValueError, match="step_size must be positive"):
+            _sliding_rate_single_train([1, 2, 3], window_size=2, step_size=-0.5)
+
+    def test_validation_negative_gauss_sigma(self):
+        """
+        Negative gauss_sigma raises ValueError.
+
+        Tests:
+            (Test Case 1) gauss_sigma < 0 is rejected.
+        """
+        with pytest.raises(ValueError, match="gauss_sigma must be non-negative"):
+            _sliding_rate_single_train(
+                [1, 2, 3], window_size=2, step_size=1, gauss_sigma=-1.0
+            )
+
+    def test_validation_t_end_le_t_start(self):
+        """
+        t_end <= t_start raises ValueError.
+
+        Tests:
+            (Test Case 1) t_end equal to t_start is rejected.
+            (Test Case 2) t_end less than t_start is rejected.
+        """
+        with pytest.raises(ValueError, match="t_end must be greater"):
+            _sliding_rate_single_train(
+                [5], window_size=2, step_size=1, t_start=10, t_end=10
+            )
+        with pytest.raises(ValueError, match="t_end must be greater"):
+            _sliding_rate_single_train(
+                [5], window_size=2, step_size=1, t_start=10, t_end=5
+            )
+
+    def test_default_time_range(self):
+        """
+        Default t_start/t_end extend half-window beyond first/last spike.
+
+        Tests:
+            (Test Case 1) Spikes at [10, 20, 30] with W=4: default t_start=8,
+                t_end=32. Time vector covers this range.
+        """
+        spikes = [10.0, 20.0, 30.0]
+        rd = _sliding_rate_single_train(spikes, window_size=4, step_size=1)
+        assert rd.times[0] >= 8.0 - 0.5  # bin center may be offset by half step
+        assert rd.times[-1] <= 32.0 + 0.5
+
+    def test_spikes_outside_time_range_filtered(self):
+        """
+        Spikes outside [t_start, t_last) are excluded from the rate computation.
+
+        Tests:
+            (Test Case 1) Spikes at [1, 50, 99] with t_start=20, t_end=60:
+                only the spike at 50 contributes. Rate reflects 1 spike.
+        """
+        spikes = [1.0, 50.0, 99.0]
+        rd = _sliding_rate_single_train(
+            spikes, window_size=10, step_size=1, t_start=20, t_end=60
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        # Only 1 spike (at 50) is in range → max rate = 1/W = 0.1
+        assert np.max(rate_arr) == pytest.approx(1.0 / 10, abs=0.02)
+
+    def test_window_much_larger_than_span(self):
+        """
+        window_size much larger than the time span dampens rates via convolution.
+
+        Tests:
+            (Test Case 1) W=1000 with span=10: rates are non-negative and finite.
+            (Test Case 2) Rates are heavily dampened compared to smaller window.
+        """
+        spikes = np.arange(0, 10, 1.0)
+        rd_large_w = _sliding_rate_single_train(
+            spikes, window_size=1000, step_size=1, t_start=0, t_end=10
+        )
+        rd_small_w = _sliding_rate_single_train(
+            spikes, window_size=2, step_size=1, t_start=0, t_end=10
+        )
+        assert np.all(np.isfinite(rd_large_w.inst_Frate_data))
+        assert np.all(rd_large_w.inst_Frate_data >= 0)
+        # Large window dampens rates significantly
+        assert np.max(rd_large_w.inst_Frate_data) < np.max(rd_small_w.inst_Frate_data)
+
+    def test_step_larger_than_window(self):
+        """
+        step_size >> window_size produces single-bin kernel (window_bins=1).
+
+        Tests:
+            (Test Case 1) Result has few bins. Rates are non-negative and finite.
+        """
+        spikes = np.arange(0, 100, 1.0)
+        rd = _sliding_rate_single_train(
+            spikes, window_size=2, step_size=20, t_start=0, t_end=100
+        )
+        rate_arr = rd.inst_Frate_data[0]
+        assert len(rate_arr) == 5  # 100/20 = 5 bins
+        assert np.all(rate_arr >= 0)
+        assert np.all(np.isfinite(rate_arr))
+
+    def test_negative_t_start(self):
+        """
+        Negative t_start for event-centered windows.
+
+        Tests:
+            (Test Case 1) t_start=-50, t_end=50 with spikes in [-20, 20]:
+                produces valid RateData with time vector covering [-50, 50].
+        """
+        spikes = np.array([-20.0, -10.0, 0.0, 10.0, 20.0])
+        rd = _sliding_rate_single_train(
+            spikes, window_size=10, step_size=2, t_start=-50, t_end=50
+        )
+        assert rd.times[0] >= -50.0
+        assert rd.times[-1] <= 50.0
+        assert np.all(np.isfinite(rd.inst_Frate_data))
+        assert np.all(rd.inst_Frate_data >= 0)
+
+    def test_output_shape_is_1_by_t(self):
+        """
+        Output always has shape (1, T) for single-train helper.
+
+        Tests:
+            (Test Case 1) inst_Frate_data.shape[0] is always 1.
+            (Test Case 2) inst_Frate_data.shape[1] equals len(times).
+        """
+        rd = _sliding_rate_single_train(
+            [5, 10, 15], window_size=4, step_size=1, t_start=0, t_end=20
+        )
+        assert rd.inst_Frate_data.ndim == 2
+        assert rd.inst_Frate_data.shape[0] == 1
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
+
+
+class TestSpikeDataSlidingRateEdgeCases:
+    """Edge case tests for SpikeData.sliding_rate."""
+
+    def test_validation_no_step_or_rate(self):
+        """
+        sliding_rate with neither step_size nor sampling_rate raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError is propagated from the helper.
+        """
+        sd = SpikeData([[1, 2, 3]], length=5.0)
+        with pytest.raises(ValueError, match="Must provide either"):
+            sd.sliding_rate(window_size=2)
+
+    def test_validation_zero_window(self):
+        """
+        sliding_rate with window_size=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError is propagated from the helper.
+        """
+        sd = SpikeData([[1, 2, 3]], length=5.0)
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            sd.sliding_rate(window_size=0, step_size=1)
+
+    def test_sliding_rate_returns_ratedata(self):
+        """
+        Verifies sliding_rate always returns a RateData instance.
+
+        Tests:
+            (Test Case 1) Return type is RateData.
+            (Test Case 2) .times length matches .inst_Frate_data columns.
+        """
+        sd = SpikeData([[0, 5, 10]], length=15.0)
+        rd = sd.sliding_rate(window_size=4, step_size=1, t_start=0, t_end=15)
+        assert isinstance(rd, RateData)
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
 
 
 class TestSpikeDataRasterEdgeCases:

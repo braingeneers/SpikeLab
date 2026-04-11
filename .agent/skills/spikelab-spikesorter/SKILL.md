@@ -142,7 +142,10 @@ Key parameters to discuss with the user:
 **Compilation:**
 - `compile_to_npz` / `compile_to_mat` — output formats
 - `save_raw_pkl` — save pre-curation SpikeData pickle
-- `create_figures` — generate QC figures
+
+**Figures:**
+- `create_figures` — generate QC figures: quality distributions (pre-curation), curation bar, STD scatter, all templates, raster + pop rate (default: False)
+- `create_unit_figures` — generate per-unit figures: ISI histogram, waveform footprint, max-channel overlay with individual traces; sorted into `curated/` and `failed/` subdirs after curation (default: False, requires `create_figures=True`)
 
 ---
 
@@ -335,12 +338,29 @@ with open("curation_history.json", "w") as f:
 
 This skill supports **sorting QC only** — verifying that the sorting and curation produced reasonable results. For any deeper analysis, direct the user to `spikelab-analysis-implementer`.
 
-### QC figures (generated during sorting)
+### QC figures script
 
-When `create_figures=True`, three figures are saved to `<results_folder>/figures/`:
-- `curation_bar_plot.png` — total vs. curated unit counts
-- `std_scatter_plot.png` — normalized STD vs. spike count with threshold lines
-- `all_templates_plot.png` — stacked waveform templates by polarity
+After sorting completes, **always run the figure generation script**:
+
+```bash
+conda run -n spikelab python SpikeLab/scripts/generate_sorting_figures.py <results_folder>
+```
+
+This generates all QC figures in `<results_folder>/figures/`:
+
+| Figure | Description |
+|---|---|
+| `curation_bar_plot.png` | Total vs. curated unit counts |
+| `std_scatter_plot.png` | Normalized STD vs. spike count with curation thresholds |
+| `all_templates_plot.png` | Stacked waveform templates by polarity |
+| `quality_distributions.png` | 4-panel histogram: SNR, firing rate, spike count, ISI violations (**all units pre-curation**, with threshold lines) |
+| `raster_pop_rate_first30s.png` | Raster + population rate for the first 30 s |
+| `units/curated/unit_NNNN.png` | Per-unit (passed curation): ISI histogram (0–100 ms) + waveform footprint (|peak| > 8 µV) + max-channel overlay with individual traces |
+| `units/failed/unit_NNNN.png` | Per-unit (failed curation): same 3-panel layout |
+
+**Per-unit figures and quality distributions are generated automatically during the sorting pipeline** (before curation, while individual spike waveforms are still on disk and all units are available). This ensures the distributions always include all pre-curation units. After curation, per-unit figures are sorted into `curated/` and `failed/` subdirectories. Each per-unit figure has 3 panels: ISI histogram (0–100 ms), average waveform footprint at electrode positions, and a max-channel overlay showing individual spike traces (grey) with the mean waveform (red).
+
+The post-hoc script (`generate_sorting_figures.py`) generates the remaining figures (curation bar, STD scatter, templates, raster). Use `--skip-per-unit` to skip per-unit figures when running post-hoc (they are already generated during the pipeline), or `--amp-thresh-uv N` to change the footprint amplitude threshold.
 
 ### Standalone QC figure functions
 
@@ -459,14 +479,17 @@ The report must reference the **full path to the source log file** so the user c
 | Memory limit | ... |
 
 ## Pipeline Timing
-| Stage | Timestamp |
-|---|---|
-| LOADING RECORDING | ... |
-| SPIKE SORTING | ... |
-| EXTRACTING WAVEFORMS | ... |
-| CURATION | ... |
-| COMPILING RESULTS | ... |
-| DONE | ... |
+| Stage | Timestamp | Duration |
+|---|---|---|
+| LOADING RECORDING | ... | ... |
+| SPIKE SORTING | ... | ... |
+| EXTRACTING WAVEFORMS | ... | ... |
+| GENERATING PER-UNIT FIGURES | ... | ... |
+| CURATION | ... | ... |
+| COMPILING RESULTS | ... | ... |
+| DONE | ... | (total) |
+
+Compute duration for each step as the difference between its timestamp and the next step's timestamp. Parse timestamps from the ``[YYYY-MM-DD HH:MM:SS]`` banners in the log.
 
 ## Unit Quality Distributions
 (include brief tables or bullet lists — refer to unit_quality.png figure if generated)
