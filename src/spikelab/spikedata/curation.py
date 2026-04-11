@@ -743,7 +743,7 @@ def curate_by_merge_duplicates(
     dist_um=24.8,
     max_violation_rate=0.04,
     isi_threshold_ms=1.5,
-    cosine_threshold=0.9,
+    cosine_threshold=0.5,
     max_lag=10,
     delta_ms=0.4,
     max_isi_increase=0.04,
