@@ -3102,10 +3102,10 @@ class SpikeData:
     def compute_spk_sim(self, delta=0.4, sd2=None):
         """Compute spike train agreement matrices between units.
 
-        See ``spikelab.spikedata.curation.compute_spk_sim`` for full
+        See ``spikelab.spikedata.utils.compute_spk_sim`` for full
         documentation.
         """
-        from .curation import compute_spk_sim
+        from .utils import compute_spk_sim
 
         return compute_spk_sim(self, delta=delta, sd2=sd2)
 

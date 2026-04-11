@@ -479,136 +479,6 @@ def build_curation_history(sd_original, sd_curated, results, parameters=None):
 
 
 # ---------------------------------------------------------------------------
-# Spike train agreement
-# ---------------------------------------------------------------------------
-
-
-def get_num_matches(ref_train, comp_train, delta=0.4):
-    """Count matching spikes between two spike trains.
-
-    Two spikes match if they are within *delta* milliseconds and belong
-    to different trains.  Adapted from SpikeInterface's
-    comparison tools.
-
-    Parameters:
-        ref_train (np.ndarray): Spike times in milliseconds.
-        comp_train (np.ndarray): Spike times in milliseconds.
-        delta (float): Time window in ms for a spike pair to be considered
-            a match (default: 0.4).
-
-    Returns:
-        num_matches (int): Number of matched spike pairs.
-    """
-    ref_train = np.asarray(ref_train)
-    comp_train = np.asarray(comp_train)
-    if len(ref_train) == 0 or len(comp_train) == 0:
-        return 0
-    times_concat = np.concatenate((ref_train, comp_train))
-    membership = np.concatenate(
-        (
-            np.ones(len(ref_train), dtype=np.int8),
-            np.full(len(comp_train), 2, dtype=np.int8),
-        )
-    )
-    indices = times_concat.argsort(kind="mergesort")
-    times_sorted = times_concat[indices]
-    membership_sorted = membership[indices]
-    diffs = times_sorted[1:] - times_sorted[:-1]
-    inds = np.where(
-        (diffs <= delta) & (membership_sorted[:-1] != membership_sorted[1:])
-    )[0]
-    if len(inds) == 0:
-        return 0
-    inds2 = np.where(inds[:-1] + 1 != inds[1:])[0]
-    return len(inds2) + 1
-
-
-def get_agreement_score(ref_train, comp_train, delta=10.0):
-    """Compute agreement scores between two spike trains.
-
-    Returns a symmetric Jaccard-like score and two asymmetric perspective
-    scores.  Adapted from SpikeInterface's comparison tools.
-
-    Parameters:
-        ref_train (np.ndarray): Spike times in milliseconds.
-        comp_train (np.ndarray): Spike times in milliseconds.
-        delta (float): Time window in ms for spike matching (default: 10.0).
-
-    Returns:
-        agr_score (float): Symmetric Jaccard-like agreement:
-            matches / (len_ref + len_comp - matches).
-        agr_score_ref (float): Agreement from reference perspective:
-            matches / len(ref_train).
-        agr_score_comp (float): Agreement from comparison perspective:
-            matches / len(comp_train).
-    """
-    num_matches = get_num_matches(ref_train, comp_train, delta)
-    denom = len(ref_train) + len(comp_train) - num_matches
-    agr_score = num_matches / denom if denom > 0 else 0.0
-    agr_score_ref = num_matches / len(ref_train) if len(ref_train) > 0 else 0.0
-    agr_score_comp = num_matches / len(comp_train) if len(comp_train) > 0 else 0.0
-    return agr_score, agr_score_ref, agr_score_comp
-
-
-def compute_spk_sim(sd, delta=0.4, sd2=None):
-    """Compute spike train agreement matrices between units.
-
-    Operates in two modes:
-    1. Single SpikeData: all pairwise agreements within one recording.
-    2. Two SpikeData objects: cross-recording agreements between units.
-
-    In single-SpikeData mode the diagonal is left at 0 (self-comparison
-    is excluded) and off-diagonal entries are symmetric.
-
-    Parameters:
-        sd (SpikeData): Reference spike data.
-        delta (float): Spike-matching window in ms (default: 0.4).
-        sd2 (SpikeData, optional): Comparison spike data.  If None,
-            within-recording pairwise comparison is performed.
-
-    Returns:
-        spk_sim (np.ndarray): Shape (N_ref, N_comp).  Symmetric Jaccard-like
-            agreement: matches / (len_ref + len_comp - matches).
-        spk_sim_ref (np.ndarray): Shape (N_ref, N_comp).  Entry [i, j] is
-            matches / len(ref_train_i).
-        spk_sim_comp (np.ndarray): Shape (N_ref, N_comp).  Entry [i, j] is
-            matches / len(comp_train_j).
-    """
-    ref_trains = sd.train
-    n_ref = sd.N
-    if sd2 is None:
-        comp_trains = sd.train
-        n_comp = sd.N
-        cross_mode = False
-    else:
-        comp_trains = sd2.train
-        n_comp = sd2.N
-        cross_mode = True
-
-    spk_sim = np.zeros((n_ref, n_comp))
-    spk_sim_ref = np.zeros((n_ref, n_comp))
-    spk_sim_comp = np.zeros((n_ref, n_comp))
-
-    for i in range(n_ref):
-        for j in range(n_comp):
-            if not cross_mode and j <= i:
-                continue
-            agr, agr_ref, agr_comp = get_agreement_score(
-                ref_trains[i], comp_trains[j], delta
-            )
-            spk_sim[i, j] = agr
-            spk_sim_ref[i, j] = agr_ref
-            spk_sim_comp[i, j] = agr_comp
-            if not cross_mode:
-                # Mirror symmetric matrix; swap ref/comp perspectives at [j,i]
-                spk_sim[j, i] = agr
-                spk_sim_ref[j, i] = agr_comp
-                spk_sim_comp[j, i] = agr_ref
-
-    return spk_sim, spk_sim_ref, spk_sim_comp
-
-
-# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -688,7 +558,7 @@ def _get_or_compute_waveform_metric(sd, metric_name, ms_before, ms_after, **kwar
 # ---------------------------------------------------------------------------
 
 
-def find_nearby_unit_pairs(sd, dist_um=24.8):
+def _find_nearby_unit_pairs(sd, dist_um=24.8):
     """Return all pairs of units whose electrode positions are within distance.
 
     Uses ``sd.unit_locations`` (which normalizes across ``"location"``,
@@ -719,7 +589,7 @@ def find_nearby_unit_pairs(sd, dist_um=24.8):
     return pairs
 
 
-def filter_pairs_by_isi_violations(
+def _filter_pairs_by_isi_violations(
     sd, pairs, max_violation_rate=0.04, threshold_ms=1.5
 ):
     """Remove pairs where either unit exceeds the ISI violation rate threshold.
@@ -755,7 +625,7 @@ def filter_pairs_by_isi_violations(
     return filtered_pairs, violation_rates
 
 
-def compute_pairwise_similarity(sd, pairs, max_lag=10):
+def _compute_pairwise_similarity(sd, pairs, max_lag=10):
     """Compute cosine similarity for candidate pairs using flat concatenated waveforms.
 
     Each unit is represented as a single 1-D array built by concatenating
@@ -809,7 +679,7 @@ def compute_pairwise_similarity(sd, pairs, max_lag=10):
     if not wf_lengths:
         raise ValueError(
             "No units have 'avg_waveform' in neuron_attributes. "
-            "Load waveform data before calling compute_pairwise_similarity()."
+            "Load waveform data before calling _compute_pairwise_similarity()."
         )
 
     if not all_channels:
@@ -848,13 +718,13 @@ def compute_pairwise_similarity(sd, pairs, max_lag=10):
     return sim_mat, lag_mat, unit_ids
 
 
-def filter_by_cosine_sim(pairs, similarity_matrix, threshold=0.9):
+def _filter_by_cosine_sim(pairs, similarity_matrix, threshold=0.9):
     """Return the subset of pairs whose cosine similarity meets threshold.
 
     Parameters:
         pairs (set[tuple[int, int]]): Candidate unit-index pairs.
         similarity_matrix (np.ndarray): Shape (N, N) similarity values,
-            e.g. from compute_pairwise_similarity().
+            e.g. from _compute_pairwise_similarity().
         threshold (float): Minimum cosine similarity to retain a pair.
 
     Returns:
@@ -895,7 +765,7 @@ def curate_by_merge_duplicates(
     trains rather than simply removing units.
 
     Parameters:
-        sd (SpikeData): Source spike data.
+        sd (SpikeData): spike data.
         dist_um (float): Maximum inter-electrode distance in µm to consider
             a pair as candidate duplicates.
         max_violation_rate (float): Maximum ISI violation rate (fraction,
@@ -919,22 +789,22 @@ def curate_by_merge_duplicates(
     metric = np.zeros(sd.N, dtype=float)
     passed = np.ones(sd.N, dtype=bool)
 
-    pairs = find_nearby_unit_pairs(sd, dist_um=dist_um)
+    pairs = _find_nearby_unit_pairs(sd, dist_um=dist_um)
     if not pairs:
-        return sd, {"metric": metric, "passed": passed}
+        return sd.subset(np.arange(sd.N)), {"metric": metric, "passed": passed}
 
-    pairs, _ = filter_pairs_by_isi_violations(
+    pairs, _ = _filter_pairs_by_isi_violations(
         sd, pairs, max_violation_rate=max_violation_rate, threshold_ms=isi_threshold_ms
     )
     if not pairs:
-        return sd, {"metric": metric, "passed": passed}
+        return sd.subset(np.arange(sd.N)), {"metric": metric, "passed": passed}
 
-    sim_mat, lag_mat, _ = compute_pairwise_similarity(sd, pairs, max_lag=max_lag)
-    pairs = filter_by_cosine_sim(pairs, sim_mat, threshold=cosine_threshold)
+    sim_mat, lag_mat, _ = _compute_pairwise_similarity(sd, pairs, max_lag=max_lag)
+    pairs = _filter_by_cosine_sim(pairs, sim_mat, threshold=cosine_threshold)
     if not pairs:
-        return sd, {"metric": metric, "passed": passed}
+        return sd.subset(np.arange(sd.N)), {"metric": metric, "passed": passed}
 
-    sd_out, merge_result = merge_redundant_units(
+    sd_out, merge_result = _merge_redundant_units(
         sd,
         pairs,
         sim_mat,
@@ -953,7 +823,7 @@ def curate_by_merge_duplicates(
     return sd_out, {"metric": metric, "passed": passed}
 
 
-def merge_redundant_units(
+def _merge_redundant_units(
     sd,
     pairs,
     similarity_matrix,
@@ -975,7 +845,7 @@ def merge_redundant_units(
     Parameters:
         sd (SpikeData): Source spike data.
         pairs (set[tuple[int, int]] or list[tuple[int, int]]): Candidate
-            duplicate pairs, e.g. from filter_by_cosine_sim().
+            duplicate pairs, e.g. from _filter_by_cosine_sim().
         similarity_matrix (np.ndarray): Shape (N, N) similarity values
             used to sort pairs and record scores.
         lag_matrix (np.ndarray, optional): Shape (N, N) lag values in samples.
@@ -995,7 +865,8 @@ def merge_redundant_units(
     """
     if not pairs:
         raise ValueError(
-            "pairs must be a non-empty collection. " "Run filter_by_cosine_sim() first."
+            "pairs must be a non-empty collection. "
+            "Run _filter_by_cosine_sim() first."
         )
 
     sorted_pairs = sorted(
