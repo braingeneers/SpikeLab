@@ -72,8 +72,8 @@ This skill is limited to **assessing spike sorting quality** — unit counts, SN
 Before writing sorting scripts, read the repo maps for the spike sorting API:
 
 ```
-.agent/skills/spikelab-map-updater/REPO_MAP.md
-.agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
+src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP.md
+src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
 ```
 
 If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
