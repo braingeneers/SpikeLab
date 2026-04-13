@@ -10,7 +10,9 @@ import yaml
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--image", required=True, help="Container image tag for the job")
+    parser.add_argument(
+        "--image", required=True, help="Container image tag for the job"
+    )
     parser.add_argument(
         "--profile",
         choices=["cpu", "gpu"],

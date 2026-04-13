@@ -75,7 +75,9 @@ def _build_session(profile: ClusterProfile, kubeconfig: str | None) -> RunSessio
         aws_secret_access_key=creds.aws_secret_access_key,
         aws_session_token=creds.aws_session_token,
     )
-    return RunSession(profile=profile, backend=backend, storage_client=storage, credentials=creds)
+    return RunSession(
+        profile=profile, backend=backend, storage_client=storage, credentials=creds
+    )
 
 
 def _cmd_deploy(args: argparse.Namespace) -> int:

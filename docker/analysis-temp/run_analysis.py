@@ -16,7 +16,9 @@ def main() -> int:
         "run_id": run_id,
         "status": "ok",
         "message": "Temporary NRP-connected analysis container executed.",
-        "output_prefix": os.getenv("OUTPUT_PREFIX", "s3://braingeneers/ephys-analysis/"),
+        "output_prefix": os.getenv(
+            "OUTPUT_PREFIX", "s3://braingeneers/ephys-analysis/"
+        ),
     }
     (output_dir / "analysis_result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"

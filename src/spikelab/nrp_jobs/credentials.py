@@ -26,7 +26,8 @@ def resolve_credentials(
     return ResolvedCredentials(
         kubeconfig=kubeconfig or os.getenv("KUBECONFIG"),
         aws_access_key_id=aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY"),
+        aws_secret_access_key=aws_secret_access_key
+        or os.getenv("AWS_SECRET_ACCESS_KEY"),
         aws_session_token=aws_session_token or os.getenv("AWS_SESSION_TOKEN"),
     )
 

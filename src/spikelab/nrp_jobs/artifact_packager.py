@@ -65,5 +65,7 @@ def package_analysis_bundle(
             json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
         )
         zip_base = output_base / run_id
-        zip_path = shutil.make_archive(str(zip_base), "zip", root_dir=temp_dir, base_dir=run_id)
+        zip_path = shutil.make_archive(
+            str(zip_base), "zip", root_dir=temp_dir, base_dir=run_id
+        )
     return str(Path(zip_path).resolve())

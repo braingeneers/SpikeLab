@@ -23,7 +23,9 @@ class S3StorageClient:
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
     ) -> None:
-        self.prefix = (prefix if prefix.endswith("/") else f"{prefix}/") if prefix else None
+        self.prefix = (
+            (prefix if prefix.endswith("/") else f"{prefix}/") if prefix else None
+        )
         self.endpoint_url = endpoint_url
         self.region_name = region_name
         self._client = boto3.client(
@@ -37,7 +39,9 @@ class S3StorageClient:
 
     def build_uri(self, *, run_id: str, filename: str, category: str = "inputs") -> str:
         if not self.prefix:
-            raise ValueError("S3 prefix is not configured. Set it in the profile or command.")
+            raise ValueError(
+                "S3 prefix is not configured. Set it in the profile or command."
+            )
         return f"{self.prefix}{category}/{run_id}/{filename}"
 
     def upload_file(self, *, local_path: str, s3_uri: str) -> str:

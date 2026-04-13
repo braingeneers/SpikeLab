@@ -133,13 +133,15 @@ def build_template_context(
         "volume_mounts": mounts,
         "pod_volumes": pod_volumes,
         "affinity": affinity,
-        "affinity_yaml": yaml.safe_dump(affinity, sort_keys=False).rstrip()
-        if affinity
-        else "",
+        "affinity_yaml": (
+            yaml.safe_dump(affinity, sort_keys=False).rstrip() if affinity else ""
+        ),
         "tolerations": profile.tolerations,
-        "tolerations_yaml": yaml.safe_dump(profile.tolerations, sort_keys=False).rstrip()
-        if profile.tolerations
-        else "",
+        "tolerations_yaml": (
+            yaml.safe_dump(profile.tolerations, sort_keys=False).rstrip()
+            if profile.tolerations
+            else ""
+        ),
         "ttl_seconds_after_finished": job_spec.ttl_seconds_after_finished,
         "backoff_limit": job_spec.backoff_limit,
         "active_deadline_seconds": job_spec.active_deadline_seconds,

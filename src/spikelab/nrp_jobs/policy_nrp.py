@@ -91,7 +91,10 @@ def evaluate_nrp_policy(job_spec: JobSpec) -> List[PolicyFinding]:
             )
         )
 
-    if job_spec.active_deadline_seconds and job_spec.active_deadline_seconds > 14 * 24 * 3600:
+    if (
+        job_spec.active_deadline_seconds
+        and job_spec.active_deadline_seconds > 14 * 24 * 3600
+    ):
         findings.append(
             PolicyFinding(
                 "long_runtime",

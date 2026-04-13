@@ -178,7 +178,9 @@ volumes: []
                 logs_prefix="s3://braingeneers/ephys-analysis/logs/run/",
             )
 
-    monkeypatch.setattr(cli, "_load_profile", lambda *args, **kwargs: ClusterProfile(name="nrp"))
+    monkeypatch.setattr(
+        cli, "_load_profile", lambda *args, **kwargs: ClusterProfile(name="nrp")
+    )
     monkeypatch.setattr(cli, "_build_session", lambda *args, **kwargs: DummySession())
     args = SimpleNamespace(
         profile="nrp",

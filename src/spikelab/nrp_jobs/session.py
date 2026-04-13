@@ -111,8 +111,12 @@ class RunSession:
                 output_format=output_format,  # type: ignore[arg-type]
                 metadata=metadata,
             )
-            uploaded_input_uri = self.storage.upload_bundle(local_zip=bundle_zip, run_id=run_id)
-            manifest_text = self.render_manifest(job_name=job_name, job_spec=job_spec, run_id=run_id)
+            uploaded_input_uri = self.storage.upload_bundle(
+                local_zip=bundle_zip, run_id=run_id
+            )
+            manifest_text = self.render_manifest(
+                job_name=job_name, job_spec=job_spec, run_id=run_id
+            )
             manifest_path = Path(temp_dir) / f"{job_name}.yaml"
             manifest_path.write_text(manifest_text, encoding="utf-8")
             self.backend.apply_manifest(str(manifest_path))

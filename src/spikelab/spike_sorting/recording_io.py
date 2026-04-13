@@ -888,7 +888,8 @@ def load_single_recording(rec_path: Any) -> BaseRecording:
             except OSError as exception:
                 test_file.close()
                 print("*" * 10)
-                print("""This MaxWell Biosystems file format is based on HDF5.
+                print(
+                    """This MaxWell Biosystems file format is based on HDF5.
 The internal compression requires a custom plugin.
 Please visit this page and install the missing decompression libraries:
 https://share.mxwbio.com/d/4742248b2e674a85be97/
@@ -897,7 +898,8 @@ Setup options (choose one):
     1. Pass hdf5_plugin_path='/path/to/plugin/' to sort_with_kilosort2().
     2. Set os.environ['HDF5_PLUGIN_PATH'] BEFORE importing this module.
     3. Follow the Maxwell instructions at the link above.
-""")
+"""
+                )
                 print("*" * 10)
                 raise (exception)
         test_file.close()

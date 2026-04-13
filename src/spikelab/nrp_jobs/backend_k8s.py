@@ -48,10 +48,14 @@ class KubernetesBatchJobBackend:
         """Apply a job manifest by YAML file path or raw YAML string."""
         if self._batch_api is None:
             if not self.use_kubectl_fallback:
-                raise RuntimeError("Kubernetes client unavailable and kubectl fallback disabled")
+                raise RuntimeError(
+                    "Kubernetes client unavailable and kubectl fallback disabled"
+                )
             path = Path(manifest_path_or_str)
             if path.exists():
-                return self._run_kubectl(["apply", "-f", str(path), "-n", self.namespace])
+                return self._run_kubectl(
+                    ["apply", "-f", str(path), "-n", self.namespace]
+                )
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".yaml", encoding="utf-8", delete=False
             ) as f:
@@ -70,7 +74,9 @@ class KubernetesBatchJobBackend:
     def delete_job(self, name: str) -> None:
         """Delete a job and its pods."""
         if self._batch_api is None:
-            self._run_kubectl(["delete", "job", name, "-n", self.namespace, "--ignore-not-found=true"])
+            self._run_kubectl(
+                ["delete", "job", name, "-n", self.namespace, "--ignore-not-found=true"]
+            )
             return
         self._batch_api.delete_namespaced_job(
             name=name,
@@ -81,12 +87,18 @@ class KubernetesBatchJobBackend:
     def job_status(self, name: str) -> str:
         """Return one of Pending/Running/Complete/Failed/Unknown."""
         if self._batch_api is None:
-            out = self._run_kubectl(["get", "job", name, "-n", self.namespace, "-o", "yaml"])
+            out = self._run_kubectl(
+                ["get", "job", name, "-n", self.namespace, "-o", "yaml"]
+            )
             payload = yaml.safe_load(out)
             status = payload.get("status", {})
         else:
-            status_obj = self._batch_api.read_namespaced_job_status(name, self.namespace)
-            status = status_obj.status.to_dict() if status_obj and status_obj.status else {}
+            status_obj = self._batch_api.read_namespaced_job_status(
+                name, self.namespace
+            )
+            status = (
+                status_obj.status.to_dict() if status_obj and status_obj.status else {}
+            )
 
         if status.get("failed"):
             return "Failed"
@@ -140,6 +152,8 @@ class KubernetesBatchJobBackend:
                 yield str(line)
             return
 
-        text = self._core_api.read_namespaced_pod_log(name=pod_name, namespace=self.namespace)
+        text = self._core_api.read_namespaced_pod_log(
+            name=pod_name, namespace=self.namespace
+        )
         for line in text.splitlines():
             yield line
