@@ -11,7 +11,7 @@ import yaml
 
 from .backend_k8s import KubernetesBatchJobBackend
 from .credentials import resolve_credentials
-from .models import ClusterProfile, JobSpec
+from .models import ClusterProfile
 from .profiles import load_cluster_profile, load_profile_from_name
 from .session import RunSession
 from .storage_s3 import S3StorageClient
@@ -26,6 +26,31 @@ def _load_payload(path: str) -> Dict[str, Any]:
         payload = yaml.safe_load(raw)
     if not isinstance(payload, dict):
         raise ValueError(f"Config file must contain an object: {path}")
+    return payload
+
+
+def _apply_image_selection(
+    payload: Dict[str, Any],
+    *,
+    profile: ClusterProfile,
+    image_profile: str | None,
+    image_override: str | None,
+) -> Dict[str, Any]:
+    container = payload.get("container")
+    if container is None:
+        container = {}
+        payload["container"] = container
+    if not isinstance(container, dict):
+        raise ValueError("job config field 'container' must be an object")
+
+    if image_override:
+        container["image"] = image_override
+        return payload
+
+    selected_profile = (image_profile or "cpu").strip().lower()
+    default_image = profile.default_images.get(selected_profile)
+    if default_image and not container.get("image"):
+        container["image"] = default_image
     return payload
 
 
@@ -57,6 +82,12 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
     profile = _load_profile(args.profile, args.profile_file)
     session = _build_session(profile, args.kubeconfig)
     payload = _load_payload(args.job_config)
+    payload = _apply_image_selection(
+        payload,
+        profile=profile,
+        image_profile=args.image_profile,
+        image_override=args.image,
+    )
     try:
         job_spec = validate_job_spec(payload)
     except Exception as exc:
@@ -149,6 +180,8 @@ def build_parser() -> argparse.ArgumentParser:
     deploy.add_argument("--wait", action="store_true")
     deploy.add_argument("--max-wait-seconds", type=int, default=3600)
     deploy.add_argument("--follow-logs", action="store_true")
+    deploy.add_argument("--image-profile", choices=["cpu", "gpu"])
+    deploy.add_argument("--image")
     deploy.set_defaults(func=_cmd_deploy)
 
     status = sub.add_parser("job-status")
@@ -167,6 +200,8 @@ def build_parser() -> argparse.ArgumentParser:
     render = sub.add_parser("render-job")
     render.add_argument("--job-config", required=True)
     render.add_argument("--output-manifest")
+    render.add_argument("--image-profile", choices=["cpu", "gpu"])
+    render.add_argument("--image")
     render.set_defaults(func=_cmd_render)
     return parser
 

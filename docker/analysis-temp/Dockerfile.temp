@@ -1,0 +1,8 @@
+ARG BASE_IMAGE=spikelab/analysis-base:cpu
+FROM ${BASE_IMAGE}
+
+WORKDIR /opt/spikelab
+
+COPY docker/analysis-temp/run_analysis.py /opt/spikelab/run_analysis.py
+
+CMD ["python", "/opt/spikelab/run_analysis.py"]

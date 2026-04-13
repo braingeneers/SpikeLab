@@ -12,6 +12,7 @@ Use this skill for repeatable NRP job execution with explicit validation and saf
 Ask the user for:
 - Job config path (`--job-config`) with image, command/args, resources, and optional volumes.
 - Target profile (`nrp` by default) or `--profile-file`.
+- Image strategy (`--image-profile cpu|gpu` or explicit `--image`).
 - Namespace/context confirmation (`kubectl config current-context` + namespace).
 - Whether they want to wait for completion and stream logs.
 
@@ -23,19 +24,35 @@ Never ask users to paste secrets in chat.
 - Never print secret values.
 - Never commit credentials into files.
 - Reference Kubernetes secrets by name only.
+- For private registries, reference image pull secret names in Kubernetes, never raw credentials.
+
+## Container Prep (for compute-intensive workflows)
+
+1. Choose base image path:
+   - CPU: `docker/analysis-base/Dockerfile.cpu`
+   - GPU: `docker/analysis-base/Dockerfile.gpu`
+2. Build a temporary run image using:
+   - `scripts/nrp_build_temp_image.sh <cpu|gpu> <image-tag>`
+3. Push the image:
+   - `scripts/nrp_push_temp_image.sh <image-tag>`
+4. Generate a job config:
+   - `python scripts/nrp_generate_job_config.py --image <image-tag> --profile <cpu|gpu> --output configs/nrp-temp-job.yaml`
+5. Confirm image is pullable from target cluster/namespace before deploy.
 
 ## Fixed Workflow
 
 1. **Preflight checks**
    - Run `kubectl version --client`.
    - Run `kubectl config current-context`.
+   - Validate registry/image tag exists and is pushed.
    - Optionally verify S3 access if asked by the user.
 2. **Validate inputs**
    - Ensure `--job-config` is present.
    - Run a dry render first:
-     - `spikelab-nrp-jobs render-job --job-config <path> --output-manifest /tmp/job.yaml`
+     - `spikelab-nrp-jobs render-job --job-config <path> --image-profile <cpu|gpu> --output-manifest /tmp/job.yaml`
 3. **Submit**
-   - Run `spikelab-nrp-jobs deploy-job --job-config <path>`.
+   - Run `spikelab-nrp-jobs deploy-job --job-config <path> --image-profile <cpu|gpu>`.
+   - If user requested explicit image, pass `--image <image-tag>`.
    - Capture the machine-parseable line: `JOB_NAME=<value>`.
 4. **Observe**
    - If user wants status: `spikelab-nrp-jobs job-status <job_name>`.
@@ -46,6 +63,7 @@ Never ask users to paste secrets in chat.
 6. **Teardown guidance**
    - Suggest deleting completed/failed jobs:
      - `spikelab-nrp-jobs job-delete <job_name>`
+   - Remind user to clean up temporary tags no longer needed.
 
 ## Policy Safety Rails
 
@@ -57,11 +75,11 @@ Never ask users to paste secrets in chat.
 ## Command Examples
 
 ```bash
-spikelab-nrp-jobs deploy-job --profile nrp --job-config configs/job.yaml --wait --max-wait-seconds 3600
+spikelab-nrp-jobs deploy-job --profile nrp --job-config configs/job.yaml --image-profile gpu --wait --max-wait-seconds 3600
 ```
 
 ```bash
-spikelab-nrp-jobs render-job --profile nrp --job-config configs/job.yaml --output-manifest ./rendered-job.yaml
+spikelab-nrp-jobs render-job --profile nrp --job-config configs/job.yaml --image-profile cpu --output-manifest ./rendered-job.yaml
 ```
 
 ```bash

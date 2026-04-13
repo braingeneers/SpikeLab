@@ -85,6 +85,12 @@ class ClusterProfile(BaseModel):
     affinity: Dict[str, object] = Field(default_factory=dict)
     tolerations: List[Dict[str, object]] = Field(default_factory=list)
     default_secrets_mapping: Dict[str, str] = Field(default_factory=dict)
+    default_images: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "cpu": "ghcr.io/braingeneers/spikelab-analysis-base:cpu",
+            "gpu": "ghcr.io/braingeneers/spikelab-analysis-base:gpu",
+        }
+    )
     resources: ResourceSpec = Field(default_factory=ResourceSpec)
     endpoint_url: Optional[str] = None
     region_name: Optional[str] = None

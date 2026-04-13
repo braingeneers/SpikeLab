@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bash \
+      build-essential \
+      git && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/spikelab
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+
+RUN pip install --upgrade pip && \
+    pip install -e ".[nrp-jobs,s3,neo,spike-sorting]"
+
+COPY docker/analysis-base/entrypoint.sh /usr/local/bin/spikelab-entrypoint
+RUN chmod +x /usr/local/bin/spikelab-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/spikelab-entrypoint"]
+CMD ["python", "-c", "import spikelab; print('SpikeLab container ready')"]

@@ -67,6 +67,19 @@ with open("data/sorted/recording_a/sorted_spikedata_curated.pkl", "rb") as f:
 
 This skill is limited to **assessing spike sorting quality** — unit counts, SNR distributions, waveform templates, curation outcomes, and basic recording-level summaries. For any further analysis (firing rate computation, correlations, burst detection, population dynamics, event alignment, etc.), direct the user to the `spikelab-analysis-implementer` skill and point them to the `sorted_spikedata_curated.pkl` file(s) as the starting data.
 
+### Execution mode split (local vs NRP batch)
+
+For compute-intensive workflows, always pick an execution mode explicitly:
+
+- **Local path**: use this skill directly with `sort_recording(..., use_docker=True)` when the user intends to run on the current workstation.
+- **NRP batch path**: keep sorter parameter selection in this skill, then hand off deployment/container orchestration to `spikelab-nrp-jobs`.
+
+When handing off to `spikelab-nrp-jobs`, pass:
+- chosen sorter (`kilosort2` or `kilosort4`)
+- key curation thresholds (`snr_min`, `spikes_min_first`, etc.)
+- desired CPU/GPU image profile for the NRP container
+- output path expectations (`s3://braingeneers/ephys-analysis/` or user override)
+
 ### Repo maps
 
 Before writing sorting scripts, read the repo maps for the spike sorting API:
@@ -161,6 +174,18 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 ---
 
 ## Running a Sorting Job
+
+### NRP batch handoff (compute-intensive default)
+
+If the user requests external/cluster execution:
+
+1. Finalize sorter parameters in this skill.
+2. Generate or update the run command that should execute inside the container.
+3. Hand off deployment to `spikelab-nrp-jobs` with:
+   - temporary image build/push steps
+   - `spikelab-nrp-jobs render-job ...`
+   - `spikelab-nrp-jobs deploy-job ... --image-profile <cpu|gpu>`
+4. Return to this skill for quality review after artifacts are produced.
 
 ### Basic example (Kilosort2 via Docker)
 

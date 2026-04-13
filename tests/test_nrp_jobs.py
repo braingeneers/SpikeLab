@@ -191,8 +191,92 @@ volumes: []
         wait=False,
         max_wait_seconds=0,
         follow_logs=False,
+        image_profile=None,
+        image=None,
     )
     exit_code = cli._cmd_deploy(args)
     out = capsys.readouterr().out
     assert exit_code == 0
     assert "JOB_NAME=analysis-job-xyz" in out
+
+
+def test_apply_image_selection_uses_profile_default():
+    payload = {
+        "container": {
+            "command": ["python"],
+            "args": ["-m", "run"],
+            "env": {},
+        }
+    }
+    profile = ClusterProfile(
+        name="nrp",
+        default_images={
+            "cpu": "ghcr.io/example/cpu:latest",
+            "gpu": "ghcr.io/example/gpu:latest",
+        },
+    )
+    updated = cli._apply_image_selection(
+        payload,
+        profile=profile,
+        image_profile="gpu",
+        image_override=None,
+    )
+    assert updated["container"]["image"] == "ghcr.io/example/gpu:latest"
+
+
+def test_render_path_applies_image_profile(monkeypatch, tmp_path):
+    config_path = tmp_path / "render-job.yaml"
+    config_path.write_text(
+        """
+name_prefix: analysis-job
+namespace: default
+container:
+  command: ["python"]
+  args: ["-m", "run"]
+  env: {}
+resources:
+  requests_cpu: "1"
+  requests_memory: "2Gi"
+  limits_cpu: "1"
+  limits_memory: "2Gi"
+  requests_gpu: 0
+  limits_gpu: 0
+  node_selector: {}
+volumes: []
+""".strip(),
+        encoding="utf-8",
+    )
+
+    class DummySession:
+        def render_manifest(self, *, job_name, job_spec, run_id):
+            assert job_spec.container.image == "ghcr.io/example/gpu:latest"
+            return f"metadata:\n  name: {job_name}\n"
+
+    monkeypatch.setattr(
+        cli,
+        "_load_profile",
+        lambda *args, **kwargs: ClusterProfile(
+            name="nrp",
+            default_images={
+                "cpu": "ghcr.io/example/cpu:latest",
+                "gpu": "ghcr.io/example/gpu:latest",
+            },
+        ),
+    )
+    monkeypatch.setattr(cli, "_build_session", lambda *args, **kwargs: DummySession())
+    args = SimpleNamespace(
+        profile="nrp",
+        profile_file=None,
+        kubeconfig=None,
+        job_config=str(config_path),
+        allow_policy_risk=False,
+        render_only=True,
+        output_manifest=None,
+        wait=False,
+        max_wait_seconds=0,
+        follow_logs=False,
+        image_profile="gpu",
+        image=None,
+    )
+    exit_code = cli._cmd_render(args)
+    assert exit_code == 0

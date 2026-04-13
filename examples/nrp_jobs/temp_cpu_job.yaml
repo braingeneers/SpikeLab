@@ -1,0 +1,19 @@
+name_prefix: analysis-temp-cpu
+namespace: default
+labels:
+  analysis: spikelab
+  workflow: temp
+container:
+  command: ["python", "/opt/spikelab/run_analysis.py"]
+  args: []
+  env:
+    OUTPUT_PREFIX: s3://braingeneers/ephys-analysis/
+resources:
+  requests_cpu: "2"
+  requests_memory: "8Gi"
+  limits_cpu: "2"
+  limits_memory: "8Gi"
+  requests_gpu: 0
+  limits_gpu: 0
+  node_selector: {}
+volumes: []

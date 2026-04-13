@@ -6,6 +6,9 @@ affinity: {}
 tolerations: []
 default_secrets_mapping:
   s3_credentials_secret: prp-s3-credentials
+default_images:
+  cpu: ghcr.io/braingeneers/spikelab-analysis-base:cpu
+  gpu: ghcr.io/braingeneers/spikelab-analysis-base:gpu
 resources:
   requests_cpu: "1"
   requests_memory: "2Gi"

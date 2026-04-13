@@ -36,7 +36,6 @@ Create a config file such as ``configs/job.yaml``:
    labels:
      analysis: spikelab
    container:
-     image: ghcr.io/example/analysis:latest
      image_pull_policy: IfNotPresent
      command: ["python"]
      args: ["-m", "my_analysis.entrypoint"]
@@ -59,7 +58,7 @@ Always render first:
 
 .. code-block:: bash
 
-   spikelab-nrp-jobs render-job --profile nrp --job-config configs/job.yaml --output-manifest ./rendered-job.yaml
+   spikelab-nrp-jobs render-job --profile nrp --job-config configs/job.yaml --image-profile cpu --output-manifest ./rendered-job.yaml
 
 Deploy and monitor
 ------------------
@@ -68,7 +67,7 @@ Submit:
 
 .. code-block:: bash
 
-   spikelab-nrp-jobs deploy-job --profile nrp --job-config configs/job.yaml --wait --max-wait-seconds 3600
+   spikelab-nrp-jobs deploy-job --profile nrp --job-config configs/job.yaml --image-profile gpu --wait --max-wait-seconds 3600
 
 The deploy command prints a stable machine-readable line:
 
@@ -87,5 +86,8 @@ Use that value with status/log commands:
 S3 destination
 --------------
 
-Set an explicit S3 prefix in your selected profile (or command-level config).
-The launcher no longer injects a hardcoded default prefix.
+Default artifact prefix is:
+
+``s3://braingeneers/ephys-analysis/``
+
+You can override this in your selected profile or job-level environment variables.
