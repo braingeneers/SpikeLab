@@ -133,6 +133,36 @@ shape as a RateSliceStack:
 
    raster_3d = sss.to_raster_array(bin_size=1.0)  # (U, T, S)
 
+Applying a function across slices
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeSliceStack.apply` runs a function on every
+``SpikeData`` in the stack and collects the results into a single array:
+
+.. code-block:: python
+
+   import numpy as np
+
+   # Compute mean firing rate per slice
+   mean_rates = sss.apply(lambda sd: np.mean(sd.rates(unit="Hz")))
+   # mean_rates.shape == (S,)
+
+The function must return a value with a consistent shape across slices.
+The output array has a leading axis of size S.
+
+Trimming the time axis
+^^^^^^^^^^^^^^^^^^^^^^
+
+:meth:`~spikelab.RateSliceStack.subtime_by_index` extracts a range of time
+bins from every slice in a ``RateSliceStack``, producing a narrower window
+without re-aligning:
+
+.. code-block:: python
+
+   # Keep only the first 200 time bins of each slice
+   rss_trimmed = rss.subtime_by_index(0, 200)
+   # Shape changes from (U, T, S) to (U, 200, S)
+
 Use :meth:`~spikelab.SpikeSliceStack.plot_aligned_slice_single_unit` to
 visualize one unit's spike times across all trials as a raster plot:
 

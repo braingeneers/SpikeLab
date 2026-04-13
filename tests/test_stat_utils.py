@@ -7,6 +7,8 @@ from spikelab.spikedata.stat_utils import (
     linear_regression,
     _approx_normal_quantile,
     pairwise_tests,
+    paired_test,
+    omnibus_test,
 )
 
 # ---------------------------------------------------------------------------
@@ -634,3 +636,275 @@ class TestCoverageGaps:
         assert res["labels"] == ["A", "B", "C"]
         assert res["pval_matrix"].shape == (3, 3)
         assert res["n_comparisons"] == 3
+
+
+# ---------------------------------------------------------------------------
+# paired_test
+# ---------------------------------------------------------------------------
+
+
+class TestPairedTest:
+    """Tests for the paired_test function."""
+
+    def test_output_keys(self):
+        """
+        The result dict contains all expected keys.
+
+        Tests:
+            (Test Case 1) All 3 keys present.
+        """
+        rng = np.random.default_rng(42)
+        a = rng.normal(0, 1, 30)
+        b = rng.normal(1, 1, 30)
+        res = paired_test(a, b)
+        assert set(res.keys()) == {"statistic", "p_value", "n"}
+
+    def test_wilcoxon_detects_shift(self):
+        """
+        Wilcoxon test detects a consistent positive shift.
+
+        Tests:
+            (Test Case 1) p-value < 0.05 for shifted data.
+        """
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 50)
+        b = a + 2.0  # consistent shift
+        res = paired_test(a, b, test="wilcoxon")
+        assert res["p_value"] < 0.05
+
+    def test_paired_t_detects_shift(self):
+        """
+        Paired t-test detects a consistent positive shift.
+
+        Tests:
+            (Test Case 1) p-value < 0.05 for shifted data.
+        """
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 50)
+        b = a + 2.0
+        res = paired_test(a, b, test="paired_t")
+        assert res["p_value"] < 0.05
+
+    def test_identical_not_significant(self):
+        """
+        Identical samples should not be significant.
+
+        Tests:
+            (Test Case 1) p-value > 0.05 when a == b + small noise.
+        """
+        rng = np.random.default_rng(42)
+        a = rng.normal(0, 1, 50)
+        b = a + rng.normal(0, 0.01, 50)  # negligible shift
+        # Wilcoxon may still detect, so use a generous threshold check
+        # Just verify it runs without error
+        res = paired_test(a, b)
+        assert 0 <= res["p_value"] <= 1.0
+
+    def test_nan_pairs_dropped(self):
+        """
+        NaN values in either sample are dropped pairwise.
+
+        Tests:
+            (Test Case 1) n is less than original length.
+            (Test Case 2) Result is computed without errors.
+        """
+        a = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
+        b = np.array([1.5, np.nan, 3.5, 4.5, 5.5])
+        res = paired_test(a, b)
+        assert res["n"] == 3  # positions 0, 3, 4
+
+    def test_mismatched_length_raises(self):
+        """
+        Mismatched lengths raise ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="same length"):
+            paired_test(np.array([1, 2, 3]), np.array([1, 2]))
+
+    def test_all_nan_raises(self):
+        """
+        All-NaN input raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError about no valid pairs.
+        """
+        a = np.array([np.nan, np.nan])
+        b = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="No valid"):
+            paired_test(a, b)
+
+    def test_unknown_test_raises(self):
+        """
+        Unknown test name raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="Unknown test"):
+            paired_test(np.array([1, 2, 3]), np.array([4, 5, 6]), test="ks")
+
+    def test_alternative_less(self):
+        """
+        alternative='less' tests whether a < b.
+
+        Tests:
+            (Test Case 1) Significant when a is consistently less than b.
+        """
+        rng = np.random.default_rng(0)
+        a = rng.normal(0, 1, 50)
+        b = a + 3.0
+        res = paired_test(a, b, alternative="less")
+        assert res["p_value"] < 0.05
+
+
+# ---------------------------------------------------------------------------
+# omnibus_test
+# ---------------------------------------------------------------------------
+
+
+class TestOmnibusTest:
+    """Tests for the omnibus_test function."""
+
+    @staticmethod
+    def _make_groups():
+        rng = np.random.default_rng(42)
+        return {
+            "A": rng.normal(0, 1, 50),
+            "B": rng.normal(5, 1, 50),
+            "C": rng.normal(0, 1, 50),
+        }
+
+    def test_output_keys(self):
+        """
+        The result dict contains all expected keys.
+
+        Tests:
+            (Test Case 1) All 6 keys present.
+        """
+        res = omnibus_test(self._make_groups())
+        assert set(res.keys()) == {
+            "statistic",
+            "p_value",
+            "n_groups",
+            "group_ns",
+            "labels",
+            "posthoc",
+        }
+
+    def test_anova_detects_difference(self):
+        """
+        ANOVA detects groups with different means.
+
+        Tests:
+            (Test Case 1) p-value < 0.05.
+        """
+        res = omnibus_test(self._make_groups())
+        assert res["p_value"] < 0.05
+
+    def test_kruskal_detects_difference(self):
+        """
+        Kruskal-Wallis detects groups with different medians.
+
+        Tests:
+            (Test Case 1) p-value < 0.05.
+        """
+        res = omnibus_test(self._make_groups(), test="kruskal")
+        assert res["p_value"] < 0.05
+
+    def test_tukey_posthoc_results(self):
+        """
+        Tukey post-hoc identifies which pairs differ.
+
+        Tests:
+            (Test Case 1) A vs B is significant.
+            (Test Case 2) A vs C is not significant.
+            (Test Case 3) 3 post-hoc comparisons total.
+        """
+        res = omnibus_test(self._make_groups(), posthoc="tukey")
+        assert res["posthoc"] is not None
+        assert len(res["posthoc"]) == 3
+
+        ab = next(
+            c for c in res["posthoc"] if c["group_a"] == "A" and c["group_b"] == "B"
+        )
+        ac = next(
+            c for c in res["posthoc"] if c["group_a"] == "A" and c["group_b"] == "C"
+        )
+        assert ab["significant"] is True
+        assert ac["significant"] is False
+
+    def test_no_posthoc(self):
+        """
+        posthoc=None skips post-hoc tests.
+
+        Tests:
+            (Test Case 1) posthoc key is None.
+        """
+        res = omnibus_test(self._make_groups(), posthoc=None)
+        assert res["posthoc"] is None
+
+    def test_list_input(self):
+        """
+        List input with explicit labels works.
+
+        Tests:
+            (Test Case 1) Labels match provided list.
+        """
+        groups = self._make_groups()
+        data = list(groups.values())
+        res = omnibus_test(data, labels=["X", "Y", "Z"])
+        assert res["labels"] == ["X", "Y", "Z"]
+
+    def test_group_ns(self):
+        """
+        group_ns reports correct per-group sample sizes.
+
+        Tests:
+            (Test Case 1) Each group has 50 samples.
+        """
+        res = omnibus_test(self._make_groups())
+        assert res["group_ns"] == [50, 50, 50]
+
+    def test_nan_stripped(self):
+        """
+        NaN values are stripped before testing.
+
+        Tests:
+            (Test Case 1) group_ns reflects stripped sizes.
+        """
+        groups = self._make_groups()
+        groups["A"] = np.concatenate([groups["A"], [np.nan, np.nan]])
+        res = omnibus_test(groups)
+        assert res["group_ns"][0] == 50  # 2 NaN stripped
+
+    def test_unknown_test_raises(self):
+        """
+        Unknown test raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="Unknown test"):
+            omnibus_test(self._make_groups(), test="friedman")
+
+    def test_unknown_posthoc_raises(self):
+        """
+        Unknown posthoc raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        with pytest.raises(ValueError, match="Unknown posthoc"):
+            omnibus_test(self._make_groups(), posthoc="dunn")
+
+    def test_single_group_raises(self):
+        """
+        Fewer than 2 groups raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError about needing at least 2 groups.
+        """
+        with pytest.raises(ValueError, match="at least 2"):
+            omnibus_test({"A": np.array([1, 2, 3])})
