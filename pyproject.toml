@@ -39,7 +39,7 @@ where = ["src"]
 include = ["spikelab*"]
 
 [tool.setuptools.package-data]
-spikelab = ["agent/skills/**/*"]
+spikelab = ["agent/skills/**/*", "batch_jobs/profiles/*.yaml", "batch_jobs/templates/*.j2"]
 
 [project.optional-dependencies]
 dev = [
@@ -89,6 +89,18 @@ spike-sorting = [
   "six>=1.16",
   "pandas>=1.3",
 ]
+nrp-jobs = [
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+  "Jinja2>=3.1.0",
+  "kubernetes>=30.1.0",
+]
+nrp_jobs = [
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+  "Jinja2>=3.1.0",
+  "kubernetes>=30.1.0",
+]
 kilosort4 = [
   "kilosort>=4.0",
   # PyTorch with CUDA must be installed separately — see:
@@ -114,7 +126,14 @@ all = [
   "spikeinterface>=0.104.0",
   "natsort>=8.0",
   "six>=1.16",
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+  "Jinja2>=3.1.0",
+  "kubernetes>=30.1.0",
 ]
+
+[project.scripts]
+spikelab-nrp-jobs = "spikelab.nrp_jobs.cli:main"
 
 [tool.black]
 line-length = 88
