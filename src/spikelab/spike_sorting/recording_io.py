@@ -38,6 +38,92 @@ from .sorting_utils import (
 from .waveform_extractor import WaveformExtractor
 
 
+# Upstream `neo.rawio.maxwellrawio.auto_install_maxwell_hdf5_compression_plugin`
+# treats `HDF5_PLUGIN_PATH` as a single directory. HDF5 actually defines it as
+# an os.pathsep-separated list (like `PATH`), so when the env var holds multiple
+# entries (e.g. `/home/mxwbio/MaxLab/so/:/home/sharf-lab/MaxLab/so`) upstream
+# tries to `Path(...).mkdir()` on the compound string and fails. This wrapper
+# patches the helper at SpikeLab import time so the fix survives any `neo`
+# reinstall/upgrade.
+def _patch_neo_maxwell_hdf5_plugin_path_handling() -> None:
+    try:
+        import platform
+        from pathlib import Path
+        from urllib.request import urlopen
+
+        import neo.rawio.maxwellrawio as _mwrawio
+    except ImportError:
+        return
+
+    def auto_install_maxwell_hdf5_compression_plugin(hdf5_plugin_path=None, force_download=True):
+        if hdf5_plugin_path is None:
+            env_value = os.getenv("HDF5_PLUGIN_PATH", None)
+            if env_value is not None:
+                # HDF5_PLUGIN_PATH follows PATH-style semantics: a list of
+                # directories separated by os.pathsep (':' on Linux/macOS,
+                # ';' on Windows). Scan each component for an existing
+                # libcompression library before downloading.
+                for component in env_value.split(os.pathsep):
+                    component = component.strip()
+                    if not component:
+                        continue
+                    candidate_dir = Path(component)
+                    if platform.system() == "Linux":
+                        candidate = candidate_dir / "libcompression.so"
+                    elif platform.system() == "Darwin":
+                        candidate = candidate_dir / "libcompression.dylib"
+                    elif platform.system() == "Windows":
+                        candidate = candidate_dir / "compression.dll"
+                    else:
+                        candidate = None
+                    if candidate is not None and candidate.is_file():
+                        hdf5_plugin_path = candidate_dir
+                        break
+                if hdf5_plugin_path is None:
+                    # No existing plugin found in any component; fall back to
+                    # the first non-empty component as the install target.
+                    for component in env_value.split(os.pathsep):
+                        component = component.strip()
+                        if component:
+                            hdf5_plugin_path = Path(component)
+                            break
+            if hdf5_plugin_path is None:
+                hdf5_plugin_path = Path.home() / "hdf5_plugin_path_maxwell"
+                os.environ["HDF5_PLUGIN_PATH"] = str(hdf5_plugin_path)
+        hdf5_plugin_path = Path(hdf5_plugin_path)
+        hdf5_plugin_path.mkdir(exist_ok=True)
+
+        if platform.system() == "Linux":
+            remote_lib = "https://share.mxwbio.com/d/7f2d1e98a1724a1b8b35/files/?p=%2FLinux%2Flibcompression.so&dl=1"
+            local_lib = hdf5_plugin_path / "libcompression.so"
+        elif platform.system() == "Darwin":
+            if platform.machine() == "arm64":
+                remote_lib = "https://share.mxwbio.com/d/7f2d1e98a1724a1b8b35/files/?p=%2FMacOS%2FMac_arm64%2Flibcompression.dylib&dl=1"
+            else:
+                remote_lib = "https://share.mxwbio.com/d/7f2d1e98a1724a1b8b35/files/?p=%2FMacOS%2FMac_x86_64%2Flibcompression.dylib&dl=1"
+            local_lib = hdf5_plugin_path / "libcompression.dylib"
+        elif platform.system() == "Windows":
+            remote_lib = "https://share.mxwbio.com/d/7f2d1e98a1724a1b8b35/files/?p=%2FWindows%2Fcompression.dll&dl=1"
+            local_lib = hdf5_plugin_path / "compression.dll"
+
+        if not force_download and local_lib.is_file():
+            print(f"The h5 compression library for Maxwell is already located in {local_lib}!")
+            return
+
+        dist = urlopen(remote_lib)
+        with open(local_lib, "wb") as f:
+            f.write(dist.read())
+
+    setattr(
+        _mwrawio,
+        "auto_install_maxwell_hdf5_compression_plugin",
+        auto_install_maxwell_hdf5_compression_plugin,
+    )
+
+
+_patch_neo_maxwell_hdf5_plugin_path_handling()
+
+
 class Compiler:
     """Aggregates sorting results from one or more SpikeData objects for export.
 
@@ -811,6 +897,12 @@ Setup options (choose one):
                 print("*" * 10)
                 raise (exception)
         test_file.close()
+        # Reconcile declared vs. routed channels. MaxOne recordings report
+        # 1024 readout channels but get_traces() returns the full 1024-wide
+        # array regardless of routing; slicing by the extractor's own
+        # channel_ids forces the width to match get_num_channels(). No-op
+        # when all channels are routed (MaxTwo).
+        rec = rec.select_channels(rec.get_channel_ids())
     elif str(rec_path).endswith(".nwb"):
         rec = NwbRecordingExtractor(rec_path)
     else:
