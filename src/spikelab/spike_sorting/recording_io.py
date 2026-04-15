@@ -55,7 +55,9 @@ def _patch_neo_maxwell_hdf5_plugin_path_handling() -> None:
     except ImportError:
         return
 
-    def auto_install_maxwell_hdf5_compression_plugin(hdf5_plugin_path=None, force_download=True):
+    def auto_install_maxwell_hdf5_compression_plugin(
+        hdf5_plugin_path=None, force_download=True
+    ):
         if hdf5_plugin_path is None:
             env_value = os.getenv("HDF5_PLUGIN_PATH", None)
             if env_value is not None:
@@ -107,7 +109,9 @@ def _patch_neo_maxwell_hdf5_plugin_path_handling() -> None:
             local_lib = hdf5_plugin_path / "compression.dll"
 
         if not force_download and local_lib.is_file():
-            print(f"The h5 compression library for Maxwell is already located in {local_lib}!")
+            print(
+                f"The h5 compression library for Maxwell is already located in {local_lib}!"
+            )
             return
 
         dist = urlopen(remote_lib)
