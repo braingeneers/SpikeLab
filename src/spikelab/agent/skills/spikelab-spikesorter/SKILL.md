@@ -587,6 +587,7 @@ print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py3
 | `CUDA error: no kernel image` | Docker image CUDA too old for GPU | SpikeLab auto-detects the host CUDA driver and selects a compatible image. If auto-detection fails, pass a custom image: `use_docker="my-image:tag"` |
 | `Could not detect CUDA driver` | `nvidia-smi` not on PATH | Install NVIDIA drivers, or pass a specific `docker_image` string |
 | `ValueError: Unknown sorter` | Unregistered backend | Check `spikelab.spike_sorting.backends.list_sorters()` |
+| Kilosort2 `Matrix dimensions must agree` in splitting step | Data-dependent KS2 bug on high-density wells that produce very high template counts (>~1000 clusters); fails after `Finished splitting. Found N splits, checked M/M clusters, nccg K` | Raise the second-pass detection threshold: `kilosort_params={"projection_threshold": [10, 8]}` (default is `[10, 4]`). This reduces the number of spikes extracted in the second pass, which lowers the template count and avoids the splitting bug. Retry without other changes. If still failing, try `[12, 8]`. **Retry automatically** — do not escalate to the user on a first hit; only escalate if the bumped threshold also fails. |
 
 ### Inspecting intermediate files
 
