@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from ...spikedata.pairwise import PairwiseCompMatrix, PairwiseCompMatrixStack
+from ...spikedata.ratedata import RateData
 from ...spikedata.rateslicestack import RateSliceStack
 from ...spikedata.spikeslicestack import SpikeSliceStack
 from ...spikedata.spikedata import SpikeData
