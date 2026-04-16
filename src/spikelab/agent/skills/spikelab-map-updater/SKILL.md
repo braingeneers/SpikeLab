@@ -25,8 +25,8 @@ It may also be triggered by other skills if the repo maps are not found in the e
 ### File boundaries
 
 You may only create or modify two files:
-- `REPO_MAP.md` — located alongside this skill file in `.agent/skills/spikelab-map-updater/`
-- `REPO_MAP_DETAILED.md` — located alongside this skill file in `.agent/skills/spikelab-map-updater/`
+- `REPO_MAP.md` — located alongside this skill file in `src/spikelab/agent/skills/spikelab-map-updater/`
+- `REPO_MAP_DETAILED.md` — located alongside this skill file in `src/spikelab/agent/skills/spikelab-map-updater/`
 
 You must not modify any library source code, tests, analysis scripts, or other files.
 

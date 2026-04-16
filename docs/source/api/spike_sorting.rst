@@ -1,6 +1,6 @@
-============
+=============
 Spike Sorting
-============
+=============
 
 The ``spikelab.spike_sorting`` sub-package wraps the Kilosort2 MATLAB spike
 sorter, handling the full pipeline from raw recording files to a

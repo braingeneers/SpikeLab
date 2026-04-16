@@ -38,6 +38,9 @@ dependencies = [
 where = ["src"]
 include = ["spikelab*"]
 
+[tool.setuptools.package-data]
+spikelab = ["agent/skills/**/*"]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",

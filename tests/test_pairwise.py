@@ -1860,3 +1860,161 @@ class TestCoverageGaps:
         for s in range(4):
             mask = cond_stack[:, :, s] > 0.5
             assert np.all(np.isnan(result.stack[:, :, s][mask]))
+
+
+# ---------------------------------------------------------------------------
+# PairwiseCompMatrix — extract_pairs_by_group
+# ---------------------------------------------------------------------------
+
+
+class TestExtractPairsByGroup:
+    """Tests for PairwiseCompMatrix.extract_pairs_by_group."""
+
+    def test_boolean_labels_three_groups(self):
+        """
+        Boolean labels split upper triangle into (False,False), (False,True),
+        (True,True) groups.
+
+        Tests:
+            (Test Case 1) Three groups are returned.
+            (Test Case 2) Group sizes sum to total upper triangle pairs.
+        """
+        mat = np.ones((4, 4))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([False, False, True, True])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert len(groups) == 3
+        total = sum(len(v) for v in groups.values())
+        assert total == 6  # 4*3/2
+
+    def test_boolean_labels_correct_counts(self):
+        """
+        2 False + 2 True units: 1 FF pair, 4 FT pairs, 1 TT pair.
+
+        Tests:
+            (Test Case 1) (False, False) has 1 pair.
+            (Test Case 2) (False, True) has 4 pairs.
+            (Test Case 3) (True, True) has 1 pair.
+        """
+        mat = np.ones((4, 4))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([False, False, True, True])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert len(groups[(False, False)]) == 1
+        assert len(groups[(False, True)]) == 4
+        assert len(groups[(True, True)]) == 1
+
+    def test_values_are_correct(self):
+        """
+        Values extracted match the upper triangle entries.
+
+        Tests:
+            (Test Case 1) Each group contains the correct matrix values.
+        """
+        mat = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]], dtype=float)
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([False, False, True])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        # (F,F): pair (0,1) -> value 1
+        np.testing.assert_array_equal(groups[(False, False)], [1.0])
+        # (F,T): pairs (0,2) and (1,2) -> values 2, 3
+        np.testing.assert_array_equal(groups[(False, True)], [2.0, 3.0])
+        # (T,T): no pair (only 1 True unit)
+        assert (True, True) not in groups
+
+    def test_string_labels(self):
+        """
+        String labels produce canonically sorted group keys.
+
+        Tests:
+            (Test Case 1) Keys are sorted tuples of strings.
+        """
+        mat = np.ones((3, 3))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array(["pyr", "int", "pyr"])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert ("int", "pyr") in groups
+        assert ("pyr", "int") not in groups  # canonical ordering
+
+    def test_single_group(self):
+        """
+        All units in one group produces a single key with all pairs.
+
+        Tests:
+            (Test Case 1) Only one group returned.
+            (Test Case 2) Contains all upper triangle pairs.
+        """
+        mat = np.ones((5, 5))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([0, 0, 0, 0, 0])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert len(groups) == 1
+        assert len(groups[(0, 0)]) == 10
+
+    def test_mismatched_length_raises(self):
+        """
+        Labels with wrong length raise ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message.
+        """
+        mat = np.ones((3, 3))
+        pcm = PairwiseCompMatrix(matrix=mat)
+        with pytest.raises(ValueError, match="unit_labels length"):
+            pcm.extract_pairs_by_group(np.array([True, False]))
+
+    def test_nan_values_preserved(self):
+        """
+        NaN values in the matrix are preserved in the output groups.
+
+        Tests:
+            (Test Case 1) NaN appears in the correct group.
+        """
+        mat = np.array([[0, np.nan, 1], [np.nan, 0, 2], [1, 2, 0]], dtype=float)
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([True, True, False])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert np.isnan(groups[(True, True)][0])
+
+    def test_alignment_across_matrices(self):
+        """
+        Two matrices with the same labels produce aligned outputs suitable
+        for paired tests.
+
+        Tests:
+            (Test Case 1) Group values from matrix A and B correspond to the
+                same pairs.
+        """
+        mat_a = np.array([[0, 10, 20], [10, 0, 30], [20, 30, 0]], dtype=float)
+        mat_b = np.array([[0, 11, 21], [11, 0, 31], [21, 31, 0]], dtype=float)
+        labels = np.array([False, True, True])
+
+        ga = PairwiseCompMatrix(matrix=mat_a).extract_pairs_by_group(labels)
+        gb = PairwiseCompMatrix(matrix=mat_b).extract_pairs_by_group(labels)
+
+        # Same keys and same ordering
+        assert set(ga.keys()) == set(gb.keys())
+        for key in ga:
+            assert len(ga[key]) == len(gb[key])
+
+    def test_2x2_matrix(self):
+        """
+        Smallest non-trivial case: 2 units produce exactly 1 pair.
+
+        Tests:
+            (Test Case 1) Single pair in the correct group.
+        """
+        mat = np.array([[0, 5], [5, 0]], dtype=float)
+        pcm = PairwiseCompMatrix(matrix=mat)
+        labels = np.array([True, False])
+        groups = pcm.extract_pairs_by_group(labels)
+
+        assert len(groups) == 1
+        assert (False, True) in groups
+        np.testing.assert_array_equal(groups[(False, True)], [5.0])

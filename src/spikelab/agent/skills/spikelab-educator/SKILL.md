@@ -42,8 +42,8 @@ Use these sources to answer questions, in order of priority:
 For "what does this method do?" or "what parameters does X take?" questions, read the repo maps:
 
 ```
-.agent/skills/spikelab-map-updater/REPO_MAP.md
-.agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
+src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP.md
+src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
 ```
 
 If the repo maps are not present, run the `spikelab-map-updater` skill to generate them. If that is not possible, fall back to reading the source code directly.

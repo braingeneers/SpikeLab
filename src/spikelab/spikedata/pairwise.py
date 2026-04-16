@@ -284,6 +284,58 @@ class PairwiseCompMatrix:
             save_path=save_path,
         )
 
+    def extract_pairs_by_group(
+        self,
+        unit_labels,
+    ) -> dict:
+        """Extract upper-triangle pair values grouped by unit label combinations.
+
+        Given a label array of length N (one per unit), splits the upper
+        triangle of the matrix into groups based on each pair's label
+        combination. For example, a boolean label ``is_lower`` yields three
+        groups: ``(False, False)``, ``(False, True)``, ``(True, True)``.
+
+        Parameters:
+            unit_labels (array-like): Labels of length N assigning each unit
+                to a group. Can be boolean, integer, or string values.
+
+        Returns:
+            groups (dict): Mapping from ``(label_a, label_b)`` tuples to 1D
+                arrays of pair values. Keys are canonically ordered so that
+                ``label_a <= label_b``. Only groups with at least one pair are
+                included. The values within each group preserve the order
+                produced by ``np.triu_indices``, making results from different
+                matrices with the same labels directly alignable for paired
+                tests.
+        """
+        unit_labels = np.asarray(unit_labels)
+        n = self.matrix.shape[0]
+        if len(unit_labels) != n:
+            raise ValueError(
+                f"unit_labels length ({len(unit_labels)}) must match "
+                f"matrix dimension ({n})"
+            )
+
+        ri, ci = np.triu_indices(n, k=1)
+        values = self.matrix[ri, ci]
+        labels_r = unit_labels[ri]
+        labels_c = unit_labels[ci]
+
+        unique_labels = sorted(set(unit_labels.tolist()))
+        groups = {}
+        for i_lbl, la in enumerate(unique_labels):
+            for lb in unique_labels[i_lbl:]:
+                if la == lb:
+                    mask = (labels_r == la) & (labels_c == la)
+                else:
+                    mask = ((labels_r == la) & (labels_c == lb)) | (
+                        (labels_r == lb) & (labels_c == la)
+                    )
+                if mask.any():
+                    groups[(la, lb)] = values[mask]
+
+        return groups
+
     def plot_spatial_network(
         self,
         ax,

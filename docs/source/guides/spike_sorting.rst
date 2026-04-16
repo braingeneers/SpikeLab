@@ -1,195 +1,243 @@
-============
-Spike Sorting
-============
+==========================
+Spike Sorting and Curation
+==========================
 
-SpikeLab ships a full Kilosort2 spike-sorting pipeline in the
-``spikelab.spike_sorting`` sub-package.  The single public entry point,
-:ref:`sort_with_kilosort2 <spikesorting-api>`, runs the sorter on one or more
-raw recordings and returns the curated results as
-:class:`~spikelab.spikedata.SpikeData` objects ready for downstream analysis.
+SpikeLab includes a spike-sorting pipeline in the ``spikelab.spike_sorting``
+sub-package. It supports three sorting algorithms — Kilosort2, Kilosort4, and
+RT-Sort — behind a unified interface. The pipeline returns curated
+:class:`~spikelab.SpikeData` objects ready for downstream analysis.
+
+SpikeLab also provides standalone curation methods that can be used on any
+``SpikeData`` object, whether it came from the sorting pipeline or from an
+external source.
 
 .. contents:: On this page
    :local:
    :depth: 2
 
 
-Prerequisites
+Spike Sorting
 -------------
 
-The spike-sorting pipeline requires two external components that are **not**
-installed automatically with SpikeLab:
+Prerequisites
+^^^^^^^^^^^^^
 
-1. **MATLAB** (R2019b or later recommended).
-2. **Kilosort2** — clone from `MouseLand/Kilosort2
-   <https://github.com/MouseLand/Kilosort2>`_ and note the path to the root
-   directory (the folder that contains ``master_kilosort.m``).
+The sorting pipeline requires external dependencies that are **not** installed
+with SpikeLab by default:
 
-For Maxwell Biosystems ``.h5`` files the HDF5 decompression plugin must also be
-installed; follow the instructions printed by the loader if the plugin is
+- **Kilosort2** requires MATLAB (R2019b+) and the `Kilosort2 repository
+  <https://github.com/MouseLand/Kilosort2>`_. A Docker variant is available
+  that removes the MATLAB requirement.
+- **Kilosort4** is pure Python but requires ``torch`` and ``kilosort``.
+  A Docker variant is also available.
+- **RT-Sort** requires ``torch`` for its neural-network spike detection model.
+
+For Maxwell Biosystems ``.h5`` files the HDF5 decompression plugin must also
+be installed; follow the instructions printed by the loader if the plugin is
 missing.
 
-
 Basic usage
------------
+^^^^^^^^^^^
+
+The main entry point is :func:`~spikelab.spike_sorting.sort_recording`, which
+accepts a list of recording files and returns a list of
+:class:`~spikelab.SpikeData` objects:
 
 .. code-block:: python
 
-   from spikelab.spike_sorting import sort_with_kilosort2
+   from spikelab.spike_sorting import sort_recording
 
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
+   results = sort_recording(
+       recording_files=["session1.raw.h5"],
+       sorter="kilosort4",
    )
 
-   sd = results[0]          # SpikeData for the first (and only) recording
-   print(sd.N)              # number of curated units
-   print(sd.length / 1000)  # recording duration in seconds
+   sd = results[0]
+   print(sd.N, "units")
+   print(sd.length / 1000, "seconds")
 
-``sort_with_kilosort2`` accepts a **list** of recording paths and always
-returns a **list** of :class:`~spikelab.spikedata.SpikeData` objects — one per
-successfully sorted recording.  If a recording fails (e.g. MATLAB error) it is
-silently skipped so the returned list may be shorter than *recording_files*.
+The ``sorter`` parameter selects the algorithm: ``"kilosort2"``,
+``"kilosort4"``, or ``"rt_sort"``.
 
+Configuration and presets
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Sorting multiple recordings
----------------------------
+The pipeline is configured via a :class:`~spikelab.spike_sorting.config.SortingPipelineConfig`
+dataclass composed of sub-configs for recording I/O, sorting, curation,
+waveform extraction, and execution. Pre-built presets provide sensible defaults:
 
 .. code-block:: python
 
-   from pathlib import Path
-   from spikelab.spike_sorting import sort_with_kilosort2
+   from spikelab.spike_sorting.config import KILOSORT4
 
-   recordings = [
-       "/data/recordings/session1.raw.h5",
-       "/data/recordings/session2.raw.h5",
-   ]
+   results = sort_recording(
+       recording_files=["session1.raw.h5"],
+       config=KILOSORT4,
+   )
 
-   results = sort_with_kilosort2(
-       recording_files=recordings,
-       kilosort_path="/opt/Kilosort2",
+To customise a preset, use the ``override`` method:
+
+.. code-block:: python
+
+   config = KILOSORT4.override(
+       fr_min=0.1,             # stricter minimum firing rate (Hz)
+       snr_min=6.0,            # stricter SNR threshold
        n_jobs=16,
        total_memory="32G",
    )
+   results = sort_recording(["session1.raw.h5"], config=config)
 
-   for path, sd in zip(recordings, results):
-       print(f"{Path(path).name}: {sd.N} units")
-
-
-Maxwell multi-stream recordings
---------------------------------
-
-Maxwell Biosystems ``.h5`` files can contain multiple recording streams
-(e.g. ``"well000"``, ``"well001"``).  Pass ``stream_id`` to select the
-desired stream:
+Individual parameters can also be passed directly as keyword arguments to
+``sort_recording``, which builds a config internally:
 
 .. code-block:: python
 
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/multiwell.raw.h5"],
+   results = sort_recording(
+       recording_files=["session1.raw.h5"],
+       sorter="kilosort2",
        kilosort_path="/opt/Kilosort2",
-       stream_id="well000",
+       fr_min=0.1,
+       n_jobs=8,
    )
 
+Multi-stream recordings
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Controlling curation thresholds
----------------------------------
-
-The pipeline applies two curation stages.  Stage 1 filters by firing rate,
-ISI violations, SNR, and minimum spike count.  Stage 2 filters by waveform
-consistency.  All thresholds can be overridden:
+For multi-stream files (e.g. Maxwell multi-well ``.raw.h5``), use
+:func:`~spikelab.spike_sorting.sort_multistream`:
 
 .. code-block:: python
 
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
-       # Stage 1
-       fr_min=0.1,          # Hz — stricter than the default 0.05
-       isi_viol_max=0.5,    # % — stricter than the default 1
-       snr_min=6,
-       spikes_min_first=50,
-       # Stage 2
-       spikes_min_second=100,
-       std_norm_max=0.8,
+   from spikelab.spike_sorting import sort_multistream
+
+   stream_results = sort_multistream(
+       recording="multiwell.raw.h5",
+       stream_ids=["well000", "well001"],
+       sorter="kilosort4",
    )
 
-To disable a curation stage entirely:
+   for stream_id, sds in stream_results.items():
+       print(f"{stream_id}: {sds[0].N} units")
 
-.. code-block:: python
-
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
-       curate_first=False,
-       curate_second=False,
-   )
-
-
-Kilosort2 parameters
---------------------
-
-Pass a dict to ``kilosort_params`` to override any Kilosort2 configuration
-value:
-
-.. code-block:: python
-
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
-       kilosort_params={
-           'detect_threshold': 5,
-           'car': True,
-           'keep_good_only': True,
-       },
-   )
-
-See the :ref:`API reference <spikesorting-api>` for the full default parameter
-dict.
-
+This returns a dict mapping stream IDs to lists of ``SpikeData`` objects.
 
 Reusing intermediate results
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default the pipeline rewrites the ``.dat`` binary on every run but skips
-re-running Kilosort2 if ``spike_times.npy`` already exists in the output
-folder.  Use the ``recompute_*`` flags to control which stages are re-run:
+The pipeline caches intermediate files (binary recordings, sorting output,
+waveforms). Control which stages are re-run with the ``recompute_*`` flags:
 
 .. code-block:: python
 
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
-       recompute_recording=False,   # reuse existing .dat
-       recompute_sorting=True,      # force re-run of Kilosort2
+   results = sort_recording(
+       recording_files=["session1.raw.h5"],
+       sorter="kilosort4",
+       recompute_recording=False,   # reuse existing binary
+       recompute_sorting=True,      # force re-sort
        reextract_waveforms=True,    # force waveform re-extraction
    )
 
+See the :doc:`API reference </api/spike_sorting>` for the full configuration
+options.
 
-Downstream analysis
--------------------
 
-The returned :class:`~spikelab.spikedata.SpikeData` objects integrate
-directly with all SpikeLab analysis methods:
+Unit Curation
+-------------
+
+SpikeLab provides curation methods that filter units by quality metrics.
+These work on any :class:`~spikelab.SpikeData` object — not just output from
+the sorting pipeline.
+
+Each curation method returns a tuple ``(sd_curated, result_dict)`` where
+``result_dict`` contains:
+
+- ``"metric"`` — ``np.ndarray (N,)`` with the per-unit metric for **all**
+  original units.
+- ``"passed"`` — ``np.ndarray (N,)`` boolean mask of units that passed.
+
+Individual criteria
+^^^^^^^^^^^^^^^^^^^
+
+Apply a single quality criterion at a time:
 
 .. code-block:: python
 
-   from spikelab.spike_sorting import sort_with_kilosort2
+   # Remove units with fewer than 50 spikes
+   sd_curated, res = sd.curate_by_min_spikes(min_spikes=50)
 
-   results = sort_with_kilosort2(
-       recording_files=["/data/recordings/session1.raw.h5"],
-       kilosort_path="/opt/Kilosort2",
+   # Remove units below 0.1 Hz firing rate
+   sd_curated, res = sd.curate_by_firing_rate(min_rate_hz=0.1)
+
+   # Remove units with > 1% ISI violations
+   sd_curated, res = sd.curate_by_isi_violations(
+       max_violation=1.0, threshold_ms=1.5,
    )
-   sd = results[0]
 
-   # Firing rates
-   fr = sd.mean_firing_rate()
+   # Remove units with low SNR
+   sd_curated, res = sd.curate_by_snr(min_snr=5.0)
 
-   # Burst detection
-   bursts = sd.burst_detection()
+   # Remove units with inconsistent waveforms
+   sd_curated, res = sd.curate_by_std_norm(max_std_norm=1.0)
 
-   # Pairwise STTC correlation
-   sttc = sd.spike_time_tiling_coefficient()
+SNR and waveform consistency (``curate_by_snr``, ``curate_by_std_norm``)
+require that the ``SpikeData`` object has ``raw_data`` attached. If the
+metrics have not been pre-computed, call
+:meth:`~spikelab.SpikeData.compute_waveform_metrics` first:
 
-   # Save for later
-   from spikelab.data_loaders.data_exporters import export_spikedata_to_hdf5
-   export_spikedata_to_hdf5(sd, "session1_sorted.h5")
+.. code-block:: python
+
+   sd, metrics = sd.compute_waveform_metrics()
+   sd_curated, res = sd.curate_by_snr(min_snr=5.0)
+
+Batch curation
+^^^^^^^^^^^^^^
+
+To apply multiple criteria in one call, use
+:meth:`~spikelab.SpikeData.curate`. Only criteria with non-``None`` values
+are applied:
+
+.. code-block:: python
+
+   sd_curated, results = sd.curate(
+       min_spikes=50,
+       min_rate_hz=0.1,
+       isi_max=1.0,
+       min_snr=5.0,
+   )
+
+   # results contains per-criterion entries
+   for criterion, res in results.items():
+       n_removed = (~res["passed"]).sum()
+       print(f"{criterion}: removed {n_removed} units")
+
+Curation history
+^^^^^^^^^^^^^^^^
+
+For reproducibility, build a serialisable record of what was removed and why:
+
+.. code-block:: python
+
+   history = sd.build_curation_history(
+       sd_original=sd_raw,
+       sd_curated=sd_curated,
+       results=results,
+   )
+
+The returned dict is JSON-serialisable and can be stored in a workspace or
+saved alongside the curated data.
+
+
+Splitting Concatenated Recordings
+---------------------------------
+
+When multiple recordings are concatenated (e.g. by the sorting pipeline),
+:meth:`~spikelab.SpikeData.split_epochs` splits them back into per-recording
+``SpikeData`` objects. It uses the ``rec_chunks_ms`` entry in ``metadata`` to
+determine epoch boundaries and time-shifts each epoch to start at t=0:
+
+.. code-block:: python
+
+   epoch_sds = sd.split_epochs()
+
+   for i, epoch_sd in enumerate(epoch_sds):
+       print(f"Epoch {i}: {epoch_sd.N} units, {epoch_sd.length:.0f} ms")
