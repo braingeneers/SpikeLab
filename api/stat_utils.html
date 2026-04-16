@@ -71,6 +71,9 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/loading_data.html#from-raw-data">From raw data</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
@@ -78,15 +81,22 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#sorting-multiple-recordings">Sorting multiple recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#controlling-curation-thresholds">Controlling curation thresholds</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#kilosort2-parameters">Kilosort2 parameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#downstream-analysis">Downstream analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -100,6 +110,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -108,13 +119,18 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
@@ -125,6 +141,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/gplvm.html#visualisation">Visualisation</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/exporting_data.html">Exporting Data</a><ul>
@@ -213,6 +248,8 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Statistical Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="plot_utils.html">Plotting Utilities</a><ul>
@@ -273,9 +310,20 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="index.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spike_sorting.html">Spike Sorting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -319,7 +367,8 @@
 statistics, distribution fitting, and hypothesis testing utilities.</p>
 <p id="module-spikelab.spikedata.stat_utils">Statistical utilities for SpikeLab.</p>
 <p>Provides reusable statistical functions (regression, confidence intervals,
-pairwise group comparisons) that can be used independently of plotting.</p>
+pairwise group comparisons, paired tests, omnibus tests) that can be used
+independently of plotting.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.linear_regression">
 <span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">linear_regression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ci_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#linear_regression"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.linear_regression" title="Link to this definition"></a></dt>
@@ -405,6 +454,95 @@ with installation instructions if not available.</p></li>
 </ul>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.paired_test">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">paired_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'wilcoxon'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alternative</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'two-sided'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#paired_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.paired_test" title="Link to this definition"></a></dt>
+<dd><p>Run a paired statistical test on two matched samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>array-like</em>) – First sample (1-D).</p></li>
+<li><p><strong>b</strong> (<em>array-like</em>) – Second sample (1-D, same length as <em>a</em>).</p></li>
+<li><p><strong>test</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;wilcoxon&quot;</span></code> (default) for the Wilcoxon signed-rank
+test, or <code class="docutils literal notranslate"><span class="pre">&quot;paired_t&quot;</span></code> for a paired Student’s t-test.</p></li>
+<li><p><strong>alternative</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;two-sided&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;less&quot;</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">&quot;greater&quot;</span></code>. Passed directly to the underlying scipy test.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary with keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">statistic</span></code> (float): Test statistic (W for Wilcoxon, t for
+paired t).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_value</span></code> (float): p-value for the test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n</span></code> (int): Number of valid (non-NaN, non-zero-difference)
+pairs used.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>NaN pairs (where either <em>a</em> or <em>b</em> is NaN) are dropped
+automatically.</p></li>
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (optional dependency).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.stat_utils.omnibus_test">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.stat_utils.</span></span><span class="sig-name descname"><span class="pre">omnibus_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'anova'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">posthoc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tukey'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/stat_utils.html#omnibus_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.stat_utils.omnibus_test" title="Link to this definition"></a></dt>
+<dd><p>Run an omnibus test across groups with optional post-hoc comparisons.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>groups</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>array-like</em><em>] or </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><em>array-like</em><em>]</em>) – Per-group data.
+Dict keys are used as labels; for list input supply <em>labels</em>
+separately.</p></li>
+<li><p><strong>test</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;anova&quot;</span></code> (default) for one-way ANOVA
+(<code class="docutils literal notranslate"><span class="pre">scipy.stats.f_oneway</span></code>), or <code class="docutils literal notranslate"><span class="pre">&quot;kruskal&quot;</span></code> for the
+Kruskal-Wallis H test.</p></li>
+<li><p><strong>posthoc</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> or </em><em>None</em>) – Post-hoc test to run when the omnibus test is
+significant. <code class="docutils literal notranslate"><span class="pre">&quot;tukey&quot;</span></code> (default) for Tukey HSD,
+<code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code>/<code class="docutils literal notranslate"><span class="pre">None</span></code> to skip post-hoc comparisons.</p></li>
+<li><p><strong>labels</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>] or </em><em>None</em>) – Group labels for list input. Ignored for
+dict input (keys are used).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary with keys:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">statistic</span></code> (float): F-statistic (ANOVA) or H-statistic
+(Kruskal-Wallis).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_value</span></code> (float): Omnibus p-value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_groups</span></code> (int): Number of groups.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">group_ns</span></code> (list[int]): Sample sizes per group.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">labels</span></code> (list[str]): Ordered group labels.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">posthoc</span></code> (list[dict] or None): Post-hoc comparison results
+when <em>posthoc</em> is not None. Each dict contains:
+<code class="docutils literal notranslate"><span class="pre">&quot;group_a&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;group_b&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;p_value&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;significant&quot;</span></code>
+(at alpha=0.05).</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>NaN values are stripped from each group before testing.</p></li>
+<li><p>Requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (optional dependency).</p></li>
+</ul>
+</dd></dl>
+
 </section>
 
 
@@ -418,7 +556,7 @@ with installation instructions if not available.</p></li>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

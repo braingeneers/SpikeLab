@@ -1,0 +1,965 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spikelab.spikedata.curation &mdash; SpikeLab 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            SpikeLab
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/installation.html">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#basic-install">Basic Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#optional-extras">Optional Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/installation.html#development-install">Development Install</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/quickstart.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#creating-a-spikedata-object">Creating a SpikeData Object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#loading-from-a-file">Loading from a File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#plotting">Plotting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#basic-analysis">Basic Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting_started/quickstart.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/loading_data.html">Loading Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-pickle-files">From pickle files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-hdf5-files">From HDF5 files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#population-rate">Population Rate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#firing-rates">Firing rates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#inter-spike-intervals">Inter-spike intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#visualisation">Visualisation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-hdf5">To HDF5</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#ragged-vs-raster-style">Ragged vs raster style</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#the-spike-times-unit-parameter">The <code class="docutils literal notranslate"><span class="pre">spike_times_unit</span></code> parameter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/exporting_data.html#exporting-raw-data">Exporting raw data</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-nwb">To NWB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-kilosort">To KiloSort</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/exporting_data.html#to-pickle">To pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/workspace.html">Workspace Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#creating-a-workspace">Creating a Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#starting-the-server">Starting the server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#tool-categories">Tool categories</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#data-loading-tools">Data loading tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#analysis-tools">Analysis tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp_server.html#export-tools">Export tools</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#core-data-structures">Core Data Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikedata.html">SpikeData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData"><code class="docutils literal notranslate"><span class="pre">SpikeData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/ratedata.html">RateData</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/ratedata.html#spikelab.spikedata.ratedata.RateData"><code class="docutils literal notranslate"><span class="pre">RateData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/pairwise.html">Pairwise Comparisons</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrix">PairwiseCompMatrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/pairwise.html#pairwisecompmatrixstack">PairwiseCompMatrixStack</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/rateslicestack.html">RateSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/rateslicestack.html#spikelab.spikedata.rateslicestack.RateSliceStack"><code class="docutils literal notranslate"><span class="pre">RateSliceStack</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spikeslicestack.html">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spikeslicestack.html#spikelab.spikedata.spikeslicestack.SpikeSliceStack"><code class="docutils literal notranslate"><span class="pre">SpikeSliceStack</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_sttc"><code class="docutils literal notranslate"><span class="pre">get_sttc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.swap"><code class="docutils literal notranslate"><span class="pre">swap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.randomize"><code class="docutils literal notranslate"><span class="pre">randomize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.trough_between"><code class="docutils literal notranslate"><span class="pre">trough_between()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.ensure_h5py"><code class="docutils literal notranslate"><span class="pre">ensure_h5py()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.times_from_ms"><code class="docutils literal notranslate"><span class="pre">times_from_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.to_ms"><code class="docutils literal notranslate"><span class="pre">to_ms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.check_neuron_attributes"><code class="docutils literal notranslate"><span class="pre">check_neuron_attributes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_channels_for_unit"><code class="docutils literal notranslate"><span class="pre">get_channels_for_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.compute_avg_waveform"><code class="docutils literal notranslate"><span class="pre">compute_avg_waveform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.get_valid_spike_times"><code class="docutils literal notranslate"><span class="pre">get_valid_spike_times()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.waveforms_by_channel"><code class="docutils literal notranslate"><span class="pre">waveforms_by_channel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.extract_unit_waveforms"><code class="docutils literal notranslate"><span class="pre">extract_unit_waveforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.consecutive_durations"><code class="docutils literal notranslate"><span class="pre">consecutive_durations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_state_entropy"><code class="docutils literal notranslate"><span class="pre">gplvm_state_entropy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_continuity_prob"><code class="docutils literal notranslate"><span class="pre">gplvm_continuity_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.gplvm_average_state_probability"><code class="docutils literal notranslate"><span class="pre">gplvm_average_state_probability()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_z_score"><code class="docutils literal notranslate"><span class="pre">shuffle_z_score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.shuffle_percentile"><code class="docutils literal notranslate"><span class="pre">shuffle_percentile()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_trend"><code class="docutils literal notranslate"><span class="pre">slice_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/utilities.html#spikelab.spikedata.utils.slice_stability"><code class="docutils literal notranslate"><span class="pre">slice_stability()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution"><code class="docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_pvalue_matrix"><code class="docutils literal notranslate"><span class="pre">plot_pvalue_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter"><code class="docutils literal notranslate"><span class="pre">plot_scatter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold"><code class="docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_lines"><code class="docutils literal notranslate"><span class="pre">plot_lines()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_percentile_bands"><code class="docutils literal notranslate"><span class="pre">plot_percentile_bands()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_burst_sensitivity"><code class="docutils literal notranslate"><span class="pre">plot_burst_sensitivity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_aligned_slice_single_unit"><code class="docutils literal notranslate"><span class="pre">plot_aligned_slice_single_unit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_recording"><code class="docutils literal notranslate"><span class="pre">plot_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_spatial_network"><code class="docutils literal notranslate"><span class="pre">plot_spatial_network()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#data-i-o">Data I/O</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_loaders.html">Data Loaders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_hdf5_raw_thresholded"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_hdf5_raw_thresholded()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_nwb"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_kilosort"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikeinterface_recording"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikeinterface_recording()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_pickle"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_pickle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_ibl"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_ibl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.query_ibl_probes"><code class="docutils literal notranslate"><span class="pre">query_ibl_probes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_loaders.html#spikelab.data_loaders.data_loaders.load_spikedata_from_spikelab_sorted_npz"><code class="docutils literal notranslate"><span class="pre">load_spikedata_from_spikelab_sorted_npz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/data_exporters.html">Data Exporters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_hdf5"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_hdf5()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_nwb"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_nwb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_spikedata_to_kilosort"><code class="docutils literal notranslate"><span class="pre">export_spikedata_to_kilosort()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/data_exporters.html#spikelab.data_loaders.data_exporters.export_to_pickle"><code class="docutils literal notranslate"><span class="pre">export_to_pickle()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/s3_utils.html">S3 Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.is_s3_url"><code class="docutils literal notranslate"><span class="pre">is_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.parse_s3_url"><code class="docutils literal notranslate"><span class="pre">parse_s3_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.download_from_s3"><code class="docutils literal notranslate"><span class="pre">download_from_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.upload_to_s3"><code class="docutils literal notranslate"><span class="pre">upload_to_s3()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/s3_utils.html#spikelab.data_loaders.s3_utils.ensure_local_file"><code class="docutils literal notranslate"><span class="pre">ensure_local_file()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#persistence">Persistence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/workspace.html">Workspace</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.AnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.LazyAnalysisWorkspace"><code class="docutils literal notranslate"><span class="pre">LazyAnalysisWorkspace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.WorkspaceManager"><code class="docutils literal notranslate"><span class="pre">WorkspaceManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/workspace.html#spikelab.workspace.workspace.get_workspace_manager"><code class="docutils literal notranslate"><span class="pre">get_workspace_manager()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/spike_sorting.html">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SpikeLab</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">spikelab.spikedata.curation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for spikelab.spikedata.curation</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Unit curation methods for SpikeData objects.</span>
+
+<span class="sd">Each public function accepts a SpikeData as its first argument and returns</span>
+<span class="sd">``(SpikeData, result_dict)`` where *result_dict* always contains:</span>
+
+<span class="sd">- ``metric`` — ``np.ndarray (N,)`` with the per-unit metric value</span>
+<span class="sd">  (computed over **all** original units).</span>
+<span class="sd">- ``passed`` — ``np.ndarray (N,)`` boolean mask indicating which units</span>
+<span class="sd">  passed the curation criterion.</span>
+
+<span class="sd">The returned SpikeData contains only the passing units (via ``subset``).</span>
+
+<span class="sd">These functions are bound as methods on ``SpikeData`` by</span>
+<span class="sd">``spikedata.py`` so they can be called as ``sd.curate_by_*(…)``.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<div class="viewcode-block" id="curate_by_min_spikes">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_min_spikes</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units with fewer than *min_spikes* spikes.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        min_spikes (int): Minimum spike count threshold.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">            Metric is the spike count per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_spikes</span>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="curate_by_firing_rate">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_firing_rate</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="mf">0.05</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose firing rate is below *min_rate_hz*.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        min_rate_hz (float): Minimum firing rate in Hz.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">            Metric is the firing rate in Hz per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
+    <span class="k">if</span> <span class="n">duration_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="n">duration_s</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_rate_hz</span>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="curate_by_isi_violations">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_isi_violations</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units with excessive inter-spike-interval violations.</span>
+
+<span class="sd">    Two methods are available:</span>
+
+<span class="sd">    - ``&quot;percent&quot;`` — violation count divided by total spike count,</span>
+<span class="sd">      expressed as a percentage.</span>
+<span class="sd">    - ``&quot;hill&quot;`` — violation rate ratio from Hill et al. (2011)</span>
+<span class="sd">      J Neurosci 31:8699-8705.  Values above 1 indicate highly</span>
+<span class="sd">      contaminated units.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        max_violation (float): Maximum allowed violation metric.</span>
+<span class="sd">        threshold_ms (float): Refractory period threshold in ms.</span>
+<span class="sd">        min_isi_ms (float): Minimum possible ISI enforced by hardware or</span>
+<span class="sd">            post-processing, in ms.</span>
+<span class="sd">        method (str): ``&quot;percent&quot;`` or ``&quot;hill&quot;``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">            Metric is the violation percentage or ratio per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span> <span class="s2">&quot;hill&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;percent&#39; or &#39;hill&#39;, got &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
+    <span class="n">threshold_s</span> <span class="o">=</span> <span class="n">threshold_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
+    <span class="n">min_isi_s</span> <span class="o">=</span> <span class="n">min_isi_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
+
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">train</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">):</span>
+        <span class="n">n_spikes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_spikes</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">continue</span>
+        <span class="n">isis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># already in ms</span>
+        <span class="n">violation_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">isis</span> <span class="o">&lt;</span> <span class="n">threshold_ms</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;hill&quot;</span><span class="p">:</span>
+            <span class="n">violation_time</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">n_spikes</span> <span class="o">*</span> <span class="p">(</span><span class="n">threshold_s</span> <span class="o">-</span> <span class="n">min_isi_s</span><span class="p">)</span>
+            <span class="n">total_rate</span> <span class="o">=</span> <span class="n">n_spikes</span> <span class="o">/</span> <span class="n">duration_s</span> <span class="k">if</span> <span class="n">duration_s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">violation_rate</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">violation_count</span> <span class="o">/</span> <span class="n">violation_time</span> <span class="k">if</span> <span class="n">violation_time</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="p">)</span>
+            <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">violation_rate</span> <span class="o">/</span> <span class="n">total_rate</span> <span class="k">if</span> <span class="n">total_rate</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">violation_count</span> <span class="o">/</span> <span class="n">n_spikes</span><span class="p">)</span> <span class="o">*</span> <span class="mf">100.0</span>
+
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&lt;=</span> <span class="n">max_violation</span>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="curate_by_snr">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_snr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">min_snr</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose signal-to-noise ratio is below *min_snr*.</span>
+
+<span class="sd">    SNR is defined as ``peak_amplitude / noise_level`` where peak</span>
+<span class="sd">    amplitude is the absolute maximum of the average waveform on the</span>
+<span class="sd">    channel with the largest amplitude, and noise level is estimated</span>
+<span class="sd">    via the median absolute deviation (MAD) of the raw trace on that</span>
+<span class="sd">    channel.</span>
+
+<span class="sd">    The method first checks for a precomputed ``&quot;snr&quot;`` value in</span>
+<span class="sd">    ``neuron_attributes``.  If not found, it computes SNR from</span>
+<span class="sd">    ``raw_data`` (using ``get_waveform_traces``).  If neither is</span>
+<span class="sd">    available a ``ValueError`` is raised.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        min_snr (float): Minimum SNR threshold.</span>
+<span class="sd">        ms_before (float): ms before spike for waveform extraction</span>
+<span class="sd">            (only used when computing from raw_data).</span>
+<span class="sd">        ms_after (float): ms after spike for waveform extraction</span>
+<span class="sd">            (only used when computing from raw_data).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">            Metric is the SNR per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;snr&quot;</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_snr</span>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="curate_by_std_norm">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_std_norm</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">max_std_norm</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units whose normalized waveform standard deviation exceeds</span>
+<span class="sd">    *max_std_norm*.</span>
+
+<span class="sd">    Normalized STD is ``|std| / |amplitude|`` on the channel with the</span>
+<span class="sd">    largest amplitude.  When *at_peak* is True, STD is measured at the</span>
+<span class="sd">    single peak sample; otherwise it is averaged over a window around</span>
+<span class="sd">    the peak.</span>
+
+<span class="sd">    The method first checks for a precomputed ``&quot;std_norm&quot;`` value in</span>
+<span class="sd">    ``neuron_attributes``.  If not found, it computes the metric from</span>
+<span class="sd">    ``raw_data``.  If neither is available a ``ValueError`` is raised.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        max_std_norm (float): Maximum allowed normalized STD.</span>
+<span class="sd">        at_peak (bool): Measure STD at peak sample only.</span>
+<span class="sd">        window_ms_before (float): Window before peak for averaging STD</span>
+<span class="sd">            (only used when *at_peak* is False).</span>
+<span class="sd">        window_ms_after (float): Window after peak for averaging STD</span>
+<span class="sd">            (only used when *at_peak* is False).</span>
+<span class="sd">        ms_before (float): ms before spike for waveform extraction</span>
+<span class="sd">            (only used when computing from raw_data).</span>
+<span class="sd">        ms_after (float): ms after spike for waveform extraction</span>
+<span class="sd">            (only used when computing from raw_data).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">            Metric is the normalized STD per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span>
+        <span class="n">sd</span><span class="p">,</span>
+        <span class="s2">&quot;std_norm&quot;</span><span class="p">,</span>
+        <span class="n">ms_before</span><span class="p">,</span>
+        <span class="n">ms_after</span><span class="p">,</span>
+        <span class="n">at_peak</span><span class="o">=</span><span class="n">at_peak</span><span class="p">,</span>
+        <span class="n">window_ms_before</span><span class="o">=</span><span class="n">window_ms_before</span><span class="p">,</span>
+        <span class="n">window_ms_after</span><span class="o">=</span><span class="n">window_ms_after</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&lt;=</span> <span class="n">max_std_norm</span>
+    <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="compute_waveform_metrics">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_waveform_metrics</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute average waveforms, SNR, and normalized STD for every unit.</span>
+
+<span class="sd">    Results are stored in ``neuron_attributes`` under the keys</span>
+<span class="sd">    ``&quot;snr&quot;`` and ``&quot;std_norm&quot;``.  Average waveforms are stored by</span>
+<span class="sd">    ``get_waveform_traces`` (called internally with ``store=True``).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.  Must have non-empty</span>
+<span class="sd">            ``raw_data``.</span>
+<span class="sd">        ms_before (float): ms before spike for waveform extraction.</span>
+<span class="sd">        ms_after (float): ms after spike for waveform extraction.</span>
+<span class="sd">        at_peak (bool): Measure STD at peak sample only.</span>
+<span class="sd">        window_ms_before (float): Window before peak for averaging STD</span>
+<span class="sd">            (only used when *at_peak* is False).</span>
+<span class="sd">        window_ms_after (float): Window after peak for averaging STD</span>
+<span class="sd">            (only used when *at_peak* is False).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd (SpikeData): The same SpikeData object (modified in place</span>
+<span class="sd">            with updated ``neuron_attributes``).</span>
+<span class="sd">        metrics (dict): ``{&quot;snr&quot;: np.ndarray (N,),</span>
+<span class="sd">            &quot;std_norm&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;raw_data is empty. Attach raw voltage traces before calling &quot;</span>
+            <span class="s2">&quot;compute_waveform_metrics.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)]</span>
+
+    <span class="c1"># Extract waveforms for all units (stores avg_waveform in neuron_attributes)</span>
+    <span class="n">sd</span><span class="o">.</span><span class="n">get_waveform_traces</span><span class="p">(</span>
+        <span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
+        <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span><span class="p">,</span>
+        <span class="n">store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">return_avg_waveform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Compute noise levels via MAD on raw_data</span>
+    <span class="n">noise_levels</span> <span class="o">=</span> <span class="n">_estimate_noise_levels</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="p">)</span>
+
+    <span class="n">snr_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">std_norm_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="c1"># Determine sampling rate for window conversion</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">():</span>
+        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fs_kHz</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">waveforms</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;waveforms&quot;</span><span class="p">)</span>  <span class="c1"># (channels, samples, spikes)</span>
+        <span class="k">if</span> <span class="n">waveforms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">waveforms</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">continue</span>
+
+        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>  <span class="c1"># (channels, samples)</span>
+        <span class="k">if</span> <span class="n">avg_wf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">waveforms</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Find channel with max amplitude</span>
+        <span class="n">peak_per_chan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">avg_wf</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">chan_max</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">peak_per_chan</span><span class="p">))</span>
+
+        <span class="c1"># Peak amplitude and index on best channel</span>
+        <span class="n">chan_wf</span> <span class="o">=</span> <span class="n">avg_wf</span><span class="p">[</span><span class="n">chan_max</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">peak_ind</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">chan_wf</span><span class="p">)))</span>
+        <span class="n">amplitude</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">chan_wf</span><span class="p">[</span><span class="n">peak_ind</span><span class="p">])</span>
+
+        <span class="c1"># SNR = amplitude / noise</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="n">noise_levels</span><span class="p">[</span><span class="n">chan_max</span><span class="p">]</span> <span class="k">if</span> <span class="n">chan_max</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">noise_levels</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">amplitude</span> <span class="o">/</span> <span class="n">noise</span> <span class="k">if</span> <span class="n">noise</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="c1"># Normalized STD</span>
+        <span class="n">wf_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">waveforms</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># (channels, samples)</span>
+        <span class="n">chan_std</span> <span class="o">=</span> <span class="n">wf_std</span><span class="p">[</span><span class="n">chan_max</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="k">if</span> <span class="n">at_peak</span><span class="p">:</span>
+            <span class="n">std_val</span> <span class="o">=</span> <span class="n">chan_std</span><span class="p">[</span><span class="n">peak_ind</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n_before</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">window_ms_before</span> <span class="o">*</span> <span class="n">fs_kHz</span><span class="p">)))</span>
+            <span class="n">n_after</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">window_ms_after</span> <span class="o">*</span> <span class="n">fs_kHz</span><span class="p">)))</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">win_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">peak_ind</span> <span class="o">-</span> <span class="n">n_before</span><span class="p">)</span>
+            <span class="n">win_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chan_std</span><span class="p">),</span> <span class="n">peak_ind</span> <span class="o">+</span> <span class="n">n_after</span><span class="p">)</span>
+            <span class="n">std_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">chan_std</span><span class="p">[</span><span class="n">win_start</span><span class="p">:</span><span class="n">win_end</span><span class="p">])</span>
+
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">std_val</span> <span class="o">/</span> <span class="n">amplitude</span><span class="p">)</span> <span class="k">if</span> <span class="n">amplitude</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="c1"># Store in neuron_attributes</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">snr_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;std_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">std_norm_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">sd</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;snr&quot;</span><span class="p">:</span> <span class="n">snr_arr</span><span class="p">,</span> <span class="s2">&quot;std_norm&quot;</span><span class="p">:</span> <span class="n">std_norm_arr</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="curate">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">min_spikes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_rate_hz</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">isi_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">isi_min_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">isi_method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span>
+    <span class="n">min_snr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_std_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">std_at_peak</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">std_window_ms_before</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">std_window_ms_after</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">snr_ms_before</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">snr_ms_after</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply multiple curation criteria in sequence (intersection).</span>
+
+<span class="sd">    Only criteria whose threshold is not None are applied.  Returns the</span>
+<span class="sd">    filtered SpikeData and a dict of per-criterion results.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        min_spikes (int or None): Minimum spike count.</span>
+<span class="sd">        min_rate_hz (float or None): Minimum firing rate in Hz.</span>
+<span class="sd">        isi_max (float or None): Maximum ISI violation metric.</span>
+<span class="sd">        isi_threshold_ms (float): Refractory period for ISI check.</span>
+<span class="sd">        isi_min_ms (float): Minimum possible ISI for ISI check.</span>
+<span class="sd">        isi_method (str): ``&quot;percent&quot;`` or ``&quot;hill&quot;`` for ISI check.</span>
+<span class="sd">        min_snr (float or None): Minimum SNR.</span>
+<span class="sd">        max_std_norm (float or None): Maximum normalized STD.</span>
+<span class="sd">        std_at_peak (bool): Measure STD at peak only.</span>
+<span class="sd">        std_window_ms_before (float): Window before peak for STD averaging.</span>
+<span class="sd">        std_window_ms_after (float): Window after peak for STD averaging.</span>
+<span class="sd">        snr_ms_before (float): ms before spike for waveform extraction.</span>
+<span class="sd">        snr_ms_after (float): ms after spike for waveform extraction.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with only units passing all criteria.</span>
+<span class="sd">        results (dict): ``{criterion_name: {&quot;metric&quot;: (N,), &quot;passed&quot;: (N,)}}``.</span>
+<span class="sd">            Metrics are computed on the **original** units (before any</span>
+<span class="sd">            filtering).  Only requested criteria are included.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">sd</span>
+
+    <span class="k">if</span> <span class="n">min_spikes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_min_spikes</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">min_spikes</span><span class="o">=</span><span class="n">min_spikes</span><span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;spike_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="n">min_rate_hz</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_firing_rate</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">min_rate_hz</span><span class="o">=</span><span class="n">min_rate_hz</span><span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;firing_rate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="n">isi_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_isi_violations</span><span class="p">(</span>
+            <span class="n">current</span><span class="p">,</span>
+            <span class="n">max_violation</span><span class="o">=</span><span class="n">isi_max</span><span class="p">,</span>
+            <span class="n">threshold_ms</span><span class="o">=</span><span class="n">isi_threshold_ms</span><span class="p">,</span>
+            <span class="n">min_isi_ms</span><span class="o">=</span><span class="n">isi_min_ms</span><span class="p">,</span>
+            <span class="n">method</span><span class="o">=</span><span class="n">isi_method</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;isi_violation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="n">min_snr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_snr</span><span class="p">(</span>
+            <span class="n">current</span><span class="p">,</span>
+            <span class="n">min_snr</span><span class="o">=</span><span class="n">min_snr</span><span class="p">,</span>
+            <span class="n">ms_before</span><span class="o">=</span><span class="n">snr_ms_before</span><span class="p">,</span>
+            <span class="n">ms_after</span><span class="o">=</span><span class="n">snr_ms_after</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="n">max_std_norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">current</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">curate_by_std_norm</span><span class="p">(</span>
+            <span class="n">current</span><span class="p">,</span>
+            <span class="n">max_std_norm</span><span class="o">=</span><span class="n">max_std_norm</span><span class="p">,</span>
+            <span class="n">at_peak</span><span class="o">=</span><span class="n">std_at_peak</span><span class="p">,</span>
+            <span class="n">window_ms_before</span><span class="o">=</span><span class="n">std_window_ms_before</span><span class="p">,</span>
+            <span class="n">window_ms_after</span><span class="o">=</span><span class="n">std_window_ms_after</span><span class="p">,</span>
+            <span class="n">ms_before</span><span class="o">=</span><span class="n">snr_ms_before</span><span class="p">,</span>
+            <span class="n">ms_after</span><span class="o">=</span><span class="n">snr_ms_after</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;std_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+
+    <span class="k">return</span> <span class="n">current</span><span class="p">,</span> <span class="n">results</span></div>
+
+
+
+<div class="viewcode-block" id="build_curation_history">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_curation_history</span><span class="p">(</span><span class="n">sd_original</span><span class="p">,</span> <span class="n">sd_curated</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Translate curation results into a serializable history dict.</span>
+
+<span class="sd">    The output format mirrors the curation history produced by the</span>
+<span class="sd">    Kilosort2 pipeline, making it suitable for saving as JSON.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd_original (SpikeData): The SpikeData **before** curation.</span>
+<span class="sd">        sd_curated (SpikeData): The SpikeData **after** curation.</span>
+<span class="sd">        results (dict): Results dict returned by ``curate()`` or</span>
+<span class="sd">            assembled manually from individual ``curate_by_*`` calls.</span>
+<span class="sd">            Keys are criterion names, values are dicts with ``&quot;metric&quot;``</span>
+<span class="sd">            and ``&quot;passed&quot;`` arrays.</span>
+<span class="sd">        parameters (dict or None): Curation parameter values to record.</span>
+<span class="sd">            If None, an empty dict is stored.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        history (dict): Serializable curation history with keys:</span>
+<span class="sd">            ``curation_parameters``, ``initial``, ``curations``,</span>
+<span class="sd">            ``curated``, ``failed``, ``metrics``, ``curated_final``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Resolve unit IDs: use neuron_attributes[&quot;unit_id&quot;] if available,</span>
+    <span class="c1"># otherwise fall back to positional indices.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_unit_ids</span><span class="p">(</span><span class="n">sd</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">))</span>
+
+    <span class="n">original_ids</span> <span class="o">=</span> <span class="n">_unit_ids</span><span class="p">(</span><span class="n">sd_original</span><span class="p">)</span>
+    <span class="n">final_ids</span> <span class="o">=</span> <span class="n">_unit_ids</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">)</span>
+
+    <span class="n">curations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">curated</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">failed</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Walk through results in insertion order.  Each result was computed</span>
+    <span class="c1"># on the SpikeData that entered that stage (after previous filters),</span>
+    <span class="c1"># but the metric and passed arrays are indexed relative to that</span>
+    <span class="c1"># stage&#39;s input.  We need to map back to the original unit IDs.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Because curate() applies criteria sequentially, each stage&#39;s input</span>
+    <span class="c1"># is a subset of the original.  We track the surviving ID list to</span>
+    <span class="c1"># perform the mapping.</span>
+    <span class="n">surviving_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">original_ids</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">criterion</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">curations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span>
+        <span class="n">metric_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">]</span>
+        <span class="n">passed_arr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;passed&quot;</span><span class="p">]</span>
+
+        <span class="n">stage_curated</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">stage_failed</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">stage_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">uid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">surviving_ids</span><span class="p">):</span>
+            <span class="n">stage_metrics</span><span class="p">[</span><span class="n">uid</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric_arr</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">passed_arr</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span>
+                <span class="n">stage_curated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">stage_failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span>
+
+        <span class="n">curated</span><span class="p">[</span><span class="n">criterion</span><span class="p">]</span> <span class="o">=</span> <span class="n">stage_curated</span>
+        <span class="n">failed</span><span class="p">[</span><span class="n">criterion</span><span class="p">]</span> <span class="o">=</span> <span class="n">stage_failed</span>
+        <span class="n">metrics</span><span class="p">[</span><span class="n">criterion</span><span class="p">]</span> <span class="o">=</span> <span class="n">stage_metrics</span>
+
+        <span class="c1"># Update survivors for the next stage</span>
+        <span class="n">surviving_ids</span> <span class="o">=</span> <span class="n">stage_curated</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;curation_parameters&quot;</span><span class="p">:</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{},</span>
+        <span class="s2">&quot;initial&quot;</span><span class="p">:</span> <span class="n">original_ids</span><span class="p">,</span>
+        <span class="s2">&quot;curations&quot;</span><span class="p">:</span> <span class="n">curations</span><span class="p">,</span>
+        <span class="s2">&quot;curated&quot;</span><span class="p">:</span> <span class="n">curated</span><span class="p">,</span>
+        <span class="s2">&quot;failed&quot;</span><span class="p">:</span> <span class="n">failed</span><span class="p">,</span>
+        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
+        <span class="s2">&quot;curated_final&quot;</span><span class="p">:</span> <span class="n">final_ids</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Internal helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_noise_levels</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">num_chunks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate per-channel noise via MAD on random chunks of *raw_data*.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        raw_data (np.ndarray): Shape ``(channels, time)``.</span>
+<span class="sd">        num_chunks (int): Number of random chunks to sample.</span>
+<span class="sd">        chunk_size (int): Samples per chunk.</span>
+<span class="sd">        seed (int): Random seed.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        noise (np.ndarray): Shape ``(channels,)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">n_channels</span><span class="p">,</span> <span class="n">n_samples</span> <span class="o">=</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">max_start</span> <span class="o">=</span> <span class="n">n_samples</span> <span class="o">-</span> <span class="n">chunk_size</span>
+    <span class="k">if</span> <span class="n">max_start</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Recording shorter than one chunk — use all data</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">raw_data</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">starts</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_start</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">)</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[</span><span class="n">raw_data</span><span class="p">[:,</span> <span class="n">s</span> <span class="p">:</span> <span class="n">s</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># MAD-based noise estimate: median(|x - median(x)|) / 0.6745</span>
+    <span class="n">medians</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">noise</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">data</span> <span class="o">-</span> <span class="n">medians</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.6745</span>
+    <span class="k">return</span> <span class="n">noise</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Try to read a precomputed metric from neuron_attributes, fall back</span>
+<span class="sd">    to computing from raw_data, or raise if neither is available.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        metric (np.ndarray): Shape ``(N,)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 1. Check neuron_attributes for precomputed values</span>
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="c1"># 2. Fall back to computing from raw_data</span>
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">at_peak</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;at_peak&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">window_ms_before</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;window_ms_before&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">window_ms_after</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;window_ms_after&quot;</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">compute_waveform_metrics</span><span class="p">(</span>
+            <span class="n">sd</span><span class="p">,</span>
+            <span class="n">ms_before</span><span class="o">=</span><span class="n">ms_before</span><span class="p">,</span>
+            <span class="n">ms_after</span><span class="o">=</span><span class="n">ms_after</span><span class="p">,</span>
+            <span class="n">at_peak</span><span class="o">=</span><span class="n">at_peak</span><span class="p">,</span>
+            <span class="n">window_ms_before</span><span class="o">=</span><span class="n">window_ms_before</span><span class="p">,</span>
+            <span class="n">window_ms_after</span><span class="o">=</span><span class="n">window_ms_after</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+
+    <span class="c1"># 3. Neither available</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Cannot compute &#39;</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&#39;: no precomputed values in &quot;</span>
+        <span class="s2">&quot;neuron_attributes and raw_data is empty. Call &quot;</span>
+        <span class="s2">&quot;compute_waveform_metrics() first, or attach raw voltage traces.&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

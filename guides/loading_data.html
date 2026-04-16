@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Spike Sorting" href="spike_sorting.html" />
+    <link rel="next" title="Spike Sorting and Curation" href="spike_sorting.html" />
     <link rel="prev" title="Guides" href="index.html" /> 
 </head>
 
@@ -71,6 +71,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#from-nwb-files">From NWB files</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-neo-spiketrains">From Neo SpikeTrains</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#from-raw-data">From raw data</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#from-threshold-detection">From threshold detection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#from-a-spike-count-raster">From a spike count raster</a></li>
@@ -78,15 +81,22 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#sorting-multiple-recordings">Sorting multiple recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#controlling-curation-thresholds">Controlling curation thresholds</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#kilosort2-parameters">Kilosort2 parameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#downstream-analysis">Downstream analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
@@ -100,6 +110,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -108,13 +119,18 @@
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
-<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
@@ -125,6 +141,25 @@
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="gplvm.html#visualisation">Visualisation</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="exporting_data.html">Exporting Data</a><ul>
@@ -213,6 +248,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../api/stat_utils.html">Statistical Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/plot_utils.html">Plotting Utilities</a><ul>
@@ -273,9 +310,20 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -487,6 +535,64 @@ which applies threshold detection to the raw traces:</p>
 </pre></div>
 </div>
 </section>
+<section id="from-spikelab-sorted-npz">
+<h2>From SpikeLab sorted .npz<a class="headerlink" href="#from-spikelab-sorted-npz" title="Link to this heading"></a></h2>
+<p>The SpikeLab spike-sorting pipeline (see <a class="reference internal" href="spike_sorting.html"><span class="doc">Spike Sorting and Curation</span></a>) can compile
+its output into <code class="docutils literal notranslate"><span class="pre">.npz</span></code> files containing per-unit spike trains, electrode
+locations, waveform templates, and quality metrics. Load these with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span>
+
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_spikelab_sorted_npz</span><span class="p">(</span>
+    <span class="s2">&quot;sorted_results.npz&quot;</span><span class="p">,</span>
+    <span class="n">length_ms</span><span class="o">=</span><span class="mf">600000.0</span><span class="p">,</span>  <span class="c1"># optional; inferred from latest spike if omitted</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The loader populates <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with electrode positions, waveform
+templates, and quality metrics when available.</p>
+</section>
+<section id="from-the-ibl-database">
+<h2>From the IBL database<a class="headerlink" href="#from-the-ibl-database" title="Link to this heading"></a></h2>
+<p>SpikeLab can load spike trains directly from the <a class="reference external" href="https://www.internationalbrainlab.com/">International Brain
+Laboratory</a> public server. This
+requires the <code class="docutils literal notranslate"><span class="pre">one-api</span></code> and <code class="docutils literal notranslate"><span class="pre">brainwidemap</span></code> packages.</p>
+<p>First, search for probes matching your criteria:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">query_ibl_probes</span>
+
+<span class="n">probes</span><span class="p">,</span> <span class="n">stats_df</span> <span class="o">=</span> <span class="n">query_ibl_probes</span><span class="p">(</span>
+    <span class="n">target_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;MOs&quot;</span><span class="p">,</span> <span class="s2">&quot;MOp&quot;</span><span class="p">],</span>   <span class="c1"># Beryl atlas region names</span>
+    <span class="n">min_units</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                     <span class="c1"># minimum good units per probe</span>
+    <span class="n">min_fraction_in_target</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>       <span class="c1"># at least 50% of units in target regions</span>
+<span class="p">)</span>
+
+<span class="c1"># probes is a list of (eid, pid) tuples</span>
+<span class="c1"># stats_df is a pandas DataFrame with per-probe statistics</span>
+</pre></div>
+</div>
+<p>Then load a specific probe:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_ibl</span>
+
+<span class="n">eid</span><span class="p">,</span> <span class="n">pid</span> <span class="o">=</span> <span class="n">probes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_ibl</span><span class="p">(</span><span class="n">eid</span><span class="p">,</span> <span class="n">pid</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Only units labelled as good in the Brain-Wide Map unit table are included.
+Trial event times are stored in <code class="docutils literal notranslate"><span class="pre">sd.metadata</span></code> as numpy arrays in
+milliseconds.</p>
+</section>
+<section id="from-neo-spiketrains">
+<h2>From Neo SpikeTrains<a class="headerlink" href="#from-neo-spiketrains" title="Link to this heading"></a></h2>
+<p>If you have a list of <a class="reference external" href="https://neo.readthedocs.io/">Neo</a> <code class="docutils literal notranslate"><span class="pre">SpikeTrain</span></code>
+objects, convert them directly using the static constructor:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+<span class="c1"># spiketrains is a list of neo.SpikeTrain objects</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="o">.</span><span class="n">from_neo_spiketrains</span><span class="p">(</span><span class="n">spiketrains</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The constructor converts spike times to milliseconds automatically using the
+units attached to each <code class="docutils literal notranslate"><span class="pre">SpikeTrain</span></code>.</p>
+</section>
 <section id="from-raw-data">
 <h2>From raw data<a class="headerlink" href="#from-raw-data" title="Link to this heading"></a></h2>
 <p><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> provides two static
@@ -536,13 +642,13 @@ directly:</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Guides" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="spike_sorting.html" class="btn btn-neutral float-right" title="Spike Sorting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="spike_sorting.html" class="btn btn-neutral float-right" title="Spike Sorting and Curation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

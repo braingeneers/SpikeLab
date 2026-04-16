@@ -45,13 +45,14 @@ Persistence
 
    workspace
 
-Spike Sorting
--------------
+Spike Sorting and Curation
+--------------------------
 
 .. toctree::
    :maxdepth: 2
 
    spike_sorting
+   curation
 
 Server
 ------

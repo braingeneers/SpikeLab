@@ -68,6 +68,9 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
@@ -75,15 +78,22 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#sorting-multiple-recordings">Sorting multiple recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#controlling-curation-thresholds">Controlling curation thresholds</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#kilosort2-parameters">Kilosort2 parameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#downstream-analysis">Downstream analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -97,6 +107,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -105,13 +116,18 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
@@ -122,6 +138,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#visualisation">Visualisation</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
@@ -210,6 +245,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
@@ -270,9 +307,20 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/spike_sorting.html">Spike Sorting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -313,7 +361,8 @@
 <span></span><span class="sd">&quot;&quot;&quot;Statistical utilities for SpikeLab.</span>
 
 <span class="sd">Provides reusable statistical functions (regression, confidence intervals,</span>
-<span class="sd">pairwise group comparisons) that can be used independently of plotting.</span>
+<span class="sd">pairwise group comparisons, paired tests, omnibus tests) that can be used</span>
+<span class="sd">independently of plotting.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -526,6 +575,169 @@
         <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
     <span class="p">}</span></div>
 
+
+
+<div class="viewcode-block" id="paired_test">
+<a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">paired_test</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;wilcoxon&quot;</span><span class="p">,</span>
+    <span class="n">alternative</span><span class="o">=</span><span class="s2">&quot;two-sided&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a paired statistical test on two matched samples.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        a (array-like): First sample (1-D).</span>
+<span class="sd">        b (array-like): Second sample (1-D, same length as *a*).</span>
+<span class="sd">        test (str): ``&quot;wilcoxon&quot;`` (default) for the Wilcoxon signed-rank</span>
+<span class="sd">            test, or ``&quot;paired_t&quot;`` for a paired Student&#39;s t-test.</span>
+<span class="sd">        alternative (str): ``&quot;two-sided&quot;`` (default), ``&quot;less&quot;``, or</span>
+<span class="sd">            ``&quot;greater&quot;``. Passed directly to the underlying scipy test.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): Dictionary with keys:</span>
+<span class="sd">            - ``statistic`` (float): Test statistic (W for Wilcoxon, t for</span>
+<span class="sd">              paired t).</span>
+<span class="sd">            - ``p_value`` (float): p-value for the test.</span>
+<span class="sd">            - ``n`` (int): Number of valid (non-NaN, non-zero-difference)</span>
+<span class="sd">              pairs used.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - NaN pairs (where either *a* or *b* is NaN) are dropped</span>
+<span class="sd">          automatically.</span>
+<span class="sd">        - Requires ``scipy`` (optional dependency).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;paired_test requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;a and b must have the same length, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid (non-NaN) pairs to test.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;wilcoxon&quot;</span><span class="p">:</span>
+        <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">wilcoxon</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="n">alternative</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;paired_t&quot;</span><span class="p">:</span>
+        <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">ttest_rel</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="n">alternative</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;wilcoxon&#39; or &#39;paired_t&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;statistic&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span> <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)}</span></div>
+
+
+
+<div class="viewcode-block" id="omnibus_test">
+<a class="viewcode-back" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">omnibus_test</span><span class="p">(</span>
+    <span class="n">groups</span><span class="p">,</span>
+    <span class="n">test</span><span class="o">=</span><span class="s2">&quot;anova&quot;</span><span class="p">,</span>
+    <span class="n">posthoc</span><span class="o">=</span><span class="s2">&quot;tukey&quot;</span><span class="p">,</span>
+    <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run an omnibus test across groups with optional post-hoc comparisons.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        groups (dict[str, array-like] or list[array-like]): Per-group data.</span>
+<span class="sd">            Dict keys are used as labels; for list input supply *labels*</span>
+<span class="sd">            separately.</span>
+<span class="sd">        test (str): ``&quot;anova&quot;`` (default) for one-way ANOVA</span>
+<span class="sd">            (``scipy.stats.f_oneway``), or ``&quot;kruskal&quot;`` for the</span>
+<span class="sd">            Kruskal-Wallis H test.</span>
+<span class="sd">        posthoc (str or None): Post-hoc test to run when the omnibus test is</span>
+<span class="sd">            significant. ``&quot;tukey&quot;`` (default) for Tukey HSD,</span>
+<span class="sd">            ``&quot;none&quot;``/``None`` to skip post-hoc comparisons.</span>
+<span class="sd">        labels (list[str] or None): Group labels for list input. Ignored for</span>
+<span class="sd">            dict input (keys are used).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        result (dict): Dictionary with keys:</span>
+<span class="sd">            - ``statistic`` (float): F-statistic (ANOVA) or H-statistic</span>
+<span class="sd">              (Kruskal-Wallis).</span>
+<span class="sd">            - ``p_value`` (float): Omnibus p-value.</span>
+<span class="sd">            - ``n_groups`` (int): Number of groups.</span>
+<span class="sd">            - ``group_ns`` (list[int]): Sample sizes per group.</span>
+<span class="sd">            - ``labels`` (list[str]): Ordered group labels.</span>
+<span class="sd">            - ``posthoc`` (list[dict] or None): Post-hoc comparison results</span>
+<span class="sd">              when *posthoc* is not None. Each dict contains:</span>
+<span class="sd">              ``&quot;group_a&quot;``, ``&quot;group_b&quot;``, ``&quot;p_value&quot;``, ``&quot;significant&quot;``</span>
+<span class="sd">              (at alpha=0.05).</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - NaN values are stripped from each group before testing.</span>
+<span class="sd">        - Requires ``scipy`` (optional dependency).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;omnibus_test requires &#39;scipy&#39;. Install with: pip install scipy&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">ordered_labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ordered_labels</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">]</span>
+        <span class="n">ordered_labels</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">))]</span>
+        <span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">d</span><span class="p">)]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">K</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 2 groups for an omnibus test.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;anova&quot;</span><span class="p">:</span>
+        <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">f_oneway</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;kruskal&quot;</span><span class="p">:</span>
+        <span class="n">stat</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">kruskal</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown test &#39;</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">&#39;. Use &#39;anova&#39; or &#39;kruskal&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;statistic&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">stat</span><span class="p">),</span>
+        <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">),</span>
+        <span class="s2">&quot;n_groups&quot;</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span>
+        <span class="s2">&quot;group_ns&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">],</span>
+        <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">,</span>
+        <span class="s2">&quot;posthoc&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">posthoc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">posthoc</span> <span class="o">!=</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">posthoc</span> <span class="o">==</span> <span class="s2">&quot;tukey&quot;</span><span class="p">:</span>
+            <span class="n">tukey</span> <span class="o">=</span> <span class="n">sp_stats</span><span class="o">.</span><span class="n">tukey_hsd</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">posthoc_results</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">):</span>
+                    <span class="n">pv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tukey</span><span class="o">.</span><span class="n">pvalue</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+                    <span class="n">posthoc_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;group_a&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                            <span class="s2">&quot;group_b&quot;</span><span class="p">:</span> <span class="n">ordered_labels</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                            <span class="s2">&quot;p_value&quot;</span><span class="p">:</span> <span class="n">pv</span><span class="p">,</span>
+                            <span class="s2">&quot;significant&quot;</span><span class="p">:</span> <span class="n">pv</span> <span class="o">&lt;</span> <span class="mf">0.05</span><span class="p">,</span>
+                        <span class="p">}</span>
+                    <span class="p">)</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;posthoc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">posthoc_results</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown posthoc &#39;</span><span class="si">{</span><span class="n">posthoc</span><span class="si">}</span><span class="s2">&#39;. Use &#39;tukey&#39; or None.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
 </pre></div>
 
            </div>
@@ -535,7 +747,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

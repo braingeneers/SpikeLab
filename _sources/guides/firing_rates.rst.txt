@@ -1,6 +1,6 @@
-============================
+=============================
 Firing Rates and Correlations
-============================
+=============================
 
 This guide covers how to compute instantaneous firing rates from spike trains,
 build pairwise firing-rate correlation matrices, and compare correlation
@@ -183,6 +183,30 @@ graph for graph-theoretic analysis:
 
    G = corr_base.to_networkx(threshold=0.3)
    print(f"Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
+
+
+Temporal Trends and Stability
+-----------------------------
+
+When comparing a metric across ordered slices (e.g. burst-aligned windows over
+time), two utility functions in :mod:`spikelab.spikedata.utils` help quantify
+whether the metric drifts or remains stable:
+
+.. code-block:: python
+
+   from spikelab.spikedata.utils import slice_trend, slice_stability
+
+   # values is a (S,) array — e.g. mean pairwise correlation per burst
+   slope, p_value = slice_trend(values)
+   cv = slice_stability(values)
+
+:func:`~spikelab.spikedata.utils.slice_trend` fits a linear regression across
+slices and returns the slope and its p-value. A significant slope indicates
+that the metric is drifting over the course of the recording.
+
+:func:`~spikelab.spikedata.utils.slice_stability` returns the coefficient of
+variation (std / abs(mean)). Lower values indicate a more stable metric across
+slices.
 
 
 Further Reading

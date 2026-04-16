@@ -68,6 +68,9 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-nwb-files">From NWB files</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-kilosort-phy-output">From KiloSort/Phy output</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikeinterface">From SpikeInterface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-spikelab-sorted-npz">From SpikeLab sorted .npz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-the-ibl-database">From the IBL database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-neo-spiketrains">From Neo SpikeTrains</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/loading_data.html#from-raw-data">From raw data</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-threshold-detection">From threshold detection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../guides/loading_data.html#from-a-spike-count-raster">From a spike count raster</a></li>
@@ -75,15 +78,22 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#sorting-multiple-recordings">Sorting multiple recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#maxwell-multi-stream-recordings">Maxwell multi-stream recordings</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#controlling-curation-thresholds">Controlling curation thresholds</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#kilosort2-parameters">Kilosort2 parameters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#downstream-analysis">Downstream analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_sorting.html">Spike Sorting and Curation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/spike_sorting.html#curation-history">Curation history</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -97,6 +107,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#burst-widths">Burst Widths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -105,13 +116,18 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/event_aligned_analysis.html">Event-Aligned Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#aligning-to-events">Aligning to Events</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
@@ -122,6 +138,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/shuffled_data.html">Shuffled Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#single-shuffle">Single Shuffle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#shuffle-stacks">Shuffle Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#unit-subset-stacks">Unit Subset Stacks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/shuffled_data.html#comparing-to-the-null-distribution">Comparing to the Null Distribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guides/gplvm.html">GPLVM Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#fitting-a-gplvm">Fitting a GPLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#post-fit-analysis">Post-fit Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#state-entropy">State entropy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#continuity-probability">Continuity probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#average-state-probability">Average state probability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/gplvm.html#consecutive-state-durations">Consecutive state durations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/gplvm.html#visualisation">Visualisation</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guides/exporting_data.html">Exporting Data</a><ul>
@@ -210,6 +245,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../api/stat_utils.html">Statistical Utilities</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.linear_regression"><code class="docutils literal notranslate"><span class="pre">linear_regression()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.pairwise_tests"><code class="docutils literal notranslate"><span class="pre">pairwise_tests()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.paired_test"><code class="docutils literal notranslate"><span class="pre">paired_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/stat_utils.html#spikelab.spikedata.stat_utils.omnibus_test"><code class="docutils literal notranslate"><span class="pre">omnibus_test()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/plot_utils.html">Plotting Utilities</a><ul>
@@ -270,9 +307,20 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#spike-sorting">Spike Sorting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/spike_sorting.html">Spike Sorting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/curation.html">Curation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes"><code class="docutils literal notranslate"><span class="pre">curate_by_min_spikes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_firing_rate"><code class="docutils literal notranslate"><span class="pre">curate_by_firing_rate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations"><code class="docutils literal notranslate"><span class="pre">curate_by_isi_violations()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_snr"><code class="docutils literal notranslate"><span class="pre">curate_by_snr()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_std_norm"><code class="docutils literal notranslate"><span class="pre">curate_by_std_norm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -611,6 +659,61 @@
             <span class="n">font_size</span><span class="o">=</span><span class="n">font_size</span><span class="p">,</span>
             <span class="n">save_path</span><span class="o">=</span><span class="n">save_path</span><span class="p">,</span>
         <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PairwiseCompMatrix.extract_pairs_by_group">
+<a class="viewcode-back" href="../../../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.extract_pairs_by_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_pairs_by_group</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">unit_labels</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract upper-triangle pair values grouped by unit label combinations.</span>
+
+<span class="sd">        Given a label array of length N (one per unit), splits the upper</span>
+<span class="sd">        triangle of the matrix into groups based on each pair&#39;s label</span>
+<span class="sd">        combination. For example, a boolean label ``is_lower`` yields three</span>
+<span class="sd">        groups: ``(False, False)``, ``(False, True)``, ``(True, True)``.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            unit_labels (array-like): Labels of length N assigning each unit</span>
+<span class="sd">                to a group. Can be boolean, integer, or string values.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            groups (dict): Mapping from ``(label_a, label_b)`` tuples to 1D</span>
+<span class="sd">                arrays of pair values. Keys are canonically ordered so that</span>
+<span class="sd">                ``label_a &lt;= label_b``. Only groups with at least one pair are</span>
+<span class="sd">                included. The values within each group preserve the order</span>
+<span class="sd">                produced by ``np.triu_indices``, making results from different</span>
+<span class="sd">                matrices with the same labels directly alignable for paired</span>
+<span class="sd">                tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">unit_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unit_labels</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unit_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;unit_labels length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">unit_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">) must match &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;matrix dimension (</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">ri</span><span class="p">,</span> <span class="n">ci</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">ri</span><span class="p">,</span> <span class="n">ci</span><span class="p">]</span>
+        <span class="n">labels_r</span> <span class="o">=</span> <span class="n">unit_labels</span><span class="p">[</span><span class="n">ri</span><span class="p">]</span>
+        <span class="n">labels_c</span> <span class="o">=</span> <span class="n">unit_labels</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span>
+
+        <span class="n">unique_labels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">unit_labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">()))</span>
+        <span class="n">groups</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i_lbl</span><span class="p">,</span> <span class="n">la</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unique_labels</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">lb</span> <span class="ow">in</span> <span class="n">unique_labels</span><span class="p">[</span><span class="n">i_lbl</span><span class="p">:]:</span>
+                <span class="k">if</span> <span class="n">la</span> <span class="o">==</span> <span class="n">lb</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">labels_r</span> <span class="o">==</span> <span class="n">la</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">labels_c</span> <span class="o">==</span> <span class="n">la</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="p">((</span><span class="n">labels_r</span> <span class="o">==</span> <span class="n">la</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">labels_c</span> <span class="o">==</span> <span class="n">lb</span><span class="p">))</span> <span class="o">|</span> <span class="p">(</span>
+                        <span class="p">(</span><span class="n">labels_r</span> <span class="o">==</span> <span class="n">lb</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">labels_c</span> <span class="o">==</span> <span class="n">la</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">groups</span><span class="p">[(</span><span class="n">la</span><span class="p">,</span> <span class="n">lb</span><span class="p">)]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">groups</span></div>
 
 
 <div class="viewcode-block" id="PairwiseCompMatrix.plot_spatial_network">
@@ -1105,7 +1208,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, SpikeLab Maintainers.</p>
+    <p>&#169; Copyright 2026, Tjitse van der Molen.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
