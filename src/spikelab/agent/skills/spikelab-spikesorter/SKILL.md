@@ -1,6 +1,6 @@
 ---
 name: spikelab-spikesorter
-description: Runs spike sorting pipelines using the SpikeLab library. Handles configuring and executing sorting jobs, curating units, inspecting and visualizing results. Use when the user wants to sort recordings, curate units, or analyze sorting outputs.
+description: Runs spike sorting pipelines using the SpikeLab library (Kilosort2, Kilosort4, RT-Sort). Handles configuring and executing sorting jobs, curating units, inspecting and visualizing results. For stimulation experiments, runs artifact removal and stim-aligned sorting via sort_stim_recording. Use when the user wants to sort recordings, curate units, or analyze sorting outputs.
 ---
 
 # SpikeLab Spike Sorter
@@ -97,6 +97,7 @@ Ask the user:
 - Single recording or multiple?
 - For Maxwell: single well or multi-well? Which stream IDs?
 - For directories: should files be concatenated?
+- **Is this a stimulation experiment?** Stimulation recordings contain large stimulation artifacts caused by electrical stimulation of the tissue. If the user mentions stimulation, or if you observe large artifact patterns in the data, the workflow is different — use the two-step RT-Sort + `sort_stim_recording` pipeline (see "Stimulation-aware sorting" below). Ask for: the intrinsic activity recording (for training sequences), the stim recording, and the logged stim times.
 
 ### Step 2: Choose the entry point
 
@@ -104,22 +105,32 @@ Ask the user:
 |---|---|
 | Single or multiple recordings, any sorter | `sort_recording(recording_files, sorter=...)` |
 | Multi-well Maxwell (multiple stream IDs) | `sort_multistream(recording, stream_ids, sorter=...)` |
+| Stimulation recording (artifact removal + stim-aligned sorting) | `sort_stim_recording(stim_recording, rt_sort, stim_times_ms, ...)` |
 
 Available sorters (see `spikelab.spike_sorting.backends.list_sorters()`):
 - `"kilosort2"` — MATLAB-based. Runs locally with a real MATLAB + Kilosort2 install (pass `kilosort_path`), or in Docker using a pre-built image that bundles the compiled MATLAB Runtime (no MATLAB license needed).
 - `"kilosort4"` — Pure Python via PyTorch. Runs locally (`pip install kilosort` + CUDA-enabled PyTorch) or in Docker.
+- `"rt_sort"` — Deep-learning-based propagation sequence sorter (van der Molen, Lim et al. 2024, PLOS ONE). Requires PyTorch with CUDA, `diptest`, `scikit-learn`, and `tqdm`. No Docker support. The trained RTSort object is persisted to disk for reuse in stimulation-aware sorting (see "Stimulation-Aware Sorting" below).
 
-Preset configs (from `spikelab.spike_sorting.config`): `KILOSORT2`, `KILOSORT2_DOCKER`, `KILOSORT4`, `KILOSORT4_DOCKER`.
+Preset configs (from `spikelab.spike_sorting.config`): `KILOSORT2`, `KILOSORT2_DOCKER`, `KILOSORT4`, `KILOSORT4_DOCKER`, `RT_SORT_MEA`, `RT_SORT_NEUROPIXELS`.
 
 ### Step 3: Configure parameters
 
 Key parameters to discuss with the user:
 
 **Sorter:**
-- `sorter` — `"kilosort2"` or `"kilosort4"`
-- `use_docker` — run the sorter inside a Docker container (auto-selects compatible image)
+- `sorter` — `"kilosort2"`, `"kilosort4"`, or `"rt_sort"`
+- `use_docker` — run the sorter inside a Docker container (auto-selects compatible image; not available for RT-Sort)
 - `kilosort_path` — path to a local Kilosort2 source installation (only for `sorter="kilosort2"` without Docker)
 - `kilosort_params` — override default sorter parameters (passed as-is to the underlying sorter)
+
+**RT-Sort specific** (only used when `sorter="rt_sort"`):
+- `rt_sort_probe` — `"mea"` (default) or `"neuropixels"` — selects the bundled pretrained detection model
+- `rt_sort_device` — `"cuda"` (default) or `"cpu"`
+- `rt_sort_save_pickle` — persist the trained RTSort object for reuse in stim sorting (default: True)
+- `rt_sort_params` — override dict for fine-grained tuning (e.g. `{"stringent_thresh": 0.2, "inner_radius": 60}`)
+
+See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_sort_model_path`, `rt_sort_num_processes`, `rt_sort_recording_window_ms`, etc.).
 
 **Recording:**
 - `stream_id` — Maxwell well/stream identifier
@@ -248,6 +259,66 @@ sort_recording(..., rec_chunks_s=[(0, 60), (300, 360), (600, 660)])
 
 `start_time_s` defaults to 0 and `end_time_s` to the recording duration. Time-based params cannot be combined with the frame-based `rec_chunks`.
 
+### RT-Sort (propagation-based sorting)
+
+RT-Sort uses a DL detection model and propagation patterns to sort spikes. Same pipeline as Kilosort (load → sort → waveforms → SpikeData → curate → compile). Requires `torch` (CUDA), `diptest`, `scikit-learn`, `tqdm`.
+
+```python
+results = sort_recording(
+    recording_files=[f"{RAW_DIR}/recording_a.raw.h5"],
+    results_folders=[f"{RESULTS_DIR}/recording_a_rtsort"],
+    sorter="rt_sort",
+    rt_sort_device="cuda",
+    snr_min=5.0,
+)
+# RTSort object saved at: inter_*/sorter_output/rt_sort.pickle
+```
+
+Using a preset: `sort_recording(..., config=RT_SORT_NEUROPIXELS)`.
+
+### Stimulation-aware sorting
+
+Two-step workflow: train sequences on intrinsic activity, then sort a stim recording.
+
+**Step 1** — Sort a baseline recording with RT-Sort:
+
+```python
+results = sort_recording(
+    recording_files=[f"{RAW_DIR}/intrinsic_activity.raw.h5"],
+    results_folders=[f"{RESULTS_DIR}/intrinsic"],
+    sorter="rt_sort",
+    rt_sort_save_pickle=True,  # default — saves rt_sort.pickle for reuse
+)
+```
+
+**Step 2** — Sort the stimulation recording using those trained sequences:
+
+```python
+from spikelab.spike_sorting.stim_sorting import sort_stim_recording
+
+stim_slices = sort_stim_recording(
+    stim_recording=f"{RAW_DIR}/stim_recording.raw.h5",
+    rt_sort="path/to/inter/sorter_output/rt_sort.pickle",
+    stim_times_ms=logged_stim_times,
+    pre_ms=50,
+    post_ms=200,
+)
+# Returns SpikeSliceStack aligned to corrected stim times
+```
+
+The pipeline recenters logged stim times to actual artifact peaks, removes artifacts using per-event polynomial detrend (preserves spikes — they're too fast for the smooth polynomial to capture), sorts with the pre-trained sequences, and aligns to corrected stim events. Sequential stim protocols (bursts, paired-pulse) are handled by dynamically extending the blanking region.
+
+Components are also available individually:
+
+```python
+from spikelab.spike_sorting.stim_sorting import recenter_stim_times, remove_stim_artifacts
+
+corrected = recenter_stim_times(traces, logged_times, fs_Hz=20000)
+cleaned, blanked = remove_stim_artifacts(traces, corrected, fs_Hz=20000)
+```
+
+See `REPO_MAP_DETAILED.md` for the full `sort_stim_recording` and `remove_stim_artifacts` parameter signatures.
+
 ---
 
 ## Working with Results
@@ -374,42 +445,7 @@ from spikelab.spike_sorting.figures import (
 
 All accept an optional `ax` parameter for embedding in custom figure layouts.
 
-### Unit quality summary
-
-```python
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-
-# SNR distribution
-snr_vals = [a['snr'] for a in sd.neuron_attributes]
-axes[0].hist(snr_vals, bins=30)
-axes[0].set_xlabel("SNR")
-axes[0].set_ylabel("Count")
-axes[0].axvline(5.0, color='red', linestyle='--', label='threshold')
-
-# Spike count distribution
-spike_counts = [len(t) for t in sd.train]
-axes[1].hist(spike_counts, bins=30)
-axes[1].set_xlabel("Spike count")
-
-# Waveform templates (first 10 units)
-for i in range(min(10, sd.N)):
-    template = sd.neuron_attributes[i]['template']
-    axes[2].plot(template, alpha=0.5)
-axes[2].set_xlabel("Sample")
-axes[2].set_ylabel("Amplitude")
-
-fig.savefig("figures/unit_quality.png", dpi=150, bbox_inches="tight")
-plt.close(fig)
-```
-
 ### Quick recording overview
-
-A brief raster + population rate plot to verify the sorting looks reasonable:
 
 ```python
 fig = sd.plot(show_raster=True, show_pop_rate=True, time_range=(0, 60000))
@@ -421,95 +457,13 @@ For further analysis (correlations, burst detection, event alignment, population
 
 ### Post-sorting report
 
-**Always generate a Markdown report after every sorting run** and write it to `<results_folder>/sorting_report.md`. This is part of the default workflow — do not wait for the user to ask. The report should combine information from:
+**Always generate a Markdown report after every sorting run** and write it to `<results_folder>/sorting_report.md`. Do not wait for the user to ask.
 
-1. **The sorting script** that launched the job — extract the actual call to `sort_recording`/`sort_multistream` and list every parameter passed (sorter, use_docker, curation thresholds, time slicing, etc.). Do not infer defaults; only list what the user explicitly set.
-2. **The log file** (`<results_folder>/sorting_*.log`) — parse these fields:
-   - Environment header: host, Python/SI/SpikeLab versions, Docker image, GPU name + memory, RAM total, disk available, memory limit
-   - Recording info: path, file size, sampling rate, channel count, duration, time slicing applied
-   - Pipeline stages with timestamps (from the `[YYYY-MM-DD HH:MM:SS]` banners)
-   - Curation line: `Curation: N_raw → N_curated units (N_removed removed)`
-   - Final status line, wall time, resources at finish (RAM/GPU/disk)
-3. **The results files** — load `sorted_spikedata_curated.pkl` and report:
-   - Unit count (raw and curated), total spike count, mean/median firing rate
-   - SNR distribution (mean, median, min, max)
-   - Spikes-per-unit distribution (mean, median, min, max)
-   - ISI violation percentages (mean, max)
+**Data sources:** (1) the sorting script — list every parameter explicitly passed, (2) the log file (`sorting_*.log`) — environment, pipeline stage timestamps, curation line, wall time, (3) the results pickle — unit counts, spike counts, SNR/FR/ISI distributions.
 
-The report must reference the **full path to the source log file** so the user can dig into raw output if needed.
+**Structure:** Put **Curation Outcome** (raw → curated unit counts, total spikes, mean FR, mean SNR) at the top so it's the first thing the user sees. Then: Overview (recording info, sorter, status, wall time, log path), Script Settings (explicitly set params only), Environment table, Pipeline Timing table (parse `[YYYY-MM-DD HH:MM:SS]` banners), Unit Quality Distributions, Resources at Finish, Output Files.
 
-**Report structure** (adapt as needed, but keep Curation Outcome at the top so it's the first thing the user sees):
-
-```markdown
-# Sorting Report — <rec_name>
-
-## Curation Outcome
-- Raw units: N
-- Curated units: N (N removed)
-- Total spikes: N
-- Mean FR: X.XX Hz
-- Median spikes/unit: N
-- Mean SNR: X.X
-
-## Overview
-- Recording: `<path>` (<channels> ch, <fs> Hz, <duration> min)
-- Sorter: `<sorter>` (Docker: <yes/no>)
-- Status: <COMPLETED | FAILED | KILLED>
-- Wall time: <X> min <Y> s
-- Log file: `<absolute_path_to_sorting_YYMMDD_HHMMSS.log>`
-
-## Script Settings
-- Script: `<script_path>`
-- Parameters explicitly set:
-  - `sorter="kilosort2"`
-  - `use_docker=True`
-  - `snr_min=5.0`
-  - ...
-
-## Environment
-| Field | Value |
-|---|---|
-| Host | ... |
-| Python | ... |
-| SI version | ... |
-| SpikeLab | ... |
-| Docker image | ... |
-| GPU | ... |
-| RAM total | ... |
-| Memory limit | ... |
-
-## Pipeline Timing
-| Stage | Timestamp | Duration |
-|---|---|---|
-| LOADING RECORDING | ... | ... |
-| SPIKE SORTING | ... | ... |
-| EXTRACTING WAVEFORMS | ... | ... |
-| GENERATING PER-UNIT FIGURES | ... | ... |
-| CURATION | ... | ... |
-| COMPILING RESULTS | ... | ... |
-| DONE | ... | (total) |
-
-Compute duration for each step as the difference between its timestamp and the next step's timestamp. Parse timestamps from the ``[YYYY-MM-DD HH:MM:SS]`` banners in the log.
-
-## Unit Quality Distributions
-(include brief tables or bullet lists — refer to unit_quality.png figure if generated)
-
-## Resources at Finish
-| Metric | Value |
-|---|---|
-| RAM available | ... |
-| GPU memory | ... |
-| Disk avail | ... |
-
-## Output Files
-- `sorted_spikedata_curated.pkl` — <size>
-- `sorted.npz` — <size>
-- `figures/` — <list of generated QC figures if any>
-```
-
-Keep the report factual — don't interpret whether the results are "good" unless specific thresholds were clearly violated (e.g., zero curated units, extreme ISI violations). For interpretation, direct the user to review the QC figures and the unit quality distributions.
-
-Locate the latest `sorting_*.log` in the results folder (most recent mtime), identify the script path from the log header (`Script:` line), load the pkl, and write `sorting_report.md` in the same folder.
+Keep the report factual. Don't interpret quality unless specific thresholds were clearly violated (zero curated units, extreme ISI violations). Reference the full log path so the user can dig into raw output.
 
 ---
 
@@ -588,6 +542,10 @@ print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py3
 | `Could not detect CUDA driver` | `nvidia-smi` not on PATH | Install NVIDIA drivers, or pass a specific `docker_image` string |
 | `ValueError: Unknown sorter` | Unregistered backend | Check `spikelab.spike_sorting.backends.list_sorters()` |
 | Kilosort2 `Matrix dimensions must agree` in splitting step | Data-dependent KS2 bug on high-density wells that produce very high template counts (>~1000 clusters); fails after `Finished splitting. Found N splits, checked M/M clusters, nccg K` | Raise the second-pass detection threshold: `kilosort_params={"projection_threshold": [10, 8]}` (default is `[10, 4]`). This reduces the number of spikes extracted in the second pass, which lowers the template count and avoids the splitting bug. Retry without other changes. If still failing, try `[12, 8]`. **Retry automatically** — do not escalate to the user on a first hit; only escalate if the bumped threshold also fails. |
+| `ImportError: RT-Sort backend requires...` | Missing RT-Sort dependencies | Install: `pip install torch diptest scikit-learn tqdm h5py`. For torch, match your CUDA version: https://pytorch.org/get-started/locally/ |
+| RT-Sort CUDA out of memory | Recording too large for GPU VRAM | Reduce `rt_sort_recording_window_ms` to a shorter window, or use `rt_sort_device="cpu"` (slow) |
+| Pickling error during RT-Sort parallel clustering | Windows multiprocessing (spawn vs fork) | Set `rt_sort_num_processes=1` to use sequential processing |
+| Stim artifact removal leaves residual | Polynomial order too low or artifact window too short | Increase `artifact_window_ms` (e.g. 15-20) or try `poly_order=4` (but >5 risks fitting spikes) |
 
 ### Inspecting intermediate files
 
@@ -596,6 +554,13 @@ Intermediate results are in `inter_<sorter>_<timestamp>/`:
 - `kilosort2_results/` — raw sorter output
 - `waveforms/` — extracted waveform `.npy` files per unit
 - `curation/` — curation history JSON and unit ID lists
+
+For RT-Sort, the intermediate folder also contains:
+- `scaled_traces.npy` — cached voltage traces (float16)
+- `model_outputs.npy` — DL detection model predictions
+- `rt_sort.pickle` — serialized RTSort object (for Phase 2 stim sorting reuse)
+- `sorting.npz` — cached NumpySorting for fast reload on rerun
+- `root_elecs.npy` — per-unit root electrode indices
 
 ---
 
