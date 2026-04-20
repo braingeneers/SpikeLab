@@ -3099,16 +3099,6 @@ class SpikeData:
 
         return curate_by_merge_duplicates(self, **kwargs)
 
-    def compute_spk_sim(self, delta=0.4, sd2=None):
-        """Compute spike train agreement matrices between units.
-
-        See ``spikelab.spikedata.utils.compute_spk_sim`` for full
-        documentation.
-        """
-        from .utils import compute_spk_sim
-
-        return compute_spk_sim(self, delta=delta, sd2=sd2)
-
     @staticmethod
     def build_curation_history(sd_original, sd_curated, results, parameters=None):
         """Translate curation results into a serializable history dict.
