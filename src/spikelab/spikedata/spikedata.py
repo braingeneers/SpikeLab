@@ -3226,39 +3226,54 @@ class SpikeData:
 
         if comparison_type == "spike_times":
             M, N = self.N, other.N
-            agreement = np.zeros((M, N))
-            frac_1 = np.zeros((M, N))
-            frac_2 = np.zeros((M, N))
 
-            pairs = [(i, j) for i in range(M) for j in range(N)]
+            from .numba_utils import NUMBA_AVAILABLE
 
-            if n_workers <= 1 or len(pairs) == 0:
-                for i, j in pairs:
-                    a, r1, r2 = _compute_agreement_score(
-                        self.train[i], other.train[j], delta_ms
-                    )
-                    agreement[i, j] = a
-                    frac_1[i, j] = r1
-                    frac_2[i, j] = r2
+            if NUMBA_AVAILABLE and M > 0 and N > 0:
+                from .numba_utils import (
+                    flatten_spike_trains,
+                    nb_agreement_all_pairs,
+                )
+
+                flat1, offsets1 = flatten_spike_trains(self.train)
+                flat2, offsets2 = flatten_spike_trains(other.train)
+                agreement, frac_1, frac_2 = nb_agreement_all_pairs(
+                    flat1, offsets1, M, flat2, offsets2, N, delta_ms
+                )
             else:
-                trains_self = self.train
-                trains_other = other.train
+                agreement = np.zeros((M, N))
+                frac_1 = np.zeros((M, N))
+                frac_2 = np.zeros((M, N))
 
-                def _score_pair(pair):
-                    i, j = pair
-                    return (
-                        i,
-                        j,
-                        *_compute_agreement_score(
-                            trains_self[i], trains_other[j], delta_ms
-                        ),
-                    )
+                pairs = [(i, j) for i in range(M) for j in range(N)]
 
-                with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                    for i, j, a, r1, r2 in pool.map(_score_pair, pairs):
+                if n_workers <= 1 or len(pairs) == 0:
+                    for i, j in pairs:
+                        a, r1, r2 = _compute_agreement_score(
+                            self.train[i], other.train[j], delta_ms
+                        )
                         agreement[i, j] = a
                         frac_1[i, j] = r1
                         frac_2[i, j] = r2
+                else:
+                    trains_self = self.train
+                    trains_other = other.train
+
+                    def _score_pair(pair):
+                        i, j = pair
+                        return (
+                            i,
+                            j,
+                            *_compute_agreement_score(
+                                trains_self[i], trains_other[j], delta_ms
+                            ),
+                        )
+
+                    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                        for i, j, a, r1, r2 in pool.map(_score_pair, pairs):
+                            agreement[i, j] = a
+                            frac_1[i, j] = r1
+                            frac_2[i, j] = r2
 
             return {
                 "labels_1": labels_1,
