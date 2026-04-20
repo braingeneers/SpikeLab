@@ -376,6 +376,8 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmptyWaveformMetricsError</span>
+
 
 <div class="viewcode-block" id="curate_by_min_spikes">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_min_spikes">[docs]</a>
@@ -604,9 +606,10 @@
 <span class="sd">            &quot;std_norm&quot;: np.ndarray (N,)}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="k">raise</span> <span class="n">EmptyWaveformMetricsError</span><span class="p">(</span>
             <span class="s2">&quot;raw_data is empty. Attach raw voltage traces before calling &quot;</span>
-            <span class="s2">&quot;compute_waveform_metrics.&quot;</span>
+            <span class="s2">&quot;compute_waveform_metrics.&quot;</span><span class="p">,</span>
+            <span class="n">metric_name</span><span class="o">=</span><span class="s2">&quot;waveform_metrics&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -928,10 +931,11 @@
         <span class="k">return</span> <span class="n">metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
 
     <span class="c1"># 3. Neither available</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+    <span class="k">raise</span> <span class="n">EmptyWaveformMetricsError</span><span class="p">(</span>
         <span class="sa">f</span><span class="s2">&quot;Cannot compute &#39;</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">&#39;: no precomputed values in &quot;</span>
         <span class="s2">&quot;neuron_attributes and raw_data is empty. Call &quot;</span>
-        <span class="s2">&quot;compute_waveform_metrics() first, or attach raw voltage traces.&quot;</span>
+        <span class="s2">&quot;compute_waveform_metrics() first, or attach raw voltage traces.&quot;</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
     <span class="p">)</span>
 </pre></div>
 
