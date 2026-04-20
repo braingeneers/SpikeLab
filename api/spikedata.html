@@ -2275,6 +2275,103 @@ if not present.</p></li>
 </ul>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.compare_sorter">
+<span class="sig-name descname"><span class="pre">compare_sorter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparison_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spike_times'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_rel_to_trough</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(20,</span> <span class="pre">40)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.compare_sorter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.compare_sorter" title="Link to this definition"></a></dt>
+<dd><p>Compare this sorter output against another SpikeData object.</p>
+<p>Implements the same comparison methodology as SpikeInterface’s
+<code class="docutils literal notranslate"><span class="pre">SymmetricSortingComparison</span></code> (Buccino et al., eLife 2020): greedy
+spike matching within a temporal window followed by Jaccard agreement
+scoring. Use <a class="reference internal" href="#spikelab.spikedata.SpikeData.best_match_assignment" title="spikelab.spikedata.SpikeData.best_match_assignment"><code class="xref py py-meth docutils literal notranslate"><span class="pre">best_match_assignment()</span></code></a> on the returned agreement
+matrix to obtain the optimal unit mapping via the Hungarian algorithm
+(equivalent to SpikeInterface’s <code class="docutils literal notranslate"><span class="pre">get_best_unit_match</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>other</strong> (<a class="reference internal" href="#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – SpikeData from a different sorter to compare
+against.</p></li>
+<li><p><strong>comparison_type</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.14)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code></a>[<code class="docutils literal notranslate"><span class="pre">'spike_times'</span></code>, <code class="docutils literal notranslate"><span class="pre">'waveforms'</span></code>]</span>) – <code class="docutils literal notranslate"><span class="pre">&quot;spike_times&quot;</span></code> for spike-train agreement or
+<code class="docutils literal notranslate"><span class="pre">&quot;waveforms&quot;</span></code> for template footprint similarity.</p></li>
+<li><p><strong>delta_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum temporal distance (ms) for a spike
+match (spike_times only).</p></li>
+<li><p><strong>f_rel_to_trough</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">(pre,</span> <span class="pre">post)</span></code> sample window
+around the trough for footprint construction (waveforms only).</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in samples for footprint cosine
+similarity search (waveforms only).</p></li>
+<li><p><strong>n_jobs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Number of parallel workers. <code class="docutils literal notranslate"><span class="pre">None</span></code> or 1
+for serial execution, -1 for all cores.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Comparison output dictionary containing:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">labels_1</span></code> / <code class="docutils literal notranslate"><span class="pre">labels_2</span></code>: unit indices</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata</span></code>: comparison settings</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">spike_times</span></code>: <code class="docutils literal notranslate"><span class="pre">agreement</span></code>, <code class="docutils literal notranslate"><span class="pre">frac_1</span></code>, <code class="docutils literal notranslate"><span class="pre">frac_2</span></code></p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">waveforms</span></code>: <code class="docutils literal notranslate"><span class="pre">similarity</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p>Buccino et al., “SpikeInterface, a unified framework for spike
+sorting”, eLife (2020). <a class="reference external" href="https://doi.org/10.7554/eLife.61834">https://doi.org/10.7554/eLife.61834</a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="spikelab.spikedata.SpikeData.best_match_assignment">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">best_match_assignment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">score_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/spikedata.html#SpikeData.best_match_assignment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.SpikeData.best_match_assignment" title="Link to this definition"></a></dt>
+<dd><p>Compute optimal unit assignment from a pairwise score matrix.</p>
+<p>Uses the Hungarian algorithm (<code class="docutils literal notranslate"><span class="pre">scipy.optimize.linear_sum_assignment</span></code>)
+to find the assignment of rows (sorter 1 units) to columns (sorter 2
+units) that maximizes (or minimizes) the total score. When the matrix
+is non-square, unmatched units are reported separately. This is
+equivalent to SpikeInterface’s <code class="docutils literal notranslate"><span class="pre">get_best_unit_match</span></code> step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>score_matrix</strong> (<em>np.ndarray</em>) – Pairwise score matrix of shape (M, N),
+e.g. the <code class="docutils literal notranslate"><span class="pre">agreement</span></code> or <code class="docutils literal notranslate"><span class="pre">similarity</span></code> matrix returned by
+<a class="reference internal" href="#spikelab.spikedata.SpikeData.compare_sorter" title="spikelab.spikedata.SpikeData.compare_sorter"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compare_sorter()</span></code></a>.</p></li>
+<li><p><strong>minimize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – If True, find the assignment that minimizes the
+total score (useful for distance matrices). Default is False
+(maximize).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Dictionary containing:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">row_indices</span></code>: matched row indices (length = min(M, N))</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">col_indices</span></code>: matched column indices (length = min(M, N))</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scores</span></code>: score for each matched pair</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_score</span></code>: sum of matched scores</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unmatched_rows</span></code>: row indices with no match (if M &gt; N)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unmatched_cols</span></code>: col indices with no match (if N &gt; M)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">row_order</span></code>: full row permutation array (length M) —
+matched rows first, then unmatched. Apply to any (M, …)
+array via <code class="docutils literal notranslate"><span class="pre">array[row_order]</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">col_order</span></code>: full column permutation array (length N) —
+matched cols first, then unmatched. Apply to any (…, N)
+array via <code class="docutils literal notranslate"><span class="pre">array[:,</span> <span class="pre">col_order]</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reordered_matrix</span></code>: score_matrix reordered so that matched
+pairs lie along the diagonal (equivalent to
+<code class="docutils literal notranslate"><span class="pre">score_matrix[np.ix_(row_order,</span> <span class="pre">col_order)]</span></code>)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>result (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>

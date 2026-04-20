@@ -2188,6 +2188,198 @@
     <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">abs_mean</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">cv</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">cv</span><span class="p">)</span> <span class="k">if</span> <span class="n">cv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">cv</span></div>
 
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Sorter comparison helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_count_matching_spikes</span><span class="p">(</span><span class="n">times1</span><span class="p">,</span> <span class="n">times2</span><span class="p">,</span> <span class="n">delta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Count the number of matching spikes between two sorted spike trains.</span>
+
+<span class="sd">    Two spikes are considered matching if they occur within *delta* of each</span>
+<span class="sd">    other and belong to different trains. Uses a greedy left-to-right scan:</span>
+<span class="sd">    both trains are traversed simultaneously and the first valid pair</span>
+<span class="sd">    encountered is consumed, advancing both pointers.</span>
+
+<span class="sd">    This algorithm is adapted from SpikeInterface&#39;s ``count_matching_events``</span>
+<span class="sd">    (Buccino et al., eLife 2020; https://doi.org/10.7554/eLife.61834).</span>
+<span class="sd">    It runs in O(n1 + n2) time and is deterministic given sorted inputs. The</span>
+<span class="sd">    greedy strategy can yield sub-optimal counts when spikes cluster within</span>
+<span class="sd">    *delta* of each other. For example, with ``times1 = [10.0, 10.3]``,</span>
+<span class="sd">    ``times2 = [10.2]``, and ``delta = 0.3``, the algorithm matches</span>
+<span class="sd">    ``(10.0, 10.2)`` and leaves ``10.3`` unmatched — even though</span>
+<span class="sd">    ``(10.3, 10.2)`` is a tighter match. A globally optimal assignment (e.g.</span>
+<span class="sd">    via the Hungarian algorithm) would be O(n^3) and is not used here because</span>
+<span class="sd">    the Jaccard agreement metric is insensitive to such edge cases when trains</span>
+<span class="sd">    are well-separated relative to *delta*. This matches the convention used</span>
+<span class="sd">    by SpikeInterface and SpikeForest.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        times1 (np.ndarray): Sorted spike times for train 1.</span>
+<span class="sd">        times2 (np.ndarray): Sorted spike times for train 2.</span>
+<span class="sd">        delta (float): Maximum allowed temporal distance for a match.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        n_matches (int): Number of matched spike pairs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">times1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times1</span><span class="p">)</span>
+    <span class="n">times2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">times2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">n_matches</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">n1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">times1</span><span class="p">)</span>
+    <span class="n">n2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">times2</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n1</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">n2</span><span class="p">:</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">times1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">times2</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">delta</span><span class="p">:</span>
+            <span class="n">n_matches</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">dt</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">n_matches</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_agreement_score</span><span class="p">(</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">,</span> <span class="n">delta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute spike-train agreement between two spike trains.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        train1 (np.ndarray): Sorted spike times for train 1.</span>
+<span class="sd">        train2 (np.ndarray): Sorted spike times for train 2.</span>
+<span class="sd">        delta (float): Maximum allowed temporal distance for a match.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        agreement (float): Jaccard-style agreement score</span>
+<span class="sd">            ``n_matches / (n1 + n2 - n_matches)``.</span>
+<span class="sd">        frac_1 (float): Fraction of train1 spikes that were matched.</span>
+<span class="sd">        frac_2 (float): Fraction of train2 spikes that were matched.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span>
+    <span class="n">n2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n1</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+    <span class="n">n_matches</span> <span class="o">=</span> <span class="n">_count_matching_spikes</span><span class="p">(</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>
+    <span class="n">denom</span> <span class="o">=</span> <span class="n">n1</span> <span class="o">+</span> <span class="n">n2</span> <span class="o">-</span> <span class="n">n_matches</span>
+    <span class="n">agreement</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">denom</span> <span class="k">if</span> <span class="n">denom</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">frac_1</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">n1</span> <span class="k">if</span> <span class="n">n1</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">frac_2</span> <span class="o">=</span> <span class="n">n_matches</span> <span class="o">/</span> <span class="n">n2</span> <span class="k">if</span> <span class="n">n2</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="k">return</span> <span class="n">agreement</span><span class="p">,</span> <span class="n">frac_1</span><span class="p">,</span> <span class="n">frac_2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_footprint</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">,</span> <span class="n">f_rel_to_trough</span><span class="p">,</span> <span class="n">n_channels</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a spatial waveform footprint array for one unit.</span>
+
+<span class="sd">    The footprint is a 2-D array of shape ``(n_channels, n_samples)`` where</span>
+<span class="sd">    ``n_samples = f_rel_to_trough[0] + f_rel_to_trough[1] + 1``. The</span>
+<span class="sd">    template waveform is placed at the unit&#39;s main channel row, and</span>
+<span class="sd">    neighbouring-channel templates are placed at their respective rows, all</span>
+<span class="sd">    aligned to the trough of the main template.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        neuron_attrs (dict): Neuron attribute dictionary containing:</span>
+<span class="sd">            ``template`` (1-D ndarray), ``neighbor_templates`` (2-D ndarray),</span>
+<span class="sd">            ``channel`` (int), ``neighbor_channels`` (1-D ndarray).</span>
+<span class="sd">        f_rel_to_trough (tuple of int): ``(pre, post)`` number of samples</span>
+<span class="sd">            before and after the trough to include.</span>
+<span class="sd">        n_channels (int): Total number of channels on the probe.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        fp (np.ndarray): Footprint array of shape</span>
+<span class="sd">            ``(n_channels, f_rel_to_trough[0] + f_rel_to_trough[1] + 1)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">fp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_channels</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">))</span>
+
+    <span class="n">template</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;template&quot;</span><span class="p">])</span>
+    <span class="n">nb_templates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;neighbor_templates&quot;</span><span class="p">])</span>
+    <span class="n">channel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;channel&quot;</span><span class="p">])</span>
+    <span class="n">nb_channels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">neuron_attrs</span><span class="p">[</span><span class="s2">&quot;neighbor_channels&quot;</span><span class="p">])</span>
+
+    <span class="n">t_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">template</span><span class="p">))</span>
+
+    <span class="n">sel_start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t_i</span> <span class="o">-</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">sel_end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">template</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t_i</span> <span class="o">+</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">pre_seg</span> <span class="o">=</span> <span class="n">template</span><span class="p">[</span><span class="n">sel_start</span><span class="p">:</span><span class="n">t_i</span><span class="p">]</span>
+    <span class="n">post_seg</span> <span class="o">=</span> <span class="n">template</span><span class="p">[</span><span class="n">t_i</span> <span class="p">:</span> <span class="n">sel_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">paste_start</span> <span class="o">=</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_seg</span><span class="p">)</span>
+    <span class="n">paste_end</span> <span class="o">=</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">post_seg</span><span class="p">)</span>
+
+    <span class="n">fp</span><span class="p">[</span><span class="n">channel</span><span class="p">,</span> <span class="n">paste_start</span> <span class="p">:</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">pre_seg</span>
+    <span class="n">fp</span><span class="p">[</span><span class="n">channel</span><span class="p">,</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">paste_end</span><span class="p">]</span> <span class="o">=</span> <span class="n">post_seg</span>
+
+    <span class="c1"># nb_channels[0] is expected to be the primary channel (same as `channel`).</span>
+    <span class="c1"># Its template is already placed above via the main `template` array.</span>
+    <span class="c1"># Neighbor templates start at index 1. Validate the convention.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nb_channels</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">nb_channels</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="n">channel</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;neighbor_channels[0] (</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">nb_channels</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">) does not match the &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;primary channel (</span><span class="si">{</span><span class="n">channel</span><span class="si">}</span><span class="s2">). The first entry in neighbor_channels &quot;</span>
+            <span class="s2">&quot;must be the unit&#39;s own channel.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">nb_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">nb_channels</span><span class="p">)):</span>
+        <span class="n">pre_nb</span> <span class="o">=</span> <span class="n">nb_templates</span><span class="p">[</span><span class="n">nb_i</span><span class="p">,</span> <span class="n">sel_start</span><span class="p">:</span><span class="n">t_i</span><span class="p">]</span>
+        <span class="n">post_nb</span> <span class="o">=</span> <span class="n">nb_templates</span><span class="p">[</span><span class="n">nb_i</span><span class="p">,</span> <span class="n">t_i</span> <span class="p">:</span> <span class="n">sel_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">ch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nb_channels</span><span class="p">[</span><span class="n">nb_i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">ch</span> <span class="o">&lt;</span> <span class="n">n_channels</span><span class="p">:</span>
+            <span class="n">fp</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">paste_start</span> <span class="p">:</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">pre_nb</span>
+            <span class="n">fp</span><span class="p">[</span><span class="n">ch</span><span class="p">,</span> <span class="n">f_rel_to_trough</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">paste_end</span><span class="p">]</span> <span class="o">=</span> <span class="n">post_nb</span>
+
+    <span class="k">return</span> <span class="n">fp</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_footprint_similarity</span><span class="p">(</span><span class="n">fp1</span><span class="p">,</span> <span class="n">fp2</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the best cosine similarity between two footprints over lag shifts.</span>
+
+<span class="sd">    The temporal lag is applied independently to each channel row (shifting</span>
+<span class="sd">    samples within a channel), then the resulting arrays are flattened and</span>
+<span class="sd">    compared via cosine similarity. Integer lags from ``-max_lag`` to</span>
+<span class="sd">    ``+max_lag`` are tested and the maximum similarity is returned.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        fp1 (np.ndarray): Footprint array (n_channels, n_samples).</span>
+<span class="sd">        fp2 (np.ndarray): Footprint array (n_channels, n_samples), same</span>
+<span class="sd">            shape as *fp1*.</span>
+<span class="sd">        max_lag (int): Maximum lag in samples to search (default 5).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        best_sim (float): Highest cosine similarity across all tested lags.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">fp1</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">fp2</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Footprints must have the same shape, &quot;</span> <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">fp1</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">fp2</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="n">fp1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">best</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="k">for</span> <span class="n">lag</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="n">max_lag</span><span class="p">,</span> <span class="n">max_lag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">lag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">vec1</span> <span class="o">=</span> <span class="n">fp1</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">vec2</span> <span class="o">=</span> <span class="n">fp2</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">lag</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Shift fp2 right by `lag` samples (compare overlapping region)</span>
+            <span class="n">vec1</span> <span class="o">=</span> <span class="n">fp1</span><span class="p">[:,</span> <span class="n">lag</span><span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">vec2</span> <span class="o">=</span> <span class="n">fp2</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">n_samples</span> <span class="o">-</span> <span class="n">lag</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Shift fp2 left by `|lag|` samples</span>
+            <span class="n">vec1</span> <span class="o">=</span> <span class="n">fp1</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">n_samples</span> <span class="o">+</span> <span class="n">lag</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">vec2</span> <span class="o">=</span> <span class="n">fp2</span><span class="p">[:,</span> <span class="o">-</span><span class="n">lag</span><span class="p">:]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">_cosine_sim</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="n">vec2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sim</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sim</span> <span class="o">&gt;</span> <span class="n">best</span><span class="p">:</span>
+            <span class="n">best</span> <span class="o">=</span> <span class="n">sim</span>
+
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="k">if</span> <span class="n">best</span> <span class="o">&gt;</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 </pre></div>
 
            </div>
