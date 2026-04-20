@@ -5,88 +5,15 @@ Mirrors the structure of ``ks2_runner.py`` for symmetry — backends
 should delegate sorting to a dedicated runner module.
 """
 
-import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from . import _globals
-from ._exceptions import InsufficientActivityError
+from ._classifier import classify_ks4_failure
+from ._exceptions import SpikeSortingClassifiedError
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, print_stage
-
-
-# Kilosort4 surfaces low-activity failures as sklearn ValueError messages
-# that bubble out of run_sorter. Two flavours seen in the wild:
-#
-#   1. TruncatedSVD: spike detection returned no events.
-#      "Found array with 0 sample(s) (shape=(0, N)) while a minimum of 1
-#       is required by TruncatedSVD."
-#
-#   2. KMeans: spike detection returned fewer events than the configured
-#      n_clusters.
-#      "n_samples=3 should be >= n_clusters=6."
-#
-# Both are biology (well is too young / too quiet to sort), not bugs.
-_KS4_SVD_EMPTY_RE = re.compile(
-    r"Found array with\s+(\d+)\s+sample\(s\).*?required by TruncatedSVD",
-    re.DOTALL,
-)
-_KS4_KMEANS_RE = re.compile(r"n_samples=(\d+)\s+should be\s+>=\s+n_clusters=(\d+)")
-
-
-def _classify_ks4_failure(
-    original_exception: BaseException, log_path: Optional[Path] = None
-) -> Optional[InsufficientActivityError]:
-    """Inspect a Kilosort4 exception for the low-activity signature.
-
-    Returns an :class:`InsufficientActivityError` carrying parsed metrics
-    when the message matches one of the known "not enough spikes" patterns,
-    otherwise ``None`` so the caller keeps the original exception.
-    """
-    # Walk the chained exceptions so we catch SpikeInterface wrappers too.
-    messages: list[str] = []
-    current: Optional[BaseException] = original_exception
-    seen: set[int] = set()
-    while current is not None and id(current) not in seen:
-        seen.add(id(current))
-        messages.append(str(current))
-        current = current.__cause__ or current.__context__
-
-    text = "\n".join(messages)
-
-    svd_match = _KS4_SVD_EMPTY_RE.search(text)
-    kmeans_match = _KS4_KMEANS_RE.search(text)
-
-    if svd_match is None and kmeans_match is None:
-        return None
-
-    if svd_match is not None:
-        n_samples = int(svd_match.group(1))
-        reason = (
-            f"Kilosort4 spike detection returned {n_samples} events — "
-            "TruncatedSVD requires at least 1. Well is effectively silent."
-        )
-    else:
-        assert kmeans_match is not None
-        n_samples = int(kmeans_match.group(1))
-        n_clusters = int(kmeans_match.group(2))
-        reason = (
-            f"Kilosort4 spike detection returned only {n_samples} events, "
-            f"below the KMeans n_clusters={n_clusters} minimum. Well has "
-            "too little activity to cluster."
-        )
-
-    message = (
-        f"{reason} Original exception: {original_exception!r}."
-        + (f" See {log_path} for full trace." if log_path is not None else "")
-    )
-    return InsufficientActivityError(
-        message,
-        sorter="kilosort4",
-        units_at_failure=n_samples,
-        log_path=log_path,
-    )
 
 
 def spike_sort(
@@ -112,7 +39,10 @@ def spike_sort(
 
     Returns:
         sorting: A ``KilosortSortingExtractor`` pointing at the output
-            folder, or the caught exception if sorting failed.
+            folder, or the caught exception if sorting failed with an
+            unclassified error. Classified failures
+            (:class:`SpikeSortingClassifiedError` and subclasses) raise
+            through for category-aware handling upstream.
     """
     import spikeinterface.sorters as ss
 
@@ -159,14 +89,12 @@ def spike_sort(
             **sorter_params,
             **docker_kwargs,
         )
+    except SpikeSortingClassifiedError:
+        # Already classified (e.g. nested call re-raised); let it propagate.
+        raise
     except Exception as e:
-        ks4_log_path = output_folder_path / "sorter_output" / "kilosort4.log"
-        classified = _classify_ks4_failure(
-            e, log_path=ks4_log_path if ks4_log_path.is_file() else None
-        )
+        classified = classify_ks4_failure(Path(output_folder), e)
         if classified is not None:
-            # Propagate biology signals so callers can distinguish insufficient
-            # activity from a real tooling failure without message parsing.
             raise classified from e
         print(f"Kilosort4 sorting failed: {e}")
         stopwatch.log_time("Sorting failed.")

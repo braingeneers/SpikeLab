@@ -3,7 +3,6 @@
 import datetime
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
@@ -25,120 +24,11 @@ from spikeinterface.extractors.extractor_classes import BinaryRecordingExtractor
 from spikeinterface.sorters import run_sorter
 
 from . import _globals
-from ._exceptions import InsufficientActivityError
+from ._classifier import classify_ks2_failure
+from ._exceptions import InsufficientActivityError, SpikeSortingClassifiedError
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, create_folder, print_stage
-
-
-_CUDA_INVALID_CONFIG = "invalid configuration argument"
-_THRESH_CROSS_RE = re.compile(r"found\s+(\d+)\s+threshold crossings")
-_TEMPLATE_OPT_RE = re.compile(
-    r"\b(\d+)\s*/\s*\d+\s*batches,\s*(\d+)\s*units,\s*nspks:\s*([0-9.]+)"
-)
-
-# Heuristic gates. A KS2 crash is classified as insufficient activity only when
-# the CUDA-kernel error coincides with at least one low-activity indicator:
-#   - < _MIN_THRESHOLD_CROSSINGS total threshold crossings in the run, OR
-#   - <= _MAX_UNITS_AT_FAILURE templates in play at the crash, OR
-#   - <= _MAX_NSPKS_AT_FAILURE spike rate in the template optimization step.
-# These are intentionally conservative: they won't misfire on a real CUDA or
-# driver bug on a normally-active recording.
-_MIN_THRESHOLD_CROSSINGS = 20_000
-_MAX_UNITS_AT_FAILURE = 5
-_MAX_NSPKS_AT_FAILURE = 5.0
-
-
-def _find_kilosort2_log(output_folder: Path) -> Optional[Path]:
-    """Locate the kilosort2.log for either Docker or MATLAB execution paths."""
-    candidates = [
-        output_folder / "kilosort2.log",
-        output_folder / "sorter_output" / "kilosort2.log",
-    ]
-    for path in candidates:
-        if path.is_file():
-            return path
-    return None
-
-
-def _classify_ks2_failure(
-    output_folder: Path, original_exception: BaseException
-) -> Optional[InsufficientActivityError]:
-    """Inspect kilosort2.log to decide whether a crash is low-activity biology.
-
-    Returns an :class:`InsufficientActivityError` carrying the relevant
-    log-extracted metrics when the crash matches the "CUDA kernel error on
-    sparse data" signature, otherwise ``None`` so the caller re-raises the
-    original exception unchanged.
-    """
-    log_path = _find_kilosort2_log(Path(output_folder))
-    if log_path is None:
-        return None
-
-    try:
-        text = log_path.read_text(errors="replace")
-    except OSError:
-        return None
-
-    # Only reclassify crashes that show the CUDA kernel-launch error. Other
-    # failure modes (missing MATLAB, Docker pull error, OOM, etc.) must keep
-    # their original exception so we don't mask real tooling bugs.
-    if _CUDA_INVALID_CONFIG not in text:
-        return None
-
-    thresh_match = _THRESH_CROSS_RE.search(text)
-    threshold_crossings = int(thresh_match.group(1)) if thresh_match else None
-
-    # The template-optimization line repeats per iteration — take the last
-    # occurrence before the crash, which is the state at failure.
-    opt_matches = list(_TEMPLATE_OPT_RE.finditer(text))
-    if opt_matches:
-        last = opt_matches[-1]
-        units_at_failure = int(last.group(2))
-        nspks_at_failure = float(last.group(3))
-    else:
-        units_at_failure = None
-        nspks_at_failure = None
-
-    low_crossings = (
-        threshold_crossings is not None
-        and threshold_crossings < _MIN_THRESHOLD_CROSSINGS
-    )
-    few_units = (
-        units_at_failure is not None and units_at_failure <= _MAX_UNITS_AT_FAILURE
-    )
-    low_nspks = (
-        nspks_at_failure is not None and nspks_at_failure <= _MAX_NSPKS_AT_FAILURE
-    )
-
-    if not (low_crossings or few_units or low_nspks):
-        return None
-
-    parts = []
-    if threshold_crossings is not None:
-        parts.append(f"{threshold_crossings} threshold crossings")
-    if units_at_failure is not None:
-        parts.append(f"{units_at_failure} templates at crash")
-    if nspks_at_failure is not None:
-        parts.append(f"nspks={nspks_at_failure:g}")
-    evidence = "; ".join(parts) if parts else "no activity metrics parsed"
-
-    message = (
-        "Kilosort2 crashed on near-silent recording — insufficient spiking "
-        "activity for sorting. Evidence from log: "
-        f"{evidence}. CUDA kernel error ('invalid configuration argument') "
-        "is a known symptom of degenerate kernel launches on low-unit "
-        f"templates. Original exception: {original_exception!r}. "
-        f"See {log_path} for full trace."
-    )
-    return InsufficientActivityError(
-        message,
-        sorter="kilosort2",
-        threshold_crossings=threshold_crossings,
-        units_at_failure=units_at_failure,
-        nspks_at_failure=nspks_at_failure,
-        log_path=log_path,
-    )
 
 
 class RunKilosort:
@@ -509,7 +399,7 @@ end"""
                 print(f"kilosort2 run time: {run_time:0.2f}s")
 
         if has_error and raise_error:
-            classified = _classify_ks2_failure(
+            classified = classify_ks2_failure(
                 output_folder, caught_exception or RuntimeError("unknown")
             )
             if classified is not None:
@@ -979,7 +869,7 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
                 **si_params,
             )
         except Exception as err:
-            classified = _classify_ks2_failure(Path(output_folder), err)
+            classified = classify_ks2_failure(Path(output_folder), err)
             if classified is not None:
                 raise classified from err
             raise
@@ -1057,10 +947,10 @@ def spike_sort(
                 output_folder=output_folder,
             )
 
-    except InsufficientActivityError:
-        # Let low-activity crashes propagate so callers can distinguish
-        # biology from genuine tooling failures without inspecting the
-        # returned sentinel.
+    except SpikeSortingClassifiedError:
+        # Classified failures (biology / environment / resource) propagate
+        # so callers can implement per-category retry / skip / stop policies
+        # without inspecting a returned sentinel.
         raise
     except Exception as e:
         print(f"Kilosort2 failed on recording {rec_path}\n{e}")
