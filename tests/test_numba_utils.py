@@ -18,6 +18,8 @@ from spikelab.spikedata.numba_utils import (
     _nb_latencies_pair,
     nb_latencies_all_pairs,
     nb_spike_trig_pop_rate,
+    _nb_count_matching_spikes,
+    nb_agreement_all_pairs,
 )
 from spikelab.spikedata.utils import get_sttc, _sttc_ta, _sttc_na
 from spikelab.spikedata import SpikeData
@@ -581,3 +583,169 @@ class TestNumbaIntegrationStpr:
         assert len(c0) == 4
         assert len(cmax) == 4
         assert len(delays) == 4
+
+
+# ===================================================================
+# Sorter comparison kernels
+# ===================================================================
+
+
+class TestNbCountMatchingSpikes:
+    """Tests for _nb_count_matching_spikes (single-pair Numba kernel)."""
+
+    def test_identical_trains(self):
+        """
+        Identical trains produce n_matches == len(train).
+        """
+        from spikelab.spikedata.numba_utils import _nb_count_matching_spikes
+
+        t = np.array([10.0, 20.0, 30.0])
+        assert _nb_count_matching_spikes(t, t, 0.5) == 3
+
+    def test_no_matches(self):
+        """
+        Trains far apart produce zero matches.
+        """
+        from spikelab.spikedata.numba_utils import _nb_count_matching_spikes
+
+        t1 = np.array([10.0, 20.0])
+        t2 = np.array([100.0, 200.0])
+        assert _nb_count_matching_spikes(t1, t2, 0.5) == 0
+
+    def test_empty_train(self):
+        """
+        Empty train produces zero matches.
+        """
+        from spikelab.spikedata.numba_utils import _nb_count_matching_spikes
+
+        t1 = np.array([10.0, 20.0])
+        t2 = np.empty(0)
+        assert _nb_count_matching_spikes(t1, t2, 0.5) == 0
+
+    def test_matches_pure_python(self):
+        """
+        Numba kernel matches pure-Python reference for a non-trivial case.
+        """
+        from spikelab.spikedata.numba_utils import _nb_count_matching_spikes
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        rng = np.random.default_rng(42)
+        t1 = np.sort(rng.uniform(0, 100, 50))
+        t2 = np.sort(rng.uniform(0, 100, 60))
+        delta = 0.5
+
+        nb_result = _nb_count_matching_spikes(t1, t2, delta)
+        py_result = _count_matching_spikes(t1, t2, delta)
+        assert nb_result == py_result
+
+
+class TestNbAgreementAllPairs:
+    """Tests for nb_agreement_all_pairs (parallel agreement matrix kernel)."""
+
+    def test_agreement_matches_pure_python(self):
+        """
+        Numba kernel produces the same agreement matrix as the pure-Python path.
+        """
+        from spikelab.spikedata.numba_utils import (
+            flatten_spike_trains,
+            nb_agreement_all_pairs,
+        )
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        rng = np.random.default_rng(123)
+        trains1 = [np.sort(rng.uniform(0, 100, n)) for n in [30, 50, 20]]
+        trains2 = [np.sort(rng.uniform(0, 100, n)) for n in [40, 25]]
+        delta = 0.4
+
+        flat1, offsets1 = flatten_spike_trains(trains1)
+        flat2, offsets2 = flatten_spike_trains(trains2)
+
+        nb_agr, nb_f1, nb_f2 = nb_agreement_all_pairs(
+            flat1, offsets1, 3, flat2, offsets2, 2, delta
+        )
+
+        # Pure Python reference
+        py_agr = np.zeros((3, 2))
+        py_f1 = np.zeros((3, 2))
+        py_f2 = np.zeros((3, 2))
+        for i in range(3):
+            for j in range(2):
+                a, f1, f2 = _compute_agreement_score(trains1[i], trains2[j], delta)
+                py_agr[i, j] = a
+                py_f1[i, j] = f1
+                py_f2[i, j] = f2
+
+        np.testing.assert_allclose(nb_agr, py_agr, atol=1e-12)
+        np.testing.assert_allclose(nb_f1, py_f1, atol=1e-12)
+        np.testing.assert_allclose(nb_f2, py_f2, atol=1e-12)
+
+    def test_perfect_agreement(self):
+        """
+        Identical sorter outputs produce agreement == 1.0 on diagonal.
+        """
+        from spikelab.spikedata.numba_utils import (
+            flatten_spike_trains,
+            nb_agreement_all_pairs,
+        )
+
+        trains = [[10.0, 20.0, 30.0], [5.0, 15.0, 25.0, 35.0]]
+        flat, offsets = flatten_spike_trains(trains)
+
+        agr, f1, f2 = nb_agreement_all_pairs(flat, offsets, 2, flat, offsets, 2, 0.5)
+
+        np.testing.assert_allclose(np.diag(agr), [1.0, 1.0], atol=1e-12)
+        np.testing.assert_allclose(np.diag(f1), [1.0, 1.0], atol=1e-12)
+        np.testing.assert_allclose(np.diag(f2), [1.0, 1.0], atol=1e-12)
+
+    def test_empty_trains(self):
+        """
+        Empty trains produce zero agreement everywhere.
+        """
+        from spikelab.spikedata.numba_utils import (
+            flatten_spike_trains,
+            nb_agreement_all_pairs,
+        )
+
+        trains1 = [[], [10.0, 20.0]]
+        trains2 = [[], []]
+        flat1, offsets1 = flatten_spike_trains(trains1)
+        flat2, offsets2 = flatten_spike_trains(trains2)
+
+        agr, f1, f2 = nb_agreement_all_pairs(
+            flat1, offsets1, 2, flat2, offsets2, 2, 0.5
+        )
+
+        assert agr.shape == (2, 2)
+        # All comparisons involving empty trains should be 0
+        assert agr[0, 0] == 0.0  # empty vs empty
+        assert agr[0, 1] == 0.0  # empty vs empty
+        assert agr[1, 0] == 0.0  # non-empty vs empty
+        assert agr[1, 1] == 0.0  # non-empty vs empty
+
+
+class TestNumbaIntegrationAgreement:
+    """Integration test: compare_sorter routes through numba when available."""
+
+    def test_compare_sorter_uses_numba_path(self):
+        """
+        compare_sorter with numba produces same results as pure-Python reference.
+        """
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        rng = np.random.default_rng(99)
+        trains1 = [np.sort(rng.uniform(0, 200, n)) for n in [40, 60, 30]]
+        trains2 = [np.sort(rng.uniform(0, 200, n)) for n in [50, 35]]
+
+        sd1 = SpikeData(trains1, length=200.0)
+        sd2 = SpikeData(trains2, length=200.0)
+
+        # This goes through numba (NUMBA_AVAILABLE is True)
+        out = sd1.compare_sorter(sd2, delta_ms=0.4)
+
+        # Pure Python reference
+        for i in range(3):
+            for j in range(2):
+                a, f1, f2 = _compute_agreement_score(trains1[i], trains2[j], 0.4)
+                assert out["agreement"][i, j] == pytest.approx(a, abs=1e-12)
+                assert out["frac_1"][i, j] == pytest.approx(f1, abs=1e-12)
+                assert out["frac_2"][i, j] == pytest.approx(f2, abs=1e-12)

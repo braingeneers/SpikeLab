@@ -257,6 +257,27 @@ width of each burst from the ``edges`` array:
    correspond to sustained periods of elevated network activity.
 
 
+Per-Unit Burst Participation
+----------------------------
+
+To quantify how much each unit contributes to network bursts, use
+:meth:`~spikelab.SpikeData.get_frac_spikes_in_burst`. This computes the
+fraction of each unit's total spikes that fall inside the detected burst
+windows:
+
+.. code-block:: python
+
+   frac = sd.get_frac_spikes_in_burst(edges, bin_size=1.0)
+   # frac.shape == (N,) — one value per unit; NaN for units with zero spikes
+
+The ``edges`` parameter is the ``(B, 2)`` array of burst boundaries returned
+by :meth:`~spikelab.SpikeData.get_bursts`. The ``bin_size`` must match the
+``raster_bin_size_ms`` used when detecting bursts.
+
+Units with a high fraction fire predominantly during bursts, while a low
+fraction indicates tonic or inter-burst activity.
+
+
 Further Reading
 ---------------
 

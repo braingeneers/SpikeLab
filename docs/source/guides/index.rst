@@ -13,6 +13,8 @@ In-depth guides covering the main workflows in SpikeLab.
    firing_rates
    event_aligned_analysis
    pairwise_analysis
+   shuffled_data
+   gplvm
    exporting_data
    workspace
    mcp_server

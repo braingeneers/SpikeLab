@@ -37,10 +37,18 @@ try:
 except Exception:
     _has_pandas = False
 
+try:
+    import torch  # noqa: F401
+
+    _has_torch = True
+except Exception:
+    _has_torch = False
+
 skip_no_spikeinterface = pytest.mark.skipif(
     not _has_spikeinterface, reason="spikeinterface not installed"
 )
 skip_no_pandas = pytest.mark.skipif(not _has_pandas, reason="pandas not installed")
+skip_no_torch = pytest.mark.skipif(not _has_torch, reason="torch not installed")
 
 
 # ---------------------------------------------------------------------------
@@ -3616,3 +3624,1357 @@ class TestCenterSpikeTimes:
         )
 
         np.testing.assert_array_equal(spike_times_by_unit[0], original)
+
+
+# ===========================================================================
+# RT-Sort backend integration
+# ===========================================================================
+#
+# These tests cover the SpikeLab RT-Sort wrapper code (config, registry,
+# backend dependency check + globals sync, runner caching helpers, lazy
+# subpackage public API).  They do not exercise the vendored RT-Sort
+# algorithm itself (detect_sequences / RTSort.sort_offline / the DL
+# detection model), which require torch + a GPU + a real recording and
+# are validated separately on a GPU machine via the HANDOVER guide.
+
+
+class TestRTSortConfig:
+    """
+    Tests for the RTSortConfig sub-config and the RT_SORT_* presets.
+    """
+
+    def test_default_construction(self):
+        """
+        RTSortConfig has the documented default values.
+
+        Tests:
+            (Test Case 1) probe defaults to "mea".
+            (Test Case 2) device defaults to "cuda".
+            (Test Case 3) save_rt_sort_pickle defaults to True.
+            (Test Case 4) verbose defaults to True.
+            (Test Case 5) model_path / num_processes / recording_window_ms / params default to None.
+            (Test Case 6) delete_inter defaults to False.
+        """
+        from spikelab.spike_sorting.config import RTSortConfig
+
+        cfg = RTSortConfig()
+        assert cfg.probe == "mea"
+        assert cfg.device == "cuda"
+        assert cfg.save_rt_sort_pickle is True
+        assert cfg.verbose is True
+        assert cfg.model_path is None
+        assert cfg.num_processes is None
+        assert cfg.recording_window_ms is None
+        assert cfg.params is None
+        assert cfg.delete_inter is False
+
+    def test_pipeline_config_includes_rt_sort_field(self):
+        """
+        SortingPipelineConfig has an rt_sort sub-config field.
+
+        Tests:
+            (Test Case 1) Default pipeline config has an RTSortConfig instance attached.
+        """
+        from spikelab.spike_sorting.config import RTSortConfig, SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        assert isinstance(cfg.rt_sort, RTSortConfig)
+
+    def test_from_kwargs_maps_rt_sort_flat_keys(self):
+        """
+        from_kwargs maps the rt_sort_* prefixed flat keys to the RTSortConfig sub-config.
+
+        Tests:
+            (Test Case 1) rt_sort_probe maps to rt_sort.probe.
+            (Test Case 2) rt_sort_device maps to rt_sort.device.
+            (Test Case 3) rt_sort_num_processes maps to rt_sort.num_processes.
+            (Test Case 4) rt_sort_recording_window_ms maps to rt_sort.recording_window_ms.
+            (Test Case 5) rt_sort_save_pickle maps to rt_sort.save_rt_sort_pickle.
+            (Test Case 6) rt_sort_delete_inter maps to rt_sort.delete_inter.
+            (Test Case 7) rt_sort_verbose maps to rt_sort.verbose.
+            (Test Case 8) rt_sort_params maps to rt_sort.params.
+            (Test Case 9) rt_sort_model_path maps to rt_sort.model_path.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs(
+            rt_sort_probe="neuropixels",
+            rt_sort_device="cpu",
+            rt_sort_num_processes=4,
+            rt_sort_recording_window_ms=(0, 60_000),
+            rt_sort_save_pickle=False,
+            rt_sort_delete_inter=True,
+            rt_sort_verbose=False,
+            rt_sort_params={"stringent_thresh": 0.2},
+            rt_sort_model_path="/tmp/model",
+        )
+        assert cfg.rt_sort.probe == "neuropixels"
+        assert cfg.rt_sort.device == "cpu"
+        assert cfg.rt_sort.num_processes == 4
+        assert cfg.rt_sort.recording_window_ms == (0, 60_000)
+        assert cfg.rt_sort.save_rt_sort_pickle is False
+        assert cfg.rt_sort.delete_inter is True
+        assert cfg.rt_sort.verbose is False
+        assert cfg.rt_sort.params == {"stringent_thresh": 0.2}
+        assert cfg.rt_sort.model_path == "/tmp/model"
+
+    def test_override_changes_rt_sort_fields(self):
+        """
+        override accepts rt_sort_* flat keys and returns a new config.
+
+        Tests:
+            (Test Case 1) Override changes the specified RT-Sort field.
+            (Test Case 2) Original config is not mutated.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        original = SortingPipelineConfig()
+        modified = original.override(rt_sort_probe="neuropixels", rt_sort_device="cpu")
+        assert modified.rt_sort.probe == "neuropixels"
+        assert modified.rt_sort.device == "cpu"
+        assert original.rt_sort.probe == "mea"
+        assert original.rt_sort.device == "cuda"
+
+    def test_rt_sort_mea_preset(self):
+        """
+        RT_SORT_MEA preset selects the rt_sort backend with the MEA probe.
+
+        Tests:
+            (Test Case 1) sorter_name is "rt_sort".
+            (Test Case 2) probe is "mea".
+            (Test Case 3) params dict is None (no Neuropixels overrides).
+        """
+        from spikelab.spike_sorting.config import RT_SORT_MEA
+
+        assert RT_SORT_MEA.sorter.sorter_name == "rt_sort"
+        assert RT_SORT_MEA.rt_sort.probe == "mea"
+        assert RT_SORT_MEA.rt_sort.params is None
+
+    def test_rt_sort_neuropixels_preset(self):
+        """
+        RT_SORT_NEUROPIXELS preset hard-codes the paper-tuned Neuropixels parameters.
+
+        Tests:
+            (Test Case 1) sorter_name is "rt_sort".
+            (Test Case 2) probe is "neuropixels".
+            (Test Case 3) params dict carries the paper-tuned threshold values.
+        """
+        from spikelab.spike_sorting.config import RT_SORT_NEUROPIXELS
+
+        assert RT_SORT_NEUROPIXELS.sorter.sorter_name == "rt_sort"
+        assert RT_SORT_NEUROPIXELS.rt_sort.probe == "neuropixels"
+        params = RT_SORT_NEUROPIXELS.rt_sort.params
+        assert params is not None
+        assert params["stringent_thresh"] == 0.175
+        assert params["loose_thresh"] == 0.075
+        assert params["inference_scaling_numerator"] == 15.4
+        assert params["max_latency_diff_spikes"] == 2.5
+        assert params["max_amp_median_diff_spikes"] == 0.45
+
+
+class TestRTSortBackendRegistry:
+    """
+    Tests that the RTSortBackend is registered in the backend registry.
+    """
+
+    def test_rt_sort_in_list_sorters(self):
+        """
+        list_sorters includes "rt_sort" alongside the Kilosort backends.
+
+        Tests:
+            (Test Case 1) "rt_sort" is in the registered sorter list.
+        """
+        from spikelab.spike_sorting.backends import list_sorters
+
+        assert "rt_sort" in list_sorters()
+
+    def test_get_backend_class_returns_rtsort_backend(self):
+        """
+        get_backend_class("rt_sort") returns the RTSortBackend class.
+
+        Tests:
+            (Test Case 1) Returned class name is RTSortBackend.
+            (Test Case 2) Returned class is a SorterBackend subclass.
+        """
+        from spikelab.spike_sorting.backends import get_backend_class
+        from spikelab.spike_sorting.backends.base import SorterBackend
+
+        cls = get_backend_class("rt_sort")
+        assert cls.__name__ == "RTSortBackend"
+        assert issubclass(cls, SorterBackend)
+
+
+@skip_no_spikeinterface
+class TestRTSortBackendDependencyCheck:
+    """
+    Tests for RTSortBackend._check_dependencies() — the upfront missing-dep
+    error raised at backend construction time.
+    """
+
+    def test_missing_torch_raises_import_error(self, monkeypatch):
+        """
+        _check_dependencies raises ImportError when torch is unavailable.
+
+        Tests:
+            (Test Case 1) Import error message names torch.
+            (Test Case 2) Import error message points to pytorch.org.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import RTSortBackend
+        from spikelab.spike_sorting.config import RT_SORT_MEA
+
+        real_import = __import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError(f"No module named {name!r}")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", fake_import)
+
+        with pytest.raises(ImportError) as exc_info:
+            RTSortBackend(RT_SORT_MEA)
+        assert "torch" in str(exc_info.value)
+        assert "pytorch.org" in str(exc_info.value)
+
+    def test_multiple_missing_packages_listed(self, monkeypatch):
+        """
+        _check_dependencies lists every missing package, not just the first one.
+
+        Tests:
+            (Test Case 1) Both torch and diptest appear in the error message
+                          when both are unavailable.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import RTSortBackend
+        from spikelab.spike_sorting.config import RT_SORT_MEA
+
+        real_import = __import__
+
+        def fake_import(name, *args, **kwargs):
+            if name in ("torch", "diptest"):
+                raise ImportError(f"No module named {name!r}")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", fake_import)
+
+        with pytest.raises(ImportError) as exc_info:
+            RTSortBackend(RT_SORT_MEA)
+        msg = str(exc_info.value)
+        assert "torch" in msg
+        assert "diptest" in msg
+
+
+@skip_no_spikeinterface
+class TestRTSortBackendSyncGlobals:
+    """
+    Tests for RTSortBackend._sync_globals() — the config → _globals bridge.
+    """
+
+    @pytest.fixture
+    def make_backend(self, monkeypatch):
+        """Skip the dep check so we can construct the backend without torch."""
+        from spikelab.spike_sorting.backends.rt_sort import RTSortBackend
+
+        monkeypatch.setattr(RTSortBackend, "_check_dependencies", lambda self: None)
+        return RTSortBackend
+
+    def test_sync_writes_rt_sort_globals(self, make_backend):
+        """
+        _sync_globals mirrors the RT-Sort sub-config fields to module globals.
+
+        Tests:
+            (Test Case 1) RT_SORT_DEVICE is taken from config.rt_sort.device.
+            (Test Case 2) RT_SORT_NUM_PROCESSES mirrors config.rt_sort.num_processes.
+            (Test Case 3) RT_SORT_RECORDING_WINDOW_MS mirrors the window.
+            (Test Case 4) RT_SORT_SAVE_PICKLE mirrors save_rt_sort_pickle.
+            (Test Case 5) RT_SORT_DELETE_INTER mirrors delete_inter.
+            (Test Case 6) RT_SORT_VERBOSE mirrors verbose.
+            (Test Case 7) RT_SORT_MODEL_PATH mirrors model_path.
+        """
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.config import (
+            RTSortConfig,
+            SortingPipelineConfig,
+            SorterConfig,
+        )
+
+        cfg = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="rt_sort"),
+            rt_sort=RTSortConfig(
+                probe="mea",
+                device="cpu",
+                num_processes=2,
+                recording_window_ms=(0, 30_000),
+                save_rt_sort_pickle=False,
+                delete_inter=True,
+                verbose=False,
+                model_path="/tmp/m",
+            ),
+        )
+
+        make_backend(cfg)
+
+        assert _globals.RT_SORT_DEVICE == "cpu"
+        assert _globals.RT_SORT_NUM_PROCESSES == 2
+        assert _globals.RT_SORT_RECORDING_WINDOW_MS == (0, 30_000)
+        assert _globals.RT_SORT_SAVE_PICKLE is False
+        assert _globals.RT_SORT_DELETE_INTER is True
+        assert _globals.RT_SORT_VERBOSE is False
+        assert _globals.RT_SORT_MODEL_PATH == "/tmp/m"
+
+    def test_sync_merges_probe_into_params(self, make_backend):
+        """
+        _sync_globals merges the probe into RT_SORT_PARAMS so the runner can
+        read both from a single dict.
+
+        Tests:
+            (Test Case 1) RT_SORT_PARAMS["probe"] reflects the configured probe.
+            (Test Case 2) Override params from RTSortConfig.params are merged in.
+        """
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.config import (
+            RTSortConfig,
+            SortingPipelineConfig,
+            SorterConfig,
+        )
+
+        cfg = SortingPipelineConfig(
+            sorter=SorterConfig(sorter_name="rt_sort"),
+            rt_sort=RTSortConfig(
+                probe="neuropixels",
+                params={"stringent_thresh": 0.175, "loose_thresh": 0.075},
+            ),
+        )
+
+        make_backend(cfg)
+
+        assert _globals.RT_SORT_PARAMS["probe"] == "neuropixels"
+        assert _globals.RT_SORT_PARAMS["stringent_thresh"] == 0.175
+        assert _globals.RT_SORT_PARAMS["loose_thresh"] == 0.075
+
+    def test_sync_writes_recording_globals_including_time_slicing(self, make_backend):
+        """
+        _sync_globals also writes the standard recording globals.
+
+        Tests:
+            (Test Case 1) FREQ_MIN / FREQ_MAX mirror RecordingConfig.
+            (Test Case 2) REC_CHUNKS_S, START_TIME_S, END_TIME_S are mirrored.
+        """
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting.config import (
+            RecordingConfig,
+            RTSortConfig,
+            SortingPipelineConfig,
+            SorterConfig,
+        )
+
+        cfg = SortingPipelineConfig(
+            recording=RecordingConfig(
+                freq_min=250,
+                freq_max=5000,
+                rec_chunks_s=[(0.0, 60.0), (120.0, 180.0)],
+                start_time_s=0.0,
+                end_time_s=200.0,
+            ),
+            sorter=SorterConfig(sorter_name="rt_sort"),
+            rt_sort=RTSortConfig(),
+        )
+
+        make_backend(cfg)
+
+        assert _globals.FREQ_MIN == 250
+        assert _globals.FREQ_MAX == 5000
+        assert _globals.REC_CHUNKS_S == [(0.0, 60.0), (120.0, 180.0)]
+        assert _globals.START_TIME_S == 0.0
+        assert _globals.END_TIME_S == 200.0
+
+
+@skip_no_spikeinterface
+class TestNumpySortingToKsExtractor:
+    """
+    Tests for backends.rt_sort._numpy_sorting_to_ks_extractor — the adapter
+    that writes Kilosort-format files from a NumpySorting so the shared
+    waveform extractor can consume RT-Sort output.
+    """
+
+    @pytest.fixture
+    def fake_recording(self):
+        """Minimal SpikeInterface-like recording with the methods used by the adapter."""
+        rec = MagicMock()
+        rec.get_sampling_frequency.return_value = 30_000.0
+        rec.get_num_channels.return_value = 8
+        return rec
+
+    def _make_numpy_sorting(self, spikes_by_unit, fs=30_000.0):
+        from spikeinterface.extractors import NumpySorting
+
+        return NumpySorting.from_unit_dict([spikes_by_unit], sampling_frequency=fs)
+
+    def test_writes_kilosort_format_files(self, fake_recording, tmp_path):
+        """
+        Adapter writes the expected Kilosort-format files into the output folder.
+
+        Tests:
+            (Test Case 1) spike_times.npy is created.
+            (Test Case 2) spike_clusters.npy is created.
+            (Test Case 3) templates.npy is created.
+            (Test Case 4) channel_map.npy is created.
+            (Test Case 5) params.py is created.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import (
+            _numpy_sorting_to_ks_extractor,
+        )
+
+        sorting = self._make_numpy_sorting(
+            {0: np.array([10, 20, 30]), 1: np.array([15, 25])}
+        )
+        out = tmp_path / "ks_out"
+
+        _numpy_sorting_to_ks_extractor(sorting, fake_recording, out)
+
+        assert (out / "spike_times.npy").exists()
+        assert (out / "spike_clusters.npy").exists()
+        assert (out / "templates.npy").exists()
+        assert (out / "channel_map.npy").exists()
+        assert (out / "params.py").exists()
+
+    def test_spike_times_are_globally_sorted(self, fake_recording, tmp_path):
+        """
+        spike_times.npy is sorted in ascending order across all units.
+
+        Tests:
+            (Test Case 1) Output spike times are monotonic non-decreasing.
+            (Test Case 2) Output cluster IDs follow the time ordering.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import (
+            _numpy_sorting_to_ks_extractor,
+        )
+
+        sorting = self._make_numpy_sorting(
+            {0: np.array([100, 300]), 1: np.array([50, 200, 400])}
+        )
+        out = tmp_path / "ks_out"
+
+        _numpy_sorting_to_ks_extractor(sorting, fake_recording, out)
+
+        times = np.load(out / "spike_times.npy")
+        clusters = np.load(out / "spike_clusters.npy")
+        assert np.all(np.diff(times) >= 0)
+        # Check the cluster ordering follows the time sort
+        expected_times = np.array([50, 100, 200, 300, 400])
+        expected_clusters = np.array([1, 0, 1, 0, 1])
+        np.testing.assert_array_equal(times, expected_times)
+        np.testing.assert_array_equal(clusters, expected_clusters)
+
+    def test_root_elecs_set_template_peak_channel(self, fake_recording, tmp_path):
+        """
+        When root_elecs is provided, the synthesized templates have their peak
+        on the corresponding channel for each unit.
+
+        Tests:
+            (Test Case 1) Unit 0 with root_elec=3 has its peak on channel 3.
+            (Test Case 2) Unit 1 with root_elec=5 has its peak on channel 5.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import (
+            _numpy_sorting_to_ks_extractor,
+        )
+
+        sorting = self._make_numpy_sorting(
+            {0: np.array([10, 20]), 1: np.array([15, 25])}
+        )
+        out = tmp_path / "ks_out"
+
+        _numpy_sorting_to_ks_extractor(sorting, fake_recording, out, root_elecs=[3, 5])
+
+        templates = np.load(out / "templates.npy")
+        # templates shape: (n_units, n_samples, n_channels)
+        assert templates.shape[0] == 2
+        assert templates.shape[2] == 8
+        # Find the channel where each unit has its largest absolute value
+        unit_0_peak_channel = int(np.argmax(np.max(np.abs(templates[0]), axis=0)))
+        unit_1_peak_channel = int(np.argmax(np.max(np.abs(templates[1]), axis=0)))
+        assert unit_0_peak_channel == 3
+        assert unit_1_peak_channel == 5
+
+    def test_empty_sorting(self, fake_recording, tmp_path):
+        """
+        Adapter handles a sorting with zero units without raising.
+
+        Tests:
+            (Test Case 1) Empty input still produces all expected files.
+            (Test Case 2) spike_times.npy is empty.
+        """
+        from spikelab.spike_sorting.backends.rt_sort import (
+            _numpy_sorting_to_ks_extractor,
+        )
+
+        sorting = self._make_numpy_sorting({})
+        out = tmp_path / "ks_out"
+
+        _numpy_sorting_to_ks_extractor(sorting, fake_recording, out)
+
+        assert (out / "spike_times.npy").exists()
+        times = np.load(out / "spike_times.npy")
+        assert len(times) == 0
+
+
+@skip_no_spikeinterface
+class TestRTSortRunnerHelpers:
+    """
+    Tests for the helper functions in rt_sort_runner — model loading,
+    cache round-trip, and the load_rt_sort error paths.
+    """
+
+    @skip_no_torch
+    def test_load_detection_model_unknown_probe_raises(self):
+        """
+        _load_detection_model rejects an unknown probe name.
+
+        Tests:
+            (Test Case 1) Passing an unknown probe raises ValueError naming the probe.
+
+        Notes:
+            - The runner imports ModelSpikeSorter from rt_sort.model, which
+              requires torch at module-import time, so this test is skipped
+              in environments without torch.
+        """
+        from spikelab.spike_sorting.rt_sort_runner import _load_detection_model
+
+        with pytest.raises(ValueError, match="Unknown probe"):
+            _load_detection_model(model_path=None, probe="bogus_probe")
+
+    def test_save_and_load_sorting_cache_round_trip(self, tmp_path):
+        """
+        _save_sorting_cache + _load_cached_sorting round-trip a NumpySorting
+        without losing per-unit spike trains or sampling frequency.
+
+        Tests:
+            (Test Case 1) Sampling frequency is preserved.
+            (Test Case 2) Per-unit spike trains are preserved exactly.
+            (Test Case 3) Unit IDs are preserved.
+        """
+        from spikeinterface.extractors import NumpySorting
+        from spikelab.spike_sorting.rt_sort_runner import (
+            _save_sorting_cache,
+            _load_cached_sorting,
+        )
+
+        unit_ids = [0, 1, 7]
+        spikes = {
+            0: np.array([10, 20, 30, 100], dtype=np.int64),
+            1: np.array([5, 15], dtype=np.int64),
+            7: np.array([50], dtype=np.int64),
+        }
+        sorting = NumpySorting.from_unit_dict([spikes], sampling_frequency=30_000.0)
+
+        cache_path = tmp_path / "sorting.npz"
+        _save_sorting_cache(sorting, cache_path)
+        assert cache_path.exists()
+
+        loaded = _load_cached_sorting(cache_path, recording=None)
+        assert loaded.get_sampling_frequency() == 30_000.0
+        loaded_ids = sorted(loaded.get_unit_ids())
+        assert loaded_ids == sorted(unit_ids)
+        for uid in unit_ids:
+            np.testing.assert_array_equal(loaded.get_unit_spike_train(uid), spikes[uid])
+
+    @skip_no_torch
+    def test_load_rt_sort_missing_pickle_raises(self, tmp_path):
+        """
+        load_rt_sort raises a clear error when the pickle file does not exist.
+
+        Tests:
+            (Test Case 1) Nonexistent path raises FileNotFoundError or OSError.
+
+        Notes:
+            - load_rt_sort imports RTSort from rt_sort._algorithm, which
+              transitively imports rt_sort.model and therefore requires
+              torch at module-import time.
+        """
+        from spikelab.spike_sorting.rt_sort_runner import load_rt_sort
+
+        bogus = tmp_path / "does_not_exist.pickle"
+        with pytest.raises((FileNotFoundError, OSError)):
+            load_rt_sort(bogus)
+
+
+class TestRTSortSubpackagePublicAPI:
+    """
+    Tests for the rt_sort subpackage __init__.py — bundled model paths,
+    lazy attribute resolution, and load_detection_model error handling.
+    """
+
+    def test_bundled_mea_model_path_exists(self):
+        """
+        DEFAULT_MEA_MODEL_PATH points at a folder containing the bundled
+        MEA detection model files.
+
+        Tests:
+            (Test Case 1) Path exists and is a directory.
+            (Test Case 2) init_dict.json exists in the folder.
+            (Test Case 3) state_dict.pt exists in the folder.
+        """
+        from spikelab.spike_sorting.rt_sort import DEFAULT_MEA_MODEL_PATH
+
+        assert DEFAULT_MEA_MODEL_PATH.is_dir()
+        assert (DEFAULT_MEA_MODEL_PATH / "init_dict.json").exists()
+        assert (DEFAULT_MEA_MODEL_PATH / "state_dict.pt").exists()
+
+    def test_bundled_neuropixels_model_path_exists(self):
+        """
+        DEFAULT_NEUROPIXELS_MODEL_PATH points at a folder containing the
+        bundled Neuropixels detection model files.
+
+        Tests:
+            (Test Case 1) Path exists and is a directory.
+            (Test Case 2) init_dict.json exists in the folder.
+            (Test Case 3) state_dict.pt exists in the folder.
+        """
+        from spikelab.spike_sorting.rt_sort import DEFAULT_NEUROPIXELS_MODEL_PATH
+
+        assert DEFAULT_NEUROPIXELS_MODEL_PATH.is_dir()
+        assert (DEFAULT_NEUROPIXELS_MODEL_PATH / "init_dict.json").exists()
+        assert (DEFAULT_NEUROPIXELS_MODEL_PATH / "state_dict.pt").exists()
+
+    def test_unknown_attribute_raises_attribute_error(self):
+        """
+        rt_sort.__getattr__ raises AttributeError for unknown attributes
+        rather than silently returning None.
+
+        Tests:
+            (Test Case 1) Bogus attribute name raises AttributeError.
+        """
+        from spikelab.spike_sorting import rt_sort
+
+        with pytest.raises(AttributeError):
+            rt_sort.this_attribute_does_not_exist
+
+    def test_all_advertises_public_symbols(self):
+        """
+        __all__ on the rt_sort subpackage advertises the documented public API.
+
+        Tests:
+            (Test Case 1) detect_sequences, RTSort, load_detection_model, and the
+                          DEFAULT_*_MODEL_PATH constants are listed.
+        """
+        from spikelab.spike_sorting import rt_sort
+
+        for name in (
+            "detect_sequences",
+            "RTSort",
+            "load_detection_model",
+            "DEFAULT_MEA_MODEL_PATH",
+            "DEFAULT_NEUROPIXELS_MODEL_PATH",
+            "NEUROPIXELS_PARAMS",
+        ):
+            assert name in rt_sort.__all__
+
+
+class TestRTSortGlobals:
+    """
+    Tests that the RT_SORT_* globals exist with their documented default types.
+    """
+
+    def test_rt_sort_globals_present(self):
+        """
+        _globals declares the RT_SORT_* names referenced by the runner and backend.
+
+        Tests:
+            (Test Case 1) All documented RT_SORT_* attributes exist on the module.
+            (Test Case 2) Default booleans are bools and string defaults are strings.
+        """
+        from spikelab.spike_sorting import _globals
+
+        # Names exist
+        for name in (
+            "RT_SORT_MODEL_PATH",
+            "RT_SORT_DEVICE",
+            "RT_SORT_NUM_PROCESSES",
+            "RT_SORT_RECORDING_WINDOW_MS",
+            "RT_SORT_PARAMS",
+            "RT_SORT_SAVE_PICKLE",
+            "RT_SORT_DELETE_INTER",
+            "RT_SORT_VERBOSE",
+        ):
+            assert hasattr(_globals, name), f"_globals is missing {name}"
+
+        # Default types match the documented contract
+        assert isinstance(_globals.RT_SORT_DEVICE, str)
+        assert isinstance(_globals.RT_SORT_SAVE_PICKLE, bool)
+        assert isinstance(_globals.RT_SORT_DELETE_INTER, bool)
+        assert isinstance(_globals.RT_SORT_VERBOSE, bool)
+
+
+# ===========================================================================
+# Stim sorting — recentering
+# ===========================================================================
+
+
+class TestRecenterStimTimes:
+    """
+    Tests for recenter_stim_times (stim artifact peak detection).
+
+    Tests:
+        (Test Case 1) Basic recentering to a planted artifact peak.
+        (Test Case 2) Multiple stim events recentered independently.
+        (Test Case 3) Stim near recording start (window clipped).
+        (Test Case 4) Stim near recording end (window clipped).
+        (Test Case 5) No offset needed — logged time already at peak.
+        (Test Case 6) Single channel recording.
+        (Test Case 7) Empty stim_times array.
+        (Test Case 8) Large max_offset_ms covering full recording.
+    """
+
+    @staticmethod
+    def _make_traces(
+        n_channels, n_samples, fs_Hz, artifact_positions, artifact_amp=100.0
+    ):
+        """Create zero traces with large spikes at given sample positions."""
+        traces = np.random.default_rng(42).normal(0, 0.1, (n_channels, n_samples))
+        for pos in artifact_positions:
+            traces[:, pos] = artifact_amp
+        return traces
+
+    def test_basic_recentering(self):
+        """
+        A single stim event is recentered to the planted artifact peak.
+
+        Tests:
+            (Test Case 1) Corrected time matches the true artifact sample.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000  # 2 seconds
+        true_sample = 10000
+        traces = self._make_traces(4, n_samples, fs_Hz, [true_sample])
+
+        # Logged time is 5 ms off from true artifact
+        logged_ms = true_sample / fs_Hz * 1000.0 + 5.0
+        corrected = recenter_stim_times(traces, [logged_ms], fs_Hz, max_offset_ms=50.0)
+
+        expected_ms = true_sample / fs_Hz * 1000.0
+        assert len(corrected) == 1
+        assert abs(corrected[0] - expected_ms) < 1e-6
+
+    def test_multiple_stim_events(self):
+        """
+        Multiple stim events are each recentered independently.
+
+        Tests:
+            (Test Case 2) Each corrected time matches its planted peak.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 80000
+        true_samples = [10000, 30000, 50000]
+        traces = self._make_traces(2, n_samples, fs_Hz, true_samples)
+
+        # Offsets: -3 ms, +2 ms, -1 ms
+        logged_ms = [
+            true_samples[0] / fs_Hz * 1000.0 - 3.0,
+            true_samples[1] / fs_Hz * 1000.0 + 2.0,
+            true_samples[2] / fs_Hz * 1000.0 - 1.0,
+        ]
+        corrected = recenter_stim_times(traces, logged_ms, fs_Hz, max_offset_ms=50.0)
+
+        assert len(corrected) == 3
+        for i, ts in enumerate(true_samples):
+            expected_ms = ts / fs_Hz * 1000.0
+            assert abs(corrected[i] - expected_ms) < 1e-6
+
+    def test_stim_near_recording_start(self):
+        """
+        Stim event near recording start clips the search window.
+
+        Tests:
+            (Test Case 3) Artifact at sample 5 is found despite clipped window.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        true_sample = 5
+        traces = self._make_traces(2, n_samples, fs_Hz, [true_sample])
+
+        logged_ms = true_sample / fs_Hz * 1000.0 + 1.0
+        corrected = recenter_stim_times(traces, [logged_ms], fs_Hz, max_offset_ms=50.0)
+
+        expected_ms = true_sample / fs_Hz * 1000.0
+        assert abs(corrected[0] - expected_ms) < 1e-6
+
+    def test_stim_near_recording_end(self):
+        """
+        Stim event near recording end clips the search window.
+
+        Tests:
+            (Test Case 4) Artifact near the last sample is found.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        true_sample = n_samples - 5
+        traces = self._make_traces(2, n_samples, fs_Hz, [true_sample])
+
+        logged_ms = true_sample / fs_Hz * 1000.0 - 1.0
+        corrected = recenter_stim_times(traces, [logged_ms], fs_Hz, max_offset_ms=50.0)
+
+        expected_ms = true_sample / fs_Hz * 1000.0
+        assert abs(corrected[0] - expected_ms) < 1e-6
+
+    def test_no_offset_needed(self):
+        """
+        Logged time already at the peak — corrected time is unchanged.
+
+        Tests:
+            (Test Case 5) Corrected time equals the logged time.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        true_sample = 10000
+        traces = self._make_traces(2, n_samples, fs_Hz, [true_sample])
+
+        logged_ms = true_sample / fs_Hz * 1000.0
+        corrected = recenter_stim_times(traces, [logged_ms], fs_Hz, max_offset_ms=50.0)
+
+        assert abs(corrected[0] - logged_ms) < 1e-6
+
+    def test_single_channel(self):
+        """
+        Works with a single-channel recording.
+
+        Tests:
+            (Test Case 6) Recentering succeeds with shape (1, samples).
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        true_sample = 10000
+        traces = self._make_traces(1, n_samples, fs_Hz, [true_sample])
+
+        logged_ms = true_sample / fs_Hz * 1000.0 + 2.0
+        corrected = recenter_stim_times(traces, [logged_ms], fs_Hz, max_offset_ms=50.0)
+
+        expected_ms = true_sample / fs_Hz * 1000.0
+        assert abs(corrected[0] - expected_ms) < 1e-6
+
+    def test_empty_stim_times(self):
+        """
+        Empty stim_times array returns an empty array.
+
+        Tests:
+            (Test Case 7) Output is empty with length 0.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        traces = np.random.default_rng(42).normal(0, 1, (2, 40000))
+
+        corrected = recenter_stim_times(traces, [], fs_Hz)
+        assert len(corrected) == 0
+
+    def test_large_max_offset_covering_full_recording(self):
+        """
+        max_offset_ms larger than recording duration still finds the peak.
+
+        Tests:
+            (Test Case 8) Artifact found when search window spans entire trace.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+
+        fs_Hz = 20000.0
+        n_samples = 40000  # 2 seconds
+        true_sample = 10000
+        traces = self._make_traces(2, n_samples, fs_Hz, [true_sample])
+
+        logged_ms = true_sample / fs_Hz * 1000.0 + 500.0  # way off
+        corrected = recenter_stim_times(
+            traces, [logged_ms], fs_Hz, max_offset_ms=5000.0
+        )
+
+        expected_ms = true_sample / fs_Hz * 1000.0
+        assert abs(corrected[0] - expected_ms) < 1e-6
+
+
+# ===========================================================================
+# Stim sorting — artifact removal
+# ===========================================================================
+
+
+class TestRemoveStimArtifacts:
+    """
+    Tests for remove_stim_artifacts (polynomial detrend and blanking).
+
+    Tests:
+        (Test Case 1) Polynomial method removes a slow exponential artifact.
+        (Test Case 2) Polynomial method preserves a spike in the artifact tail.
+        (Test Case 3) Blank method zeros out the artifact window.
+        (Test Case 4) Saturated samples are blanked in both methods.
+        (Test Case 5) Sequential stims produce merged blanking region.
+        (Test Case 6) Empty stim_times returns traces unchanged.
+        (Test Case 7) Unknown method raises ValueError.
+        (Test Case 8) copy=True does not modify input; copy=False does.
+        (Test Case 9) Auto-detection of saturation threshold.
+        (Test Case 10) Single channel, single stim event.
+    """
+
+    @staticmethod
+    def _make_artifact_traces(
+        n_channels,
+        n_samples,
+        fs_Hz,
+        stim_sample,
+        saturation_samples=5,
+        saturation_amp=1000.0,
+        decay_samples=200,
+        decay_amp=50.0,
+    ):
+        """Create traces with a synthetic artifact: saturation + exponential decay."""
+        rng = np.random.default_rng(42)
+        traces = rng.normal(0, 0.5, (n_channels, n_samples))
+
+        for ch in range(n_channels):
+            # Saturation region
+            end_sat = min(stim_sample + saturation_samples, n_samples)
+            traces[ch, stim_sample:end_sat] = saturation_amp
+
+            # Exponential decay tail
+            t = np.arange(decay_samples, dtype=np.float64)
+            decay = decay_amp * np.exp(-t / 50.0)
+            start_decay = end_sat
+            end_decay = min(start_decay + decay_samples, n_samples)
+            actual_len = end_decay - start_decay
+            traces[ch, start_decay:end_decay] += decay[:actual_len]
+
+        return traces
+
+    def test_polynomial_removes_exponential_artifact(self):
+        """
+        Polynomial method removes a slow exponential decay artifact.
+
+        Tests:
+            (Test Case 1) Residual in the artifact tail is much smaller
+            than the original artifact amplitude.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+        decay_amp = 50.0
+
+        traces = self._make_artifact_traces(
+            2, n_samples, fs_Hz, stim_sample, decay_amp=decay_amp
+        )
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="polynomial",
+            artifact_window_ms=15.0,
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        # The artifact tail region (after saturation)
+        tail_start = stim_sample + 5
+        tail_end = stim_sample + 205
+        residual_max = np.max(np.abs(cleaned[:, tail_start:tail_end]))
+
+        # Residual should be much smaller than original decay amplitude
+        assert (
+            residual_max < decay_amp * 0.5
+        ), f"Residual {residual_max:.1f} not much smaller than artifact {decay_amp}"
+
+    def test_polynomial_preserves_spike_in_tail(self):
+        """
+        A spike planted in the artifact tail survives polynomial subtraction.
+
+        Tests:
+            (Test Case 2) Spike amplitude in cleaned trace is at least 50%
+            of the planted amplitude.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+        spike_amp = 20.0
+
+        traces = self._make_artifact_traces(
+            2, n_samples, fs_Hz, stim_sample, decay_amp=30.0
+        )
+
+        # Plant a fast spike (1 sample wide) in the tail on channel 0
+        spike_sample = stim_sample + 80  # well after saturation
+        traces[0, spike_sample] += spike_amp
+
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        cleaned, _ = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="polynomial",
+            artifact_window_ms=15.0,
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        # The spike should survive — polynomial is too smooth to capture it
+        # Check a small window around the spike
+        window = cleaned[0, spike_sample - 2 : spike_sample + 3]
+        peak_val = np.max(np.abs(window))
+        assert (
+            peak_val > spike_amp * 0.5
+        ), f"Spike peak {peak_val:.1f} is less than 50% of planted {spike_amp}"
+
+    def test_blank_method_zeros_window(self):
+        """
+        Blank method zeros out the artifact window.
+
+        Tests:
+            (Test Case 3) All samples in the blanked region are zero.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+
+        traces = self._make_artifact_traces(2, n_samples, fs_Hz, stim_sample)
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="blank",
+            artifact_window_ms=10.0,
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        # All blanked samples should be zero
+        assert np.all(cleaned[blanked] == 0.0)
+        # There should be some blanked samples
+        assert np.any(blanked)
+
+    def test_saturated_samples_blanked_polynomial(self):
+        """
+        Saturated samples are blanked (zeroed) in polynomial method.
+
+        Tests:
+            (Test Case 4) Samples at or above saturation threshold are zero
+            in cleaned output.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+
+        traces = self._make_artifact_traces(
+            2, n_samples, fs_Hz, stim_sample, saturation_amp=1000.0
+        )
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="polynomial",
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        # Saturation region should be blanked
+        sat_region = blanked[:, stim_sample : stim_sample + 5]
+        assert np.all(sat_region), "Saturation region not fully blanked"
+
+        # Those samples should be zero
+        assert np.all(cleaned[:, stim_sample : stim_sample + 5] == 0.0)
+
+    def test_sequential_stims_merged_blanking(self):
+        """
+        Two stims close together merge their blanking regions.
+
+        Tests:
+            (Test Case 5) Blanked region spans from first stim through
+            second stim's artifact window.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim1 = 10000
+        stim2 = 10010  # 0.5 ms apart — signal can't recover
+
+        rng = np.random.default_rng(42)
+        traces = rng.normal(0, 0.5, (2, n_samples))
+        # Plant saturation at both stims
+        for s in [stim1, stim2]:
+            traces[:, s : s + 5] = 1000.0
+
+        stim_ms = [s / fs_Hz * 1000.0 for s in [stim1, stim2]]
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="blank",
+            artifact_window_ms=5.0,
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        # The region from stim1 through stim2+artifact should be blanked
+        # At minimum, the gap between stim1 and stim2 should be blanked
+        assert np.all(blanked[:, stim1 : stim2 + 5])
+
+    def test_empty_stim_times_returns_unchanged(self):
+        """
+        Empty stim_times returns a copy of traces unchanged.
+
+        Tests:
+            (Test Case 6) Output equals input and blanked mask is all False.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        traces = np.random.default_rng(42).normal(0, 1, (2, 40000))
+
+        cleaned, blanked = remove_stim_artifacts(traces, [], fs_Hz)
+
+        np.testing.assert_array_equal(cleaned, traces)
+        assert not np.any(blanked)
+
+    def test_unknown_method_raises(self):
+        """
+        Unknown method name raises ValueError.
+
+        Tests:
+            (Test Case 7) ValueError with informative message.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        traces = np.random.default_rng(42).normal(0, 1, (2, 40000))
+
+        with pytest.raises(ValueError, match="Unknown artifact removal method"):
+            remove_stim_artifacts(traces, [100.0], fs_Hz, method="magic")
+
+    def test_copy_true_does_not_modify_input(self):
+        """
+        copy=True returns a new array; copy=False modifies in place.
+
+        Tests:
+            (Test Case 8a) copy=True: input array unchanged after call.
+            (Test Case 8b) copy=False: input array is modified.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+
+        # --- copy=True ---
+        traces = self._make_artifact_traces(2, n_samples, fs_Hz, stim_sample)
+        original = traces.copy()
+        _ = remove_stim_artifacts(
+            traces,
+            [stim_sample / fs_Hz * 1000.0],
+            fs_Hz,
+            method="blank",
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+            copy=True,
+        )
+        np.testing.assert_array_equal(traces, original)
+
+        # --- copy=False ---
+        traces2 = self._make_artifact_traces(2, n_samples, fs_Hz, stim_sample)
+        original2 = traces2.copy()
+        _ = remove_stim_artifacts(
+            traces2,
+            [stim_sample / fs_Hz * 1000.0],
+            fs_Hz,
+            method="blank",
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+            copy=False,
+        )
+        assert not np.array_equal(
+            traces2, original2
+        ), "copy=False should modify traces in place"
+
+    def test_auto_saturation_threshold(self):
+        """
+        Auto-detection of saturation threshold finds obvious saturation.
+
+        Tests:
+            (Test Case 9) With saturation_threshold=None, saturated samples
+            are still blanked.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+
+        traces = self._make_artifact_traces(
+            2, n_samples, fs_Hz, stim_sample, saturation_amp=1000.0
+        )
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        # Let both thresholds auto-detect
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="polynomial",
+            saturation_threshold=None,
+            baseline_threshold=None,
+        )
+
+        # At least some samples around the stim should be blanked
+        assert np.any(blanked[:, stim_sample : stim_sample + 10])
+
+    def test_single_channel_single_stim(self):
+        """
+        Works with a single channel and single stim event.
+
+        Tests:
+            (Test Case 10) No errors; output shapes match input.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 40000
+        stim_sample = 10000
+
+        traces = self._make_artifact_traces(1, n_samples, fs_Hz, stim_sample)
+        stim_ms = [stim_sample / fs_Hz * 1000.0]
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            stim_ms,
+            fs_Hz,
+            method="polynomial",
+            saturation_threshold=500.0,
+            baseline_threshold=5.0,
+        )
+
+        assert cleaned.shape == (1, n_samples)
+        assert blanked.shape == (1, n_samples)
+        assert np.any(blanked)
+
+
+# ===========================================================================
+# Stim sorting — pipeline input validation
+# ===========================================================================
+
+
+class TestSortStimRecordingValidation:
+    """
+    Tests for sort_stim_recording input validation (no torch/SI required).
+
+    Tests:
+        (Test Case 1) numpy array without fs_Hz raises ValueError.
+        (Test Case 2) Wrong dimensionality array raises ValueError.
+        (Test Case 3) stim_times as list (not array) works.
+    """
+
+    def test_numpy_array_without_fs_raises(self):
+        """
+        Passing a numpy array without fs_Hz raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError mentions fs_Hz is required.
+        """
+        from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
+
+        traces = np.zeros((2, 1000))
+        with pytest.raises(ValueError, match="fs_Hz is required"):
+            sort_stim_recording(
+                traces,
+                rt_sort=MagicMock(),
+                stim_times_ms=[100.0],
+                pre_ms=10.0,
+                post_ms=50.0,
+                fs_Hz=None,
+            )
+
+    def test_wrong_ndim_raises(self):
+        """
+        A 1-D or 3-D array raises ValueError about shape.
+
+        Tests:
+            (Test Case 2) ValueError for 1-D array.
+        """
+        from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
+
+        traces_1d = np.zeros(1000)
+        with pytest.raises(ValueError, match="Expected 2-D array"):
+            sort_stim_recording(
+                traces_1d,
+                rt_sort=MagicMock(),
+                stim_times_ms=[100.0],
+                pre_ms=10.0,
+                post_ms=50.0,
+                fs_Hz=20000.0,
+            )
+
+    def test_stim_times_as_list(self):
+        """
+        stim_times_ms as a plain Python list does not raise during validation.
+
+        Tests:
+            (Test Case 3) List input is accepted; the pipeline proceeds
+            past input validation (fails later at RTSort loading, not at
+            stim_times conversion).
+        """
+        from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
+
+        traces = np.zeros((2, 40000))
+
+        # It should get past input validation and fail at the RT-Sort loading
+        # step (since we pass a mock). The key assertion is that it does NOT
+        # raise a TypeError or ValueError about stim_times_ms.
+        with pytest.raises(Exception) as exc_info:
+            sort_stim_recording(
+                traces,
+                rt_sort=MagicMock(),
+                stim_times_ms=[100.0, 200.0, 300.0],
+                pre_ms=10.0,
+                post_ms=50.0,
+                fs_Hz=20000.0,
+            )
+        # Should NOT be a conversion error on stim_times_ms
+        assert "stim_times" not in str(exc_info.value).lower()

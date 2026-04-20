@@ -17,6 +17,7 @@ These functions are bound as methods on ``SpikeData`` by
 import numpy as np
 
 from .utils import compute_cosine_similarity_with_lag
+from spikelab.spike_sorting._exceptions import EmptyWaveformMetricsError
 
 
 def curate_by_min_spikes(sd, min_spikes=30):
@@ -229,9 +230,10 @@ def compute_waveform_metrics(
             "std_norm": np.ndarray (N,)}``.
     """
     if sd.raw_data.size == 0:
-        raise ValueError(
+        raise EmptyWaveformMetricsError(
             "raw_data is empty. Attach raw voltage traces before calling "
-            "compute_waveform_metrics."
+            "compute_waveform_metrics.",
+            metric_name="waveform_metrics",
         )
 
     if sd.neuron_attributes is None:
@@ -546,10 +548,11 @@ def _get_or_compute_waveform_metric(sd, metric_name, ms_before, ms_after, **kwar
         return metrics[metric_name]
 
     # 3. Neither available
-    raise ValueError(
+    raise EmptyWaveformMetricsError(
         f"Cannot compute '{metric_name}': no precomputed values in "
         "neuron_attributes and raw_data is empty. Call "
-        "compute_waveform_metrics() first, or attach raw voltage traces."
+        "compute_waveform_metrics() first, or attach raw voltage traces.",
+        metric_name=metric_name,
     )
 
 

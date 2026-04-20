@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from . import _globals
+from ._classifier import classify_ks4_failure
+from ._exceptions import SpikeSortingClassifiedError
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, print_stage
@@ -37,7 +39,10 @@ def spike_sort(
 
     Returns:
         sorting: A ``KilosortSortingExtractor`` pointing at the output
-            folder, or the caught exception if sorting failed.
+            folder, or the caught exception if sorting failed with an
+            unclassified error. Classified failures
+            (:class:`SpikeSortingClassifiedError` and subclasses) raise
+            through for category-aware handling upstream.
     """
     import spikeinterface.sorters as ss
 
@@ -84,7 +89,13 @@ def spike_sort(
             **sorter_params,
             **docker_kwargs,
         )
+    except SpikeSortingClassifiedError:
+        # Already classified (e.g. nested call re-raised); let it propagate.
+        raise
     except Exception as e:
+        classified = classify_ks4_failure(Path(output_folder), e)
+        if classified is not None:
+            raise classified from e
         print(f"Kilosort4 sorting failed: {e}")
         stopwatch.log_time("Sorting failed.")
         return e

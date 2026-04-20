@@ -202,6 +202,79 @@ which applies threshold detection to the raw traces:
    )
 
 
+From SpikeLab sorted .npz
+--------------------------
+
+The SpikeLab spike-sorting pipeline (see :doc:`spike_sorting`) can compile
+its output into ``.npz`` files containing per-unit spike trains, electrode
+locations, waveform templates, and quality metrics. Load these with:
+
+.. code-block:: python
+
+   from spikelab.data_loaders.data_loaders import load_spikedata_from_spikelab_sorted_npz
+
+   sd = load_spikedata_from_spikelab_sorted_npz(
+       "sorted_results.npz",
+       length_ms=600000.0,  # optional; inferred from latest spike if omitted
+   )
+
+The loader populates ``neuron_attributes`` with electrode positions, waveform
+templates, and quality metrics when available.
+
+
+From the IBL database
+---------------------
+
+SpikeLab can load spike trains directly from the `International Brain
+Laboratory <https://www.internationalbrainlab.com/>`_ public server. This
+requires the ``one-api`` and ``brainwidemap`` packages.
+
+First, search for probes matching your criteria:
+
+.. code-block:: python
+
+   from spikelab.data_loaders.data_loaders import query_ibl_probes
+
+   probes, stats_df = query_ibl_probes(
+       target_regions=["MOs", "MOp"],   # Beryl atlas region names
+       min_units=20,                     # minimum good units per probe
+       min_fraction_in_target=0.5,       # at least 50% of units in target regions
+   )
+
+   # probes is a list of (eid, pid) tuples
+   # stats_df is a pandas DataFrame with per-probe statistics
+
+Then load a specific probe:
+
+.. code-block:: python
+
+   from spikelab.data_loaders.data_loaders import load_spikedata_from_ibl
+
+   eid, pid = probes[0]
+   sd = load_spikedata_from_ibl(eid, pid)
+
+Only units labelled as good in the Brain-Wide Map unit table are included.
+Trial event times are stored in ``sd.metadata`` as numpy arrays in
+milliseconds.
+
+
+From Neo SpikeTrains
+--------------------
+
+If you have a list of `Neo <https://neo.readthedocs.io/>`_ ``SpikeTrain``
+objects, convert them directly using the static constructor:
+
+.. code-block:: python
+
+   from spikelab import SpikeData
+
+   # spiketrains is a list of neo.SpikeTrain objects
+   sd = SpikeData.from_neo_spiketrains(spiketrains)
+
+The constructor converts spike times to milliseconds automatically using the
+units attached to each ``SpikeTrain``.
+
+
 From raw data
 -------------
 

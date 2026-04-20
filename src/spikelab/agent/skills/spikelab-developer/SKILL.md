@@ -24,7 +24,7 @@ You must **never** modify:
 ## Before Starting
 
 ### Step 1: Read the repo maps
-Read `REPO_MAP.md` for a broad overview and `REPO_MAP_DETAILED.md` for the full API reference. Both are located in `.agent/skills/spikelab-map-updater/`. You need to know what already exists before assessing what is new. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
+Read `REPO_MAP.md` for a broad overview and `REPO_MAP_DETAILED.md` for the full API reference. Both are located in `src/spikelab/agent/skills/spikelab-map-updater/`. You need to know what already exists before assessing what is new. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
 
 ### Step 2: Read the source script
 Read the user-provided analysis script in full. Do not assume you know what it does. Understand every computation, its inputs, outputs, and how it relates to the library's data classes.

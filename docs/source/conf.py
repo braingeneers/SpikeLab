@@ -4,8 +4,8 @@ import sys
 sys.path.insert(0, os.path.abspath("../../src"))
 
 project = "SpikeLab"
-copyright = "2025, SpikeLab Maintainers"
-author = "SpikeLab Maintainers"
+copyright = "2026, Tjitse van der Molen"
+author = "Tjitse van der Molen"
 release = "0.1.0"
 version = "0.1.0"
 
@@ -34,6 +34,7 @@ autosummary_generate = True
 # Mock optional dependencies so docs build without them
 autodoc_mock_imports = [
     "boto3",
+    "botocore",
     "numba",
     "sklearn",
     "umap",
@@ -47,6 +48,16 @@ autodoc_mock_imports = [
     "jaxopt",
     "optax",
     "poor_man_gplvm",
+    "pandas",
+    "one",
+    "brainwidemap",
+    "spikeinterface",
+    "torch",
+    "diptest",
+    "natsort",
+    "tqdm",
+    "threadpoolctl",
+    "pynvml",
 ]
 
 # Napoleon
