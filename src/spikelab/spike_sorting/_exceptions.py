@@ -163,7 +163,7 @@ class SaturatedSignalError(BiologicalSortFailure):
         self.total_channels = total_channels
 
 
-class EmptyWaveformMetricsError(BiologicalSortFailure):
+class EmptyWaveformMetricsError(BiologicalSortFailure, ValueError):
     """Waveform metrics (SNR, std-norm) cannot be computed.
 
     Raised when curation requests a waveform-based metric but no
@@ -174,6 +174,11 @@ class EmptyWaveformMetricsError(BiologicalSortFailure):
     produced units that have no usable waveform evidence attached, or
     that the pipeline skipped the waveform-extraction stage. Callers
     should treat it as "cannot curate this target" rather than retry.
+
+    Inherits from both :class:`BiologicalSortFailure` (for
+    category-aware handling) and :class:`ValueError` (for backward
+    compatibility with callers that historically caught ``ValueError``
+    from this site).
 
     Attributes:
         metric_name: The metric that could not be computed.
