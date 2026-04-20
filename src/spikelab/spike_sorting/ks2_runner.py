@@ -24,6 +24,8 @@ from spikeinterface.extractors.extractor_classes import BinaryRecordingExtractor
 from spikeinterface.sorters import run_sorter
 
 from . import _globals
+from ._classifier import classify_ks2_failure
+from ._exceptions import InsufficientActivityError, SpikeSortingClassifiedError
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, create_folder, print_stage
@@ -369,6 +371,7 @@ end"""
         output_folder = Path(output_folder)
 
         t0 = time.perf_counter()
+        caught_exception: Optional[BaseException] = None
         try:
             self.execute_kilosort_file(output_folder, verbose)
             t1 = time.perf_counter()
@@ -377,6 +380,7 @@ end"""
         except Exception as err:
             has_error = True
             run_time = None
+            caught_exception = err
 
         # Kilosort has a log file dir to shellscript launcher
         runtime_trace_path = output_folder / "kilosort2.log"
@@ -395,9 +399,14 @@ end"""
                 print(f"kilosort2 run time: {run_time:0.2f}s")
 
         if has_error and raise_error:
+            classified = classify_ks2_failure(
+                output_folder, caught_exception or RuntimeError("unknown")
+            )
+            if classified is not None:
+                raise classified from caught_exception
             raise Exception(
                 f"You can inspect the runtime trace in {output_folder}/kilosort2.log"
-            )
+            ) from caught_exception
 
         return run_time
 
@@ -846,18 +855,24 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
 
     ContainerClient.__init__ = _patched_init
     try:
-        si_sorting = run_sorter(
-            sorter_name="kilosort2",
-            recording=bin_recording,
-            folder=str(output_folder),
-            docker_image=get_docker_image("kilosort2"),
-            verbose=True,
-            raise_error=True,
-            remove_existing_folder=True,
-            with_output=False,  # We load results ourselves via KilosortSortingExtractor
-            installation_mode="no-install",
-            **si_params,
-        )
+        try:
+            si_sorting = run_sorter(
+                sorter_name="kilosort2",
+                recording=bin_recording,
+                folder=str(output_folder),
+                docker_image=get_docker_image("kilosort2"),
+                verbose=True,
+                raise_error=True,
+                remove_existing_folder=True,
+                with_output=False,  # We load results ourselves via KilosortSortingExtractor
+                installation_mode="no-install",
+                **si_params,
+            )
+        except Exception as err:
+            classified = classify_ks2_failure(Path(output_folder), err)
+            if classified is not None:
+                raise classified from err
+            raise
     finally:
         ContainerClient.__init__ = _orig_init
 
@@ -932,6 +947,11 @@ def spike_sort(
                 output_folder=output_folder,
             )
 
+    except SpikeSortingClassifiedError:
+        # Classified failures (biology / environment / resource) propagate
+        # so callers can implement per-category retry / skip / stop policies
+        # without inspecting a returned sentinel.
+        raise
     except Exception as e:
         print(f"Kilosort2 failed on recording {rec_path}\n{e}")
         print("Moving on to next recording")
