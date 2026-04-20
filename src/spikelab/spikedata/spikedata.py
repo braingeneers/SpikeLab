@@ -3184,8 +3184,16 @@ class SpikeData:
         delta_ms: float = 0.4,
         f_rel_to_trough: Tuple[int, int] = (20, 40),
         max_lag: int = 5,
+        n_jobs: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Compare this sorter output against another SpikeData object.
+
+        Implements the same comparison methodology as SpikeInterface's
+        ``SymmetricSortingComparison`` (Buccino et al., eLife 2020): greedy
+        spike matching within a temporal window followed by Jaccard agreement
+        scoring. Use :meth:`best_match_assignment` on the returned agreement
+        matrix to obtain the optimal unit mapping via the Hungarian algorithm
+        (equivalent to SpikeInterface's ``get_best_unit_match``).
 
         Parameters:
             other (SpikeData): SpikeData from a different sorter to compare
@@ -3198,6 +3206,8 @@ class SpikeData:
                 around the trough for footprint construction (waveforms only).
             max_lag (int): Maximum lag in samples for footprint cosine
                 similarity search (waveforms only).
+            n_jobs (int or None): Number of parallel workers. ``None`` or 1
+                for serial execution, -1 for all cores.
 
         Returns:
             result (dict): Comparison output dictionary containing:
@@ -3205,9 +3215,14 @@ class SpikeData:
                 - ``metadata``: comparison settings
                 - For ``spike_times``: ``agreement``, ``frac_1``, ``frac_2``
                 - For ``waveforms``: ``similarity``
+
+        References:
+            Buccino et al., "SpikeInterface, a unified framework for spike
+            sorting", eLife (2020). https://doi.org/10.7554/eLife.61834
         """
         labels_1 = list(range(self.N))
         labels_2 = list(range(other.N))
+        n_workers = _resolve_n_jobs(n_jobs)
 
         if comparison_type == "spike_times":
             M, N = self.N, other.N
@@ -3215,14 +3230,35 @@ class SpikeData:
             frac_1 = np.zeros((M, N))
             frac_2 = np.zeros((M, N))
 
-            for i in range(M):
-                for j in range(N):
+            pairs = [(i, j) for i in range(M) for j in range(N)]
+
+            if n_workers <= 1 or len(pairs) == 0:
+                for i, j in pairs:
                     a, r1, r2 = _compute_agreement_score(
                         self.train[i], other.train[j], delta_ms
                     )
                     agreement[i, j] = a
                     frac_1[i, j] = r1
                     frac_2[i, j] = r2
+            else:
+                trains_self = self.train
+                trains_other = other.train
+
+                def _score_pair(pair):
+                    i, j = pair
+                    return (
+                        i,
+                        j,
+                        *_compute_agreement_score(
+                            trains_self[i], trains_other[j], delta_ms
+                        ),
+                    )
+
+                with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                    for i, j, a, r1, r2 in pool.map(_score_pair, pairs):
+                        agreement[i, j] = a
+                        frac_1[i, j] = r1
+                        frac_2[i, j] = r2
 
             return {
                 "labels_1": labels_1,
@@ -3236,7 +3272,7 @@ class SpikeData:
                 },
             }
 
-        if comparison_type == "waveforms":
+        elif comparison_type == "waveforms":
             M, N = self.N, other.N
             similarity = np.zeros((M, N))
             if M == 0 or N == 0:
@@ -3273,9 +3309,10 @@ class SpikeData:
                             )
 
             all_channels: List[int] = []
-            for sd in (self, other):
-                assert sd.neuron_attributes is not None
-                for attrs in sd.neuron_attributes:
+            self_attrs: List[Dict[str, Any]] = self.neuron_attributes  # type: ignore[assignment]
+            other_attrs: List[Dict[str, Any]] = other.neuron_attributes  # type: ignore[assignment]
+            for attrs_list in (self_attrs, other_attrs):
+                for attrs in attrs_list:
                     all_channels.append(int(attrs["channel"]))
                     all_channels.extend(
                         int(c) for c in np.asarray(attrs["neighbor_channels"])
@@ -3287,19 +3324,36 @@ class SpikeData:
             n_channels = max(all_channels) + 1
 
             fp_cache_1 = [
-                _compute_footprint(self.neuron_attributes[i], f_rel_to_trough, n_channels)  # type: ignore[index]
+                _compute_footprint(self_attrs[i], f_rel_to_trough, n_channels)
                 for i in range(M)
             ]
             fp_cache_2 = [
-                _compute_footprint(other.neuron_attributes[j], f_rel_to_trough, n_channels)  # type: ignore[index]
+                _compute_footprint(other_attrs[j], f_rel_to_trough, n_channels)
                 for j in range(N)
             ]
 
-            for i in range(M):
-                for j in range(N):
+            pairs = [(i, j) for i in range(M) for j in range(N)]
+
+            if n_workers <= 1 or len(pairs) == 0:
+                for i, j in pairs:
                     similarity[i, j] = _compute_footprint_similarity(
                         fp_cache_1[i], fp_cache_2[j], max_lag
                     )
+            else:
+
+                def _sim_pair(pair):
+                    i, j = pair
+                    return (
+                        i,
+                        j,
+                        _compute_footprint_similarity(
+                            fp_cache_1[i], fp_cache_2[j], max_lag
+                        ),
+                    )
+
+                with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                    for i, j, sim in pool.map(_sim_pair, pairs):
+                        similarity[i, j] = sim
 
             return {
                 "labels_1": labels_1,
@@ -3312,7 +3366,98 @@ class SpikeData:
                 },
             }
 
-        raise ValueError(
-            f"Unknown comparison_type '{comparison_type}'. "
-            "Expected 'spike_times' or 'waveforms'."
-        )
+        else:
+            raise ValueError(
+                f"Unknown comparison_type '{comparison_type}'. "
+                "Expected 'spike_times' or 'waveforms'."
+            )
+
+    @staticmethod
+    def best_match_assignment(
+        score_matrix: "NDArray[np.floating]",
+        minimize: bool = False,
+    ) -> Dict[str, Any]:
+        """Compute optimal unit assignment from a pairwise score matrix.
+
+        Uses the Hungarian algorithm (``scipy.optimize.linear_sum_assignment``)
+        to find the assignment of rows (sorter 1 units) to columns (sorter 2
+        units) that maximizes (or minimizes) the total score. When the matrix
+        is non-square, unmatched units are reported separately. This is
+        equivalent to SpikeInterface's ``get_best_unit_match`` step.
+
+        Parameters:
+            score_matrix (np.ndarray): Pairwise score matrix of shape (M, N),
+                e.g. the ``agreement`` or ``similarity`` matrix returned by
+                :meth:`compare_sorter`.
+            minimize (bool): If True, find the assignment that minimizes the
+                total score (useful for distance matrices). Default is False
+                (maximize).
+
+        Returns:
+            result (dict): Dictionary containing:
+                - ``row_indices``: matched row indices (length = min(M, N))
+                - ``col_indices``: matched column indices (length = min(M, N))
+                - ``scores``: score for each matched pair
+                - ``total_score``: sum of matched scores
+                - ``unmatched_rows``: row indices with no match (if M > N)
+                - ``unmatched_cols``: col indices with no match (if N > M)
+                - ``row_order``: full row permutation array (length M) —
+                  matched rows first, then unmatched. Apply to any (M, ...)
+                  array via ``array[row_order]``.
+                - ``col_order``: full column permutation array (length N) —
+                  matched cols first, then unmatched. Apply to any (..., N)
+                  array via ``array[:, col_order]``.
+                - ``reordered_matrix``: score_matrix reordered so that matched
+                  pairs lie along the diagonal (equivalent to
+                  ``score_matrix[np.ix_(row_order, col_order)]``)
+        """
+        from scipy.optimize import linear_sum_assignment
+
+        score_matrix = np.asarray(score_matrix, dtype=float)
+        if score_matrix.ndim != 2:
+            raise ValueError(
+                f"score_matrix must be 2-D, got shape {score_matrix.shape}"
+            )
+
+        M, N = score_matrix.shape
+        if M == 0 or N == 0:
+            return {
+                "row_indices": np.array([], dtype=int),
+                "col_indices": np.array([], dtype=int),
+                "scores": np.array([], dtype=float),
+                "total_score": 0.0,
+                "unmatched_rows": np.arange(M, dtype=int),
+                "unmatched_cols": np.arange(N, dtype=int),
+                "row_order": np.arange(M, dtype=int),
+                "col_order": np.arange(N, dtype=int),
+                "reordered_matrix": score_matrix.copy(),
+            }
+
+        cost = score_matrix if minimize else -score_matrix
+        row_ind, col_ind = linear_sum_assignment(cost)
+
+        scores = score_matrix[row_ind, col_ind]
+        total_score = float(scores.sum())
+
+        all_rows = set(range(M))
+        all_cols = set(range(N))
+        unmatched_rows = np.array(sorted(all_rows - set(row_ind.tolist())), dtype=int)
+        unmatched_cols = np.array(sorted(all_cols - set(col_ind.tolist())), dtype=int)
+
+        # Build reordered matrix: matched rows/cols first (in assignment order),
+        # then unmatched rows/cols appended.
+        row_order = np.concatenate([row_ind, unmatched_rows])
+        col_order = np.concatenate([col_ind, unmatched_cols])
+        reordered = score_matrix[np.ix_(row_order, col_order)]
+
+        return {
+            "row_indices": row_ind,
+            "col_indices": col_ind,
+            "scores": scores,
+            "total_score": total_score,
+            "unmatched_rows": unmatched_rows,
+            "unmatched_cols": unmatched_cols,
+            "row_order": row_order,
+            "col_order": col_order,
+            "reordered_matrix": reordered,
+        }

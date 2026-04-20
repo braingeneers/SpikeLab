@@ -1773,10 +1773,22 @@ def _count_matching_spikes(times1, times2, delta):
     """Count the number of matching spikes between two sorted spike trains.
 
     Two spikes are considered matching if they occur within *delta* of each
-    other and belong to different trains. When multiple candidates exist the
-    earliest pair wins (greedy left-to-right).
+    other and belong to different trains. Uses a greedy left-to-right scan:
+    both trains are traversed simultaneously and the first valid pair
+    encountered is consumed, advancing both pointers.
 
-    Algorithm adapted from SpikeInterface ``count_matching_events``.
+    This algorithm is adapted from SpikeInterface's ``count_matching_events``
+    (Buccino et al., eLife 2020; https://doi.org/10.7554/eLife.61834).
+    It runs in O(n1 + n2) time and is deterministic given sorted inputs. The
+    greedy strategy can yield sub-optimal counts when spikes cluster within
+    *delta* of each other. For example, with ``times1 = [10.0, 10.3]``,
+    ``times2 = [10.2]``, and ``delta = 0.3``, the algorithm matches
+    ``(10.0, 10.2)`` and leaves ``10.3`` unmatched — even though
+    ``(10.3, 10.2)`` is a tighter match. A globally optimal assignment (e.g.
+    via the Hungarian algorithm) would be O(n^3) and is not used here because
+    the Jaccard agreement metric is insensitive to such edge cases when trains
+    are well-separated relative to *delta*. This matches the convention used
+    by SpikeInterface and SpikeForest.
 
     Parameters:
         times1 (np.ndarray): Sorted spike times for train 1.
@@ -1880,6 +1892,16 @@ def _compute_footprint(neuron_attrs, f_rel_to_trough, n_channels):
     fp[channel, paste_start : f_rel_to_trough[0]] = pre_seg
     fp[channel, f_rel_to_trough[0] : paste_end] = post_seg
 
+    # nb_channels[0] is expected to be the primary channel (same as `channel`).
+    # Its template is already placed above via the main `template` array.
+    # Neighbor templates start at index 1. Validate the convention.
+    if len(nb_channels) > 0 and int(nb_channels[0]) != channel:
+        raise ValueError(
+            f"neighbor_channels[0] ({int(nb_channels[0])}) does not match the "
+            f"primary channel ({channel}). The first entry in neighbor_channels "
+            "must be the unit's own channel."
+        )
+
     for nb_i in range(1, len(nb_channels)):
         pre_nb = nb_templates[nb_i, sel_start:t_i]
         post_nb = nb_templates[nb_i, t_i : sel_end + 1]
@@ -1894,9 +1916,10 @@ def _compute_footprint(neuron_attrs, f_rel_to_trough, n_channels):
 def _compute_footprint_similarity(fp1, fp2, max_lag=5):
     """Compute the best cosine similarity between two footprints over lag shifts.
 
-    Both footprints are flattened and cosine similarity is evaluated at
-    integer lags from ``-max_lag`` to ``+max_lag``. The maximum similarity
-    across all lags is returned.
+    The temporal lag is applied independently to each channel row (shifting
+    samples within a channel), then the resulting arrays are flattened and
+    compared via cosine similarity. Integer lags from ``-max_lag`` to
+    ``+max_lag`` are tested and the maximum similarity is returned.
 
     Parameters:
         fp1 (np.ndarray): Footprint array (n_channels, n_samples).
@@ -1907,26 +1930,25 @@ def _compute_footprint_similarity(fp1, fp2, max_lag=5):
     Returns:
         best_sim (float): Highest cosine similarity across all tested lags.
     """
-    fp1_flat = fp1.ravel()
-    fp2_flat = fp2.ravel()
-
-    if len(fp1_flat) != len(fp2_flat):
+    if fp1.shape != fp2.shape:
         raise ValueError(
-            f"Footprints must have the same size after flattening, "
-            f"got {len(fp1_flat)} and {len(fp2_flat)}"
+            f"Footprints must have the same shape, " f"got {fp1.shape} and {fp2.shape}"
         )
 
+    n_samples = fp1.shape[1]
     best = -np.inf
     for lag in range(-max_lag, max_lag + 1):
-        if lag < 0:
-            vec1 = fp1_flat[-lag:]
-            vec2 = fp2_flat[: len(fp1_flat) + lag]
+        if lag == 0:
+            vec1 = fp1.ravel()
+            vec2 = fp2.ravel()
         elif lag > 0:
-            vec1 = fp1_flat[: len(fp1_flat) - lag]
-            vec2 = fp2_flat[lag:]
+            # Shift fp2 right by `lag` samples (compare overlapping region)
+            vec1 = fp1[:, lag:].ravel()
+            vec2 = fp2[:, : n_samples - lag].ravel()
         else:
-            vec1 = fp1_flat
-            vec2 = fp2_flat
+            # Shift fp2 left by `|lag|` samples
+            vec1 = fp1[:, : n_samples + lag].ravel()
+            vec2 = fp2[:, -lag:].ravel()
         sim = _cosine_sim(vec1, vec2)
         if not np.isnan(sim) and sim > best:
             best = sim

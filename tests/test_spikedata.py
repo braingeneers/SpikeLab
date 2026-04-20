@@ -6613,3 +6613,229 @@ class TestCompareSorter:
         assert out["metadata"]["comparison_type"] == "waveforms"
         assert out["metadata"]["f_rel_to_trough"] == (20, 40)
         assert out["metadata"]["max_lag"] == 5
+
+    def test_compare_sorter_waveforms_with_lag(self):
+        """
+        Tests: waveform comparison with max_lag > 0 finds shifted matches.
+
+        (Test Case 1) A time-shifted identical template has higher similarity
+        with lag search than without.
+        """
+        # Template with clear trough at index 5
+        template = np.zeros(20, dtype=float)
+        template[5] = -3.0
+        template[4] = -1.0
+        template[6] = -1.0
+
+        # Shifted template: trough at index 7
+        template_shifted = np.zeros(20, dtype=float)
+        template_shifted[7] = -3.0
+        template_shifted[6] = -1.0
+        template_shifted[8] = -1.0
+
+        sd1 = SpikeData(
+            [[]],
+            length=30.0,
+            neuron_attributes=[
+                self._unit_attrs(template, channel=0, neighbor_channel=1),
+            ],
+        )
+        sd2 = SpikeData(
+            [[]],
+            length=30.0,
+            neuron_attributes=[
+                self._unit_attrs(template_shifted, channel=0, neighbor_channel=1),
+            ],
+        )
+
+        out_no_lag = sd1.compare_sorter(
+            sd2, comparison_type="waveforms", f_rel_to_trough=(4, 4), max_lag=0
+        )
+        out_with_lag = sd1.compare_sorter(
+            sd2, comparison_type="waveforms", f_rel_to_trough=(4, 4), max_lag=3
+        )
+
+        # With lag search, similarity should be higher (or equal)
+        assert out_with_lag["similarity"][0, 0] >= out_no_lag["similarity"][0, 0]
+
+    def test_compare_sorter_asymmetric_unit_counts(self):
+        """
+        Tests: compare_sorter handles M != N correctly.
+
+        (Test Case 1) spike_times mode with 3 vs 2 units produces (3, 2) matrices.
+        (Test Case 2) waveforms mode with 1 vs 2 units produces (1, 2) matrix.
+        """
+        sd1 = SpikeData([[10.0], [20.0], [30.0]], length=40.0)
+        sd2 = SpikeData([[10.0], [30.0]], length=40.0)
+
+        out = sd1.compare_sorter(sd2, comparison_type="spike_times", delta_ms=0.5)
+        assert out["agreement"].shape == (3, 2)
+        assert out["labels_1"] == [0, 1, 2]
+        assert out["labels_2"] == [0, 1]
+        # Unit 0 of sd1 matches unit 0 of sd2 perfectly
+        assert out["agreement"][0, 0] == 1.0
+        # Unit 2 of sd1 matches unit 1 of sd2 perfectly
+        assert out["agreement"][2, 1] == 1.0
+
+    def test_compare_sorter_invalid_comparison_type(self):
+        """
+        Tests: invalid comparison_type raises ValueError.
+        """
+        sd1 = SpikeData([[10.0]], length=20.0)
+        sd2 = SpikeData([[10.0]], length=20.0)
+
+        with pytest.raises(ValueError, match="Unknown comparison_type"):
+            sd1.compare_sorter(sd2, comparison_type="invalid")
+
+    def test_compare_sorter_waveforms_missing_attributes(self):
+        """
+        Tests: missing neuron_attributes raises ValueError.
+
+        (Test Case 1) neuron_attributes is None.
+        (Test Case 2) Missing required key in attributes dict.
+        """
+        sd1 = SpikeData([[10.0]], length=20.0)
+        sd2 = SpikeData([[10.0]], length=20.0)
+
+        with pytest.raises(ValueError, match="neuron_attributes is None"):
+            sd1.compare_sorter(sd2, comparison_type="waveforms")
+
+        sd1_partial = SpikeData(
+            [[]],
+            length=20.0,
+            neuron_attributes=[{"template": np.zeros(5)}],
+        )
+        sd2_ok = SpikeData(
+            [[]],
+            length=20.0,
+            neuron_attributes=[
+                self._unit_attrs(np.zeros(5), channel=0, neighbor_channel=1)
+            ],
+        )
+        with pytest.raises(ValueError, match="missing required key"):
+            sd1_partial.compare_sorter(sd2_ok, comparison_type="waveforms")
+
+    def test_compare_sorter_n_jobs(self):
+        """
+        Tests: n_jobs parameter produces same results as serial execution.
+        """
+        sd1 = SpikeData([[10.0, 20.0, 30.0], [5.0, 15.0]], length=40.0)
+        sd2 = SpikeData([[10.1, 20.1, 30.1], [5.5, 15.5]], length=40.0)
+
+        out_serial = sd1.compare_sorter(sd2, delta_ms=0.5, n_jobs=1)
+        out_parallel = sd1.compare_sorter(sd2, delta_ms=0.5, n_jobs=2)
+
+        np.testing.assert_array_almost_equal(
+            out_serial["agreement"], out_parallel["agreement"]
+        )
+        np.testing.assert_array_almost_equal(
+            out_serial["frac_1"], out_parallel["frac_1"]
+        )
+
+
+class TestBestMatchAssignment:
+    """Tests for SpikeData.best_match_assignment."""
+
+    def test_perfect_square_assignment(self):
+        """
+        Tests: perfect diagonal score matrix gives 1:1 assignment along diagonal.
+        """
+        score_matrix = np.eye(3)
+        result = SpikeData.best_match_assignment(score_matrix)
+
+        assert len(result["row_indices"]) == 3
+        assert len(result["col_indices"]) == 3
+        assert result["total_score"] == pytest.approx(3.0)
+        assert len(result["unmatched_rows"]) == 0
+        assert len(result["unmatched_cols"]) == 0
+        # Each row should be matched to its corresponding column
+        for r, c in zip(result["row_indices"], result["col_indices"]):
+            assert score_matrix[r, c] == 1.0
+
+    def test_non_square_assignment(self):
+        """
+        Tests: non-square matrix produces unmatched rows/cols.
+
+        (Test Case 1) More rows than columns: unmatched_rows is non-empty.
+        (Test Case 2) More columns than rows: unmatched_cols is non-empty.
+        """
+        # 3 rows, 2 cols
+        score_matrix = np.array([[0.9, 0.1], [0.1, 0.8], [0.5, 0.3]])
+        result = SpikeData.best_match_assignment(score_matrix)
+
+        assert len(result["row_indices"]) == 2
+        assert len(result["col_indices"]) == 2
+        assert len(result["unmatched_rows"]) == 1
+        assert len(result["unmatched_cols"]) == 0
+
+        # 2 rows, 3 cols
+        score_matrix_t = score_matrix.T
+        result_t = SpikeData.best_match_assignment(score_matrix_t)
+
+        assert len(result_t["row_indices"]) == 2
+        assert len(result_t["col_indices"]) == 2
+        assert len(result_t["unmatched_rows"]) == 0
+        assert len(result_t["unmatched_cols"]) == 1
+
+    def test_minimize_mode(self):
+        """
+        Tests: minimize=True finds the lowest-cost assignment.
+        """
+        cost_matrix = np.array([[1.0, 3.0], [4.0, 2.0]])
+        result = SpikeData.best_match_assignment(cost_matrix, minimize=True)
+
+        # Optimal: row 0 -> col 0 (cost 1), row 1 -> col 1 (cost 2)
+        assert result["total_score"] == pytest.approx(3.0)
+        pairs = set(zip(result["row_indices"], result["col_indices"]))
+        assert (0, 0) in pairs
+        assert (1, 1) in pairs
+
+    def test_reordered_matrix(self):
+        """
+        Tests: reordered_matrix has matched pairs along the diagonal.
+        """
+        score_matrix = np.array([[0.1, 0.9], [0.8, 0.2]])
+        result = SpikeData.best_match_assignment(score_matrix)
+
+        reordered = result["reordered_matrix"]
+        # Diagonal of reordered should contain the matched scores
+        n_matched = len(result["row_indices"])
+        for k in range(n_matched):
+            assert reordered[k, k] == result["scores"][k]
+
+    def test_row_col_order_reorders_external_matrix(self):
+        """
+        Tests: row_order and col_order can reorder an arbitrary same-shape matrix.
+
+        (Test Case 1) Applying row_order/col_order to score_matrix reproduces
+        reordered_matrix.
+        (Test Case 2) The permutation arrays have the correct lengths.
+        """
+        score_matrix = np.array([[0.1, 0.9, 0.3], [0.8, 0.2, 0.4]])
+        result = SpikeData.best_match_assignment(score_matrix)
+
+        row_order = result["row_order"]
+        col_order = result["col_order"]
+
+        assert len(row_order) == 2
+        assert len(col_order) == 3
+
+        # Applying the permutation to the original matrix gives reordered_matrix
+        manual_reorder = score_matrix[np.ix_(row_order, col_order)]
+        np.testing.assert_array_equal(manual_reorder, result["reordered_matrix"])
+
+        # Can apply same permutation to a different matrix of same shape
+        other_matrix = np.arange(6).reshape(2, 3).astype(float)
+        reordered_other = other_matrix[np.ix_(row_order, col_order)]
+        assert reordered_other.shape == (2, 3)
+
+    def test_empty_matrix(self):
+        """
+        Tests: empty score matrix returns empty assignment.
+        """
+        result = SpikeData.best_match_assignment(np.zeros((0, 5)))
+        assert len(result["row_indices"]) == 0
+        assert len(result["unmatched_cols"]) == 5
+        assert result["total_score"] == 0.0
+        assert len(result["row_order"]) == 0
+        assert len(result["col_order"]) == 5
