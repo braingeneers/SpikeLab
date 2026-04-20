@@ -633,6 +633,10 @@ def _compute_pairwise_similarity(sd, pairs, max_lag=10):
     Channels absent for a unit are zero-padded.  No spatial weighting or channel
     selection is applied.
 
+    Requires ``avg_waveform`` (shape: n_channels x n_samples) and
+    ``traces_meta["channels"]`` in neuron_attributes, as populated by
+    ``sd.get_waveforms()`` or ``sd.get_waveform_traces(store=True)``.
+
     Parameters:
         sd (SpikeData): Source spike data with neuron_attributes.
         pairs (set[tuple[int, int]]): Candidate unit-index pairs to evaluate.
