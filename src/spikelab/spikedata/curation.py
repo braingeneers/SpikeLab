@@ -916,7 +916,12 @@ def _merge_redundant_units(
         if lag_matrix is not None and prim_secondary == secondary:
             lag_val = lag_matrix[primary, secondary]
             if not np.isnan(lag_val) and lag_val != 0:
-                fs = sd.metadata.get("fs_Hz", 30000) if sd.metadata else 30000
+                fs = sd.metadata.get("fs_Hz") if sd.metadata else None
+                if fs is None:
+                    raise ValueError(
+                        "Lag correction requires 'fs_Hz' in sd.metadata. "
+                        "Set sd.metadata['fs_Hz'] to the sampling rate in Hz."
+                    )
                 secondary_train = secondary_train + float(lag_val) / (fs / 1000.0)
 
         before_max = max(
