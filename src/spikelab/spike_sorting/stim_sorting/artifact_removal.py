@@ -236,6 +236,88 @@ def _process_stim_group_polynomial(
     channel_trace[fit_start:fit_end] -= artifact_estimate
 
 
+def _global_polynomial_detrend(
+    channel_trace,
+    window_samples,
+    overlap_samples,
+    saturation_threshold,
+    poly_order,
+    n_samples,
+    blanked,
+    ch_idx,
+):
+    """Sliding-window polynomial detrend applied to an entire channel.
+
+    Divides the trace into overlapping windows, fits a polynomial to
+    the non-saturated samples in each window, and subtracts the fit.
+    Overlap regions are blended with a linear crossfade to avoid
+    discontinuities at window boundaries.  Saturated samples are
+    blanked.
+
+    Parameters:
+        channel_trace (np.ndarray): 1-D trace (modified in-place).
+        window_samples (int): Window length in samples.
+        overlap_samples (int): Overlap between consecutive windows.
+        saturation_threshold (float): Absolute voltage saturation level.
+        poly_order (int): Polynomial order for the detrend.
+        n_samples (int): Trace length.
+        blanked (np.ndarray): 2-D boolean mask ``(channels, samples)``,
+            modified in-place.
+        ch_idx (int): Channel index for the blanked mask.
+    """
+    step = window_samples - overlap_samples
+    if step < 1:
+        step = 1
+
+    # Pre-compute the output buffer so we can blend overlaps
+    output = np.zeros(n_samples, dtype=np.float64)
+    weight = np.zeros(n_samples, dtype=np.float64)
+
+    start = 0
+    while start < n_samples:
+        end = min(start + window_samples, n_samples)
+        seg = channel_trace[start:end].astype(np.float64)
+        seg_len = end - start
+
+        # Mark saturated samples
+        sat_mask = np.abs(seg) >= saturation_threshold
+        if np.any(sat_mask):
+            blanked[ch_idx, start:end] |= sat_mask
+
+        fit_mask = ~sat_mask & ~np.isnan(seg)
+        if np.sum(fit_mask) > poly_order:
+            x = np.arange(seg_len, dtype=np.float64)
+            coeffs = np.polyfit(x[fit_mask], seg[fit_mask], poly_order)
+            artifact_estimate = np.polyval(coeffs, x)
+            detrended = seg - artifact_estimate
+        else:
+            # Not enough non-saturated samples — zero out
+            detrended = np.zeros(seg_len)
+            blanked[ch_idx, start:end] = True
+
+        # Zero saturated samples in the detrended output
+        detrended[sat_mask] = 0.0
+
+        # Build a blending window (linear ramps in overlap regions)
+        w = np.ones(seg_len)
+        if start > 0 and overlap_samples > 0:
+            ramp_len = min(overlap_samples, seg_len)
+            w[:ramp_len] = np.linspace(0, 1, ramp_len)
+        if end < n_samples and overlap_samples > 0:
+            ramp_len = min(overlap_samples, seg_len)
+            w[-ramp_len:] = np.linspace(1, 0, ramp_len)
+
+        output[start:end] += detrended * w
+        weight[start:end] += w
+
+        start += step
+
+    # Normalize by blending weights
+    nonzero = weight > 0
+    channel_trace[nonzero] = output[nonzero] / weight[nonzero]
+    channel_trace[~nonzero] = 0.0
+
+
 def remove_stim_artifacts(
     traces,
     stim_times_ms,
@@ -336,10 +418,29 @@ def remove_stim_artifacts(
         return traces, blanked
 
     if not artifact_window_only:
-        # Global mode: treat all stim events together
-        # For now, fall through to per-event processing since the logic
-        # is the same — each event is handled independently.
-        pass
+        # Global mode: apply a sliding-window polynomial detrend to the
+        # entire recording.  Useful when stimulation is so frequent that
+        # artifact windows overlap or cover most of the trace, or when
+        # stim timing information is unavailable.
+        overlap_samples = artifact_window_samples // 2
+        for ch in range(n_channels):
+            if method == "polynomial":
+                _global_polynomial_detrend(
+                    traces[ch],
+                    artifact_window_samples,
+                    overlap_samples,
+                    saturation_threshold,
+                    poly_order,
+                    n_samples,
+                    blanked,
+                    ch,
+                )
+            elif method == "blank":
+                # Global blank: blank only the saturated samples
+                sat = np.abs(traces[ch]) >= saturation_threshold
+                traces[ch, sat] = 0.0
+                blanked[ch, sat] = True
+        return traces, blanked
 
     # Process each channel independently
     for ch in range(n_channels):
