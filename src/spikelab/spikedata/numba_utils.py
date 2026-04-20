@@ -377,3 +377,108 @@ def nb_spike_trig_pop_rate(spike_matrix, lags):
             stPR[i, tau_idx] = sum_dev / (total_spikes[i] * mu_loo)
 
     return stPR
+
+
+# ===================================================================
+# Sorter comparison kernels
+# ===================================================================
+
+
+@njit(nogil=True)
+def _nb_count_matching_spikes(times1, times2, delta):
+    """Numba-accelerated greedy spike matching (single pair).
+
+    Equivalent to ``_count_matching_spikes`` in ``utils.py`` but compiled
+    with ``nogil=True`` so that ThreadPoolExecutor can achieve true
+    parallelism across pairs.
+
+    Parameters:
+        times1 (np.ndarray): Sorted float64 spike times for train 1.
+        times2 (np.ndarray): Sorted float64 spike times for train 2.
+        delta (float): Maximum temporal distance for a match.
+
+    Returns:
+        n_matches (int): Number of matched spike pairs.
+    """
+    n1 = len(times1)
+    n2 = len(times2)
+    if n1 == 0 or n2 == 0:
+        return 0
+
+    i = 0
+    j = 0
+    n_matches = 0
+
+    while i < n1 and j < n2:
+        dt = times1[i] - times2[j]
+        if abs(dt) <= delta:
+            n_matches += 1
+            i += 1
+            j += 1
+        elif dt < 0:
+            i += 1
+        else:
+            j += 1
+
+    return n_matches
+
+
+@njit(parallel=True)
+def nb_agreement_all_pairs(flat1, offsets1, n_units1, flat2, offsets2, n_units2, delta):
+    """Compute spike-time agreement matrix for all unit pairs across two sorters.
+
+    Uses the flat-array + offset representation for both sorter outputs.
+    Parallelises over rows (units in sorter 1) using ``prange``.
+
+    Parameters:
+        flat1 (np.ndarray): Concatenated spike times for sorter 1 (float64).
+        offsets1 (np.ndarray): Offset array for sorter 1 (int64, length n_units1+1).
+        n_units1 (int): Number of units in sorter 1.
+        flat2 (np.ndarray): Concatenated spike times for sorter 2 (float64).
+        offsets2 (np.ndarray): Offset array for sorter 2 (int64, length n_units2+1).
+        n_units2 (int): Number of units in sorter 2.
+        delta (float): Maximum temporal distance for a spike match.
+
+    Returns:
+        agreement (np.ndarray): (n_units1, n_units2) Jaccard agreement scores.
+        frac_1 (np.ndarray): (n_units1, n_units2) fraction of sorter 1 spikes matched.
+        frac_2 (np.ndarray): (n_units1, n_units2) fraction of sorter 2 spikes matched.
+    """
+    agreement = np.zeros((n_units1, n_units2), dtype=np.float64)
+    frac_1 = np.zeros((n_units1, n_units2), dtype=np.float64)
+    frac_2 = np.zeros((n_units1, n_units2), dtype=np.float64)
+
+    for i in prange(n_units1):
+        t1 = flat1[offsets1[i] : offsets1[i + 1]]
+        n1 = len(t1)
+        for j in range(n_units2):
+            t2 = flat2[offsets2[j] : offsets2[j + 1]]
+            n2 = len(t2)
+
+            if n1 == 0 and n2 == 0:
+                continue
+
+            # Greedy matching (same algorithm as _count_matching_spikes)
+            ii = 0
+            jj = 0
+            n_matches = 0
+            while ii < n1 and jj < n2:
+                dt = t1[ii] - t2[jj]
+                if abs(dt) <= delta:
+                    n_matches += 1
+                    ii += 1
+                    jj += 1
+                elif dt < 0:
+                    ii += 1
+                else:
+                    jj += 1
+
+            denom = n1 + n2 - n_matches
+            if denom > 0:
+                agreement[i, j] = n_matches / denom
+            if n1 > 0:
+                frac_1[i, j] = n_matches / n1
+            if n2 > 0:
+                frac_2[i, j] = n_matches / n2
+
+    return agreement, frac_1, frac_2

@@ -1762,3 +1762,195 @@ def slice_stability(values):
     cv = std / safe_mean
     cv = np.where(abs_mean == 0, np.nan, cv)
     return float(cv) if cv.ndim == 0 else cv
+
+
+# ---------------------------------------------------------------------------
+# Sorter comparison helpers
+# ---------------------------------------------------------------------------
+
+
+def _count_matching_spikes(times1, times2, delta):
+    """Count the number of matching spikes between two sorted spike trains.
+
+    Two spikes are considered matching if they occur within *delta* of each
+    other and belong to different trains. Uses a greedy left-to-right scan:
+    both trains are traversed simultaneously and the first valid pair
+    encountered is consumed, advancing both pointers.
+
+    This algorithm is adapted from SpikeInterface's ``count_matching_events``
+    (Buccino et al., eLife 2020; https://doi.org/10.7554/eLife.61834).
+    It runs in O(n1 + n2) time and is deterministic given sorted inputs. The
+    greedy strategy can yield sub-optimal counts when spikes cluster within
+    *delta* of each other. For example, with ``times1 = [10.0, 10.3]``,
+    ``times2 = [10.2]``, and ``delta = 0.3``, the algorithm matches
+    ``(10.0, 10.2)`` and leaves ``10.3`` unmatched — even though
+    ``(10.3, 10.2)`` is a tighter match. A globally optimal assignment (e.g.
+    via the Hungarian algorithm) would be O(n^3) and is not used here because
+    the Jaccard agreement metric is insensitive to such edge cases when trains
+    are well-separated relative to *delta*. This matches the convention used
+    by SpikeInterface and SpikeForest.
+
+    Parameters:
+        times1 (np.ndarray): Sorted spike times for train 1.
+        times2 (np.ndarray): Sorted spike times for train 2.
+        delta (float): Maximum allowed temporal distance for a match.
+
+    Returns:
+        n_matches (int): Number of matched spike pairs.
+    """
+    times1 = np.asarray(times1)
+    times2 = np.asarray(times2)
+    if len(times1) == 0 or len(times2) == 0:
+        return 0
+
+    i = 0
+    j = 0
+    n_matches = 0
+    n1 = len(times1)
+    n2 = len(times2)
+
+    while i < n1 and j < n2:
+        dt = times1[i] - times2[j]
+        if abs(dt) <= delta:
+            n_matches += 1
+            i += 1
+            j += 1
+        elif dt < 0:
+            i += 1
+        else:
+            j += 1
+
+    return n_matches
+
+
+def _compute_agreement_score(train1, train2, delta):
+    """Compute spike-train agreement between two spike trains.
+
+    Parameters:
+        train1 (np.ndarray): Sorted spike times for train 1.
+        train2 (np.ndarray): Sorted spike times for train 2.
+        delta (float): Maximum allowed temporal distance for a match.
+
+    Returns:
+        agreement (float): Jaccard-style agreement score
+            ``n_matches / (n1 + n2 - n_matches)``.
+        frac_1 (float): Fraction of train1 spikes that were matched.
+        frac_2 (float): Fraction of train2 spikes that were matched.
+    """
+    n1 = len(train1)
+    n2 = len(train2)
+    if n1 == 0 and n2 == 0:
+        return 0.0, 0.0, 0.0
+    n_matches = _count_matching_spikes(train1, train2, delta)
+    denom = n1 + n2 - n_matches
+    agreement = n_matches / denom if denom > 0 else 0.0
+    frac_1 = n_matches / n1 if n1 > 0 else 0.0
+    frac_2 = n_matches / n2 if n2 > 0 else 0.0
+    return agreement, frac_1, frac_2
+
+
+def _compute_footprint(neuron_attrs, f_rel_to_trough, n_channels):
+    """Build a spatial waveform footprint array for one unit.
+
+    The footprint is a 2-D array of shape ``(n_channels, n_samples)`` where
+    ``n_samples = f_rel_to_trough[0] + f_rel_to_trough[1] + 1``. The
+    template waveform is placed at the unit's main channel row, and
+    neighbouring-channel templates are placed at their respective rows, all
+    aligned to the trough of the main template.
+
+    Parameters:
+        neuron_attrs (dict): Neuron attribute dictionary containing:
+            ``template`` (1-D ndarray), ``neighbor_templates`` (2-D ndarray),
+            ``channel`` (int), ``neighbor_channels`` (1-D ndarray).
+        f_rel_to_trough (tuple of int): ``(pre, post)`` number of samples
+            before and after the trough to include.
+        n_channels (int): Total number of channels on the probe.
+
+    Returns:
+        fp (np.ndarray): Footprint array of shape
+            ``(n_channels, f_rel_to_trough[0] + f_rel_to_trough[1] + 1)``.
+    """
+    n_samples = f_rel_to_trough[0] + f_rel_to_trough[1] + 1
+    fp = np.zeros((n_channels, n_samples))
+
+    template = np.asarray(neuron_attrs["template"])
+    nb_templates = np.asarray(neuron_attrs["neighbor_templates"])
+    channel = int(neuron_attrs["channel"])
+    nb_channels = np.asarray(neuron_attrs["neighbor_channels"])
+
+    t_i = int(np.argmin(template))
+
+    sel_start = max(0, t_i - f_rel_to_trough[0])
+    sel_end = min(len(template) - 1, t_i + f_rel_to_trough[1])
+
+    pre_seg = template[sel_start:t_i]
+    post_seg = template[t_i : sel_end + 1]
+
+    paste_start = f_rel_to_trough[0] - len(pre_seg)
+    paste_end = f_rel_to_trough[0] + len(post_seg)
+
+    fp[channel, paste_start : f_rel_to_trough[0]] = pre_seg
+    fp[channel, f_rel_to_trough[0] : paste_end] = post_seg
+
+    # nb_channels[0] is expected to be the primary channel (same as `channel`).
+    # Its template is already placed above via the main `template` array.
+    # Neighbor templates start at index 1. Validate the convention.
+    if len(nb_channels) > 0 and int(nb_channels[0]) != channel:
+        raise ValueError(
+            f"neighbor_channels[0] ({int(nb_channels[0])}) does not match the "
+            f"primary channel ({channel}). The first entry in neighbor_channels "
+            "must be the unit's own channel."
+        )
+
+    for nb_i in range(1, len(nb_channels)):
+        pre_nb = nb_templates[nb_i, sel_start:t_i]
+        post_nb = nb_templates[nb_i, t_i : sel_end + 1]
+        ch = int(nb_channels[nb_i])
+        if ch < n_channels:
+            fp[ch, paste_start : f_rel_to_trough[0]] = pre_nb
+            fp[ch, f_rel_to_trough[0] : paste_end] = post_nb
+
+    return fp
+
+
+def _compute_footprint_similarity(fp1, fp2, max_lag=5):
+    """Compute the best cosine similarity between two footprints over lag shifts.
+
+    The temporal lag is applied independently to each channel row (shifting
+    samples within a channel), then the resulting arrays are flattened and
+    compared via cosine similarity. Integer lags from ``-max_lag`` to
+    ``+max_lag`` are tested and the maximum similarity is returned.
+
+    Parameters:
+        fp1 (np.ndarray): Footprint array (n_channels, n_samples).
+        fp2 (np.ndarray): Footprint array (n_channels, n_samples), same
+            shape as *fp1*.
+        max_lag (int): Maximum lag in samples to search (default 5).
+
+    Returns:
+        best_sim (float): Highest cosine similarity across all tested lags.
+    """
+    if fp1.shape != fp2.shape:
+        raise ValueError(
+            f"Footprints must have the same shape, " f"got {fp1.shape} and {fp2.shape}"
+        )
+
+    n_samples = fp1.shape[1]
+    best = -np.inf
+    for lag in range(-max_lag, max_lag + 1):
+        if lag == 0:
+            vec1 = fp1.ravel()
+            vec2 = fp2.ravel()
+        elif lag > 0:
+            # Shift fp2 right by `lag` samples (compare overlapping region)
+            vec1 = fp1[:, lag:].ravel()
+            vec2 = fp2[:, : n_samples - lag].ravel()
+        else:
+            # Shift fp2 left by `|lag|` samples
+            vec1 = fp1[:, : n_samples + lag].ravel()
+            vec2 = fp2[:, -lag:].ravel()
+        sim = _cosine_sim(vec1, vec2)
+        if not np.isnan(sim) and sim > best:
+            best = sim
+
+    return float(best) if best > -np.inf else np.nan
