@@ -745,9 +745,7 @@ class TestNumbaIntegrationAgreement:
         # Pure Python reference
         for i in range(3):
             for j in range(2):
-                a, f1, f2 = _compute_agreement_score(
-                    trains1[i], trains2[j], 0.4
-                )
+                a, f1, f2 = _compute_agreement_score(trains1[i], trains2[j], 0.4)
                 assert out["agreement"][i, j] == pytest.approx(a, abs=1e-12)
                 assert out["frac_1"][i, j] == pytest.approx(f1, abs=1e-12)
                 assert out["frac_2"][i, j] == pytest.approx(f2, abs=1e-12)
