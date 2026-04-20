@@ -30,7 +30,6 @@ from ._exceptions import (
     SpikeSortingClassifiedError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -131,7 +130,7 @@ _DOCKER_DAEMON_MARKERS = (
 )
 _DOCKER_CLIENT_MISSING_MARKERS = (
     "No module named 'docker'",
-    "ModuleNotFoundError: No module named \"docker\"",
+    'ModuleNotFoundError: No module named "docker"',
 )
 _DOCKER_PERMISSION_MARKERS = (
     "permission denied while trying to connect to the Docker daemon",
@@ -288,12 +287,10 @@ def _classify_insufficient_activity_ks2(
         and threshold_crossings < _KS2_MIN_THRESHOLD_CROSSINGS
     )
     few_units = (
-        units_at_failure is not None
-        and units_at_failure <= _KS2_MAX_UNITS_AT_FAILURE
+        units_at_failure is not None and units_at_failure <= _KS2_MAX_UNITS_AT_FAILURE
     )
     low_nspks = (
-        nspks_at_failure is not None
-        and nspks_at_failure <= _KS2_MAX_NSPKS_AT_FAILURE
+        nspks_at_failure is not None and nspks_at_failure <= _KS2_MAX_NSPKS_AT_FAILURE
     )
     if not (low_crossings or few_units or low_nspks):
         return None
@@ -361,9 +358,8 @@ def _classify_insufficient_activity_ks4(
             "too little activity to cluster."
         )
 
-    message = (
-        f"{reason} Original exception: {exc!r}."
-        + (f" See {log_path} for full trace." if log_path else "")
+    message = f"{reason} Original exception: {exc!r}." + (
+        f" See {log_path} for full trace." if log_path else ""
     )
     return InsufficientActivityError(
         message,

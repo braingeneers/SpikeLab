@@ -42,7 +42,6 @@ from spikelab.spike_sorting._exceptions import (
     SpikeSortingClassifiedError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -306,9 +305,7 @@ class TestHDF5PluginMissing:
     def test_env_var_message_classified(self, tmp_path):
         err = classify_ks2_failure(
             tmp_path,
-            RuntimeError(
-                "HDF5_PLUGIN_PATH was set but no compression filter found"
-            ),
+            RuntimeError("HDF5_PLUGIN_PATH was set but no compression filter found"),
         )
         assert isinstance(err, HDF5PluginMissingError)
 
@@ -365,7 +362,7 @@ class TestDockerEnvironment:
                 "permission_denied",
             ),
             (
-                "manifest unknown: manifest tagged by \"x\" is not found",
+                'manifest unknown: manifest tagged by "x" is not found',
                 "image_pull_failed",
             ),
             (
@@ -460,12 +457,8 @@ class TestDispatcherPriority:
         assert isinstance(err, GPUOutOfMemoryError)
 
     def test_hdf5_beats_ks4_insufficient_activity(self, tmp_path):
-        inner = ValueError(
-            "Found array with 0 sample(s) required by TruncatedSVD"
-        )
-        outer = RuntimeError(
-            "HDF5 filter plugin missing (HDF5_PLUGIN_PATH unset)"
-        )
+        inner = ValueError("Found array with 0 sample(s) required by TruncatedSVD")
+        outer = RuntimeError("HDF5 filter plugin missing (HDF5_PLUGIN_PATH unset)")
         outer.__cause__ = inner
         err = classify_ks4_failure(tmp_path, outer)
         assert isinstance(err, HDF5PluginMissingError)
