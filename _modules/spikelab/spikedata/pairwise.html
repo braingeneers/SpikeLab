@@ -493,6 +493,66 @@
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="PairwiseCompMatrix.normalize">
+<a class="viewcode-back" href="../../../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix.normalize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;min_max&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrix&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a normalized copy of this matrix.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            method (str): Normalization method.  One of:</span>
+<span class="sd">                - ``&quot;min_max&quot;`` — scale values to [0, 1] range.</span>
+<span class="sd">                - ``&quot;z_score&quot;`` — subtract mean, divide by std.</span>
+<span class="sd">                - ``&quot;row&quot;`` — normalize each row independently</span>
+<span class="sd">                  (shorthand for ``axis=&quot;row&quot;`` with the chosen</span>
+<span class="sd">                  method; defaults to min-max).</span>
+<span class="sd">                - ``&quot;col&quot;`` — normalize each column independently.</span>
+<span class="sd">            axis (str or None): When set to ``&quot;row&quot;`` or ``&quot;col&quot;``,</span>
+<span class="sd">                normalization is applied per-row or per-column instead</span>
+<span class="sd">                of globally.  When None (default), the entire matrix</span>
+<span class="sd">                is normalized at once.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (PairwiseCompMatrix): A new PairwiseCompMatrix with</span>
+<span class="sd">                normalized values.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - NaN values are ignored during computation and preserved</span>
+<span class="sd">              in the output.</span>
+<span class="sd">            - For ``&quot;z_score&quot;``, if the standard deviation is zero the</span>
+<span class="sd">              result is filled with zeros (no division by zero).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;row&quot;</span><span class="p">,</span> <span class="s2">&quot;col&quot;</span><span class="p">):</span>
+            <span class="n">axis</span> <span class="o">=</span> <span class="n">method</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="s2">&quot;min_max&quot;</span>
+
+        <span class="n">mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;min_max&quot;</span><span class="p">:</span>
+            <span class="n">normalized</span> <span class="o">=</span> <span class="n">_min_max_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;z_score&quot;</span><span class="p">:</span>
+            <span class="n">normalized</span> <span class="o">=</span> <span class="n">_z_score_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unknown normalization method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                <span class="s2">&quot;expected &#39;min_max&#39;, &#39;z_score&#39;, &#39;row&#39;, or &#39;col&#39;.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">PairwiseCompMatrix</span><span class="p">(</span>
+            <span class="n">matrix</span><span class="o">=</span><span class="n">normalized</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="s2">&quot;normalization&quot;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+                <span class="s2">&quot;normalization_axis&quot;</span><span class="p">:</span> <span class="n">axis</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
+
+
     <span class="n">_OPS</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;lt&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">less</span><span class="p">,</span>
         <span class="s2">&quot;le&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">less_equal</span><span class="p">,</span>
@@ -954,6 +1014,80 @@
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="PairwiseCompMatrixStack.normalize">
+<a class="viewcode-back" href="../../../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrixStack.normalize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;min_max&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">per_slice</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PairwiseCompMatrixStack&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a normalized copy of this stack.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            method (str): Normalization method (``&quot;min_max&quot;``,</span>
+<span class="sd">                ``&quot;z_score&quot;``, ``&quot;row&quot;``, or ``&quot;col&quot;``).  See</span>
+<span class="sd">                ``PairwiseCompMatrix.normalize`` for details.</span>
+<span class="sd">            axis (str or None): ``&quot;row&quot;`` or ``&quot;col&quot;`` for per-row /</span>
+<span class="sd">                per-column normalization within each N x N slice, or</span>
+<span class="sd">                None for global normalization.</span>
+<span class="sd">            per_slice (bool): When True, each slice is normalized</span>
+<span class="sd">                independently.  When False (default), statistics are</span>
+<span class="sd">                computed across the entire stack.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            result (PairwiseCompMatrixStack): A new stack with</span>
+<span class="sd">                normalized values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;row&quot;</span><span class="p">,</span> <span class="s2">&quot;col&quot;</span><span class="p">):</span>
+            <span class="n">axis</span> <span class="o">=</span> <span class="n">method</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="s2">&quot;min_max&quot;</span>
+
+        <span class="k">if</span> <span class="n">per_slice</span><span class="p">:</span>
+            <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;min_max&quot;</span><span class="p">:</span>
+                    <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_min_max_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;z_score&quot;</span><span class="p">:</span>
+                    <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_z_score_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Unknown normalization method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                        <span class="s2">&quot;expected &#39;min_max&#39;, &#39;z_score&#39;, &#39;row&#39;, or &#39;col&#39;.&quot;</span>
+                    <span class="p">)</span>
+            <span class="n">normalized</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">stk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;min_max&quot;</span><span class="p">:</span>
+                <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+                <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+                <span class="n">rng</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
+                <span class="n">normalized</span> <span class="o">=</span> <span class="p">(</span><span class="n">stk</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span> <span class="o">/</span> <span class="n">rng</span> <span class="k">if</span> <span class="n">rng</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;z_score&quot;</span><span class="p">:</span>
+                <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+                <span class="n">sd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+                <span class="n">normalized</span> <span class="o">=</span> <span class="p">(</span><span class="n">stk</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span> <span class="k">if</span> <span class="n">sd</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">stk</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unknown normalization method </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">; &quot;</span>
+                    <span class="s2">&quot;expected &#39;min_max&#39;, &#39;z_score&#39;, &#39;row&#39;, or &#39;col&#39;.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">PairwiseCompMatrixStack</span><span class="p">(</span>
+            <span class="n">stack</span><span class="o">=</span><span class="n">normalized</span><span class="p">,</span>
+            <span class="n">labels</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>
+            <span class="n">times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">times</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="s2">&quot;normalization&quot;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+                <span class="s2">&quot;normalization_axis&quot;</span><span class="p">:</span> <span class="n">axis</span><span class="p">,</span>
+                <span class="s2">&quot;normalization_per_slice&quot;</span><span class="p">:</span> <span class="n">per_slice</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span></div>
+
+
     <span class="n">_OPS</span> <span class="o">=</span> <span class="n">PairwiseCompMatrix</span><span class="o">.</span><span class="n">_OPS</span>
 
 <div class="viewcode-block" id="PairwiseCompMatrixStack.remove_by_condition">
@@ -1199,6 +1333,66 @@
         <span class="p">)</span></div>
 </div>
 
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Normalization helpers (used by PairwiseCompMatrix.normalize and</span>
+<span class="c1"># PairwiseCompMatrixStack.normalize)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_min_max_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Min-max normalize a 2-D matrix to [0, 1].</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mat (np.ndarray): ``(N, N)`` input matrix.</span>
+<span class="sd">        axis (str or None): ``&quot;row&quot;``, ``&quot;col&quot;``, or None (global).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        normalized (np.ndarray): ``(N, N)`` normalized matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">axis</span> <span class="o">==</span> <span class="s2">&quot;row&quot;</span><span class="p">:</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s2">&quot;col&quot;</span><span class="p">:</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">rng</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">mat</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span> <span class="o">/</span> <span class="n">rng</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="c1"># Preserve NaN</span>
+    <span class="n">result</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mat</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_z_score_normalize</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Z-score normalize a 2-D matrix (mean=0, std=1).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mat (np.ndarray): ``(N, N)`` input matrix.</span>
+<span class="sd">        axis (str or None): ``&quot;row&quot;``, ``&quot;col&quot;``, or None (global).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        normalized (np.ndarray): ``(N, N)`` normalized matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">axis</span> <span class="o">==</span> <span class="s2">&quot;row&quot;</span><span class="p">:</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s2">&quot;col&quot;</span><span class="p">:</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sd</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">mat</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">result</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mat</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">result</span>
 </pre></div>
 
            </div>
