@@ -125,6 +125,63 @@ class PairwiseCompMatrix:
             metadata={**self.metadata, "threshold": threshold, "binary": True},
         )
 
+    def normalize(
+        self,
+        method: str = "min_max",
+        *,
+        axis: Optional[str] = None,
+    ) -> "PairwiseCompMatrix":
+        """Return a normalized copy of this matrix.
+
+        Parameters:
+            method (str): Normalization method.  One of:
+                - ``"min_max"`` — scale values to [0, 1] range.
+                - ``"z_score"`` — subtract mean, divide by std.
+                - ``"row"`` — normalize each row independently
+                  (shorthand for ``axis="row"`` with the chosen
+                  method; defaults to min-max).
+                - ``"col"`` — normalize each column independently.
+            axis (str or None): When set to ``"row"`` or ``"col"``,
+                normalization is applied per-row or per-column instead
+                of globally.  When None (default), the entire matrix
+                is normalized at once.
+
+        Returns:
+            result (PairwiseCompMatrix): A new PairwiseCompMatrix with
+                normalized values.
+
+        Notes:
+            - NaN values are ignored during computation and preserved
+              in the output.
+            - For ``"z_score"``, if the standard deviation is zero the
+              result is filled with zeros (no division by zero).
+        """
+        if method in ("row", "col"):
+            axis = method
+            method = "min_max"
+
+        mat = self.matrix.astype(np.float64)
+
+        if method == "min_max":
+            normalized = _min_max_normalize(mat, axis)
+        elif method == "z_score":
+            normalized = _z_score_normalize(mat, axis)
+        else:
+            raise ValueError(
+                f"Unknown normalization method {method!r}; "
+                "expected 'min_max', 'z_score', 'row', or 'col'."
+            )
+
+        return PairwiseCompMatrix(
+            matrix=normalized,
+            labels=self.labels,
+            metadata={
+                **self.metadata,
+                "normalization": method,
+                "normalization_axis": axis,
+            },
+        )
+
     _OPS = {
         "lt": np.less,
         "le": np.less_equal,
@@ -562,6 +619,77 @@ class PairwiseCompMatrixStack:
             metadata={**self.metadata, "threshold": threshold, "binary": True},
         )
 
+    def normalize(
+        self,
+        method: str = "min_max",
+        *,
+        axis: Optional[str] = None,
+        per_slice: bool = False,
+    ) -> "PairwiseCompMatrixStack":
+        """Return a normalized copy of this stack.
+
+        Parameters:
+            method (str): Normalization method (``"min_max"``,
+                ``"z_score"``, ``"row"``, or ``"col"``).  See
+                ``PairwiseCompMatrix.normalize`` for details.
+            axis (str or None): ``"row"`` or ``"col"`` for per-row /
+                per-column normalization within each N x N slice, or
+                None for global normalization.
+            per_slice (bool): When True, each slice is normalized
+                independently.  When False (default), statistics are
+                computed across the entire stack.
+
+        Returns:
+            result (PairwiseCompMatrixStack): A new stack with
+                normalized values.
+        """
+        if method in ("row", "col"):
+            axis = method
+            method = "min_max"
+
+        if per_slice:
+            slices = []
+            for s in range(self.stack.shape[2]):
+                mat = self.stack[:, :, s].astype(np.float64)
+                if method == "min_max":
+                    slices.append(_min_max_normalize(mat, axis))
+                elif method == "z_score":
+                    slices.append(_z_score_normalize(mat, axis))
+                else:
+                    raise ValueError(
+                        f"Unknown normalization method {method!r}; "
+                        "expected 'min_max', 'z_score', 'row', or 'col'."
+                    )
+            normalized = np.stack(slices, axis=2)
+        else:
+            stk = self.stack.astype(np.float64)
+            if method == "min_max":
+                lo = np.nanmin(stk)
+                hi = np.nanmax(stk)
+                rng = hi - lo
+                normalized = (stk - lo) / rng if rng != 0 else np.zeros_like(stk)
+            elif method == "z_score":
+                mu = np.nanmean(stk)
+                sd = np.nanstd(stk)
+                normalized = (stk - mu) / sd if sd != 0 else np.zeros_like(stk)
+            else:
+                raise ValueError(
+                    f"Unknown normalization method {method!r}; "
+                    "expected 'min_max', 'z_score', 'row', or 'col'."
+                )
+
+        return PairwiseCompMatrixStack(
+            stack=normalized,
+            labels=self.labels,
+            times=self.times,
+            metadata={
+                **self.metadata,
+                "normalization": method,
+                "normalization_axis": axis,
+                "normalization_per_slice": per_slice,
+            },
+        )
+
     _OPS = PairwiseCompMatrix._OPS
 
     def remove_by_condition(
@@ -791,3 +919,63 @@ class PairwiseCompMatrixStack:
         raise ValueError(
             f"Unknown manifold method '{method}' (expected 'PCA' or 'UMAP')."
         )
+
+
+# ---------------------------------------------------------------------------
+# Normalization helpers (used by PairwiseCompMatrix.normalize and
+# PairwiseCompMatrixStack.normalize)
+# ---------------------------------------------------------------------------
+
+
+def _min_max_normalize(mat: np.ndarray, axis: Optional[str] = None) -> np.ndarray:
+    """Min-max normalize a 2-D matrix to [0, 1].
+
+    Parameters:
+        mat (np.ndarray): ``(N, N)`` input matrix.
+        axis (str or None): ``"row"``, ``"col"``, or None (global).
+
+    Returns:
+        normalized (np.ndarray): ``(N, N)`` normalized matrix.
+    """
+    if axis == "row":
+        lo = np.nanmin(mat, axis=1, keepdims=True)
+        hi = np.nanmax(mat, axis=1, keepdims=True)
+    elif axis == "col":
+        lo = np.nanmin(mat, axis=0, keepdims=True)
+        hi = np.nanmax(mat, axis=0, keepdims=True)
+    else:
+        lo = np.nanmin(mat)
+        hi = np.nanmax(mat)
+
+    rng = hi - lo
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result = np.where(rng != 0, (mat - lo) / rng, 0.0)
+    # Preserve NaN
+    result[np.isnan(mat)] = np.nan
+    return result
+
+
+def _z_score_normalize(mat: np.ndarray, axis: Optional[str] = None) -> np.ndarray:
+    """Z-score normalize a 2-D matrix (mean=0, std=1).
+
+    Parameters:
+        mat (np.ndarray): ``(N, N)`` input matrix.
+        axis (str or None): ``"row"``, ``"col"``, or None (global).
+
+    Returns:
+        normalized (np.ndarray): ``(N, N)`` normalized matrix.
+    """
+    if axis == "row":
+        mu = np.nanmean(mat, axis=1, keepdims=True)
+        sd = np.nanstd(mat, axis=1, keepdims=True)
+    elif axis == "col":
+        mu = np.nanmean(mat, axis=0, keepdims=True)
+        sd = np.nanstd(mat, axis=0, keepdims=True)
+    else:
+        mu = np.nanmean(mat)
+        sd = np.nanstd(mat)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result = np.where(sd != 0, (mat - mu) / sd, 0.0)
+    result[np.isnan(mat)] = np.nan
+    return result
