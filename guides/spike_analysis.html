@@ -102,6 +102,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#firing-rates">Firing rates</a></li>
@@ -109,7 +110,6 @@
 <li class="toctree-l4"><a class="reference internal" href="#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#further-reading">Further Reading</a></li>
 </ul>
@@ -190,6 +190,33 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
 </ul>
 </li>
 </ul>
@@ -443,6 +470,29 @@ Detected burst boundaries overlay the population rate trace.</span><a class="hea
 </figcaption>
 </figure>
 </section>
+<section id="burst-widths">
+<h2>Burst Widths<a class="headerlink" href="#burst-widths" title="Link to this heading"></a></h2>
+<p>Once bursts are detected, you can examine their temporal extent by computing the
+width of each burst from the <code class="docutils literal notranslate"><span class="pre">edges</span></code> array:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_bursts</span><span class="p">(</span>
+    <span class="n">thr_burst</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="n">min_burst_diff</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Burst widths in ms (when raster_bin_size_ms=1.0)</span>
+<span class="n">burst_widths</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/burst_widths.png"><img alt="Distribution of burst widths" src="../_images/burst_widths.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Distribution of burst widths across detected bursts. Wider bursts
+correspond to sustained periods of elevated network activity.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
 <section id="burst-sensitivity-analysis">
 <h2>Burst Sensitivity Analysis<a class="headerlink" href="#burst-sensitivity-analysis" title="Link to this heading"></a></h2>
 <p>Choosing burst detection parameters requires understanding how the number of
@@ -479,15 +529,6 @@ built-in plotting utility:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<figure class="align-default" id="id2">
-<a class="reference internal image-reference" href="../_images/burst_sensitivity.png"><img alt="Burst sensitivity heatmap" src="../_images/burst_sensitivity.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Heatmap of detected burst counts as a function of threshold multiplier
-(x-axis) and minimum burst distance (y-axis). Warm colours indicate more
-bursts detected.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
-</figcaption>
-</figure>
 <p>Inspecting this heatmap helps you identify a plateau region where the burst
 count is stable — a sign that your chosen parameters are robust.</p>
 <p>To test a single parameter in isolation, pass a length-1 list for the other.
@@ -514,6 +555,15 @@ is drawn as a separate line on the same axes:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../_images/burst_sensitivity.png"><img alt="Burst sensitivity line plot" src="../_images/burst_sensitivity.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Number of detected bursts as a function of threshold multiplier for
+multiple experimental conditions, with minimum burst distance held
+constant.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
 </section>
 <section id="per-unit-metrics">
 <h2>Per-Unit Metrics<a class="headerlink" href="#per-unit-metrics" title="Link to this heading"></a></h2>
@@ -559,38 +609,15 @@ coupling between individual units and the population:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">delays</span></code> — <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> lag at which each unit’s coupling peaks.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lags</span></code> — <code class="docutils literal notranslate"><span class="pre">(2*window_ms+1,)</span></code> lag axis in ms.</p></li>
 </ul>
-<figure class="align-default" id="id3">
+<figure class="align-default" id="id4">
 <a class="reference internal image-reference" href="../_images/firing_rate_violins.png"><img alt="Firing rate distributions across conditions" src="../_images/firing_rate_violins.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Violin plots of per-unit firing rates compared across experimental
-conditions.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+conditions.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>
-</section>
-<section id="burst-widths">
-<h2>Burst Widths<a class="headerlink" href="#burst-widths" title="Link to this heading"></a></h2>
-<p>Once bursts are detected, you can examine their temporal extent by computing the
-width of each burst from the <code class="docutils literal notranslate"><span class="pre">edges</span></code> array:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tburst</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">peak_amp</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_bursts</span><span class="p">(</span>
-    <span class="n">thr_burst</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-    <span class="n">min_burst_diff</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-    <span class="n">burst_edge_mult_thresh</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># Burst widths in ms (when raster_bin_size_ms=1.0)</span>
-<span class="n">burst_widths</span> <span class="o">=</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">edges</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</pre></div>
-</div>
-<figure class="align-default" id="id4">
-<a class="reference internal image-reference" href="../_images/burst_widths.png"><img alt="Distribution of burst widths" src="../_images/burst_widths.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Distribution of burst widths across detected bursts. Wider bursts
-correspond to sustained periods of elevated network activity.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
-</figcaption>
-</figure>
 </section>
 <section id="per-unit-burst-participation">
 <h2>Per-Unit Burst Participation<a class="headerlink" href="#per-unit-burst-participation" title="Link to this heading"></a></h2>
@@ -605,8 +632,8 @@ windows:</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">edges</span></code> parameter is the <code class="docutils literal notranslate"><span class="pre">(B,</span> <span class="pre">2)</span></code> array of burst boundaries returned
 by <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_bursts()</span></code>. The <code class="docutils literal notranslate"><span class="pre">bin_size</span></code> must match the
 <code class="docutils literal notranslate"><span class="pre">raster_bin_size_ms</span></code> used when detecting bursts.</p>
-<p>Units with a high fraction fire predominantly during bursts, while a low
-fraction indicates tonic or inter-burst activity.</p>
+<p>Units with a high fraction are predominantly burst-locked, while a low
+fraction indicates the unit is largely silent during bursts.</p>
 </section>
 <section id="further-reading">
 <h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading"></a></h2>

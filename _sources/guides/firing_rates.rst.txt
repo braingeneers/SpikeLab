@@ -97,9 +97,8 @@ You can extract the lower triangle for summary statistics:
 Correlation Matrices
 --------------------
 
-Visualising the full ``(N, N)`` correlation matrix as a heatmap reveals
-clusters of co-active units. Use the built-in
-:func:`~spikelab.spikedata.plot_utils.plot_heatmap` utility:
+Visualise the full ``(N, N)`` correlation matrix as a heatmap using the
+built-in :func:`~spikelab.spikedata.plot_utils.plot_heatmap` utility:
 
 .. code-block:: python
 
@@ -115,8 +114,13 @@ clusters of co-active units. Use the built-in
        cbar_label="Correlation",
    )
 
-Sorting units before plotting (e.g. by electrode position, firing rate, or
-hierarchical clustering) can make block structure more apparent.
+The correlation matrix can also be converted to a NetworkX graph for
+graph-theoretic analysis:
+
+.. code-block:: python
+
+   G = corr_matrix.to_networkx()
+   print(f"Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
 
 .. figure:: /_static/images/fr_corr_matrices.png
    :width: 100%

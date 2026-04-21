@@ -102,6 +102,7 @@
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
@@ -109,7 +110,6 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
@@ -190,6 +190,33 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
 </ul>
 </li>
 </ul>
@@ -577,10 +604,16 @@ saved alongside the curated data.</p>
 </section>
 <section id="splitting-concatenated-recordings">
 <h2><a class="toc-backref" href="#id11" role="doc-backlink">Splitting Concatenated Recordings</a><a class="headerlink" href="#splitting-concatenated-recordings" title="Link to this heading"></a></h2>
-<p>When multiple recordings are concatenated (e.g. by the sorting pipeline),
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">split_epochs()</span></code> splits them back into per-recording
-<code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> objects. It uses the <code class="docutils literal notranslate"><span class="pre">rec_chunks_ms</span></code> entry in <code class="docutils literal notranslate"><span class="pre">metadata</span></code> to
-determine epoch boundaries and time-shifts each epoch to start at t=0:</p>
+<p>When a directory containing multiple recording files is passed to
+<code class="docutils literal notranslate"><span class="pre">sort_recording</span></code>, the pipeline concatenates them into a single recording for
+sorting. The returned <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> objects are automatically split back into
+per-recording epochs. When a list of recording paths is passed instead, each
+file is processed sequentially without concatenation.</p>
+<p>If you need to re-split a concatenated <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> manually (e.g. after
+loading a saved pickle that was not yet split), use
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">split_epochs()</span></code>. This requires <code class="docutils literal notranslate"><span class="pre">rec_chunks_ms</span></code> in
+<code class="docutils literal notranslate"><span class="pre">metadata</span></code> (set automatically by the sorting pipeline) and time-shifts each
+epoch to start at t=0:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">epoch_sds</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">split_epochs</span><span class="p">()</span>
 
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">epoch_sd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">):</span>

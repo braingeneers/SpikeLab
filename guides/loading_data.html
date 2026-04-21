@@ -102,6 +102,7 @@
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#population-rate">Population Rate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-detection">Burst Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-sensitivity-analysis">Burst Sensitivity Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-metrics">Per-Unit Metrics</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#firing-rates">Firing rates</a></li>
@@ -109,7 +110,6 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-widths">Burst Widths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
@@ -190,6 +190,33 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
 </ul>
 </li>
 </ul>
@@ -458,7 +485,9 @@ style and <code class="docutils literal notranslate"><span class="pre">times_uni
 <h2>From NWB files<a class="headerlink" href="#from-nwb-files" title="Link to this heading"></a></h2>
 <p>SpikeLab can load spike trains from NWB (Neurodata Without Borders) files. The
 loader reads the <code class="docutils literal notranslate"><span class="pre">/units</span></code> group and populates <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with
-<code class="docutils literal notranslate"><span class="pre">unit_id</span></code>, <code class="docutils literal notranslate"><span class="pre">electrode</span></code>, and <code class="docutils literal notranslate"><span class="pre">location</span></code> when available.</p>
+<code class="docutils literal notranslate"><span class="pre">unit_id</span></code>, <code class="docutils literal notranslate"><span class="pre">electrode</span></code> (or <code class="docutils literal notranslate"><span class="pre">electrode_group</span></code>/<code class="docutils literal notranslate"><span class="pre">channel</span></code>), <code class="docutils literal notranslate"><span class="pre">location</span></code>,
+and electrode positions (<code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>) when these are present in the
+file.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.data_loaders.data_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_spikedata_from_nwb</span>
 
 <span class="n">sd</span> <span class="o">=</span> <span class="n">load_spikedata_from_nwb</span><span class="p">(</span><span class="s2">&quot;session.nwb&quot;</span><span class="p">)</span>
@@ -472,8 +501,7 @@ loader reads the <code class="docutils literal notranslate"><span class="pre">/u
 </pre></div>
 </div>
 <p>The NWB loader tries <code class="docutils literal notranslate"><span class="pre">pynwb</span></code> first by default. If <code class="docutils literal notranslate"><span class="pre">pynwb</span></code> is not installed
-it falls back to reading the HDF5 file directly with <code class="docutils literal notranslate"><span class="pre">h5py</span></code>. Both
-<code class="docutils literal notranslate"><span class="pre">pynwb</span></code> and <code class="docutils literal notranslate"><span class="pre">h5py</span></code> are optional dependencies.</p>
+it falls back to reading the HDF5 file directly with <code class="docutils literal notranslate"><span class="pre">h5py</span></code>.</p>
 </section>
 <section id="from-kilosort-phy-output">
 <h2>From KiloSort/Phy output<a class="headerlink" href="#from-kilosort-phy-output" title="Link to this heading"></a></h2>
