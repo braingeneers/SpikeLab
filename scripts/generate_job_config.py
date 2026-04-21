@@ -1,4 +1,4 @@
-"""Generate NRP job config YAML from an image and profile."""
+"""Generate batch job config YAML from an image and profile."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def main() -> int:
         "namespace": args.namespace,
         "labels": {
             "analysis": "spikelab",
-            "workflow": "nrp-temp",
+            "workflow": "batch-temp",
             "image_profile": args.profile,
         },
         "container": {
@@ -56,7 +56,7 @@ def main() -> int:
             "command": ["python", "/opt/spikelab/run_analysis.py"],
             "args": [],
             "env": {
-                "OUTPUT_PREFIX": "s3://braingeneers/ephys-analysis/",
+                "OUTPUT_PREFIX": "s3://YOUR-BUCKET/YOUR-PREFIX/",
             },
         },
         "resources": resources,

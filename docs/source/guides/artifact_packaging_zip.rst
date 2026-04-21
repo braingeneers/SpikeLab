@@ -2,8 +2,8 @@
 Artifact Packaging
 ====================
 
-SpikeLab NRP job sessions package analysis artifacts into a zip bundle before
-uploading.
+SpikeLab batch job sessions package analysis artifacts into a zip bundle
+before uploading.
 
 Flow
 ----
@@ -19,7 +19,7 @@ Python API example
 
 .. code-block:: python
 
-   from spikelab.nrp_jobs.artifact_packager import package_analysis_bundle
+   from spikelab.batch_jobs.artifact_packager import package_analysis_bundle
 
    zip_path = package_analysis_bundle(
        input_paths=["./outputs/run123.pkl", "./outputs/run123.nwb"],
@@ -29,4 +29,4 @@ Python API example
        metadata={"workspace_id": "example-workspace"},
    )
 
-The resulting zip is suitable for NRP batch job handoff and traceability.
+The resulting zip is suitable for batch job handoff and traceability.

@@ -7,7 +7,7 @@ container:
   command: ["python", "/opt/spikelab/run_analysis.py"]
   args: []
   env:
-    OUTPUT_PREFIX: s3://braingeneers/ephys-analysis/
+    OUTPUT_PREFIX: s3://YOUR-BUCKET/YOUR-PREFIX/
 resources:
   requests_cpu: "4"
   requests_memory: "16Gi"

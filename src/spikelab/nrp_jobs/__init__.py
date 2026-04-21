@@ -1,68 +1,12 @@
-"""NRP/Kubernetes batch-job launching helpers for SpikeLab.
+"""Deprecated: use ``spikelab.batch_jobs`` instead."""
 
-Requires the ``nrp-jobs`` optional dependency group::
+import warnings
 
-    pip install spikelab[nrp-jobs]
-"""
+warnings.warn(
+    "spikelab.nrp_jobs is deprecated; use spikelab.batch_jobs instead. "
+    "This alias will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-
-def __getattr__(name):
-    """Lazy-import public symbols so the package is importable without extras."""
-    _public = {
-        "ClusterProfile",
-        "ContainerSpec",
-        "JobSpec",
-        "ResourceSpec",
-        "RunConfig",
-        "VolumeMountSpec",
-        "RunSession",
-        "load_cluster_profile",
-        "load_profile_from_name",
-    }
-    if name in _public:
-        try:
-            if name in {
-                "ClusterProfile",
-                "ContainerSpec",
-                "JobSpec",
-                "ResourceSpec",
-                "RunConfig",
-                "VolumeMountSpec",
-            }:
-                from .models import (
-                    ClusterProfile,
-                    ContainerSpec,
-                    JobSpec,
-                    ResourceSpec,
-                    RunConfig,
-                    VolumeMountSpec,
-                )
-
-                return locals()[name]
-            if name in {"load_cluster_profile", "load_profile_from_name"}:
-                from .profiles import load_cluster_profile, load_profile_from_name
-
-                return locals()[name]
-            if name == "RunSession":
-                from .session import RunSession
-
-                return RunSession
-        except ImportError as exc:
-            raise ImportError(
-                f"Cannot import '{name}' — install the nrp-jobs extra: "
-                "pip install spikelab[nrp-jobs]"
-            ) from exc
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-__all__ = [
-    "ClusterProfile",
-    "ContainerSpec",
-    "JobSpec",
-    "ResourceSpec",
-    "RunConfig",
-    "VolumeMountSpec",
-    "RunSession",
-    "load_cluster_profile",
-    "load_profile_from_name",
-]
+from spikelab.batch_jobs import *  # noqa: F401, F403

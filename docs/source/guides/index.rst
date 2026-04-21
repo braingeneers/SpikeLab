@@ -18,7 +18,7 @@ In-depth guides covering the main workflows in SpikeLab.
    exporting_data
    workspace
    mcp_server
-   nrp_jobs_quickstart
-   nrp_docker_workflow
-   nrp_policy_guardrails
+   batch_jobs_quickstart
+   batch_docker_workflow
+   batch_policy_guardrails
    artifact_packaging_zip

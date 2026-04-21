@@ -72,13 +72,13 @@ This skill is limited to **assessing spike sorting quality** — unit counts, SN
 For compute-intensive workflows, always pick an execution mode explicitly:
 
 - **Local path**: use this skill directly with `sort_recording(..., use_docker=True)` when the user intends to run on the current workstation.
-- **NRP batch path**: keep sorter parameter selection in this skill, then hand off deployment/container orchestration to `spikelab-nrp-jobs`.
+- **Cluster batch path**: keep sorter parameter selection in this skill, then hand off deployment/container orchestration to `spikelab-batch-jobs`.
 
-When handing off to `spikelab-nrp-jobs`, pass:
+When handing off to `spikelab-batch-jobs`, pass:
 - chosen sorter (`kilosort2` or `kilosort4`)
 - key curation thresholds (`snr_min`, `spikes_min_first`, etc.)
-- desired CPU/GPU image profile for the NRP container
-- output path expectations (`s3://braingeneers/ephys-analysis/` or user override)
+- desired CPU/GPU image profile for the batch container
+- output path expectations (profile-configured S3 prefix or user override)
 
 ### Repo maps
 
@@ -181,10 +181,10 @@ If the user requests external/cluster execution:
 
 1. Finalize sorter parameters in this skill.
 2. Generate or update the run command that should execute inside the container.
-3. Hand off deployment to `spikelab-nrp-jobs` with:
+3. Hand off deployment to `spikelab-batch-jobs` with:
    - temporary image build/push steps
-   - `spikelab-nrp-jobs render-job ...`
-   - `spikelab-nrp-jobs deploy-job ... --image-profile <cpu|gpu>`
+   - `spikelab-batch-jobs render-job ...`
+   - `spikelab-batch-jobs deploy-job ... --image-profile <cpu|gpu>`
 4. Return to this skill for quality review after artifacts are produced.
 
 ### Basic example (Kilosort2 via Docker)

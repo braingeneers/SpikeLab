@@ -29,7 +29,7 @@ def _sanitize_list(items: List[str]) -> List[str]:
 
 
 def _template_env() -> Environment:
-    templates_dir = files("spikelab.nrp_jobs").joinpath("templates")
+    templates_dir = files("spikelab.batch_jobs").joinpath("templates")
     return Environment(
         loader=FileSystemLoader(str(templates_dir)),
         autoescape=False,
