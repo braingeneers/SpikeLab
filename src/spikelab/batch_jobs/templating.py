@@ -82,6 +82,13 @@ def _apply_namespace_hooks(
     if hook.default_command and not updated_container.get("command"):
         updated_container["command"] = hook.default_command
 
+    # Merge hook env_defaults (hook values do not override user-specified keys)
+    if hook.env_defaults:
+        existing_env = updated_container.get("env", {})
+        merged_env = dict(hook.env_defaults)
+        merged_env.update(existing_env)  # user keys take precedence
+        updated_container["env"] = merged_env
+
     for vol in hook.required_volumes:
         entry = vol.model_dump()
         key = _volume_entry_key(entry)

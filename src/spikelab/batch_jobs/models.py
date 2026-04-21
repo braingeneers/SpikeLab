@@ -58,6 +58,7 @@ class NamespaceHookSpec(BaseModel):
     image_pull_policy: Optional[str] = None
     default_command: List[str] = Field(default_factory=list)
     required_volumes: List[VolumeMountSpec] = Field(default_factory=list)
+    env_defaults: Dict[str, str] = Field(default_factory=dict)
 
 
 class StoragePathTemplates(BaseModel):

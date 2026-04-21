@@ -24,19 +24,23 @@ namespace_hooks:
   braingeneers:
     image_pull_policy: Always
     default_command: ["sh", "-c"]
+    env_defaults:
+      AWS_SHARED_CREDENTIALS_FILE: /etc/spikelab/aws/credentials
+      AWS_CONFIG_FILE: /etc/spikelab/aws/.s3cfg
+      KUBECONFIG: /etc/spikelab/kube/config
     required_volumes:
       - name: prp-s3-credentials
-        mount_path: /root/.aws/credentials
+        mount_path: /etc/spikelab/aws/credentials
         sub_path: credentials
         secret_name: prp-s3-credentials
         read_only: true
       - name: prp-s3-credentials
-        mount_path: /root/.aws/.s3cfg
+        mount_path: /etc/spikelab/aws/.s3cfg
         sub_path: .s3cfg
         secret_name: prp-s3-credentials
         read_only: true
       - name: kube-config
-        mount_path: /root/.kube
+        mount_path: /etc/spikelab/kube
         secret_name: kube-config
         read_only: true
 storage:

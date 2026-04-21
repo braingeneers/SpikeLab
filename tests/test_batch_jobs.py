@@ -181,6 +181,68 @@ def test_namespace_hooks_preserve_user_affinity():
     assert values == ["NVIDIA-A40"]
 
 
+def test_namespace_hooks_inject_env_defaults():
+    """Hook env_defaults are merged into the container env."""
+    payload = _example_payload()
+    payload["namespace"] = "test-ns"
+    payload["container"]["env"]["USER_VAR"] = "user-value"
+    job_spec = validate_job_spec(payload)
+    profile = ClusterProfile(
+        name="test-env",
+        namespace_hooks={
+            "test-ns": NamespaceHookSpec(
+                env_defaults={
+                    "AWS_SHARED_CREDENTIALS_FILE": "/etc/spikelab/aws/credentials",
+                    "KUBECONFIG": "/etc/spikelab/kube/config",
+                },
+            ),
+        },
+    )
+    context = build_template_context(
+        job_name="env-hook-test",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    env_list = parsed["spec"]["template"]["spec"]["containers"][0].get("env", [])
+    env_map = {item["name"]: item["value"] for item in env_list}
+    # Hook defaults present
+    assert env_map["AWS_SHARED_CREDENTIALS_FILE"] == "/etc/spikelab/aws/credentials"
+    assert env_map["KUBECONFIG"] == "/etc/spikelab/kube/config"
+    # User-specified env preserved
+    assert env_map["USER_VAR"] == "user-value"
+
+
+def test_namespace_hooks_env_defaults_user_overrides_hook():
+    """User-specified env keys take precedence over hook env_defaults."""
+    payload = _example_payload()
+    payload["namespace"] = "test-ns"
+    payload["container"]["env"]["KUBECONFIG"] = "/my/custom/kubeconfig"
+    job_spec = validate_job_spec(payload)
+    profile = ClusterProfile(
+        name="test-env-override",
+        namespace_hooks={
+            "test-ns": NamespaceHookSpec(
+                env_defaults={
+                    "KUBECONFIG": "/etc/spikelab/kube/config",
+                },
+            ),
+        },
+    )
+    context = build_template_context(
+        job_name="env-override-test",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(context)
+    parsed = yaml.safe_load(manifest)
+    env_list = parsed["spec"]["template"]["spec"]["containers"][0].get("env", [])
+    env_map = {item["name"]: item["value"] for item in env_list}
+    # User value wins over hook default
+    assert env_map["KUBECONFIG"] == "/my/custom/kubeconfig"
+
+
 def test_policy_blocks_sleep_infinity():
     payload = _example_payload()
     payload["container"]["args"] = ["sleep", "infinity"]
