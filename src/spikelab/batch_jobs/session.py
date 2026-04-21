@@ -47,7 +47,10 @@ class RunSession:
     @staticmethod
     def _build_job_name(prefix: str) -> str:
         token = uuid4().hex[:8]
-        return f"{prefix}-{token}"[:63]
+        # Truncate prefix to leave room for "-" + 8-char token (max 63 total)
+        max_prefix = 63 - 1 - len(token)  # 54
+        truncated = prefix[:max_prefix].rstrip("-")
+        return f"{truncated}-{token}"
 
     def _materialize_outputs(
         self,
