@@ -1,5 +1,5 @@
-IMAGE := braingeneers/spikelab-mcp
-TAG   := latest
+IMAGE ?= spikelab-mcp
+TAG   ?= latest
 
 .PHONY: build push
 
