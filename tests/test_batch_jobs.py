@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -363,3 +364,547 @@ volumes: []
     )
     exit_code = cli._cmd_render(args)
     assert exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# artifact_packager tests
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.artifact_packager import package_analysis_bundle, _sha256
+
+
+class TestArtifactPackager:
+    def test_creates_zip_with_manifest(self, tmp_path):
+        """Bundle creates a zip containing copied files and manifest.json."""
+        input_file = tmp_path / "data.pkl"
+        input_file.write_bytes(b"fake pickle data")
+
+        zip_path = package_analysis_bundle(
+            input_paths=[str(input_file)],
+            run_id="run-001",
+            output_dir=str(tmp_path / "out"),
+            output_format="pickle",
+        )
+
+        assert Path(zip_path).exists()
+        assert zip_path.endswith(".zip")
+
+        import zipfile
+
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            assert "run-001/data.pkl" in names
+            assert "run-001/manifest.json" in names
+
+    def test_manifest_contains_sha256_and_metadata(self, tmp_path):
+        """manifest.json includes per-file checksums and user metadata."""
+        input_file = tmp_path / "result.nwb"
+        input_file.write_bytes(b"fake nwb content")
+
+        zip_path = package_analysis_bundle(
+            input_paths=[str(input_file)],
+            run_id="run-002",
+            output_dir=str(tmp_path / "out"),
+            output_format="nwb",
+            metadata={"workspace_id": "ws-42"},
+        )
+
+        import json
+        import zipfile
+
+        with zipfile.ZipFile(zip_path) as zf:
+            manifest = json.loads(zf.read("run-002/manifest.json"))
+
+        assert manifest["run_id"] == "run-002"
+        assert manifest["output_format"] == "nwb"
+        assert manifest["metadata"]["workspace_id"] == "ws-42"
+        assert len(manifest["files"]) == 1
+        assert manifest["files"][0]["name"] == "result.nwb"
+        assert len(manifest["files"][0]["sha256"]) == 64  # hex SHA256
+
+    def test_multiple_input_files(self, tmp_path):
+        """Multiple input files are all included in the bundle."""
+        f1 = tmp_path / "a.pkl"
+        f2 = tmp_path / "b.nwb"
+        f1.write_bytes(b"data1")
+        f2.write_bytes(b"data2")
+
+        zip_path = package_analysis_bundle(
+            input_paths=[str(f1), str(f2)],
+            run_id="run-multi",
+            output_dir=str(tmp_path / "out"),
+            output_format="both",
+        )
+
+        import zipfile
+
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            assert "run-multi/a.pkl" in names
+            assert "run-multi/b.nwb" in names
+            assert "run-multi/manifest.json" in names
+
+    def test_missing_input_file_raises(self, tmp_path):
+        """FileNotFoundError raised when an input path does not exist."""
+        with pytest.raises(FileNotFoundError, match="Input file not found"):
+            package_analysis_bundle(
+                input_paths=["/nonexistent/file.pkl"],
+                run_id="run-bad",
+                output_dir=str(tmp_path / "out"),
+                output_format="pickle",
+            )
+
+    def test_invalid_output_format_raises(self, tmp_path):
+        """ValueError raised for unsupported output_format."""
+        f = tmp_path / "data.pkl"
+        f.write_bytes(b"data")
+        with pytest.raises(ValueError, match="output_format"):
+            package_analysis_bundle(
+                input_paths=[str(f)],
+                run_id="run-fmt",
+                output_dir=str(tmp_path / "out"),
+                output_format="csv",  # type: ignore[arg-type]
+            )
+
+    def test_empty_input_paths(self, tmp_path):
+        """Empty input_paths produces a zip with only manifest.json."""
+        zip_path = package_analysis_bundle(
+            input_paths=[],
+            run_id="run-empty",
+            output_dir=str(tmp_path / "out"),
+            output_format="pickle",
+        )
+
+        import json
+        import zipfile
+
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            assert "run-empty/manifest.json" in names
+            manifest = json.loads(zf.read("run-empty/manifest.json"))
+            assert manifest["files"] == []
+
+    def test_sha256_correctness(self, tmp_path):
+        """_sha256 produces correct hex digest for known content."""
+        import hashlib
+
+        f = tmp_path / "test.bin"
+        content = b"hello world"
+        f.write_bytes(content)
+
+        expected = hashlib.sha256(content).hexdigest()
+        assert _sha256(f) == expected
+
+    def test_output_dir_created_if_missing(self, tmp_path):
+        """Output directory is created automatically if it does not exist."""
+        f = tmp_path / "data.pkl"
+        f.write_bytes(b"data")
+
+        out_dir = tmp_path / "deeply" / "nested" / "output"
+        zip_path = package_analysis_bundle(
+            input_paths=[str(f)],
+            run_id="run-nest",
+            output_dir=str(out_dir),
+            output_format="pickle",
+        )
+        assert Path(zip_path).exists()
+
+
+# ---------------------------------------------------------------------------
+# storage_s3 tests (mocked boto3)
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.storage_s3 import S3StorageClient
+from spikelab.batch_jobs.models import StoragePathTemplates
+from unittest.mock import MagicMock, patch
+
+
+class TestS3StorageClient:
+    def _make_client(self, prefix="s3://bucket/prefix/", templates=None):
+        """Build an S3StorageClient with mocked boto3."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(
+                prefix=prefix,
+                path_templates=templates,
+            )
+        return client
+
+    def test_build_uri_default_templates(self):
+        """build_uri uses default path templates."""
+        client = self._make_client(prefix="s3://bucket/prefix/")
+        uri = client.build_uri(run_id="run-1", filename="data.pkl")
+        assert uri == "s3://bucket/prefix/inputs/run-1/data.pkl"
+
+    def test_build_uri_custom_templates(self):
+        """build_uri respects custom StoragePathTemplates."""
+        templates = StoragePathTemplates(
+            inputs="{prefix}data/{run_id}/{filename}",
+            outputs="{prefix}results/{run_id}/",
+            logs="{prefix}log/{run_id}/",
+        )
+        client = self._make_client(
+            prefix="s3://my-bucket/my-project/", templates=templates
+        )
+        uri = client.build_uri(run_id="r42", filename="bundle.zip")
+        assert uri == "s3://my-bucket/my-project/data/r42/bundle.zip"
+
+    def test_build_uri_outputs_category(self):
+        """build_uri with category='outputs' uses outputs template (no filename)."""
+        client = self._make_client(prefix="s3://bucket/pfx/")
+        uri = client.build_uri(run_id="run-2", filename="out.pkl", category="outputs")
+        # outputs template is "{prefix}outputs/{run_id}/" — filename not in template
+        assert uri == "s3://bucket/pfx/outputs/run-2/"
+
+    def test_build_uri_no_prefix_raises(self):
+        """build_uri raises ValueError when prefix is not configured."""
+        client = self._make_client(prefix=None)
+        with pytest.raises(ValueError, match="S3 prefix is not configured"):
+            client.build_uri(run_id="run-1", filename="data.pkl")
+
+    def test_output_prefix_for_run(self):
+        """output_prefix_for_run formats the outputs template."""
+        client = self._make_client(prefix="s3://bucket/pfx/")
+        assert client.output_prefix_for_run("run-3") == "s3://bucket/pfx/outputs/run-3/"
+
+    def test_logs_prefix_for_run(self):
+        """logs_prefix_for_run formats the logs template."""
+        client = self._make_client(prefix="s3://bucket/pfx/")
+        assert client.logs_prefix_for_run("run-4") == "s3://bucket/pfx/logs/run-4/"
+
+    def test_output_prefix_no_prefix_returns_empty(self):
+        """output_prefix_for_run returns empty string when prefix is None."""
+        client = self._make_client(prefix=None)
+        assert client.output_prefix_for_run("run-5") == ""
+
+    def test_logs_prefix_no_prefix_returns_empty(self):
+        """logs_prefix_for_run returns empty string when prefix is None."""
+        client = self._make_client(prefix=None)
+        assert client.logs_prefix_for_run("run-6") == ""
+
+    def test_prefix_trailing_slash_normalization(self):
+        """Prefix without trailing slash gets one appended."""
+        client = self._make_client(prefix="s3://bucket/no-slash")
+        assert client.prefix == "s3://bucket/no-slash/"
+
+    def test_upload_file_calls_boto3(self):
+        """upload_file delegates to the boto3 client."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+            result = client.upload_file(
+                local_path="/tmp/data.pkl",
+                s3_uri="s3://bucket/pfx/inputs/run-1/data.pkl",
+            )
+            mock_s3.upload_file.assert_called_once_with(
+                "/tmp/data.pkl", "bucket", "pfx/inputs/run-1/data.pkl"
+            )
+            assert result == "s3://bucket/pfx/inputs/run-1/data.pkl"
+
+    def test_upload_bundle_builds_uri_and_uploads(self):
+        """upload_bundle composes build_uri + upload_file."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+            result = client.upload_bundle(local_zip="/tmp/run-7.zip", run_id="run-7")
+            assert "run-7.zip" in result
+            assert mock_s3.upload_file.called
+
+    def test_custom_templates_for_output_and_logs(self):
+        """Custom templates change output_prefix and logs_prefix paths."""
+        templates = StoragePathTemplates(
+            inputs="{prefix}in/{run_id}/{filename}",
+            outputs="{prefix}out/{run_id}/",
+            logs="{prefix}lg/{run_id}/",
+        )
+        client = self._make_client(prefix="s3://b/p/", templates=templates)
+        assert client.output_prefix_for_run("r1") == "s3://b/p/out/r1/"
+        assert client.logs_prefix_for_run("r1") == "s3://b/p/lg/r1/"
+
+
+# ---------------------------------------------------------------------------
+# backend_k8s tests (no real cluster)
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.backend_k8s import KubernetesBatchJobBackend
+
+
+class TestKubernetesBatchJobBackend:
+    def test_fallback_disabled_raises(self):
+        """RuntimeError when kubernetes client unavailable and fallback disabled."""
+        backend = KubernetesBatchJobBackend(
+            namespace="test", use_kubectl_fallback=False
+        )
+        backend._batch_api = None
+        with pytest.raises(RuntimeError, match="kubectl fallback disabled"):
+            backend.apply_manifest("apiVersion: batch/v1\nkind: Job\n")
+
+    def test_apply_manifest_from_file(self, tmp_path, monkeypatch):
+        """apply_manifest with a file path calls kubectl apply -f."""
+        manifest_path = tmp_path / "job.yaml"
+        manifest_path.write_text("apiVersion: batch/v1\nkind: Job\n")
+
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            return SimpleNamespace(stdout="job/test-job created", returncode=0)
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        backend._batch_api = None
+        result = backend.apply_manifest(str(manifest_path))
+
+        assert len(calls) == 1
+        assert "apply" in calls[0]
+        assert "-f" in calls[0]
+        assert str(manifest_path) in calls[0]
+        assert "-n" in calls[0]
+        assert "test-ns" in calls[0]
+
+    def test_apply_manifest_from_string_creates_temp_file(self, monkeypatch):
+        """apply_manifest with a raw YAML string creates and cleans up a temp file."""
+        created_temps = []
+
+        def fake_run(command, **kwargs):
+            # Capture the temp file path from the command
+            f_idx = command.index("-f")
+            created_temps.append(command[f_idx + 1])
+            return SimpleNamespace(stdout="job/test-job created", returncode=0)
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        backend = KubernetesBatchJobBackend(namespace="default")
+        backend._batch_api = None
+        backend.apply_manifest("apiVersion: batch/v1\nkind: Job\n")
+
+        # Temp file should have been cleaned up
+        assert len(created_temps) == 1
+        assert not Path(created_temps[0]).exists()
+
+    def test_job_status_parsing(self, monkeypatch):
+        """job_status parses kubectl YAML output into status strings."""
+        test_cases = [
+            ({"status": {"failed": 1}}, "Failed"),
+            ({"status": {"succeeded": 1}}, "Complete"),
+            ({"status": {"active": 1}}, "Running"),
+            ({"status": {}}, "Pending"),
+        ]
+
+        for yaml_status, expected in test_cases:
+            monkeypatch.setattr(
+                "subprocess.run",
+                lambda cmd, **kw: SimpleNamespace(
+                    stdout=yaml.safe_dump(yaml_status), returncode=0
+                ),
+            )
+            backend = KubernetesBatchJobBackend(namespace="ns")
+            backend._batch_api = None
+            assert backend.job_status("test-job") == expected
+
+    def test_pods_for_job_kubectl(self, monkeypatch):
+        """pods_for_job parses kubectl output for pod names."""
+        pod_yaml = {
+            "items": [
+                {"metadata": {"name": "test-job-abc"}},
+                {"metadata": {"name": "test-job-def"}},
+            ]
+        }
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda cmd, **kw: SimpleNamespace(
+                stdout=yaml.safe_dump(pod_yaml), returncode=0
+            ),
+        )
+        backend = KubernetesBatchJobBackend(namespace="ns")
+        backend._batch_api = None
+        pods = backend.pods_for_job("test-job")
+        assert pods == ["test-job-abc", "test-job-def"]
+
+    def test_pods_for_job_empty(self, monkeypatch):
+        """pods_for_job returns empty list when no pods found."""
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda cmd, **kw: SimpleNamespace(
+                stdout=yaml.safe_dump({"items": []}), returncode=0
+            ),
+        )
+        backend = KubernetesBatchJobBackend(namespace="ns")
+        backend._batch_api = None
+        assert backend.pods_for_job("no-such-job") == []
+
+    def test_kubeconfig_passed_to_kubectl(self, monkeypatch):
+        """kubeconfig path is forwarded to kubectl commands."""
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            return SimpleNamespace(stdout=yaml.safe_dump({"status": {}}), returncode=0)
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        backend = KubernetesBatchJobBackend(
+            namespace="ns", kubeconfig="/path/to/config"
+        )
+        backend._batch_api = None
+        backend.job_status("test-job")
+
+        assert "--kubeconfig" in calls[0]
+        assert "/path/to/config" in calls[0]
+
+
+# ---------------------------------------------------------------------------
+# session tests (mocked dependencies)
+# ---------------------------------------------------------------------------
+
+
+class TestRunSession:
+    def _make_session(self):
+        """Build a RunSession with fully mocked backend/storage."""
+        from spikelab.batch_jobs.session import RunSession
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        backend.apply_manifest.return_value = "test-job-abc"
+        backend.job_status.return_value = "Complete"
+
+        storage = MagicMock(spec=S3StorageClient)
+        storage.upload_bundle.return_value = "s3://test/inputs/run/bundle.zip"
+        storage.output_prefix_for_run.return_value = "s3://test/outputs/run/"
+        storage.logs_prefix_for_run.return_value = "s3://test/logs/run/"
+
+        creds = MagicMock()
+
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=creds,
+        )
+        return session, backend, storage
+
+    def test_build_job_name_format(self):
+        """Job name is prefix-<8hex>, within 63 chars."""
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("analysis-job")
+        assert name.startswith("analysis-job-")
+        assert len(name) <= 63
+        # 8 hex chars after the last hyphen
+        token = name.split("-")[-1]
+        assert len(token) == 8
+        int(token, 16)  # must be valid hex
+
+    def test_build_job_name_long_prefix_truncated(self):
+        """Long prefix is truncated to keep the name under 63 chars."""
+        from spikelab.batch_jobs.session import RunSession
+
+        long_prefix = "a" * 60
+        name = RunSession._build_job_name(long_prefix)
+        assert len(name) <= 63
+
+    def test_render_manifest_produces_yaml(self):
+        """render_manifest returns valid YAML with the job name."""
+        session, _, _ = self._make_session()
+        job_spec = validate_job_spec(_example_payload())
+        manifest = session.render_manifest(
+            job_name="test-render", job_spec=job_spec, run_id="run-1"
+        )
+        parsed = yaml.safe_load(manifest)
+        assert parsed["metadata"]["name"] == "test-render"
+        assert parsed["kind"] == "Job"
+
+    def test_submit_prepared_job_calls_backend(self):
+        """submit_prepared_job applies the manifest and returns SubmitResult."""
+        session, backend, storage = self._make_session()
+        job_spec = validate_job_spec(_example_payload())
+
+        result = session.submit_prepared_job(job_spec=job_spec, run_id="run-prep")
+
+        backend.apply_manifest.assert_called_once()
+        assert result.job_name.startswith("analysis-job-")
+        assert result.output_prefix == "s3://test/outputs/run/"
+        assert result.logs_prefix == "s3://test/logs/run/"
+
+    def test_submit_prepared_job_blocked_by_policy(self):
+        """submit_prepared_job raises when policy blocks and override is False."""
+        session, _, _ = self._make_session()
+        payload = _example_payload()
+        payload["container"]["args"] = ["sleep", "infinity"]
+        job_spec = validate_job_spec(payload)
+
+        with pytest.raises(RuntimeError, match="Policy preflight blocked"):
+            session.submit_prepared_job(job_spec=job_spec)
+
+    def test_submit_prepared_job_policy_override(self):
+        """submit_prepared_job succeeds with allow_policy_risk=True despite BLOCK."""
+        session, backend, _ = self._make_session()
+        payload = _example_payload()
+        payload["container"]["args"] = ["sleep", "infinity"]
+        job_spec = validate_job_spec(payload)
+
+        result = session.submit_prepared_job(job_spec=job_spec, allow_policy_risk=True)
+        assert result.job_name  # should succeed
+        backend.apply_manifest.assert_called_once()
+
+    def test_wait_for_completion_returns_complete(self):
+        """wait_for_completion returns 'Complete' when job succeeds."""
+        session, backend, _ = self._make_session()
+        backend.job_status.return_value = "Complete"
+
+        state = session.wait_for_completion(
+            job_name="test-job", max_wait_seconds=5, poll_interval_seconds=0
+        )
+        assert state == "Complete"
+
+    def test_wait_for_completion_returns_failed(self):
+        """wait_for_completion returns 'Failed' when job fails."""
+        session, backend, _ = self._make_session()
+        backend.job_status.return_value = "Failed"
+
+        state = session.wait_for_completion(
+            job_name="test-job", max_wait_seconds=5, poll_interval_seconds=0
+        )
+        assert state == "Failed"
+
+    def test_wait_for_completion_timeout(self):
+        """wait_for_completion returns 'Timeout' when deadline exceeded."""
+        session, backend, _ = self._make_session()
+        backend.job_status.return_value = "Running"
+
+        state = session.wait_for_completion(
+            job_name="test-job", max_wait_seconds=0, poll_interval_seconds=0
+        )
+        assert state == "Timeout"
+
+
+# ---------------------------------------------------------------------------
+# profiles tests
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.profiles import load_profile_from_name
+
+
+class TestProfiles:
+    def test_load_defaults_profile(self):
+        """'defaults' profile loads without error and has generic values."""
+        profile = load_profile_from_name("defaults")
+        assert profile.name == "defaults"
+        assert profile.default_images == {}
+        assert profile.namespace == "default"
+
+    def test_load_nrp_profile(self):
+        """'nrp' profile loads and has the expected namespace."""
+        profile = load_profile_from_name("nrp")
+        assert profile.name == "nrp"
+        assert profile.namespace_hooks  # should have at least one hook
+
+    def test_load_unknown_name_falls_back_to_defaults(self):
+        """Unknown profile name falls back to defaults.yaml."""
+        profile = load_profile_from_name("unknown-cluster")
+        assert profile.name == "defaults"
+
+    def test_nautilus_alias(self):
+        """'nautilus' loads the same profile as 'nrp'."""
+        profile = load_profile_from_name("nautilus")
+        assert profile.name == "nrp"
