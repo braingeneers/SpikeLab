@@ -132,12 +132,15 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
 
 def _cmd_render(args: argparse.Namespace) -> int:
-    args.render_only = True
-    args.wait = False
-    args.follow_logs = False
-    args.max_wait_seconds = 0
-    args.allow_policy_risk = False
-    return _cmd_deploy(args)
+    overrides = {
+        "render_only": True,
+        "wait": False,
+        "follow_logs": False,
+        "max_wait_seconds": 0,
+        "allow_policy_risk": False,
+    }
+    render_args = argparse.Namespace(**{**vars(args), **overrides})
+    return _cmd_deploy(render_args)
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
