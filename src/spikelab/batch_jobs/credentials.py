@@ -40,7 +40,7 @@ def redact_sensitive_map(values: Dict[str, Optional[str]]) -> Dict[str, str]:
             redacted[key] = ""
             continue
         key_upper = key.upper()
-        if "SECRET" in key_upper or "TOKEN" in key_upper or "KEY" in key_upper:
+        if "SECRET" in key_upper or "TOKEN" in key_upper or "PASSWORD" in key_upper:
             redacted[key] = "***REDACTED***"
         else:
             redacted[key] = value

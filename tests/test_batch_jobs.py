@@ -326,12 +326,18 @@ def test_policy_uses_profile_thresholds():
 def test_redaction_hides_sensitive_fields():
     redacted = redact_sensitive_map(
         {
-            "AWS_ACCESS_KEY_ID": "abc",
+            "AWS_ACCESS_KEY_ID": "AKIAEXAMPLE",
             "AWS_SECRET_ACCESS_KEY": "super-secret",
+            "AWS_SESSION_TOKEN": "tok-123",
+            "DB_PASSWORD": "hunter2",
             "NORMAL_FIELD": "ok",
         }
     )
     assert redacted["AWS_SECRET_ACCESS_KEY"] == "***REDACTED***"
+    assert redacted["AWS_SESSION_TOKEN"] == "***REDACTED***"
+    assert redacted["DB_PASSWORD"] == "***REDACTED***"
+    # Access key ID is the public half — should NOT be redacted
+    assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"
     assert redacted["NORMAL_FIELD"] == "ok"
 
 
