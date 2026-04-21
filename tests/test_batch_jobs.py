@@ -243,6 +243,51 @@ def test_namespace_hooks_env_defaults_user_overrides_hook():
     assert env_map["KUBECONFIG"] == "/my/custom/kubeconfig"
 
 
+from spikelab.batch_jobs.policy import _contains_disallowed_sleep
+
+
+class TestSleepDetection:
+    """Tests for the _contains_disallowed_sleep heuristic."""
+
+    def test_sleep_infinity(self):
+        assert _contains_disallowed_sleep(["sleep"], ["infinity"])
+
+    def test_sleep_inf(self):
+        assert _contains_disallowed_sleep(["sleep"], ["inf"])
+
+    def test_sleep_infinity_in_sh_c(self):
+        assert _contains_disallowed_sleep(["sh", "-c"], ["sleep infinity"])
+
+    def test_bare_sleep(self):
+        assert _contains_disallowed_sleep(["sleep"], [])
+
+    def test_sleep_large_number(self):
+        assert _contains_disallowed_sleep(["sleep"], ["999999999"])
+
+    def test_sleep_24h(self):
+        assert _contains_disallowed_sleep(["sleep"], ["86400"])
+
+    def test_sleep_short_allowed(self):
+        assert not _contains_disallowed_sleep(["sleep"], ["60"])
+
+    def test_sleep_23h_allowed(self):
+        assert not _contains_disallowed_sleep(["sleep"], ["82800"])
+
+    def test_normal_command_allowed(self):
+        assert not _contains_disallowed_sleep(["python"], ["-m", "my_script"])
+
+    def test_sleep_as_substring_allowed(self):
+        """'sleep' appearing as part of another word is not flagged."""
+        assert not _contains_disallowed_sleep(["python"], ["-m", "sleeper_module"])
+
+    def test_empty_command(self):
+        assert not _contains_disallowed_sleep([], [])
+
+    def test_sleep_with_non_numeric_arg(self):
+        """sleep with a non-numeric arg (not 'infinity'/'inf') is not flagged."""
+        assert not _contains_disallowed_sleep(["sleep"], ["10s"])
+
+
 def test_policy_blocks_sleep_infinity():
     payload = _example_payload()
     payload["container"]["args"] = ["sleep", "infinity"]

@@ -21,9 +21,41 @@ class PolicyFinding:
     message: str
 
 
+_SLEEP_THRESHOLD = 86_400  # 24 hours in seconds
+
+
 def _contains_disallowed_sleep(command: Sequence[str], args: Sequence[str]) -> bool:
-    tokens = " ".join([*command, *args]).lower()
-    return "sleep infinity" in tokens or tokens.endswith(" sleep")
+    """Detect idle-placeholder sleep patterns in batch job commands.
+
+    This is a best-effort heuristic, not a security boundary. It catches
+    common idle patterns (``sleep infinity``, ``sleep inf``, bare
+    ``sleep``, and ``sleep <large_number>``) but cannot detect arbitrary
+    constructs like ``while true; do sleep 60; done`` or obfuscated
+    variants. The goal is to flag accidental misuse, not to prevent
+    determined circumvention.
+    """
+    all_tokens = [*command, *args]
+    joined = " ".join(all_tokens).lower()
+
+    # Exact patterns
+    if "sleep infinity" in joined or "sleep inf" in joined:
+        return True
+
+    # Bare "sleep" as the sole command (no duration argument)
+    if joined.strip() == "sleep":
+        return True
+
+    # "sleep <large_number>" — check each token pair
+    for i, tok in enumerate(all_tokens):
+        if tok.lower() == "sleep" and i + 1 < len(all_tokens):
+            try:
+                duration = float(all_tokens[i + 1])
+                if duration >= _SLEEP_THRESHOLD:
+                    return True
+            except (ValueError, IndexError):
+                pass
+
+    return False
 
 
 def evaluate_policy(
