@@ -321,6 +321,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -3617,6 +3618,19 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate</span>
 
         <span class="k">return</span> <span class="n">curate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpikeData.curate_by_merge_duplicates">
+<a class="viewcode-back" href="../../../api/spikedata.html#spikelab.spikedata.SpikeData.curate_by_merge_duplicates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_merge_duplicates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove duplicate units by merging nearby pairs with similar waveforms.</span>
+
+<span class="sd">        See ``spikelab.spikedata.curation.curate_by_merge_duplicates`` for</span>
+<span class="sd">        full documentation and supported keyword arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.curation</span><span class="w"> </span><span class="kn">import</span> <span class="n">curate_by_merge_duplicates</span>
+
+        <span class="k">return</span> <span class="n">curate_by_merge_duplicates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SpikeData.build_curation_history">

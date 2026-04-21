@@ -321,6 +321,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -376,6 +377,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_cosine_similarity_with_lag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmptyWaveformMetricsError</span>
 
 
@@ -937,6 +939,560 @@
         <span class="s2">&quot;compute_waveform_metrics() first, or attach raw voltage traces.&quot;</span><span class="p">,</span>
         <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
     <span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Merge-based deduplication</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="mf">24.8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all pairs of units whose electrode positions are within distance.</span>
+
+<span class="sd">    Uses ``sd.unit_locations`` (which normalizes across ``&quot;location&quot;``,</span>
+<span class="sd">    ``&quot;x&quot;/&quot;y&quot;``, and ``&quot;position&quot;`` keys) so this works regardless of</span>
+<span class="sd">    which loader populated the SpikeData object.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): spike data</span>
+<span class="sd">        dist_um (float): Maximum inter-electrode distance in um.</span>
+<span class="sd">            Default 24.8 accounts for the 24.7 µm electrode neighbourhood</span>
+<span class="sd">            radius plus floating-point tolerance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pairs (set[tuple[int, int]]): Set of (i, j) index tuples with i &lt; j.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">unit_locations</span>
+    <span class="k">if</span> <span class="n">locations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;sd.unit_locations is None. Position data is required to find nearby pairs.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">pos_i</span><span class="p">,</span> <span class="n">pos_j</span> <span class="o">=</span> <span class="n">locations</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">locations</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">pos_i</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos_j</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">dist</span> <span class="o">&lt;=</span> <span class="n">dist_um</span><span class="p">:</span>
+                <span class="n">pairs</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pairs</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_filter_pairs_by_isi_violations</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_violation_rate</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove pairs where either unit exceeds the ISI violation rate threshold.</span>
+
+<span class="sd">    ISI violation rate is n_violations / n_spikes where a violation is any</span>
+<span class="sd">    inter-spike interval shorter than threshold_ms.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): spike data</span>
+<span class="sd">        pairs (set[tuple[int, int]]): Candidate unit-index pairs.</span>
+<span class="sd">        max_violation_rate (float): Maximum allowed violation rate as a</span>
+<span class="sd">            fraction (not percent).  Default 0.04 (4 %).</span>
+<span class="sd">        threshold_ms (float): Refractory period threshold in ms.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        filtered_pairs (set[tuple[int, int]]): Pairs where both units pass.</span>
+<span class="sd">        violation_rates (dict[int, float]): Per-unit violation rates for</span>
+<span class="sd">            every unit that appeared in pairs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(),</span> <span class="p">{}</span>
+
+    <span class="n">units_in_pairs</span> <span class="o">=</span> <span class="p">{</span><span class="n">u</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">}</span>
+    <span class="n">violation_rates</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">_isi_violation_fraction</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">],</span> <span class="n">threshold_ms</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">units_in_pairs</span>
+    <span class="p">}</span>
+    <span class="n">filtered_pairs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span>
+        <span class="k">if</span> <span class="n">violation_rates</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">max_violation_rate</span>
+        <span class="ow">and</span> <span class="n">violation_rates</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">max_violation_rate</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">filtered_pairs</span><span class="p">,</span> <span class="n">violation_rates</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_pairwise_similarity</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute cosine similarity for candidate pairs using flat concatenated waveforms.</span>
+
+<span class="sd">    Each unit is represented as a single 1-D array built by concatenating</span>
+<span class="sd">    avg_waveform in a globally consistent channel order (sorted numerically).</span>
+<span class="sd">    Channels absent for a unit are zero-padded.  No spatial weighting or channel</span>
+<span class="sd">    selection is applied.</span>
+
+<span class="sd">    Requires ``avg_waveform`` (shape: n_channels x n_samples) and</span>
+<span class="sd">    ``traces_meta[&quot;channels&quot;]`` in neuron_attributes, as populated by</span>
+<span class="sd">    ``sd.get_waveforms()`` or ``sd.get_waveform_traces(store=True)``.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data with neuron_attributes.</span>
+<span class="sd">        pairs (set[tuple[int, int]]): Candidate unit-index pairs to evaluate.</span>
+<span class="sd">        max_lag (int): Maximum lag in samples for cosine similarity alignment.</span>
+<span class="sd">            Pairs whose best match falls at the boundary (abs(lag) == max_lag)</span>
+<span class="sd">            are assigned 0 similarity.  Default 10.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        similarity_matrix (np.ndarray): Shape (N, N).  NaN for unevaluated</span>
+<span class="sd">            pairs; 1.0 on the diagonal.</span>
+<span class="sd">        lag_matrix (np.ndarray): Shape (N, N).  Best lag in samples; NaN</span>
+<span class="sd">            for unevaluated pairs; 0 on the diagonal.</span>
+<span class="sd">        unit_ids (list): neuron_attributes[&quot;unit_id&quot;] or index fallback,</span>
+<span class="sd">            one entry per unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;neuron_attributes is None. Waveform data is required for similarity computation.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span>
+    <span class="n">sim_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">lag_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">sim_mat</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">lag_mat</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="n">unit_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sim_mat</span><span class="p">,</span> <span class="n">lag_mat</span><span class="p">,</span> <span class="n">unit_ids</span>
+
+    <span class="c1"># Build a single global channel list from all units, sorted numerically.</span>
+    <span class="n">all_channels</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">wf_lengths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">attrs</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">:</span>
+        <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">avg_wf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">wf_lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg_wf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;traces_meta&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;channels&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">all_channels</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ch</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">wf_lengths</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No units have &#39;avg_waveform&#39; in neuron_attributes. &quot;</span>
+            <span class="s2">&quot;Load waveform data before calling _compute_pairwise_similarity().&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">all_channels</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;avg_waveform found in neuron_attributes but no unit has &quot;</span>
+            <span class="s2">&quot;traces_meta[&#39;channels&#39;]. Call compute_waveform_metrics() or &quot;</span>
+            <span class="s2">&quot;get_waveform_traces(store=True) to populate both keys together.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">global_channels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">all_channels</span><span class="p">)</span>
+    <span class="n">template_len</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">wf_lengths</span><span class="p">)</span>
+
+    <span class="c1"># Pre-build a 1-D array for every unit using the shared channel order.</span>
+    <span class="n">unit_arrays</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="n">_build_1d_array_for_channels</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">global_channels</span><span class="p">,</span> <span class="n">template_len</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="n">arr_i</span> <span class="o">=</span> <span class="n">unit_arrays</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">arr_j</span> <span class="o">=</span> <span class="n">unit_arrays</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">arr_i</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">arr_j</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">sim</span><span class="p">,</span> <span class="n">best_lag</span> <span class="o">=</span> <span class="n">compute_cosine_similarity_with_lag</span><span class="p">(</span>
+            <span class="n">arr_i</span><span class="p">,</span> <span class="n">arr_j</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">best_lag</span><span class="p">)</span> <span class="o">==</span> <span class="n">max_lag</span><span class="p">:</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="n">sim_mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim_mat</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span>
+        <span class="n">lag_mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_lag</span>
+        <span class="n">lag_mat</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">best_lag</span>
+
+    <span class="k">return</span> <span class="n">sim_mat</span><span class="p">,</span> <span class="n">lag_mat</span><span class="p">,</span> <span class="n">unit_ids</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_filter_by_cosine_sim</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">similarity_matrix</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the subset of pairs whose cosine similarity meets threshold.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        pairs (set[tuple[int, int]]): Candidate unit-index pairs.</span>
+<span class="sd">        similarity_matrix (np.ndarray): Shape (N, N) similarity values,</span>
+<span class="sd">            e.g. from _compute_pairwise_similarity().</span>
+<span class="sd">        threshold (float): Minimum cosine similarity to retain a pair.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        filtered_pairs (set[tuple[int, int]]): Pairs passing the threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">similarity_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+        <span class="ow">and</span> <span class="n">similarity_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">threshold</span>
+    <span class="p">}</span>
+
+
+<div class="viewcode-block" id="curate_by_merge_duplicates">
+<a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">curate_by_merge_duplicates</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">dist_um</span><span class="o">=</span><span class="mf">24.8</span><span class="p">,</span>
+    <span class="n">max_violation_rate</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
+    <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">cosine_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">delta_ms</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>
+    <span class="n">max_isi_increase</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove duplicate units by merging nearby pairs with similar waveforms.</span>
+
+<span class="sd">    Runs the full merge-based deduplication pipeline:</span>
+
+<span class="sd">    1. Find spatially nearby unit pairs within dist_um.</span>
+<span class="sd">    2. Discard pairs where either unit exceeds the ISI violation threshold.</span>
+<span class="sd">    3. Compute pairwise cosine waveform similarity.</span>
+<span class="sd">    4. Discard pairs below cosine_threshold.</span>
+<span class="sd">    5. Greedily merge accepted pairs; a merge is rejected if the ISI</span>
+<span class="sd">       violation fraction increases by more than max_isi_increase.</span>
+
+<span class="sd">    Requires neuron_attributes with position and avg_waveform</span>
+<span class="sd">    entries.  Unlike other curate_by_* functions this merges spike</span>
+<span class="sd">    trains rather than simply removing units.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): spike data.</span>
+<span class="sd">        dist_um (float): Maximum inter-electrode distance in µm to consider</span>
+<span class="sd">            a pair as candidate duplicates.</span>
+<span class="sd">        max_violation_rate (float): Maximum ISI violation rate (fraction,</span>
+<span class="sd">            not percent) for a unit to participate in a merge.</span>
+<span class="sd">        isi_threshold_ms (float): Refractory period threshold in ms.</span>
+<span class="sd">        cosine_threshold (float): Minimum cosine similarity to merge a pair.</span>
+<span class="sd">        max_lag (int): Maximum lag in samples for cosine similarity alignment.</span>
+<span class="sd">        delta_ms (float): Spike deduplication window in ms when merging trains.</span>
+<span class="sd">        max_isi_increase (float): Maximum allowable absolute increase in ISI</span>
+<span class="sd">            violation fraction after merging.</span>
+<span class="sd">        verbose (bool): Print per-pair merge decisions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): SpikeData with merged units.</span>
+<span class="sd">        result (dict): {&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}.</span>
+<span class="sd">            metric[i] is the cosine similarity to the partner unit in the</span>
+<span class="sd">            accepted merge, or 0.0 if unit i was not involved in any merge.</span>
+<span class="sd">            passed[i] is True if unit i was retained (primary or</span>
+<span class="sd">            standalone), False if it was absorbed into another unit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">_find_nearby_unit_pairs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">dist_um</span><span class="o">=</span><span class="n">dist_um</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+
+    <span class="n">pairs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_filter_pairs_by_isi_violations</span><span class="p">(</span>
+        <span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_violation_rate</span><span class="o">=</span><span class="n">max_violation_rate</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="n">isi_threshold_ms</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+
+    <span class="n">sim_mat</span><span class="p">,</span> <span class="n">lag_mat</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_pairwise_similarity</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag</span><span class="p">)</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">_filter_by_cosine_sim</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">sim_mat</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">cosine_threshold</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">)),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span>
+
+    <span class="n">sd_out</span><span class="p">,</span> <span class="n">merge_result</span> <span class="o">=</span> <span class="n">_merge_redundant_units</span><span class="p">(</span>
+        <span class="n">sd</span><span class="p">,</span>
+        <span class="n">pairs</span><span class="p">,</span>
+        <span class="n">sim_mat</span><span class="p">,</span>
+        <span class="n">lag_matrix</span><span class="o">=</span><span class="n">lag_mat</span><span class="p">,</span>
+        <span class="n">delta_ms</span><span class="o">=</span><span class="n">delta_ms</span><span class="p">,</span>
+        <span class="n">max_isi_increase</span><span class="o">=</span><span class="n">max_isi_increase</span><span class="p">,</span>
+        <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="n">isi_threshold_ms</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">merge_result</span><span class="p">[</span><span class="s2">&quot;merged_pairs&quot;</span><span class="p">]:</span>
+        <span class="n">passed</span><span class="p">[</span><span class="n">secondary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">metric</span><span class="p">[</span><span class="n">secondary</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span>
+        <span class="n">metric</span><span class="p">[</span><span class="n">primary</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">metric</span><span class="p">[</span><span class="n">primary</span><span class="p">],</span> <span class="n">sim</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_redundant_units</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">pairs</span><span class="p">,</span>
+    <span class="n">similarity_matrix</span><span class="p">,</span>
+    <span class="n">lag_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">delta_ms</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>
+    <span class="n">max_isi_increase</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
+    <span class="n">isi_threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge pre-filtered candidate duplicate unit pairs into a new SpikeData.</span>
+
+<span class="sd">    Pairs are processed in descending similarity order (greedy).  For each</span>
+<span class="sd">    pair the unit with more spikes is kept as primary; the unit with fewer</span>
+<span class="sd">    spikes is merged into it.  A merge is accepted only if the ISI violation</span>
+<span class="sd">    rate after merging does not exceed the pre-merge maximum by more than</span>
+<span class="sd">    max_isi_increase.  Units can be involved in multiple merges (e.g., A→B</span>
+<span class="sd">    then B→C results in a final unit containing spikes from A, B, and C).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data.</span>
+<span class="sd">        pairs (set[tuple[int, int]] or list[tuple[int, int]]): Candidate</span>
+<span class="sd">            duplicate pairs, e.g. from _filter_by_cosine_sim().</span>
+<span class="sd">        similarity_matrix (np.ndarray): Shape (N, N) similarity values</span>
+<span class="sd">            used to sort pairs and record scores.</span>
+<span class="sd">        lag_matrix (np.ndarray, optional): Shape (N, N) lag values in samples.</span>
+<span class="sd">            If provided, the secondary unit&#39;s spikes are shifted by the lag</span>
+<span class="sd">            before merging to correct for timing offsets.  Default None.</span>
+<span class="sd">        delta_ms (float): Spike deduplication window in ms.</span>
+<span class="sd">        max_isi_increase (float): Maximum allowable absolute increase in ISI</span>
+<span class="sd">            violation fraction after merging.  Default 0.04 (4 percentage points).</span>
+<span class="sd">        isi_threshold_ms (float): ISI violation threshold in ms.</span>
+<span class="sd">        verbose (bool): Print a line for each pair decision.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        sd_out (SpikeData): New SpikeData with merged units.</span>
+<span class="sd">        result (dict): {&quot;merged_pairs&quot;: list[tuple], &quot;n_removed&quot;: int}.</span>
+<span class="sd">            merged_pairs is a list of (primary, secondary, similarity)</span>
+<span class="sd">            tuples that were accepted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;pairs must be a non-empty collection. &quot;</span>
+            <span class="s2">&quot;Run _filter_by_cosine_sim() first.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">sorted_pairs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">similarity_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">),</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">merge_chain</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{}</span>
+    <span class="p">)</span>  <span class="c1"># unit_idx → primary_idx (maps each unit to its final primary)</span>
+    <span class="n">current_train</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># tracks merged-so-far train for each primary</span>
+    <span class="n">accepted_pairs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve</span><span class="p">(</span><span class="n">unit</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Follow merge_chain to its root (with path compression).&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="n">unit</span> <span class="ow">in</span> <span class="n">merge_chain</span><span class="p">:</span>
+            <span class="n">nxt</span> <span class="o">=</span> <span class="n">merge_chain</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">nxt</span> <span class="ow">in</span> <span class="n">merge_chain</span><span class="p">:</span>
+                <span class="n">merge_chain</span><span class="p">[</span><span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">merge_chain</span><span class="p">[</span><span class="n">nxt</span><span class="p">]</span>
+            <span class="n">unit</span> <span class="o">=</span> <span class="n">nxt</span>
+        <span class="k">return</span> <span class="n">unit</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">sorted_pairs</span><span class="p">:</span>
+
+        <span class="c1"># Resolve which primary each unit is currently merged into (full chain)</span>
+        <span class="n">prim_i</span> <span class="o">=</span> <span class="n">_resolve</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">prim_j</span> <span class="o">=</span> <span class="n">_resolve</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+
+        <span class="c1"># Skip if both units are already merged into the same primary</span>
+        <span class="k">if</span> <span class="n">prim_i</span> <span class="o">==</span> <span class="n">prim_j</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span> <span class="o">=</span> <span class="n">_choose_primary_unit</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+        <span class="n">prim_primary</span> <span class="o">=</span> <span class="n">_resolve</span><span class="p">(</span><span class="n">primary</span><span class="p">)</span>
+        <span class="n">prim_secondary</span> <span class="o">=</span> <span class="n">_resolve</span><span class="p">(</span><span class="n">secondary</span><span class="p">)</span>
+
+        <span class="c1"># Skip if already chained together via different paths</span>
+        <span class="k">if</span> <span class="n">prim_primary</span> <span class="o">==</span> <span class="n">prim_secondary</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Use the already-merged primary train if it has prior merges accepted</span>
+        <span class="n">primary_train</span> <span class="o">=</span> <span class="n">current_train</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prim_primary</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">prim_primary</span><span class="p">])</span>
+        <span class="n">secondary_train</span> <span class="o">=</span> <span class="n">current_train</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prim_secondary</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">prim_secondary</span><span class="p">])</span>
+
+        <span class="c1"># Apply lag correction only when secondary is fresh (not yet merged into another chain)</span>
+        <span class="k">if</span> <span class="n">lag_matrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">prim_secondary</span> <span class="o">==</span> <span class="n">secondary</span><span class="p">:</span>
+            <span class="n">lag_val</span> <span class="o">=</span> <span class="n">lag_matrix</span><span class="p">[</span><span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">lag_val</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lag_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">fs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs_Hz&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Lag correction requires &#39;fs_Hz&#39; in sd.metadata. &quot;</span>
+                        <span class="s2">&quot;Set sd.metadata[&#39;fs_Hz&#39;] to the sampling rate in Hz.&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">secondary_train</span> <span class="o">=</span> <span class="n">secondary_train</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">lag_val</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">fs</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span>
+
+        <span class="n">before_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+            <span class="n">_isi_violation_fraction</span><span class="p">(</span><span class="n">primary_train</span><span class="p">,</span> <span class="n">isi_threshold_ms</span><span class="p">),</span>
+            <span class="n">_isi_violation_fraction</span><span class="p">(</span><span class="n">secondary_train</span><span class="p">,</span> <span class="n">isi_threshold_ms</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">merged_train</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_merge_two_trains</span><span class="p">(</span><span class="n">primary_train</span><span class="p">,</span> <span class="n">secondary_train</span><span class="p">,</span> <span class="n">delta_ms</span><span class="p">)</span>
+        <span class="n">after_rate</span> <span class="o">=</span> <span class="n">_isi_violation_fraction</span><span class="p">(</span><span class="n">merged_train</span><span class="p">,</span> <span class="n">isi_threshold_ms</span><span class="p">)</span>
+        <span class="n">isi_increase</span> <span class="o">=</span> <span class="n">after_rate</span> <span class="o">-</span> <span class="n">before_max</span>
+
+        <span class="k">if</span> <span class="n">isi_increase</span> <span class="o">&lt;=</span> <span class="n">max_isi_increase</span><span class="p">:</span>
+            <span class="c1"># Accept the merge: prim_secondary is merged into prim_primary</span>
+            <span class="n">merge_chain</span><span class="p">[</span><span class="n">prim_secondary</span><span class="p">]</span> <span class="o">=</span> <span class="n">prim_primary</span>
+            <span class="n">current_train</span><span class="p">[</span><span class="n">prim_primary</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged_train</span>
+            <span class="n">accepted_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">primary</span><span class="p">,</span> <span class="n">secondary</span><span class="p">,</span> <span class="n">sim</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Merge [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;ISI </span><span class="si">{</span><span class="n">before_max</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">→</span><span class="si">{</span><span class="n">after_rate</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Skip  [</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">]: sim=</span><span class="si">{</span><span class="n">sim</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;ISI increase too high (Δ=</span><span class="si">{</span><span class="n">isi_increase</span><span class="si">:</span><span class="s2">+.3f</span><span class="si">}</span><span class="s2"> &gt; </span><span class="si">{</span><span class="n">max_isi_increase</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+
+    <span class="c1"># Build a mapping: final_primary → list of original units that merged into it.</span>
+    <span class="c1"># Follow the chain for merges (e.g., A→B, B→C yields A,B→C).</span>
+    <span class="n">primary_groups</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">orig_unit</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">final_primary</span> <span class="o">=</span> <span class="n">merge_chain</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">orig_unit</span><span class="p">,</span> <span class="n">orig_unit</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">final_primary</span> <span class="ow">in</span> <span class="n">merge_chain</span><span class="p">:</span>
+            <span class="n">final_primary</span> <span class="o">=</span> <span class="n">merge_chain</span><span class="p">[</span><span class="n">final_primary</span><span class="p">]</span>
+        <span class="n">primary_groups</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">final_primary</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orig_unit</span><span class="p">)</span>
+
+    <span class="n">new_trains</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">new_attrs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">primary</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">primary_groups</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+        <span class="n">constituent_units</span> <span class="o">=</span> <span class="n">primary_groups</span><span class="p">[</span><span class="n">primary</span><span class="p">]</span>
+        <span class="c1"># Reuse the pre-merged train from current_train if available</span>
+        <span class="n">merged</span> <span class="o">=</span> <span class="n">current_train</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">primary</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">primary</span><span class="p">])</span>
+        <span class="n">original_spike_count</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">u</span><span class="p">])</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">constituent_units</span><span class="p">)</span>
+        <span class="n">total_dup</span> <span class="o">=</span> <span class="n">original_spike_count</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">merged</span><span class="p">)</span>
+        <span class="n">new_trains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">merged</span><span class="p">)</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">primary</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;merged_from&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">u</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit_id&quot;</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span> <span class="k">else</span> <span class="n">u</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">constituent_units</span>
+        <span class="p">]</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;n_duplicates_removed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_dup</span>
+        <span class="n">new_attrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attrs</span><span class="p">)</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.spikedata</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span>
+
+    <span class="n">sd_out</span> <span class="o">=</span> <span class="n">SpikeData</span><span class="p">(</span>
+        <span class="n">new_trains</span><span class="p">,</span>
+        <span class="n">length</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+        <span class="n">neuron_attributes</span><span class="o">=</span><span class="n">new_attrs</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">metadata</span> <span class="k">else</span> <span class="p">{},</span>
+        <span class="n">raw_data</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="p">,</span>
+        <span class="n">raw_time</span><span class="o">=</span><span class="n">sd</span><span class="o">.</span><span class="n">raw_time</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">n_removed</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">N</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_trains</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">n_removed</span><span class="si">}</span><span class="s2"> units merged; &quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">sd_out</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sd_out</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;merged_pairs&quot;</span><span class="p">:</span> <span class="n">accepted_pairs</span><span class="p">,</span> <span class="s2">&quot;n_removed&quot;</span><span class="p">:</span> <span class="n">n_removed</span><span class="p">}</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Internal helpers (merge-based deduplication)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_isi_violation_fraction</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the ISI violation rate as a fraction for a spike train.</span>
+
+<span class="sd">    ISI violation rate is n_violations / n_spikes.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        train (np.ndarray): Spike times in milliseconds.</span>
+<span class="sd">        threshold_ms (float): Refractory period threshold in ms.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        rate (float): Violation rate as a fraction (0.0-1.0), or 0.0 for</span>
+<span class="sd">            fewer than 2 spikes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">isis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
+    <span class="n">violation_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">isis</span> <span class="o">&lt;</span> <span class="n">threshold_ms</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">violation_count</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">train</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_1d_array_for_channels</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">unit_idx</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">template_len</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a 1-D waveform vector for unit_idx on an explicit channel list.</span>
+
+<span class="sd">    Channels present in the unit&#39;s avg_waveform are copied in; missing</span>
+<span class="sd">    channels are zero-padded.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        sd (SpikeData): Source spike data with neuron_attributes.</span>
+<span class="sd">        unit_idx (int): Index of the unit.</span>
+<span class="sd">        channels (list[int]): Ordered channel list (defines output layout).</span>
+<span class="sd">        template_len (int): Samples per channel slot.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        arr (np.ndarray): 1-D array of length len(channels) * template_len.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">attrs</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">neuron_attributes</span><span class="p">[</span><span class="n">unit_idx</span><span class="p">]</span>
+    <span class="n">avg_wf</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_waveform&quot;</span><span class="p">)</span>
+    <span class="n">traces_meta</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;traces_meta&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">channel_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">traces_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;channels&quot;</span><span class="p">,</span> <span class="p">[])]</span>
+    <span class="n">ch_to_row</span> <span class="o">=</span> <span class="p">{</span><span class="n">ch</span><span class="p">:</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channel_list</span><span class="p">)}</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">channels</span><span class="p">)</span> <span class="o">*</span> <span class="n">template_len</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">avg_wf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">arr</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channels</span><span class="p">):</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">ch_to_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">wf</span> <span class="o">=</span> <span class="n">avg_wf</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">wf</span><span class="p">),</span> <span class="n">template_len</span><span class="p">)</span>
+            <span class="n">arr</span><span class="p">[</span><span class="n">k</span> <span class="o">*</span> <span class="n">template_len</span> <span class="p">:</span> <span class="n">k</span> <span class="o">*</span> <span class="n">template_len</span> <span class="o">+</span> <span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">wf</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">arr</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_two_trains</span><span class="p">(</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">,</span> <span class="n">delta_ms</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge two spike trains, removing duplicates within delta_ms.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        train1 (np.ndarray): First spike train (ms).</span>
+<span class="sd">        train2 (np.ndarray): Second spike train (ms).</span>
+<span class="sd">        delta_ms (float): Deduplication window in ms.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        merged (np.ndarray): Sorted merged spike train.</span>
+<span class="sd">        n_duplicates (int): Number of spikes removed as duplicates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">train2</span><span class="p">),</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">train1</span><span class="p">),</span> <span class="mi">0</span>
+
+    <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">train1</span><span class="p">,</span> <span class="n">train2</span><span class="p">])</span>
+    <span class="n">membership</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)]</span>
+    <span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;mergesort&quot;</span><span class="p">)</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">membership</span> <span class="o">=</span> <span class="n">membership</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+    <span class="n">cross_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">membership</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="n">dup_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">diffs</span> <span class="o">&lt;=</span> <span class="n">delta_ms</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">cross_train</span>
+
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">keep</span><span class="p">[</span><span class="mi">1</span><span class="p">:][</span><span class="n">dup_mask</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">merged</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">keep</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_choose_primary_unit</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (primary, secondary) based on spike count.</span>
+
+<span class="sd">    The unit with the larger number of spikes is kept as primary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">spike_count_i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="n">spike_count_j</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="k">if</span> <span class="n">spike_count_i</span> <span class="o">&gt;=</span> <span class="n">spike_count_j</span> <span class="k">else</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
 </pre></div>
 
            </div>

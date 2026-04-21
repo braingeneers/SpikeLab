@@ -324,6 +324,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.curation.compute_waveform_metrics"><code class="docutils literal notranslate"><span class="pre">compute_waveform_metrics()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -653,6 +654,56 @@ If None, an empty dict is stored.</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>history (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="spikelab.spikedata.curation.curate_by_merge_duplicates">
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.curation.</span></span><span class="sig-name descname"><span class="pre">curate_by_merge_duplicates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist_um</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24.8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_violation_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.04</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isi_threshold_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cosine_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_lag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_isi_increase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.04</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/curation.html#curate_by_merge_duplicates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.curation.curate_by_merge_duplicates" title="Link to this definition"></a></dt>
+<dd><p>Remove duplicate units by merging nearby pairs with similar waveforms.</p>
+<p>Runs the full merge-based deduplication pipeline:</p>
+<ol class="arabic simple">
+<li><p>Find spatially nearby unit pairs within dist_um.</p></li>
+<li><p>Discard pairs where either unit exceeds the ISI violation threshold.</p></li>
+<li><p>Compute pairwise cosine waveform similarity.</p></li>
+<li><p>Discard pairs below cosine_threshold.</p></li>
+<li><p>Greedily merge accepted pairs; a merge is rejected if the ISI
+violation fraction increases by more than max_isi_increase.</p></li>
+</ol>
+<p>Requires neuron_attributes with position and avg_waveform
+entries.  Unlike other curate_by_* functions this merges spike
+trains rather than simply removing units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – spike data.</p></li>
+<li><p><strong>dist_um</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum inter-electrode distance in µm to consider
+a pair as candidate duplicates.</p></li>
+<li><p><strong>max_violation_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum ISI violation rate (fraction,
+not percent) for a unit to participate in a merge.</p></li>
+<li><p><strong>isi_threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
+<li><p><strong>cosine_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum cosine similarity to merge a pair.</p></li>
+<li><p><strong>max_lag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum lag in samples for cosine similarity alignment.</p></li>
+<li><p><strong>delta_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Spike deduplication window in ms when merging trains.</p></li>
+<li><p><strong>max_isi_increase</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowable absolute increase in ISI
+violation fraction after merging.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Print per-pair merge decisions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>SpikeData with merged units.
+result (dict): {“metric”: np.ndarray (N,), “passed”: np.ndarray (N,)}.</p>
+<blockquote>
+<div><p>metric[i] is the cosine similarity to the partner unit in the
+accepted merge, or 0.0 if unit i was not involved in any merge.
+passed[i] is True if unit i was retained (primary or
+standalone), False if it was absorbed into another unit.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
 </dd>
 </dl>
 </dd></dl>
