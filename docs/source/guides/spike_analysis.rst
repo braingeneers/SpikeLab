@@ -93,6 +93,31 @@ subtraction, or ``False`` for a zero baseline.
    Detected burst boundaries overlay the population rate trace.
 
 
+Burst Widths
+-------------
+
+Once bursts are detected, you can examine their temporal extent by computing the
+width of each burst from the ``edges`` array:
+
+.. code-block:: python
+
+   tburst, edges, peak_amp = sd.get_bursts(
+       thr_burst=2.5,
+       min_burst_diff=1000,
+       burst_edge_mult_thresh=0.2,
+   )
+
+   # Burst widths in ms (when raster_bin_size_ms=1.0)
+   burst_widths = edges[:, 1] - edges[:, 0]
+
+.. figure:: /_static/images/burst_widths.png
+   :width: 100%
+   :alt: Distribution of burst widths
+
+   Distribution of burst widths across detected bursts. Wider bursts
+   correspond to sustained periods of elevated network activity.
+
+
 Burst Sensitivity Analysis
 --------------------------
 
@@ -134,14 +159,6 @@ built-in plotting utility:
        ylabel="Min burst distance (bins)",
    )
 
-.. figure:: /_static/images/burst_sensitivity.png
-   :width: 100%
-   :alt: Burst sensitivity heatmap
-
-   Heatmap of detected burst counts as a function of threshold multiplier
-   (x-axis) and minimum burst distance (y-axis). Warm colours indicate more
-   bursts detected.
-
 Inspecting this heatmap helps you identify a plateau region where the burst
 count is stable — a sign that your chosen parameters are robust.
 
@@ -170,6 +187,14 @@ is drawn as a separate line on the same axes:
        thresholds=thr_values,
        burst_counts={"D0": counts_d0.ravel(), "D50": counts_d50.ravel()},
    )
+
+.. figure:: /_static/images/burst_sensitivity.png
+   :width: 100%
+   :alt: Burst sensitivity line plot
+
+   Number of detected bursts as a function of threshold multiplier for
+   multiple experimental conditions, with minimum burst distance held
+   constant.
 
 
 Per-Unit Metrics
@@ -232,31 +257,6 @@ coupling between individual units and the population:
    conditions.
 
 
-Burst Widths
--------------
-
-Once bursts are detected, you can examine their temporal extent by computing the
-width of each burst from the ``edges`` array:
-
-.. code-block:: python
-
-   tburst, edges, peak_amp = sd.get_bursts(
-       thr_burst=2.5,
-       min_burst_diff=1000,
-       burst_edge_mult_thresh=0.2,
-   )
-
-   # Burst widths in ms (when raster_bin_size_ms=1.0)
-   burst_widths = edges[:, 1] - edges[:, 0]
-
-.. figure:: /_static/images/burst_widths.png
-   :width: 100%
-   :alt: Distribution of burst widths
-
-   Distribution of burst widths across detected bursts. Wider bursts
-   correspond to sustained periods of elevated network activity.
-
-
 Per-Unit Burst Participation
 ----------------------------
 
@@ -274,8 +274,8 @@ The ``edges`` parameter is the ``(B, 2)`` array of burst boundaries returned
 by :meth:`~spikelab.SpikeData.get_bursts`. The ``bin_size`` must match the
 ``raster_bin_size_ms`` used when detecting bursts.
 
-Units with a high fraction fire predominantly during bursts, while a low
-fraction indicates tonic or inter-burst activity.
+Units with a high fraction are predominantly burst-locked, while a low
+fraction indicates the unit is largely silent during bursts.
 
 
 Further Reading

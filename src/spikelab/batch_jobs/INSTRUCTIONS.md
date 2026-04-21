@@ -1,11 +1,12 @@
----
-name: spikelab-batch-jobs
-description: Deploys and monitors SpikeLab analysis jobs on Kubernetes clusters using the spikelab-batch-jobs CLI workflow. Use when the user wants to submit batch jobs, stream logs, enforce cluster policy-safe defaults, upload bundles to S3, or clean up completed jobs.
----
+# Batch Jobs — Remote Cluster Execution Instructions
 
-# SpikeLab Batch Jobs
+These instructions describe how to deploy SpikeLab analysis or spike sorting
+jobs to a remote Kubernetes cluster using the `spikelab-batch-jobs` CLI. Read
+this file when a user requests remote/cluster execution (e.g., "run this on
+NRP", "deploy to cluster", "submit a batch job").
 
-Use this skill for repeatable batch job execution with explicit validation and safety checks. Works with any Kubernetes cluster — use `--profile nrp` for Nautilus or create a custom profile YAML for other clusters.
+Works with any Kubernetes cluster — use `--profile nrp` for Nautilus or
+create a custom profile YAML for other clusters.
 
 ## Required Inputs
 

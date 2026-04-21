@@ -111,7 +111,9 @@ From NWB files
 
 SpikeLab can load spike trains from NWB (Neurodata Without Borders) files. The
 loader reads the ``/units`` group and populates ``neuron_attributes`` with
-``unit_id``, ``electrode``, and ``location`` when available.
+``unit_id``, ``electrode`` (or ``electrode_group``/``channel``), ``location``,
+and electrode positions (``x``, ``y``, ``z``) when these are present in the
+file.
 
 .. code-block:: python
 
@@ -127,8 +129,7 @@ loader reads the ``/units`` group and populates ``neuron_attributes`` with
    )
 
 The NWB loader tries ``pynwb`` first by default. If ``pynwb`` is not installed
-it falls back to reading the HDF5 file directly with ``h5py``. Both
-``pynwb`` and ``h5py`` are optional dependencies.
+it falls back to reading the HDF5 file directly with ``h5py``.
 
 
 From KiloSort/Phy output
