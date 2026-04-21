@@ -80,8 +80,7 @@ def evaluate_policy(
             PolicyFinding(
                 "request_limit_mismatch",
                 "WARN",
-                "Cluster recommends requests close to limits; tune with "
-                "monitoring.",
+                "Cluster recommends requests close to limits; tune with " "monitoring.",
             )
         )
     else:
@@ -101,8 +100,7 @@ def evaluate_policy(
             PolicyFinding(
                 "long_runtime",
                 "WARN",
-                f"Runtime exceeds configured maximum "
-                f"({cfg.max_runtime_seconds}s).",
+                f"Runtime exceeds configured maximum " f"({cfg.max_runtime_seconds}s).",
             )
         )
     return findings
