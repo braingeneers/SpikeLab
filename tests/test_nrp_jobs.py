@@ -6,10 +6,11 @@ import importlib.util
 from types import SimpleNamespace
 
 import pytest
-import yaml
 
-if importlib.util.find_spec("pydantic") is None:
-    pytest.skip("pydantic not installed", allow_module_level=True)
+if importlib.util.find_spec("pydantic") is None or importlib.util.find_spec("yaml") is None:
+    pytest.skip("batch-jobs dependencies not installed", allow_module_level=True)
+
+import yaml
 
 from spikelab.nrp_jobs.credentials import redact_sensitive_map
 from spikelab.nrp_jobs.models import ClusterProfile, JobSpec
