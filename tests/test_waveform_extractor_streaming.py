@@ -109,9 +109,9 @@ def _build_dataset(
     spike_clusters_arr = np.asarray(spike_clusters)[order]
     true_peak_times_arr = np.asarray(true_peak_times)[order]
 
-    templates = np.stack(
-        [unit_waveforms[u] for u in range(n_units)], axis=0
-    ).astype(np.float32)
+    templates = np.stack([unit_waveforms[u] for u in range(n_units)], axis=0).astype(
+        np.float32
+    )
 
     ks_folder = tmp_path / "ks"
     ks_folder.mkdir()
@@ -175,9 +175,9 @@ class TestStreamingWaveformExtractor:
             tmpl = we.template_cache["average"][u]
             inj = unit_waveforms[u]
 
-            assert tmpl.shape == inj.shape, (
-                f"Unit {u} template shape {tmpl.shape} != injected {inj.shape}"
-            )
+            assert (
+                tmpl.shape == inj.shape
+            ), f"Unit {u} template shape {tmpl.shape} != injected {inj.shape}"
 
             inj_peak_chan = int(np.argmin(np.min(inj, axis=0)))
             tmpl_peak_chan = int(np.argmin(np.min(tmpl, axis=0)))
@@ -294,9 +294,9 @@ class TestStreamingWaveformExtractor:
         # The original ks spike_times are offset by +offset from the true peak;
         # recentering should pull them back by approximately -offset.
         median_correction = int(np.median(diffs))
-        assert median_correction == -offset, (
-            f"Expected median recentering shift of {-offset}, got {median_correction}"
-        )
+        assert (
+            median_correction == -offset
+        ), f"Expected median recentering shift of {-offset}, got {median_correction}"
 
     def test_unit_with_zero_in_window_spikes_does_not_crash(
         self, tmp_path, monkeypatch
@@ -460,9 +460,7 @@ class TestStreamingWaveformExtractor:
         monkeypatch.setattr(
             WaveformExtractor, "run_extract_waveforms_streaming", _spy_streaming
         )
-        monkeypatch.setattr(
-            WaveformExtractor, "run_extract_waveforms", _spy_chunked
-        )
+        monkeypatch.setattr(WaveformExtractor, "run_extract_waveforms", _spy_chunked)
 
         recording_io.extract_waveforms(
             recording_path=ks_folder / "recording.dat",

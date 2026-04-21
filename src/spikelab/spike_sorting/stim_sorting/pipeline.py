@@ -35,7 +35,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 # Extra margin beyond the peri-event + recentering + artifact-removal
 # window.  Gives RT-Sort's detection model a few ms to warm up before
 # the peri-event region starts, so the first few samples after the
@@ -270,15 +269,11 @@ def _sort_stim_chunked(
         )
     global_event_indices = np.flatnonzero(valid_mask)
     if len(global_event_indices) == 0:
-        raise ValueError(
-            "No stim events left after filtering for recording bounds."
-        )
+        raise ValueError("No stim events left after filtering for recording bounds.")
     kept_times_ms = stim_times_ms[global_event_indices]
 
     # Group adjacent events into chunks.
-    groups = _group_stim_events_into_chunks(
-        kept_times_ms, chunk_pre_ms, chunk_post_ms
-    )
+    groups = _group_stim_events_into_chunks(kept_times_ms, chunk_pre_ms, chunk_post_ms)
     if verbose:
         print(
             f"Chunking {len(kept_times_ms)} stim events into {len(groups)} "
@@ -299,9 +294,7 @@ def _sort_stim_chunked(
         chunk_lo_ms = float(group_events_ms[0] - chunk_pre_ms)
         chunk_hi_ms = float(group_events_ms[-1] + chunk_post_ms)
         start_frame = max(0, int(np.floor(chunk_lo_ms * fs_Hz / 1000.0)))
-        end_frame = min(
-            n_total_samples, int(np.ceil(chunk_hi_ms * fs_Hz / 1000.0))
-        )
+        end_frame = min(n_total_samples, int(np.ceil(chunk_hi_ms * fs_Hz / 1000.0)))
         chunk_start_ms = start_frame * 1000.0 / fs_Hz
         chunk_len_ms = (end_frame - start_frame) * 1000.0 / fs_Hz
 
@@ -400,8 +393,7 @@ def _sort_stim_chunked(
     # Build the final SpikeSliceStack.  ``times_start_to_end`` is in
     # absolute recording ms (using the chunked-recentered event times).
     times_start_to_end = [
-        (float(t - pre_ms), float(t + post_ms))
-        for t in per_event_global_corr_ms
+        (float(t - pre_ms), float(t + post_ms)) for t in per_event_global_corr_ms
     ]
 
     # Resolve neuron_attributes from the RTSort if available (so the

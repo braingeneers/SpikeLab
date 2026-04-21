@@ -328,9 +328,7 @@ class WaveformExtractor:
             # Collect spike-time buffers across segments (usually 1 segment)
             unit_spike_times: List[Tuple[int, int]] = []
             for segment_index in range(self.sorting.get_num_segments()):
-                seg_size = self.recording.get_num_samples(
-                    segment_index=segment_index
-                )
+                seg_size = self.recording.get_num_samples(segment_index=segment_index)
                 st_array = selected_spike_times[unit_id][segment_index]
                 for st in st_array:
                     st = int(st)
@@ -364,12 +362,11 @@ class WaveformExtractor:
                     wfs_local[i] = traces[st_trace - nbefore : st_trace + nafter, :]
                     continue
 
-                peak_value = np.max(peak_window) if use_pos_peak else np.min(peak_window)
-                peak_indices = np.flatnonzero(peak_window == peak_value)
-                st_offset = (
-                    peak_indices[peak_indices.size // 2]
-                    - peak_window.size // 2
+                peak_value = (
+                    np.max(peak_window) if use_pos_peak else np.min(peak_window)
                 )
+                peak_indices = np.flatnonzero(peak_window == peak_value)
+                st_offset = peak_indices[peak_indices.size // 2] - peak_window.size // 2
                 st_trace += st_offset
                 spike_times_centered_all[st] = st + st_offset
 
@@ -381,7 +378,9 @@ class WaveformExtractor:
                 wfs_local[i, wf_lo:wf_hi, :] = traces[lo:hi, :]
 
             # Templates — write directly into the shared cache.
-            self.template_cache["average"][unit_id, :, :] = np.average(wfs_local, axis=0)
+            self.template_cache["average"][unit_id, :, :] = np.average(
+                wfs_local, axis=0
+            )
             self.template_cache["std"][unit_id, :, :] = np.std(wfs_local, axis=0)
 
             if save_waveforms:

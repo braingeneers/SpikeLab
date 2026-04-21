@@ -180,8 +180,7 @@ def recenter_stim_times(
     """
     if peak_mode not in _VALID_PEAK_MODES:
         raise ValueError(
-            f"Unknown peak_mode {peak_mode!r}; "
-            f"expected one of {_VALID_PEAK_MODES}"
+            f"Unknown peak_mode {peak_mode!r}; " f"expected one of {_VALID_PEAK_MODES}"
         )
 
     stim_times_ms = np.asarray(stim_times_ms, dtype=np.float64)
@@ -208,13 +207,9 @@ def recenter_stim_times(
         elif peak_mode == "neg_peak":
             peak_sample = lo + int(np.argmin(reference[lo:hi]))
         elif peak_mode == "down_edge":
-            peak_sample = _find_down_edge(
-                reference, lo, hi, prewindow_ms, fs_Hz
-            )
+            peak_sample = _find_down_edge(reference, lo, hi, prewindow_ms, fs_Hz)
         else:  # up_edge
-            peak_sample = _find_up_edge(
-                reference, lo, hi, prewindow_ms, fs_Hz
-            )
+            peak_sample = _find_up_edge(reference, lo, hi, prewindow_ms, fs_Hz)
 
         corrected[i] = peak_sample / fs_Hz * 1000.0
 

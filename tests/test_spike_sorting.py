@@ -4177,6 +4177,7 @@ class TestRTSortRunnerHelpers:
         for uid in unit_ids:
             np.testing.assert_array_equal(loaded.get_unit_spike_train(uid), spikes[uid])
 
+    @skip_no_torch
     def test_detection_window_s_narrows_only_detect_sequences(
         self, monkeypatch, tmp_path
     ):
@@ -4199,9 +4200,7 @@ class TestRTSortRunnerHelpers:
                 captured["sort_offline"] = kw.get("recording_window_ms")
                 return object()  # opaque — _save_sorting_cache is stubbed
 
-        def fake_detect_sequences(
-            recording, inter_path, detection_model, **kw
-        ):
+        def fake_detect_sequences(recording, inter_path, detection_model, **kw):
             captured["detect"] = kw.get("recording_window_ms")
             return FakeRTSort()
 
@@ -4252,6 +4251,7 @@ class TestRTSortRunnerHelpers:
             f"got {captured['sort_offline']!r}"
         )
 
+    @skip_no_torch
     def test_detection_window_s_unset_uses_full_window_for_both(
         self, monkeypatch, tmp_path
     ):
@@ -4269,9 +4269,7 @@ class TestRTSortRunnerHelpers:
                 captured["sort_offline"] = kw.get("recording_window_ms")
                 return object()  # opaque — _save_sorting_cache is stubbed
 
-        def fake_detect_sequences(
-            recording, inter_path, detection_model, **kw
-        ):
+        def fake_detect_sequences(recording, inter_path, detection_model, **kw):
             captured["detect"] = kw.get("recording_window_ms")
             return FakeRTSort()
 
@@ -5138,9 +5136,9 @@ class TestSaturationThresholdFromRecording:
         rec.get_channel_gains.return_value = np.full(4, 3.14, dtype=np.float32)
 
         thresh = _saturation_threshold_from_recording(rec, traces)
-        assert thresh == float("inf"), (
-            f"Expected +inf for non-saturated recording, got {thresh}"
-        )
+        assert thresh == float(
+            "inf"
+        ), f"Expected +inf for non-saturated recording, got {thresh}"
 
     def test_returns_finite_threshold_when_clipped(self):
         from unittest.mock import MagicMock
@@ -5161,9 +5159,7 @@ class TestSaturationThresholdFromRecording:
 
         thresh = _saturation_threshold_from_recording(rec, traces)
         # Threshold should be just below the rail (frac=0.95 default).
-        assert 9_000.0 < thresh < 10_000.0, (
-            f"Expected threshold ~9500 µV, got {thresh}"
-        )
+        assert 9_000.0 < thresh < 10_000.0, f"Expected threshold ~9500 µV, got {thresh}"
         # And it should be a whole number of raw bits times the gain.
         rail_bits = round(10_000.0 / 3.14)
         expected = 0.95 * rail_bits * 3.14
@@ -5185,10 +5181,7 @@ class TestSaturationThresholdFromRecording:
         # the recording is treated as unsaturated.
         traces_sparse = np.zeros((1, 1000), dtype=np.float32)
         traces_sparse[0, :5] = 5_000.0
-        assert (
-            _saturation_threshold_from_recording(rec, traces_sparse)
-            == float("inf")
-        )
+        assert _saturation_threshold_from_recording(rec, traces_sparse) == float("inf")
 
         # 50 samples at the rail — above default, so threshold is finite.
         traces_dense = np.zeros((1, 1000), dtype=np.float32)
@@ -5199,12 +5192,9 @@ class TestSaturationThresholdFromRecording:
 
         # Raising ``min_clip_samples`` above 50 pushes the same dense
         # traces back to the non-saturated branch.
-        assert (
-            _saturation_threshold_from_recording(
-                rec, traces_dense, min_clip_samples=100
-            )
-            == float("inf")
-        )
+        assert _saturation_threshold_from_recording(
+            rec, traces_dense, min_clip_samples=100
+        ) == float("inf")
 
     def test_no_recording_falls_back(self):
         from spikelab.spike_sorting.stim_sorting.artifact_removal import (
@@ -5272,7 +5262,10 @@ class TestSortStimRecordingPassesNdarray:
 
         from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
 
-        traces = np.random.default_rng(0).standard_normal((4, 40000)).astype(np.float32) * 10.0
+        traces = (
+            np.random.default_rng(0).standard_normal((4, 40000)).astype(np.float32)
+            * 10.0
+        )
 
         captured = {"recording": None}
 
@@ -5327,6 +5320,7 @@ class TestSaveTracesSiFastPath:
     place.
     """
 
+    @skip_no_torch
     def test_numpy_recording_skips_multiprocessing_pool(self, tmp_path, monkeypatch):
         from spikeinterface.core import NumpyRecording
 
@@ -5368,6 +5362,7 @@ class TestSaveTracesSiFastPath:
         assert saved.shape == (4, 10_000)
         np.testing.assert_allclose(saved, traces_in.T, atol=1e-6)
 
+    @skip_no_torch
     def test_non_numpy_recording_uses_time_chunked_bulk_read(
         self, tmp_path, monkeypatch
     ):
@@ -5445,7 +5440,7 @@ class TestSaveTracesSiFastPath:
 
         # Should have been called once per chunk, all channels per call
         assert len(get_traces_calls) == 5
-        for (sf, ef) in get_traces_calls:
+        for sf, ef in get_traces_calls:
             assert (ef - sf) <= 2_000
         assert bare_pool_calls == []
         assert bare_manager_calls == []
@@ -5454,6 +5449,7 @@ class TestSaveTracesSiFastPath:
         assert saved.shape == (n_channels, n_samples)
         np.testing.assert_allclose(saved, fake_full.T, atol=1e-6)
 
+    @skip_no_torch
     def test_save_traces_si_chunked_matches_single_pass(self, tmp_path):
         """Chunked output on a realistic lazy chain (bandpass over noise)
         matches the single-pass output to within a small filter-
@@ -5612,9 +5608,7 @@ class TestRecenterStimTimesPeakModes:
         ``stim_sample + up_duration_samples``.
         """
         rng = np.random.default_rng(0)
-        traces = (rng.standard_normal((n_channels, n_samples)) * 5.0).astype(
-            np.float32
-        )
+        traces = (rng.standard_normal((n_channels, n_samples)) * 5.0).astype(np.float32)
         up_start = stim_sample
         down_start = stim_sample + up_duration_samples
         down_end = down_start + down_duration_samples
@@ -5630,9 +5624,7 @@ class TestRecenterStimTimesPeakModes:
 
         traces = np.zeros((2, 1000))
         with pytest.raises(ValueError, match="Unknown peak_mode"):
-            recenter_stim_times(
-                traces, [10.0], fs_Hz=20000.0, peak_mode="garbage"
-            )
+            recenter_stim_times(traces, [10.0], fs_Hz=20000.0, peak_mode="garbage")
 
     def test_abs_max_backward_compatible(self):
         """Without ``peak_mode``, behavior matches the pre-patch API."""
@@ -5706,9 +5698,7 @@ class TestRecenterStimTimesPeakModes:
         )
 
         fs_Hz = 20000.0
-        traces, transition = self._synth_biphasic(
-            up_amp=3000.0, down_amp=-10000.0
-        )
+        traces, transition = self._synth_biphasic(up_amp=3000.0, down_amp=-10000.0)
         stim_ms = (transition / fs_Hz * 1000.0) - 3.0
 
         corrected = recenter_stim_times(
@@ -5735,9 +5725,7 @@ class TestRecenterStimTimesPeakModes:
         fs_Hz = 20000.0
         # 8 channels see the artifact; 24 others are pure noise.  The
         # top-K sum (K=8) should isolate just the artifact channels.
-        traces, transition = self._synth_biphasic(
-            n_channels=32, n_affected_channels=8
-        )
+        traces, transition = self._synth_biphasic(n_channels=32, n_affected_channels=8)
         stim_ms = (transition / fs_Hz * 1000.0) - 3.0
 
         corrected = recenter_stim_times(
@@ -5781,9 +5769,9 @@ class TestRecenterStimTimesPeakModes:
         # pair; diff[3] = -4 is the steepest, so ``pos_peak + 3``.
         # pos_peak itself is in [2, 3] (both equal to 10); argmax picks
         # the first, index 2.  Expected = 2 + 3 = 5, or nearby.
-        assert 3 <= result <= 6, (
-            f"Expected steepest-slope sample in [3, 6], got {result}"
-        )
+        assert (
+            3 <= result <= 6
+        ), f"Expected steepest-slope sample in [3, 6], got {result}"
 
     def test_up_edge_symmetric_to_down_edge(self):
         """For a cathodic-first biphasic pulse (first down then up),
@@ -5794,9 +5782,7 @@ class TestRecenterStimTimesPeakModes:
 
         fs_Hz = 20000.0
         # Cathodic-first: swap signs
-        traces, transition = self._synth_biphasic(
-            up_amp=-3000.0, down_amp=10000.0
-        )
+        traces, transition = self._synth_biphasic(up_amp=-3000.0, down_amp=10000.0)
         stim_ms = (transition / fs_Hz * 1000.0) - 3.0
 
         corrected = recenter_stim_times(

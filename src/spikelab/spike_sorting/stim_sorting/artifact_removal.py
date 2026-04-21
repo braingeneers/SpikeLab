@@ -286,7 +286,7 @@ def _process_stim_group_polynomial(
     blanked,
     ch_idx,
     pre_artifact_samples=0,  # accepted for API stability, currently unused
-    clip_mask_ch=None,       # accepted for API stability, currently unused
+    clip_mask_ch=None,  # accepted for API stability, currently unused
 ):
     """Polynomial detrend for one stim group on one channel.
 
@@ -386,31 +386,56 @@ def _process_stim_group_polynomial(
     if has_descent and has_ascent:
         # 3-fit split: descent + ascent + decay
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx,
-            fit_start, neg_peak_sample + 1, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            neg_peak_sample + 1,
+            poly_order,
         )
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx,
-            neg_peak_sample + 1, pos_peak_sample + 1, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            neg_peak_sample + 1,
+            pos_peak_sample + 1,
+            poly_order,
         )
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx,
-            pos_peak_sample + 1, fit_end, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            pos_peak_sample + 1,
+            fit_end,
+            poly_order,
         )
     elif has_descent:
         # 2-fit split: descent + tail (no positive overshoot found)
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx,
-            fit_start, neg_peak_sample + 1, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            neg_peak_sample + 1,
+            poly_order,
         )
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx,
-            neg_peak_sample + 1, fit_end, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            neg_peak_sample + 1,
+            fit_end,
+            poly_order,
         )
     else:
         # No descent — stim already at neg peak; single fit.
         _polyfit_and_subtract(
-            channel_trace, blanked, ch_idx, fit_start, fit_end, poly_order,
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            fit_end,
+            poly_order,
         )
 
 
