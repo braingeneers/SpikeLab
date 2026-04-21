@@ -3092,6 +3092,16 @@ class SpikeData:
 
         return curate(self, **kwargs)
 
+    def curate_by_merge_duplicates(self, **kwargs):
+        """Remove duplicate units by merging nearby pairs with similar waveforms.
+
+        See ``spikelab.spikedata.curation.curate_by_merge_duplicates`` for
+        full documentation and supported keyword arguments.
+        """
+        from .curation import curate_by_merge_duplicates
+
+        return curate_by_merge_duplicates(self, **kwargs)
+
     @staticmethod
     def build_curation_history(sd_original, sd_curated, results, parameters=None):
         """Translate curation results into a serializable history dict.

@@ -6,13 +6,19 @@ import pytest
 from spikelab.spikedata import SpikeData
 from spikelab.spikedata.curation import (
     build_curation_history,
+    _compute_pairwise_similarity,
     compute_waveform_metrics,
     curate,
     curate_by_firing_rate,
     curate_by_isi_violations,
+    curate_by_merge_duplicates,
     curate_by_min_spikes,
     curate_by_snr,
     curate_by_std_norm,
+    _filter_by_cosine_sim,
+    _filter_pairs_by_isi_violations,
+    _find_nearby_unit_pairs,
+    _merge_redundant_units,
 )
 
 # ---------------------------------------------------------------------------
@@ -945,3 +951,679 @@ class TestSplitEpochs:
 
         for ep in epochs:
             assert ep.metadata["source_format"] == "Kilosort2"
+
+
+# ---------------------------------------------------------------------------
+# Merge-based deduplication: helpers
+# ---------------------------------------------------------------------------
+
+_WF_SAMPLES = 30
+_WF_CHANNELS = [0, 1]
+
+
+def _make_waveform(peak_sample=15, amplitude=-5.0):
+    """Return a (2, 30) avg_waveform with a peak at peak_sample."""
+    wf = np.zeros((2, _WF_SAMPLES))
+    wf[0, peak_sample] = amplitude
+    wf[1, peak_sample] = amplitude * 0.6
+    return wf
+
+
+def _make_sd_with_positions(positions, spike_counts=None, length=1000.0, seed=0):
+    """SpikeData with 'location' in neuron_attributes.
+
+    positions : list of [x, y] pairs, one per unit.
+    spike_counts : list of int (defaults to 50 per unit).
+    """
+    rng = np.random.default_rng(seed)
+    n = len(positions)
+    counts = spike_counts or [50] * n
+    trains = [np.sort(rng.uniform(10.0, length - 10.0, c)) for c in counts]
+    attrs = [{"unit_id": i, "location": list(positions[i])} for i in range(n)]
+    return SpikeData(trains, length=length, neuron_attributes=attrs)
+
+
+def _make_sd_with_waveforms(
+    positions, waveforms, spike_counts=None, length=1000.0, seed=0
+):
+    """SpikeData with 'location', 'avg_waveform', and 'traces_meta' populated.
+
+    positions  : list of [x, y] pairs.
+    waveforms  : list of (2, 30) arrays, one per unit.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(positions)
+    counts = spike_counts or [50] * n
+    trains = [np.sort(rng.uniform(10.0, length - 10.0, c)) for c in counts]
+    attrs = [
+        {
+            "unit_id": i,
+            "location": list(positions[i]),
+            "avg_waveform": waveforms[i],
+            "traces_meta": {"channels": _WF_CHANNELS},
+        }
+        for i in range(n)
+    ]
+    return SpikeData(trains, length=length, neuron_attributes=attrs)
+
+
+def _make_duplicate_pair_sd():
+    """SpikeData with two near-identical units and one unrelated unit.
+
+    Units 0 and 1: positions 5 µm apart, identical waveforms, spike trains
+    with jitter < 0.4 ms (they are genuine duplicates).
+    Unit 2: 500 µm away, orthogonal waveform, independent train.
+    """
+    length = 1000.0
+    # Duplicate base train at 10ms ISI (well above 1.5ms threshold)
+    base = np.arange(10.0, length, 10.0)
+    train0 = base.copy()
+    train1 = base + 0.15  # 0.15 ms jitter — within delta_ms=0.4
+
+    # Unrelated unit
+    rng = np.random.default_rng(77)
+    train2 = np.sort(rng.uniform(10, length - 10, 50))
+
+    wf_dup = _make_waveform(peak_sample=15, amplitude=-5.0)
+    wf_other = np.zeros((2, _WF_SAMPLES))
+    wf_other[1, 5] = 5.0  # orthogonal to wf_dup
+
+    attrs = [
+        {
+            "unit_id": 0,
+            "location": [0.0, 0.0],
+            "avg_waveform": wf_dup.copy(),
+            "traces_meta": {"channels": _WF_CHANNELS},
+        },
+        {
+            "unit_id": 1,
+            "location": [5.0, 0.0],
+            "avg_waveform": wf_dup.copy(),
+            "traces_meta": {"channels": _WF_CHANNELS},
+        },
+        {
+            "unit_id": 2,
+            "location": [500.0, 0.0],
+            "avg_waveform": wf_other,
+            "traces_meta": {"channels": _WF_CHANNELS},
+        },
+    ]
+    return SpikeData(
+        [train0, train1, train2],
+        length=length,
+        neuron_attributes=attrs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# _find_nearby_unit_pairs
+# ---------------------------------------------------------------------------
+
+
+class TestFindNearbyUnitPairs:
+    def test_nearby_pairs_detected(self):
+        """
+        Unit pairs within dist_um are returned; distant pairs are not.
+
+        Tests:
+            (Test Case 1) Two units 10 µm apart are included in pairs.
+            (Test Case 2) A unit 500 µm away is not paired with others.
+            (Test Case 3) Pairs are (i, j) with i < j.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [10.0, 0.0], [500.0, 0.0]])
+        pairs = _find_nearby_unit_pairs(sd, dist_um=24.8)
+
+        assert (0, 1) in pairs
+        assert (0, 2) not in pairs
+        assert (1, 2) not in pairs
+        for i, j in pairs:
+            assert i < j
+
+    def test_all_nearby(self):
+        """
+        All pairs returned when all units are within dist_um.
+
+        Tests:
+            (Test Case 1) Three mutually nearby units yield all three pairs.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [5.0, 0.0], [10.0, 0.0]])
+        pairs = _find_nearby_unit_pairs(sd, dist_um=24.8)
+        assert {(0, 1), (0, 2), (1, 2)} == pairs
+
+    def test_no_pairs_when_all_far(self):
+        """
+        Empty set returned when all units are beyond dist_um.
+
+        Tests:
+            (Test Case 1) Units 100 µm apart produce no pairs at 24.8 µm threshold.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [100.0, 0.0], [200.0, 0.0]])
+        pairs = _find_nearby_unit_pairs(sd, dist_um=24.8)
+        assert pairs == set()
+
+    def test_no_locations_raises(self):
+        """
+        ValueError raised when sd.locations is None.
+
+        Tests:
+            (Test Case 1) SpikeData without position data raises ValueError.
+        """
+        sd = _make_sd(n_units=2)
+        with pytest.raises(ValueError, match="unit_locations is None"):
+            _find_nearby_unit_pairs(sd, dist_um=24.8)
+
+    def test_boundary_distance(self):
+        """
+        Pair at exactly dist_um is included; pair just beyond is not.
+
+        Tests:
+            (Test Case 1) Distance == dist_um is included (<=).
+            (Test Case 2) Distance == dist_um + epsilon is excluded.
+        """
+        d = 24.8
+        sd_on = _make_sd_with_positions([[0.0, 0.0], [d, 0.0]])
+        sd_over = _make_sd_with_positions([[0.0, 0.0], [d + 0.01, 0.0]])
+
+        assert (0, 1) in _find_nearby_unit_pairs(sd_on, dist_um=d)
+        assert (0, 1) not in _find_nearby_unit_pairs(sd_over, dist_um=d)
+
+    def test_2d_positions_only(self):
+        """
+        Only x and y coordinates are used for distance; z is ignored.
+
+        Tests:
+            (Test Case 1) Units at same xy but different z are still paired.
+        """
+        trains = [np.array([10.0, 20.0, 30.0])] * 2
+        attrs = [
+            {"location": [0.0, 0.0, 0.0]},
+            {"location": [5.0, 0.0, 999.0]},
+        ]
+        sd = SpikeData(trains, length=100.0, neuron_attributes=attrs)
+        pairs = _find_nearby_unit_pairs(sd, dist_um=24.8)
+        assert (0, 1) in pairs
+
+
+# ---------------------------------------------------------------------------
+# _filter_pairs_by_isi_violations
+# ---------------------------------------------------------------------------
+
+
+class TestFilterPairsByIsiViolations:
+    def test_filters_violating_units(self):
+        """
+        Pairs containing a high-violation unit are removed.
+
+        Tests:
+            (Test Case 1) Pair where one unit has ISI violations > threshold
+                is excluded.
+            (Test Case 2) Pair where both units are clean is retained.
+            (Test Case 3) violation_rates dict is returned for all units in
+                the input pairs.
+        """
+        # Unit 0: spikes 1 ms apart — all violate 1.5 ms threshold
+        # Unit 1: spikes 10 ms apart — no violations
+        # Unit 2: spikes 10 ms apart — no violations
+        sd = SpikeData(
+            [
+                np.arange(10.0, 200.0, 1.0),
+                np.arange(10.0, 200.0, 10.0),
+                np.arange(15.0, 200.0, 10.0),
+            ],
+            length=200.0,
+        )
+        pairs = {(0, 1), (1, 2)}
+        filtered, rates = _filter_pairs_by_isi_violations(
+            sd, pairs, max_violation_rate=0.04, threshold_ms=1.5
+        )
+
+        assert (0, 1) not in filtered  # unit 0 violates
+        assert (1, 2) in filtered  # both clean
+        assert set(rates.keys()) == {0, 1, 2}
+        assert rates[0] > 0.04
+        assert rates[1] == pytest.approx(0.0)
+
+    def test_both_must_pass(self):
+        """
+        Both units in a pair must pass the threshold.
+
+        Tests:
+            (Test Case 1) Pair (0, 1) is excluded when unit 0 violates even
+                if unit 1 is clean.
+            (Test Case 2) Pair (0, 1) is excluded when unit 1 violates even
+                if unit 0 is clean.
+        """
+        clean = np.arange(10.0, 500.0, 10.0)
+        dirty = np.arange(10.0, 500.0, 1.0)
+        sd_a = SpikeData([dirty, clean], length=500.0)
+        sd_b = SpikeData([clean, dirty], length=500.0)
+
+        for sd in (sd_a, sd_b):
+            filtered, _ = _filter_pairs_by_isi_violations(
+                sd, {(0, 1)}, max_violation_rate=0.04
+            )
+            assert (0, 1) not in filtered
+
+
+# ---------------------------------------------------------------------------
+# _compute_pairwise_similarity
+# ---------------------------------------------------------------------------
+
+
+class TestComputePairwiseSimilarity:
+    def test_identical_waveforms_give_similarity_one(self):
+        """
+        Identical waveforms produce cosine similarity of 1.0.
+
+        Tests:
+            (Test Case 1) sim_mat[i, j] == 1.0 for units with the same
+                avg_waveform.
+        """
+        wf = _make_waveform()
+        sd = _make_sd_with_waveforms(
+            positions=[[0.0, 0.0], [5.0, 0.0]],
+            waveforms=[wf.copy(), wf.copy()],
+        )
+        sim_mat, lag_mat, _ = _compute_pairwise_similarity(sd, {(0, 1)}, max_lag=10)
+
+        assert sim_mat[0, 1] == pytest.approx(1.0, abs=1e-6)
+        assert sim_mat[1, 0] == pytest.approx(1.0, abs=1e-6)
+
+    def test_orthogonal_waveforms_give_low_similarity(self):
+        """
+        Orthogonal waveforms produce near-zero cosine similarity.
+
+        Tests:
+            (Test Case 1) sim_mat[i, j] is close to 0 for orthogonal waveforms.
+        """
+        wf_a = np.zeros((2, _WF_SAMPLES))
+        wf_a[0, 10] = 1.0
+        wf_b = np.zeros((2, _WF_SAMPLES))
+        wf_b[1, 20] = 1.0
+
+        sd = _make_sd_with_waveforms(
+            positions=[[0.0, 0.0], [5.0, 0.0]],
+            waveforms=[wf_a, wf_b],
+        )
+        sim_mat, _, _ = _compute_pairwise_similarity(sd, {(0, 1)}, max_lag=0)
+        assert abs(sim_mat[0, 1]) < 0.1
+
+    def test_output_shapes(self):
+        """
+        Similarity and lag matrices are (N, N) with correct diagonals.
+
+        Tests:
+            (Test Case 1) sim_mat shape is (N, N).
+            (Test Case 2) Diagonal of sim_mat is 1.0.
+            (Test Case 3) Diagonal of lag_mat is 0.0.
+            (Test Case 4) Unevaluated entries are NaN.
+        """
+        wf = _make_waveform()
+        sd = _make_sd_with_waveforms(
+            positions=[[0.0, 0.0], [5.0, 0.0], [500.0, 0.0]],
+            waveforms=[wf.copy(), wf.copy(), wf.copy()],
+        )
+        sim_mat, lag_mat, unit_ids = _compute_pairwise_similarity(
+            sd, {(0, 1)}, max_lag=10
+        )
+
+        assert sim_mat.shape == (3, 3)
+        assert lag_mat.shape == (3, 3)
+        np.testing.assert_array_equal(np.diag(sim_mat), [1.0, 1.0, 1.0])
+        np.testing.assert_array_equal(np.diag(lag_mat), [0.0, 0.0, 0.0])
+        # Pair (0,2) not in pairs → NaN
+        assert np.isnan(sim_mat[0, 2])
+        assert len(unit_ids) == 3
+
+    def test_no_avg_waveform_raises(self):
+        """
+        ValueError raised when no units have avg_waveform.
+
+        Tests:
+            (Test Case 1) Error message mentions avg_waveform.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [5.0, 0.0]])
+        with pytest.raises(ValueError, match="avg_waveform"):
+            _compute_pairwise_similarity(sd, {(0, 1)})
+
+    def test_no_neuron_attributes_raises(self):
+        """
+        ValueError raised when neuron_attributes is None.
+
+        Tests:
+            (Test Case 1) SpikeData without neuron_attributes raises ValueError.
+        """
+        sd = _make_sd(n_units=2)
+        with pytest.raises(ValueError, match="neuron_attributes is None"):
+            _compute_pairwise_similarity(sd, {(0, 1)})
+
+    def test_avg_waveform_without_traces_meta_raises(self):
+        """
+        ValueError raised when avg_waveform is set but traces_meta is absent.
+
+        Tests:
+            (Test Case 1) Manually setting avg_waveform without traces_meta
+                raises a clear error rather than silently returning zero
+                similarities.
+        """
+        sd = _make_sd_with_positions([[0.0, 0.0], [5.0, 0.0]])
+        rng = np.random.default_rng(0)
+        for attrs in sd.neuron_attributes:
+            attrs["avg_waveform"] = rng.standard_normal((2, 30))
+            # deliberately omit traces_meta
+        with pytest.raises(ValueError, match="traces_meta"):
+            _compute_pairwise_similarity(sd, {(0, 1)})
+
+    def test_lag_boundary_sets_sim_to_zero(self):
+        """
+        Similarity is set to 0 when best lag hits the max_lag boundary.
+
+        Tests:
+            (Test Case 1) sim_mat[i, j] == 0.0 when max_lag=0 forces a
+                boundary result for shifted waveforms.
+        """
+        wf_a = np.zeros((1, _WF_SAMPLES))
+        wf_a[0, 5] = 1.0
+        wf_b = np.zeros((1, _WF_SAMPLES))
+        wf_b[0, 25] = 1.0  # shifted far from wf_a
+
+        attrs = [
+            {
+                "unit_id": 0,
+                "avg_waveform": wf_a,
+                "traces_meta": {"channels": [0]},
+            },
+            {
+                "unit_id": 1,
+                "avg_waveform": wf_b,
+                "traces_meta": {"channels": [0]},
+            },
+        ]
+        trains = [np.array([10.0, 20.0, 30.0])] * 2
+        sd = SpikeData(trains, length=100.0, neuron_attributes=attrs)
+        # max_lag=0 means no shifting allowed — best_lag will == max_lag
+        sim_mat, _, _ = _compute_pairwise_similarity(sd, {(0, 1)}, max_lag=0)
+        assert sim_mat[0, 1] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# _filter_by_cosine_sim
+# ---------------------------------------------------------------------------
+
+
+class TestFilterByCosineSim:
+    def test_threshold_filtering(self):
+        """
+        Pairs below the cosine threshold are excluded.
+
+        Tests:
+            (Test Case 1) Pair with similarity >= threshold is retained.
+            (Test Case 2) Pair with similarity < threshold is excluded.
+        """
+        sim_mat = np.full((3, 3), np.nan)
+        sim_mat[0, 1] = sim_mat[1, 0] = 0.95
+        sim_mat[0, 2] = sim_mat[2, 0] = 0.70
+
+        pairs = {(0, 1), (0, 2)}
+        filtered = _filter_by_cosine_sim(pairs, sim_mat, threshold=0.9)
+
+        assert (0, 1) in filtered
+        assert (0, 2) not in filtered
+
+    def test_nan_excluded(self):
+        """
+        Pairs with NaN similarity are excluded.
+
+        Tests:
+            (Test Case 1) A NaN entry in sim_mat causes the pair to be
+                dropped regardless of threshold.
+        """
+        sim_mat = np.full((2, 2), np.nan)
+        filtered = _filter_by_cosine_sim({(0, 1)}, sim_mat, threshold=0.0)
+        assert filtered == set()
+
+
+# ---------------------------------------------------------------------------
+# _merge_redundant_units
+# ---------------------------------------------------------------------------
+
+
+class TestMergeRedundantUnits:
+    def _make_merge_inputs(self):
+        """Return (sd, pairs, sim_mat) for a clear duplicate pair."""
+        sd = _make_duplicate_pair_sd()
+        sim_mat = np.full((3, 3), np.nan)
+        np.fill_diagonal(sim_mat, 1.0)
+        sim_mat[0, 1] = sim_mat[1, 0] = 1.0  # identical waveforms
+        return sd, {(0, 1)}, sim_mat
+
+    def test_merges_duplicate_pair(self):
+        """
+        Two duplicate units are merged into one; total units decreases.
+
+        Tests:
+            (Test Case 1) Output SpikeData has N = original N - 1.
+            (Test Case 2) merged_pairs list contains the accepted pair.
+            (Test Case 3) n_removed == 1.
+        """
+        sd, pairs, sim_mat = self._make_merge_inputs()
+        sd_out, result = _merge_redundant_units(sd, pairs, sim_mat)
+
+        assert sd_out.N == sd.N - 1
+        assert len(result["merged_pairs"]) == 1
+        assert result["n_removed"] == 1
+
+    def test_merged_train_deduplicates_spikes(self):
+        """
+        Merged train removes near-coincident spikes within delta_ms.
+
+        Tests:
+            (Test Case 1) Merged train has fewer spikes than the naive
+                concatenation of the two trains.
+            (Test Case 2) Merged train is sorted.
+        """
+        sd, pairs, sim_mat = self._make_merge_inputs()
+        sd_out, _ = _merge_redundant_units(sd, pairs, sim_mat, delta_ms=0.4)
+
+        naive_count = len(sd.train[0]) + len(sd.train[1])
+        merged_count = len(sd_out.train[0])
+        assert merged_count < naive_count
+        assert np.all(np.diff(sd_out.train[0]) > 0)
+
+    def test_preserves_start_time(self):
+        """
+        Output SpikeData preserves start_time from the source.
+
+        Tests:
+            (Test Case 1) sd_out.start_time == sd.start_time.
+        """
+        sd, pairs, sim_mat = self._make_merge_inputs()
+        sd_out, _ = _merge_redundant_units(sd, pairs, sim_mat)
+        assert sd_out.start_time == sd.start_time
+
+    def test_merged_from_attribute_set(self):
+        """
+        merged_from neuron attribute records which units were combined.
+
+        Tests:
+            (Test Case 1) Primary unit's merged_from contains both
+                original unit IDs.
+        """
+        sd, pairs, sim_mat = self._make_merge_inputs()
+        sd_out, _ = _merge_redundant_units(sd, pairs, sim_mat)
+
+        primary_new_idx = 0  # sorted output — primary was unit 0 or 1
+        merged_from = sd_out.neuron_attributes[primary_new_idx]["merged_from"]
+        assert len(merged_from) == 2
+
+    def test_isi_guard_rejects_bad_merge(self):
+        """
+        Merge is rejected when it would excessively increase ISI violations.
+
+        Tests:
+            (Test Case 1) No pairs accepted when merged train would violate
+                max_isi_increase.
+            (Test Case 2) n_removed == 0 and output N == input N.
+        """
+        # Two units at same location, waveforms identical, but trains that
+        # interleave at sub-threshold ISI after merging.
+        # Train 0: spikes at every 1.0 ms — already violates 1.5 ms.
+        # Train 1: same spikes + 0.5 ms shift — merged result still very high ISI.
+        # Use max_isi_increase=0.0 to guarantee rejection.
+        length = 200.0
+        train0 = np.arange(10.0, length, 1.0)
+        train1 = np.arange(10.5, length, 1.0)
+        wf = _make_waveform()
+        attrs = [
+            {
+                "unit_id": 0,
+                "location": [0.0, 0.0],
+                "avg_waveform": wf.copy(),
+                "traces_meta": {"channels": _WF_CHANNELS},
+            },
+            {
+                "unit_id": 1,
+                "location": [5.0, 0.0],
+                "avg_waveform": wf.copy(),
+                "traces_meta": {"channels": _WF_CHANNELS},
+            },
+        ]
+        sd = SpikeData([train0, train1], length=length, neuron_attributes=attrs)
+        sim_mat = np.array([[1.0, 1.0], [1.0, 1.0]])
+
+        sd_out, result = _merge_redundant_units(
+            sd, {(0, 1)}, sim_mat, max_isi_increase=0.0
+        )
+        assert result["n_removed"] == 0
+        assert sd_out.N == sd.N
+
+    def test_empty_pairs_raises(self):
+        """
+        ValueError raised when pairs is empty.
+
+        Tests:
+            (Test Case 1) Empty pairs set raises ValueError.
+        """
+        sd = _make_duplicate_pair_sd()
+        sim_mat = np.eye(sd.N)
+        with pytest.raises(ValueError):
+            _merge_redundant_units(sd, set(), sim_mat)
+
+    def test_unrelated_unit_unchanged(self):
+        """
+        Units not involved in any merge are passed through unchanged.
+
+        Tests:
+            (Test Case 1) Train of the unrelated third unit is preserved
+                exactly in the output.
+        """
+        sd, pairs, sim_mat = self._make_merge_inputs()
+        sd_out, _ = _merge_redundant_units(sd, pairs, sim_mat)
+
+        # Unit 2 (index 2 in input) should survive as the last unit in output
+        # (sorted by original index). Its train must match exactly.
+        np.testing.assert_array_equal(sd_out.train[-1], sd.train[2])
+
+
+# ---------------------------------------------------------------------------
+# curate_by_merge_duplicates (full pipeline)
+# ---------------------------------------------------------------------------
+
+
+class TestCurateByMergeDuplicates:
+    def test_merges_duplicate_pair(self):
+        """
+        Full pipeline merges a genuine duplicate pair.
+
+        Tests:
+            (Test Case 1) Output has fewer units than input.
+            (Test Case 2) result_dict has 'metric' and 'passed' arrays.
+            (Test Case 3) 'passed' is False for the absorbed unit.
+        """
+        sd = _make_duplicate_pair_sd()
+        sd_out, result = curate_by_merge_duplicates(
+            sd, dist_um=24.8, cosine_threshold=0.9
+        )
+
+        assert sd_out.N < sd.N
+        assert result["metric"].shape == (sd.N,)
+        assert result["passed"].shape == (sd.N,)
+        assert result["passed"].dtype == bool
+        assert not np.all(result["passed"])
+
+    def test_no_nearby_pairs_returns_unchanged(self):
+        """
+        Returns the original SpikeData unchanged when no pairs are nearby.
+
+        Tests:
+            (Test Case 1) N is unchanged.
+            (Test Case 2) All units pass (passed is all True).
+            (Test Case 3) All metrics are 0.0.
+        """
+        sd = _make_sd_with_waveforms(
+            positions=[[0.0, 0.0], [500.0, 0.0], [1000.0, 0.0]],
+            waveforms=[_make_waveform()] * 3,
+        )
+        sd_out, result = curate_by_merge_duplicates(sd, dist_um=24.8)
+
+        assert sd_out.N == sd.N
+        assert np.all(result["passed"])
+        assert np.all(result["metric"] == 0.0)
+
+    def test_result_dict_structure(self):
+        """
+        result_dict always has 'metric' and 'passed' with shape (N,).
+
+        Tests:
+            (Test Case 1) Keys 'metric' and 'passed' are present.
+            (Test Case 2) Arrays have length equal to input N.
+        """
+        sd = _make_duplicate_pair_sd()
+        _, result = curate_by_merge_duplicates(sd)
+
+        assert set(result.keys()) == {"metric", "passed"}
+        assert len(result["metric"]) == sd.N
+        assert len(result["passed"]) == sd.N
+
+    def test_metric_reflects_similarity(self):
+        """
+        metric[i] reflects cosine similarity of the accepted merge.
+
+        Tests:
+            (Test Case 1) Absorbed unit has metric > 0.
+            (Test Case 2) Unrelated unit has metric == 0.
+        """
+        sd = _make_duplicate_pair_sd()
+        _, result = curate_by_merge_duplicates(sd, dist_um=24.8, cosine_threshold=0.9)
+
+        # At least one unit should have metric > 0 (was merged)
+        assert np.any(result["metric"] > 0)
+        # The unrelated unit (index 2, far away) has metric 0
+        assert result["metric"][2] == pytest.approx(0.0)
+
+    def test_spikedata_method_binding(self):
+        """
+        curate_by_merge_duplicates is accessible as sd.curate_by_merge_duplicates().
+
+        Tests:
+            (Test Case 1) Method call returns same result structure as
+                standalone function.
+        """
+        sd = _make_duplicate_pair_sd()
+        sd_out, result = sd.curate_by_merge_duplicates(dist_um=24.8)
+
+        assert isinstance(sd_out, SpikeData)
+        assert "metric" in result
+        assert "passed" in result
+
+    def test_no_locations_raises(self):
+        """
+        ValueError propagates when SpikeData has no location data.
+
+        Tests:
+            (Test Case 1) SpikeData without positions raises ValueError
+                from _find_nearby_unit_pairs.
+        """
+        sd = _make_sd(n_units=3)
+        with pytest.raises(ValueError, match="unit_locations is None"):
+            curate_by_merge_duplicates(sd)
