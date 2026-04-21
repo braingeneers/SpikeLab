@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ job_name }}
+  namespace: {{ namespace }}
+  labels:
+{% for key, value in labels.items() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+spec:
+  backoffLimit: {{ backoff_limit }}
+  ttlSecondsAfterFinished: {{ ttl_seconds_after_finished }}
+{% if active_deadline_seconds %}
+  activeDeadlineSeconds: {{ active_deadline_seconds }}
+{% endif %}
+  template:
+    metadata:
+      labels:
+{% for key, value in labels.items() %}
+        {{ key }}: "{{ value }}"
+{% endfor %}
+    spec:
+      restartPolicy: Never
+{% if affinity %}
+      affinity:
+{{ affinity_yaml | indent(8, true) }}
+{% endif %}
+{% if tolerations %}
+      tolerations:
+{{ tolerations_yaml | indent(8, true) }}
+{% endif %}
+      containers:
+      - name: analysis
+        image: {{ container.image }}
+        imagePullPolicy: {{ container.image_pull_policy }}
+{% if container.command %}
+        command:
+{% for part in container.command %}
+        - "{{ part }}"
+{% endfor %}
+{% endif %}
+{% if container.args %}
+        args:
+{% for part in container.args %}
+        - "{{ part }}"
+{% endfor %}
+{% endif %}
+{% if container.env %}
+        env:
+{% for key, value in container.env.items() %}
+        - name: {{ key }}
+          value: "{{ value }}"
+{% endfor %}
+{% endif %}
+        resources:
+          requests:
+            cpu: "{{ resources.requests_cpu }}"
+            memory: "{{ resources.requests_memory }}"
+{% if resources.requests_gpu > 0 %}
+            nvidia.com/gpu: "{{ resources.requests_gpu }}"
+{% endif %}
+          limits:
+            cpu: "{{ resources.limits_cpu }}"
+            memory: "{{ resources.limits_memory }}"
+{% if resources.limits_gpu > 0 %}
+            nvidia.com/gpu: "{{ resources.limits_gpu }}"
+{% endif %}
+{% if volume_mounts %}
+        volumeMounts:
+{% for volume in volume_mounts %}
+        - name: {{ volume.name }}
+          mountPath: "{{ volume.mount_path }}"
+{% if volume.sub_path %}
+          subPath: "{{ volume.sub_path }}"
+{% endif %}
+          readOnly: {{ "true" if volume.read_only else "false" }}
+{% endfor %}
+{% endif %}
+{% if pod_volumes %}
+      volumes:
+{% for volume in pod_volumes %}
+      - name: {{ volume.name }}
+{% if volume.secret_name %}
+        secret:
+          secretName: {{ volume.secret_name }}
+{% elif volume.pvc_name %}
+        persistentVolumeClaim:
+          claimName: {{ volume.pvc_name }}
+{% endif %}
+{% endfor %}
+{% endif %}

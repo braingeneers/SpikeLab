@@ -1,0 +1,64 @@
+name: nrp
+namespace: braingeneers
+labels:
+  app.kubernetes.io/managed-by: spikelab-batch-jobs
+  app.kubernetes.io/part-of: nrp-analysis
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        preference:
+          matchExpressions:
+            - key: nvidia.com/gpu.present
+              operator: In
+              values: ["true"]
+tolerations: []
+default_secrets_mapping:
+  s3_credentials_secret: prp-s3-credentials
+default_images:
+  cpu: ghcr.io/braingeneers/spikelab-analysis-base:cpu
+  gpu: ghcr.io/braingeneers/spikelab-analysis-base:gpu
+default_s3_prefix: "s3://braingeneers/ephys-analysis/"
+default_volumes: []
+namespace_hooks:
+  braingeneers:
+    image_pull_policy: Always
+    default_command: ["sh", "-c"]
+    env_defaults:
+      AWS_SHARED_CREDENTIALS_FILE: /etc/spikelab/aws/credentials
+      AWS_CONFIG_FILE: /etc/spikelab/aws/.s3cfg
+      KUBECONFIG: /etc/spikelab/kube/config
+    required_volumes:
+      - name: prp-s3-credentials
+        mount_path: /etc/spikelab/aws/credentials
+        sub_path: credentials
+        secret_name: prp-s3-credentials
+        read_only: true
+      - name: prp-s3-credentials
+        mount_path: /etc/spikelab/aws/.s3cfg
+        sub_path: .s3cfg
+        secret_name: prp-s3-credentials
+        read_only: true
+      - name: kube-config
+        mount_path: /etc/spikelab/kube
+        secret_name: kube-config
+        read_only: true
+storage:
+  inputs: "{prefix}inputs/{run_id}/{filename}"
+  outputs: "{prefix}outputs/{run_id}/"
+  logs: "{prefix}logs/{run_id}/"
+policy:
+  max_interactive_gpus: 2
+  max_runtime_seconds: 1209600
+  block_sleep_infinity: true
+  warn_request_limit_mismatch: true
+resources:
+  requests_cpu: "2"
+  requests_memory: 8Gi
+  limits_cpu: "2"
+  limits_memory: 8Gi
+  requests_gpu: 1
+  limits_gpu: 1
+  node_selector: {}
+endpoint_url: null
+region_name: null

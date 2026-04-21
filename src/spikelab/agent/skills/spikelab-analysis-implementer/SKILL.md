@@ -43,6 +43,8 @@ Always prioritize faithfully executing the user's request over minimizing comput
 - If the user asks for STTC on all pairs, compute all pairs — do not subsample units.
 - If the user asks for 1ms bin resolution, use 1ms — do not coarsen to 10ms for speed.
 
+**Remote cluster execution:** If the user explicitly requests running an analysis on a remote cluster (e.g., "run on NRP", "deploy to cluster", "submit as a batch job"), read `src/spikelab/batch_jobs/INSTRUCTIONS.md` for the deployment workflow. Do not suggest remote execution unprompted — most users run analyses locally and may not have access to cloud compute.
+
 ### Never assume — ask if unsure
 
 Do not make assumptions about the user's intent when the request is ambiguous. Instead, ask for clarification before proceeding. This applies to:

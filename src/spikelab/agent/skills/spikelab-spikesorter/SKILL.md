@@ -67,6 +67,21 @@ with open("data/sorted/recording_a/sorted_spikedata_curated.pkl", "rb") as f:
 
 This skill is limited to **assessing spike sorting quality** — unit counts, SNR distributions, waveform templates, curation outcomes, and basic recording-level summaries. For any further analysis (firing rate computation, correlations, burst detection, population dynamics, event alignment, etc.), direct the user to the `spikelab-analysis-implementer` skill and point them to the `sorted_spikedata_curated.pkl` file(s) as the starting data.
 
+### Execution mode split (local vs remote cluster)
+
+For compute-intensive workflows, always pick an execution mode explicitly:
+
+- **Local path** (default): use this skill directly with `sort_recording(..., use_docker=True)` when the user intends to run on the current workstation. Most users will use this path.
+- **Remote cluster path**: only when the user explicitly requests cluster execution (e.g., "run on NRP", "deploy to cluster", "submit a batch job"). Keep sorter parameter selection in this skill, then read `src/spikelab/batch_jobs/INSTRUCTIONS.md` for the deployment workflow.
+
+Do not suggest remote execution unless the user asks for it — many users do not have access to cloud compute.
+
+When handing off to the batch job workflow, pass:
+- chosen sorter (`kilosort2` or `kilosort4`)
+- key curation thresholds (`snr_min`, `spikes_min_first`, etc.)
+- desired CPU/GPU image profile for the batch container
+- output path expectations (profile-configured S3 prefix or user override)
+
 ### Repo maps
 
 Before writing sorting scripts, read the repo maps for the spike sorting API:
@@ -161,6 +176,18 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 ---
 
 ## Running a Sorting Job
+
+### Remote cluster handoff
+
+If the user explicitly requests cluster execution:
+
+1. Finalize sorter parameters in this skill.
+2. Generate or update the run command that should execute inside the container.
+3. Read `src/spikelab/batch_jobs/INSTRUCTIONS.md` and follow its workflow:
+   - temporary image build/push steps
+   - `spikelab-batch-jobs render-job ...`
+   - `spikelab-batch-jobs deploy-job ... --image-profile <cpu|gpu>`
+4. Return to this skill for quality review after artifacts are produced.
 
 ### Basic example (Kilosort2 via Docker)
 

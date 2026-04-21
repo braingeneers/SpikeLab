@@ -230,10 +230,17 @@ saved alongside the curated data.
 Splitting Concatenated Recordings
 ---------------------------------
 
-When multiple recordings are concatenated (e.g. by the sorting pipeline),
-:meth:`~spikelab.SpikeData.split_epochs` splits them back into per-recording
-``SpikeData`` objects. It uses the ``rec_chunks_ms`` entry in ``metadata`` to
-determine epoch boundaries and time-shifts each epoch to start at t=0:
+When a directory containing multiple recording files is passed to
+``sort_recording``, the pipeline concatenates them into a single recording for
+sorting. The returned ``SpikeData`` objects are automatically split back into
+per-recording epochs. When a list of recording paths is passed instead, each
+file is processed sequentially without concatenation.
+
+If you need to re-split a concatenated ``SpikeData`` manually (e.g. after
+loading a saved pickle that was not yet split), use
+:meth:`~spikelab.SpikeData.split_epochs`. This requires ``rec_chunks_ms`` in
+``metadata`` (set automatically by the sorting pipeline) and time-shifts each
+epoch to start at t=0:
 
 .. code-block:: python
 

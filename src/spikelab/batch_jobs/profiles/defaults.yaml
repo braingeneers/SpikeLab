@@ -1,0 +1,27 @@
+name: defaults
+namespace: default
+labels:
+  app.kubernetes.io/managed-by: spikelab-batch-jobs
+affinity: {}
+tolerations: []
+default_secrets_mapping: {}
+default_images: {}
+default_volumes: []
+namespace_hooks: {}
+storage:
+  inputs: "{prefix}inputs/{run_id}/{filename}"
+  outputs: "{prefix}outputs/{run_id}/"
+  logs: "{prefix}logs/{run_id}/"
+policy:
+  max_interactive_gpus: 2
+  max_runtime_seconds: 1209600
+  block_sleep_infinity: true
+  warn_request_limit_mismatch: true
+resources:
+  requests_cpu: "1"
+  requests_memory: 2Gi
+  limits_cpu: "1"
+  limits_memory: 2Gi
+  requests_gpu: 0
+  limits_gpu: 0
+  node_selector: {}
