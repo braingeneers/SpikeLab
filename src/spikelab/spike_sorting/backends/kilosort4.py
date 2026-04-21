@@ -104,6 +104,8 @@ class Kilosort4Backend(SorterBackend):
         _globals.STD_AT_PEAK = wf.std_at_peak
         _globals.STD_OVER_WINDOW_MS_BEFORE = wf.std_over_window_ms_before
         _globals.STD_OVER_WINDOW_MS_AFTER = wf.std_over_window_ms_after
+        _globals.STREAMING_WAVEFORMS = wf.streaming
+        _globals.SAVE_WAVEFORM_FILES = wf.save_waveform_files
 
         # Curation
         _globals.CURATE_FIRST = cur.curate_first

@@ -28,7 +28,35 @@ Changes from the braindance upstream version:
 
 from copy import deepcopy
 from math import ceil
+from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool, Manager
+
+
+def _thread_map(num_workers, fn, items):
+    """Map ``fn`` over ``items`` using a thread pool, returning an iterator
+    that yields results as they complete.
+
+    Used in place of ``multiprocessing.Pool.imap_unordered`` for the
+    per-channel trace-extraction step.  Threads share the parent's
+    interpreter and recording object — no fork-COW amplification, no
+    ``spawn`` re-import overhead, no Manager-pickled recording proxy.
+    The work is I/O-bound (h5py reads, numpy ``.astype`` / ``.flatten``)
+    and both libraries release the GIL during their hot loops, so
+    threads achieve genuine parallelism on the parts that matter.
+
+    For Python's ``multiprocessing.Pool``-replacement semantics:
+        * Returns a generator over completed results (order not preserved).
+        * Cleans up the pool when the generator is exhausted.
+    """
+    pool = ThreadPoolExecutor(max_workers=max(1, num_workers))
+    futures = [pool.submit(fn, item) for item in items]
+    try:
+        from concurrent.futures import as_completed
+
+        for fut in as_completed(futures):
+            yield fut.result()
+    finally:
+        pool.shutdown(wait=True)
 import os
 from pathlib import Path
 import pickle
@@ -1524,7 +1552,10 @@ def save_traces(
     recording = load_recording(recording)
 
     if num_processes is None:
-        num_processes = max(1, os.cpu_count() // 2)
+        # Conservative default — see _spawn_pool docstring for why
+        # high process counts (the previous ``cpu_count() // 2``
+        # default) were OOM-killing tight cgroup runs.
+        num_processes = min(4, max(1, os.cpu_count() // 4))
 
     inter_path = Path(inter_path)
     inter_path.mkdir(exist_ok=True, parents=True)
@@ -1553,14 +1584,35 @@ def save_traces(
     return scaled_traces_path
 
 
+def _is_in_memory_recording(recording) -> bool:
+    """Heuristic: is this recording's data already materialised in RAM?
+
+    True for a vanilla ``NumpyRecording`` (data lives in a numpy array
+    held by the recording).  False for any disk-backed extractor
+    (Maxwell, NWB, Binary, …) and for lazy preprocessing chains over
+    them — those benefit from per-channel parallel disk reads.
+
+    The check is by ``isinstance(NumpyRecording)`` because lazy chains
+    over a NumpyRecording would re-run the chain per ``get_traces``
+    call, which is no longer "free": let the parallel path handle them.
+    """
+    try:
+        from spikeinterface.core import NumpyRecording
+
+        return isinstance(recording, NumpyRecording)
+    except Exception:
+        return False
+
+
 def save_traces_si(
     recording: BaseRecording,
     scaled_traces_path,
     start_ms=0,
     end_ms=None,
-    num_processes=16,
+    num_processes=4,
     dtype="float16",
     verbose=True,
+    chunk_seconds=10.0,
 ):
     # Save scaled traces (microvolts) for a spikeinterface recording
 
@@ -1574,33 +1626,108 @@ def save_traces_si(
     else:
         end_frame = round(end_ms * samp_freq)
 
-    if verbose:
-        print("Alllocating disk space for traces ...")
-    traces = np.zeros((num_elecs, end_frame - start_frame), dtype=dtype)
-    np.save(scaled_traces_path, traces)
-    del traces
+    # Fast path for in-memory recordings: skip the multiprocessing pool
+    # and the Manager.Namespace pickle round-trip entirely.  The pool
+    # exists to parallelize per-channel disk reads on slow extractor
+    # backends; for an in-memory NumpyRecording the data is already in
+    # RAM, so multiprocessing only adds Manager pickling overhead — the
+    # 5.6 GB Phase-2-style array would otherwise be serialized into a
+    # separate proxy process and re-faulted across 16 forked workers,
+    # producing the OOM-kill observed in the lowmem-rt-sort
+    # investigation.  np.save here writes the array directly.
+    if _is_in_memory_recording(recording):
+        if verbose:
+            print("In-memory recording detected — direct save (no pool)")
+        traces = recording.get_traces(
+            start_frame=start_frame,
+            end_frame=end_frame,
+            return_scaled=recording.has_scaleable_traces(),
+        )
+        # NumpyRecording.get_traces returns (samples, channels); the
+        # rest of save_traces consumers expect (channels, samples).
+        traces = np.ascontiguousarray(traces.T.astype(dtype, copy=False))
+        np.save(scaled_traces_path, traces)
+        del traces
+        return
 
+    # Pre-allocate the output file on disk so the chunk loop writes
+    # directly into mapped pages — no eager (num_elecs, n_samples)
+    # RAM allocation.
+    n_samples = end_frame - start_frame
     if verbose:
-        print("Extracting traces")
+        print(
+            f"Alllocating disk space for traces ({num_elecs} ch × "
+            f"{n_samples} samples, {dtype})..."
+        )
+    out = np.lib.format.open_memmap(
+        scaled_traces_path, mode="w+", dtype=dtype, shape=(num_elecs, n_samples)
+    )
 
-    with Manager() as manager:
-        config = manager.Namespace()
-        config.recording = recording
-        tasks = [
-            (config, start_frame, end_frame, channel_idx, scaled_traces_path, dtype)
-            for channel_idx in range(num_elecs)
-        ]
-        with Pool(processes=num_processes) as pool:
-            imap = pool.imap_unordered(_save_traces_si, tasks)
-            if verbose:
-                imap = tqdm(imap, total=len(tasks))
-            for _ in imap:
-                pass
+    # Time-chunked bulk extraction: read *all* channels for a single
+    # time window per ``get_traces`` call.  For a filtered Maxwell
+    # chain (or any lazy preprocessing chain), the filter evaluates
+    # all channels in one vectorised pass per chunk — replacing 1018
+    # full-duration filter passes (one per channel) with N_chunks
+    # passes (e.g. 36 for a 180 s recording at 5 s / chunk).  Expected
+    # speedup on filtered chains: 1 to 2 orders of magnitude.
+    #
+    # For unfiltered / raw extractors (Maxwell raw, Binary, NumpyRec)
+    # this path is no slower than per-channel — ``get_traces`` is
+    # cheap when there is no filter to rerun.
+    fs_Hz = recording.get_sampling_frequency()
+    chunk_samples = max(1, int(round(chunk_seconds * fs_Hz)))
+    n_chunks = (n_samples + chunk_samples - 1) // chunk_samples
+    if verbose:
+        print(
+            f"Extracting traces in time chunks ({chunk_seconds:.1f} s × "
+            f"{n_chunks} chunks, all channels per chunk — one filter pass "
+            f"per chunk)"
+        )
+
+    iterator = range(n_chunks)
+    if verbose:
+        iterator = tqdm(iterator, total=n_chunks)
+    for i in iterator:
+        chunk_out_start = i * chunk_samples
+        chunk_out_end = min(chunk_out_start + chunk_samples, n_samples)
+        chunk_rec_start = start_frame + chunk_out_start
+        chunk_rec_end = start_frame + chunk_out_end
+        traces_chunk = recording.get_traces(
+            start_frame=chunk_rec_start,
+            end_frame=chunk_rec_end,
+            return_scaled=recording.has_scaleable_traces(),
+        )  # (samples, channels)
+        out[:, chunk_out_start:chunk_out_end] = traces_chunk.T.astype(dtype, copy=False)
+
+    out.flush()
+    del out
 
 
 def _save_traces_si(task):
     config, start_frame, end_frame, channel_idx, save_path, dtype = task
     recording = config.recording
+    traces = (
+        recording.get_traces(
+            start_frame=start_frame,
+            end_frame=end_frame,
+            channel_ids=[recording.get_channel_ids()[channel_idx]],
+            return_scaled=recording.has_scaleable_traces(),
+        )
+        .flatten()
+        .astype(dtype)
+    )
+    saved_traces = np.load(save_path, mmap_mode="r+")
+    saved_traces[channel_idx] = traces
+
+
+def _save_traces_si_thread(task):
+    """Thread-friendly version of _save_traces_si.
+
+    The thread pool passes the recording directly (not via a
+    Manager.Namespace proxy), so we unpack a slightly different tuple.
+    Same I/O work; no Manager round-trip.
+    """
+    recording, start_frame, end_frame, channel_idx, save_path, dtype = task
     traces = (
         recording.get_traces(
             start_frame=start_frame,
@@ -1674,10 +1801,18 @@ def save_traces_mea(
             print(f"Recording does not have channel gains. Setting gain to {gain}")
     gain = gain[:, None]
 
-    # print("Alllocating memory for traces ...")
-    traces = np.zeros((len(chan_ind), end_frame - start_frame), dtype=dtype)
-    np.save(save_path, traces)
-    del traces
+    # Allocate the .npy file directly on disk via open_memmap.  The
+    # previous ``np.zeros + np.save + del`` pattern materialised a
+    # full-sized eager array (~7-15 GB for a 1018-ch × 3-min recording)
+    # before reassigning to disk — the same Maxwell-path version of the
+    # fix Patch B applied to ``run_detection_model``.
+    out_alloc = np.lib.format.open_memmap(
+        save_path,
+        mode="w+",
+        dtype=dtype,
+        shape=(len(chan_ind), end_frame - start_frame),
+    )
+    del out_alloc  # close the handle; workers reopen via mmap_mode="r+"
 
     # print("Extracting traces ...")
     tasks = [
@@ -1695,12 +1830,14 @@ def save_traces_mea(
         for chunk_start in range(start_frame, end_frame, chunk_size)
     ]
 
-    with Pool(processes=num_processes) as pool:
-        imap = pool.imap_unordered(_save_traces_mea, tasks)
-        if verbose:
-            imap = tqdm(imap, total=len(tasks))
-        for _ in imap:
-            pass
+    # Threads — same rationale as save_traces_si.  h5py is the
+    # workhorse here and releases the GIL during low-level reads, so
+    # threads parallelize effectively without process overhead.
+    imap = _thread_map(num_processes, _save_traces_mea, tasks)
+    if verbose:
+        imap = tqdm(imap, total=len(tasks))
+    for _ in imap:
+        pass
 
 
 def _get_traces_mea_old(rec_path):
@@ -1794,16 +1931,22 @@ def run_detection_model(
 
     if verbose:
         print("Allocating disk space to save model traces and outputs ...")
-    traces_all = np.zeros_like(scaled_traces, dtype=np_dtype)
-    np.save(model_traces_path, traces_all)
-    traces_all = np.load(model_traces_path, mmap_mode="r+")
-
-    outputs_all = np.zeros(
-        (num_chans, rec_duration - model.buffer_end_sample - model.buffer_front_sample),
-        dtype=np_dtype,
+    # Allocate the .npy files directly on disk via open_memmap. The previous
+    # np.zeros_like + np.save + np.load round-trip materialised two full-sized
+    # arrays (traces and outputs) in RAM before reassigning to memmaps — for a
+    # 1018-ch × 3-min × float16 recording that was ~14 GB of avoidable peak.
+    traces_all = np.lib.format.open_memmap(
+        model_traces_path, mode="w+", dtype=np_dtype, shape=scaled_traces.shape
     )
-    np.save(model_outputs_path, outputs_all)
-    outputs_all = np.load(model_outputs_path, mmap_mode="r+")
+    outputs_all = np.lib.format.open_memmap(
+        model_outputs_path,
+        mode="w+",
+        dtype=np_dtype,
+        shape=(
+            num_chans,
+            rec_duration - model.buffer_end_sample - model.buffer_front_sample,
+        ),
+    )
     # endregion
 
     # region Calculating inference scaling
@@ -1852,9 +1995,25 @@ def run_detection_model(
 
     # endregion
 
-    # region Save traces and outputs
-    # np.save(model_traces_path, traces_all)
-    # np.save(model_outputs_path, outputs_all)
+    # region Release model + memmap references for downstream phases
+    # Drop the GPU model + Python references to the memmap views.  The
+    # numpy memmap files on disk persist (downstream phases reopen them
+    # via ``np.load(..., mmap_mode="r")``); releasing the in-process
+    # references here lets the kernel reclaim the page-cache pages
+    # held for THIS process between phases.  Combined with an explicit
+    # ``gc.collect()`` and ``torch.cuda.empty_cache()`` this returns
+    # several GB of host RAM + GPU VRAM before sequence detection
+    # starts allocating its own per-sequence tensors.
+    import gc as _gc
+
+    del traces_all
+    del outputs_all
+    del scaled_traces
+    del traces_torch
+    del model_compiled
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    _gc.collect()
     # endregion
 
 

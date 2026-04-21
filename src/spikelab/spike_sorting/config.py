@@ -75,6 +75,13 @@ class RTSortConfig:
             defaults; useful for one-off tuning without editing a
             preset.  Keys must match ``detect_sequences`` parameter
             names.
+        detection_window_s (float or None): If set, run sequence
+            detection on only the first ``detection_window_s`` seconds
+            of the recording (the heavy GPU + clustering phase), then
+            apply the resulting sequences to the full recording during
+            ``sort_offline``.  Decouples the detection-phase memory
+            ceiling from total recording length.  ``None`` uses the
+            full window for both phases (legacy behavior).
     """
 
     model_path: Optional[str] = None
@@ -86,11 +93,24 @@ class RTSortConfig:
     delete_inter: bool = False
     verbose: bool = True
     params: Optional[Dict[str, Any]] = None
+    detection_window_s: Optional[float] = None
 
 
 @dataclass
 class WaveformConfig:
-    """Parameters for waveform extraction and template computation."""
+    """Parameters for waveform extraction and template computation.
+
+    Memory-budget note: the default extractor pre-allocates one
+    ``(n_spikes, nsamples, num_channels)`` ``.npy`` memmap per unit
+    before extraction begins.  For high-unit-count sorters on
+    high-density MEAs this grows to tens of GB (e.g. 400 units ×
+    1018 channels = ~39 GB).  When that exceeds host RAM, set
+    ``streaming=True`` to use a one-unit-at-a-time path that
+    discards each unit's waveforms after templates and metrics are
+    computed — peak RAM becomes one unit's buffer (~100 MB for
+    MaxOne) regardless of total unit count.  Waveform files are
+    only written when ``save_waveform_files=True``.
+    """
 
     ms_before: float = 2.0
     ms_after: float = 2.0
@@ -102,6 +122,8 @@ class WaveformConfig:
     std_at_peak: bool = True
     std_over_window_ms_before: float = 0.5
     std_over_window_ms_after: float = 1.5
+    streaming: bool = True
+    save_waveform_files: bool = True
 
 
 @dataclass
@@ -333,6 +355,7 @@ class SortingPipelineConfig:
             "rt_sort_delete_inter": ("rt_sort", "delete_inter"),
             "rt_sort_verbose": ("rt_sort", "verbose"),
             "rt_sort_params": ("rt_sort", "params"),
+            "rt_sort_detection_window_s": ("rt_sort", "detection_window_s"),
             # WaveformConfig
             "waveforms_ms_before": ("waveform", "ms_before"),
             "waveforms_ms_after": ("waveform", "ms_after"),
@@ -344,6 +367,8 @@ class SortingPipelineConfig:
             "std_at_peak": ("waveform", "std_at_peak"),
             "std_over_window_ms_before": ("waveform", "std_over_window_ms_before"),
             "std_over_window_ms_after": ("waveform", "std_over_window_ms_after"),
+            "streaming_waveforms": ("waveform", "streaming"),
+            "save_waveform_files": ("waveform", "save_waveform_files"),
             # CurationConfig
             "curate_first": ("curation", "curate_first"),
             "curate_second": ("curation", "curate_second"),

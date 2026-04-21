@@ -202,6 +202,7 @@ class RTSortBackend(SorterBackend):
         _globals.RT_SORT_SAVE_PICKLE = rts.save_rt_sort_pickle
         _globals.RT_SORT_DELETE_INTER = rts.delete_inter
         _globals.RT_SORT_VERBOSE = rts.verbose
+        _globals.RT_SORT_DETECTION_WINDOW_S = rts.detection_window_s
         # Merge the probe into params so the runner can read both from
         # a single dict-shaped global.
         merged_params = {"probe": rts.probe}
@@ -220,6 +221,8 @@ class RTSortBackend(SorterBackend):
         _globals.STD_AT_PEAK = wf.std_at_peak
         _globals.STD_OVER_WINDOW_MS_BEFORE = wf.std_over_window_ms_before
         _globals.STD_OVER_WINDOW_MS_AFTER = wf.std_over_window_ms_after
+        _globals.STREAMING_WAVEFORMS = wf.streaming
+        _globals.SAVE_WAVEFORM_FILES = wf.save_waveform_files
 
         # Curation
         _globals.CURATE_FIRST = cur.curate_first
