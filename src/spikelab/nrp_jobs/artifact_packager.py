@@ -9,7 +9,6 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal
 
-
 SupportedFormat = Literal["pickle", "nwb", "both"]
 
 

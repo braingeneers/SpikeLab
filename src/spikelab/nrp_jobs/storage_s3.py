@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-import boto3
+try:
+    import boto3
+except ImportError:  # pragma: no cover
+    boto3 = None  # type: ignore[assignment]
 
 from ..data_loaders.s3_utils import parse_s3_url
 
@@ -28,6 +31,8 @@ class S3StorageClient:
         )
         self.endpoint_url = endpoint_url
         self.region_name = region_name
+        if boto3 is None:
+            raise ImportError("boto3 is required for S3 storage: pip install boto3")
         self._client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,

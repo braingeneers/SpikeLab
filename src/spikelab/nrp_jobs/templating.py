@@ -10,6 +10,23 @@ import yaml
 
 from .models import ClusterProfile, JobSpec
 
+_YAML_UNSAFE_CHARS = set('\n\r\t"\\')
+
+
+def _sanitize_yaml_value(value: str) -> str:
+    """Strip characters that could break out of a quoted YAML value."""
+    return "".join(ch for ch in value if ch not in _YAML_UNSAFE_CHARS)
+
+
+def _sanitize_map(mapping: Dict[str, str]) -> Dict[str, str]:
+    """Sanitize all values in a string→string mapping for YAML embedding."""
+    return {k: _sanitize_yaml_value(str(v)) for k, v in mapping.items()}
+
+
+def _sanitize_list(items: List[str]) -> List[str]:
+    """Sanitize a list of strings for YAML embedding."""
+    return [_sanitize_yaml_value(str(item)) for item in items]
+
 
 def _template_env() -> Environment:
     templates_dir = files("spikelab.nrp_jobs").joinpath("templates")
@@ -113,9 +130,13 @@ def build_template_context(
     labels.update(job_spec.labels)
     if extra_labels:
         labels.update(extra_labels)
+    labels = _sanitize_map(labels)
     namespace = job_spec.namespace or profile.namespace
     mounts = [volume.model_dump() for volume in job_spec.volumes]
     container = job_spec.container.model_dump()
+    container["env"] = _sanitize_map(container.get("env", {}))
+    container["command"] = _sanitize_list(container.get("command", []))
+    container["args"] = _sanitize_list(container.get("args", []))
     affinity = profile.affinity
     container, mounts, affinity = _apply_braingeneers_namespace_defaults(
         namespace=namespace,

@@ -11,7 +11,7 @@ import yaml
 
 try:
     from kubernetes import client, config, watch
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     client = None
     config = None
     watch = None
@@ -61,7 +61,12 @@ class KubernetesBatchJobBackend:
             ) as f:
                 f.write(manifest_path_or_str)
                 temp_path = f.name
-            return self._run_kubectl(["apply", "-f", temp_path, "-n", self.namespace])
+            try:
+                return self._run_kubectl(
+                    ["apply", "-f", temp_path, "-n", self.namespace]
+                )
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
 
         path = Path(manifest_path_or_str)
         if path.exists():
@@ -81,7 +86,7 @@ class KubernetesBatchJobBackend:
         self._batch_api.delete_namespaced_job(
             name=name,
             namespace=self.namespace,
-            propagation_policy="Background",
+            body=client.V1DeleteOptions(propagation_policy="Background"),
         )
 
     def job_status(self, name: str) -> str:
