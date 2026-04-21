@@ -32,9 +32,12 @@ class KubernetesBatchJobBackend:
         self._batch_api = None
         self._core_api = None
         if client is not None and config is not None:
-            config.load_kube_config(config_file=kubeconfig)
-            self._batch_api = client.BatchV1Api()
-            self._core_api = client.CoreV1Api()
+            try:
+                config.load_kube_config(config_file=kubeconfig)
+                self._batch_api = client.BatchV1Api()
+                self._core_api = client.CoreV1Api()
+            except config.ConfigException:
+                pass  # No valid kubeconfig — fall back to kubectl
 
     def _run_kubectl(self, args: List[str]) -> str:
         command = ["kubectl"]

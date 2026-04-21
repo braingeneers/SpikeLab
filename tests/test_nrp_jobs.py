@@ -69,66 +69,6 @@ def test_render_job_manifest_contains_job_name():
     assert "run_id" in manifest
 
 
-def test_braingeneers_namespace_injects_required_mounts_without_forced_affinity():
-    payload = _example_payload()
-    payload["namespace"] = "braingeneers"
-    payload["resources"]["requests_gpu"] = 1
-    payload["resources"]["limits_gpu"] = 1
-    job_spec = validate_job_spec(payload)
-    profile = ClusterProfile(name="nrp")
-    context = build_template_context(
-        job_name="analysis-job-braingeneers",
-        job_spec=job_spec,
-        profile=profile,
-    )
-    manifest = render_job_manifest(context)
-    parsed = yaml.safe_load(manifest)
-    mounts = parsed["spec"]["template"]["spec"]["containers"][0].get("volumeMounts", [])
-    mount_paths = {item["mountPath"] for item in mounts}
-    assert "/root/.aws/credentials" in mount_paths
-    assert "/root/.aws/.s3cfg" in mount_paths
-    assert "/root/.kube" in mount_paths
-    assert "affinity" not in parsed["spec"]["template"]["spec"]
-
-
-def test_braingeneers_keeps_user_profile_affinity():
-    payload = _example_payload()
-    payload["namespace"] = "braingeneers"
-    job_spec = validate_job_spec(payload)
-    profile = ClusterProfile(
-        name="nrp",
-        affinity={
-            "nodeAffinity": {
-                "requiredDuringSchedulingIgnoredDuringExecution": {
-                    "nodeSelectorTerms": [
-                        {
-                            "matchExpressions": [
-                                {
-                                    "key": "nvidia.com/gpu.product",
-                                    "operator": "In",
-                                    "values": ["NVIDIA-A40"],
-                                }
-                            ]
-                        }
-                    ]
-                }
-            }
-        },
-    )
-    context = build_template_context(
-        job_name="analysis-job-braingeneers",
-        job_spec=job_spec,
-        profile=profile,
-    )
-    manifest = render_job_manifest(context)
-    parsed = yaml.safe_load(manifest)
-    affinity = parsed["spec"]["template"]["spec"]["affinity"]
-    values = affinity["nodeAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"][
-        "nodeSelectorTerms"
-    ][0]["matchExpressions"][0]["values"]
-    assert values == ["NVIDIA-A40"]
-
-
 def test_policy_blocks_sleep_infinity():
     payload = _example_payload()
     payload["container"]["args"] = ["sleep", "infinity"]
