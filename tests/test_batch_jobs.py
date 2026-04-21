@@ -1021,3 +1021,368 @@ class TestProfiles:
         """'nautilus' loads the same profile as 'nrp'."""
         profile = load_profile_from_name("nautilus")
         assert profile.name == "nrp"
+
+    def test_load_profile_from_explicit_path(self, tmp_path):
+        """load_cluster_profile reads a custom YAML file."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        profile_yaml = tmp_path / "custom.yaml"
+        profile_yaml.write_text("name: custom\nnamespace: my-ns\n", encoding="utf-8")
+        profile = load_cluster_profile(str(profile_yaml))
+        assert profile.name == "custom"
+        assert profile.namespace == "my-ns"
+
+    def test_load_profile_file_not_found(self):
+        """load_cluster_profile raises when file does not exist."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        with pytest.raises(FileNotFoundError):
+            load_cluster_profile("/nonexistent/profile.yaml")
+
+    def test_load_profile_non_dict_raises(self, tmp_path):
+        """Profile file containing a list raises ValueError."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        bad_yaml = tmp_path / "bad.yaml"
+        bad_yaml.write_text("- item1\n- item2\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="Invalid profile file"):
+            load_cluster_profile(str(bad_yaml))
+
+
+# ---------------------------------------------------------------------------
+# Model validation edge cases
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.models import (
+    ResourceSpec,
+    ContainerSpec,
+    StoragePathTemplates,
+    PolicyConfig,
+)
+from pydantic import ValidationError as PydanticValidationError
+
+
+class TestModelValidationEdgeCases:
+    def test_gpu_requests_must_equal_limits(self):
+        """ResourceSpec rejects mismatched GPU requests and limits."""
+        with pytest.raises(
+            PydanticValidationError, match="GPU requests and limits must match"
+        ):
+            ResourceSpec(requests_gpu=1, limits_gpu=2)
+
+    def test_gpu_zero_zero_allowed(self):
+        """ResourceSpec allows requests_gpu=0 and limits_gpu=0."""
+        spec = ResourceSpec(requests_gpu=0, limits_gpu=0)
+        assert spec.requests_gpu == 0
+
+    def test_volume_mount_requires_source(self):
+        """VolumeMountSpec rejects when neither secret_name nor pvc_name provided."""
+        with pytest.raises(PydanticValidationError, match="secret_name or pvc_name"):
+            VolumeMountSpec(name="vol", mount_path="/mnt")
+
+    def test_volume_mount_both_sources_allowed(self):
+        """VolumeMountSpec accepts both secret_name and pvc_name (no conflict error)."""
+        vol = VolumeMountSpec(
+            name="vol", mount_path="/mnt", secret_name="sec", pvc_name="pvc"
+        )
+        assert vol.secret_name == "sec"
+        assert vol.pvc_name == "pvc"
+
+    def test_name_prefix_special_chars_sanitized(self):
+        """JobSpec sanitizes special characters in name_prefix to hyphens."""
+        payload = _example_payload()
+        payload["name_prefix"] = "my job!@#test"
+        job_spec = validate_job_spec(payload)
+        assert job_spec.name_prefix == "my-job---test"
+
+    def test_name_prefix_all_special_chars_fallback(self):
+        """JobSpec falls back to 'analysis-job' when prefix is all special chars."""
+        payload = _example_payload()
+        payload["name_prefix"] = "---"
+        job_spec = validate_job_spec(payload)
+        assert job_spec.name_prefix == "analysis-job"
+
+    def test_name_prefix_truncated_to_40(self):
+        """JobSpec truncates name_prefix to 40 characters."""
+        payload = _example_payload()
+        payload["name_prefix"] = "a" * 60
+        job_spec = validate_job_spec(payload)
+        assert len(job_spec.name_prefix) <= 40
+
+    def test_container_spec_empty_image_rejected(self):
+        """ContainerSpec rejects empty image string."""
+        with pytest.raises(PydanticValidationError):
+            ContainerSpec(image="")
+
+    def test_active_deadline_seconds_zero_rejected(self):
+        """JobSpec rejects active_deadline_seconds=0."""
+        payload = _example_payload()
+        payload["active_deadline_seconds"] = 0
+        with pytest.raises(PydanticValidationError):
+            validate_job_spec(payload)
+
+
+# ---------------------------------------------------------------------------
+# Validation module edge cases
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.validation import (
+    validate_run_config,
+    summarize_validation_error,
+)
+
+
+class TestValidationModule:
+    def test_validate_run_config_happy_path(self):
+        """validate_run_config parses a valid RunConfig payload."""
+        config = validate_run_config({"input_path": "/data/recording.h5"})
+        assert config.input_path == "/data/recording.h5"
+        assert config.profile_name == "defaults"
+
+    def test_validate_run_config_missing_required_field(self):
+        """validate_run_config raises for missing input_path."""
+        with pytest.raises(PydanticValidationError):
+            validate_run_config({})
+
+    def test_validate_run_config_invalid_format(self):
+        """validate_run_config rejects invalid output_format."""
+        with pytest.raises(PydanticValidationError):
+            validate_run_config({"input_path": "/data/x.h5", "output_format": "csv"})
+
+    def test_summarize_validation_error_format(self):
+        """summarize_validation_error produces a readable string."""
+        try:
+            validate_run_config({})
+        except PydanticValidationError as exc:
+            summary = summarize_validation_error(exc)
+            assert "input_path" in summary
+            assert isinstance(summary, str)
+
+    def test_summarize_validation_error_multiple_errors(self):
+        """summarize_validation_error joins multiple errors with semicolons."""
+        try:
+            validate_job_spec({"container": {}})  # missing image + other issues
+        except PydanticValidationError as exc:
+            summary = summarize_validation_error(exc)
+            assert ";" in summary  # multiple errors joined
+
+
+# ---------------------------------------------------------------------------
+# Credential edge cases
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.credentials import resolve_credentials
+
+
+class TestCredentialEdgeCases:
+    def test_resolve_credentials_explicit_wins(self, monkeypatch):
+        """Explicit parameters take precedence over environment variables."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "env-key")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "env-secret")
+        creds = resolve_credentials(
+            aws_access_key_id="explicit-key",
+            aws_secret_access_key="explicit-secret",
+        )
+        assert creds.aws_access_key_id == "explicit-key"
+        assert creds.aws_secret_access_key == "explicit-secret"
+
+    def test_resolve_credentials_falls_back_to_env(self, monkeypatch):
+        """Missing explicit params fall back to environment variables."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "env-key")
+        monkeypatch.setenv("KUBECONFIG", "/env/kube/config")
+        creds = resolve_credentials()
+        assert creds.aws_access_key_id == "env-key"
+        assert creds.kubeconfig == "/env/kube/config"
+
+    def test_resolve_credentials_all_none(self, monkeypatch):
+        """All fields are None when no params or env vars are set."""
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+        monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+        monkeypatch.delenv("KUBECONFIG", raising=False)
+        creds = resolve_credentials()
+        assert creds.aws_access_key_id is None
+        assert creds.aws_secret_access_key is None
+        assert creds.kubeconfig is None
+
+    def test_redact_none_values(self):
+        """redact_sensitive_map converts None values to empty strings."""
+        redacted = redact_sensitive_map({"FIELD": None, "OTHER": "ok"})
+        assert redacted["FIELD"] == ""
+        assert redacted["OTHER"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Namespace hook edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestNamespaceHookEdgeCases:
+    def test_user_command_not_overridden_by_hook_default(self):
+        """Hook default_command does not override user-specified command."""
+        payload = _example_payload()
+        payload["namespace"] = "test-ns"
+        payload["container"]["command"] = ["python", "-m", "my_script"]
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            namespace_hooks={
+                "test-ns": NamespaceHookSpec(
+                    default_command=["sh", "-c"],
+                ),
+            },
+        )
+        context = build_template_context(
+            job_name="cmd-test",
+            job_spec=job_spec,
+            profile=profile,
+        )
+        manifest = render_job_manifest(context)
+        parsed = yaml.safe_load(manifest)
+        container = parsed["spec"]["template"]["spec"]["containers"][0]
+        assert container["command"] == ["python", "-m", "my_script"]
+
+    def test_hook_default_command_applied_when_user_has_none(self):
+        """Hook default_command is used when user provides no command."""
+        payload = _example_payload()
+        payload["namespace"] = "test-ns"
+        payload["container"]["command"] = []
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            namespace_hooks={
+                "test-ns": NamespaceHookSpec(
+                    default_command=["sh", "-c"],
+                ),
+            },
+        )
+        context = build_template_context(
+            job_name="cmd-default-test",
+            job_spec=job_spec,
+            profile=profile,
+        )
+        manifest = render_job_manifest(context)
+        parsed = yaml.safe_load(manifest)
+        container = parsed["spec"]["template"]["spec"]["containers"][0]
+        assert container["command"] == ["sh", "-c"]
+
+    def test_default_volumes_always_applied(self):
+        """Profile default_volumes are injected regardless of namespace."""
+        payload = _example_payload()
+        payload["namespace"] = "any-namespace"
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test-with-defaults",
+            default_volumes=[
+                VolumeMountSpec(
+                    name="shared-vol",
+                    mount_path="/etc/shared",
+                    secret_name="shared-secret",
+                ),
+            ],
+        )
+        context = build_template_context(
+            job_name="default-vol-test",
+            job_spec=job_spec,
+            profile=profile,
+        )
+        manifest = render_job_manifest(context)
+        parsed = yaml.safe_load(manifest)
+        mounts = parsed["spec"]["template"]["spec"]["containers"][0].get(
+            "volumeMounts", []
+        )
+        mount_paths = {item["mountPath"] for item in mounts}
+        assert "/etc/shared" in mount_paths
+
+
+# ---------------------------------------------------------------------------
+# Policy edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestPolicyEdgeCases:
+    def test_summarize_preflight_empty_findings(self):
+        """Empty findings list returns PASS with empty text."""
+        level, text = summarize_preflight([])
+        assert level == "PASS"
+        assert text == ""
+
+    def test_policy_long_runtime_warning(self):
+        """active_deadline_seconds exceeding max triggers WARN."""
+        payload = _example_payload()
+        payload["active_deadline_seconds"] = 2_000_000
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test")
+        findings = evaluate_policy(job_spec, profile)
+        codes = {f.code: f.level for f in findings}
+        assert codes["long_runtime"] == "WARN"
+
+    def test_policy_no_runtime_warning_when_not_set(self):
+        """No long_runtime finding when active_deadline_seconds is None."""
+        payload = _example_payload()
+        # active_deadline_seconds defaults to None
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test")
+        findings = evaluate_policy(job_spec, profile)
+        codes = {f.code for f in findings}
+        assert "long_runtime" not in codes
+
+    def test_policy_request_limit_mismatch_warning(self):
+        """Mismatched CPU/memory requests and limits triggers WARN."""
+        payload = _example_payload()
+        payload["resources"]["requests_cpu"] = "1"
+        payload["resources"]["limits_cpu"] = "4"
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test")
+        findings = evaluate_policy(job_spec, profile)
+        codes = {f.code: f.level for f in findings}
+        assert codes["request_limit_mismatch"] == "WARN"
+
+    def test_policy_warn_mismatch_disabled_by_profile(self):
+        """request_limit_mismatch check can be disabled via profile."""
+        payload = _example_payload()
+        payload["resources"]["requests_cpu"] = "1"
+        payload["resources"]["limits_cpu"] = "4"
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            policy=PolicyConfig(warn_request_limit_mismatch=False),
+        )
+        findings = evaluate_policy(job_spec, profile)
+        codes = {f.code: f.level for f in findings}
+        assert codes["request_limit_mismatch"] == "PASS"
+
+
+# ---------------------------------------------------------------------------
+# Backend edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBackendEdgeCases:
+    def test_kubectl_failure_raises(self, monkeypatch):
+        """CalledProcessError from kubectl propagates."""
+        import subprocess
+
+        def fake_run(command, **kwargs):
+            raise subprocess.CalledProcessError(1, command, stderr="error msg")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        backend = KubernetesBatchJobBackend(namespace="ns")
+        backend._batch_api = None
+        with pytest.raises(subprocess.CalledProcessError):
+            backend.job_status("test-job")
+
+    def test_delete_job_kubectl_fallback(self, monkeypatch):
+        """delete_job falls back to kubectl when K8s client unavailable."""
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            return SimpleNamespace(stdout="", returncode=0)
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        backend = KubernetesBatchJobBackend(namespace="ns")
+        backend._batch_api = None
+        backend.delete_job("test-job")
+        assert any("delete" in cmd for cmd in calls)
+        assert any("test-job" in cmd for cmd in calls)
