@@ -7,7 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-if importlib.util.find_spec("pydantic") is None or importlib.util.find_spec("yaml") is None:
+if (
+    importlib.util.find_spec("pydantic") is None
+    or importlib.util.find_spec("yaml") is None
+):
     pytest.skip("batch-jobs dependencies not installed", allow_module_level=True)
 
 import yaml
