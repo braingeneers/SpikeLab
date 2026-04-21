@@ -177,3 +177,96 @@ spikelab-batch-jobs job-logs --profile nrp analysis-job-abc123 --follow
 # Delete completed job
 spikelab-batch-jobs job-delete --profile nrp analysis-job-abc123
 ```
+
+---
+
+## First-Time Setup
+
+This section is for users who have cluster credentials but have not yet
+configured their local environment. Walk through each step interactively,
+verifying each before moving on.
+
+### 1. Install prerequisites
+
+```bash
+# Kubernetes CLI
+kubectl version --client
+# If not installed, guide the user to https://kubernetes.io/docs/tasks/tools/
+
+# SpikeLab with batch-jobs extra
+pip install spikelab[batch-jobs]
+
+# Docker (only needed if building custom images)
+docker --version
+```
+
+### 2. Configure cluster access
+
+The user needs a kubeconfig file from their cluster administrator.
+
+```bash
+# Save the kubeconfig (user provides the file or its contents)
+# Common locations: ~/.kube/config or a custom path
+export KUBECONFIG=/path/to/kubeconfig
+
+# Verify connectivity
+kubectl cluster-info
+kubectl config current-context
+kubectl get namespaces
+```
+
+If `kubectl cluster-info` fails, the kubeconfig is misconfigured or the
+cluster is unreachable. Check the file path and network access before
+proceeding.
+
+### 3. Verify namespace access
+
+```bash
+# Confirm the user can access their target namespace
+kubectl get pods -n <namespace>
+```
+
+If this returns a permissions error, the user needs their cluster
+administrator to grant access to the namespace.
+
+### 4. Configure S3 credentials
+
+The batch system uploads/downloads artifacts via S3-compatible storage.
+Credentials can be provided two ways:
+
+**Option A — Environment variables (simplest):**
+```bash
+export AWS_ACCESS_KEY_ID=<access-key>
+export AWS_SECRET_ACCESS_KEY=<secret-key>
+# Optional: export AWS_SESSION_TOKEN=<token>
+# Optional: export AWS_DEFAULT_REGION=<region>
+```
+
+**Option B — Kubernetes secrets (for cluster-side access):**
+Verify the required secrets exist in the target namespace:
+```bash
+kubectl get secrets -n <namespace>
+```
+
+The profile's `namespace_hooks` will mount these secrets automatically.
+If the expected secrets are missing, the cluster administrator needs to
+create them.
+
+### 5. Smoke test
+
+Run a dry-run render to verify the full toolchain works without
+submitting anything to the cluster:
+
+```bash
+spikelab-batch-jobs render-job \
+  --profile <profile> \
+  --job-config examples/batch_jobs/temp_cpu_job.yaml \
+  --image-profile cpu
+```
+
+If this prints a valid YAML manifest, the setup is complete. If it fails,
+check the error message — common issues:
+- `ModuleNotFoundError` → `pip install spikelab[batch-jobs]`
+- Profile not found → check `--profile` name or use `--profile-file`
+- Image not specified → the `defaults` profile has no default images;
+  use `--image <tag>` or switch to a profile with `default_images`
