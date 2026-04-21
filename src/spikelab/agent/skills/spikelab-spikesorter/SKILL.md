@@ -144,6 +144,12 @@ Key parameters to discuss with the user:
 - `rt_sort_device` — `"cuda"` (default) or `"cpu"`
 - `rt_sort_save_pickle` — persist the trained RTSort object for reuse in stim sorting (default: True)
 - `rt_sort_params` — override dict for fine-grained tuning (e.g. `{"stringent_thresh": 0.2, "inner_radius": 60}`)
+- `rt_sort_recording_window_ms` — `(start_ms, end_ms)` window applied to **both** detection and `sort_offline`.
+- `rt_sort_detection_window_s` — narrow the detection window to only the first N seconds; `sort_offline` still covers the full recording. Decouples the memory-heavy detection phase from total recording duration. Recommended default: `180` (3 min) — long enough to express the active unit set on typical MEA preparations, short enough to fit dense probes in a ~16 GB RAM budget. Extend only for very low-activity preps.
+
+**Waveform extraction (all sorters)**:
+- `streaming_waveforms` — per-unit streaming extraction + template computation (default: `True`). Bounds peak RAM to a single unit's waveform buffer (~100 MB on MaxOne) regardless of unit count.
+- `save_waveform_files` — when `streaming_waveforms=True`, controls whether per-unit waveform `.npy` files are kept on disk (default: `True`). Set to `False` for the tightest low-RAM operation — templates and metrics still go to `template_cache`; downstream code that reads `get_computed_template(...)` still works.
 
 See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_sort_model_path`, `rt_sort_num_processes`, `rt_sort_recording_window_ms`, etc.).
 
@@ -329,19 +335,41 @@ stim_slices = sort_stim_recording(
     stim_times_ms=logged_stim_times,
     pre_ms=50,
     post_ms=200,
+    peak_mode="down_edge",          # biphasic anodic-first: align to up→down transition
+    n_reference_channels=8,         # top-K summed reference for clean derivatives
 )
 # Returns SpikeSliceStack aligned to corrected stim times
 ```
 
 The pipeline recenters logged stim times to actual artifact peaks, removes artifacts using per-event polynomial detrend (preserves spikes — they're too fast for the smooth polynomial to capture), sorts with the pre-trained sequences, and aligns to corrected stim events. Sequential stim protocols (bursts, paired-pulse) are handled by dynamically extending the blanking region.
 
+**Recentering alignment (`peak_mode`)** — pick the alignment target that matches your stim protocol:
+
+| `peak_mode` | Reference trace | Lands on | When to use |
+|---|---|---|---|
+| `"abs_max"` (default) | per-sample `max_ch |V|` | sample with largest ‖voltage‖ | Monophasic pulses; backward-compat with older pipelines |
+| `"pos_peak"` | top-K summed | largest +V | Monophasic anodic |
+| `"neg_peak"` | top-K summed | most negative V | Monophasic cathodic |
+| `"down_edge"` | top-K summed | first + → − zero crossing between the positive peak (searched in `prewindow_ms` before the negative peak) and the negative peak | **Biphasic anodic-first** — the AP trigger point is the up→down current reversal, not either phase's peak |
+| `"up_edge"` | top-K summed | symmetric down-up crossing | Biphasic cathodic-first |
+
+`n_reference_channels` (default 8) controls how many highest-amplitude channels are summed to form the signed reference trace; summing preserves phase (coherent across artifact channels, cancels uncorrelated noise) and yields cleaner derivatives for the edge modes. `prewindow_ms` (default 5.0) is the radius of the opposite-polarity search before the primary peak.
+
+**Saturation threshold (`saturation_threshold`)** — when `None` and a recording object is available, a gain-anchored threshold is derived from `recording.get_channel_gains()` combined with the observed amplitude distribution. If no clipping is detected (< 100 samples pinned at the maximum), the threshold returns `+inf` — meaning **no samples get blanked**, and the polynomial detrend handles everything. This matches the "only blank completely saturated electrodes" semantics: high-amplitude artifacts that never hit the ADC rail are recoverable by detrend and should not be destroyed. To force a specific rail, pass the value explicitly (e.g. `saturation_threshold=5500.0`). To fall back to the legacy 99.9-quantile heuristic, call `remove_stim_artifacts` directly without `recording=`.
+
 Components are also available individually:
 
 ```python
 from spikelab.spike_sorting.stim_sorting import recenter_stim_times, remove_stim_artifacts
 
-corrected = recenter_stim_times(traces, logged_times, fs_Hz=20000)
-cleaned, blanked = remove_stim_artifacts(traces, corrected, fs_Hz=20000)
+corrected = recenter_stim_times(
+    traces, logged_times, fs_Hz=20000,
+    peak_mode="down_edge", n_reference_channels=8,
+)
+cleaned, blanked = remove_stim_artifacts(
+    traces, corrected, fs_Hz=20000,
+    recording=rec_si,  # enables gain-anchored auto threshold + "no clip → no blank"
+)
 ```
 
 See `REPO_MAP_DETAILED.md` for the full `sort_stim_recording` and `remove_stim_artifacts` parameter signatures.
@@ -571,7 +599,11 @@ print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py3
 | Kilosort2 `Matrix dimensions must agree` in splitting step | Data-dependent KS2 bug on high-density wells that produce very high template counts (>~1000 clusters); fails after `Finished splitting. Found N splits, checked M/M clusters, nccg K` | Raise the second-pass detection threshold: `kilosort_params={"projection_threshold": [10, 8]}` (default is `[10, 4]`). This reduces the number of spikes extracted in the second pass, which lowers the template count and avoids the splitting bug. Retry without other changes. If still failing, try `[12, 8]`. **Retry automatically** — do not escalate to the user on a first hit; only escalate if the bumped threshold also fails. |
 | `ImportError: RT-Sort backend requires...` | Missing RT-Sort dependencies | Install: `pip install torch diptest scikit-learn tqdm h5py`. For torch, match your CUDA version: https://pytorch.org/get-started/locally/ |
 | RT-Sort CUDA out of memory | Recording too large for GPU VRAM | Reduce `rt_sort_recording_window_ms` to a shorter window, or use `rt_sort_device="cpu"` (slow) |
+| Host RAM-bound on RT-Sort with long recordings | Detection holds the full filtered recording + model state | Use `rt_sort_detection_window_s=180` (detect once on 3 min, sort_offline still covers full recording). Keep `streaming_waveforms=True` (default). |
+| OOM during waveform extraction with many units | High-unit-count sorts without streaming | Ensure `streaming_waveforms=True` (default). For extreme cases also set `save_waveform_files=False` so only templates are persisted. |
 | Pickling error during RT-Sort parallel clustering | Windows multiprocessing (spawn vs fork) | Set `rt_sort_num_processes=1` to use sequential processing |
+| Stim peri-event alignment looks offset for biphasic pulses | Default `peak_mode="abs_max"` lands on the largest-amplitude phase, not the current-reversal moment | For biphasic anodic-first pulses pass `peak_mode="down_edge"` (or `"up_edge"` for cathodic-first). Aligns to the + → − zero crossing between the two phases — the AP trigger point. |
+| `remove_stim_artifacts` blanks zero samples despite large artifacts | New gain-anchored threshold returns `+inf` when no ADC clipping is detected (< 10 samples pinned at max) | Expected behavior when artifacts stay below the ADC rail — polynomial detrend handles them. If you genuinely need to blank, pass an explicit `saturation_threshold=<µV>` or lower `min_clip_samples` in `_saturation_threshold_from_recording`. |
 | Stim artifact removal leaves residual | Polynomial order too low or artifact window too short | Increase `artifact_window_ms` (e.g. 15-20) or try `poly_order=4` (but >5 risks fitting spikes) |
 
 ### Inspecting intermediate files

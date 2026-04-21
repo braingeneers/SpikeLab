@@ -47,6 +47,8 @@ SCALE_COMPILED_WAVEFORMS: bool = True
 STD_AT_PEAK: bool = True
 STD_OVER_WINDOW_MS_BEFORE: float = 0.5
 STD_OVER_WINDOW_MS_AFTER: float = 1.5
+STREAMING_WAVEFORMS: bool = True
+SAVE_WAVEFORM_FILES: bool = True
 
 # ---------------------------------------------------------------------------
 # Curation
@@ -100,6 +102,7 @@ RT_SORT_PARAMS: Optional[Dict[str, Any]] = None
 RT_SORT_SAVE_PICKLE: bool = True
 RT_SORT_DELETE_INTER: bool = False
 RT_SORT_VERBOSE: bool = True
+RT_SORT_DETECTION_WINDOW_S: Optional[float] = None
 
 # ---------------------------------------------------------------------------
 # Paths (set per-run by sort_with_kilosort2 / sort_recording)

@@ -63,6 +63,82 @@ def _auto_saturation_threshold(traces, quantile=0.999):
     return float(np.quantile(np.abs(traces), quantile))
 
 
+def _saturation_threshold_from_recording(
+    recording, traces, frac=0.95, min_clip_samples=10
+):
+    """Derive a saturation threshold (µV) from gain metadata + observed extremes.
+
+    Returns ``+inf`` (i.e. "do not blank anything") when the recording
+    shows no evidence of ADC clipping.  Otherwise returns
+    ``frac * round(max_uV / gain_uV_per_bit) * gain_uV_per_bit`` — the
+    observed rail rounded to a whole number of raw ADC bits and pulled
+    in by ``frac``.
+
+    Saturation detection: a hard ADC clip produces many samples pinned
+    at the rail (a flat top in the amplitude histogram).  A single
+    large spike produces exactly one sample at the maximum.  We count
+    samples within one raw bit of ``max(|traces|)``; if fewer than
+    ``min_clip_samples``, we treat the recording as unsaturated and
+    return ``+inf``.  This means "blank only completely saturated
+    electrodes" semantics: high-amplitude artifacts that didn't reach
+    the rail are left intact for the polynomial detrend.
+
+    Why use the gain at all (vs. raw ``frac * max(|traces|)``):
+      * Read from the recording's ``get_channel_gains()``, which on a
+        SpikeInterface chain is propagated from the underlying integer
+        extractor (e.g. ``MaxwellRecordingExtractor``).
+      * Rounding the observed max to a whole number of raw bits anchors
+        the threshold to a hardware-meaningful value, not a
+        floating-point artefact of preprocessing arithmetic — two
+        recordings of the same probe at the same gain settings produce
+        the same threshold.
+      * The "within one raw bit of max" tolerance for the clip-detection
+        count is also gain-anchored, not arbitrary.
+
+    Parameters:
+        recording (BaseRecording or None): SpikeInterface recording
+            exposing ``get_channel_gains()``.  When ``None`` or no
+            gains available, falls back to a 1.0 µV/bit assumption.
+        traces (np.ndarray): ``(channels, samples)`` already scaled to µV.
+        frac (float): Fraction of the rail to use as threshold.  Default
+            ``0.95`` — leaves ~5% margin so samples within the top bit
+            of the rail still count as saturated.
+        min_clip_samples (int): Minimum number of samples within one raw
+            bit of ``max(|traces|)`` required to consider the recording
+            saturated.  Below this, the recording is treated as
+            unsaturated and the function returns ``+inf``.  Default
+            ``10`` — high enough to ignore single-spike maxima and
+            small numbers of outlier samples, low enough to catch even
+            very sparse stimulation protocols.
+
+    Returns:
+        threshold (float, µV) — finite if saturation detected, ``+inf``
+        if not.
+    """
+    abs_traces = np.abs(traces)
+    observed_max_uV = float(np.max(abs_traces))
+
+    # Resolve gain
+    gain_uV_per_bit = 1.0
+    if recording is not None:
+        try:
+            gains = recording.get_channel_gains()
+        except (AttributeError, NotImplementedError):
+            gains = None
+        if gains is not None and len(gains) > 0:
+            gain_uV_per_bit = max(1e-9, float(np.max(np.abs(gains))))
+
+    # Saturation detection: how many samples sit at or just below the
+    # observed max?  A hard clip pins many samples there; a single big
+    # spike is just one sample.
+    n_at_rail = int(np.sum(abs_traces >= observed_max_uV - gain_uV_per_bit))
+    if n_at_rail < min_clip_samples:
+        return float("inf")
+
+    observed_rail_bits = round(observed_max_uV / gain_uV_per_bit)
+    return frac * observed_rail_bits * gain_uV_per_bit
+
+
 def _auto_baseline_threshold(traces, stim_times_ms, fs_Hz, k=5.0):
     """Estimate a baseline envelope threshold from pre-stim signal.
 
@@ -121,6 +197,22 @@ def _find_saturation_end(channel_trace, start, saturation_threshold, n_samples):
     return idx
 
 
+def _find_saturation_end_from_mask(mask_ch, start, n_samples):
+    """Variant of ``_find_saturation_end`` driven by a pre-computed
+    clip mask rather than an amplitude threshold.
+
+    When the caller has raw (pre-filter) traces available, it is more
+    correct to identify saturated samples from the raw signal and pass
+    a boolean mask here — bandpass filtering of a stim artifact
+    produces ringing whose amplitude can exceed the raw ADC rail even
+    on samples that weren't actually clipped.
+    """
+    idx = start
+    while idx < n_samples and mask_ch[idx]:
+        idx += 1
+    return idx
+
+
 def _signal_reached_baseline(
     channel_trace, start, baseline_threshold, window_samples, n_samples
 ):
@@ -157,6 +249,31 @@ def _signal_reached_baseline(
     return False, n_samples
 
 
+_MIN_DESCENT_SAMPLES = 2  # min samples between fit_start and neg-peak to split
+
+
+def _polyfit_and_subtract(channel_trace, blanked, ch_idx, lo, hi, poly_order):
+    """Fit a polynomial to ``channel_trace[lo:hi]`` (excluding blanked
+    samples) and subtract it in-place.
+
+    If too few non-blanked samples remain to support the fit (e.g.
+    because Fit 1 of the auto-split landed on a very short descent
+    window between the recentered stim time and the negative peak),
+    the region is left untouched rather than blanked — those samples
+    are not saturated, just covered by a window too small for a
+    reliable polynomial of this order.
+    """
+    if hi <= lo:
+        return
+    x = np.arange(hi - lo, dtype=np.float64)
+    y = channel_trace[lo:hi].astype(np.float64)
+    mask = ~blanked[ch_idx, lo:hi]
+    if np.sum(mask) <= poly_order:
+        return
+    coeffs = np.polyfit(x[mask], y[mask], poly_order)
+    channel_trace[lo:hi] -= np.polyval(coeffs, x)
+
+
 def _process_stim_group_polynomial(
     channel_trace,
     group_start,
@@ -168,28 +285,48 @@ def _process_stim_group_polynomial(
     n_samples,
     blanked,
     ch_idx,
+    pre_artifact_samples=0,  # accepted for API stability, currently unused
+    clip_mask_ch=None,  # accepted for API stability, currently unused
 ):
     """Polynomial detrend for one stim group on one channel.
 
-    Blanks from ``group_start`` through ``last_desat``, then fits and
-    subtracts a polynomial to the artifact tail starting at
-    ``last_desat``.  The polynomial is fit using samples from
-    ``last_desat`` through the end of the artifact window, anchored
-    toward baseline by extending the fit window until the signal
-    reaches baseline-like levels.
+    Workflow per stim group:
+      1. Blank ``[group_start, last_desat)`` (any genuine ADC clip).
+      2. Determine the fit window
+         ``[fit_start = last_desat, fit_end = last_desat + artifact_window]``,
+         extending ``fit_end`` to where the signal returns to baseline.
+      3. Locate the negative peak (``argmin``) inside the window, and
+         the subsequent positive peak (``argmax`` after the negative
+         peak) inside the window.
+      4. Split the fit at the meaningful peaks and run an independent
+         polynomial on each segment:
 
-    Parameters:
-        channel_trace (np.ndarray): 1-D trace (modified in-place).
-        group_start (int): First sample of the blanking region.
-        last_desat (int): Sample where the last saturation ended.
-        artifact_window_samples (int): Max samples to fit after desat.
-        baseline_threshold (float): Threshold for baseline detection.
-        baseline_window_samples (int): Consecutive samples for baseline.
-        poly_order (int): Polynomial order.
-        n_samples (int): Trace length.
-        blanked (np.ndarray): 2-D boolean mask ``(channels, samples)``,
-            modified in-place.
-        ch_idx (int): Channel index for the blanked mask.
+         * **3-fit split** (descent + ascent + decay) when both a
+           descent of ≥ ``_MIN_DESCENT_SAMPLES`` and an ascent of
+           ≥ ``_MIN_DESCENT_SAMPLES`` exist:
+              - Fit A: ``[fit_start, neg_peak]`` — descent.
+              - Fit B: ``[neg_peak, pos_peak]`` — ascent through zero
+                up to the post-artifact positive overshoot.
+              - Fit C: ``[pos_peak, fit_end]`` — decay back to
+                baseline (the original implementation).
+           This is the typical biphasic anodic-first case sorted with
+           ``peak_mode="down_edge"``: the post-stim signal goes down,
+           up through zero, may overshoot, and decays.
+
+         * **2-fit split** (descent + tail) when there is a descent
+           but no meaningful ascent before ``fit_end``:
+              - Fit A: ``[fit_start, neg_peak]``
+              - Fit B+C: ``[neg_peak, fit_end]`` — single tail fit.
+
+         * **Single fit** when there's no descent (stim time is
+           already at or essentially at the negative peak — e.g.
+           ``peak_mode="abs_max"`` or ``"neg_peak"``):
+              - Fit C: ``[fit_start, fit_end]``.
+
+      Each segment is monotonic-ish, so a low-order polynomial (cubic)
+      fits each well; one polynomial trying to fit the full
+      down-up-down shape would have to interpolate two inflection
+      points and leaves residuals.
     """
     # Blank from group start through desaturation
     blank_end = min(last_desat, n_samples)
@@ -212,28 +349,94 @@ def _process_stim_group_polynomial(
         min(fit_end, n_samples),
     )
     if reached:
-        # Include a short segment past baseline for a stable fit
-        fit_end = min(baseline_idx + baseline_window_samples, n_samples)
+        # Anchor the fit polynomial to a span of clean baseline
+        # samples beyond the artifact tail.  Without this anchor the
+        # cubic had freedom to curl in the trailing region and left a
+        # small step at the boundary between the subtracted region
+        # and the un-touched baseline tail.  Extending 3 ms past
+        # ``baseline_idx`` (≈1 ms for the detection window + 2 ms of
+        # additional anchor) gives the polynomial enough "known-
+        # baseline" points to be pulled naturally toward zero at the
+        # boundary without over-extending the fit.
+        fit_end = min(baseline_idx + 3 * baseline_window_samples, n_samples)
 
     if fit_end <= fit_start:
         return
 
-    # Fit polynomial to the artifact tail
-    x = np.arange(fit_end - fit_start, dtype=np.float64)
-    y = channel_trace[fit_start:fit_end].astype(np.float64)
+    # Locate the negative peak in the fit window, then the subsequent
+    # positive peak.  Both indices are computed on the un-modified
+    # trace before any subtraction so the splits are stable.
+    neg_peak_offset = int(np.argmin(channel_trace[fit_start:fit_end]))
+    neg_peak_sample = fit_start + neg_peak_offset
 
-    # Exclude any remaining saturated samples from the fit
-    mask = np.abs(y) < (baseline_threshold * 3)
-    if np.sum(mask) <= poly_order:
-        # Not enough non-saturated samples — blank the whole region
-        channel_trace[fit_start:fit_end] = 0.0
-        blanked[ch_idx, fit_start:fit_end] = True
-        return
+    if neg_peak_sample + 1 < fit_end:
+        pos_peak_offset_after = int(
+            np.argmax(channel_trace[neg_peak_sample + 1 : fit_end])
+        )
+        pos_peak_sample = neg_peak_sample + 1 + pos_peak_offset_after
+    else:
+        pos_peak_sample = neg_peak_sample  # no room for a subsequent peak
 
-    coeffs = np.polyfit(x[mask], y[mask], poly_order)
-    artifact_estimate = np.polyval(coeffs, x)
+    descent_samples = neg_peak_offset
+    ascent_samples = pos_peak_sample - neg_peak_sample
 
-    channel_trace[fit_start:fit_end] -= artifact_estimate
+    has_descent = descent_samples >= _MIN_DESCENT_SAMPLES
+    has_ascent = ascent_samples >= _MIN_DESCENT_SAMPLES
+
+    if has_descent and has_ascent:
+        # 3-fit split: descent + ascent + decay
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            neg_peak_sample + 1,
+            poly_order,
+        )
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            neg_peak_sample + 1,
+            pos_peak_sample + 1,
+            poly_order,
+        )
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            pos_peak_sample + 1,
+            fit_end,
+            poly_order,
+        )
+    elif has_descent:
+        # 2-fit split: descent + tail (no positive overshoot found)
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            neg_peak_sample + 1,
+            poly_order,
+        )
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            neg_peak_sample + 1,
+            fit_end,
+            poly_order,
+        )
+    else:
+        # No descent — stim already at neg peak; single fit.
+        _polyfit_and_subtract(
+            channel_trace,
+            blanked,
+            ch_idx,
+            fit_start,
+            fit_end,
+            poly_order,
+        )
 
 
 def _global_polynomial_detrend(
@@ -329,6 +532,9 @@ def remove_stim_artifacts(
     poly_order=3,
     artifact_window_only=True,
     copy=True,
+    *,
+    recording=None,
+    raw_traces=None,
 ):
     """Remove stimulation artifacts from multi-channel voltage traces.
 
@@ -358,9 +564,36 @@ def remove_stim_artifacts(
         artifact_window_ms (float): Maximum duration in milliseconds
             of the artifact tail after the last desaturation point.
             The polynomial is fit over this window.  Default 10.0.
+
+            Note: when the post-stim window contains a clear descent
+            from the recentered stim time to a subsequent negative
+            peak (typical for biphasic anodic-first pulses sorted with
+            ``peak_mode="down_edge"``), the fit is automatically split
+            into two independent polynomials at the negative peak —
+            one for ``[stim_time, neg_peak]`` (the descent) and one
+            for ``[neg_peak, baseline_recovery]`` (the tail).  When
+            the recentered stim time IS the negative peak (e.g.
+            ``peak_mode="abs_max"`` or ``"neg_peak"``), no descent
+            exists and a single fit is used.  This is automatic; no
+            user knob.
         saturation_threshold (float or None): Absolute voltage value
             above which a sample is considered saturated.  When None,
-            auto-detected from the 99.9th percentile of ``|traces|``.
+            auto-detected — preferring gain-anchored detection from
+            ``recording`` metadata when supplied (see ``recording``
+            kwarg below), falling back to the 99.9th percentile of
+            ``|traces|`` otherwise.
+        raw_traces (np.ndarray or None): Optional pre-bandpass traces,
+            same shape as ``traces``, used as the source of truth for
+            saturation detection.  Bandpass filtering of a stim
+            artifact produces ringing whose filtered amplitude can
+            exceed the raw ADC rail even on unsaturated samples, so
+            auto-detection from ``traces`` (filtered) both over-
+            reports (ringing overshoot) and under-reports (group-delay
+            smoothing) clips.  When provided, the threshold is derived
+            from ``raw_traces`` and the clip mask is built from
+            ``np.abs(raw_traces) >= threshold``; the filtered ``traces``
+            are blanked at those same sample indices and polynomial-
+            detrended around them.
         baseline_threshold (float or None): Absolute voltage envelope
             below which the signal is considered to have returned to
             baseline.  When None, auto-detected from pre-stim MAD.
@@ -398,9 +631,36 @@ def remove_stim_artifacts(
             "expected 'polynomial' or 'blank'."
         )
 
-    # Auto-detect thresholds
+    # Pick the source of truth for saturation detection.  Prefer raw
+    # (pre-bandpass) traces when provided — filter ringing after a stim
+    # artifact can drive filtered samples past the raw ADC rail even
+    # when nothing was actually clipped, so detecting on the filtered
+    # signal both over-reports clips (filter overshoot) and under-
+    # reports them (group delay + smoothing).  ``raw_traces`` is
+    # typically the un-filtered ``ScaleRecording`` output extracted by
+    # the caller; for a filtered-only path pass nothing and the
+    # filtered ``traces`` will be used.
+    detection_traces = raw_traces if raw_traces is not None else traces
+
+    # Auto-detect thresholds.  Prefer gain-anchored detection when a
+    # recording object is provided — anchors the threshold to actual
+    # ADC bit boundaries and returns +inf when no clipping is detected,
+    # so non-saturated recordings are left alone.  Falls back to the
+    # quantile-based heuristic when no recording metadata is available.
     if saturation_threshold is None:
-        saturation_threshold = _auto_saturation_threshold(traces)
+        if recording is not None:
+            saturation_threshold = _saturation_threshold_from_recording(
+                recording, detection_traces
+            )
+        else:
+            saturation_threshold = _auto_saturation_threshold(detection_traces)
+
+    # Pre-compute the clip mask once, from detection_traces.  All
+    # downstream saturation checks read this mask instead of re-
+    # computing ``|trace| >= threshold`` against the filtered signal.
+    # When ``saturation_threshold`` is ``+inf`` (no clipping detected)
+    # the mask is all-False and all blanking logic short-circuits.
+    clip_mask = np.abs(detection_traces) >= saturation_threshold
     if baseline_threshold is None:
         baseline_threshold = _auto_baseline_threshold(traces, stim_times_ms, fs_Hz)
 
@@ -437,7 +697,7 @@ def remove_stim_artifacts(
                 )
             elif method == "blank":
                 # Global blank: blank only the saturated samples
-                sat = np.abs(traces[ch]) >= saturation_threshold
+                sat = clip_mask[ch]
                 traces[ch, sat] = 0.0
                 blanked[ch, sat] = True
         return traces, blanked
@@ -456,8 +716,8 @@ def remove_stim_artifacts(
 
             # Walk forward through this stim and any sequential stims
             current_stim_idx = i
-            last_desat = _find_saturation_end(
-                ch_trace, group_start, saturation_threshold, n_samples
+            last_desat = _find_saturation_end_from_mask(
+                clip_mask[ch], group_start, n_samples
             )
 
             while True:
@@ -479,10 +739,9 @@ def remove_stim_artifacts(
                     if not reached:
                         # Signal hasn't recovered — merge with next stim
                         current_stim_idx = next_idx
-                        new_desat = _find_saturation_end(
-                            ch_trace,
+                        new_desat = _find_saturation_end_from_mask(
+                            clip_mask[ch],
                             next_stim,
-                            saturation_threshold,
                             n_samples,
                         )
                         last_desat = max(last_desat, new_desat)

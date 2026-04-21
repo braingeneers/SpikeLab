@@ -4178,6 +4178,135 @@ class TestRTSortRunnerHelpers:
             np.testing.assert_array_equal(loaded.get_unit_spike_train(uid), spikes[uid])
 
     @skip_no_torch
+    def test_detection_window_s_narrows_only_detect_sequences(
+        self, monkeypatch, tmp_path
+    ):
+        """``rt_sort.detection_window_s`` narrows the detect_sequences window
+        but leaves sort_offline running across the full recording window.
+
+        Captures the ``recording_window_ms`` argument passed to each of the
+        two RT-Sort entry points, then asserts they differ as expected.
+        """
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting import rt_sort_runner as runner
+
+        # --- Stub heavy dependencies -----------------------------------
+        captured = {"detect": None, "sort_offline": None}
+
+        class FakeRTSort:
+            _seq_root_elecs = []
+
+            def sort_offline(self, recording, inter_path, **kw):
+                captured["sort_offline"] = kw.get("recording_window_ms")
+                return object()  # opaque — _save_sorting_cache is stubbed
+
+        def fake_detect_sequences(recording, inter_path, detection_model, **kw):
+            captured["detect"] = kw.get("recording_window_ms")
+            return FakeRTSort()
+
+        # Replace the module-level imports the runner pulls in lazily.
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.rt_sort_runner._load_detection_model",
+            lambda *a, **k: object(),
+        )
+        # detect_sequences is imported via `from .rt_sort import detect_sequences`
+        # inside spike_sort, so patch the symbol on the source module.
+        import spikelab.spike_sorting.rt_sort as rt_sort_pkg
+
+        monkeypatch.setattr(
+            rt_sort_pkg, "detect_sequences", fake_detect_sequences, raising=False
+        )
+        # And the conditional model-cache reuse path needs to skip
+        monkeypatch.setattr(_globals, "RECOMPUTE_SORTING", True)
+        monkeypatch.setattr(_globals, "RT_SORT_RECORDING_WINDOW_MS", (0.0, 600_000.0))
+        monkeypatch.setattr(_globals, "RT_SORT_DETECTION_WINDOW_S", 60.0)
+        monkeypatch.setattr(_globals, "RT_SORT_DEVICE", "cpu")
+        monkeypatch.setattr(_globals, "RT_SORT_NUM_PROCESSES", 1)
+        monkeypatch.setattr(_globals, "RT_SORT_DELETE_INTER", False)
+        monkeypatch.setattr(_globals, "RT_SORT_VERBOSE", False)
+        monkeypatch.setattr(_globals, "RT_SORT_PARAMS", {"probe": "mea"})
+        monkeypatch.setattr(_globals, "RT_SORT_SAVE_PICKLE", False)
+
+        # _save_sorting_cache writes to disk; stub it
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.rt_sort_runner._save_sorting_cache",
+            lambda *a, **k: None,
+        )
+
+        runner.spike_sort(
+            rec_cache=object(),
+            rec_path=tmp_path / "fake.h5",
+            recording_dat_path=None,
+            output_folder=tmp_path / "out",
+        )
+
+        # Detection should be narrowed to (0, 60_000) ms
+        assert captured["detect"] == (0.0, 60_000.0), (
+            f"Expected detect window narrowed to (0, 60_000) ms, "
+            f"got {captured['detect']!r}"
+        )
+        # sort_offline should still cover the full configured window
+        assert captured["sort_offline"] == (0.0, 600_000.0), (
+            f"Expected sort_offline to cover full (0, 600_000) ms, "
+            f"got {captured['sort_offline']!r}"
+        )
+
+    @skip_no_torch
+    def test_detection_window_s_unset_uses_full_window_for_both(
+        self, monkeypatch, tmp_path
+    ):
+        """When ``detection_window_s`` is None (default), both phases see the
+        same window — preserves legacy behavior."""
+        from spikelab.spike_sorting import _globals
+        from spikelab.spike_sorting import rt_sort_runner as runner
+
+        captured = {"detect": None, "sort_offline": None}
+
+        class FakeRTSort:
+            _seq_root_elecs = []
+
+            def sort_offline(self, recording, inter_path, **kw):
+                captured["sort_offline"] = kw.get("recording_window_ms")
+                return object()  # opaque — _save_sorting_cache is stubbed
+
+        def fake_detect_sequences(recording, inter_path, detection_model, **kw):
+            captured["detect"] = kw.get("recording_window_ms")
+            return FakeRTSort()
+
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.rt_sort_runner._load_detection_model",
+            lambda *a, **k: object(),
+        )
+        import spikelab.spike_sorting.rt_sort as rt_sort_pkg
+
+        monkeypatch.setattr(
+            rt_sort_pkg, "detect_sequences", fake_detect_sequences, raising=False
+        )
+        monkeypatch.setattr(_globals, "RECOMPUTE_SORTING", True)
+        monkeypatch.setattr(_globals, "RT_SORT_RECORDING_WINDOW_MS", (0.0, 120_000.0))
+        monkeypatch.setattr(_globals, "RT_SORT_DETECTION_WINDOW_S", None)
+        monkeypatch.setattr(_globals, "RT_SORT_DEVICE", "cpu")
+        monkeypatch.setattr(_globals, "RT_SORT_NUM_PROCESSES", 1)
+        monkeypatch.setattr(_globals, "RT_SORT_DELETE_INTER", False)
+        monkeypatch.setattr(_globals, "RT_SORT_VERBOSE", False)
+        monkeypatch.setattr(_globals, "RT_SORT_PARAMS", {"probe": "mea"})
+        monkeypatch.setattr(_globals, "RT_SORT_SAVE_PICKLE", False)
+        monkeypatch.setattr(
+            "spikelab.spike_sorting.rt_sort_runner._save_sorting_cache",
+            lambda *a, **k: None,
+        )
+
+        runner.spike_sort(
+            rec_cache=object(),
+            rec_path=tmp_path / "fake.h5",
+            recording_dat_path=None,
+            output_folder=tmp_path / "out",
+        )
+
+        assert captured["detect"] == (0.0, 120_000.0)
+        assert captured["sort_offline"] == (0.0, 120_000.0)
+
+    @skip_no_torch
     def test_load_rt_sort_missing_pickle_raises(self, tmp_path):
         """
         load_rt_sort raises a clear error when the pickle file does not exist.
@@ -4953,21 +5082,18 @@ class TestSortStimRecordingValidation:
 
     def test_stim_times_as_list(self):
         """
-        stim_times_ms as a plain Python list does not raise during validation.
-
-        Tests:
-            (Test Case 3) List input is accepted; the pipeline proceeds
-            past input validation (fails later at RTSort loading, not at
-            stim_times conversion).
+        stim_times_ms as a plain Python list is accepted by input
+        validation.  The pipeline may run to completion with a
+        MagicMock ``rt_sort`` (the mock's sort_offline pretends to
+        return an empty sorting) — the key assertion is that no
+        ``TypeError`` / ``ValueError`` is raised complaining about
+        the ``stim_times_ms`` argument shape or dtype.
         """
         from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
 
         traces = np.zeros((2, 40000))
 
-        # It should get past input validation and fail at the RT-Sort loading
-        # step (since we pass a mock). The key assertion is that it does NOT
-        # raise a TypeError or ValueError about stim_times_ms.
-        with pytest.raises(Exception) as exc_info:
+        try:
             sort_stim_recording(
                 traces,
                 rt_sort=MagicMock(),
@@ -4976,5 +5102,697 @@ class TestSortStimRecordingValidation:
                 post_ms=50.0,
                 fs_Hz=20000.0,
             )
-        # Should NOT be a conversion error on stim_times_ms
-        assert "stim_times" not in str(exc_info.value).lower()
+        except Exception as exc:
+            # The list input itself should not be what broke things.
+            assert "stim_times" not in str(exc).lower()
+
+
+class TestSaturationThresholdFromRecording:
+    """``_saturation_threshold_from_recording`` semantics:
+
+    * Returns ``+inf`` when no clipping is detected (single-spike maxima
+      are not saturation), so non-saturated recordings get *no* blanking
+      and the polynomial detrend handles every event.
+    * Returns a finite gain-anchored threshold when clipping IS detected
+      — the threshold is rounded to a whole number of raw ADC bits so
+      it's hardware-meaningful and reproducible.
+    * Falls back to a 1.0 µV/bit assumption when no recording metadata
+      is available.
+    """
+
+    def test_returns_inf_when_no_clipping(self):
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _saturation_threshold_from_recording,
+        )
+
+        # Random noise + a single big spike. Max is unique to that spike.
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((4, 100_000)).astype(np.float32) * 5.0
+        traces[1, 50_000] = 800.0  # unique large peak
+
+        rec = MagicMock()
+        rec.get_channel_gains.return_value = np.full(4, 3.14, dtype=np.float32)
+
+        thresh = _saturation_threshold_from_recording(rec, traces)
+        assert thresh == float(
+            "inf"
+        ), f"Expected +inf for non-saturated recording, got {thresh}"
+
+    def test_returns_finite_threshold_when_clipped(self):
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _saturation_threshold_from_recording,
+        )
+
+        # Many samples pinned at +-rail (simulating a clipped ADC).
+        rng = np.random.default_rng(0)
+        traces = rng.standard_normal((4, 100_000)).astype(np.float32) * 5.0
+        # Pin 200 samples to ±10000 µV across two channels = clear clipping
+        traces[2, 1000:1100] = 10_000.0
+        traces[3, 2000:2100] = -10_000.0
+
+        rec = MagicMock()
+        rec.get_channel_gains.return_value = np.full(4, 3.14, dtype=np.float32)
+
+        thresh = _saturation_threshold_from_recording(rec, traces)
+        # Threshold should be just below the rail (frac=0.95 default).
+        assert 9_000.0 < thresh < 10_000.0, f"Expected threshold ~9500 µV, got {thresh}"
+        # And it should be a whole number of raw bits times the gain.
+        rail_bits = round(10_000.0 / 3.14)
+        expected = 0.95 * rail_bits * 3.14
+        assert abs(thresh - expected) < 1e-3
+
+    def test_min_clip_samples_threshold(self):
+        """Tunable ``min_clip_samples`` decides when "many samples at max"
+        counts as a clip vs. just spikes."""
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _saturation_threshold_from_recording,
+        )
+
+        rec = MagicMock()
+        rec.get_channel_gains.return_value = np.array([3.14], dtype=np.float32)
+
+        # 5 samples at the rail — below default min_clip_samples=10, so
+        # the recording is treated as unsaturated.
+        traces_sparse = np.zeros((1, 1000), dtype=np.float32)
+        traces_sparse[0, :5] = 5_000.0
+        assert _saturation_threshold_from_recording(rec, traces_sparse) == float("inf")
+
+        # 50 samples at the rail — above default, so threshold is finite.
+        traces_dense = np.zeros((1, 1000), dtype=np.float32)
+        traces_dense[0, :50] = 5_000.0
+        thresh_default = _saturation_threshold_from_recording(rec, traces_dense)
+        assert thresh_default < 5_000.0
+        assert thresh_default > 4_500.0
+
+        # Raising ``min_clip_samples`` above 50 pushes the same dense
+        # traces back to the non-saturated branch.
+        assert _saturation_threshold_from_recording(
+            rec, traces_dense, min_clip_samples=100
+        ) == float("inf")
+
+    def test_no_recording_falls_back(self):
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _saturation_threshold_from_recording,
+        )
+
+        traces = np.zeros((1, 1000), dtype=np.float32)
+        traces[0, :200] = 7_777.0
+
+        # Without a recording, gain defaults to 1.0 — but saturation
+        # detection still works (200 samples at 7777 µV passes the
+        # default min_clip_samples=100).
+        thresh = _saturation_threshold_from_recording(None, traces)
+        assert 7_000.0 < thresh < 7_777.0
+
+    def test_remove_stim_artifacts_uses_inf_threshold_no_blanking(self):
+        """End-to-end: remove_stim_artifacts called with a recording on
+        non-saturated traces produces ZERO blanked samples."""
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        rng = np.random.default_rng(0)
+        fs = 20_000.0
+        n_samples = int(0.5 * fs)
+        # Background noise + small spikes — never reaches a "rail"
+        traces = rng.standard_normal((4, n_samples)).astype(np.float32) * 10.0
+        traces[1, 5_000] = 200.0  # one peak
+
+        rec = MagicMock()
+        rec.get_channel_gains.return_value = np.full(4, 3.14, dtype=np.float32)
+
+        cleaned, blanked = remove_stim_artifacts(
+            traces.copy(),
+            stim_times_ms=[100.0, 250.0, 400.0],
+            fs_Hz=fs,
+            method="polynomial",
+            recording=rec,
+        )
+
+        assert blanked.sum() == 0, (
+            f"Expected 0 blanked samples on non-saturated recording, "
+            f"got {int(blanked.sum())}"
+        )
+
+
+@skip_no_spikeinterface
+class TestSortStimRecordingPassesNdarray:
+    """sort_stim_recording must hand the cleaned traces to sort_offline as
+    a raw ndarray, not as a NumpyRecording wrapper.
+
+    Why this matters: ``RTSort.sort_offline`` short-circuits past its
+    entire ``save_traces`` pipeline when it receives an ndarray.  If
+    we wrap the cleaned 5.6 GB Phase-2 array in a NumpyRecording,
+    ``save_traces_si`` instead opens a ``multiprocessing.Manager``
+    that pickles the whole array into a separate proxy process and
+    forks 16 workers off the parent — the OOM-kill pattern observed
+    in the lowmem-rt-sort investigation.  This test pins the fix.
+    """
+
+    def test_sort_offline_receives_ndarray_not_recording(self):
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.stim_sorting.pipeline import sort_stim_recording
+
+        traces = (
+            np.random.default_rng(0).standard_normal((4, 40000)).astype(np.float32)
+            * 10.0
+        )
+
+        captured = {"recording": None}
+
+        def fake_sort_offline(*, recording, **kw):
+            captured["recording"] = recording
+            ns = MagicMock()
+            ns.get_unit_ids.return_value = [0]
+            ns.get_unit_spike_train.return_value = np.array([100, 200], dtype=np.int64)
+            ns.get_num_samples.return_value = traces.shape[1]
+            return ns
+
+        fake_rt_sort = MagicMock()
+        fake_rt_sort.sort_offline = fake_sort_offline
+
+        sort_stim_recording(
+            traces,
+            rt_sort=fake_rt_sort,
+            stim_times_ms=[100.0, 500.0],
+            pre_ms=10.0,
+            post_ms=50.0,
+            fs_Hz=20000.0,
+            verbose=False,
+        )
+
+        assert captured["recording"] is not None, "sort_offline was never called"
+        # Critical: must be an ndarray, NOT a SpikeInterface BaseRecording
+        from spikeinterface.core import NumpyRecording
+        from spikeinterface.core.baserecording import BaseRecording
+
+        assert isinstance(captured["recording"], np.ndarray), (
+            f"sort_offline received {type(captured['recording']).__name__}; "
+            "expected ndarray to take the fast path"
+        )
+        assert not isinstance(captured["recording"], (NumpyRecording, BaseRecording)), (
+            "sort_offline received a recording wrapper — this would route "
+            "through save_traces_si and trigger the multiprocessing OOM"
+        )
+        assert captured["recording"].shape == (4, 40000)
+
+
+@skip_no_spikeinterface
+class TestSaveTracesSiFastPath:
+    """save_traces_si fast-paths in-memory recordings.
+
+    For a NumpyRecording the data is already in RAM; the parallel
+    chunked extractor (``Manager`` + ``Pool``) is pure overhead and
+    can OOM on multi-GB arrays.  The fast path writes the array
+    directly via ``np.save`` and never instantiates a Pool.
+
+    For non-in-memory recordings (e.g. lazy filter chains over a disk
+    extractor), the parallel path is still useful and must remain in
+    place.
+    """
+
+    @skip_no_torch
+    def test_numpy_recording_skips_multiprocessing_pool(self, tmp_path, monkeypatch):
+        from spikeinterface.core import NumpyRecording
+
+        from spikelab.spike_sorting.rt_sort import _algorithm
+
+        rng = np.random.default_rng(0)
+        # NumpyRecording expects (samples, channels)
+        traces_in = (rng.standard_normal((10_000, 4)) * 5.0).astype(np.float32)
+        rec = NumpyRecording(traces_list=[traces_in], sampling_frequency=20_000.0)
+
+        pool_instantiations = []
+
+        def fail_if_called(*a, **kw):
+            pool_instantiations.append((a, kw))
+            raise AssertionError(
+                "save_traces_si instantiated a multiprocessing Pool/threadpool "
+                "for an in-memory NumpyRecording — fast path failed"
+            )
+
+        # Fast path must avoid every parallelism mechanism.
+        monkeypatch.setattr(_algorithm, "_thread_map", fail_if_called)
+        monkeypatch.setattr(_algorithm, "Pool", fail_if_called)
+        monkeypatch.setattr(_algorithm, "Manager", fail_if_called)
+
+        out_path = tmp_path / "scaled_traces.npy"
+        _algorithm.save_traces_si(
+            rec,
+            out_path,
+            start_ms=0,
+            end_ms=None,
+            num_processes=16,
+            dtype="float32",
+            verbose=False,
+        )
+
+        assert pool_instantiations == []
+
+        saved = np.load(out_path)
+        assert saved.shape == (4, 10_000)
+        np.testing.assert_allclose(saved, traces_in.T, atol=1e-6)
+
+    @skip_no_torch
+    def test_non_numpy_recording_uses_time_chunked_bulk_read(
+        self, tmp_path, monkeypatch
+    ):
+        """Lazy chains go through a time-chunked bulk read — one
+        ``get_traces(start_frame, end_frame)`` call per chunk, covering
+        *all* channels at once.
+
+        Previous implementations walked channel-by-channel, which on a
+        ``BandpassFilter → Maxwell`` chain triggered one full-duration
+        filter pass per channel (1018 passes for a 1018-channel probe).
+        Time-chunking replaces that with one filter pass per time chunk
+        (e.g. ~36 passes for 180 s / 5 s-chunks) and is typically 1-2
+        orders of magnitude faster.  No multiprocessing Pool or Manager
+        is needed; the filter itself vectorises over channels.
+        """
+        from unittest.mock import MagicMock
+
+        from spikelab.spike_sorting.rt_sort import _algorithm
+
+        n_channels = 4
+        n_samples = 10_000
+        rng = np.random.default_rng(0)
+        fake_full = (rng.standard_normal((n_samples, n_channels)) * 10.0).astype(
+            np.float32
+        )
+
+        get_traces_calls = []
+
+        def fake_get_traces(start_frame=None, end_frame=None, return_scaled=False):
+            get_traces_calls.append((start_frame, end_frame))
+            sf = 0 if start_frame is None else start_frame
+            ef = n_samples if end_frame is None else end_frame
+            return fake_full[sf:ef]
+
+        rec = MagicMock()
+        rec.get_sampling_frequency.return_value = 20_000.0
+        rec.get_num_channels.return_value = n_channels
+        rec.get_total_samples.return_value = n_samples
+        rec.get_channel_ids.return_value = np.arange(n_channels)
+        rec.has_scaleable_traces.return_value = True
+        rec.get_traces.side_effect = fake_get_traces
+
+        from spikeinterface.core import NumpyRecording
+
+        assert not isinstance(rec, NumpyRecording)
+
+        bare_pool_calls = []
+        bare_manager_calls = []
+
+        def fake_bare_pool(*a, **kw):
+            bare_pool_calls.append(kw)
+            raise AssertionError("bare Pool used — should be time-chunked")
+
+        def fake_bare_manager(*a, **kw):
+            bare_manager_calls.append(True)
+            raise AssertionError("bare Manager used — should be time-chunked")
+
+        monkeypatch.setattr(_algorithm, "Pool", fake_bare_pool)
+        monkeypatch.setattr(_algorithm, "Manager", fake_bare_manager)
+
+        out_path = tmp_path / "scaled_traces.npy"
+        # 10 000 samples @ 20 kHz = 0.5 s total — with default 5 s
+        # chunk it becomes a single chunk; force smaller chunks to
+        # exercise the loop.
+        _algorithm.save_traces_si(
+            rec,
+            out_path,
+            start_ms=0,
+            end_ms=None,
+            num_processes=4,
+            dtype="float32",
+            verbose=False,
+            chunk_seconds=0.1,  # 2 000-sample chunks → 5 chunks
+        )
+
+        # Should have been called once per chunk, all channels per call
+        assert len(get_traces_calls) == 5
+        for sf, ef in get_traces_calls:
+            assert (ef - sf) <= 2_000
+        assert bare_pool_calls == []
+        assert bare_manager_calls == []
+
+        saved = np.load(out_path)
+        assert saved.shape == (n_channels, n_samples)
+        np.testing.assert_allclose(saved, fake_full.T, atol=1e-6)
+
+    @skip_no_torch
+    def test_save_traces_si_chunked_matches_single_pass(self, tmp_path):
+        """Chunked output on a realistic lazy chain (bandpass over noise)
+        matches the single-pass output to within a small filter-
+        boundary tolerance.
+
+        ``BandpassFilterRecording`` applies a fixed margin at chunk
+        edges to approximate continuity; differences are
+        sub-quantization (~1 µV) and irrelevant for spike sorting,
+        where the noise floor is ~10 µV.
+        """
+        from spikeinterface.core import NumpyRecording
+        from spikeinterface.preprocessing import bandpass_filter
+
+        from spikelab.spike_sorting.rt_sort import _algorithm
+
+        rng = np.random.default_rng(42)
+        fs = 20_000.0
+        n_samples = int(fs)
+        raw = (rng.standard_normal((n_samples, 4)) * 20.0).astype(np.float32)
+        base = NumpyRecording(traces_list=[raw], sampling_frequency=fs)
+        filtered = bandpass_filter(base, freq_min=300.0, freq_max=6000.0)
+
+        big_path = tmp_path / "big.npy"
+        _algorithm.save_traces_si(
+            filtered, big_path, dtype="float32", verbose=False, chunk_seconds=10.0
+        )
+        small_path = tmp_path / "small.npy"
+        _algorithm.save_traces_si(
+            filtered, small_path, dtype="float32", verbose=False, chunk_seconds=0.2
+        )
+
+        big = np.load(big_path)
+        small = np.load(small_path)
+        # Well below the 3.147 µV/bit gain quantization and the typical
+        # ~10 µV recording noise floor.
+        np.testing.assert_allclose(small, big, atol=1.0)
+
+
+class TestChunkedStimSort:
+    """Unit tests for the per-event-chunked ``sort_stim_recording``
+    helpers — event grouping + shape of the chunked path.
+
+    Full end-to-end chunked-vs-full equivalence is too heavy for a
+    unit test (needs a real RTSort object); here we verify just the
+    grouping and chunk-boundary logic in isolation.
+    """
+
+    def test_group_events_isolated_non_overlapping(self):
+        from spikelab.spike_sorting.stim_sorting.pipeline import (
+            _group_stim_events_into_chunks,
+        )
+
+        # Events 2 s apart; chunk window 500 ms / 500 ms → no overlap.
+        times_ms = np.array([1000.0, 3000.0, 5000.0, 7000.0])
+        groups = _group_stim_events_into_chunks(
+            times_ms, chunk_pre_ms=500.0, chunk_post_ms=500.0
+        )
+        assert len(groups) == 4
+        assert all(len(g) == 1 for g in groups)
+        flat = [i for g in groups for i in g]
+        assert flat == [0, 1, 2, 3]
+
+    def test_group_events_burst_merged(self):
+        from spikelab.spike_sorting.stim_sorting.pipeline import (
+            _group_stim_events_into_chunks,
+        )
+
+        # A burst of 4 events at 100 ms spacing — chunk window 500 ms
+        # so every pair's windows overlap → single group.
+        times_ms = np.array([1000.0, 1100.0, 1200.0, 1300.0])
+        groups = _group_stim_events_into_chunks(
+            times_ms, chunk_pre_ms=500.0, chunk_post_ms=500.0
+        )
+        assert len(groups) == 1
+        assert groups[0] == [0, 1, 2, 3]
+
+    def test_group_events_mixed_groups(self):
+        from spikelab.spike_sorting.stim_sorting.pipeline import (
+            _group_stim_events_into_chunks,
+        )
+
+        # Two bursts of 2 events each, far apart.
+        times_ms = np.array(
+            [
+                1000.0,
+                1200.0,  # burst 1 at +200 ms
+                5000.0,
+                5200.0,  # burst 2 far away
+            ]
+        )
+        groups = _group_stim_events_into_chunks(
+            times_ms, chunk_pre_ms=400.0, chunk_post_ms=400.0
+        )
+        assert len(groups) == 2
+        assert groups[0] == [0, 1]
+        assert groups[1] == [2, 3]
+
+    def test_group_events_unsorted_input(self):
+        from spikelab.spike_sorting.stim_sorting.pipeline import (
+            _group_stim_events_into_chunks,
+        )
+
+        # Input out of order — grouping sorts, but returns indices into
+        # the original array.  Indices within a group come out in time
+        # order, so we compare against a time-sorted expectation.
+        times_ms = np.array([5000.0, 1000.0, 1100.0, 5200.0])
+        groups = _group_stim_events_into_chunks(
+            times_ms, chunk_pre_ms=400.0, chunk_post_ms=400.0
+        )
+        assert len(groups) == 2
+        # First group in sort order = events at 1000, 1100 (indices 1, 2)
+        assert groups[0] == [1, 2]
+        # Second group = events at 5000, 5200 (indices 0, 3)
+        assert groups[1] == [0, 3]
+
+    def test_group_events_empty(self):
+        from spikelab.spike_sorting.stim_sorting.pipeline import (
+            _group_stim_events_into_chunks,
+        )
+
+        groups = _group_stim_events_into_chunks(
+            np.array([]), chunk_pre_ms=500.0, chunk_post_ms=500.0
+        )
+        assert groups == []
+
+
+class TestRecenterStimTimesPeakModes:
+    """Tests for ``peak_mode`` in ``recenter_stim_times``.
+
+    The down-edge algorithm: find the negative peak first, then the
+    positive peak within a preceding ``prewindow_ms`` window, then the
+    first + → − zero-crossing between them (or steepest negative slope
+    if no zero crossing).
+    """
+
+    @staticmethod
+    def _synth_biphasic(
+        n_channels=16,
+        n_samples=40000,
+        fs_Hz=20000.0,
+        stim_sample=10000,
+        up_duration_samples=4,
+        down_duration_samples=4,
+        up_amp=3000.0,
+        down_amp=-10000.0,
+        n_affected_channels=8,
+    ):
+        """Inject a biphasic (anodic-first) artifact at ``stim_sample``.
+
+        Channels 0..``n_affected_channels``-1 see the full artifact;
+        the rest see only noise.  The up phase runs for
+        ``up_duration_samples`` starting at ``stim_sample``, followed
+        immediately by the down phase of ``down_duration_samples``.
+
+        The true transition (first + → − zero crossing) lands at
+        ``stim_sample + up_duration_samples``.
+        """
+        rng = np.random.default_rng(0)
+        traces = (rng.standard_normal((n_channels, n_samples)) * 5.0).astype(np.float32)
+        up_start = stim_sample
+        down_start = stim_sample + up_duration_samples
+        down_end = down_start + down_duration_samples
+        for ch in range(min(n_affected_channels, n_channels)):
+            traces[ch, up_start:down_start] += up_amp
+            traces[ch, down_start:down_end] += down_amp
+        return traces, down_start  # true transition sample
+
+    def test_invalid_peak_mode_raises(self):
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        traces = np.zeros((2, 1000))
+        with pytest.raises(ValueError, match="Unknown peak_mode"):
+            recenter_stim_times(traces, [10.0], fs_Hz=20000.0, peak_mode="garbage")
+
+    def test_abs_max_backward_compatible(self):
+        """Without ``peak_mode``, behavior matches the pre-patch API."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        traces, transition = self._synth_biphasic()
+        # Logged time is a few ms off
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        # Default is abs_max → should land on the largest |V|, i.e. the
+        # negative peak of the down phase, NOT the transition.
+        corrected = recenter_stim_times(
+            traces, [stim_ms], fs_Hz=fs_Hz, max_offset_ms=10.0
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+
+        # Down phase starts at ``transition``, length 4 samples.
+        # abs_max picks some sample in the down phase (amplitude 10000 > 3000).
+        assert transition <= corrected_sample < transition + 4
+
+    def test_neg_peak_finds_negative_extremum(self):
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        traces, transition = self._synth_biphasic()
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        corrected = recenter_stim_times(
+            traces,
+            [stim_ms],
+            fs_Hz=fs_Hz,
+            max_offset_ms=10.0,
+            peak_mode="neg_peak",
+            n_reference_channels=8,
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+        # Should land somewhere inside the down phase (all 4 samples equal)
+        assert transition <= corrected_sample < transition + 4
+
+    def test_pos_peak_finds_positive_extremum(self):
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        traces, transition = self._synth_biphasic()
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        corrected = recenter_stim_times(
+            traces,
+            [stim_ms],
+            fs_Hz=fs_Hz,
+            max_offset_ms=10.0,
+            peak_mode="pos_peak",
+            n_reference_channels=8,
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+        # Up phase spans [transition - 4, transition)
+        assert transition - 4 <= corrected_sample < transition
+
+    def test_down_edge_finds_up_to_down_transition(self):
+        """``down_edge`` lands at the first + → − zero crossing between
+        the positive peak and the negative peak."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        traces, transition = self._synth_biphasic(up_amp=3000.0, down_amp=-10000.0)
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        corrected = recenter_stim_times(
+            traces,
+            [stim_ms],
+            fs_Hz=fs_Hz,
+            max_offset_ms=10.0,
+            peak_mode="down_edge",
+            n_reference_channels=8,
+            prewindow_ms=1.0,
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+        # Transition is at ``transition``.  Tolerance ±1 sample for
+        # zero-crossing discretisation.
+        assert abs(corrected_sample - transition) <= 1
+
+    def test_down_edge_uses_top_k_summed_reference(self):
+        """Top-K summing should be robust when most channels see no
+        artifact — only the top ``n_reference_channels`` contribute."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        # 8 channels see the artifact; 24 others are pure noise.  The
+        # top-K sum (K=8) should isolate just the artifact channels.
+        traces, transition = self._synth_biphasic(n_channels=32, n_affected_channels=8)
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        corrected = recenter_stim_times(
+            traces,
+            [stim_ms],
+            fs_Hz=fs_Hz,
+            max_offset_ms=10.0,
+            peak_mode="down_edge",
+            n_reference_channels=8,
+            prewindow_ms=1.0,
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+        assert abs(corrected_sample - transition) <= 1
+
+    def test_down_edge_fallback_when_no_zero_crossing(self):
+        """When the reference between the positive and negative peaks
+        never crosses zero (e.g. DC-offset biphasic), the fallback
+        returns the sample of steepest negative slope in that interval.
+
+        Tests the ``_find_down_edge`` helper directly with a constructed
+        reference so the test is decoupled from top-K selection and
+        pulse synthesis.
+        """
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        # Reference trace where indices 2-3 are the positive peak (10),
+        # indices 6-7 are the negative "peak" (3), and nothing crosses
+        # zero between them.  Steepest negative slope is between index
+        # 3 (value 10) and index 4 (value 6): diff = -4 at index 3.
+        reference = np.array([5.0, 5.0, 10.0, 10.0, 6.0, 4.0, 3.0, 3.0])
+
+        # Search whole array.  fs_Hz=1000 gives prewindow_samples=4 for
+        # prewindow_ms=4.0, enough to reach the positive peak.
+        result = _find_down_edge(
+            reference, lo=0, hi=len(reference), prewindow_ms=4.0, fs_Hz=1000.0
+        )
+
+        # argmin(diff) returns the first index of the steepest-drop
+        # pair; diff[3] = -4 is the steepest, so ``pos_peak + 3``.
+        # pos_peak itself is in [2, 3] (both equal to 10); argmax picks
+        # the first, index 2.  Expected = 2 + 3 = 5, or nearby.
+        assert (
+            3 <= result <= 6
+        ), f"Expected steepest-slope sample in [3, 6], got {result}"
+
+    def test_up_edge_symmetric_to_down_edge(self):
+        """For a cathodic-first biphasic pulse (first down then up),
+        ``up_edge`` lands at the − → + transition."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        # Cathodic-first: swap signs
+        traces, transition = self._synth_biphasic(up_amp=-3000.0, down_amp=10000.0)
+        stim_ms = (transition / fs_Hz * 1000.0) - 3.0
+
+        corrected = recenter_stim_times(
+            traces,
+            [stim_ms],
+            fs_Hz=fs_Hz,
+            max_offset_ms=10.0,
+            peak_mode="up_edge",
+            n_reference_channels=8,
+            prewindow_ms=1.0,
+        )
+        corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
+        assert abs(corrected_sample - transition) <= 1

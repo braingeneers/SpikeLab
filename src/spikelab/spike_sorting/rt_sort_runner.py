@@ -118,10 +118,29 @@ def spike_sort(
             probe=(_globals.RT_SORT_PARAMS or {}).get("probe", "mea"),
         )
 
+        # Resolve the detection window.  If the user set
+        # ``detection_window_s``, it narrows the window used *only*
+        # during sequence detection — ``sort_offline`` below still uses
+        # the full ``RT_SORT_RECORDING_WINDOW_MS`` so every spike in
+        # the recording is assigned to one of the detected sequences.
+        sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
+        det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
+        if det_window_s is not None:
+            start_ms = sort_window_ms[0] if sort_window_ms is not None else 0.0
+            detect_window_ms = (start_ms, start_ms + float(det_window_s) * 1000.0)
+            if _globals.RT_SORT_VERBOSE:
+                print(
+                    f"[rt_sort] Detection window narrowed to "
+                    f"{detect_window_ms[0]/1000:.1f}-{detect_window_ms[1]/1000:.1f} s "
+                    f"(sort_offline still covers full recording)."
+                )
+        else:
+            detect_window_ms = sort_window_ms
+
         # Assemble the detect_sequences kwargs from globals + param
         # override dict.  The override dict wins.
         ds_kwargs = dict(
-            recording_window_ms=_globals.RT_SORT_RECORDING_WINDOW_MS,
+            recording_window_ms=detect_window_ms,
             device=_globals.RT_SORT_DEVICE,
             num_processes=_globals.RT_SORT_NUM_PROCESSES,
             delete_inter=_globals.RT_SORT_DELETE_INTER,
@@ -146,7 +165,7 @@ def spike_sort(
         sorting = rt_sort.sort_offline(
             recording=rec_cache,
             inter_path=output_folder,
-            recording_window_ms=_globals.RT_SORT_RECORDING_WINDOW_MS,
+            recording_window_ms=sort_window_ms,
             return_spikeinterface_sorter=True,
             verbose=_globals.RT_SORT_VERBOSE,
         )

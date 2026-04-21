@@ -255,6 +255,161 @@ class WaveformExtractor:
                 spike_times[spike_time_to_ind[st]] = st_cen
         np.save(self.sorting.folder / "spike_times.npy", spike_times)
 
+    def run_extract_waveforms_streaming(self) -> None:
+        """Per-unit streaming waveform extraction and template computation.
+
+        Processes one unit at a time.  For each unit:
+          1. Read trace windows for only its selected spikes,
+          2. Recenter each spike on its peak,
+          3. Accumulate ``average`` and ``std`` templates into a shared
+             ``template_cache`` array,
+          4. Optionally persist the unit's waveforms to disk (gated by
+             ``SAVE_WAVEFORM_FILES``),
+          5. Drop the in-memory waveform buffer before moving on.
+
+        Peak RAM usage scales with *one* unit's waveform buffer
+        (``n_spikes × nsamples × num_channels``) rather than with the
+        total unit count.  For a 1018-channel MaxOne recording and
+        300 waveforms / 4 ms / float32, that is ~100 MB per unit —
+        independent of how many units the sorter produced.
+
+        Output compatibility: downstream code consumes templates via
+        ``get_computed_template`` which reads from ``template_cache``,
+        and per-epoch template code / waveform-path attributes both
+        guard on file existence, so skipping waveform files is a
+        supported degraded mode.
+        """
+        self.templates_half_windows_sizes = (
+            self.sorting.get_templates_half_windows_sizes(self.chans_max_kilosort)
+        )
+
+        num_chans = self.recording.get_num_channels()
+        unit_ids = list(self.sorting.unit_ids)
+
+        selected_spikes = self.sample_spikes()
+
+        # Persisted spike-times-per-segment
+        selected_spike_times: Dict[Any, List[np.ndarray]] = {}
+        for unit_id in unit_ids:
+            per_seg: List[np.ndarray] = []
+            for segment_index in range(self.sorting.get_num_segments()):
+                st = self.sorting.get_unit_spike_train(
+                    unit_id=unit_id, segment_index=segment_index
+                )
+                per_seg.append(st[selected_spikes[unit_id][segment_index]])
+            selected_spike_times[unit_id] = per_seg
+
+        # Pre-allocate template_cache so templates can be streamed in
+        # per unit as we go (same layout as compute_templates()).
+        templates_shape = (max(unit_ids) + 1, self.nsamples, num_chans)
+        for mode in ("average", "std"):
+            self.template_cache[mode] = np.zeros(templates_shape, dtype=self.dtype)
+
+        save_waveforms = _globals.SAVE_WAVEFORM_FILES
+        waveforms_dir = self.root_folder / "waveforms"
+        nbefore = self.nbefore
+        nafter = self.nafter
+
+        spike_times_centered_all: Dict[int, int] = {}
+
+        print(
+            f"[streaming] Extracting waveforms + templates for {len(unit_ids)} "
+            f"units (peak RAM per unit ~"
+            f"{_globals.MAX_WAVEFORMS_PER_UNIT * self.nsamples * num_chans * 4 / 1024 / 1024:.0f} MB)"
+        )
+
+        for unit_id in tqdm(unit_ids, desc="units"):
+            half_window_size = self.templates_half_windows_sizes[unit_id]
+            before_buffer = max(nbefore, half_window_size)
+            after_buffer = max(nafter, half_window_size)
+            chan_max = self.chans_max_all[unit_id]
+            use_pos_peak = bool(self.use_pos_peak[unit_id])
+
+            # Collect spike-time buffers across segments (usually 1 segment)
+            unit_spike_times: List[Tuple[int, int]] = []
+            for segment_index in range(self.sorting.get_num_segments()):
+                seg_size = self.recording.get_num_samples(segment_index=segment_index)
+                st_array = selected_spike_times[unit_id][segment_index]
+                for st in st_array:
+                    st = int(st)
+                    if st - before_buffer < 0 or st + after_buffer > seg_size:
+                        continue
+                    unit_spike_times.append((segment_index, st))
+
+            n_spikes = len(unit_spike_times)
+            if n_spikes == 0:
+                continue
+
+            # Local buffer — the only multi-MB allocation for this unit.
+            wfs_local = np.zeros((n_spikes, self.nsamples, num_chans), dtype=self.dtype)
+
+            for i, (segment_index, st) in enumerate(unit_spike_times):
+                start = int(st - before_buffer)
+                end = int(st + after_buffer)
+                traces = self.recording.get_traces(
+                    start_frame=start,
+                    end_frame=end,
+                    segment_index=segment_index,
+                    return_scaled=self.return_scaled,
+                )
+                st_trace = st - start
+
+                peak_left = max(st_trace - half_window_size, 0)
+                peak_right = min(st_trace + half_window_size + 1, traces.shape[0])
+                peak_window = traces[peak_left:peak_right, chan_max]
+                if peak_window.size == 0:
+                    spike_times_centered_all[st] = st
+                    wfs_local[i] = traces[st_trace - nbefore : st_trace + nafter, :]
+                    continue
+
+                peak_value = (
+                    np.max(peak_window) if use_pos_peak else np.min(peak_window)
+                )
+                peak_indices = np.flatnonzero(peak_window == peak_value)
+                st_offset = peak_indices[peak_indices.size // 2] - peak_window.size // 2
+                st_trace += st_offset
+                spike_times_centered_all[st] = st + st_offset
+
+                # Clamp if recentering pushed the window past the chunk
+                lo = max(st_trace - nbefore, 0)
+                hi = min(st_trace + nafter, traces.shape[0])
+                wf_lo = nbefore - (st_trace - lo)
+                wf_hi = wf_lo + (hi - lo)
+                wfs_local[i, wf_lo:wf_hi, :] = traces[lo:hi, :]
+
+            # Templates — write directly into the shared cache.
+            self.template_cache["average"][unit_id, :, :] = np.average(
+                wfs_local, axis=0
+            )
+            self.template_cache["std"][unit_id, :, :] = np.std(wfs_local, axis=0)
+
+            if save_waveforms:
+                file_path = waveforms_dir / f"waveforms_{unit_id}.npy"
+                np.save(str(file_path), wfs_local)
+
+            del wfs_local
+
+        # Templates folder on disk (same layout as compute_templates())
+        templates_folder = self.root_folder / "templates"
+        create_folder(templates_folder)
+        for mode in ("average", "std"):
+            np.save(
+                str(templates_folder / f"templates_{mode}.npy"),
+                self.template_cache[mode],
+            )
+
+        # Recenter spike times in the sorting (same as parallel path)
+        shutil.copyfile(
+            self.sorting.folder / "spike_times.npy",
+            self.sorting.folder / "spike_times_kilosort.npy",
+        )
+        spike_times = self.sorting.spike_times
+        spike_time_to_ind = {st: i for i, st in enumerate(spike_times)}
+        for st, st_cen in spike_times_centered_all.items():
+            if st in spike_time_to_ind:
+                spike_times[spike_time_to_ind[st]] = st_cen
+        np.save(self.sorting.folder / "spike_times.npy", spike_times)
+
     def sample_spikes(self) -> dict:
         """
         Uniform random selection of spikes per unit and save to .npy

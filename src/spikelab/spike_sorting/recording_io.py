@@ -1114,12 +1114,21 @@ def extract_waveforms(
         we = WaveformExtractor.create_initial(
             recording_path, recording, sorting, root_folder, initial_folder
         )
-        we.run_extract_waveforms(**job_kwargs)
-        stopwatch.log_time("Done extracting waveforms.")
-
-        we.compute_templates(
-            modes=("average", "std"), n_jobs=job_kwargs.get("n_jobs", 1)
-        )
+        if _globals.STREAMING_WAVEFORMS:
+            # Streaming path: per-unit waveforms + templates in one pass.
+            # Bounded peak RAM (one unit's buffer at a time); avoids the
+            # 39 GB pre-allocated per-unit memmap pile that the parallel
+            # path creates for high-unit-count sorts on dense MEAs.
+            print("Streaming waveform extraction (per-unit, low RAM)")
+            we.run_extract_waveforms_streaming()
+            stopwatch.log_time("Done extracting waveforms (streaming).")
+            # Templates already populated by the streaming pass.
+        else:
+            we.run_extract_waveforms(**job_kwargs)
+            stopwatch.log_time("Done extracting waveforms.")
+            we.compute_templates(
+                modes=("average", "std"), n_jobs=job_kwargs.get("n_jobs", 1)
+            )
     return we
 
 
