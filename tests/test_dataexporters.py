@@ -358,6 +358,226 @@ class TestHDF5Exporters:
         with h5py.File(path, "r") as f:
             assert f["spike_times_index"][0] == 2  # 2 spikes now
 
+    def test_nonzero_start_time_roundtrip_ragged(self, tmp_path):
+        """
+        Non-zero start_time is preserved through a ragged-style export/load round-trip.
+
+        Tests:
+            (Test Case 1) start_time=-100 survives export and reimport.
+        """
+        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        path = str(tmp_path / "start_time_ragged.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
+        loaded = loaders.load_spikedata_from_hdf5(
+            path,
+            spike_times_dataset="spike_times",
+            spike_times_index_dataset="spike_times_index",
+        )
+        assert loaded.start_time == pytest.approx(-100.0)
+        # Length is inferred from max spike time - start_time
+        # max(10.0) - (-100.0) = 110.0
+        assert loaded.length == pytest.approx(110.0)
+
+    def test_nonzero_start_time_roundtrip_paired(self, tmp_path):
+        """
+        Non-zero start_time is preserved through a paired-style export/load round-trip.
+
+        Tests:
+            (Test Case 1) start_time=-50 survives export and reimport in paired style.
+        """
+        trains = [np.array([-40.0, -20.0]), np.array([-10.0, 0.0])]
+        sd = SpikeData(trains, length=100.0, start_time=-50.0)
+        path = str(tmp_path / "start_time_paired.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="paired")
+        loaded = loaders.load_spikedata_from_hdf5(
+            path,
+            idces_dataset="idces",
+            times_dataset="times",
+            times_unit="ms",
+        )
+        assert loaded.start_time == pytest.approx(-50.0)
+
+    def test_raster_export_all_empty_trains(self, tmp_path):
+        """
+        Raster export with all-empty-train SpikeData.
+
+        Tests:
+            (Test Case 1) All-empty trains produce an all-zero raster that
+                can be exported and loaded back.
+        """
+        sd = SpikeData([[], [], []], length=25.0)
+        path = str(tmp_path / "raster_empty.h5")
+
+        exporters.export_spikedata_to_hdf5(
+            sd, path, style="raster", raster_bin_size_ms=5.0
+        )
+        loaded = loaders.load_spikedata_from_hdf5(
+            path, raster_dataset="raster", raster_bin_size_ms=5.0
+        )
+        assert loaded.N == 3
+        for t in loaded.train:
+            assert len(t) == 0
+
+    def test_group_style_more_than_9_units(self, tmp_path):
+        """
+        Group style with >9 units: lexicographic sort mismatch.
+
+        Tests:
+            (Test Case 1) Export 12 units, then load. Verify unit count matches.
+        """
+        trains = [np.array([float(i + 1)]) for i in range(12)]
+        sd = SpikeData(trains, length=20.0)
+        path = str(tmp_path / "group_12.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="group")
+        loaded = loaders.load_spikedata_from_hdf5(path, group_per_unit="units")
+        assert loaded.N == 12
+
+    def test_invalid_style_string(self, tmp_path):
+        """
+        Verify that passing an invalid style string raises ValueError.
+
+        Tests:
+            (Test Case 1) style="invalid" raises ValueError.
+            (Test Case 2) style="" (empty string) raises ValueError.
+        """
+        sd = make_sd()
+        path = str(tmp_path / "bad_style.h5")
+
+        with pytest.raises(ValueError, match="Unknown style"):
+            exporters.export_spikedata_to_hdf5(sd, path, style="invalid")
+
+        with pytest.raises(ValueError, match="Unknown style"):
+            exporters.export_spikedata_to_hdf5(sd, path, style="")
+
+    def test_raster_style_with_none_bin_size(self, tmp_path):
+        """
+        Verify that style="raster" with raster_bin_size_ms=None raises ValueError.
+
+        Tests:
+            (Test Case 1) Omitting raster_bin_size_ms (default None) raises ValueError.
+        """
+        sd = make_sd()
+        path = str(tmp_path / "no_bin.h5")
+
+        with pytest.raises(ValueError, match="raster_bin_size_ms"):
+            exporters.export_spikedata_to_hdf5(sd, path, style="raster")
+
+    def test_group_style_single_unit(self, tmp_path):
+        """
+        Verify that group style export works correctly with a single-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The group contains exactly one dataset.
+            (Test Case 3) The dataset contains the correct spike times.
+        """
+        trains = [np.array([5.0, 10.0, 15.0])]
+        sd = SpikeData(trains, length=20.0)
+        path = str(tmp_path / "single_group.h5")
+
+        exporters.export_spikedata_to_hdf5(sd, path, style="group")
+
+        with h5py.File(path, "r") as f:
+            grp = f["units"]
+            assert len(grp.keys()) == 1
+            assert "0" in grp
+            times_s = np.asarray(grp["0"])
+            np.testing.assert_allclose(times_s, np.array([5.0, 10.0, 15.0]) / 1e3)
+
+    def test_raw_time_unit_samples_missing_fs_hz(self, tmp_path):
+        """
+        Verify that raw_time_unit='samples' without a valid fs_Hz raises ValueError.
+
+        Tests:
+            (Test Case 1) fs_Hz=None with raw_time_unit='samples' raises ValueError.
+            (Test Case 2) fs_Hz=0 with raw_time_unit='samples' raises ValueError.
+        """
+        raw = np.random.randn(2, 10)
+        sd = SpikeData(
+            [np.array([5.0])], length=20.0, raw_data=raw, raw_time=np.arange(10.0)
+        )
+        path = str(tmp_path / "raw_no_fs.h5")
+
+        with pytest.raises(ValueError, match="fs_Hz"):
+            exporters.export_spikedata_to_hdf5(
+                sd,
+                path,
+                style="ragged",
+                raw_dataset="raw",
+                raw_time_dataset="raw_time",
+                raw_time_unit="samples",
+                fs_Hz=None,
+            )
+
+        with pytest.raises(ValueError, match="fs_Hz"):
+            exporters.export_spikedata_to_hdf5(
+                sd,
+                path,
+                style="ragged",
+                raw_dataset="raw",
+                raw_time_dataset="raw_time",
+                raw_time_unit="samples",
+                fs_Hz=0,
+            )
+
+    def test_raw_data_export_invalid_raw_time_unit(self, tmp_path):
+        """
+        Verify that an invalid raw_time_unit raises ValueError.
+
+        Tests:
+            (Test Case 1) raw_time_unit='invalid' raises ValueError.
+        """
+        raw = np.random.randn(2, 10)
+        sd = SpikeData(
+            [np.array([5.0])], length=20.0, raw_data=raw, raw_time=np.arange(10.0)
+        )
+        path = str(tmp_path / "raw_bad_unit.h5")
+
+        with pytest.raises(ValueError, match="raw_time_unit"):
+            exporters.export_spikedata_to_hdf5(
+                sd,
+                path,
+                style="ragged",
+                raw_dataset="raw",
+                raw_time_dataset="raw_time",
+                raw_time_unit="invalid",
+            )
+
+    def test_case_insensitive_style_normalization(self, tmp_path):
+        """
+        Verify that style strings are case-insensitive via .lower() normalization.
+
+        Tests:
+            (Test Case 1) style="RAGGED" (uppercase) exports successfully.
+            (Test Case 2) style="Paired" (mixed case) exports successfully.
+            (Test Case 3) Exported data is correct after round-trip.
+        """
+        sd = make_sd()
+
+        # Uppercase
+        path_upper = str(tmp_path / "upper.h5")
+        exporters.export_spikedata_to_hdf5(sd, path_upper, style="RAGGED")
+        with h5py.File(path_upper, "r") as f:
+            assert "spike_times" in f
+            assert "spike_times_index" in f
+
+        # Mixed case
+        path_mixed = str(tmp_path / "mixed.h5")
+        exporters.export_spikedata_to_hdf5(
+            sd,
+            path_mixed,
+            style="Paired",
+            idces_dataset="idces",
+            times_dataset="times",
+        )
+        with h5py.File(path_mixed, "r") as f:
+            assert "idces" in f
+            assert "times" in f
+
 
 @skip_no_h5py
 class TestNWBExporters:
@@ -431,6 +651,175 @@ class TestNWBExporters:
             assert "units/spike_times" in f
             st = np.asarray(f["units/spike_times"])
             assert len(st) == 3  # 2 + 1 spikes total
+
+    def test_nonzero_start_time_warning(self, tmp_path):
+        """
+        NWB export with non-zero start_time issues a UserWarning.
+
+        Tests:
+            (Test Case 1) start_time=-100 triggers a UserWarning about
+                NWB not preserving start_time.
+        """
+        import warnings
+
+        trains = [np.array([-50.0, 0.0, 50.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        path = str(tmp_path / "nwb_start_time.nwb")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            exporters.export_spikedata_to_nwb(sd, path)
+            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
+            assert any("start_time" in str(x.message) for x in user_warnings)
+
+    def test_z_coordinates_roundtrip(self, tmp_path):
+        """
+        NWB export with 3D (x, y, z) locations.
+
+        Tests:
+            (Test Case 1) 3D locations are exported and loaded back.
+        """
+        trains = [np.array([5.0]), np.array([10.0])]
+        attrs = [
+            {"electrode_id": 0, "x": 1.0, "y": 2.0, "z": 3.0},
+            {"electrode_id": 1, "x": 4.0, "y": 5.0, "z": 6.0},
+        ]
+        sd = SpikeData(trains, length=20.0, neuron_attributes=attrs)
+        path = str(tmp_path / "nwb_3d.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+        loaded = loaders.load_spikedata_from_nwb(path)
+        assert loaded.N == 2
+
+    def test_nwb_export_zero_units(self, tmp_path):
+        """
+        Verify that exporting a zero-unit SpikeData to NWB succeeds.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) The units group exists with empty spike_times.
+            (Test Case 3) The spike_times_index is empty.
+            (Test Case 4) The id dataset is empty.
+        """
+        sd = SpikeData([], length=0.0)
+        path = str(tmp_path / "zero_units.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            assert "units" in f
+            assert f["units/spike_times"].shape[0] == 0
+            assert f["units/spike_times_index"].shape[0] == 0
+            assert f["units/id"].shape[0] == 0
+
+    def test_nwb_export_all_empty_trains(self, tmp_path):
+        """
+        Verify that exporting a SpikeData where all units have empty spike
+        trains to NWB works correctly.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) spike_times is empty (no spikes).
+            (Test Case 3) spike_times_index contains zeros (cumulative counts).
+            (Test Case 4) id dataset contains the correct unit IDs.
+        """
+        trains = [np.array([], float), np.array([], float), np.array([], float)]
+        sd = SpikeData(trains, length=100.0)
+        path = str(tmp_path / "empty_trains.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            assert f["units/spike_times"].shape[0] == 0
+            idx = np.asarray(f["units/spike_times_index"])
+            np.testing.assert_array_equal(idx, np.array([0, 0, 0]))
+            ids = np.asarray(f["units/id"])
+            np.testing.assert_array_equal(ids, np.array([0, 1, 2]))
+
+    def test_nwb_export_unit_locations_no_electrodes(self, tmp_path):
+        """
+        Verify NWB export when SpikeData has unit_locations but no electrode IDs.
+        The exporter should use fallback electrode IDs (0..N-1).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) units/electrodes dataset is absent.
+            (Test Case 3) Electrodes table exists with fallback IDs [0, 1].
+            (Test Case 4) x and y coordinates are written correctly.
+        """
+        trains = [np.array([5.0, 10.0]), np.array([15.0])]
+        neuron_attrs = [
+            {"x": 100.0, "y": 200.0},
+            {"x": 300.0, "y": 400.0},
+        ]
+        sd = SpikeData(trains, length=20.0, neuron_attributes=neuron_attrs)
+        assert sd.unit_locations is not None
+        assert sd.electrodes is None
+        path = str(tmp_path / "locs_no_elec.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            assert "units/electrodes" not in f
+            elec_grp = f["general/extracellular_ephys/electrodes"]
+            np.testing.assert_array_equal(np.asarray(elec_grp["id"]), [0, 1])
+            np.testing.assert_allclose(np.asarray(elec_grp["x"]), [100.0, 300.0])
+            np.testing.assert_allclose(np.asarray(elec_grp["y"]), [200.0, 400.0])
+
+    def test_nwb_export_unit_locations_x_only(self, tmp_path):
+        """
+        Verify NWB export when unit_locations has only 1 spatial dimension (x only).
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) x dataset is written.
+            (Test Case 3) y dataset is absent.
+            (Test Case 4) z dataset is absent.
+        """
+        trains = [np.array([5.0]), np.array([10.0])]
+        neuron_attrs = [
+            {"location": np.array([100.0])},
+            {"location": np.array([200.0])},
+        ]
+        sd = SpikeData(trains, length=15.0, neuron_attributes=neuron_attrs)
+        assert sd.unit_locations is not None
+        assert sd.unit_locations.shape == (2, 1)
+        path = str(tmp_path / "x_only.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            elec_grp = f["general/extracellular_ephys/electrodes"]
+            np.testing.assert_allclose(np.asarray(elec_grp["x"]), [100.0, 200.0])
+            assert "y" not in elec_grp
+            assert "z" not in elec_grp
+
+    def test_nwb_export_duplicate_electrode_ids(self, tmp_path):
+        """
+        Verify NWB export when multiple units share the same electrode ID.
+        The electrodes table should contain unique electrode IDs only.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) units/electrodes contains the per-unit electrode IDs [3, 3, 5].
+            (Test Case 3) Electrodes table contains unique IDs [3, 5].
+        """
+        trains = [np.array([5.0]), np.array([10.0]), np.array([15.0])]
+        neuron_attrs = [
+            {"electrode": 3, "x": 10.0, "y": 20.0},
+            {"electrode": 3, "x": 10.0, "y": 20.0},
+            {"electrode": 5, "x": 30.0, "y": 40.0},
+        ]
+        sd = SpikeData(trains, length=20.0, neuron_attributes=neuron_attrs)
+        path = str(tmp_path / "dup_elec.nwb")
+
+        exporters.export_spikedata_to_nwb(sd, path)
+
+        with h5py.File(path, "r") as f:
+            unit_elec = np.asarray(f["units/electrodes"])
+            np.testing.assert_array_equal(unit_elec, [3, 3, 5])
+            elec_ids = np.asarray(f["general/extracellular_ephys/electrodes/id"])
+            np.testing.assert_array_equal(elec_ids, [3, 5])
 
 
 class TestKiloSortExporters:
@@ -625,6 +1014,113 @@ class TestKiloSortExporters:
                 sd, d, fs_Hz=1000.0, cluster_ids=[10, 20, 30, 40]
             )
 
+    def test_nonzero_start_time_warning(self, tmp_path):
+        """
+        KiloSort export with non-zero start_time issues a UserWarning.
+
+        Tests:
+            (Test Case 1) start_time=-50 triggers a UserWarning.
+        """
+        import warnings
+
+        trains = [np.array([-30.0, -10.0, 0.0])]
+        sd = SpikeData(trains, length=100.0, start_time=-50.0)
+        path = str(tmp_path / "ks_start_time")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
+            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
+            assert any("start_time" in str(x.message) for x in user_warnings)
+
+    def test_all_empty_trains_kilosort(self, tmp_path):
+        """
+        KiloSort export with N>0 but all trains empty.
+
+        Tests:
+            (Test Case 1) Export succeeds with empty spike_times and spike_clusters.
+        """
+        sd = SpikeData([[], [], []], length=25.0)
+        path = str(tmp_path / "ks_empty")
+
+        exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
+        times = np.load(os.path.join(path, "spike_times.npy"))
+        assert len(times) == 0
+
+    def test_kilosort_export_zero_units(self, tmp_path):
+        """
+        Verify that exporting a zero-unit SpikeData to KiloSort succeeds
+        and produces empty arrays.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) spike_times.npy is empty.
+            (Test Case 3) spike_clusters.npy is empty.
+        """
+        sd = SpikeData([], length=0.0)
+        d = str(tmp_path / "ks_zero")
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0)
+
+        times = np.load(os.path.join(d, "spike_times.npy"))
+        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
+        assert len(times) == 0
+        assert len(clusters) == 0
+
+    def test_kilosort_invalid_time_unit(self, tmp_path):
+        """
+        Verify that an invalid time_unit raises ValueError.
+
+        Tests:
+            (Test Case 1) time_unit="invalid" raises ValueError.
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_bad_unit")
+        os.makedirs(d)
+
+        with pytest.raises(ValueError, match="time_unit"):
+            exporters.export_spikedata_to_kilosort(
+                sd, d, fs_Hz=1000.0, time_unit="invalid"
+            )
+
+    def test_kilosort_fs_hz_zero_raises(self, tmp_path):
+        """
+        Verify that fs_Hz=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) fs_Hz=0 raises ValueError.
+            (Test Case 2) fs_Hz=-1 raises ValueError.
+        """
+        sd = make_sd()
+        d = str(tmp_path / "ks_zero_fs")
+        os.makedirs(d)
+
+        with pytest.raises(ValueError, match="fs_Hz"):
+            exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=0)
+
+        with pytest.raises(ValueError, match="fs_Hz"):
+            exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=-1.0)
+
+    def test_kilosort_no_electrodes_no_channel_map(self, tmp_path):
+        """
+        Verify that channel_map.npy is not created when SpikeData has no
+        electrode information.
+
+        Tests:
+            (Test Case 1) Export succeeds without error.
+            (Test Case 2) channel_map.npy does not exist in the output directory.
+            (Test Case 3) spike_times.npy and spike_clusters.npy do exist.
+        """
+        sd = make_sd()  # no neuron_attributes, so electrodes is None
+        assert sd.electrodes is None
+        d = str(tmp_path / "ks_no_elec")
+
+        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0)
+
+        assert not os.path.exists(os.path.join(d, "channel_map.npy"))
+        assert os.path.exists(os.path.join(d, "spike_times.npy"))
+        assert os.path.exists(os.path.join(d, "spike_clusters.npy"))
+
 
 class TestPickleExporters:
     """
@@ -792,378 +1288,11 @@ class TestPickleExporters:
 
 
 @skip_no_h5py
-class TestHDF5Exporters2:
-    """
-    Edge case tests for HDF5 export functionality.
-
-    These tests cover error paths, boundary conditions, and unusual but valid
-    inputs for export_spikedata_to_hdf5.
-    """
-
-    def test_invalid_style_string(self, tmp_path):
-        """
-        Verify that passing an invalid style string raises ValueError.
-
-        Tests:
-            (Test Case 1) style="invalid" raises ValueError.
-            (Test Case 2) style="" (empty string) raises ValueError.
-        """
-        sd = make_sd()
-        path = str(tmp_path / "bad_style.h5")
-
-        with pytest.raises(ValueError, match="Unknown style"):
-            exporters.export_spikedata_to_hdf5(sd, path, style="invalid")
-
-        with pytest.raises(ValueError, match="Unknown style"):
-            exporters.export_spikedata_to_hdf5(sd, path, style="")
-
-    def test_raster_style_with_none_bin_size(self, tmp_path):
-        """
-        Verify that style="raster" with raster_bin_size_ms=None raises ValueError.
-
-        Tests:
-            (Test Case 1) Omitting raster_bin_size_ms (default None) raises ValueError.
-        """
-        sd = make_sd()
-        path = str(tmp_path / "no_bin.h5")
-
-        with pytest.raises(ValueError, match="raster_bin_size_ms"):
-            exporters.export_spikedata_to_hdf5(sd, path, style="raster")
-
-    def test_group_style_single_unit(self, tmp_path):
-        """
-        Verify that group style export works correctly with a single-unit SpikeData.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) The group contains exactly one dataset.
-            (Test Case 3) The dataset contains the correct spike times.
-        """
-        trains = [np.array([5.0, 10.0, 15.0])]
-        sd = SpikeData(trains, length=20.0)
-        path = str(tmp_path / "single_group.h5")
-
-        exporters.export_spikedata_to_hdf5(sd, path, style="group")
-
-        with h5py.File(path, "r") as f:
-            grp = f["units"]
-            assert len(grp.keys()) == 1
-            assert "0" in grp
-            times_s = np.asarray(grp["0"])
-            np.testing.assert_allclose(times_s, np.array([5.0, 10.0, 15.0]) / 1e3)
-
-    def test_raw_time_unit_samples_missing_fs_hz(self, tmp_path):
-        """
-        Verify that raw_time_unit='samples' without a valid fs_Hz raises ValueError.
-
-        Tests:
-            (Test Case 1) fs_Hz=None with raw_time_unit='samples' raises ValueError.
-            (Test Case 2) fs_Hz=0 with raw_time_unit='samples' raises ValueError.
-        """
-        raw = np.random.randn(2, 10)
-        sd = SpikeData(
-            [np.array([5.0])], length=20.0, raw_data=raw, raw_time=np.arange(10.0)
-        )
-        path = str(tmp_path / "raw_no_fs.h5")
-
-        with pytest.raises(ValueError, match="fs_Hz"):
-            exporters.export_spikedata_to_hdf5(
-                sd,
-                path,
-                style="ragged",
-                raw_dataset="raw",
-                raw_time_dataset="raw_time",
-                raw_time_unit="samples",
-                fs_Hz=None,
-            )
-
-        with pytest.raises(ValueError, match="fs_Hz"):
-            exporters.export_spikedata_to_hdf5(
-                sd,
-                path,
-                style="ragged",
-                raw_dataset="raw",
-                raw_time_dataset="raw_time",
-                raw_time_unit="samples",
-                fs_Hz=0,
-            )
-
-    def test_raw_data_export_invalid_raw_time_unit(self, tmp_path):
-        """
-        Verify that an invalid raw_time_unit raises ValueError.
-
-        Tests:
-            (Test Case 1) raw_time_unit='invalid' raises ValueError.
-        """
-        raw = np.random.randn(2, 10)
-        sd = SpikeData(
-            [np.array([5.0])], length=20.0, raw_data=raw, raw_time=np.arange(10.0)
-        )
-        path = str(tmp_path / "raw_bad_unit.h5")
-
-        with pytest.raises(ValueError, match="raw_time_unit"):
-            exporters.export_spikedata_to_hdf5(
-                sd,
-                path,
-                style="ragged",
-                raw_dataset="raw",
-                raw_time_dataset="raw_time",
-                raw_time_unit="invalid",
-            )
-
-    def test_case_insensitive_style_normalization(self, tmp_path):
-        """
-        Verify that style strings are case-insensitive via .lower() normalization.
-
-        Tests:
-            (Test Case 1) style="RAGGED" (uppercase) exports successfully.
-            (Test Case 2) style="Paired" (mixed case) exports successfully.
-            (Test Case 3) Exported data is correct after round-trip.
-        """
-        sd = make_sd()
-
-        # Uppercase
-        path_upper = str(tmp_path / "upper.h5")
-        exporters.export_spikedata_to_hdf5(sd, path_upper, style="RAGGED")
-        with h5py.File(path_upper, "r") as f:
-            assert "spike_times" in f
-            assert "spike_times_index" in f
-
-        # Mixed case
-        path_mixed = str(tmp_path / "mixed.h5")
-        exporters.export_spikedata_to_hdf5(
-            sd,
-            path_mixed,
-            style="Paired",
-            idces_dataset="idces",
-            times_dataset="times",
-        )
-        with h5py.File(path_mixed, "r") as f:
-            assert "idces" in f
-            assert "times" in f
 
 
 @skip_no_h5py
-class TestNWBExporters2:
-    """
-    Edge case tests for NWB export functionality.
-
-    These tests cover boundary conditions and unusual but valid inputs
-    for export_spikedata_to_nwb.
-    """
-
-    def test_nwb_export_zero_units(self, tmp_path):
-        """
-        Verify that exporting a zero-unit SpikeData to NWB succeeds.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) The units group exists with empty spike_times.
-            (Test Case 3) The spike_times_index is empty.
-            (Test Case 4) The id dataset is empty.
-        """
-        sd = SpikeData([], length=0.0)
-        path = str(tmp_path / "zero_units.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-
-        with h5py.File(path, "r") as f:
-            assert "units" in f
-            assert f["units/spike_times"].shape[0] == 0
-            assert f["units/spike_times_index"].shape[0] == 0
-            assert f["units/id"].shape[0] == 0
-
-    def test_nwb_export_all_empty_trains(self, tmp_path):
-        """
-        Verify that exporting a SpikeData where all units have empty spike
-        trains to NWB works correctly.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) spike_times is empty (no spikes).
-            (Test Case 3) spike_times_index contains zeros (cumulative counts).
-            (Test Case 4) id dataset contains the correct unit IDs.
-        """
-        trains = [np.array([], float), np.array([], float), np.array([], float)]
-        sd = SpikeData(trains, length=100.0)
-        path = str(tmp_path / "empty_trains.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-
-        with h5py.File(path, "r") as f:
-            assert f["units/spike_times"].shape[0] == 0
-            idx = np.asarray(f["units/spike_times_index"])
-            np.testing.assert_array_equal(idx, np.array([0, 0, 0]))
-            ids = np.asarray(f["units/id"])
-            np.testing.assert_array_equal(ids, np.array([0, 1, 2]))
-
-    def test_nwb_export_unit_locations_no_electrodes(self, tmp_path):
-        """
-        Verify NWB export when SpikeData has unit_locations but no electrode IDs.
-        The exporter should use fallback electrode IDs (0..N-1).
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) units/electrodes dataset is absent.
-            (Test Case 3) Electrodes table exists with fallback IDs [0, 1].
-            (Test Case 4) x and y coordinates are written correctly.
-        """
-        trains = [np.array([5.0, 10.0]), np.array([15.0])]
-        neuron_attrs = [
-            {"x": 100.0, "y": 200.0},
-            {"x": 300.0, "y": 400.0},
-        ]
-        sd = SpikeData(trains, length=20.0, neuron_attributes=neuron_attrs)
-        assert sd.unit_locations is not None
-        assert sd.electrodes is None
-        path = str(tmp_path / "locs_no_elec.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-
-        with h5py.File(path, "r") as f:
-            assert "units/electrodes" not in f
-            elec_grp = f["general/extracellular_ephys/electrodes"]
-            np.testing.assert_array_equal(np.asarray(elec_grp["id"]), [0, 1])
-            np.testing.assert_allclose(np.asarray(elec_grp["x"]), [100.0, 300.0])
-            np.testing.assert_allclose(np.asarray(elec_grp["y"]), [200.0, 400.0])
-
-    def test_nwb_export_unit_locations_x_only(self, tmp_path):
-        """
-        Verify NWB export when unit_locations has only 1 spatial dimension (x only).
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) x dataset is written.
-            (Test Case 3) y dataset is absent.
-            (Test Case 4) z dataset is absent.
-        """
-        trains = [np.array([5.0]), np.array([10.0])]
-        neuron_attrs = [
-            {"location": np.array([100.0])},
-            {"location": np.array([200.0])},
-        ]
-        sd = SpikeData(trains, length=15.0, neuron_attributes=neuron_attrs)
-        assert sd.unit_locations is not None
-        assert sd.unit_locations.shape == (2, 1)
-        path = str(tmp_path / "x_only.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-
-        with h5py.File(path, "r") as f:
-            elec_grp = f["general/extracellular_ephys/electrodes"]
-            np.testing.assert_allclose(np.asarray(elec_grp["x"]), [100.0, 200.0])
-            assert "y" not in elec_grp
-            assert "z" not in elec_grp
-
-    def test_nwb_export_duplicate_electrode_ids(self, tmp_path):
-        """
-        Verify NWB export when multiple units share the same electrode ID.
-        The electrodes table should contain unique electrode IDs only.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) units/electrodes contains the per-unit electrode IDs [3, 3, 5].
-            (Test Case 3) Electrodes table contains unique IDs [3, 5].
-        """
-        trains = [np.array([5.0]), np.array([10.0]), np.array([15.0])]
-        neuron_attrs = [
-            {"electrode": 3, "x": 10.0, "y": 20.0},
-            {"electrode": 3, "x": 10.0, "y": 20.0},
-            {"electrode": 5, "x": 30.0, "y": 40.0},
-        ]
-        sd = SpikeData(trains, length=20.0, neuron_attributes=neuron_attrs)
-        path = str(tmp_path / "dup_elec.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-
-        with h5py.File(path, "r") as f:
-            unit_elec = np.asarray(f["units/electrodes"])
-            np.testing.assert_array_equal(unit_elec, [3, 3, 5])
-            elec_ids = np.asarray(f["general/extracellular_ephys/electrodes/id"])
-            np.testing.assert_array_equal(elec_ids, [3, 5])
 
 
-class TestKiloSortExporters2:
-    """
-    Edge case tests for KiloSort export functionality.
-
-    These tests cover error paths and boundary conditions for
-    export_spikedata_to_kilosort.
-    """
-
-    def test_kilosort_export_zero_units(self, tmp_path):
-        """
-        Verify that exporting a zero-unit SpikeData to KiloSort succeeds
-        and produces empty arrays.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) spike_times.npy is empty.
-            (Test Case 3) spike_clusters.npy is empty.
-        """
-        sd = SpikeData([], length=0.0)
-        d = str(tmp_path / "ks_zero")
-
-        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0)
-
-        times = np.load(os.path.join(d, "spike_times.npy"))
-        clusters = np.load(os.path.join(d, "spike_clusters.npy"))
-        assert len(times) == 0
-        assert len(clusters) == 0
-
-    def test_kilosort_invalid_time_unit(self, tmp_path):
-        """
-        Verify that an invalid time_unit raises ValueError.
-
-        Tests:
-            (Test Case 1) time_unit="invalid" raises ValueError.
-        """
-        sd = make_sd()
-        d = str(tmp_path / "ks_bad_unit")
-        os.makedirs(d)
-
-        with pytest.raises(ValueError, match="time_unit"):
-            exporters.export_spikedata_to_kilosort(
-                sd, d, fs_Hz=1000.0, time_unit="invalid"
-            )
-
-    def test_kilosort_fs_hz_zero_raises(self, tmp_path):
-        """
-        Verify that fs_Hz=0 raises ValueError.
-
-        Tests:
-            (Test Case 1) fs_Hz=0 raises ValueError.
-            (Test Case 2) fs_Hz=-1 raises ValueError.
-        """
-        sd = make_sd()
-        d = str(tmp_path / "ks_zero_fs")
-        os.makedirs(d)
-
-        with pytest.raises(ValueError, match="fs_Hz"):
-            exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=0)
-
-        with pytest.raises(ValueError, match="fs_Hz"):
-            exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=-1.0)
-
-    def test_kilosort_no_electrodes_no_channel_map(self, tmp_path):
-        """
-        Verify that channel_map.npy is not created when SpikeData has no
-        electrode information.
-
-        Tests:
-            (Test Case 1) Export succeeds without error.
-            (Test Case 2) channel_map.npy does not exist in the output directory.
-            (Test Case 3) spike_times.npy and spike_clusters.npy do exist.
-        """
-        sd = make_sd()  # no neuron_attributes, so electrodes is None
-        assert sd.electrodes is None
-        d = str(tmp_path / "ks_no_elec")
-
-        exporters.export_spikedata_to_kilosort(sd, d, fs_Hz=1000.0)
-
-        assert not os.path.exists(os.path.join(d, "channel_map.npy"))
-        assert os.path.exists(os.path.join(d, "spike_times.npy"))
-        assert os.path.exists(os.path.join(d, "spike_clusters.npy"))
 
 
 # ---------------------------------------------------------------------------
@@ -1172,167 +1301,11 @@ class TestKiloSortExporters2:
 
 
 @skip_no_h5py
-class TestHDF5Exporters22:
-    """Additional edge case tests for export_spikedata_to_hdf5."""
-
-    def test_nonzero_start_time_roundtrip_ragged(self, tmp_path):
-        """
-        Non-zero start_time is preserved through a ragged-style export/load round-trip.
-
-        Tests:
-            (Test Case 1) start_time=-100 survives export and reimport.
-        """
-        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
-        sd = SpikeData(trains, length=200.0, start_time=-100.0)
-        path = str(tmp_path / "start_time_ragged.h5")
-
-        exporters.export_spikedata_to_hdf5(sd, path, style="ragged")
-        loaded = loaders.load_spikedata_from_hdf5(
-            path,
-            spike_times_dataset="spike_times",
-            spike_times_index_dataset="spike_times_index",
-        )
-        assert loaded.start_time == pytest.approx(-100.0)
-        # Length is inferred from max spike time - start_time
-        # max(10.0) - (-100.0) = 110.0
-        assert loaded.length == pytest.approx(110.0)
-
-    def test_nonzero_start_time_roundtrip_paired(self, tmp_path):
-        """
-        Non-zero start_time is preserved through a paired-style export/load round-trip.
-
-        Tests:
-            (Test Case 1) start_time=-50 survives export and reimport in paired style.
-        """
-        trains = [np.array([-40.0, -20.0]), np.array([-10.0, 0.0])]
-        sd = SpikeData(trains, length=100.0, start_time=-50.0)
-        path = str(tmp_path / "start_time_paired.h5")
-
-        exporters.export_spikedata_to_hdf5(sd, path, style="paired")
-        loaded = loaders.load_spikedata_from_hdf5(
-            path,
-            idces_dataset="idces",
-            times_dataset="times",
-            times_unit="ms",
-        )
-        assert loaded.start_time == pytest.approx(-50.0)
-
-    def test_raster_export_all_empty_trains(self, tmp_path):
-        """
-        Raster export with all-empty-train SpikeData.
-
-        Tests:
-            (Test Case 1) All-empty trains produce an all-zero raster that
-                can be exported and loaded back.
-        """
-        sd = SpikeData([[], [], []], length=25.0)
-        path = str(tmp_path / "raster_empty.h5")
-
-        exporters.export_spikedata_to_hdf5(
-            sd, path, style="raster", raster_bin_size_ms=5.0
-        )
-        loaded = loaders.load_spikedata_from_hdf5(
-            path, raster_dataset="raster", raster_bin_size_ms=5.0
-        )
-        assert loaded.N == 3
-        for t in loaded.train:
-            assert len(t) == 0
-
-    def test_group_style_more_than_9_units(self, tmp_path):
-        """
-        Group style with >9 units: lexicographic sort mismatch.
-
-        Tests:
-            (Test Case 1) Export 12 units, then load. Verify unit count matches.
-        """
-        trains = [np.array([float(i + 1)]) for i in range(12)]
-        sd = SpikeData(trains, length=20.0)
-        path = str(tmp_path / "group_12.h5")
-
-        exporters.export_spikedata_to_hdf5(sd, path, style="group")
-        loaded = loaders.load_spikedata_from_hdf5(path, group_per_unit="units")
-        assert loaded.N == 12
 
 
 @skip_no_h5py
-class TestNWBExporters22:
-    """Additional edge case tests for export_spikedata_to_nwb."""
-
-    def test_nonzero_start_time_warning(self, tmp_path):
-        """
-        NWB export with non-zero start_time issues a UserWarning.
-
-        Tests:
-            (Test Case 1) start_time=-100 triggers a UserWarning about
-                NWB not preserving start_time.
-        """
-        import warnings
-
-        trains = [np.array([-50.0, 0.0, 50.0])]
-        sd = SpikeData(trains, length=200.0, start_time=-100.0)
-        path = str(tmp_path / "nwb_start_time.nwb")
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            exporters.export_spikedata_to_nwb(sd, path)
-            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-            assert any("start_time" in str(x.message) for x in user_warnings)
-
-    def test_z_coordinates_roundtrip(self, tmp_path):
-        """
-        NWB export with 3D (x, y, z) locations.
-
-        Tests:
-            (Test Case 1) 3D locations are exported and loaded back.
-        """
-        trains = [np.array([5.0]), np.array([10.0])]
-        attrs = [
-            {"electrode_id": 0, "x": 1.0, "y": 2.0, "z": 3.0},
-            {"electrode_id": 1, "x": 4.0, "y": 5.0, "z": 6.0},
-        ]
-        sd = SpikeData(trains, length=20.0, neuron_attributes=attrs)
-        path = str(tmp_path / "nwb_3d.nwb")
-
-        exporters.export_spikedata_to_nwb(sd, path)
-        loaded = loaders.load_spikedata_from_nwb(path)
-        assert loaded.N == 2
 
 
-class TestKiloSortExporters22:
-    """Additional edge case tests for export_spikedata_to_kilosort."""
-
-    def test_nonzero_start_time_warning(self, tmp_path):
-        """
-        KiloSort export with non-zero start_time issues a UserWarning.
-
-        Tests:
-            (Test Case 1) start_time=-50 triggers a UserWarning.
-        """
-        import warnings
-
-        trains = [np.array([-30.0, -10.0, 0.0])]
-        sd = SpikeData(trains, length=100.0, start_time=-50.0)
-        path = str(tmp_path / "ks_start_time")
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
-            user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-            assert any("start_time" in str(x.message) for x in user_warnings)
-
-    def test_all_empty_trains_kilosort(self, tmp_path):
-        """
-        KiloSort export with N>0 but all trains empty.
-
-        Tests:
-            (Test Case 1) Export succeeds with empty spike_times and spike_clusters.
-        """
-        sd = SpikeData([[], [], []], length=25.0)
-        path = str(tmp_path / "ks_empty")
-
-        exporters.export_spikedata_to_kilosort(sd, path, fs_Hz=1000.0)
-        times = np.load(os.path.join(path, "spike_times.npy"))
-        assert len(times) == 0
 
 
 class TestCoverageGaps:

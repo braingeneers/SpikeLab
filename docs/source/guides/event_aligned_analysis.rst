@@ -3,7 +3,7 @@ Event-Aligned Analysis
 ======================
 
 This guide covers extracting windows of neural activity aligned to
-experimental events (such as network bursts or stimulus onsets), and running
+internal or external events (such as network bursts or stimulus onsets), and running
 analyses on the resulting stacks of trials.
 
 After working through this guide you will know how to:
@@ -240,7 +240,7 @@ activity pattern is more stereotyped across trials.
    :width: 100%
    :alt: Burst-to-burst correlation heatmap
 
-   Slice-by-slice correlation matrix for a single unit, showing
+   Slice-by-slice correlation matrix averaged over all units, showing
    trial-to-trial consistency of the burst response.
 
 

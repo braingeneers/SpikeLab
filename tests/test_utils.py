@@ -568,6 +568,35 @@ class TestButterFilter:
         # Row 1 (high freq) should be heavily attenuated
         assert np.var(filtered[1]) < 0.1 * np.var(row1)
 
+    def test_lowcut_zero_with_highcut(self):
+        """
+        butter_filter with lowcut=0 and highcut=100 creates a bandpass with Wn=[0, ...].
+
+        Tests:
+            (Test Case 1) lowcut=0 with highcut creates a bandpass filter.
+                Wn=[0, highcut/fs*2] where Wn[0]=0 is invalid for bandpass,
+                raising a ValueError.
+
+        Notes:
+            - The code does not treat lowcut=0 as lowcut=None. It creates
+              a bandpass filter with Wn=0, which scipy rejects.
+        """
+        data = np.random.rand(1000)
+        with pytest.raises(ValueError):
+            butter_filter(data, lowcut=0, highcut=100, fs=20000)
+
+    def test_fs_zero_division_by_zero(self):
+        """
+        fs=0 causes division by zero in the Nyquist frequency calculation
+        (Wn = highcut / (0 * 0.5) = inf), which scipy rejects.
+
+        Tests:
+            (Test Case 1) fs=0 with highcut=100 raises an error from scipy
+                due to invalid normalized frequency.
+        """
+        with pytest.raises((ValueError, ZeroDivisionError)):
+            butter_filter(np.ones(100), highcut=100.0, fs=0.0)
+
 
 # ---------------------------------------------------------------------------
 # trough_between
@@ -1022,6 +1051,24 @@ class TestPCAReduction:
         assert embedding.shape == (10, 2)
         np.testing.assert_allclose(embedding, 0.0, atol=1e-10)
 
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not installed")
+    def test_n_components_zero(self):
+        """
+        PCA_reduction with n_components=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) n_components=0: PCA(n_components=0) raises ValueError
+                from scikit-learn.
+        """
+        from spikelab.spikedata.utils import PCA_reduction
+
+        data = np.random.default_rng(0).random((10, 5))
+        # n_components=0 does not exceed max_components check (0 <= 5),
+        # but PCA(n_components=0) may not raise in all sklearn versions.
+        # In some versions, it produces a (10, 0) embedding silently.
+        embedding, var_ratio, components = PCA_reduction(data, n_components=0)
+        assert embedding.shape == (10, 0) or embedding.shape[1] == 0
+
 
 # ---------------------------------------------------------------------------
 # UMAP_reduction
@@ -1171,6 +1218,63 @@ class TestResampledIsi:
         with pytest.raises(ValueError, match="duplicate values"):
             _resampled_isi(spikes, times, sigma_ms=2.0)
 
+    def test_negative_sigma(self):
+        """
+        _resampled_isi with negative sigma_ms may raise or produce unexpected output.
+
+        Tests:
+            (Test Case 1) Negative sigma produces a negative sigma for
+                gaussian_filter1d, which raises a ValueError in scipy >= 1.7.
+        """
+        from spikelab.spikedata.utils import _resampled_isi
+
+        spikes = [1.0, 5.0, 10.0]
+        times = np.linspace(0, 15, 100)
+        try:
+            result = _resampled_isi(spikes, times, sigma_ms=-5.0)
+            # If scipy doesn't raise, result is still produced
+            assert isinstance(result, np.ndarray)
+        except (ValueError, RuntimeError):
+            pass  # Expected for scipy versions that validate sigma
+
+    def test_non_uniform_time_grid(self):
+        """
+        _resampled_isi uses times[1] - times[0] as a uniform step size.
+        Non-uniform time grids produce wrong results because the bin assignment
+        assumes constant dt_ms.
+
+        Tests:
+            (Test Case 1) Non-uniform time grid [0, 1, 5, 10, 20]. The function
+                uses dt_ms = 1.0 (from times[1] - times[0]) regardless of the
+                actual spacing. It does not raise an error. Output shape matches
+                the times array.
+
+        Notes:
+            - This is a known limitation: the function assumes a uniform grid
+              but does not validate this assumption. Results for non-uniform
+              grids are unreliable.
+        """
+        spikes = np.array([2.0, 8.0, 15.0])
+        times = np.array([0.0, 1.0, 5.0, 10.0, 20.0])
+        result = _resampled_isi(spikes, times, sigma_ms=2.0)
+        assert result.shape == times.shape
+
+    def test_spikes_outside_times_range(self):
+        """
+        Spikes outside the times range are extrapolated as constant from
+        the edge, which is the behaviour of np.interp.
+
+        Tests:
+            (Test Case 1) Spikes at -50 and 150 with times [0, 100]. The
+                function does not raise and returns an array matching times shape.
+        """
+        spikes = np.array([-50.0, 10.0, 50.0, 150.0])
+        times = np.arange(0, 100, 1.0)
+        result = _resampled_isi(spikes, times, sigma_ms=5.0)
+        assert result.shape == times.shape
+        # Some values should be nonzero (from the interior spikes)
+        assert np.any(result > 0)
+
 
 class TestRandomize:
     """Edge-case tests for the randomize function."""
@@ -1216,6 +1320,57 @@ class TestRandomize:
         ar = np.array([[0, 1, 0, 2], [1, 0, 1, 0], [0, 0, 0, 1]])
         with pytest.raises(ValueError, match="binary"):
             randomize(ar, seed=42)
+
+    def test_all_ones_raster(self):
+        """
+        randomize with an all-ones raster: no swaps possible.
+
+        Tests:
+            (Test Case 1) An all-ones raster issues RuntimeWarning about
+                insufficient swaps since all off-diagonal positions are occupied.
+        """
+        from spikelab.spikedata.spikedata import randomize
+
+        ar = np.ones((3, 3))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = randomize(ar, swap_per_spike=5, seed=42)
+        # Result should be identical since no swaps are possible
+        np.testing.assert_array_equal(result, 1)
+
+    def test_1x1_raster(self):
+        """
+        randomize with a 1x1 raster with a single spike.
+
+        Tests:
+            (Test Case 1) Single element raster issues RuntimeWarning and
+                returns unchanged.
+        """
+        from spikelab.spikedata.spikedata import randomize
+
+        ar = np.array([[1.0]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = randomize(ar, swap_per_spike=5, seed=42)
+        assert result.shape == (1, 1)
+        assert result[0, 0] == 1
+
+    def test_all_ones_raster(self):
+        """
+        An all-ones raster has no valid swaps possible (all positions are
+        occupied), so the function issues a RuntimeWarning about insufficient
+        swaps.
+
+        Tests:
+            (Test Case 1) 3x10 all-ones raster. No valid swap can change the
+                raster because all positions are 1. A RuntimeWarning is issued.
+                The output is still all-ones with the same shape.
+        """
+        raster = np.ones((3, 10), dtype=int)
+        with pytest.warns(RuntimeWarning, match="Not sufficient"):
+            result = randomize(raster, seed=42)
+        assert result.shape == (3, 10)
+        np.testing.assert_array_equal(result, 1)
 
 
 class TestExtractWaveforms:
@@ -1586,6 +1741,89 @@ class TestGetSttc:
         with pytest.raises(ValueError, match="delt must be positive"):
             get_sttc(tA, tB, delt=0.0, length=100.0)
 
+    def test_length_zero_with_non_empty_trains(self):
+        """
+        get_sttc with length=0 produces division by zero (Inf/NaN).
+
+        Tests:
+            (Test Case 1) length=0 with non-empty trains: TA = _sttc_ta(...)/0
+                produces Inf, and the formula may return NaN.
+
+        Notes:
+            - This is a bug: no validation guard for length=0. The division
+              by zero produces Inf which propagates to NaN in the formula.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        tA = [0.0]
+        tB = [0.0]
+        result = get_sttc(tA, tB, delt=20.0, length=0.0)
+        # Division by zero produces Inf, which propagates
+        assert np.isnan(result) or np.isinf(result)
+
+    def test_delt_much_larger_than_length(self):
+        """
+        get_sttc with delt >> length produces STTC that may exceed [-1, 1].
+
+        Tests:
+            (Test Case 1) delt=10000 with length=10 produces large TA/TB
+                ratios but the formula still returns a finite value.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        tA = [2.0, 5.0, 8.0]
+        tB = [3.0, 6.0, 9.0]
+        result = get_sttc(tA, tB, delt=10000.0, length=10.0)
+        assert np.isfinite(result)
+
+    def test_identical_single_spike_trains(self):
+        """
+        get_sttc with single identical spikes: PA=1, TB=1, formula returns 0.
+
+        Tests:
+            (Test Case 1) Both trains have a single spike at the same time.
+                PA*TB == 1, so the denominator is 0 and the result is 0.
+        """
+        from spikelab.spikedata.utils import get_sttc
+
+        result = get_sttc([5.0], [5.0], delt=20.0, length=10.0)
+        assert np.isfinite(result)
+
+    def test_length_zero_division_by_zero(self):
+        """
+        length=0 causes division by zero in _sttc_ta / length.
+
+        Tests:
+            (Test Case 1) Two non-empty trains with length=0. The division
+                by zero in _sttc_ta / length produces inf or nan. The function
+                does not raise, but the result is not finite.
+
+        Notes:
+            - This is a potential bug: length=0 is not validated, and the
+              division by zero produces non-finite results silently.
+        """
+        tA = [10.0, 20.0, 30.0]
+        tB = [15.0, 25.0, 35.0]
+        result = get_sttc(tA, tB, delt=5.0, length=0.0)
+        # Division by zero produces non-finite result
+        assert isinstance(result, (float, np.floating))
+
+    def test_negative_spike_times_with_negative_base(self):
+        """
+        Negative spike times produce negative base in _sttc_ta via
+        min(delt, tA[0]) when tA[0] < 0.
+
+        Tests:
+            (Test Case 1) Spike trains with negative times and small delt.
+                _sttc_ta computes min(delt, tA[0]) where tA[0] is negative,
+                producing a negative contribution. Function returns a finite float.
+        """
+        tA = np.array([-100.0, -50.0, 0.0])
+        tB = np.array([-90.0, -40.0, 10.0])
+        result = get_sttc(tA, tB, delt=5.0, length=200.0)
+        assert isinstance(result, (float, np.floating))
+        assert np.isfinite(result)
+
 
 # ---------------------------------------------------------------------------
 # swap — standalone tests
@@ -1883,6 +2121,49 @@ class TestConsecutiveDurations:
 
         below = consecutive_durations(sig, 0.5, mode="below")
         assert below.size == 0
+
+    def test_min_dur_zero(self):
+        """
+        consecutive_durations with min_dur=0 includes all runs.
+
+        Tests:
+            (Test Case 1) min_dur=0 keeps runs of length 1.
+        """
+        signal = np.array([1.0, 0.0, 1.0, 1.0, 0.0])
+        result = consecutive_durations(signal, threshold=0.5, mode="above", min_dur=0)
+        # Runs above 0.5: [1.0] (len=1), [1.0, 1.0] (len=2)
+        np.testing.assert_array_equal(sorted(result), [1, 2])
+
+    def test_all_nan_signal(self):
+        """
+        consecutive_durations with all-NaN signal produces no runs.
+
+        Tests:
+            (Test Case 1) NaN >= threshold is False, NaN < threshold is False.
+                No runs in either mode.
+        """
+        signal = np.full(10, np.nan)
+        result_above = consecutive_durations(signal, threshold=0.5, mode="above")
+        result_below = consecutive_durations(signal, threshold=0.5, mode="below")
+        assert len(result_above) == 0
+        assert len(result_below) == 0
+
+    def test_values_at_threshold_boundary(self):
+        """
+        Values exactly equal to threshold are on the boundary between
+        >= (above) and < (below).
+
+        Tests:
+            (Test Case 1) Signal [0.4, 0.5, 0.5, 0.6, 0.5, 0.4] with
+                threshold=0.5. In 'above' mode, values >= 0.5 are indices
+                1,2,3,4 giving one run of length 4. In 'below' mode, values
+                < 0.5 are indices 0,5 giving two runs of length 1.
+        """
+        signal = np.array([0.4, 0.5, 0.5, 0.6, 0.5, 0.4])
+        above = consecutive_durations(signal, 0.5, mode="above")
+        np.testing.assert_array_equal(above, [4])
+        below = consecutive_durations(signal, 0.5, mode="below")
+        np.testing.assert_array_equal(below, [1, 1])
 
 
 # ---------------------------------------------------------------------------
@@ -2302,6 +2583,31 @@ class TestShuffleZScore:
         z = shuffle_z_score(10.0, dist)
         assert np.isnan(z)
 
+    def test_single_element_distribution(self):
+        """
+        shuffle_z_score with N=1 shuffle distribution: std=0, z=NaN.
+
+        Tests:
+            (Test Case 1) Single-element shuffle distribution has std=0,
+                producing NaN z-score.
+        """
+        result = shuffle_z_score(5.0, np.array([3.0]))
+        assert np.isnan(result)
+
+    def test_empty_distribution(self):
+        """
+        An empty shuffle distribution causes np.nanmean and np.nanstd over
+        empty arrays. np.nanmean of empty array returns NaN with a
+        RuntimeWarning.
+
+        Tests:
+            (Test Case 1) Empty distribution array. The function returns NaN.
+        """
+        dist = np.array([])
+        with pytest.warns(RuntimeWarning):
+            z = shuffle_z_score(5.0, dist)
+        assert np.isnan(z)
+
 
 # ---------------------------------------------------------------------------
 # shuffle_percentile
@@ -2373,6 +2679,18 @@ class TestShufflePercentile:
         with pytest.warns(RuntimeWarning):
             pct = shuffle_percentile(5.0, dist)
         assert np.isnan(pct)
+
+    def test_nan_in_distribution(self):
+        """
+        shuffle_percentile with NaN values in the distribution.
+
+        Tests:
+            (Test Case 1) NaN <= observed is False, so NaN entries effectively
+                lower the percentile.
+        """
+        result = shuffle_percentile(5.0, np.array([1.0, np.nan, 3.0, 7.0]))
+        # NaN <= 5.0 is False, so 2 out of 4 are <= 5.0
+        assert result == pytest.approx(0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -2473,6 +2791,31 @@ class TestSliceTrend:
         with pytest.raises(ValueError):
             slice_trend(values)
 
+    def test_exactly_two_non_nan_values(self):
+        """
+        slice_trend with exactly 2 non-NaN values: minimum for linregress.
+
+        Tests:
+            (Test Case 1) Two points produce an exact fit (R^2=1).
+        """
+        values = np.array([1.0, np.nan, 3.0])
+        slope, p_value = slice_trend(values)
+        assert np.isfinite(slope)
+        assert slope == pytest.approx(1.0)
+
+    def test_constant_values_zero_slope(self):
+        """
+        Constant values produce slope=0 but p-value may be NaN because
+        the residual is zero and the regression is degenerate.
+
+        Tests:
+            (Test Case 1) values=[5.0, 5.0, 5.0, 5.0]. Slope is 0.0.
+                p-value may be NaN or 1.0 depending on scipy version.
+        """
+        values = np.array([5.0, 5.0, 5.0, 5.0])
+        slope, p = slice_trend(values)
+        assert slope == pytest.approx(0.0)
+
 
 # ---------------------------------------------------------------------------
 # slice_stability
@@ -2562,6 +2905,43 @@ class TestSliceStability:
         cv_zero = slice_stability(np.array([0.0]))
         assert np.isnan(cv_zero)
 
+    def test_all_identical_values(self):
+        """
+        slice_stability with all-identical values: std=0, mean!=0, cv=0.
+
+        Tests:
+            (Test Case 1) All identical non-zero values produce cv=0.
+        """
+        result = slice_stability(np.array([5.0, 5.0, 5.0]))
+        # std=0, mean=5.0, cv = 0/5 = 0
+        # But with the safe_mean guard: abs_mean != 0, so cv = 0/5 = 0
+        assert result == pytest.approx(0.0)
+
+    def test_2d_input(self):
+        """
+        slice_stability with 2D input computes cv along axis 0.
+
+        Tests:
+            (Test Case 1) 2D array returns an array of cv values.
+        """
+        values = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        result = slice_stability(values)
+        assert result.shape == (2,)
+
+    def test_all_nan_values(self):
+        """
+        All-NaN values produce NaN mean and NaN std. CV is NaN.
+
+        Tests:
+            (Test Case 1) values=[NaN, NaN, NaN]. nanmean is NaN (with
+                RuntimeWarning), so abs_mean==0 check does not trigger
+                correctly. Result is NaN.
+        """
+        values = np.array([np.nan, np.nan, np.nan])
+        with pytest.warns(RuntimeWarning):
+            cv = slice_stability(values)
+        assert np.isnan(cv)
+
 
 # ---------------------------------------------------------------------------
 # check_neuron_attributes
@@ -2591,141 +2971,15 @@ class TestCheckNeuronAttributes:
 # ---------------------------------------------------------------------------
 # Edge Case Tests — get_sttc
 # ---------------------------------------------------------------------------
-
-
-class TestGetSttc2:
-    """Edge case tests for get_sttc identified in the edge case scan."""
-
-    def test_length_zero_division_by_zero(self):
-        """
-        length=0 causes division by zero in _sttc_ta / length.
-
-        Tests:
-            (Test Case 1) Two non-empty trains with length=0. The division
-                by zero in _sttc_ta / length produces inf or nan. The function
-                does not raise, but the result is not finite.
-
-        Notes:
-            - This is a potential bug: length=0 is not validated, and the
-              division by zero produces non-finite results silently.
-        """
-        tA = [10.0, 20.0, 30.0]
-        tB = [15.0, 25.0, 35.0]
-        result = get_sttc(tA, tB, delt=5.0, length=0.0)
-        # Division by zero produces non-finite result
-        assert isinstance(result, (float, np.floating))
-
-    def test_negative_spike_times_with_negative_base(self):
-        """
-        Negative spike times produce negative base in _sttc_ta via
-        min(delt, tA[0]) when tA[0] < 0.
-
-        Tests:
-            (Test Case 1) Spike trains with negative times and small delt.
-                _sttc_ta computes min(delt, tA[0]) where tA[0] is negative,
-                producing a negative contribution. Function returns a finite float.
-        """
-        tA = np.array([-100.0, -50.0, 0.0])
-        tB = np.array([-90.0, -40.0, 10.0])
-        result = get_sttc(tA, tB, delt=5.0, length=200.0)
-        assert isinstance(result, (float, np.floating))
-        assert np.isfinite(result)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — _resampled_isi
 # ---------------------------------------------------------------------------
-
-
-class TestResampledIsi2:
-    """Edge case tests for _resampled_isi identified in the edge case scan."""
-
-    def test_non_uniform_time_grid(self):
-        """
-        _resampled_isi uses times[1] - times[0] as a uniform step size.
-        Non-uniform time grids produce wrong results because the bin assignment
-        assumes constant dt_ms.
-
-        Tests:
-            (Test Case 1) Non-uniform time grid [0, 1, 5, 10, 20]. The function
-                uses dt_ms = 1.0 (from times[1] - times[0]) regardless of the
-                actual spacing. It does not raise an error. Output shape matches
-                the times array.
-
-        Notes:
-            - This is a known limitation: the function assumes a uniform grid
-              but does not validate this assumption. Results for non-uniform
-              grids are unreliable.
-        """
-        spikes = np.array([2.0, 8.0, 15.0])
-        times = np.array([0.0, 1.0, 5.0, 10.0, 20.0])
-        result = _resampled_isi(spikes, times, sigma_ms=2.0)
-        assert result.shape == times.shape
-
-    def test_spikes_outside_times_range(self):
-        """
-        Spikes outside the times range are extrapolated as constant from
-        the edge, which is the behaviour of np.interp.
-
-        Tests:
-            (Test Case 1) Spikes at -50 and 150 with times [0, 100]. The
-                function does not raise and returns an array matching times shape.
-        """
-        spikes = np.array([-50.0, 10.0, 50.0, 150.0])
-        times = np.arange(0, 100, 1.0)
-        result = _resampled_isi(spikes, times, sigma_ms=5.0)
-        assert result.shape == times.shape
-        # Some values should be nonzero (from the interior spikes)
-        assert np.any(result > 0)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — butter_filter
 # ---------------------------------------------------------------------------
-
-
-class TestButterFilter2:
-    """Edge case tests for butter_filter identified in the edge case scan."""
-
-    def test_fs_zero_division_by_zero(self):
-        """
-        fs=0 causes division by zero in the Nyquist frequency calculation
-        (Wn = highcut / (0 * 0.5) = inf), which scipy rejects.
-
-        Tests:
-            (Test Case 1) fs=0 with highcut=100 raises an error from scipy
-                due to invalid normalized frequency.
-        """
-        with pytest.raises((ValueError, ZeroDivisionError)):
-            butter_filter(np.ones(100), highcut=100.0, fs=0.0)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — randomize
 # ---------------------------------------------------------------------------
-
-
-class TestRandomize2:
-    """Edge case tests for randomize identified in the edge case scan."""
-
-    def test_all_ones_raster(self):
-        """
-        An all-ones raster has no valid swaps possible (all positions are
-        occupied), so the function issues a RuntimeWarning about insufficient
-        swaps.
-
-        Tests:
-            (Test Case 1) 3x10 all-ones raster. No valid swap can change the
-                raster because all positions are 1. A RuntimeWarning is issued.
-                The output is still all-ones with the same shape.
-        """
-        raster = np.ones((3, 10), dtype=int)
-        with pytest.warns(RuntimeWarning, match="Not sufficient"):
-            result = randomize(raster, seed=42)
-        assert result.shape == (3, 10)
-        np.testing.assert_array_equal(result, 1)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — compute_cross_correlation_with_lag
 # ---------------------------------------------------------------------------
@@ -2770,6 +3024,31 @@ class TestComputeCrossCorrelation:
         assert isinstance(corr, (int, float, np.integer, np.floating))
         assert isinstance(lag, (int, float, np.integer, np.floating))
 
+    def test_length_one_signal(self):
+        """
+        compute_cross_correlation_with_lag with length-1 signals.
+
+        Tests:
+            (Test Case 1) Length-1 signals produce a valid result without error.
+        """
+        ref = np.array([1.0])
+        comp = np.array([2.0])
+        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=0)
+        assert np.isfinite(max_corr)
+        assert max_lag == 0
+
+    def test_length_two_signal(self):
+        """
+        compute_cross_correlation_with_lag with length-2 signals and max_lag=1.
+
+        Tests:
+            (Test Case 1) Length-2 signals produce a valid result.
+        """
+        ref = np.array([1.0, 0.0])
+        comp = np.array([0.0, 1.0])
+        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=1)
+        assert np.isfinite(max_corr)
+
 
 # ---------------------------------------------------------------------------
 # Edge Case Tests — compute_cosine_similarity_with_lag
@@ -2809,101 +3088,45 @@ class TestComputeCosineSimilarity:
         assert isinstance(sim, (float, np.floating))
         assert abs(lag) < len(sig)
 
+    def test_max_lag_equals_signal_length_minus_one(self):
+        """
+        compute_cosine_similarity_with_lag with max_lag == len(signal) - 1.
+
+        Tests:
+            (Test Case 1) At extreme lag, overlapping segment has length 1.
+                This produces a degenerate cosine similarity.
+        """
+        ref = np.array([1.0, 2.0, 3.0])
+        comp = np.array([3.0, 2.0, 1.0])
+        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=2)
+        assert np.isfinite(max_sim)
+
+    def test_all_nan_input(self):
+        """
+        compute_cosine_similarity_with_lag with all-NaN input returns NaN.
+
+        Tests:
+            (Test Case 1) NaN input produces NaN similarity and lag 0.
+        """
+        ref = np.array([np.nan, np.nan])
+        comp = np.array([np.nan, np.nan])
+        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=0)
+        assert np.isnan(max_sim)
+        assert max_lag == 0
+
 
 # ---------------------------------------------------------------------------
 # Edge Case Tests — consecutive_durations
 # ---------------------------------------------------------------------------
-
-
-class TestConsecutiveDurations2:
-    """Edge case tests for consecutive_durations."""
-
-    def test_values_at_threshold_boundary(self):
-        """
-        Values exactly equal to threshold are on the boundary between
-        >= (above) and < (below).
-
-        Tests:
-            (Test Case 1) Signal [0.4, 0.5, 0.5, 0.6, 0.5, 0.4] with
-                threshold=0.5. In 'above' mode, values >= 0.5 are indices
-                1,2,3,4 giving one run of length 4. In 'below' mode, values
-                < 0.5 are indices 0,5 giving two runs of length 1.
-        """
-        signal = np.array([0.4, 0.5, 0.5, 0.6, 0.5, 0.4])
-        above = consecutive_durations(signal, 0.5, mode="above")
-        np.testing.assert_array_equal(above, [4])
-        below = consecutive_durations(signal, 0.5, mode="below")
-        np.testing.assert_array_equal(below, [1, 1])
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — shuffle_z_score
 # ---------------------------------------------------------------------------
-
-
-class TestShuffleZScore2:
-    """Edge case tests for shuffle_z_score."""
-
-    def test_empty_distribution(self):
-        """
-        An empty shuffle distribution causes np.nanmean and np.nanstd over
-        empty arrays. np.nanmean of empty array returns NaN with a
-        RuntimeWarning.
-
-        Tests:
-            (Test Case 1) Empty distribution array. The function returns NaN.
-        """
-        dist = np.array([])
-        with pytest.warns(RuntimeWarning):
-            z = shuffle_z_score(5.0, dist)
-        assert np.isnan(z)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — slice_trend
 # ---------------------------------------------------------------------------
-
-
-class TestSliceTrend2:
-    """Edge case tests for slice_trend."""
-
-    def test_constant_values_zero_slope(self):
-        """
-        Constant values produce slope=0 but p-value may be NaN because
-        the residual is zero and the regression is degenerate.
-
-        Tests:
-            (Test Case 1) values=[5.0, 5.0, 5.0, 5.0]. Slope is 0.0.
-                p-value may be NaN or 1.0 depending on scipy version.
-        """
-        values = np.array([5.0, 5.0, 5.0, 5.0])
-        slope, p = slice_trend(values)
-        assert slope == pytest.approx(0.0)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — slice_stability
 # ---------------------------------------------------------------------------
-
-
-class TestSliceStability2:
-    """Edge case tests for slice_stability."""
-
-    def test_all_nan_values(self):
-        """
-        All-NaN values produce NaN mean and NaN std. CV is NaN.
-
-        Tests:
-            (Test Case 1) values=[NaN, NaN, NaN]. nanmean is NaN (with
-                RuntimeWarning), so abs_mean==0 check does not trigger
-                correctly. Result is NaN.
-        """
-        values = np.array([np.nan, np.nan, np.nan])
-        with pytest.warns(RuntimeWarning):
-            cv = slice_stability(values)
-        assert np.isnan(cv)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — _validate_time_start_to_end
 # ---------------------------------------------------------------------------
@@ -2969,6 +3192,22 @@ class TestValidateTimeStartToEnd:
         with pytest.raises(ValueError, match="same length"):
             _validate_time_start_to_end(bad_windows)
 
+    def test_exact_boundary_match(self):
+        """
+        Windows exactly at the recording range boundary pass validation.
+
+        Tests:
+            (Test Case 1) window[0] == rec_start and window[1] == rec_end
+                does not raise since checks are < and >.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        result = _validate_time_start_to_end(
+            [(0.0, 100.0)], recording_range=(0.0, 100.0)
+        )
+        assert len(result) == 1
+        assert result[0] == (0.0, 100.0)
+
 
 # ---------------------------------------------------------------------------
 # Edge Case Tests — times_from_ms / to_ms
@@ -3018,347 +3257,6 @@ class TestTimesConversion:
 # ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan
 # ---------------------------------------------------------------------------
-
-
-class TestGetSttc22:
-    """Additional edge case tests for get_sttc."""
-
-    def test_length_zero_with_non_empty_trains(self):
-        """
-        get_sttc with length=0 produces division by zero (Inf/NaN).
-
-        Tests:
-            (Test Case 1) length=0 with non-empty trains: TA = _sttc_ta(...)/0
-                produces Inf, and the formula may return NaN.
-
-        Notes:
-            - This is a bug: no validation guard for length=0. The division
-              by zero produces Inf which propagates to NaN in the formula.
-        """
-        from spikelab.spikedata.utils import get_sttc
-
-        tA = [0.0]
-        tB = [0.0]
-        result = get_sttc(tA, tB, delt=20.0, length=0.0)
-        # Division by zero produces Inf, which propagates
-        assert np.isnan(result) or np.isinf(result)
-
-    def test_delt_much_larger_than_length(self):
-        """
-        get_sttc with delt >> length produces STTC that may exceed [-1, 1].
-
-        Tests:
-            (Test Case 1) delt=10000 with length=10 produces large TA/TB
-                ratios but the formula still returns a finite value.
-        """
-        from spikelab.spikedata.utils import get_sttc
-
-        tA = [2.0, 5.0, 8.0]
-        tB = [3.0, 6.0, 9.0]
-        result = get_sttc(tA, tB, delt=10000.0, length=10.0)
-        assert np.isfinite(result)
-
-    def test_identical_single_spike_trains(self):
-        """
-        get_sttc with single identical spikes: PA=1, TB=1, formula returns 0.
-
-        Tests:
-            (Test Case 1) Both trains have a single spike at the same time.
-                PA*TB == 1, so the denominator is 0 and the result is 0.
-        """
-        from spikelab.spikedata.utils import get_sttc
-
-        result = get_sttc([5.0], [5.0], delt=20.0, length=10.0)
-        assert np.isfinite(result)
-
-
-class TestResampledIsi22:
-    """Additional edge case tests for _resampled_isi."""
-
-    def test_negative_sigma(self):
-        """
-        _resampled_isi with negative sigma_ms may raise or produce unexpected output.
-
-        Tests:
-            (Test Case 1) Negative sigma produces a negative sigma for
-                gaussian_filter1d, which raises a ValueError in scipy >= 1.7.
-        """
-        from spikelab.spikedata.utils import _resampled_isi
-
-        spikes = [1.0, 5.0, 10.0]
-        times = np.linspace(0, 15, 100)
-        try:
-            result = _resampled_isi(spikes, times, sigma_ms=-5.0)
-            # If scipy doesn't raise, result is still produced
-            assert isinstance(result, np.ndarray)
-        except (ValueError, RuntimeError):
-            pass  # Expected for scipy versions that validate sigma
-
-
-class TestComputeCrossCorrelation2:
-    """Additional edge case tests for compute_cross_correlation_with_lag."""
-
-    def test_length_one_signal(self):
-        """
-        compute_cross_correlation_with_lag with length-1 signals.
-
-        Tests:
-            (Test Case 1) Length-1 signals produce a valid result without error.
-        """
-        ref = np.array([1.0])
-        comp = np.array([2.0])
-        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=0)
-        assert np.isfinite(max_corr)
-        assert max_lag == 0
-
-    def test_length_two_signal(self):
-        """
-        compute_cross_correlation_with_lag with length-2 signals and max_lag=1.
-
-        Tests:
-            (Test Case 1) Length-2 signals produce a valid result.
-        """
-        ref = np.array([1.0, 0.0])
-        comp = np.array([0.0, 1.0])
-        max_corr, max_lag = compute_cross_correlation_with_lag(ref, comp, max_lag=1)
-        assert np.isfinite(max_corr)
-
-
-class TestComputeCosineSimilarity2:
-    """Additional edge case tests for compute_cosine_similarity_with_lag."""
-
-    def test_max_lag_equals_signal_length_minus_one(self):
-        """
-        compute_cosine_similarity_with_lag with max_lag == len(signal) - 1.
-
-        Tests:
-            (Test Case 1) At extreme lag, overlapping segment has length 1.
-                This produces a degenerate cosine similarity.
-        """
-        ref = np.array([1.0, 2.0, 3.0])
-        comp = np.array([3.0, 2.0, 1.0])
-        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=2)
-        assert np.isfinite(max_sim)
-
-    def test_all_nan_input(self):
-        """
-        compute_cosine_similarity_with_lag with all-NaN input returns NaN.
-
-        Tests:
-            (Test Case 1) NaN input produces NaN similarity and lag 0.
-        """
-        ref = np.array([np.nan, np.nan])
-        comp = np.array([np.nan, np.nan])
-        max_sim, max_lag = compute_cosine_similarity_with_lag(ref, comp, max_lag=0)
-        assert np.isnan(max_sim)
-        assert max_lag == 0
-
-
-class TestPCAReduction2:
-    """Edge case tests for PCA_reduction."""
-
-    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not installed")
-    def test_n_components_zero(self):
-        """
-        PCA_reduction with n_components=0 raises ValueError.
-
-        Tests:
-            (Test Case 1) n_components=0: PCA(n_components=0) raises ValueError
-                from scikit-learn.
-        """
-        from spikelab.spikedata.utils import PCA_reduction
-
-        data = np.random.default_rng(0).random((10, 5))
-        # n_components=0 does not exceed max_components check (0 <= 5),
-        # but PCA(n_components=0) may not raise in all sklearn versions.
-        # In some versions, it produces a (10, 0) embedding silently.
-        embedding, var_ratio, components = PCA_reduction(data, n_components=0)
-        assert embedding.shape == (10, 0) or embedding.shape[1] == 0
-
-
-class TestButterFilter22:
-    """Additional edge case tests for butter_filter."""
-
-    def test_lowcut_zero_with_highcut(self):
-        """
-        butter_filter with lowcut=0 and highcut=100 creates a bandpass with Wn=[0, ...].
-
-        Tests:
-            (Test Case 1) lowcut=0 with highcut creates a bandpass filter.
-                Wn=[0, highcut/fs*2] where Wn[0]=0 is invalid for bandpass,
-                raising a ValueError.
-
-        Notes:
-            - The code does not treat lowcut=0 as lowcut=None. It creates
-              a bandpass filter with Wn=0, which scipy rejects.
-        """
-        data = np.random.rand(1000)
-        with pytest.raises(ValueError):
-            butter_filter(data, lowcut=0, highcut=100, fs=20000)
-
-
-class TestRandomize22:
-    """Additional edge case tests for randomize."""
-
-    def test_all_ones_raster(self):
-        """
-        randomize with an all-ones raster: no swaps possible.
-
-        Tests:
-            (Test Case 1) An all-ones raster issues RuntimeWarning about
-                insufficient swaps since all off-diagonal positions are occupied.
-        """
-        from spikelab.spikedata.spikedata import randomize
-
-        ar = np.ones((3, 3))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            result = randomize(ar, swap_per_spike=5, seed=42)
-        # Result should be identical since no swaps are possible
-        np.testing.assert_array_equal(result, 1)
-
-    def test_1x1_raster(self):
-        """
-        randomize with a 1x1 raster with a single spike.
-
-        Tests:
-            (Test Case 1) Single element raster issues RuntimeWarning and
-                returns unchanged.
-        """
-        from spikelab.spikedata.spikedata import randomize
-
-        ar = np.array([[1.0]])
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            result = randomize(ar, swap_per_spike=5, seed=42)
-        assert result.shape == (1, 1)
-        assert result[0, 0] == 1
-
-
-class TestConsecutiveDurations22:
-    """Additional edge case tests for consecutive_durations."""
-
-    def test_min_dur_zero(self):
-        """
-        consecutive_durations with min_dur=0 includes all runs.
-
-        Tests:
-            (Test Case 1) min_dur=0 keeps runs of length 1.
-        """
-        signal = np.array([1.0, 0.0, 1.0, 1.0, 0.0])
-        result = consecutive_durations(signal, threshold=0.5, mode="above", min_dur=0)
-        # Runs above 0.5: [1.0] (len=1), [1.0, 1.0] (len=2)
-        np.testing.assert_array_equal(sorted(result), [1, 2])
-
-    def test_all_nan_signal(self):
-        """
-        consecutive_durations with all-NaN signal produces no runs.
-
-        Tests:
-            (Test Case 1) NaN >= threshold is False, NaN < threshold is False.
-                No runs in either mode.
-        """
-        signal = np.full(10, np.nan)
-        result_above = consecutive_durations(signal, threshold=0.5, mode="above")
-        result_below = consecutive_durations(signal, threshold=0.5, mode="below")
-        assert len(result_above) == 0
-        assert len(result_below) == 0
-
-
-class TestShuffleZScore22:
-    """Additional edge case tests for shuffle_z_score."""
-
-    def test_single_element_distribution(self):
-        """
-        shuffle_z_score with N=1 shuffle distribution: std=0, z=NaN.
-
-        Tests:
-            (Test Case 1) Single-element shuffle distribution has std=0,
-                producing NaN z-score.
-        """
-        result = shuffle_z_score(5.0, np.array([3.0]))
-        assert np.isnan(result)
-
-
-class TestShufflePercentile2:
-    """Edge case tests for shuffle_percentile."""
-
-    def test_nan_in_distribution(self):
-        """
-        shuffle_percentile with NaN values in the distribution.
-
-        Tests:
-            (Test Case 1) NaN <= observed is False, so NaN entries effectively
-                lower the percentile.
-        """
-        result = shuffle_percentile(5.0, np.array([1.0, np.nan, 3.0, 7.0]))
-        # NaN <= 5.0 is False, so 2 out of 4 are <= 5.0
-        assert result == pytest.approx(0.5)
-
-
-class TestSliceTrend22:
-    """Additional edge case tests for slice_trend."""
-
-    def test_exactly_two_non_nan_values(self):
-        """
-        slice_trend with exactly 2 non-NaN values: minimum for linregress.
-
-        Tests:
-            (Test Case 1) Two points produce an exact fit (R^2=1).
-        """
-        values = np.array([1.0, np.nan, 3.0])
-        slope, p_value = slice_trend(values)
-        assert np.isfinite(slope)
-        assert slope == pytest.approx(1.0)
-
-
-class TestSliceStability22:
-    """Additional edge case tests for slice_stability."""
-
-    def test_all_identical_values(self):
-        """
-        slice_stability with all-identical values: std=0, mean!=0, cv=0.
-
-        Tests:
-            (Test Case 1) All identical non-zero values produce cv=0.
-        """
-        result = slice_stability(np.array([5.0, 5.0, 5.0]))
-        # std=0, mean=5.0, cv = 0/5 = 0
-        # But with the safe_mean guard: abs_mean != 0, so cv = 0/5 = 0
-        assert result == pytest.approx(0.0)
-
-    def test_2d_input(self):
-        """
-        slice_stability with 2D input computes cv along axis 0.
-
-        Tests:
-            (Test Case 1) 2D array returns an array of cv values.
-        """
-        values = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        result = slice_stability(values)
-        assert result.shape == (2,)
-
-
-class TestValidateTimeStartToEnd2:
-    """Additional edge case tests for _validate_time_start_to_end."""
-
-    def test_exact_boundary_match(self):
-        """
-        Windows exactly at the recording range boundary pass validation.
-
-        Tests:
-            (Test Case 1) window[0] == rec_start and window[1] == rec_end
-                does not raise since checks are < and >.
-        """
-        from spikelab.spikedata.utils import _validate_time_start_to_end
-
-        result = _validate_time_start_to_end(
-            [(0.0, 100.0)], recording_range=(0.0, 100.0)
-        )
-        assert len(result) == 1
-        assert result[0] == (0.0, 100.0)
-
-
 class TestRankOrderCorrelation:
     """Edge case tests for _rank_order_correlation_from_timing."""
 

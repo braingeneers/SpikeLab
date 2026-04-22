@@ -209,6 +209,30 @@ class TestPlotHeatmap:
         assert xt == ["0ms", "50ms", "90ms"]
         assert yt == ["U1", "U4"]
 
+    def test_all_nan_matrix(self):
+        """
+        plot_heatmap with all-NaN matrix.
+
+        Tests:
+            (Test Case 1) All-NaN matrix does not crash and returns a figure.
+        """
+        mat = np.full((3, 3), np.nan)
+        fig, ax = plt.subplots()
+        plot_heatmap(mat, ax=ax)
+        plt.close(fig)
+
+    def test_1x1_matrix(self):
+        """
+        plot_heatmap with a 1x1 matrix.
+
+        Tests:
+            (Test Case 1) Single-cell heatmap renders without error.
+        """
+        mat = np.array([[5.0]])
+        fig, ax = plt.subplots()
+        plot_heatmap(mat, ax=ax)
+        plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # plot_recording tests
@@ -773,6 +797,18 @@ class TestPlotRecording:
         assert cbar_ax.get_visible()
         assert len(cbar_ax.images) >= 1 or len(cbar_ax.get_children()) > 1
 
+    def test_zero_unit_spikedata(self):
+        """
+        plot_recording with N=0 units.
+
+        Tests:
+            (Test Case 1) Zero-unit SpikeData does not crash plot_recording.
+        """
+        sd = SpikeData([], length=100.0)
+        # N=0 SpikeData crashes sparse_raster due to empty hstack
+        with pytest.raises(ValueError):
+            plot_recording(sd, show=False)
+
 
 # ---------------------------------------------------------------------------
 # plot_distribution tests
@@ -1074,6 +1110,46 @@ class TestPlotDistribution:
         assert fc0[0][0] > 0.9  # R channel high for "red"
         assert fc1[0][2] > 0.9  # B channel high for "blue"
 
+    def test_all_identical_values(self):
+        """
+        plot_distribution with all-identical values.
+
+        Tests:
+            (Test Case 1) Single-bin histogram renders without error.
+        """
+        data = np.array([5.0, 5.0, 5.0, 5.0])
+        fig, ax = plt.subplots()
+        plot_distribution(ax, [data])
+        plt.close(fig)
+
+    def test_all_nan_data(self):
+        """
+        All NaN data results in 0 points after stripping. The function should
+        not crash but produce an empty or degenerate plot.
+
+        Tests:
+            (Test Case 1) Single group of all NaN values. After stripping,
+                the group has 0 valid points. In violin mode, this is treated
+                as a sparse group (< 2 points) and no violin body is produced.
+        """
+        fig, ax = plt.subplots()
+        data = [np.array([np.nan, np.nan, np.nan])]
+        parts = plot_distribution(ax, data, colors=self.DEFAULT_COLORS[:1])
+        # No violin body for an empty group
+        assert len(parts["bodies"]) == 0
+
+    def test_empty_dict_input(self):
+        """
+        Empty dict input means no groups to plot.
+
+        Tests:
+            (Test Case 1) Empty dict produces no violin bodies and no error.
+        """
+        fig, ax = plt.subplots()
+        data = {}
+        parts = plot_distribution(ax, data, colors=[])
+        assert len(parts["bodies"]) == 0
+
 
 # ---------------------------------------------------------------------------
 # plot_scatter tests
@@ -1227,6 +1303,47 @@ class TestPlotScatter:
         fig, ax = plt.subplots()
         plot_scatter(ax, [1, 2, 3], [1, 2, 3], xlabel="X", font_size=20)
         assert ax.xaxis.label.get_fontsize() == 20
+
+    def test_zero_data_points(self):
+        """
+        plot_scatter with zero data points.
+
+        Tests:
+            (Test Case 1) Empty arrays produce an empty scatter plot.
+        """
+        fig, ax = plt.subplots()
+        plot_scatter(ax, np.array([]), np.array([]))
+        plt.close(fig)
+
+    def test_fit_linear_with_fewer_than_3_points(self):
+        """
+        fit='linear' with < 3 points causes linear_regression to raise
+        ValueError because it requires at least 3 non-NaN data points.
+
+        Tests:
+            (Test Case 1) Two data points with fit='linear' raises ValueError
+                from linear_regression.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([1.0, 2.0])
+        y = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="at least 3"):
+            plot_scatter(ax, x, y, fit="linear")
+
+    def test_all_nan_x_or_y_with_linear_fit(self):
+        """
+        All NaN x or y with fit='linear' causes linear_regression to raise
+        ValueError because all points are dropped.
+
+        Tests:
+            (Test Case 1) All NaN x values with fit='linear'. After NaN
+                dropping, 0 valid points remain, raising ValueError.
+        """
+        fig, ax = plt.subplots()
+        x = np.array([np.nan, np.nan, np.nan, np.nan])
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError, match="at least 3"):
+            plot_scatter(ax, x, y, fit="linear")
 
 
 # ---------------------------------------------------------------------------
@@ -1426,6 +1543,37 @@ class TestPlotBurstSensitivity:
         titles = [a.get_title() for a in axes_list]
         assert titles == ["Ctrl", "Drug"]
 
+    def test_all_zero_counts(self):
+        """
+        plot_burst_sensitivity with all-zero burst counts.
+
+        Tests:
+            (Test Case 1) All-zero matrix renders without error.
+        """
+        counts = np.zeros((3, 4))
+        fig, ax = plt.subplots()
+        plot_burst_sensitivity(ax, np.arange(3), counts, dist_values=np.arange(4))
+        plt.close(fig)
+
+    def test_empty_burst_counts_dict(self):
+        """
+        Empty burst_counts dict means no labels are extracted, and
+        labels[0] raises IndexError.
+
+        Tests:
+            (Test Case 1) Empty dict raises IndexError because labels is
+                empty and the function attempts to access labels[0].
+
+        Notes:
+            - This is a bug: the function does not guard against an empty
+              burst_counts dict. It should either return early or raise a
+              descriptive ValueError.
+        """
+        fig, ax = plt.subplots()
+        thr = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(IndexError):
+            plot_burst_sensitivity(ax, thr, {}, colors=[])
+
 
 # ---------------------------------------------------------------------------
 # plot_aligned_slice_single_unit tests
@@ -1597,6 +1745,22 @@ class TestPlotUnitRaster:
         assert sc is None  # no color_vals
         assert len(ax.collections) >= 1
 
+    def test_all_slices_empty(self):
+        """
+        All slices have empty spike arrays, producing a blank raster.
+
+        Tests:
+            (Test Case 1) Three slices, all with empty arrays. The function
+                does not crash. Returns None (no color_vals). The scatter
+                has no points but the axes are still set up.
+        """
+        fig, ax = plt.subplots()
+        spikes = [np.array([]), np.array([]), np.array([])]
+        sc = plot_aligned_slice_single_unit(ax, spikes)
+        assert sc is None
+        # y-axis should still span the number of slices
+        assert ax.get_ylim() == (-0.5, 2.5)
+
 
 # ---------------------------------------------------------------------------
 # SpikeSliceStack.plot_aligned_slice_single_unit tests
@@ -1689,136 +1853,15 @@ class TestSpikeSliceStackPlotUnitRaster:
 # ---------------------------------------------------------------------------
 # Edge Case Tests — plot_distribution
 # ---------------------------------------------------------------------------
-
-
-class TestPlotDistribution2:
-    """Edge case tests for plot_distribution identified in the edge case scan."""
-
-    DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
-
-    def test_all_nan_data(self):
-        """
-        All NaN data results in 0 points after stripping. The function should
-        not crash but produce an empty or degenerate plot.
-
-        Tests:
-            (Test Case 1) Single group of all NaN values. After stripping,
-                the group has 0 valid points. In violin mode, this is treated
-                as a sparse group (< 2 points) and no violin body is produced.
-        """
-        fig, ax = plt.subplots()
-        data = [np.array([np.nan, np.nan, np.nan])]
-        parts = plot_distribution(ax, data, colors=self.DEFAULT_COLORS[:1])
-        # No violin body for an empty group
-        assert len(parts["bodies"]) == 0
-
-    def test_empty_dict_input(self):
-        """
-        Empty dict input means no groups to plot.
-
-        Tests:
-            (Test Case 1) Empty dict produces no violin bodies and no error.
-        """
-        fig, ax = plt.subplots()
-        data = {}
-        parts = plot_distribution(ax, data, colors=[])
-        assert len(parts["bodies"]) == 0
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — plot_scatter
 # ---------------------------------------------------------------------------
-
-
-class TestPlotScatter2:
-    """Edge case tests for plot_scatter identified in the edge case scan."""
-
-    def test_fit_linear_with_fewer_than_3_points(self):
-        """
-        fit='linear' with < 3 points causes linear_regression to raise
-        ValueError because it requires at least 3 non-NaN data points.
-
-        Tests:
-            (Test Case 1) Two data points with fit='linear' raises ValueError
-                from linear_regression.
-        """
-        fig, ax = plt.subplots()
-        x = np.array([1.0, 2.0])
-        y = np.array([1.0, 2.0])
-        with pytest.raises(ValueError, match="at least 3"):
-            plot_scatter(ax, x, y, fit="linear")
-
-    def test_all_nan_x_or_y_with_linear_fit(self):
-        """
-        All NaN x or y with fit='linear' causes linear_regression to raise
-        ValueError because all points are dropped.
-
-        Tests:
-            (Test Case 1) All NaN x values with fit='linear'. After NaN
-                dropping, 0 valid points remain, raising ValueError.
-        """
-        fig, ax = plt.subplots()
-        x = np.array([np.nan, np.nan, np.nan, np.nan])
-        y = np.array([1.0, 2.0, 3.0, 4.0])
-        with pytest.raises(ValueError, match="at least 3"):
-            plot_scatter(ax, x, y, fit="linear")
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — plot_aligned_slice_single_unit
 # ---------------------------------------------------------------------------
-
-
-class TestPlotUnitRaster2:
-    """Edge case tests for plot_aligned_slice_single_unit identified in the edge case scan."""
-
-    def test_all_slices_empty(self):
-        """
-        All slices have empty spike arrays, producing a blank raster.
-
-        Tests:
-            (Test Case 1) Three slices, all with empty arrays. The function
-                does not crash. Returns None (no color_vals). The scatter
-                has no points but the axes are still set up.
-        """
-        fig, ax = plt.subplots()
-        spikes = [np.array([]), np.array([]), np.array([])]
-        sc = plot_aligned_slice_single_unit(ax, spikes)
-        assert sc is None
-        # y-axis should still span the number of slices
-        assert ax.get_ylim() == (-0.5, 2.5)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests — plot_burst_sensitivity
 # ---------------------------------------------------------------------------
-
-
-class TestPlotBurstSensitivity2:
-    """Edge case tests for plot_burst_sensitivity."""
-
-    DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
-
-    def test_empty_burst_counts_dict(self):
-        """
-        Empty burst_counts dict means no labels are extracted, and
-        labels[0] raises IndexError.
-
-        Tests:
-            (Test Case 1) Empty dict raises IndexError because labels is
-                empty and the function attempts to access labels[0].
-
-        Notes:
-            - This is a bug: the function does not guard against an empty
-              burst_counts dict. It should either return early or raise a
-              descriptive ValueError.
-        """
-        fig, ax = plt.subplots()
-        thr = np.array([1.0, 2.0, 3.0])
-        with pytest.raises(IndexError):
-            plot_burst_sensitivity(ax, thr, {}, colors=[])
-
-
 # ---------------------------------------------------------------------------
 # plot_lines tests
 # ---------------------------------------------------------------------------
@@ -1975,6 +2018,19 @@ class TestPlotLines:
         )
         assert lines[0].get_linewidth() == 3.0
         assert lines[1].get_linewidth() == 3.0
+
+    def test_all_nan_y_values(self):
+        """
+        plot_lines with all-NaN y-values.
+
+        Tests:
+            (Test Case 1) All-NaN lines do not crash.
+        """
+        x = np.array([0.0, 1.0, 2.0])
+        y = np.full(3, np.nan)
+        fig, ax = plt.subplots()
+        plot_lines(ax, [y], x=x)
+        plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -2333,9 +2389,22 @@ class TestPlotPercentileBands:
         for label in ax.get_xticklabels():
             assert label.get_fontsize() == pytest.approx(14)
 
+    def test_single_data_point(self):
+        """
+        plot_percentile_bands with a single data point.
 
-class TestPlotPercentileBands2:
-    """Edge case tests for plot_percentile_bands."""
+        Tests:
+            (Test Case 1) Single observation does not crash.
+        """
+        from spikelab.spikedata.rateslicestack import RateSliceStack
+
+        from spikelab.spikedata.rateslicestack import RateSliceStack
+
+        mat = np.random.default_rng(0).random((3, 10, 1))
+        rss = RateSliceStack(event_matrix=mat)
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, rss.event_stack)
+        plt.close(fig)
 
     def test_single_unit(self):
         """
@@ -2389,7 +2458,6 @@ class TestPlotPercentileBands2:
         artists = plot_percentile_bands(ax, data)
         assert len(artists["summary"].get_ydata()) == 2
         assert ax.get_xlim() == pytest.approx((0, 1))
-
 
 # ---------------------------------------------------------------------------
 # plot_scatter — group mode tests
@@ -3068,6 +3136,19 @@ class TestPlotPvalueMatrix:
             val = im_data[i, i]
             assert np.ma.is_masked(val) or np.isnan(val)
 
+    def test_all_zero_p_values(self):
+        """
+        plot_p_value_matrix with all p-values = 0.
+
+        Tests:
+            (Test Case 1) Zero p-values do not crash the plot (log scale
+                would produce -Inf but matplotlib handles it).
+        """
+        mat = np.zeros((3, 3))
+        fig, ax = plt.subplots()
+        plot_pvalue_matrix(mat, ax=ax)
+        plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # SpikeData.plot_aligned_pop_rate tests
@@ -3323,6 +3404,22 @@ class TestPlotAlignedPopRate:
         # Mean line + 2 edge markers
         assert len(ax.lines) >= 3
 
+    def test_single_slice_rss(self):
+        """
+        plot_aligned_pop_rate with a single-slice RateSliceStack.
+
+        Tests:
+            (Test Case 1) S=1 produces degenerate percentile bands but does
+                not crash.
+        """
+        from spikelab.spikedata.rateslicestack import RateSliceStack
+
+        mat = np.random.default_rng(0).random((3, 20, 1))
+        rss = RateSliceStack(event_matrix=mat)
+        fig, ax = plt.subplots()
+        plot_percentile_bands(ax, rss.event_stack)
+        plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # plot_spatial_network tests
@@ -3551,6 +3648,39 @@ class TestPlotSpatialNetwork:
         edge = sc.get_edgecolors()
         np.testing.assert_array_equal(face, edge)
 
+    def test_nan_positions(self):
+        """
+        plot_spatial_network with NaN node positions.
+
+        Tests:
+            (Test Case 1) NaN positions may produce invisible nodes but should
+                not crash.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        mat = np.array([[1.0, 0.5], [0.5, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        positions = np.array([[np.nan, np.nan], [1.0, 1.0]])
+        fig, ax = plt.subplots()
+        pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
+        plt.close(fig)
+
+    def test_single_node(self):
+        """
+        plot_spatial_network with a single node (N=1).
+
+        Tests:
+            (Test Case 1) Single node with no edges renders without error.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        mat = np.array([[1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        positions = np.array([[0.0, 0.0]])
+        fig, ax = plt.subplots()
+        pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
+        plt.close(fig)
+
 
 class TestPlotSpatialNetworkWrappers:
     """Tests for SpikeData and PairwiseCompMatrix wrappers."""
@@ -3613,137 +3743,6 @@ class TestPlotSpatialNetworkWrappers:
 # ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan
 # ---------------------------------------------------------------------------
-
-
-class TestPlotHeatmap2:
-    """Edge case tests for plot_heatmap."""
-
-    def test_all_nan_matrix(self):
-        """
-        plot_heatmap with all-NaN matrix.
-
-        Tests:
-            (Test Case 1) All-NaN matrix does not crash and returns a figure.
-        """
-        mat = np.full((3, 3), np.nan)
-        fig, ax = plt.subplots()
-        plot_heatmap(mat, ax=ax)
-        plt.close(fig)
-
-    def test_1x1_matrix(self):
-        """
-        plot_heatmap with a 1x1 matrix.
-
-        Tests:
-            (Test Case 1) Single-cell heatmap renders without error.
-        """
-        mat = np.array([[5.0]])
-        fig, ax = plt.subplots()
-        plot_heatmap(mat, ax=ax)
-        plt.close(fig)
-
-
-class TestPlotRecording2:
-    """Edge case tests for plot_recording."""
-
-    def test_zero_unit_spikedata(self):
-        """
-        plot_recording with N=0 units.
-
-        Tests:
-            (Test Case 1) Zero-unit SpikeData does not crash plot_recording.
-        """
-        sd = SpikeData([], length=100.0)
-        # N=0 SpikeData crashes sparse_raster due to empty hstack
-        with pytest.raises(ValueError):
-            plot_recording(sd, show=False)
-
-
-class TestPlotDistribution22:
-    """Additional edge case tests for plot_distribution."""
-
-    def test_all_identical_values(self):
-        """
-        plot_distribution with all-identical values.
-
-        Tests:
-            (Test Case 1) Single-bin histogram renders without error.
-        """
-        data = np.array([5.0, 5.0, 5.0, 5.0])
-        fig, ax = plt.subplots()
-        plot_distribution(ax, [data])
-        plt.close(fig)
-
-
-class TestPlotScatter22:
-    """Additional edge case tests for plot_scatter."""
-
-    def test_zero_data_points(self):
-        """
-        plot_scatter with zero data points.
-
-        Tests:
-            (Test Case 1) Empty arrays produce an empty scatter plot.
-        """
-        fig, ax = plt.subplots()
-        plot_scatter(ax, np.array([]), np.array([]))
-        plt.close(fig)
-
-
-class TestPlotLines2:
-    """Edge case tests for plot_lines."""
-
-    def test_all_nan_y_values(self):
-        """
-        plot_lines with all-NaN y-values.
-
-        Tests:
-            (Test Case 1) All-NaN lines do not crash.
-        """
-        x = np.array([0.0, 1.0, 2.0])
-        y = np.full(3, np.nan)
-        fig, ax = plt.subplots()
-        plot_lines(ax, [y], x=x)
-        plt.close(fig)
-
-
-class TestPlotPercentileBands22:
-    """Additional edge case tests for plot_percentile_bands."""
-
-    def test_single_data_point(self):
-        """
-        plot_percentile_bands with a single data point.
-
-        Tests:
-            (Test Case 1) Single observation does not crash.
-        """
-        from spikelab.spikedata.rateslicestack import RateSliceStack
-
-        from spikelab.spikedata.rateslicestack import RateSliceStack
-
-        mat = np.random.default_rng(0).random((3, 10, 1))
-        rss = RateSliceStack(event_matrix=mat)
-        fig, ax = plt.subplots()
-        plot_percentile_bands(ax, rss.event_stack)
-        plt.close(fig)
-
-
-class TestPlotBurstSensitivity22:
-    """Additional edge case tests for plot_burst_sensitivity."""
-
-    def test_all_zero_counts(self):
-        """
-        plot_burst_sensitivity with all-zero burst counts.
-
-        Tests:
-            (Test Case 1) All-zero matrix renders without error.
-        """
-        counts = np.zeros((3, 4))
-        fig, ax = plt.subplots()
-        plot_burst_sensitivity(ax, np.arange(3), counts, dist_values=np.arange(4))
-        plt.close(fig)
-
-
 class TestPlotAlignedSlice:
     """Edge case tests for plot_aligned_slice_single_unit."""
 
@@ -3777,81 +3776,6 @@ class TestPlotAlignedSlice:
         fig, ax = plt.subplots()
         sss.plot_aligned_slice_single_unit(unit_idx=0, ax=ax, style="eventplot")
         plt.close(fig)
-
-
-class TestPlotSpatialNetwork2:
-    """Edge case tests for plot_spatial_network."""
-
-    def test_nan_positions(self):
-        """
-        plot_spatial_network with NaN node positions.
-
-        Tests:
-            (Test Case 1) NaN positions may produce invisible nodes but should
-                not crash.
-        """
-        from spikelab.spikedata.pairwise import PairwiseCompMatrix
-
-        mat = np.array([[1.0, 0.5], [0.5, 1.0]])
-        pcm = PairwiseCompMatrix(matrix=mat)
-        positions = np.array([[np.nan, np.nan], [1.0, 1.0]])
-        fig, ax = plt.subplots()
-        pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
-        plt.close(fig)
-
-    def test_single_node(self):
-        """
-        plot_spatial_network with a single node (N=1).
-
-        Tests:
-            (Test Case 1) Single node with no edges renders without error.
-        """
-        from spikelab.spikedata.pairwise import PairwiseCompMatrix
-
-        mat = np.array([[1.0]])
-        pcm = PairwiseCompMatrix(matrix=mat)
-        positions = np.array([[0.0, 0.0]])
-        fig, ax = plt.subplots()
-        pcm.plot_spatial_network(ax, positions, edge_threshold=0.3)
-        plt.close(fig)
-
-
-class TestPlotPvalueMatrix2:
-    """Edge case tests for plot_p_value_matrix."""
-
-    def test_all_zero_p_values(self):
-        """
-        plot_p_value_matrix with all p-values = 0.
-
-        Tests:
-            (Test Case 1) Zero p-values do not crash the plot (log scale
-                would produce -Inf but matplotlib handles it).
-        """
-        mat = np.zeros((3, 3))
-        fig, ax = plt.subplots()
-        plot_pvalue_matrix(mat, ax=ax)
-        plt.close(fig)
-
-
-class TestPlotAlignedPopRate2:
-    """Edge case tests for plot_aligned_pop_rate (via RateSliceStack.plot)."""
-
-    def test_single_slice_rss(self):
-        """
-        plot_aligned_pop_rate with a single-slice RateSliceStack.
-
-        Tests:
-            (Test Case 1) S=1 produces degenerate percentile bands but does
-                not crash.
-        """
-        from spikelab.spikedata.rateslicestack import RateSliceStack
-
-        mat = np.random.default_rng(0).random((3, 20, 1))
-        rss = RateSliceStack(event_matrix=mat)
-        fig, ax = plt.subplots()
-        plot_percentile_bands(ax, rss.event_stack)
-        plt.close(fig)
-
 
 # ---------------------------------------------------------------------------
 # _style_axes / _style_axes_heatmap helpers

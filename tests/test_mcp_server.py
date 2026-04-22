@@ -3011,6 +3011,29 @@ class TestPadRagged:
         assert result.shape == (1, 1)
         assert result[0, 0] == 5.0
 
+    @pytestmark_server
+    def test_nan_values_in_input(self):
+        """
+        _pad_ragged with NaN values in input arrays.
+
+        Tests:
+            (Test Case 1) NaN values pass through the padding unchanged.
+        """
+        result = analysis._pad_ragged([np.array([1.0, np.nan]), np.array([3.0])])
+        assert result.shape == (2, 2)
+        assert np.isnan(result[0, 1])
+
+    @pytestmark_server
+    def test_mixed_dtypes(self):
+        """
+        _pad_ragged with integer arrays mixed with float arrays.
+
+        Tests:
+            (Test Case 1) Integer inputs are cast to float64 in the result.
+        """
+        result = analysis._pad_ragged([np.array([1, 2]), np.array([3.0])])
+        assert result.dtype == np.float64
+
 
 class TestToList:
     """Edge case tests for _to_list helper function."""
@@ -3030,6 +3053,30 @@ class TestToList:
         assert _to_list([1, 2, 3]) == [1, 2, 3]
         assert _to_list("hello") == "hello"
 
+    @pytestmark_server
+    def test_ndarray_with_nan(self):
+        """
+        _to_list with NaN values converts to Python float('nan').
+
+        Tests:
+            (Test Case 1) NaN is converted to Python float which is JSON-incompatible.
+        """
+        arr = np.array([1.0, np.nan, 3.0])
+        result = analysis._to_list(arr)
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    @pytestmark_server
+    def test_none_input(self):
+        """
+        _to_list with None returns None.
+
+        Tests:
+            (Test Case 1) None input returns None.
+        """
+        result = analysis._to_list(None)
+        assert result is None
+
 
 class TestComputeRates:
     """Edge case tests for compute_rates MCP tool."""
@@ -3046,6 +3093,42 @@ class TestComputeRates:
         ws_id, ns = loaded_ws
         with pytest.raises(Exception):
             await analysis.compute_rates(ws_id, ns, "rates", unit="invalid")
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_unit_spikedata(self, loaded_ws):
+        """
+        compute_rates on zero-unit SpikeData.
+
+        Tests:
+            (Test Case 1) N=0 SpikeData produces empty rates array.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_empty = SpikeData([], length=50.0)
+        ws.store("empty_ns", "spikedata", sd_empty)
+        result = await analysis.compute_rates(ws_id, "empty_ns", "rates_empty")
+        rates = ws.get("empty_ns", "rates_empty")
+        assert len(rates) == 0
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_length_recording(self, loaded_ws):
+        """
+        compute_rates on SpikeData with length=0.
+
+        Tests:
+            (Test Case 1) length=0 SpikeData produces all-zero rates.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_zero = SpikeData([[], []], length=0.0)
+        ws.store("zero_ns", "spikedata", sd_zero)
+        result = await analysis.compute_rates(ws_id, "zero_ns", "rates_zero")
+        rates = ws.get("zero_ns", "rates_zero")
+        np.testing.assert_array_equal(rates, 0.0)
 
 
 class TestComputeBinned:
@@ -3093,6 +3176,19 @@ class TestComputeBinned:
         )
         assert result["info"]["type"] == "ndarray"
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_negative_bin_size(self, loaded_ws):
+        """
+        compute_binned with negative bin_size raises an error.
+
+        Tests:
+            (Test Case 1) Negative bin_size propagates a ValueError.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_binned(ws_id, ns, "binned_neg", bin_size=-10.0)
+
 
 class TestComputeRaster:
     """Edge case tests for compute_raster MCP tool."""
@@ -3118,6 +3214,19 @@ class TestComputeRaster:
 
         Tests:
             (Test Case 1) compute_raster with bin_size=-5 raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_raster(ws_id, ns, "raster_neg", bin_size=-5.0)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_negative_bin_size(self, loaded_ws):
+        """
+        compute_raster with negative bin_size.
+
+        Tests:
+            (Test Case 1) Negative bin_size propagates an error.
         """
         ws_id, ns = loaded_ws
         with pytest.raises(Exception):
@@ -3162,6 +3271,22 @@ class TestComputeChannelRaster:
         with pytest.raises(Exception):
             await analysis.compute_channel_raster(
                 ws_id, ns, "ch_raster_bad", bin_size=5.0, channel_attr="nonexistent"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_channel_attr_no_neuron_attributes(self, loaded_ws):
+        """
+        compute_channel_raster with channel_attr specified but no neuron_attributes.
+
+        Tests:
+            (Test Case 1) Specifying channel_attr="ch" when SpikeData has no
+                neuron_attributes raises an error.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_channel_raster(
+                ws_id, ns, "ch_raster", channel_attr="ch"
             )
 
 
@@ -3213,6 +3338,28 @@ class TestComputeISI:
         if arr.shape[1] > 0:
             assert np.all(np.isnan(arr[0, :]))
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_all_units_zero_spikes(self, loaded_ws):
+        """
+        compute_interspike_intervals with all units having zero spikes.
+
+        Tests:
+            (Test Case 1) N=3 units with empty trains produce shape (3, 0)
+                padded ISI array.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_empty = SpikeData([[], [], []], length=50.0)
+        ws.store("empty3_ns", "spikedata", sd_empty)
+        result = await analysis.compute_interspike_intervals(
+            ws_id, "empty3_ns", "isi_empty"
+        )
+        isi = ws.get("empty3_ns", "isi_empty")
+        assert isi.shape[0] == 3
+        assert isi.shape[1] == 0
+
 
 class TestComputeResampledISI:
     """Edge case tests for compute_resampled_isi MCP tool."""
@@ -3255,6 +3402,31 @@ class TestComputeResampledISI:
         assert result["n_timepoints"] == 1
         assert result["key"] == "rates_single"
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_negative_sigma(self, loaded_ws):
+        """
+        compute_resampled_isi with negative sigma_ms.
+
+        Tests:
+            (Test Case 1) Negative sigma does not raise at the MCP level;
+                the underlying gaussian_filter1d may accept it in some
+                scipy versions.
+        """
+        ws_id, ns = loaded_ws
+        # Negative sigma may or may not raise depending on scipy version
+        try:
+            result = await analysis.compute_resampled_isi(
+                ws_id,
+                ns,
+                "risi_neg",
+                times=[10.0, 20.0, 30.0],
+                sigma_ms=-5.0,
+            )
+            assert result["key"] == "risi_neg"
+        except Exception:
+            pass  # Expected in some scipy versions
+
 
 class TestComputeSpikeTimeTiling:
     """Edge case tests for compute_spike_time_tiling MCP tool."""
@@ -3296,6 +3468,26 @@ class TestComputeSpikeTimeTiling:
         with pytest.raises(Exception):
             await analysis.compute_spike_time_tiling(
                 ws_id, ns, "sttc_bad", neuron_i=99, neuron_j=0, delt=10.0
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_negative_delt(self, loaded_ws):
+        """
+        compute_spike_time_tiling with negative delt raises error.
+
+        Tests:
+            (Test Case 1) Negative delt propagates a ValueError from get_sttc.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_spike_time_tiling(
+                ws_id,
+                ns,
+                "sttc_neg",
+                neuron_i=0,
+                neuron_j=1,
+                delt=-10.0,
             )
 
 
@@ -3362,6 +3554,26 @@ class TestComputeSpikeTimeTilings:
                 if i != j:
                     assert pcm.matrix[i, j] == 0.0
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_unit_spikedata(self, loaded_ws):
+        """
+        compute_spike_time_tilings with N=0 SpikeData.
+
+        Tests:
+            (Test Case 1) Zero-unit SpikeData produces a (0, 0) matrix.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_empty = SpikeData([], length=50.0)
+        ws.store("empty_tilings", "spikedata", sd_empty)
+        result = await analysis.compute_spike_time_tilings(
+            ws_id, "empty_tilings", "tilings_empty"
+        )
+        pcm = ws.get("empty_tilings", "tilings_empty")
+        assert pcm.matrix.shape == (0, 0)
+
 
 class TestComputeLatencies:
     """Edge case tests for compute_latencies and compute_latencies_to_index MCP tools."""
@@ -3398,6 +3610,26 @@ class TestComputeLatencies:
                 ws_id, ns, "lat_bad", neuron_index=99
             )
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_negative_window(self, loaded_ws):
+        """
+        compute_latencies with negative window_ms.
+
+        Tests:
+            (Test Case 1) Negative window does not raise; the underlying
+                method silently returns empty latencies.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_latencies(
+            ws_id,
+            ns,
+            "lat_neg",
+            times=[10.0, 20.0],
+            window_ms=-5.0,
+        )
+        assert result["key"] == "lat_neg"
+
 
 class TestSetNeuronAttribute:
     """Edge case tests for set_neuron_attribute MCP tool."""
@@ -3416,6 +3648,24 @@ class TestSetNeuronAttribute:
         with pytest.raises(Exception):
             await analysis.set_neuron_attribute(
                 ws_id, ns, key="tag", values=["x"], neuron_indices=[99]
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_values_list(self, loaded_ws):
+        """
+        set_neuron_attribute with empty values list.
+
+        Tests:
+            (Test Case 1) Empty values with 3-unit SpikeData raises error.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.set_neuron_attribute(
+                ws_id,
+                ns,
+                key="test_attr",
+                values=[],
             )
 
 
@@ -3789,6 +4039,19 @@ class TestGetDataInfo:
         result = await analysis.get_data_info(ws_id, "rec1")
         assert result["num_neurons"] == 1
 
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_metadata(self, loaded_ws):
+        """
+        get_data_info with empty metadata.
+
+        Tests:
+            (Test Case 1) SpikeData with empty metadata returns info without error.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.get_data_info(ws_id, ns)
+        assert "metadata" in result
+
 
 class TestDeleteWorkspace:
     """Edge case tests for delete_workspace MCP tool."""
@@ -3940,6 +4203,30 @@ class TestFetchWorkspaceItem:
         assert result["type"] == "PairwiseCompMatrix"
         assert "data" in result
         assert result["shape"] == [3, 3]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_ratedata_empty_times(self, loaded_ws):
+        """
+        fetch_workspace_item with RateData that has empty times.
+
+        Tests:
+            (Test Case 1) Accessing obj.times[0] on zero-length RateData
+                raises IndexError.
+
+        Notes:
+            - This is a known bug: fetch_workspace_item accesses times[0]
+              and times[-1] without checking for empty times.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        from spikelab.spikedata.ratedata import RateData
+
+        rd = RateData(np.empty((2, 0)), np.array([]))
+        ws.store(ns, "rd_empty_times", rd)
+        with pytest.raises(IndexError):
+            await analysis.fetch_workspace_item(ws_id, ns, "rd_empty_times")
 
 
 class TestNamespaceFromPath:
@@ -4344,284 +4631,6 @@ class TestRemoveByCondition:
 # ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan — MCP (mcp_server/)
 # ---------------------------------------------------------------------------
-
-
-class TestPadRagged2:
-    """Additional edge case tests for _pad_ragged."""
-
-    @pytestmark_server
-    def test_nan_values_in_input(self):
-        """
-        _pad_ragged with NaN values in input arrays.
-
-        Tests:
-            (Test Case 1) NaN values pass through the padding unchanged.
-        """
-        result = analysis._pad_ragged([np.array([1.0, np.nan]), np.array([3.0])])
-        assert result.shape == (2, 2)
-        assert np.isnan(result[0, 1])
-
-    @pytestmark_server
-    def test_mixed_dtypes(self):
-        """
-        _pad_ragged with integer arrays mixed with float arrays.
-
-        Tests:
-            (Test Case 1) Integer inputs are cast to float64 in the result.
-        """
-        result = analysis._pad_ragged([np.array([1, 2]), np.array([3.0])])
-        assert result.dtype == np.float64
-
-
-class TestToList2:
-    """Additional edge case tests for _to_list."""
-
-    @pytestmark_server
-    def test_ndarray_with_nan(self):
-        """
-        _to_list with NaN values converts to Python float('nan').
-
-        Tests:
-            (Test Case 1) NaN is converted to Python float which is JSON-incompatible.
-        """
-        arr = np.array([1.0, np.nan, 3.0])
-        result = analysis._to_list(arr)
-        assert isinstance(result, list)
-        assert len(result) == 3
-
-    @pytestmark_server
-    def test_none_input(self):
-        """
-        _to_list with None returns None.
-
-        Tests:
-            (Test Case 1) None input returns None.
-        """
-        result = analysis._to_list(None)
-        assert result is None
-
-
-class TestComputeRates2:
-    """Additional edge case tests for compute_rates MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_zero_unit_spikedata(self, loaded_ws):
-        """
-        compute_rates on zero-unit SpikeData.
-
-        Tests:
-            (Test Case 1) N=0 SpikeData produces empty rates array.
-        """
-        ws_id, ns = loaded_ws
-        wm = get_workspace_manager()
-        ws = wm.get_workspace(ws_id)
-        sd_empty = SpikeData([], length=50.0)
-        ws.store("empty_ns", "spikedata", sd_empty)
-        result = await analysis.compute_rates(ws_id, "empty_ns", "rates_empty")
-        rates = ws.get("empty_ns", "rates_empty")
-        assert len(rates) == 0
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_zero_length_recording(self, loaded_ws):
-        """
-        compute_rates on SpikeData with length=0.
-
-        Tests:
-            (Test Case 1) length=0 SpikeData produces all-zero rates.
-        """
-        ws_id, ns = loaded_ws
-        wm = get_workspace_manager()
-        ws = wm.get_workspace(ws_id)
-        sd_zero = SpikeData([[], []], length=0.0)
-        ws.store("zero_ns", "spikedata", sd_zero)
-        result = await analysis.compute_rates(ws_id, "zero_ns", "rates_zero")
-        rates = ws.get("zero_ns", "rates_zero")
-        np.testing.assert_array_equal(rates, 0.0)
-
-
-class TestComputeBinned2:
-    """Additional edge case tests for compute_binned MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_negative_bin_size(self, loaded_ws):
-        """
-        compute_binned with negative bin_size raises an error.
-
-        Tests:
-            (Test Case 1) Negative bin_size propagates a ValueError.
-        """
-        ws_id, ns = loaded_ws
-        with pytest.raises(Exception):
-            await analysis.compute_binned(ws_id, ns, "binned_neg", bin_size=-10.0)
-
-
-class TestComputeRaster2:
-    """Additional edge case tests for compute_raster MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_negative_bin_size(self, loaded_ws):
-        """
-        compute_raster with negative bin_size.
-
-        Tests:
-            (Test Case 1) Negative bin_size propagates an error.
-        """
-        ws_id, ns = loaded_ws
-        with pytest.raises(Exception):
-            await analysis.compute_raster(ws_id, ns, "raster_neg", bin_size=-5.0)
-
-
-class TestComputeChannelRaster2:
-    """Additional edge case tests for compute_channel_raster MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_channel_attr_no_neuron_attributes(self, loaded_ws):
-        """
-        compute_channel_raster with channel_attr specified but no neuron_attributes.
-
-        Tests:
-            (Test Case 1) Specifying channel_attr="ch" when SpikeData has no
-                neuron_attributes raises an error.
-        """
-        ws_id, ns = loaded_ws
-        with pytest.raises(Exception):
-            await analysis.compute_channel_raster(
-                ws_id, ns, "ch_raster", channel_attr="ch"
-            )
-
-
-class TestComputeISI2:
-    """Additional edge case tests for compute_interspike_intervals MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_all_units_zero_spikes(self, loaded_ws):
-        """
-        compute_interspike_intervals with all units having zero spikes.
-
-        Tests:
-            (Test Case 1) N=3 units with empty trains produce shape (3, 0)
-                padded ISI array.
-        """
-        ws_id, ns = loaded_ws
-        wm = get_workspace_manager()
-        ws = wm.get_workspace(ws_id)
-        sd_empty = SpikeData([[], [], []], length=50.0)
-        ws.store("empty3_ns", "spikedata", sd_empty)
-        result = await analysis.compute_interspike_intervals(
-            ws_id, "empty3_ns", "isi_empty"
-        )
-        isi = ws.get("empty3_ns", "isi_empty")
-        assert isi.shape[0] == 3
-        assert isi.shape[1] == 0
-
-
-class TestComputeResampledISI2:
-    """Additional edge case tests for compute_resampled_isi MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_negative_sigma(self, loaded_ws):
-        """
-        compute_resampled_isi with negative sigma_ms.
-
-        Tests:
-            (Test Case 1) Negative sigma does not raise at the MCP level;
-                the underlying gaussian_filter1d may accept it in some
-                scipy versions.
-        """
-        ws_id, ns = loaded_ws
-        # Negative sigma may or may not raise depending on scipy version
-        try:
-            result = await analysis.compute_resampled_isi(
-                ws_id,
-                ns,
-                "risi_neg",
-                times=[10.0, 20.0, 30.0],
-                sigma_ms=-5.0,
-            )
-            assert result["key"] == "risi_neg"
-        except Exception:
-            pass  # Expected in some scipy versions
-
-
-class TestComputeSpikeTimeTiling2:
-    """Additional edge case tests for compute_spike_time_tiling MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_negative_delt(self, loaded_ws):
-        """
-        compute_spike_time_tiling with negative delt raises error.
-
-        Tests:
-            (Test Case 1) Negative delt propagates a ValueError from get_sttc.
-        """
-        ws_id, ns = loaded_ws
-        with pytest.raises(Exception):
-            await analysis.compute_spike_time_tiling(
-                ws_id,
-                ns,
-                "sttc_neg",
-                neuron_i=0,
-                neuron_j=1,
-                delt=-10.0,
-            )
-
-
-class TestComputeSpikeTimeTilings2:
-    """Additional edge case tests for compute_spike_time_tilings MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_zero_unit_spikedata(self, loaded_ws):
-        """
-        compute_spike_time_tilings with N=0 SpikeData.
-
-        Tests:
-            (Test Case 1) Zero-unit SpikeData produces a (0, 0) matrix.
-        """
-        ws_id, ns = loaded_ws
-        wm = get_workspace_manager()
-        ws = wm.get_workspace(ws_id)
-        sd_empty = SpikeData([], length=50.0)
-        ws.store("empty_tilings", "spikedata", sd_empty)
-        result = await analysis.compute_spike_time_tilings(
-            ws_id, "empty_tilings", "tilings_empty"
-        )
-        pcm = ws.get("empty_tilings", "tilings_empty")
-        assert pcm.matrix.shape == (0, 0)
-
-
-class TestComputeLatencies2:
-    """Additional edge case tests for compute_latencies MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_negative_window(self, loaded_ws):
-        """
-        compute_latencies with negative window_ms.
-
-        Tests:
-            (Test Case 1) Negative window does not raise; the underlying
-                method silently returns empty latencies.
-        """
-        ws_id, ns = loaded_ws
-        result = await analysis.compute_latencies(
-            ws_id,
-            ns,
-            "lat_neg",
-            times=[10.0, 20.0],
-            window_ms=-5.0,
-        )
-        assert result["key"] == "lat_neg"
-
-
 class TestGetPopRate:
     """Edge case tests for get_pop_rate MCP tool."""
 
@@ -4739,24 +4748,6 @@ class TestGetFracActiveMCP:
                 backbone_threshold=0.5,
             )
 
-
-class TestGetDataInfo2:
-    """Additional edge case tests for get_data_info MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_empty_metadata(self, loaded_ws):
-        """
-        get_data_info with empty metadata.
-
-        Tests:
-            (Test Case 1) SpikeData with empty metadata returns info without error.
-        """
-        ws_id, ns = loaded_ws
-        result = await analysis.get_data_info(ws_id, ns)
-        assert "metadata" in result
-
-
 class TestListNeuronsMCP:
     """Edge case tests for list_neurons MCP tool."""
 
@@ -4775,29 +4766,6 @@ class TestListNeuronsMCP:
         ws.store("zero_ns", "spikedata", SpikeData([], length=10.0))
         result = await analysis.list_neurons(ws_id, "zero_ns")
         assert result["neurons"] == []
-
-
-class TestSetNeuronAttribute2:
-    """Additional edge case tests for set_neuron_attribute MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_empty_values_list(self, loaded_ws):
-        """
-        set_neuron_attribute with empty values list.
-
-        Tests:
-            (Test Case 1) Empty values with 3-unit SpikeData raises error.
-        """
-        ws_id, ns = loaded_ws
-        with pytest.raises(Exception):
-            await analysis.set_neuron_attribute(
-                ws_id,
-                ns,
-                key="test_attr",
-                values=[],
-            )
-
 
 class TestSubtimeMCP2:
     """Additional edge case tests for subtime MCP tool."""
@@ -5059,35 +5027,6 @@ class TestSpikeSliceToRasterMCP2:
                 key="raster_zero",
                 bin_size=0.0,
             )
-
-
-class TestFetchWorkspaceItem2:
-    """Additional edge case tests for fetch_workspace_item MCP tool."""
-
-    @pytestmark_server
-    @pytest.mark.asyncio
-    async def test_ratedata_empty_times(self, loaded_ws):
-        """
-        fetch_workspace_item with RateData that has empty times.
-
-        Tests:
-            (Test Case 1) Accessing obj.times[0] on zero-length RateData
-                raises IndexError.
-
-        Notes:
-            - This is a known bug: fetch_workspace_item accesses times[0]
-              and times[-1] without checking for empty times.
-        """
-        ws_id, ns = loaded_ws
-        wm = get_workspace_manager()
-        ws = wm.get_workspace(ws_id)
-        from spikelab.spikedata.ratedata import RateData
-
-        rd = RateData(np.empty((2, 0)), np.array([]))
-        ws.store(ns, "rd_empty_times", rd)
-        with pytest.raises(IndexError):
-            await analysis.fetch_workspace_item(ws_id, ns, "rd_empty_times")
-
 
 @pytest.mark.skipif(not MCP_SERVER_AVAILABLE, reason="MCP server not available")
 class TestCurateAndFracSpikesInBurst:

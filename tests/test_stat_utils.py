@@ -215,86 +215,6 @@ class TestLinearRegression:
         width_99 = np.mean(res_99["ci_upper"] - res_99["ci_lower"])
         assert width_99 > width_90
 
-
-# ---------------------------------------------------------------------------
-# _approx_normal_quantile
-# ---------------------------------------------------------------------------
-
-
-class TestApproxNormalQuantile:
-    """Tests for the Abramowitz & Stegun normal quantile approximation."""
-
-    def test_p_0975_close_to_1_96(self):
-        """
-        p = 0.975 should approximate the well-known z = 1.96 quantile.
-
-        Tests:
-            (Test Case 1) Result is within 0.01 of 1.96.
-        """
-        z = _approx_normal_quantile(0.975)
-        assert z == pytest.approx(1.96, abs=0.01)
-
-    def test_p_0995_close_to_2_576(self):
-        """
-        p = 0.995 should approximate z ≈ 2.576.
-
-        Tests:
-            (Test Case 1) Result is within 0.01 of 2.576.
-        """
-        z = _approx_normal_quantile(0.995)
-        assert z == pytest.approx(2.576, abs=0.01)
-
-    def test_monotonically_increasing(self):
-        """
-        Higher p values produce larger quantiles.
-
-        Tests:
-            (Test Case 1) q(0.9) < q(0.95) < q(0.99).
-        """
-        q90 = _approx_normal_quantile(0.90)
-        q95 = _approx_normal_quantile(0.95)
-        q99 = _approx_normal_quantile(0.99)
-        assert q90 < q95 < q99
-
-    def test_p_leq_0_5_raises(self):
-        """
-        p <= 0.5 is out of range and raises ValueError.
-
-        Tests:
-            (Test Case 1) p = 0.5 raises ValueError.
-            (Test Case 2) p = 0.3 raises ValueError.
-        """
-        with pytest.raises(ValueError, match="p must be > 0.5"):
-            _approx_normal_quantile(0.5)
-        with pytest.raises(ValueError, match="p must be > 0.5"):
-            _approx_normal_quantile(0.3)
-
-    def test_p_very_close_to_1(self):
-        """
-        p very close to 1 tests the limits of the approximation accuracy.
-
-        Tests:
-            (Test Case 1) p = 0.999 should return a large positive quantile
-                (z ~ 3.09). The approximation may degrade but should still
-                be in the right ballpark.
-            (Test Case 2) p = 0.9999 should return z ~ 3.72. Verify the
-                approximation is within 0.1 of the expected value.
-        """
-        z_999 = _approx_normal_quantile(0.999)
-        assert z_999 == pytest.approx(3.09, abs=0.1)
-
-        z_9999 = _approx_normal_quantile(0.9999)
-        assert z_9999 == pytest.approx(3.72, abs=0.1)
-
-
-# ---------------------------------------------------------------------------
-# Edge Case Tests — linear_regression
-# ---------------------------------------------------------------------------
-
-
-class TestLinearRegression2:
-    """Edge case tests for linear_regression identified in the edge case scan."""
-
     def test_all_x_identical_raises(self):
         """
         All x values identical means ss_xx = 0, causing division by zero
@@ -386,6 +306,80 @@ class TestLinearRegression2:
         np.testing.assert_allclose(res["ci_upper"], res["y_fit"])
 
 
+# ---------------------------------------------------------------------------
+# _approx_normal_quantile
+# ---------------------------------------------------------------------------
+
+
+class TestApproxNormalQuantile:
+    """Tests for the Abramowitz & Stegun normal quantile approximation."""
+
+    def test_p_0975_close_to_1_96(self):
+        """
+        p = 0.975 should approximate the well-known z = 1.96 quantile.
+
+        Tests:
+            (Test Case 1) Result is within 0.01 of 1.96.
+        """
+        z = _approx_normal_quantile(0.975)
+        assert z == pytest.approx(1.96, abs=0.01)
+
+    def test_p_0995_close_to_2_576(self):
+        """
+        p = 0.995 should approximate z ≈ 2.576.
+
+        Tests:
+            (Test Case 1) Result is within 0.01 of 2.576.
+        """
+        z = _approx_normal_quantile(0.995)
+        assert z == pytest.approx(2.576, abs=0.01)
+
+    def test_monotonically_increasing(self):
+        """
+        Higher p values produce larger quantiles.
+
+        Tests:
+            (Test Case 1) q(0.9) < q(0.95) < q(0.99).
+        """
+        q90 = _approx_normal_quantile(0.90)
+        q95 = _approx_normal_quantile(0.95)
+        q99 = _approx_normal_quantile(0.99)
+        assert q90 < q95 < q99
+
+    def test_p_leq_0_5_raises(self):
+        """
+        p <= 0.5 is out of range and raises ValueError.
+
+        Tests:
+            (Test Case 1) p = 0.5 raises ValueError.
+            (Test Case 2) p = 0.3 raises ValueError.
+        """
+        with pytest.raises(ValueError, match="p must be > 0.5"):
+            _approx_normal_quantile(0.5)
+        with pytest.raises(ValueError, match="p must be > 0.5"):
+            _approx_normal_quantile(0.3)
+
+    def test_p_very_close_to_1(self):
+        """
+        p very close to 1 tests the limits of the approximation accuracy.
+
+        Tests:
+            (Test Case 1) p = 0.999 should return a large positive quantile
+                (z ~ 3.09). The approximation may degrade but should still
+                be in the right ballpark.
+            (Test Case 2) p = 0.9999 should return z ~ 3.72. Verify the
+                approximation is within 0.1 of the expected value.
+        """
+        z_999 = _approx_normal_quantile(0.999)
+        assert z_999 == pytest.approx(3.09, abs=0.1)
+
+        z_9999 = _approx_normal_quantile(0.9999)
+        assert z_9999 == pytest.approx(3.72, abs=0.1)
+
+
+# ---------------------------------------------------------------------------
+# Edge Case Tests — linear_regression
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # pairwise_tests
 # ---------------------------------------------------------------------------

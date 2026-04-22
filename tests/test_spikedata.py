@@ -2462,6 +2462,19 @@ class TestSpikeDataRates:
         # With no smoothing, each bin should be 0 or a positive integer
         assert np.all(result >= 0)
 
+    def test_rates_all_empty_trains_nonzero_length(self):
+        """
+        rates() on SpikeData with N>0 but all-empty trains returns all zeros.
+
+        Tests:
+            (Test Case 1) Three units with no spikes and length=100 returns
+                array of zeros with shape (3,).
+        """
+        sd = SpikeData([[], [], []], length=100.0)
+        r = sd.rates()
+        assert r.shape == (3,)
+        np.testing.assert_array_equal(r, 0.0)
+
 
 class TestSpikeDataCorrelation:
     """Tests for SpikeData correlation methods: spike_time_tiling, get_pairwise_ccg, get_pairwise_latencies, spike_time_tilings, latencies, latencies_to_index."""
@@ -4599,6 +4612,21 @@ class TestSpikeDataShuffle:
         with pytest.raises(ValueError, match="n_shuffles must be at least 1"):
             sd.spike_shuffle_stack(n_shuffles=0, seed=0)
 
+    def test_shuffle_all_spikes_in_single_bin(self):
+        """
+        spike_shuffle on a SpikeData where all spikes are in a single time bin.
+
+        Tests:
+            (Test Case 1) A binary raster with a single column of 1s issues a
+                RuntimeWarning about insufficient swaps (no swaps possible).
+        """
+        # All spikes at t=0.5, length=1 → single bin
+        sd = SpikeData([[0.5], [0.5], [0.5]], length=1.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            shuffled = sd.spike_shuffle(seed=42, bin_size=1)
+        assert shuffled.N == 3
+
 
 class TestSpikeDataSubsetStack:
     """Tests for SpikeData.subset_stack."""
@@ -5817,24 +5845,6 @@ class TestSpikeDataAlignToEvents:
         with pytest.raises((ValueError, FloatingPointError)):
             sd.align_to_events([float("inf")], pre_ms=5.0, post_ms=5.0)
 
-
-class TestSpikeDataRates2:
-    """Edge case tests for SpikeData.rates."""
-
-    def test_rates_all_empty_trains_nonzero_length(self):
-        """
-        rates() on SpikeData with N>0 but all-empty trains returns all zeros.
-
-        Tests:
-            (Test Case 1) Three units with no spikes and length=100 returns
-                array of zeros with shape (3,).
-        """
-        sd = SpikeData([[], [], []], length=100.0)
-        r = sd.rates()
-        assert r.shape == (3,)
-        np.testing.assert_array_equal(r, 0.0)
-
-
 class TestResampledIsiSingleTime:
     """Edge case tests for the single-time query path in _resampled_isi."""
 
@@ -6297,26 +6307,6 @@ class TestSpikeDataGetFracActive:
         )
         assert isinstance(frac_per_unit, np.ndarray)
         assert frac_per_unit.shape == (2,)
-
-
-class TestSpikeDataShuffle2:
-    """Edge case tests for SpikeData.spike_shuffle."""
-
-    def test_shuffle_all_spikes_in_single_bin(self):
-        """
-        spike_shuffle on a SpikeData where all spikes are in a single time bin.
-
-        Tests:
-            (Test Case 1) A binary raster with a single column of 1s issues a
-                RuntimeWarning about insufficient swaps (no swaps possible).
-        """
-        # All spikes at t=0.5, length=1 → single bin
-        sd = SpikeData([[0.5], [0.5], [0.5]], length=1.0)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            shuffled = sd.spike_shuffle(seed=42, bin_size=1)
-        assert shuffled.N == 3
-
 
 class TestSpikeDataComputeStPR:
     """Edge case tests for SpikeData.compute_spike_trig_pop_rate."""

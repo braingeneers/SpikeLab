@@ -26,6 +26,7 @@ import numpy as np
 
 from .. import _globals
 from ..config import SortingPipelineConfig
+from ._common import _sync_globals_from_config
 from .base import SorterBackend
 
 
@@ -172,94 +173,28 @@ class RTSortBackend(SorterBackend):
         globals for parameters they own.  RT-Sort-specific parameters
         live under ``config.rt_sort``.
         """
-        cfg = self.config
-        rec = cfg.recording
-        rts = cfg.rt_sort
-        wf = cfg.waveform
-        cur = cfg.curation
-        comp = cfg.compilation
-        exe = cfg.execution
+        rts = self.config.rt_sort
 
-        # Recording
-        _globals.STREAM_ID = rec.stream_id
-        _globals.FIRST_N_MINS = rec.first_n_mins
-        _globals.MEA_Y_MAX = rec.mea_y_max
-        _globals.GAIN_TO_UV = rec.gain_to_uv
-        _globals.OFFSET_TO_UV = rec.offset_to_uv
-        _globals.REC_CHUNKS = list(rec.rec_chunks)
-        _globals.REC_CHUNKS_S = list(rec.rec_chunks_s)
-        _globals.START_TIME_S = rec.start_time_s
-        _globals.END_TIME_S = rec.end_time_s
-        _globals._REC_CHUNK_NAMES = []
-        _globals.FREQ_MIN = rec.freq_min
-        _globals.FREQ_MAX = rec.freq_max
-
-        # RT-Sort
-        _globals.RT_SORT_MODEL_PATH = rts.model_path
-        _globals.RT_SORT_DEVICE = rts.device
-        _globals.RT_SORT_NUM_PROCESSES = rts.num_processes
-        _globals.RT_SORT_RECORDING_WINDOW_MS = rts.recording_window_ms
-        _globals.RT_SORT_SAVE_PICKLE = rts.save_rt_sort_pickle
-        _globals.RT_SORT_DELETE_INTER = rts.delete_inter
-        _globals.RT_SORT_VERBOSE = rts.verbose
-        _globals.RT_SORT_DETECTION_WINDOW_S = rts.detection_window_s
         # Merge the probe into params so the runner can read both from
         # a single dict-shaped global.
         merged_params = {"probe": rts.probe}
         if rts.params:
             merged_params.update(rts.params)
-        _globals.RT_SORT_PARAMS = merged_params
 
-        # Waveforms
-        _globals.WAVEFORMS_MS_BEFORE = wf.ms_before
-        _globals.WAVEFORMS_MS_AFTER = wf.ms_after
-        _globals.POS_PEAK_THRESH = wf.pos_peak_thresh
-        _globals.MAX_WAVEFORMS_PER_UNIT = wf.max_waveforms_per_unit
-        _globals.COMPILED_WAVEFORMS_MS_BEFORE = wf.compiled_ms_before
-        _globals.COMPILED_WAVEFORMS_MS_AFTER = wf.compiled_ms_after
-        _globals.SCALE_COMPILED_WAVEFORMS = wf.scale_compiled_waveforms
-        _globals.STD_AT_PEAK = wf.std_at_peak
-        _globals.STD_OVER_WINDOW_MS_BEFORE = wf.std_over_window_ms_before
-        _globals.STD_OVER_WINDOW_MS_AFTER = wf.std_over_window_ms_after
-        _globals.STREAMING_WAVEFORMS = wf.streaming
-        _globals.SAVE_WAVEFORM_FILES = wf.save_waveform_files
-
-        # Curation
-        _globals.CURATE_FIRST = cur.curate_first
-        _globals.CURATE_SECOND = cur.curate_second
-        _globals.CURATION_EPOCH = cur.curation_epoch
-        _globals.FR_MIN = cur.fr_min
-        _globals.ISI_VIOL_MAX = cur.isi_viol_max
-        _globals.ISI_VIOLATION_METHOD = cur.isi_violation_method
-        _globals.SNR_MIN = cur.snr_min
-        _globals.SPIKES_MIN_FIRST = cur.spikes_min_first
-        _globals.SPIKES_MIN_SECOND = cur.spikes_min_second
-        _globals.STD_NORM_MAX = cur.std_norm_max
-
-        # Compilation
-        _globals.COMPILE_SINGLE_RECORDING = comp.compile_single_recording
-        _globals.COMPILE_TO_MAT = comp.compile_to_mat
-        _globals.COMPILE_TO_NPZ = comp.compile_to_npz
-        _globals.COMPILE_WAVEFORMS = comp.compile_waveforms
-        _globals.SAVE_ELECTRODES = comp.save_electrodes
-        _globals.SAVE_SPIKE_TIMES = comp.save_spike_times
-        _globals.SAVE_RAW_PKL = comp.save_raw_pkl
-        _globals.SAVE_DL_DATA = comp.save_dl_data
-
-        # Execution
-        _globals.N_JOBS = exe.n_jobs
-        _globals.TOTAL_MEMORY = exe.total_memory
-        _globals.USE_PARALLEL_PROCESSING_FOR_RAW_CONVERSION = (
-            exe.use_parallel_processing_for_raw_conversion
+        _sync_globals_from_config(
+            self.config,
+            sorter_globals={
+                "RT_SORT_MODEL_PATH": rts.model_path,
+                "RT_SORT_DEVICE": rts.device,
+                "RT_SORT_NUM_PROCESSES": rts.num_processes,
+                "RT_SORT_RECORDING_WINDOW_MS": rts.recording_window_ms,
+                "RT_SORT_SAVE_PICKLE": rts.save_rt_sort_pickle,
+                "RT_SORT_DELETE_INTER": rts.delete_inter,
+                "RT_SORT_VERBOSE": rts.verbose,
+                "RT_SORT_DETECTION_WINDOW_S": rts.detection_window_s,
+                "RT_SORT_PARAMS": merged_params,
+            },
         )
-        _globals.SAVE_SCRIPT = exe.save_script
-        _globals.OUT_FILE = exe.out_file
-        _globals.RECOMPUTE_RECORDING = exe.recompute_recording
-        _globals.RECOMPUTE_SORTING = exe.recompute_sorting
-        _globals.REEXTRACT_WAVEFORMS = exe.reextract_waveforms
-        _globals.RECURATE_FIRST = exe.recurate_first
-        _globals.RECURATE_SECOND = exe.recurate_second
-        _globals.RECOMPILE_SINGLE_RECORDING = exe.recompile_single_recording
 
     def load_recording(self, rec_path: Any) -> Any:
         """Load and preprocess a recording via the shared loader.

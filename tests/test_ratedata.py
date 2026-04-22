@@ -137,6 +137,113 @@ class TestRateDataConstructor:
         assert rd.inst_Frate_data[0, 0] == np.inf
         assert rd.inst_Frate_data[0, 1] == -np.inf
 
+    def test_empty_neuron_attributes_list_preserved(self):
+        """
+        Empty neuron_attributes=[] is correctly preserved for 0-unit RateData.
+
+        Tests:
+            (Test Case 1) Passing neuron_attributes=[] for a (0, T) array
+                stores [] (not None).
+
+        Notes:
+            - The constructor now uses `if neuron_attributes is not None:` so
+              empty list [] is correctly preserved.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.empty((0, 3))
+        rd = RateData(data, times, neuron_attributes=[])
+        assert rd.neuron_attributes is not None
+        assert rd.neuron_attributes == []
+
+    def test_all_nan_rates_with_neuron_attributes(self):
+        """
+        All-NaN rates with neuron_attributes set.
+
+        Tests:
+            (Test Case 1) Construction succeeds with all-NaN data and valid
+                neuron_attributes.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.full((2, 3), np.nan)
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        assert rd.neuron_attributes is not None
+        assert np.all(np.isnan(rd.inst_Frate_data))
+
+    def test_times_as_string_array(self):
+        """
+        times as string values create a string dtype array.
+
+        Tests:
+            (Test Case 1) String times are accepted by the constructor (no
+                numeric validation on times).
+        """
+        data = np.ones((2, 2))
+        times = ["a", "b"]
+        rd = RateData(data, times)
+        assert rd.times.dtype.kind in ("U", "O")
+
+    def test_empty_neuron_attributes_list(self):
+        """
+        Empty list [] for neuron_attributes is preserved for N=0 data.
+
+        Tests:
+            (Test Case 1) RateData with N=0 and neuron_attributes=[] should store
+                          the empty list (not silently drop it to None).
+        """
+        data = np.zeros((0, 5))
+        times = np.arange(5, dtype=float)
+        rd = RateData(data, times, neuron_attributes=[])
+        assert rd.neuron_attributes == []
+
+    def test_zero_time_bins(self):
+        """
+        RateData with 0 time bins is accepted but subtime crashes.
+
+        Tests:
+            (Test Case 1) Construction with shape (3, 0) and empty times succeeds.
+            (Test Case 2) N and shape are correct.
+            (Test Case 3) Calling subtime on zero-time-bin RateData raises an error.
+
+        Notes:
+            Construction succeeds, but calling subtime raises because
+            `self.times[-1]` on an empty array raises IndexError. The length
+            guard `if len(self.times) > 0` was added for `subtime` but the
+            fallback `end = length` (which is 0) combined with `start >= end`
+            may still raise ValueError.
+        """
+        data = np.zeros((3, 0))
+        times = np.array([])
+        rd = RateData(data, times)
+        assert rd.N == 3
+        assert rd.inst_Frate_data.shape == (3, 0)
+        assert len(rd.times) == 0
+
+        # subtime on empty times should raise
+        with pytest.raises((ValueError, IndexError)):
+            rd.subtime(0.0, 10.0)
+
+    def test_non_array_times_input(self):
+        """
+        Constructor accepts non-array iterables for times by converting to ndarray.
+
+        Tests:
+            (Test Case 1) Python list is accepted and converted to ndarray.
+            (Test Case 2) Tuple is accepted and converted to ndarray.
+            (Test Case 3) Resulting times are numpy arrays with correct values.
+        """
+        data = np.ones((2, 3))
+
+        # list
+        rd_list = RateData(data, [0.0, 1.0, 2.0])
+        assert isinstance(rd_list.times, np.ndarray)
+        np.testing.assert_array_equal(rd_list.times, [0.0, 1.0, 2.0])
+
+        # tuple
+        rd_tuple = RateData(data, (0.0, 1.0, 2.0))
+        assert isinstance(rd_tuple.times, np.ndarray)
+        np.testing.assert_array_equal(rd_tuple.times, [0.0, 1.0, 2.0])
+
 
 class TestRateDataSubset:
     """Tests for the RateData.subset() method."""
@@ -308,6 +415,56 @@ class TestRateDataSubset:
 
         result = rd.subset(["ctx"], by="region")
         assert result.N == 2
+
+    def test_subset_by_multiple_match(self):
+        """
+        subset with by parameter where multiple units share the same attribute value.
+
+        Tests:
+            (Test Case 1) Two units matching the same region are both selected.
+        """
+        times = np.array([0.0, 1.0, 2.0])
+        data = np.ones((3, 3))
+        attrs = [{"region": "CA1"}, {"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        result = rd.subset("CA1", by="region")
+        assert result.N == 2
+
+    def test_subset_single_numpy_int(self):
+        """
+        subset with a single numpy integer (np.int64).
+
+        Tests:
+            (Test Case 1) np.int64 is not caught by isinstance(units, int),
+                so it falls through to set() which wraps it. The result
+                should contain one unit.
+
+        Notes:
+            - np.int64 is not a Python int, so isinstance(units, int) is False
+              on some platforms. The code tries set(np.int64(2)) which raises
+              TypeError since numpy integers are not iterable.
+        """
+        rd = make_ratedata(n_units=3, n_times=10)
+        with pytest.raises(TypeError):
+            rd.subset(np.int64(2))
+
+    def test_subset_negative_index(self):
+        """
+        Negative index in subset silently wraps around via numpy indexing.
+
+        Tests:
+            (Test Case 1) subset([-1]) selects the last unit (numpy wrap-around).
+            (Test Case 2) The returned data matches the last unit's data.
+
+        Notes:
+            This is standard numpy behavior — negative indices wrap around.
+            The method does not guard against this, so subset([-1]) silently
+            selects the last unit rather than raising an error.
+        """
+        rd = make_ratedata(n_units=4, n_times=20)
+        sub = rd.subset([-1])
+        assert sub.N == 1
+        np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[-1])
 
 
 class TestRateDataSubtime:
@@ -490,6 +647,80 @@ class TestRateDataSubtime:
         # Times >= 5 and < 25: 10.0 and 20.0
         assert result.inst_Frate_data.shape == (2, 2)
 
+    def test_subtime_single_time_point_both_none(self):
+        """
+        subtime on a RateData with a single time point where start=None, end=None.
+
+        Tests:
+            (Test Case 1) Single-time-point RateData with default bounds returns
+                the single point since end = times[-1] + 1 includes it.
+        """
+        data = np.ones((2, 1))
+        times = np.array([5.0])
+        rd = RateData(data, times)
+        result = rd.subtime(None, None)
+        assert result.inst_Frate_data.shape == (2, 1)
+        np.testing.assert_array_equal(result.times, [5.0])
+
+    def test_subtime_non_uniform_times(self):
+        """
+        subtime with non-uniform time spacing.
+
+        Tests:
+            (Test Case 1) Non-uniform times with mask correctly selects
+                points in the range.
+        """
+        data = np.arange(8).reshape(2, 4).astype(float)
+        times = np.array([0.0, 1.0, 5.0, 10.0])
+        rd = RateData(data, times)
+        result = rd.subtime(0.5, 6.0)
+        assert result.inst_Frate_data.shape[1] == 2  # times 1.0, 5.0
+        np.testing.assert_array_equal(result.times, [1.0, 5.0])
+
+    def test_subtime_nan_start(self):
+        """
+        subtime with start=NaN produces empty mask and raises ValueError.
+
+        Tests:
+            (Test Case 1) NaN comparison with >= is always False, so mask is
+                all-False, triggering "No time points found" error.
+        """
+        rd = make_ratedata(n_units=2, n_times=10)
+        with pytest.raises(ValueError, match="No time points found"):
+            rd.subtime(float("nan"), 5.0)
+
+    def test_subtime_empty_times_array(self):
+        """
+        subtime on a RateData with empty times array raises an error.
+
+        Tests:
+            (Test Case 1) Calling subtime(0.0, 10.0) on a zero-time-bin
+                          RateData raises ValueError or IndexError.
+
+        Notes:
+            The constructor accepts shape (U, 0) with empty times, but
+            subtime accesses self.times[-1] which raises IndexError on
+            empty arrays, or the validation logic produces a ValueError.
+        """
+        data = np.zeros((2, 0))
+        times = np.array([])
+        rd = RateData(data, times)
+        with pytest.raises((ValueError, IndexError)):
+            rd.subtime(0.0, 10.0)
+
+    def test_subtime_both_none(self):
+        """
+        subtime(None, None) selects all data.
+
+        Tests:
+            (Test Case 1) Result has all time bins.
+            (Test Case 2) Times preserve original values.
+        """
+        rd = make_ratedata(n_units=2, n_times=50, step=1.0)
+        result = rd.subtime(None, None)
+        assert result.inst_Frate_data.shape[1] == 50
+        assert float(result.times[0]) == pytest.approx(0.0)
+
 
 class TestRateDataSubtimeByIndex:
     """Tests for the RateData.subtime_by_index() method."""
@@ -574,6 +805,39 @@ class TestRateDataSubtimeByIndex:
         rd = make_ratedata(n_units=2, n_times=60, step=2.0)
         with pytest.raises(ValueError):
             rd.subtime_by_index(10, 10)
+
+    def test_subtime_by_index_zero_column(self):
+        """
+        subtime_by_index on zero-column RateData raises ValueError.
+
+        Tests:
+            (Test Case 1) (U, 0) shape means len(times)=0, so any start_idx
+                is out of range.
+        """
+        data = np.empty((2, 0))
+        times = np.array([])
+        rd = RateData(data, times)
+        with pytest.raises(ValueError, match="start_idx .* out of range"):
+            rd.subtime_by_index(0, 1)
+
+    def test_subtime_by_index_both_negative(self):
+        """
+        subtime_by_index with both negative indices wraps around correctly.
+
+        Tests:
+            (Test Case 1) subtime_by_index(-5, -2) on a 10-bin RateData
+                          selects indices 5, 6, 7 (3 bins).
+            (Test Case 2) Data matches the expected slice.
+            (Test Case 3) Times are shifted to start at 0.
+        """
+        rd = make_ratedata(n_units=2, n_times=10, step=1.0)
+        result = rd.subtime_by_index(-5, -2)
+        # -5 + 10 = 5, -2 + 10 = 8 -> indices 5:8 -> 3 bins
+        assert result.inst_Frate_data.shape == (2, 3)
+        np.testing.assert_array_equal(
+            result.inst_Frate_data, rd.inst_Frate_data[:, 5:8]
+        )
+        assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
 
 
 class TestRateDataFrames:
@@ -675,6 +939,57 @@ class TestRateDataFrames:
         rd = make_ratedata(n_units=2, n_times=1)
         result = rd.frames(length=1.0)
         assert result.event_stack.shape == (2, 1, 1)
+
+    def test_frames_length_zero(self):
+        """
+        frames with length=0 raises ValueError because step = 0 - 0 = 0.
+
+        Tests:
+            (Test Case 1) length=0 with overlap=0 triggers step <= 0 check.
+        """
+        rd = make_ratedata(n_units=2, n_times=10)
+        with pytest.raises(ValueError, match="overlap must be less than length"):
+            rd.frames(length=0, overlap=0)
+
+    def test_frames_single_time_point_step_size_fallback(self):
+        """
+        frames() on a single-time-point RateData uses step_size=1.0 fallback.
+
+        Tests:
+            (Test Case 1) RateData with T=1 and frames(length=1.0) succeeds.
+            (Test Case 2) Result has shape (U, 1, 1).
+
+        Notes:
+            When len(self.times) == 1, the code uses a fallback step_size of
+            1.0 instead of computing self.times[1] - self.times[0], which
+            would raise IndexError.
+        """
+        data = np.ones((2, 1))
+        times = np.array([5.0])
+        rd = RateData(data, times)
+        result = rd.frames(length=1.0)
+        assert result.event_stack.shape == (2, 1, 1)
+
+    def test_frames_float_precision_boundaries(self):
+        """
+        frames() handles float precision in np.arange boundaries.
+
+        Tests:
+            (Test Case 1) Non-integer step sizes produce the expected number
+                          of frames without off-by-one errors from float
+                          accumulation.
+            (Test Case 2) Each frame has the correct number of time bins.
+
+        Notes:
+            np.arange with float steps can accumulate rounding errors. The
+            method uses a 1e-9 epsilon to mitigate this.
+        """
+        # 100 bins at step 0.5 -> times 0.0, 0.5, ..., 49.5; length 50 ms
+        rd = make_ratedata(n_units=2, n_times=100, step=0.5)
+        # Frame length 10 ms -> 20 time bins per frame, 5 frames
+        stack = rd.frames(length=10.0)
+        assert stack.event_stack.shape[2] == 5
+        assert stack.event_stack.shape[1] == 20
 
 
 class TestRateDataGetPairwiseFrCorr:
@@ -850,6 +1165,57 @@ class TestRateDataGetPairwiseFrCorr:
         assert np.all(np.isnan(corr.matrix[1, :]))
         assert np.all(np.isnan(corr.matrix[:, 1]))
 
+    def test_return_type_is_pairwise_comp_matrix(self):
+        """
+        get_pairwise_fr_corr returns PairwiseCompMatrix, not raw ndarray.
+
+        Tests:
+            (Test Case 1) Both returned values are PairwiseCompMatrix instances.
+            (Test Case 2) The .matrix attribute contains the actual numpy array.
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        rd = make_ratedata(n_units=3, n_times=50)
+        corr, lag = rd.get_pairwise_fr_corr()
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert isinstance(lag, PairwiseCompMatrix)
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+
+    def test_max_lag_none(self):
+        """
+        get_pairwise_fr_corr with max_lag=None uses lag=0 internally.
+
+        Tests:
+            (Test Case 1) max_lag=None does not raise and all lags are 0.
+        """
+        rd = make_ratedata(n_units=2, n_times=50)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=None)
+        np.testing.assert_array_equal(lag.matrix, 0)
+
+    def test_get_pairwise_fr_corr_all_nan_rates(self):
+        """
+        get_pairwise_fr_corr with all-NaN rate matrix produces NaN everywhere.
+
+        Tests:
+            (Test Case 1) Result matrices have correct shape (U, U).
+            (Test Case 2) Entire correlation matrix is NaN (all signals are NaN).
+            (Test Case 3) Method does not raise an exception.
+
+        Notes:
+            This differs from the single-NaN-row test: here ALL units are NaN,
+            so every pairwise correlation is undefined.
+        """
+        data = np.full((3, 50), np.nan)
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
+
+        assert corr.matrix.shape == (3, 3)
+        assert lag.matrix.shape == (3, 3)
+        assert np.all(np.isnan(corr.matrix))
+
 
 class TestRateDataGetManifold:
     """Tests for the RateData.get_manifold() method."""
@@ -1013,231 +1379,16 @@ class TestRateDataGetManifold:
         except ValueError:
             pass  # raising is acceptable for degenerate single-feature input
 
-
-# ---------------------------------------------------------------------------
-# Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
-# ---------------------------------------------------------------------------
-
-
-class TestRateDataConstructor2:
-    """Edge case tests for the RateData constructor."""
-
-    def test_empty_neuron_attributes_list(self):
+    def test_mixed_case_method(self):
         """
-        Empty list [] for neuron_attributes is preserved for N=0 data.
+        get_manifold with mixed-case method string like "Pca" works.
 
         Tests:
-            (Test Case 1) RateData with N=0 and neuron_attributes=[] should store
-                          the empty list (not silently drop it to None).
+            (Test Case 1) method="Pca" is uppercased to "PCA" and works.
         """
-        data = np.zeros((0, 5))
-        times = np.arange(5, dtype=float)
-        rd = RateData(data, times, neuron_attributes=[])
-        assert rd.neuron_attributes == []
-
-    def test_zero_time_bins(self):
-        """
-        RateData with 0 time bins is accepted but subtime crashes.
-
-        Tests:
-            (Test Case 1) Construction with shape (3, 0) and empty times succeeds.
-            (Test Case 2) N and shape are correct.
-            (Test Case 3) Calling subtime on zero-time-bin RateData raises an error.
-
-        Notes:
-            Construction succeeds, but calling subtime raises because
-            `self.times[-1]` on an empty array raises IndexError. The length
-            guard `if len(self.times) > 0` was added for `subtime` but the
-            fallback `end = length` (which is 0) combined with `start >= end`
-            may still raise ValueError.
-        """
-        data = np.zeros((3, 0))
-        times = np.array([])
-        rd = RateData(data, times)
-        assert rd.N == 3
-        assert rd.inst_Frate_data.shape == (3, 0)
-        assert len(rd.times) == 0
-
-        # subtime on empty times should raise
-        with pytest.raises((ValueError, IndexError)):
-            rd.subtime(0.0, 10.0)
-
-    def test_non_array_times_input(self):
-        """
-        Constructor accepts non-array iterables for times by converting to ndarray.
-
-        Tests:
-            (Test Case 1) Python list is accepted and converted to ndarray.
-            (Test Case 2) Tuple is accepted and converted to ndarray.
-            (Test Case 3) Resulting times are numpy arrays with correct values.
-        """
-        data = np.ones((2, 3))
-
-        # list
-        rd_list = RateData(data, [0.0, 1.0, 2.0])
-        assert isinstance(rd_list.times, np.ndarray)
-        np.testing.assert_array_equal(rd_list.times, [0.0, 1.0, 2.0])
-
-        # tuple
-        rd_tuple = RateData(data, (0.0, 1.0, 2.0))
-        assert isinstance(rd_tuple.times, np.ndarray)
-        np.testing.assert_array_equal(rd_tuple.times, [0.0, 1.0, 2.0])
-
-
-class TestRateDataSubset2:
-    """Edge case tests for the RateData.subset() method."""
-
-    def test_subset_negative_index(self):
-        """
-        Negative index in subset silently wraps around via numpy indexing.
-
-        Tests:
-            (Test Case 1) subset([-1]) selects the last unit (numpy wrap-around).
-            (Test Case 2) The returned data matches the last unit's data.
-
-        Notes:
-            This is standard numpy behavior — negative indices wrap around.
-            The method does not guard against this, so subset([-1]) silently
-            selects the last unit rather than raising an error.
-        """
-        rd = make_ratedata(n_units=4, n_times=20)
-        sub = rd.subset([-1])
-        assert sub.N == 1
-        np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[-1])
-
-
-class TestRateDataSubtime2:
-    """Edge case tests for the RateData.subtime() method."""
-
-    def test_subtime_empty_times_array(self):
-        """
-        subtime on a RateData with empty times array raises an error.
-
-        Tests:
-            (Test Case 1) Calling subtime(0.0, 10.0) on a zero-time-bin
-                          RateData raises ValueError or IndexError.
-
-        Notes:
-            The constructor accepts shape (U, 0) with empty times, but
-            subtime accesses self.times[-1] which raises IndexError on
-            empty arrays, or the validation logic produces a ValueError.
-        """
-        data = np.zeros((2, 0))
-        times = np.array([])
-        rd = RateData(data, times)
-        with pytest.raises((ValueError, IndexError)):
-            rd.subtime(0.0, 10.0)
-
-    def test_subtime_both_none(self):
-        """
-        subtime(None, None) selects all data.
-
-        Tests:
-            (Test Case 1) Result has all time bins.
-            (Test Case 2) Times preserve original values.
-        """
-        rd = make_ratedata(n_units=2, n_times=50, step=1.0)
-        result = rd.subtime(None, None)
-        assert result.inst_Frate_data.shape[1] == 50
-        assert float(result.times[0]) == pytest.approx(0.0)
-
-
-class TestRateDataSubtimeByIndex2:
-    """Edge case tests for the RateData.subtime_by_index() method."""
-
-    def test_subtime_by_index_both_negative(self):
-        """
-        subtime_by_index with both negative indices wraps around correctly.
-
-        Tests:
-            (Test Case 1) subtime_by_index(-5, -2) on a 10-bin RateData
-                          selects indices 5, 6, 7 (3 bins).
-            (Test Case 2) Data matches the expected slice.
-            (Test Case 3) Times are shifted to start at 0.
-        """
-        rd = make_ratedata(n_units=2, n_times=10, step=1.0)
-        result = rd.subtime_by_index(-5, -2)
-        # -5 + 10 = 5, -2 + 10 = 8 -> indices 5:8 -> 3 bins
-        assert result.inst_Frate_data.shape == (2, 3)
-        np.testing.assert_array_equal(
-            result.inst_Frate_data, rd.inst_Frate_data[:, 5:8]
-        )
-        assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
-
-
-class TestRateDataFrames2:
-    """Edge case tests for the RateData.frames() method."""
-
-    def test_frames_single_time_point_step_size_fallback(self):
-        """
-        frames() on a single-time-point RateData uses step_size=1.0 fallback.
-
-        Tests:
-            (Test Case 1) RateData with T=1 and frames(length=1.0) succeeds.
-            (Test Case 2) Result has shape (U, 1, 1).
-
-        Notes:
-            When len(self.times) == 1, the code uses a fallback step_size of
-            1.0 instead of computing self.times[1] - self.times[0], which
-            would raise IndexError.
-        """
-        data = np.ones((2, 1))
-        times = np.array([5.0])
-        rd = RateData(data, times)
-        result = rd.frames(length=1.0)
-        assert result.event_stack.shape == (2, 1, 1)
-
-    def test_frames_float_precision_boundaries(self):
-        """
-        frames() handles float precision in np.arange boundaries.
-
-        Tests:
-            (Test Case 1) Non-integer step sizes produce the expected number
-                          of frames without off-by-one errors from float
-                          accumulation.
-            (Test Case 2) Each frame has the correct number of time bins.
-
-        Notes:
-            np.arange with float steps can accumulate rounding errors. The
-            method uses a 1e-9 epsilon to mitigate this.
-        """
-        # 100 bins at step 0.5 -> times 0.0, 0.5, ..., 49.5; length 50 ms
-        rd = make_ratedata(n_units=2, n_times=100, step=0.5)
-        # Frame length 10 ms -> 20 time bins per frame, 5 frames
-        stack = rd.frames(length=10.0)
-        assert stack.event_stack.shape[2] == 5
-        assert stack.event_stack.shape[1] == 20
-
-
-class TestRateDataGetPairwiseFrCorr2:
-    """Edge case tests for the RateData.get_pairwise_fr_corr() method."""
-
-    def test_get_pairwise_fr_corr_all_nan_rates(self):
-        """
-        get_pairwise_fr_corr with all-NaN rate matrix produces NaN everywhere.
-
-        Tests:
-            (Test Case 1) Result matrices have correct shape (U, U).
-            (Test Case 2) Entire correlation matrix is NaN (all signals are NaN).
-            (Test Case 3) Method does not raise an exception.
-
-        Notes:
-            This differs from the single-NaN-row test: here ALL units are NaN,
-            so every pairwise correlation is undefined.
-        """
-        data = np.full((3, 50), np.nan)
-        times = np.arange(50, dtype=float)
-        rd = RateData(data, times)
-
-        corr, lag = rd.get_pairwise_fr_corr(max_lag=5)
-
-        assert corr.matrix.shape == (3, 3)
-        assert lag.matrix.shape == (3, 3)
-        assert np.all(np.isnan(corr.matrix))
-
-
-class TestRateDataGetManifold2:
-    """Edge case tests for the RateData.get_manifold() method."""
+        rd = make_ratedata(n_units=3, n_times=50)
+        embedding, var_ratio, components = rd.get_manifold("Pca", n_components=2)
+        assert embedding.shape == (50, 2)
 
     def test_get_manifold_all_constant_features(self):
         """
@@ -1280,222 +1431,11 @@ class TestRateDataGetManifold2:
 
 
 # ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan
 # ---------------------------------------------------------------------------
-
-
-class TestRateDataConstructor22:
-    """Additional edge case tests for RateData.__init__."""
-
-    def test_empty_neuron_attributes_list_preserved(self):
-        """
-        Empty neuron_attributes=[] is correctly preserved for 0-unit RateData.
-
-        Tests:
-            (Test Case 1) Passing neuron_attributes=[] for a (0, T) array
-                stores [] (not None).
-
-        Notes:
-            - The constructor now uses `if neuron_attributes is not None:` so
-              empty list [] is correctly preserved.
-        """
-        times = np.array([0.0, 1.0, 2.0])
-        data = np.empty((0, 3))
-        rd = RateData(data, times, neuron_attributes=[])
-        assert rd.neuron_attributes is not None
-        assert rd.neuron_attributes == []
-
-    def test_all_nan_rates_with_neuron_attributes(self):
-        """
-        All-NaN rates with neuron_attributes set.
-
-        Tests:
-            (Test Case 1) Construction succeeds with all-NaN data and valid
-                neuron_attributes.
-        """
-        times = np.array([0.0, 1.0, 2.0])
-        data = np.full((2, 3), np.nan)
-        attrs = [{"region": "CA1"}, {"region": "CA3"}]
-        rd = RateData(data, times, neuron_attributes=attrs)
-        assert rd.neuron_attributes is not None
-        assert np.all(np.isnan(rd.inst_Frate_data))
-
-    def test_times_as_string_array(self):
-        """
-        times as string values create a string dtype array.
-
-        Tests:
-            (Test Case 1) String times are accepted by the constructor (no
-                numeric validation on times).
-        """
-        data = np.ones((2, 2))
-        times = ["a", "b"]
-        rd = RateData(data, times)
-        assert rd.times.dtype.kind in ("U", "O")
-
-
-class TestRateDataSubset22:
-    """Additional edge case tests for RateData.subset."""
-
-    def test_subset_by_multiple_match(self):
-        """
-        subset with by parameter where multiple units share the same attribute value.
-
-        Tests:
-            (Test Case 1) Two units matching the same region are both selected.
-        """
-        times = np.array([0.0, 1.0, 2.0])
-        data = np.ones((3, 3))
-        attrs = [{"region": "CA1"}, {"region": "CA1"}, {"region": "CA3"}]
-        rd = RateData(data, times, neuron_attributes=attrs)
-        result = rd.subset("CA1", by="region")
-        assert result.N == 2
-
-    def test_subset_single_numpy_int(self):
-        """
-        subset with a single numpy integer (np.int64).
-
-        Tests:
-            (Test Case 1) np.int64 is not caught by isinstance(units, int),
-                so it falls through to set() which wraps it. The result
-                should contain one unit.
-
-        Notes:
-            - np.int64 is not a Python int, so isinstance(units, int) is False
-              on some platforms. The code tries set(np.int64(2)) which raises
-              TypeError since numpy integers are not iterable.
-        """
-        rd = make_ratedata(n_units=3, n_times=10)
-        with pytest.raises(TypeError):
-            rd.subset(np.int64(2))
-
-
-class TestRateDataSubtime22:
-    """Additional edge case tests for RateData.subtime."""
-
-    def test_subtime_single_time_point_both_none(self):
-        """
-        subtime on a RateData with a single time point where start=None, end=None.
-
-        Tests:
-            (Test Case 1) Single-time-point RateData with default bounds returns
-                the single point since end = times[-1] + 1 includes it.
-        """
-        data = np.ones((2, 1))
-        times = np.array([5.0])
-        rd = RateData(data, times)
-        result = rd.subtime(None, None)
-        assert result.inst_Frate_data.shape == (2, 1)
-        np.testing.assert_array_equal(result.times, [5.0])
-
-    def test_subtime_non_uniform_times(self):
-        """
-        subtime with non-uniform time spacing.
-
-        Tests:
-            (Test Case 1) Non-uniform times with mask correctly selects
-                points in the range.
-        """
-        data = np.arange(8).reshape(2, 4).astype(float)
-        times = np.array([0.0, 1.0, 5.0, 10.0])
-        rd = RateData(data, times)
-        result = rd.subtime(0.5, 6.0)
-        assert result.inst_Frate_data.shape[1] == 2  # times 1.0, 5.0
-        np.testing.assert_array_equal(result.times, [1.0, 5.0])
-
-    def test_subtime_nan_start(self):
-        """
-        subtime with start=NaN produces empty mask and raises ValueError.
-
-        Tests:
-            (Test Case 1) NaN comparison with >= is always False, so mask is
-                all-False, triggering "No time points found" error.
-        """
-        rd = make_ratedata(n_units=2, n_times=10)
-        with pytest.raises(ValueError, match="No time points found"):
-            rd.subtime(float("nan"), 5.0)
-
-
-class TestRateDataSubtimeByIndex22:
-    """Additional edge case tests for RateData.subtime_by_index."""
-
-    def test_subtime_by_index_zero_column(self):
-        """
-        subtime_by_index on zero-column RateData raises ValueError.
-
-        Tests:
-            (Test Case 1) (U, 0) shape means len(times)=0, so any start_idx
-                is out of range.
-        """
-        data = np.empty((2, 0))
-        times = np.array([])
-        rd = RateData(data, times)
-        with pytest.raises(ValueError, match="start_idx .* out of range"):
-            rd.subtime_by_index(0, 1)
-
-
-class TestRateDataFrames22:
-    """Additional edge case tests for RateData.frames."""
-
-    def test_frames_length_zero(self):
-        """
-        frames with length=0 raises ValueError because step = 0 - 0 = 0.
-
-        Tests:
-            (Test Case 1) length=0 with overlap=0 triggers step <= 0 check.
-        """
-        rd = make_ratedata(n_units=2, n_times=10)
-        with pytest.raises(ValueError, match="overlap must be less than length"):
-            rd.frames(length=0, overlap=0)
-
-
-class TestRateDataGetPairwiseFrCorr22:
-    """Additional edge case tests for RateData.get_pairwise_fr_corr."""
-
-    def test_return_type_is_pairwise_comp_matrix(self):
-        """
-        get_pairwise_fr_corr returns PairwiseCompMatrix, not raw ndarray.
-
-        Tests:
-            (Test Case 1) Both returned values are PairwiseCompMatrix instances.
-            (Test Case 2) The .matrix attribute contains the actual numpy array.
-        """
-        from spikelab.spikedata.pairwise import PairwiseCompMatrix
-
-        rd = make_ratedata(n_units=3, n_times=50)
-        corr, lag = rd.get_pairwise_fr_corr()
-        assert isinstance(corr, PairwiseCompMatrix)
-        assert isinstance(lag, PairwiseCompMatrix)
-        assert corr.matrix.shape == (3, 3)
-        assert lag.matrix.shape == (3, 3)
-
-    def test_max_lag_none(self):
-        """
-        get_pairwise_fr_corr with max_lag=None uses lag=0 internally.
-
-        Tests:
-            (Test Case 1) max_lag=None does not raise and all lags are 0.
-        """
-        rd = make_ratedata(n_units=2, n_times=50)
-        corr, lag = rd.get_pairwise_fr_corr(max_lag=None)
-        np.testing.assert_array_equal(lag.matrix, 0)
-
-
-class TestRateDataGetManifold22:
-    """Additional edge case tests for RateData.get_manifold."""
-
-    def test_mixed_case_method(self):
-        """
-        get_manifold with mixed-case method string like "Pca" works.
-
-        Tests:
-            (Test Case 1) method="Pca" is uppercased to "PCA" and works.
-        """
-        rd = make_ratedata(n_units=3, n_times=50)
-        embedding, var_ratio, components = rd.get_manifold("Pca", n_components=2)
-        assert embedding.shape == (50, 2)
-
-
 class TestCoverageGaps:
     """Tests for coverage gaps in RateData methods."""
 

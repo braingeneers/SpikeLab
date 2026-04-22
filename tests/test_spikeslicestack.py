@@ -330,6 +330,80 @@ class TestSpikeSliceStackConstructor:
         assert sss.times[0] == (10.0, 30.0)
         assert sss.times[1] == (20.0, 40.0)
 
+    def test_spike_stack_zero_length_slices(self):
+        """
+        spike_stack with all slices having length=0.
+
+        Tests:
+            (Test Case 1) Zero-length SpikeData slices produce auto-generated
+                times of (0, 0) for each.
+        """
+        sd1 = SpikeData([], length=0.0)
+        sd2 = SpikeData([], length=0.0)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
+        assert len(sss.spike_stack) == 2
+        for start, end in sss.times:
+            assert end - start == 0.0
+
+    def test_drop_slice_attributes_false(self):
+        """
+        spike_stack with drop_slice_attributes=False preserves per-slice neuron_attributes.
+
+        Tests:
+            (Test Case 1) neuron_attributes from individual slices are preserved
+                when drop_slice_attributes=False.
+        """
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        sd1 = SpikeData([[1.0], [2.0]], length=10.0, neuron_attributes=attrs)
+        sd2 = SpikeData([[3.0], [4.0]], length=10.0, neuron_attributes=attrs)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2], drop_slice_attributes=False)
+        # Per-slice attributes should be preserved
+        assert sss.spike_stack[0].neuron_attributes is not None
+
+    def test_data_obj_with_zero_length_subtime(self):
+        """
+        Constructor with a time window of zero duration triggers ValueError from
+        SpikeData.subtime(start, end) when start == end.
+
+        Tests:
+            (Test Case 1) ValueError is raised when the time window has zero duration.
+
+        Notes:
+            The validator _validate_time_start_to_end rejects start >= end before
+            subtime is called, so this error path is caught at the validation layer.
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0)
+        with pytest.raises(ValueError, match="less than end"):
+            SpikeSliceStack(sd, times_start_to_end=[(50.0, 50.0)])
+
+    def test_spike_stack_absolute_times_raises(self):
+        """
+        Constructing via spike_stack with absolute (non-0-based) spike times
+        raises ValueError when spike times exceed the slice duration.
+
+        Tests:
+            (Test Case 1) ValueError mentioning '0-based' is raised.
+        """
+        sd = SpikeData([[150.0, 250.0]], length=300.0)
+        with pytest.raises(ValueError, match="0-based"):
+            SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(100.0, 200.0)])
+
+    def test_spike_stack_zero_based_no_warning(self):
+        """
+        Constructing via spike_stack with correctly 0-based spike times
+        does not emit a warning.
+
+        Tests:
+            (Test Case 1) No warning when spike times are within slice duration.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 100.0)])
+        assert len(sss.spike_stack) == 1
+
 
 class TestToRasterArray:
     """Tests for SpikeSliceStack.to_raster_array()."""
@@ -540,6 +614,67 @@ class TestToRasterArray:
         assert result[0, 0, 0] == 2
         # Second slice [50,70): spikes at 55 and 65 => shifted to 5 and 15 => 2 spikes
         assert result[0, 0, 1] == 2
+
+    def test_absolute_times_with_event_centered_slices(self):
+        """
+        to_raster_array(absolute_times=True) with negative start_time slices.
+
+        Tests:
+            (Test Case 1) Event-centered slices with negative start_time produce
+                a valid raster with absolute_times=True.
+        """
+        trains = [np.array([-5.0, 0.0, 5.0])]
+        sd = SpikeData(trains, length=20.0, start_time=-10.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(-10.0, 0.0), (0.0, 10.0)],
+        )
+        raster = sss.to_raster_array(bin_size=5.0, absolute_times=True)
+        assert raster.shape[0] == 1  # N=1 unit
+        assert raster.shape[2] == 2  # S=2 slices
+
+    def test_inconsistent_slice_durations_via_spike_stack(self):
+        """
+        to_raster_array with spike_stack containing SpikeData objects of different
+        lengths causes np.stack to fail on shape mismatch.
+
+        Tests:
+            (Test Case 1) ValueError is raised when dense rasters have different
+                time dimensions due to different slice durations.
+
+        Notes:
+            The spike_stack= constructor does not enforce equal durations across
+            slices. The error only surfaces when to_raster_array tries to stack
+            the rasters.
+        """
+        sd1 = SpikeData([np.array([5.0, 15.0])], length=20.0)
+        sd2 = SpikeData([np.array([5.0, 25.0])], length=30.0)
+        # The constructor validates that all time windows have the same length,
+        # so the ValueError is raised at construction, not at to_raster_array.
+        with pytest.raises(ValueError, match="same length"):
+            SpikeSliceStack(
+                spike_stack=[sd1, sd2],
+                times_start_to_end=[(0.0, 20.0), (20.0, 50.0)],
+            )
+
+    def test_bin_size_larger_than_slice_duration(self):
+        """
+        to_raster_array with bin_size larger than the slice duration still produces
+        valid output with T=1 (one time bin that spans the entire slice).
+
+        Tests:
+            (Test Case 1) Output shape has T=1 when bin_size > slice duration.
+            (Test Case 2) The single bin contains the total spike count for each unit/slice.
+        """
+        train = [np.array([2.0, 5.0, 8.0])]
+        sd = SpikeData(train, length=10.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 10.0)])
+
+        result = sss.to_raster_array(bin_size=50.0)
+
+        # bin_size=50 for a 10ms slice should give T=1
+        assert result.shape[1] == 1
+        assert result[0, 0, 0] == 3  # All 3 spikes in one bin
 
 
 class TestSpikeStackConstructor:
@@ -900,6 +1035,31 @@ class TestSubset:
         with pytest.raises(ValueError, match="out of range"):
             sss.subset([1, 99])
 
+    def test_empty_units_list(self):
+        """
+        subset with an empty units list produces a SpikeSliceStack with N=0.
+
+        Tests:
+            (Test Case 1) Construction succeeds without error.
+            (Test Case 2) Result has N=0.
+            (Test Case 3) Each slice in the result has N=0 and an empty train.
+
+        Notes:
+            The empty list is accepted because there is no explicit guard against
+            it. The resulting stack has zero units, which may cause downstream
+            issues in methods that assume N >= 1.
+        """
+        sd = make_spikedata(n_units=3, length_ms=200.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 30.0), (50.0, 70.0)])
+
+        result = sss.subset([])
+
+        assert result.N == 0
+        assert len(result.spike_stack) == 2
+        for s in result.spike_stack:
+            assert s.N == 0
+            assert len(s.train) == 0
+
 
 class TestSubtimeByIndex:
     """Tests for SpikeSliceStack.subtime_by_index()."""
@@ -1015,6 +1175,37 @@ class TestSubtimeByIndex:
         sss = self._make_stack()
         with pytest.raises(ValueError, match="end_idx"):
             sss.subtime_by_index(10, 10)
+
+    def test_non_integer_slice_duration(self):
+        """
+        subtime_by_index with non-integer slice duration uses int(round(duration))
+        for T. This tests that the rounding does not cause off-by-one errors.
+
+        Tests:
+            (Test Case 1) Construction and subtime succeed with a 100.5ms duration.
+            (Test Case 2) The resulting sub-window times are consistent.
+            (Test Case 3) Spikes in the result fall within the expected sub-window.
+
+        Notes:
+            The slice duration 100.5ms is rounded to T=100 (or 101 depending on
+            floating point), which could cause subtle off-by-one issues. This test
+            verifies the behavior is at least consistent.
+        """
+        train = [np.array([10.0, 50.0, 80.0, 99.0])]
+        sd = SpikeData(train, length=200.5)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 100.5), (100.0, 200.5)])
+
+        # Trim to inner range [10, 90) — well within bounds regardless of rounding
+        result = sss.subtime_by_index(10, 90)
+
+        assert len(result.spike_stack) == 2
+        expected_duration = 90 - 10  # 80ms
+        for sd_slice in result.spike_stack:
+            assert sd_slice.length == pytest.approx(expected_duration, abs=1.0)
+            for unit_spikes in sd_slice.train:
+                if len(unit_spikes) > 0:
+                    assert np.all(unit_spikes >= 0)
+                    assert np.all(unit_spikes < expected_duration + 1.0)
 
 
 class TestToRasterArrayCustomBin:
@@ -1282,6 +1473,17 @@ class TestUnitToUnitComparison:
         assert corr_stack.stack.shape == (2, 2, 2)
         assert av_corr.shape == (2,)
 
+    def test_sttc_with_delt_zero_raises(self):
+        """
+        unit_to_unit_comparison with metric='sttc' and delt=0 raises ValueError.
+
+        Tests:
+            (Test Case 1) delt=0 raises ValueError from get_sttc validation.
+        """
+        sss = _make_correlated_stack(n_units=3, n_slices=3)
+        with pytest.raises(ValueError, match="delt must be positive"):
+            sss.unit_to_unit_comparison(metric="sttc", delt=0)
+
 
 # ---------------------------------------------------------------------------
 # get_slice_to_slice_unit_comparison
@@ -1465,6 +1667,38 @@ class TestSliceToSliceUnitComparison:
         # With min_spikes=0, all units should have valid averages
         assert not np.any(np.isnan(av_corr))
 
+    def test_all_units_below_min_frac(self):
+        """
+        get_slice_to_slice_unit_comparison where all units have too few spikes in
+        too many slices results in all-NaN averages.
+
+        Tests:
+            (Test Case 1) No error is raised.
+            (Test Case 2) Output shapes are correct.
+            (Test Case 3) All av_corr values are NaN because no unit passes the
+                min_frac threshold.
+        """
+        # Every unit has exactly 1 spike per slice (below default min_spikes=2)
+        sd_list = []
+        times = []
+        for i in range(4):
+            start = i * 100.0
+            u0 = np.array([50.0])
+            u1 = np.array([60.0])
+            u2 = np.array([70.0])
+            sd_list.append(SpikeData([u0, u1, u2], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
+            metric="ccg", min_spikes=2, min_frac=0.0
+        )
+
+        assert all_corr.stack.shape == (4, 4, 3)
+        assert av_corr.shape == (3,)
+        # All units have 0 valid slices out of 4 → all averages should be NaN
+        assert np.all(np.isnan(av_corr))
+
 
 # ---------------------------------------------------------------------------
 # compute_frac_active
@@ -1623,6 +1857,49 @@ class TestComputeFracActive:
 
         assert frac.shape == (2,)
         np.testing.assert_array_equal(frac, 0.0)
+
+    def test_negative_min_spikes(self):
+        """
+        compute_frac_active with negative min_spikes: all units active.
+
+        Tests:
+            (Test Case 1) Negative min_spikes means n_valid >= -1 is always True.
+                Same effect as min_spikes=0.
+        """
+        sd = make_spikedata(n_units=3, length_ms=100.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
+        frac = sss.compute_frac_active(min_spikes=-1)
+        # All units should be active since -1 spikes threshold always passes
+        assert frac.shape == (3,)
+        assert np.all(frac >= 0.0)
+
+    def test_negative_min_spikes_same_as_zero(self):
+        """
+        Negative min_spikes has the same effect as min_spikes=0 because the
+        condition n_valid >= min_spikes is always true when min_spikes is negative.
+
+        Tests:
+            (Test Case 1) frac_active is 1.0 for all units with negative min_spikes.
+            (Test Case 2) Result matches min_spikes=0.
+
+        Notes:
+            There is no validation on min_spikes, so negative values are silently
+            accepted. This behaves identically to min_spikes=0 because any
+            non-negative spike count satisfies n_valid >= negative_number.
+        """
+        empty = np.array([], dtype=float)
+        sd1 = SpikeData([np.array([5.0, 15.0]), empty], length=20.0)
+        sd2 = SpikeData([np.array([3.0]), empty], length=20.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd1, sd2],
+            times_start_to_end=[(0.0, 20.0), (20.0, 40.0)],
+        )
+
+        frac_neg = sss.compute_frac_active(min_spikes=-5)
+        frac_zero = sss.compute_frac_active(min_spikes=0)
+
+        np.testing.assert_array_equal(frac_neg, frac_zero)
+        np.testing.assert_array_equal(frac_neg, 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -1874,6 +2151,39 @@ class TestOrderUnitsAcrossSlices:
         assert len(ids[1]) == 2
         assert stacks[1] is not None
         assert stacks[1].N == 2
+
+    def test_all_units_inactive_all_nan_timing(self):
+        """
+        order_units_across_slices when all units have zero spikes in all slices
+        produces all-NaN timing values and arbitrary (NaN-based) ordering.
+
+        Tests:
+            (Test Case 1) No error is raised.
+            (Test Case 2) All peak times are NaN.
+            (Test Case 3) All units are still placed in the highly-active group
+                (since min_frac_active=0 by default).
+            (Test Case 4) Unit IDs cover all original units.
+        """
+        empty = np.array([], dtype=float)
+        sd_list = []
+        times = []
+        for i in range(4):
+            start = i * 100.0
+            sd_list.append(SpikeData([empty, empty, empty], length=100.0))
+            times.append((start, start + 100.0))
+        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
+
+        stacks, ids, std, peak_times, frac = sss.order_units_across_slices()
+
+        # All units in HA group (no split by default)
+        assert len(ids[0]) == 3
+        assert len(ids[1]) == 0
+        # All peak times should be NaN (no spikes to compute timing from)
+        assert np.all(np.isnan(peak_times[0]))
+        # All std values should be NaN too
+        assert np.all(np.isnan(std[0]))
+        # All unit IDs should be present
+        assert set(ids[0].tolist()) == {0, 1, 2}
 
 
 # ---------------------------------------------------------------------------
@@ -2438,295 +2748,6 @@ class TestApply:
         with pytest.raises(RuntimeError, match="boom"):
             stack.apply(exploding_func)
 
-
-# ---------------------------------------------------------------------------
-# Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
-# spikeslicestack.py findings
-# ---------------------------------------------------------------------------
-
-
-class TestSpikeSliceStackConstructor2:
-    """Edge case tests for SpikeSliceStack.__init__."""
-
-    def test_data_obj_with_zero_length_subtime(self):
-        """
-        Constructor with a time window of zero duration triggers ValueError from
-        SpikeData.subtime(start, end) when start == end.
-
-        Tests:
-            (Test Case 1) ValueError is raised when the time window has zero duration.
-
-        Notes:
-            The validator _validate_time_start_to_end rejects start >= end before
-            subtime is called, so this error path is caught at the validation layer.
-        """
-        sd = make_spikedata(n_units=2, length_ms=100.0)
-        with pytest.raises(ValueError, match="less than end"):
-            SpikeSliceStack(sd, times_start_to_end=[(50.0, 50.0)])
-
-    def test_spike_stack_absolute_times_raises(self):
-        """
-        Constructing via spike_stack with absolute (non-0-based) spike times
-        raises ValueError when spike times exceed the slice duration.
-
-        Tests:
-            (Test Case 1) ValueError mentioning '0-based' is raised.
-        """
-        sd = SpikeData([[150.0, 250.0]], length=300.0)
-        with pytest.raises(ValueError, match="0-based"):
-            SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(100.0, 200.0)])
-
-    def test_spike_stack_zero_based_no_warning(self):
-        """
-        Constructing via spike_stack with correctly 0-based spike times
-        does not emit a warning.
-
-        Tests:
-            (Test Case 1) No warning when spike times are within slice duration.
-        """
-        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            sss = SpikeSliceStack(spike_stack=[sd], times_start_to_end=[(0.0, 100.0)])
-        assert len(sss.spike_stack) == 1
-
-
-class TestToRasterArray2:
-    """Edge case tests for SpikeSliceStack.to_raster_array."""
-
-    def test_inconsistent_slice_durations_via_spike_stack(self):
-        """
-        to_raster_array with spike_stack containing SpikeData objects of different
-        lengths causes np.stack to fail on shape mismatch.
-
-        Tests:
-            (Test Case 1) ValueError is raised when dense rasters have different
-                time dimensions due to different slice durations.
-
-        Notes:
-            The spike_stack= constructor does not enforce equal durations across
-            slices. The error only surfaces when to_raster_array tries to stack
-            the rasters.
-        """
-        sd1 = SpikeData([np.array([5.0, 15.0])], length=20.0)
-        sd2 = SpikeData([np.array([5.0, 25.0])], length=30.0)
-        # The constructor validates that all time windows have the same length,
-        # so the ValueError is raised at construction, not at to_raster_array.
-        with pytest.raises(ValueError, match="same length"):
-            SpikeSliceStack(
-                spike_stack=[sd1, sd2],
-                times_start_to_end=[(0.0, 20.0), (20.0, 50.0)],
-            )
-
-    def test_bin_size_larger_than_slice_duration(self):
-        """
-        to_raster_array with bin_size larger than the slice duration still produces
-        valid output with T=1 (one time bin that spans the entire slice).
-
-        Tests:
-            (Test Case 1) Output shape has T=1 when bin_size > slice duration.
-            (Test Case 2) The single bin contains the total spike count for each unit/slice.
-        """
-        train = [np.array([2.0, 5.0, 8.0])]
-        sd = SpikeData(train, length=10.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 10.0)])
-
-        result = sss.to_raster_array(bin_size=50.0)
-
-        # bin_size=50 for a 10ms slice should give T=1
-        assert result.shape[1] == 1
-        assert result[0, 0, 0] == 3  # All 3 spikes in one bin
-
-
-class TestComputeFracActive2:
-    """Edge case tests for SpikeSliceStack.compute_frac_active."""
-
-    def test_negative_min_spikes_same_as_zero(self):
-        """
-        Negative min_spikes has the same effect as min_spikes=0 because the
-        condition n_valid >= min_spikes is always true when min_spikes is negative.
-
-        Tests:
-            (Test Case 1) frac_active is 1.0 for all units with negative min_spikes.
-            (Test Case 2) Result matches min_spikes=0.
-
-        Notes:
-            There is no validation on min_spikes, so negative values are silently
-            accepted. This behaves identically to min_spikes=0 because any
-            non-negative spike count satisfies n_valid >= negative_number.
-        """
-        empty = np.array([], dtype=float)
-        sd1 = SpikeData([np.array([5.0, 15.0]), empty], length=20.0)
-        sd2 = SpikeData([np.array([3.0]), empty], length=20.0)
-        sss = SpikeSliceStack(
-            spike_stack=[sd1, sd2],
-            times_start_to_end=[(0.0, 20.0), (20.0, 40.0)],
-        )
-
-        frac_neg = sss.compute_frac_active(min_spikes=-5)
-        frac_zero = sss.compute_frac_active(min_spikes=0)
-
-        np.testing.assert_array_equal(frac_neg, frac_zero)
-        np.testing.assert_array_equal(frac_neg, 1.0)
-
-
-class TestSubset2:
-    """Edge case tests for SpikeSliceStack.subset."""
-
-    def test_empty_units_list(self):
-        """
-        subset with an empty units list produces a SpikeSliceStack with N=0.
-
-        Tests:
-            (Test Case 1) Construction succeeds without error.
-            (Test Case 2) Result has N=0.
-            (Test Case 3) Each slice in the result has N=0 and an empty train.
-
-        Notes:
-            The empty list is accepted because there is no explicit guard against
-            it. The resulting stack has zero units, which may cause downstream
-            issues in methods that assume N >= 1.
-        """
-        sd = make_spikedata(n_units=3, length_ms=200.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 30.0), (50.0, 70.0)])
-
-        result = sss.subset([])
-
-        assert result.N == 0
-        assert len(result.spike_stack) == 2
-        for s in result.spike_stack:
-            assert s.N == 0
-            assert len(s.train) == 0
-
-
-class TestSubtimeByIndex2:
-    """Edge case tests for SpikeSliceStack.subtime_by_index."""
-
-    def test_non_integer_slice_duration(self):
-        """
-        subtime_by_index with non-integer slice duration uses int(round(duration))
-        for T. This tests that the rounding does not cause off-by-one errors.
-
-        Tests:
-            (Test Case 1) Construction and subtime succeed with a 100.5ms duration.
-            (Test Case 2) The resulting sub-window times are consistent.
-            (Test Case 3) Spikes in the result fall within the expected sub-window.
-
-        Notes:
-            The slice duration 100.5ms is rounded to T=100 (or 101 depending on
-            floating point), which could cause subtle off-by-one issues. This test
-            verifies the behavior is at least consistent.
-        """
-        train = [np.array([10.0, 50.0, 80.0, 99.0])]
-        sd = SpikeData(train, length=200.5)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 100.5), (100.0, 200.5)])
-
-        # Trim to inner range [10, 90) — well within bounds regardless of rounding
-        result = sss.subtime_by_index(10, 90)
-
-        assert len(result.spike_stack) == 2
-        expected_duration = 90 - 10  # 80ms
-        for sd_slice in result.spike_stack:
-            assert sd_slice.length == pytest.approx(expected_duration, abs=1.0)
-            for unit_spikes in sd_slice.train:
-                if len(unit_spikes) > 0:
-                    assert np.all(unit_spikes >= 0)
-                    assert np.all(unit_spikes < expected_duration + 1.0)
-
-
-class TestOrderUnitsAcrossSlices2:
-    """Edge case tests for SpikeSliceStack.order_units_across_slices."""
-
-    def test_all_units_inactive_all_nan_timing(self):
-        """
-        order_units_across_slices when all units have zero spikes in all slices
-        produces all-NaN timing values and arbitrary (NaN-based) ordering.
-
-        Tests:
-            (Test Case 1) No error is raised.
-            (Test Case 2) All peak times are NaN.
-            (Test Case 3) All units are still placed in the highly-active group
-                (since min_frac_active=0 by default).
-            (Test Case 4) Unit IDs cover all original units.
-        """
-        empty = np.array([], dtype=float)
-        sd_list = []
-        times = []
-        for i in range(4):
-            start = i * 100.0
-            sd_list.append(SpikeData([empty, empty, empty], length=100.0))
-            times.append((start, start + 100.0))
-        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
-
-        stacks, ids, std, peak_times, frac = sss.order_units_across_slices()
-
-        # All units in HA group (no split by default)
-        assert len(ids[0]) == 3
-        assert len(ids[1]) == 0
-        # All peak times should be NaN (no spikes to compute timing from)
-        assert np.all(np.isnan(peak_times[0]))
-        # All std values should be NaN too
-        assert np.all(np.isnan(std[0]))
-        # All unit IDs should be present
-        assert set(ids[0].tolist()) == {0, 1, 2}
-
-
-class TestUnitToUnitComparison2:
-    """Edge case tests for SpikeSliceStack.unit_to_unit_comparison."""
-
-    def test_sttc_with_delt_zero_raises(self):
-        """
-        unit_to_unit_comparison with metric='sttc' and delt=0 raises ValueError.
-
-        Tests:
-            (Test Case 1) delt=0 raises ValueError from get_sttc validation.
-        """
-        sss = _make_correlated_stack(n_units=3, n_slices=3)
-        with pytest.raises(ValueError, match="delt must be positive"):
-            sss.unit_to_unit_comparison(metric="sttc", delt=0)
-
-
-class TestSliceToSliceUnitComparison2:
-    """Edge case tests for SpikeSliceStack.get_slice_to_slice_unit_comparison."""
-
-    def test_all_units_below_min_frac(self):
-        """
-        get_slice_to_slice_unit_comparison where all units have too few spikes in
-        too many slices results in all-NaN averages.
-
-        Tests:
-            (Test Case 1) No error is raised.
-            (Test Case 2) Output shapes are correct.
-            (Test Case 3) All av_corr values are NaN because no unit passes the
-                min_frac threshold.
-        """
-        # Every unit has exactly 1 spike per slice (below default min_spikes=2)
-        sd_list = []
-        times = []
-        for i in range(4):
-            start = i * 100.0
-            u0 = np.array([50.0])
-            u1 = np.array([60.0])
-            u2 = np.array([70.0])
-            sd_list.append(SpikeData([u0, u1, u2], length=100.0))
-            times.append((start, start + 100.0))
-        sss = SpikeSliceStack(spike_stack=sd_list, times_start_to_end=times)
-
-        all_corr, all_lag, av_corr, av_lag = sss.get_slice_to_slice_unit_comparison(
-            metric="ccg", min_spikes=2, min_frac=0.0
-        )
-
-        assert all_corr.stack.shape == (4, 4, 3)
-        assert av_corr.shape == (3,)
-        # All units have 0 valid slices out of 4 → all averages should be NaN
-        assert np.all(np.isnan(av_corr))
-
-
-class TestApply2:
-    """Edge case tests for SpikeSliceStack.apply."""
-
     def test_function_returning_none_produces_object_array(self):
         """
         apply with a function returning None produces an object array because
@@ -2749,6 +2770,10 @@ class TestApply2:
         assert all(v is None for v in result)
 
 
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan — Core (spikedata/)
+# spikeslicestack.py findings
+# ---------------------------------------------------------------------------
 class TestPlotUnitRaster:
     """Edge case tests for SpikeSliceStack.plot_aligned_slice_single_unit."""
 
@@ -2772,64 +2797,6 @@ class TestPlotUnitRaster:
 # ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan
 # ---------------------------------------------------------------------------
-
-
-class TestSpikeSliceStackConstructor22:
-    """Additional edge case tests for SpikeSliceStack.__init__."""
-
-    def test_spike_stack_zero_length_slices(self):
-        """
-        spike_stack with all slices having length=0.
-
-        Tests:
-            (Test Case 1) Zero-length SpikeData slices produce auto-generated
-                times of (0, 0) for each.
-        """
-        sd1 = SpikeData([], length=0.0)
-        sd2 = SpikeData([], length=0.0)
-        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
-        assert len(sss.spike_stack) == 2
-        for start, end in sss.times:
-            assert end - start == 0.0
-
-    def test_drop_slice_attributes_false(self):
-        """
-        spike_stack with drop_slice_attributes=False preserves per-slice neuron_attributes.
-
-        Tests:
-            (Test Case 1) neuron_attributes from individual slices are preserved
-                when drop_slice_attributes=False.
-        """
-        attrs = [{"region": "CA1"}, {"region": "CA3"}]
-        sd1 = SpikeData([[1.0], [2.0]], length=10.0, neuron_attributes=attrs)
-        sd2 = SpikeData([[3.0], [4.0]], length=10.0, neuron_attributes=attrs)
-        sss = SpikeSliceStack(spike_stack=[sd1, sd2], drop_slice_attributes=False)
-        # Per-slice attributes should be preserved
-        assert sss.spike_stack[0].neuron_attributes is not None
-
-
-class TestToRasterArray22:
-    """Additional edge case tests for SpikeSliceStack.to_raster_array."""
-
-    def test_absolute_times_with_event_centered_slices(self):
-        """
-        to_raster_array(absolute_times=True) with negative start_time slices.
-
-        Tests:
-            (Test Case 1) Event-centered slices with negative start_time produce
-                a valid raster with absolute_times=True.
-        """
-        trains = [np.array([-5.0, 0.0, 5.0])]
-        sd = SpikeData(trains, length=20.0, start_time=-10.0)
-        sss = SpikeSliceStack(
-            sd,
-            times_start_to_end=[(-10.0, 0.0), (0.0, 10.0)],
-        )
-        raster = sss.to_raster_array(bin_size=5.0, absolute_times=True)
-        assert raster.shape[0] == 1  # N=1 unit
-        assert raster.shape[2] == 2  # S=2 slices
-
-
 class TestSSSSubset2:
     """Additional edge case tests for SpikeSliceStack.subset."""
 
@@ -2866,26 +2833,6 @@ class TestSSSSubtimeByIndex2:
         # Select first 50 indices
         result = sss.subtime_by_index(0, 50)
         assert len(result.spike_stack) == 2
-
-
-class TestComputeFracActive22:
-    """Additional edge case tests for SpikeSliceStack.compute_frac_active."""
-
-    def test_negative_min_spikes(self):
-        """
-        compute_frac_active with negative min_spikes: all units active.
-
-        Tests:
-            (Test Case 1) Negative min_spikes means n_valid >= -1 is always True.
-                Same effect as min_spikes=0.
-        """
-        sd = make_spikedata(n_units=3, length_ms=100.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 50.0), (50.0, 100.0)])
-        frac = sss.compute_frac_active(min_spikes=-1)
-        # All units should be active since -1 spikes threshold always passes
-        assert frac.shape == (3,)
-        assert np.all(frac >= 0.0)
-
 
 class TestSSSOrderUnits2:
     """Additional edge case tests for SpikeSliceStack.order_units_across_slices."""

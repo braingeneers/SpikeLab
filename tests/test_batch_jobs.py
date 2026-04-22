@@ -291,6 +291,21 @@ class TestSleepDetection:
         """sleep with a non-numeric arg (not 'infinity'/'inf') is not flagged."""
         assert not _contains_disallowed_sleep(["sleep"], ["10s"])
 
+    def test_sleep_scientific_notation(self):
+        """sleep 1e6 (scientific notation) should be caught as large number."""
+        assert _contains_disallowed_sleep(["sleep"], ["1e6"])
+
+    def test_sleep_negative_number(self):
+        """sleep -1 should not be flagged (negative is below threshold)."""
+        assert not _contains_disallowed_sleep(["sleep"], ["-1"])
+
+    def test_nosleep_substring_false_positive(self):
+        """Commands containing 'sleep' as substring should not be flagged."""
+        # "nosleep" contains "sleep" but is not a sleep command
+        assert not _contains_disallowed_sleep(["nosleep"], [])
+        # "sleepless" as a command name
+        assert not _contains_disallowed_sleep(["sleepless"], ["module"])
+
 
 def test_policy_blocks_sleep_infinity():
     payload = _example_payload()
@@ -626,6 +641,44 @@ class TestArtifactPackager:
         )
         assert Path(zip_path).exists()
 
+    def test_duplicate_filenames_last_wins(self, tmp_path):
+        """Duplicate filenames in input_paths: last file overwrites earlier ones."""
+        dir_a = tmp_path / "a"
+        dir_a.mkdir()
+        dir_b = tmp_path / "b"
+        dir_b.mkdir()
+
+        file_a = dir_a / "data.pkl"
+        file_a.write_bytes(b"content_a")
+        file_b = dir_b / "data.pkl"
+        file_b.write_bytes(b"content_b")
+
+        import zipfile
+
+        zip_path = package_analysis_bundle(
+            input_paths=[str(file_a), str(file_b)],
+            run_id="run-dup",
+            output_dir=str(tmp_path / "out"),
+            output_format="workspace",
+        )
+
+        with zipfile.ZipFile(zip_path) as zf:
+            content = zf.read("run-dup/data.pkl")
+            # Last copy wins (shutil.copy2 overwrites)
+            assert content == b"content_b"
+
+    def test_large_file_hashing(self, tmp_path):
+        """Files larger than the read chunk size are hashed correctly."""
+        large_file = tmp_path / "large.bin"
+        # Write >8192 bytes to trigger multi-chunk hashing
+        content = b"x" * 20000
+        large_file.write_bytes(content)
+
+        import hashlib
+
+        expected = hashlib.sha256(content).hexdigest()
+        assert _sha256(Path(large_file)) == expected
+
 
 # ---------------------------------------------------------------------------
 # storage_s3 tests (mocked boto3)
@@ -739,6 +792,40 @@ class TestS3StorageClient:
         client = self._make_client(prefix="s3://b/p/", templates=templates)
         assert client.output_prefix_for_run("r1") == "s3://b/p/out/r1/"
         assert client.logs_prefix_for_run("r1") == "s3://b/p/lg/r1/"
+
+    def test_boto3_not_installed(self):
+        """ImportError raised when boto3 is not available."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3", None):
+            with pytest.raises(ImportError, match="boto3 is required"):
+                S3StorageClient(prefix="s3://bucket/pfx/")
+
+    def test_build_uri_invalid_category_falls_back_to_inputs(self):
+        """Invalid category string falls back to inputs template."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        # "invalid_category" doesn't exist as a template attribute
+        uri = client.build_uri(
+            run_id="run-1", filename="data.pkl", category="invalid_category"
+        )
+        # Falls back to inputs template
+        assert uri == "s3://bucket/pfx/inputs/run-1/data.pkl"
+
+    def test_build_uri_special_chars_in_run_id(self):
+        """Special characters in run_id are passed through to the URI."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        uri = client.build_uri(run_id="run/with spaces", filename="data.pkl")
+        assert "run/with spaces" in uri
+
+    def test_build_uri_special_chars_in_filename(self):
+        """Special characters in filename are passed through to the URI."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        uri = client.build_uri(run_id="run-1", filename="my file (1).pkl")
+        assert "my file (1).pkl" in uri
 
 
 # ---------------------------------------------------------------------------
@@ -1051,6 +1138,24 @@ class TestProfiles:
         bad_yaml.write_text("- item1\n- item2\n", encoding="utf-8")
         with pytest.raises(ValueError, match="Invalid profile file"):
             load_cluster_profile(str(bad_yaml))
+
+    def test_empty_yaml_file(self, tmp_path):
+        """Empty YAML file produces a Pydantic ValidationError (missing 'name')."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        empty_file = tmp_path / "empty.yaml"
+        empty_file.write_text("", encoding="utf-8")
+        with pytest.raises(PydanticValidationError):
+            load_cluster_profile(str(empty_file))
+
+    def test_yaml_null_only(self, tmp_path):
+        """YAML file containing only 'null' raises ValidationError."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        null_file = tmp_path / "null.yaml"
+        null_file.write_text("null\n", encoding="utf-8")
+        with pytest.raises(PydanticValidationError):
+            load_cluster_profile(str(null_file))
 
 
 # ---------------------------------------------------------------------------
@@ -1459,25 +1564,6 @@ class TestPolicyBoundary:
 # ---------------------------------------------------------------------------
 # Sleep detection edge cases
 # ---------------------------------------------------------------------------
-
-
-class TestSleepDetection2:
-    def test_sleep_scientific_notation(self):
-        """sleep 1e6 (scientific notation) should be caught as large number."""
-        assert _contains_disallowed_sleep(["sleep"], ["1e6"])
-
-    def test_sleep_negative_number(self):
-        """sleep -1 should not be flagged (negative is below threshold)."""
-        assert not _contains_disallowed_sleep(["sleep"], ["-1"])
-
-    def test_nosleep_substring_false_positive(self):
-        """Commands containing 'sleep' as substring should not be flagged."""
-        # "nosleep" contains "sleep" but is not a sleep command
-        assert not _contains_disallowed_sleep(["nosleep"], [])
-        # "sleepless" as a command name
-        assert not _contains_disallowed_sleep(["sleepless"], ["module"])
-
-
 # ---------------------------------------------------------------------------
 # _build_job_name edge cases
 # ---------------------------------------------------------------------------
@@ -2608,29 +2694,6 @@ class TestPolicySummarizePreflight:
         level, _ = summarize_preflight(findings)
         assert level == "PASS"
 
-
-class TestProfiles2:
-    """Edge cases for profiles._read_yaml."""
-
-    def test_empty_yaml_file(self, tmp_path):
-        """Empty YAML file produces a Pydantic ValidationError (missing 'name')."""
-        from spikelab.batch_jobs.profiles import load_cluster_profile
-
-        empty_file = tmp_path / "empty.yaml"
-        empty_file.write_text("", encoding="utf-8")
-        with pytest.raises(PydanticValidationError):
-            load_cluster_profile(str(empty_file))
-
-    def test_yaml_null_only(self, tmp_path):
-        """YAML file containing only 'null' raises ValidationError."""
-        from spikelab.batch_jobs.profiles import load_cluster_profile
-
-        null_file = tmp_path / "null.yaml"
-        null_file.write_text("null\n", encoding="utf-8")
-        with pytest.raises(PydanticValidationError):
-            load_cluster_profile(str(null_file))
-
-
 class TestWaitForCompletion:
     """Edge cases for RunSession.wait_for_completion."""
 
@@ -2653,87 +2716,6 @@ class TestWaitForCompletion:
             job_name="test-job", max_wait_seconds=0, poll_interval_seconds=0
         )
         assert state == "Timeout"
-
-
-class TestS3StorageClient2:
-    """Edge cases for S3StorageClient."""
-
-    def test_boto3_not_installed(self):
-        """ImportError raised when boto3 is not available."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3", None):
-            with pytest.raises(ImportError, match="boto3 is required"):
-                S3StorageClient(prefix="s3://bucket/pfx/")
-
-    def test_build_uri_invalid_category_falls_back_to_inputs(self):
-        """Invalid category string falls back to inputs template."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
-            mock_boto3.client.return_value = MagicMock()
-            client = S3StorageClient(prefix="s3://bucket/pfx/")
-        # "invalid_category" doesn't exist as a template attribute
-        uri = client.build_uri(
-            run_id="run-1", filename="data.pkl", category="invalid_category"
-        )
-        # Falls back to inputs template
-        assert uri == "s3://bucket/pfx/inputs/run-1/data.pkl"
-
-    def test_build_uri_special_chars_in_run_id(self):
-        """Special characters in run_id are passed through to the URI."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
-            mock_boto3.client.return_value = MagicMock()
-            client = S3StorageClient(prefix="s3://bucket/pfx/")
-        uri = client.build_uri(run_id="run/with spaces", filename="data.pkl")
-        assert "run/with spaces" in uri
-
-    def test_build_uri_special_chars_in_filename(self):
-        """Special characters in filename are passed through to the URI."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
-            mock_boto3.client.return_value = MagicMock()
-            client = S3StorageClient(prefix="s3://bucket/pfx/")
-        uri = client.build_uri(run_id="run-1", filename="my file (1).pkl")
-        assert "my file (1).pkl" in uri
-
-
-class TestArtifactPackager2:
-    """Edge cases for package_analysis_bundle."""
-
-    def test_duplicate_filenames_last_wins(self, tmp_path):
-        """Duplicate filenames in input_paths: last file overwrites earlier ones."""
-        dir_a = tmp_path / "a"
-        dir_a.mkdir()
-        dir_b = tmp_path / "b"
-        dir_b.mkdir()
-
-        file_a = dir_a / "data.pkl"
-        file_a.write_bytes(b"content_a")
-        file_b = dir_b / "data.pkl"
-        file_b.write_bytes(b"content_b")
-
-        import zipfile
-
-        zip_path = package_analysis_bundle(
-            input_paths=[str(file_a), str(file_b)],
-            run_id="run-dup",
-            output_dir=str(tmp_path / "out"),
-            output_format="workspace",
-        )
-
-        with zipfile.ZipFile(zip_path) as zf:
-            content = zf.read("run-dup/data.pkl")
-            # Last copy wins (shutil.copy2 overwrites)
-            assert content == b"content_b"
-
-    def test_large_file_hashing(self, tmp_path):
-        """Files larger than the read chunk size are hashed correctly."""
-        large_file = tmp_path / "large.bin"
-        # Write >8192 bytes to trigger multi-chunk hashing
-        content = b"x" * 20000
-        large_file.write_bytes(content)
-
-        import hashlib
-
-        expected = hashlib.sha256(content).hexdigest()
-        assert _sha256(Path(large_file)) == expected
-
 
 class TestKubernetesBatchJobBackendK8sClientPath:
     """Tests for K8s client code paths (HIGH severity — previously untested)."""

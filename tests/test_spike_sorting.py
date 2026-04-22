@@ -705,6 +705,56 @@ class TestKilosortSortingExtractor:
             if old_params is not None:
                 ks_mod.KILOSORT_PARAMS = old_params
 
+    def test_missing_params_py(self, tmp_path):
+        """Missing params.py raises FileNotFoundError."""
+        folder = tmp_path / "ks_out"
+        folder.mkdir()
+        np.save(str(folder / "spike_times.npy"), np.array([0, 1]))
+        np.save(str(folder / "spike_clusters.npy"), np.array([0, 0]))
+        # No params.py
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        with pytest.raises(FileNotFoundError):
+            KilosortSortingExtractor(folder)
+
+    def test_missing_both_cluster_id_columns(self, tmp_path):
+        """TSV with neither 'cluster_id' nor 'id' column raises ValueError."""
+        folder = tmp_path / "ks_out"
+        _write_ks_folder(
+            folder,
+            spike_times=np.array([0, 10, 20]),
+            spike_clusters=np.array([0, 0, 1]),
+        )
+        # Overwrite TSV with wrong column name
+        (folder / "cluster_info.tsv").write_text("unit\tgroup\n0\tgood\n1\tgood\n")
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        with pytest.raises(ValueError, match="cluster_id"):
+            KilosortSortingExtractor(folder)
+
+    def test_nonexistent_unit_spike_train(self, tmp_path):
+        """get_unit_spike_train for a non-existent unit returns empty array."""
+        folder = tmp_path / "ks_out"
+        _write_ks_folder(
+            folder,
+            spike_times=np.array([0, 10, 20]),
+            spike_clusters=np.array([0, 0, 0]),
+        )
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        kse = KilosortSortingExtractor(folder)
+        result = kse.get_unit_spike_train(unit_id=999)
+        assert len(result) == 0 or (len(result) == 1 and result[0] == 999)
+
 
 # ===========================================================================
 # KilosortSortingExtractor — get_chans_max and templates
@@ -841,7 +891,7 @@ class TestKilosortSortingExtractorGetChansMax:
 @skip_no_spikeinterface
 class TestWaveformExtractorToSpikeData:
     """
-    Tests for _waveform_extractor_to_spikedata conversion function.
+    Tests for build_spikedata conversion function (pipeline.py).
 
     Tests:
         (Test Case 1) Produces a SpikeData with correct number of units.
@@ -852,9 +902,9 @@ class TestWaveformExtractorToSpikeData:
 
     @pytest.fixture()
     def convert_fn(self):
-        from spikelab.spike_sorting.recording_io import _waveform_extractor_to_spikedata
+        from spikelab.spike_sorting.pipeline import build_spikedata
 
-        return _waveform_extractor_to_spikedata
+        return build_spikedata
 
     @staticmethod
     def _make_mock_we(
@@ -915,19 +965,26 @@ class TestWaveformExtractorToSpikeData:
         return we
 
     @staticmethod
-    def _patch_globals(monkeypatch):
-        """Patch module globals needed by _waveform_extractor_to_spikedata."""
-        from spikelab.spike_sorting import _globals, recording_io
+    def _make_mock_config():
+        """Build a minimal mock config for build_spikedata."""
+        waveform = SimpleNamespace(
+            compiled_ms_before=2,
+            compiled_ms_after=2,
+            scale_compiled_waveforms=True,
+            std_at_peak=True,
+            std_over_window_ms_before=0.5,
+            std_over_window_ms_after=1.5,
+        )
+        sorter = SimpleNamespace(sorter_name="kilosort2")
+        return SimpleNamespace(waveform=waveform, sorter=sorter)
 
-        monkeypatch.setattr(_globals, "STD_AT_PEAK", True, raising=False)
-        monkeypatch.setattr(_globals, "COMPILED_WAVEFORMS_MS_BEFORE", 2, raising=False)
-        monkeypatch.setattr(_globals, "COMPILED_WAVEFORMS_MS_AFTER", 2, raising=False)
-        monkeypatch.setattr(_globals, "SCALE_COMPILED_WAVEFORMS", True, raising=False)
-        monkeypatch.setattr(_globals, "STD_OVER_WINDOW_MS_BEFORE", 0.5, raising=False)
-        monkeypatch.setattr(_globals, "STD_OVER_WINDOW_MS_AFTER", 1.5, raising=False)
-        # Patch _get_noise_levels to return simple noise array
+    @staticmethod
+    def _patch_globals(monkeypatch):
+        """Patch _get_noise_levels in pipeline to return simple noise array."""
+        from spikelab.spike_sorting import pipeline
+
         monkeypatch.setattr(
-            recording_io,
+            pipeline,
             "_get_noise_levels",
             lambda rec, return_scaled=True, **kw: np.ones(2),
         )
@@ -950,7 +1007,7 @@ class TestWaveformExtractorToSpikeData:
         }
         we = self._make_mock_we([0, 1], trains)
 
-        sd = convert_fn(we, "/fake/recording.h5")
+        sd = convert_fn(we, "/fake/recording.h5", self._make_mock_config())
 
         assert len(sd.train) == 2
         np.testing.assert_allclose(sd.train[0], [10.0, 20.0, 30.0])
@@ -982,7 +1039,7 @@ class TestWaveformExtractorToSpikeData:
         trains = {0: np.array([], dtype=np.int64)}
         we = self._make_mock_we([0], trains)
 
-        sd = convert_fn(we, "test.h5")
+        sd = convert_fn(we, "test.h5", self._make_mock_config())
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 0
 
@@ -998,7 +1055,7 @@ class TestWaveformExtractorToSpikeData:
         trains = {0: np.array([2000], dtype=np.int64)}
         we = self._make_mock_we([0], trains)
 
-        sd = convert_fn(we, "test.h5")
+        sd = convert_fn(we, "test.h5", self._make_mock_config())
         assert len(sd.train) == 1
         assert len(sd.train[0]) == 1
         np.testing.assert_allclose(sd.train[0], [100.0])
@@ -1015,7 +1072,7 @@ class TestWaveformExtractorToSpikeData:
         trains = {0: np.array([600, 200, 400], dtype=np.int64)}
         we = self._make_mock_we([0], trains)
 
-        sd = convert_fn(we, "test.h5")
+        sd = convert_fn(we, "test.h5", self._make_mock_config())
         times = sd.train[0]
         assert np.all(np.diff(times) >= 0), "Spike times should be monotonically sorted"
         np.testing.assert_allclose(times, [10.0, 20.0, 30.0])
@@ -1033,7 +1090,7 @@ class TestWaveformExtractorToSpikeData:
         trains = {0: np.array([200], dtype=np.int64)}
         we = self._make_mock_we([0], trains)
 
-        sd = convert_fn(we, "test.h5")
+        sd = convert_fn(we, "test.h5", self._make_mock_config())
         locs = sd.metadata["channel_locations"]
         assert locs.shape == (2, 2)
         assert isinstance(sd.metadata["n_samples"], int)
@@ -2157,6 +2214,42 @@ class TestSortingPipelineConfig:
             results_folders=[],
         )
         assert result == []
+
+    def test_from_kwargs_empty_dict(self):
+        """Empty kwargs produces default config."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs()
+        default = SortingPipelineConfig()
+        assert cfg.recording.freq_min == default.recording.freq_min
+        assert cfg.sorter.sorter_name == default.sorter.sorter_name
+
+    def test_from_kwargs_unknown_key_raises(self):
+        """Unknown flat key raises TypeError."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        with pytest.raises(TypeError, match="Unknown parameter"):
+            SortingPipelineConfig.from_kwargs(nonexistent_key=42)
+
+    def test_override_empty_kwargs_deep_copy(self):
+        """Override with empty kwargs returns a deep copy."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        original = SortingPipelineConfig()
+        original.recording.freq_min = 999
+        copy = original.override()
+        assert copy.recording.freq_min == 999
+        # Mutating the copy must not affect the original
+        copy.recording.freq_min = 123
+        assert original.recording.freq_min == 999
+
+    def test_override_unknown_key_raises(self):
+        """Override with unknown key raises TypeError."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        with pytest.raises(TypeError, match="Unknown parameter"):
+            cfg.override(bogus_param="x")
 
 
 # ===========================================================================
@@ -3624,6 +3717,38 @@ class TestCenterSpikeTimes:
         )
 
         np.testing.assert_array_equal(spike_times_by_unit[0], original)
+
+    def test_half_window_zero(self):
+        """half_window_sizes[unit_id] = 0 produces a zero-width window;
+        the spike time should remain unchanged."""
+        from spikelab.spike_sorting.waveform_utils import center_spike_times
+
+        recording = _make_mock_recording(num_samples=1000, num_channels=2)
+        # Add segment_index support
+        recording.get_num_samples = lambda segment_index=0: 1000
+        recording.get_traces = (
+            lambda start_frame=0, end_frame=None, segment_index=0, **kw: np.random.default_rng(
+                0
+            )
+            .standard_normal((end_frame - start_frame, 2))
+            .astype(np.float32)
+        )
+
+        spike_times = {0: np.array([100, 200, 300])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 0}
+
+        result = center_spike_times(
+            recording,
+            spike_times,
+            chans_max,
+            use_pos_peak,
+            half_window_sizes,
+        )
+        # With hw=0, the window has 1 sample, so the offset is always 0
+        assert 0 in result
+        assert len(result[0]) == 3
 
 
 # ===========================================================================
@@ -5803,44 +5928,6 @@ class TestRecenterStimTimesPeakModes:
 # ===========================================================================
 
 
-class TestSortingPipelineConfig2:
-    """Edge cases for SortingPipelineConfig.from_kwargs and .override."""
-
-    def test_from_kwargs_empty_dict(self):
-        """Empty kwargs produces default config."""
-        from spikelab.spike_sorting.config import SortingPipelineConfig
-
-        cfg = SortingPipelineConfig.from_kwargs()
-        default = SortingPipelineConfig()
-        assert cfg.recording.freq_min == default.recording.freq_min
-        assert cfg.sorter.sorter_name == default.sorter.sorter_name
-
-    def test_from_kwargs_unknown_key_raises(self):
-        """Unknown flat key raises TypeError."""
-        from spikelab.spike_sorting.config import SortingPipelineConfig
-
-        with pytest.raises(TypeError, match="Unknown parameter"):
-            SortingPipelineConfig.from_kwargs(nonexistent_key=42)
-
-    def test_override_empty_kwargs_deep_copy(self):
-        """Override with empty kwargs returns a deep copy."""
-        from spikelab.spike_sorting.config import SortingPipelineConfig
-
-        original = SortingPipelineConfig()
-        original.recording.freq_min = 999
-        copy = original.override()
-        assert copy.recording.freq_min == 999
-        # Mutating the copy must not affect the original
-        copy.recording.freq_min = 123
-        assert original.recording.freq_min == 999
-
-    def test_override_unknown_key_raises(self):
-        """Override with unknown key raises TypeError."""
-        from spikelab.spike_sorting.config import SortingPipelineConfig
-
-        cfg = SortingPipelineConfig()
-        with pytest.raises(TypeError, match="Unknown parameter"):
-            cfg.override(bogus_param="x")
 
 
 # ===========================================================================
@@ -6084,40 +6171,6 @@ class TestComputeHalfWindowSizes:
 # ===========================================================================
 
 
-class TestCenterSpikeTimes2:
-    """Edge cases for center_spike_times in waveform_utils."""
-
-    def test_half_window_zero(self):
-        """half_window_sizes[unit_id] = 0 produces a zero-width window;
-        the spike time should remain unchanged."""
-        from spikelab.spike_sorting.waveform_utils import center_spike_times
-
-        recording = _make_mock_recording(num_samples=1000, num_channels=2)
-        # Add segment_index support
-        recording.get_num_samples = lambda segment_index=0: 1000
-        recording.get_traces = (
-            lambda start_frame=0, end_frame=None, segment_index=0, **kw: np.random.default_rng(
-                0
-            )
-            .standard_normal((end_frame - start_frame, 2))
-            .astype(np.float32)
-        )
-
-        spike_times = {0: np.array([100, 200, 300])}
-        chans_max = {0: 0}
-        use_pos_peak = {0: False}
-        half_window_sizes = {0: 0}
-
-        result = center_spike_times(
-            recording,
-            spike_times,
-            chans_max,
-            use_pos_peak,
-            half_window_sizes,
-        )
-        # With hw=0, the window has 1 sample, so the offset is always 0
-        assert 0 in result
-        assert len(result[0]) == 3
 
 
 # ===========================================================================
@@ -6184,24 +6237,6 @@ class TestGetNoiseLevels:
         noise = _get_noise_levels(recording)
         assert noise.shape == (1,)
         assert np.isfinite(noise[0])
-
-
-# ===========================================================================
-# Edge Case Tests -- _get_noise_levels (recording_io.py)
-# ===========================================================================
-
-
-class TestGetNoiseLevelsRecordingIo:
-    """Edge cases for _get_noise_levels in recording_io.py (same bug)."""
-
-    def test_short_recording_raises(self):
-        """Recording shorter than chunk_size raises ValueError
-        (same bug as pipeline.py version)."""
-        from spikelab.spike_sorting.recording_io import _get_noise_levels
-
-        recording = _make_mock_recording(num_samples=100)
-        with pytest.raises(ValueError):
-            _get_noise_levels(recording)
 
 
 # ===========================================================================
@@ -6864,58 +6899,6 @@ class TestArtifactRemoval:
 
 
 @skip_no_pandas
-class TestKilosortSortingExtractor2:
-    """Edge cases for KilosortSortingExtractor."""
-
-    def test_missing_params_py(self, tmp_path):
-        """Missing params.py raises FileNotFoundError."""
-        folder = tmp_path / "ks_out"
-        folder.mkdir()
-        np.save(str(folder / "spike_times.npy"), np.array([0, 1]))
-        np.save(str(folder / "spike_clusters.npy"), np.array([0, 0]))
-        # No params.py
-
-        from spikelab.spike_sorting.sorting_extractor import (
-            KilosortSortingExtractor,
-        )
-
-        with pytest.raises(FileNotFoundError):
-            KilosortSortingExtractor(folder)
-
-    def test_missing_both_cluster_id_columns(self, tmp_path):
-        """TSV with neither 'cluster_id' nor 'id' column raises ValueError."""
-        folder = tmp_path / "ks_out"
-        _write_ks_folder(
-            folder,
-            spike_times=np.array([0, 10, 20]),
-            spike_clusters=np.array([0, 0, 1]),
-        )
-        # Overwrite TSV with wrong column name
-        (folder / "cluster_info.tsv").write_text("unit\tgroup\n0\tgood\n1\tgood\n")
-
-        from spikelab.spike_sorting.sorting_extractor import (
-            KilosortSortingExtractor,
-        )
-
-        with pytest.raises(ValueError, match="cluster_id"):
-            KilosortSortingExtractor(folder)
-
-    def test_nonexistent_unit_spike_train(self, tmp_path):
-        """get_unit_spike_train for a non-existent unit returns empty array."""
-        folder = tmp_path / "ks_out"
-        _write_ks_folder(
-            folder,
-            spike_times=np.array([0, 10, 20]),
-            spike_clusters=np.array([0, 0, 0]),
-        )
-
-        from spikelab.spike_sorting.sorting_extractor import (
-            KilosortSortingExtractor,
-        )
-
-        kse = KilosortSortingExtractor(folder)
-        result = kse.get_unit_spike_train(unit_id=999)
-        assert len(result) == 0 or (len(result) == 1 and result[0] == 999)
 
 
 # ===========================================================================

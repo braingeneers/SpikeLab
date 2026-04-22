@@ -192,6 +192,35 @@ class TestPairwiseCompMatrixToNetworkx:
         G_inv = pcm.to_networkx(invert_weights=True)
         assert G_inv.edges[0, 1]["weight"] == float("-inf")
 
+    def test_to_networkx_import_failure(self):
+        """
+        to_networkx raises ImportError when networkx is not installed.
+
+        Tests:
+            (Test Case 1) Mocking the import failure produces an ImportError.
+        """
+        from unittest.mock import patch
+
+        pcm = PairwiseCompMatrix(matrix=np.eye(2))
+        with patch.dict("sys.modules", {"networkx": None}):
+            with pytest.raises(ImportError, match="NetworkX"):
+                pcm.to_networkx()
+
+    def test_to_networkx_1x1_matrix(self):
+        """
+        to_networkx on a 1x1 matrix produces a single node, no edges.
+
+        Tests:
+            (Test Case 1) Single-element matrix creates a graph with 1 node
+                and 0 edges (diagonal is excluded).
+        """
+        import networkx as nx
+
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
+        G = pcm.to_networkx()
+        assert len(G.nodes) == 1
+        assert len(G.edges) == 0
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrix — threshold
@@ -244,6 +273,28 @@ class TestPairwiseCompMatrixThreshold:
         # NaN entries -> abs(NaN) > 0.3 -> False -> 0.0
         expected = np.array([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 1.0]])
         np.testing.assert_array_equal(result.matrix, expected)
+
+    def test_threshold_nan(self):
+        """
+        threshold with threshold=NaN: np.abs(matrix) > NaN is always False.
+
+        Tests:
+            (Test Case 1) Result matrix is all zeros.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
+        result = pcm.threshold(float("nan"))
+        np.testing.assert_array_equal(result.matrix, 0)
+
+    def test_threshold_negative(self):
+        """
+        threshold with negative threshold: np.abs(matrix) > -1 is always True.
+
+        Tests:
+            (Test Case 1) Result matrix is all ones (for finite values).
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[0.1, 0.2], [0.2, 0.1]]))
+        result = pcm.threshold(-1.0)
+        np.testing.assert_array_equal(result.matrix, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +357,17 @@ class TestPairwiseCompMatrixExtractLowerTriangle:
         result = pcm.extract_lower_triangle()
         assert result.shape == (1,)
         assert np.isnan(result[0])
+
+    def test_extract_lower_triangle_0x0(self):
+        """
+        extract_lower_triangle on a 0x0 matrix returns an empty array.
+
+        Tests:
+            (Test Case 1) np.tril_indices(0, k=-1) returns empty arrays.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.empty((0, 0)))
+        result = pcm.extract_lower_triangle()
+        assert len(result) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +650,17 @@ class TestPairwiseCompMatrixStackSubslice:
         np.testing.assert_array_equal(result.stack[:, :, 2], data[:, :, 1])
         assert result.times == [(2, 3), (0, 1), (1, 2)]
 
+    def test_subslice_numpy_array_indices(self):
+        """
+        subslice with indices as a numpy array instead of a list.
+
+        Tests:
+            (Test Case 1) numpy array indices are converted to list and work correctly.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.ones((2, 2, 5)))
+        result = stack.subslice(np.array([0, 2, 4]))
+        assert result.stack.shape == (2, 2, 3)
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrixStack — mean
@@ -664,6 +737,25 @@ class TestPairwiseCompMatrixStackMean:
         # ignore_nan=True: NaN excluded, mean of three 1.0 values = 1.0
         result_nan = stack.mean(ignore_nan=True)
         assert result_nan.matrix[0, 1] == pytest.approx(1.0)
+
+    def test_mean_partial_all_nan_columns(self):
+        """
+        mean(ignore_nan=True) where some (i, j) positions are all NaN across S.
+
+        Tests:
+            (Test Case 1) Positions that are all NaN produce NaN in the mean
+                with a RuntimeWarning.
+        """
+        data = np.ones((2, 2, 3))
+        data[0, 1, :] = np.nan
+        data[1, 0, :] = np.nan
+        stack = PairwiseCompMatrixStack(stack=data)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = stack.mean(ignore_nan=True)
+        assert np.isnan(result.matrix[0, 1])
+        assert np.isnan(result.matrix[1, 0])
+        assert result.matrix[0, 0] == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -859,6 +951,17 @@ class TestPairwiseCompMatrixStackDimRed:
         # Other entries should be 1.0
         assert features[1, 0] == 1.0
         assert features[3, 1] == 1.0
+
+    def test_dim_red_1x1xS_stack(self):
+        """
+        dim_red on a 1x1xS stack: lower triangle is empty (F=0).
+
+        Tests:
+            (Test Case 1) PCA with 0 features raises ValueError.
+        """
+        stack = PairwiseCompMatrixStack(stack=np.ones((1, 1, 5)))
+        with pytest.raises(ValueError):
+            stack.dim_red_on_lower_diagonal_corr_matrix(method="PCA", n_components=1)
 
 
 # ---------------------------------------------------------------------------
@@ -1217,6 +1320,33 @@ class TestRemoveByConditionMatrix:
         result = target.remove_by_condition(condition, op="abs_lt", threshold=10.0)
         np.testing.assert_array_equal(result.matrix, target.matrix)
 
+    def test_remove_by_condition_nan_threshold(self):
+        """
+        remove_by_condition with threshold=NaN: comparisons with NaN are always False.
+
+        Tests:
+            (Test Case 1) Nothing is removed; result equals original.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
+        cond = PairwiseCompMatrix(matrix=np.array([[0.3, 0.6], [0.6, 0.3]]))
+        result = pcm.remove_by_condition(cond, op="lt", threshold=float("nan"))
+        np.testing.assert_array_equal(result.matrix, pcm.matrix)
+
+    def test_remove_by_condition_inf_fill(self):
+        """
+        remove_by_condition with fill=Inf sets removed entries to Inf.
+
+        Tests:
+            (Test Case 1) Entries meeting condition are set to Inf.
+        """
+        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
+        cond = PairwiseCompMatrix(matrix=np.array([[0.1, 0.1], [0.1, 0.1]]))
+        result = pcm.remove_by_condition(
+            cond, op="lt", threshold=0.5, fill=float("inf")
+        )
+        # All condition values (0.1) are < 0.5, so all entries replaced with Inf
+        assert np.all(np.isinf(result.matrix))
+
 
 # ---------------------------------------------------------------------------
 # remove_by_condition — PairwiseCompMatrixStack
@@ -1441,112 +1571,6 @@ class TestPairwiseCompMatrixPostInit:
         assert pcm.matrix.shape == (0, 0)
         assert pcm.labels == []
 
-
-class TestPairwiseCompMatrixToNetworkx2:
-    """Additional edge case tests for PairwiseCompMatrix.to_networkx."""
-
-    def test_to_networkx_import_failure(self):
-        """
-        to_networkx raises ImportError when networkx is not installed.
-
-        Tests:
-            (Test Case 1) Mocking the import failure produces an ImportError.
-        """
-        from unittest.mock import patch
-
-        pcm = PairwiseCompMatrix(matrix=np.eye(2))
-        with patch.dict("sys.modules", {"networkx": None}):
-            with pytest.raises(ImportError, match="NetworkX"):
-                pcm.to_networkx()
-
-    def test_to_networkx_1x1_matrix(self):
-        """
-        to_networkx on a 1x1 matrix produces a single node, no edges.
-
-        Tests:
-            (Test Case 1) Single-element matrix creates a graph with 1 node
-                and 0 edges (diagonal is excluded).
-        """
-        import networkx as nx
-
-        pcm = PairwiseCompMatrix(matrix=np.array([[1.0]]))
-        G = pcm.to_networkx()
-        assert len(G.nodes) == 1
-        assert len(G.edges) == 0
-
-
-class TestPairwiseCompMatrixThreshold2:
-    """Additional edge case tests for PairwiseCompMatrix.threshold."""
-
-    def test_threshold_nan(self):
-        """
-        threshold with threshold=NaN: np.abs(matrix) > NaN is always False.
-
-        Tests:
-            (Test Case 1) Result matrix is all zeros.
-        """
-        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
-        result = pcm.threshold(float("nan"))
-        np.testing.assert_array_equal(result.matrix, 0)
-
-    def test_threshold_negative(self):
-        """
-        threshold with negative threshold: np.abs(matrix) > -1 is always True.
-
-        Tests:
-            (Test Case 1) Result matrix is all ones (for finite values).
-        """
-        pcm = PairwiseCompMatrix(matrix=np.array([[0.1, 0.2], [0.2, 0.1]]))
-        result = pcm.threshold(-1.0)
-        np.testing.assert_array_equal(result.matrix, 1)
-
-
-class TestPairwiseCompMatrixExtractLowerTriangle2:
-    """Additional edge case tests for PairwiseCompMatrix.extract_lower_triangle."""
-
-    def test_extract_lower_triangle_0x0(self):
-        """
-        extract_lower_triangle on a 0x0 matrix returns an empty array.
-
-        Tests:
-            (Test Case 1) np.tril_indices(0, k=-1) returns empty arrays.
-        """
-        pcm = PairwiseCompMatrix(matrix=np.empty((0, 0)))
-        result = pcm.extract_lower_triangle()
-        assert len(result) == 0
-
-
-class TestRemoveByConditionMatrix2:
-    """Additional edge case tests for PairwiseCompMatrix.remove_by_condition."""
-
-    def test_remove_by_condition_nan_threshold(self):
-        """
-        remove_by_condition with threshold=NaN: comparisons with NaN are always False.
-
-        Tests:
-            (Test Case 1) Nothing is removed; result equals original.
-        """
-        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
-        cond = PairwiseCompMatrix(matrix=np.array([[0.3, 0.6], [0.6, 0.3]]))
-        result = pcm.remove_by_condition(cond, op="lt", threshold=float("nan"))
-        np.testing.assert_array_equal(result.matrix, pcm.matrix)
-
-    def test_remove_by_condition_inf_fill(self):
-        """
-        remove_by_condition with fill=Inf sets removed entries to Inf.
-
-        Tests:
-            (Test Case 1) Entries meeting condition are set to Inf.
-        """
-        pcm = PairwiseCompMatrix(matrix=np.array([[1.0, 0.5], [0.5, 1.0]]))
-        cond = PairwiseCompMatrix(matrix=np.array([[0.1, 0.1], [0.1, 0.1]]))
-        result = pcm.remove_by_condition(
-            cond, op="lt", threshold=0.5, fill=float("inf")
-        )
-        # All condition values (0.1) are < 0.5, so all entries replaced with Inf
-        assert np.all(np.isinf(result.matrix))
-
-
 class TestPairwiseCompMatrixStack:
     """Additional edge case tests for PairwiseCompMatrixStack."""
 
@@ -1586,60 +1610,6 @@ class TestPairwiseCompMatrixStackGetItem:
         result = stack[0]
         assert isinstance(result, PairwiseCompMatrix)
         assert result.matrix.shape == (2, 2)
-
-
-class TestPairwiseCompMatrixStackSubslice2:
-    """Additional edge case tests for PairwiseCompMatrixStack.subslice."""
-
-    def test_subslice_numpy_array_indices(self):
-        """
-        subslice with indices as a numpy array instead of a list.
-
-        Tests:
-            (Test Case 1) numpy array indices are converted to list and work correctly.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.ones((2, 2, 5)))
-        result = stack.subslice(np.array([0, 2, 4]))
-        assert result.stack.shape == (2, 2, 3)
-
-
-class TestPairwiseCompMatrixStackMean2:
-    """Additional edge case tests for PairwiseCompMatrixStack.mean."""
-
-    def test_mean_partial_all_nan_columns(self):
-        """
-        mean(ignore_nan=True) where some (i, j) positions are all NaN across S.
-
-        Tests:
-            (Test Case 1) Positions that are all NaN produce NaN in the mean
-                with a RuntimeWarning.
-        """
-        data = np.ones((2, 2, 3))
-        data[0, 1, :] = np.nan
-        data[1, 0, :] = np.nan
-        stack = PairwiseCompMatrixStack(stack=data)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            result = stack.mean(ignore_nan=True)
-        assert np.isnan(result.matrix[0, 1])
-        assert np.isnan(result.matrix[1, 0])
-        assert result.matrix[0, 0] == pytest.approx(1.0)
-
-
-class TestPairwiseCompMatrixStackDimRed2:
-    """Additional edge case tests for PairwiseCompMatrixStack dim reduction."""
-
-    def test_dim_red_1x1xS_stack(self):
-        """
-        dim_red on a 1x1xS stack: lower triangle is empty (F=0).
-
-        Tests:
-            (Test Case 1) PCA with 0 features raises ValueError.
-        """
-        stack = PairwiseCompMatrixStack(stack=np.ones((1, 1, 5)))
-        with pytest.raises(ValueError):
-            stack.dim_red_on_lower_diagonal_corr_matrix(method="PCA", n_components=1)
-
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrix._is_diverging
