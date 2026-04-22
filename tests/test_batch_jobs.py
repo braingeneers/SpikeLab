@@ -1066,7 +1066,7 @@ from spikelab.batch_jobs.models import (
 from pydantic import ValidationError as PydanticValidationError
 
 
-class TestModelValidationEdgeCases:
+class TestModelValidation:
     def test_gpu_requests_must_equal_limits(self):
         """ResourceSpec rejects mismatched GPU requests and limits."""
         with pytest.raises(
@@ -1178,7 +1178,7 @@ class TestValidationModule:
 from spikelab.batch_jobs.credentials import resolve_credentials
 
 
-class TestCredentialEdgeCases:
+class TestCredential:
     def test_resolve_credentials_explicit_wins(self, monkeypatch):
         """Explicit parameters take precedence over environment variables."""
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "env-key")
@@ -1221,7 +1221,7 @@ class TestCredentialEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestNamespaceHookEdgeCases:
+class TestNamespaceHook:
     def test_user_command_not_overridden_by_hook_default(self):
         """Hook default_command does not override user-specified command."""
         payload = _example_payload()
@@ -1304,7 +1304,7 @@ class TestNamespaceHookEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPolicyEdgeCases:
+class TestPolicy:
     def test_summarize_preflight_empty_findings(self):
         """Empty findings list returns PASS with empty text."""
         level, text = summarize_preflight([])
@@ -1362,7 +1362,7 @@ class TestPolicyEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestBackendEdgeCases:
+class TestBackend:
     def test_kubectl_failure_raises(self, monkeypatch):
         """CalledProcessError from kubectl propagates."""
         import subprocess
@@ -1397,7 +1397,7 @@ class TestBackendEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPolicyBoundaryEdgeCases:
+class TestPolicyBoundary:
     def test_gpu_exactly_at_threshold(self):
         """requests_gpu == max_interactive_gpus should PASS (not WARN)."""
         payload = _example_payload()
@@ -1461,7 +1461,7 @@ class TestPolicyBoundaryEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestSleepDetectionEdgeCases:
+class TestSleepDetection2:
     def test_sleep_scientific_notation(self):
         """sleep 1e6 (scientific notation) should be caught as large number."""
         assert _contains_disallowed_sleep(["sleep"], ["1e6"])
@@ -1483,7 +1483,7 @@ class TestSleepDetectionEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestBuildJobNameEdgeCases:
+class TestBuildJobName:
     def test_empty_prefix(self):
         """Empty prefix produces a name that is just '-<token>'."""
         from spikelab.batch_jobs.session import RunSession
@@ -2501,7 +2501,7 @@ class TestSortingEntrypoint:
 # ---------------------------------------------------------------------------
 
 
-class TestVolumeMountSpecEdgeCases:
+class TestVolumeMountSpec:
     """Edge cases for VolumeMountSpec._validate_source."""
 
     def test_empty_string_secret_name_rejected(self):
@@ -2520,7 +2520,7 @@ class TestVolumeMountSpecEdgeCases:
             VolumeMountSpec(name="vol", mount_path="/mnt", secret_name="", pvc_name="")
 
 
-class TestJobSpecNamePrefixEdgeCases:
+class TestJobSpecNamePrefix:
     """Edge cases for JobSpec._validate_name_prefix."""
 
     def test_unicode_characters_pass_through(self):
@@ -2553,7 +2553,7 @@ class TestJobSpecNamePrefixEdgeCases:
         assert job_spec.name_prefix.endswith("-")
 
 
-class TestSleepDetectionMoreEdgeCases:
+class TestSleepDetectionMore:
     """Additional edge cases for _contains_disallowed_sleep."""
 
     def test_sleep_in_quoted_string_false_positive(self):
@@ -2609,7 +2609,7 @@ class TestPolicySummarizePreflight:
         assert level == "PASS"
 
 
-class TestProfilesEdgeCases:
+class TestProfiles2:
     """Edge cases for profiles._read_yaml."""
 
     def test_empty_yaml_file(self, tmp_path):
@@ -2631,7 +2631,7 @@ class TestProfilesEdgeCases:
             load_cluster_profile(str(null_file))
 
 
-class TestWaitForCompletionEdgeCases:
+class TestWaitForCompletion:
     """Edge cases for RunSession.wait_for_completion."""
 
     def test_zero_wait_immediately_complete_returns_timeout(self):
@@ -2655,7 +2655,7 @@ class TestWaitForCompletionEdgeCases:
         assert state == "Timeout"
 
 
-class TestS3StorageClientEdgeCases:
+class TestS3StorageClient2:
     """Edge cases for S3StorageClient."""
 
     def test_boto3_not_installed(self):
@@ -2693,7 +2693,7 @@ class TestS3StorageClientEdgeCases:
         assert "my file (1).pkl" in uri
 
 
-class TestArtifactPackagerEdgeCases:
+class TestArtifactPackager2:
     """Edge cases for package_analysis_bundle."""
 
     def test_duplicate_filenames_last_wins(self, tmp_path):
@@ -2891,7 +2891,7 @@ class TestKubernetesBatchJobBackendK8sClientPath:
         )
 
 
-class TestStreamLogsEdgeCases:
+class TestStreamLogs:
     """Tests for KubernetesBatchJobBackend.stream_logs (HIGH — zero coverage)."""
 
     def test_stream_logs_kubectl_follow(self, monkeypatch):
@@ -2994,7 +2994,7 @@ class TestK8sBackendConfigException:
                     assert backend._core_api is None
 
 
-class TestCliEdgeCases:
+class TestCli:
     """Edge cases for CLI module."""
 
     def test_load_payload_json_file(self, tmp_path):
@@ -3245,7 +3245,7 @@ class TestCliEdgeCases:
         mock_session.backend.delete_job.assert_called_once_with("delete-me")
 
 
-class TestTemplatingEdgeCases:
+class TestTemplating:
     """Edge cases for the templating module."""
 
     def test_sanitize_yaml_value_strips_unsafe_chars(self):
@@ -3311,7 +3311,7 @@ class TestTemplatingEdgeCases:
         assert isinstance(context["labels"], dict)
 
 
-class TestValidationEdgeCases:
+class TestValidation:
     """Edge cases for the validation module."""
 
     def test_summarize_validation_error_empty_loc(self):
@@ -3327,7 +3327,7 @@ class TestValidationEdgeCases:
         assert result == "custom error message"
 
 
-class TestInitLazyImportEdgeCases:
+class TestInitLazyImport:
     """Edge cases for batch_jobs.__init__.__getattr__."""
 
     def test_nonexistent_attribute_raises_attribute_error(self):
@@ -3345,7 +3345,7 @@ class TestInitLazyImportEdgeCases:
         assert js is JobSpec
 
 
-class TestCredentialEdgeCasesExtended:
+class TestCredentialExtended:
     """Additional edge cases for credentials module."""
 
     def test_resolve_credentials_empty_string_falls_back_to_env(self, monkeypatch):

@@ -87,6 +87,91 @@ visualize them side by side:
    changes in temporal co-firing between conditions.
 
 
+Firing-Rate Correlations
+-------------------------
+
+Firing-rate correlation measures how similarly pairs of units modulate their
+activity over time. It captures co-modulation on slower timescales than STTC.
+See :doc:`firing_rates` for how to compute the instantaneous rate traces.
+
+:meth:`~spikelab.RateData.get_pairwise_fr_corr` computes the peak
+cross-correlation between every pair of units' rate traces:
+
+.. code-block:: python
+
+   corr_matrix, lag_matrix = rd.get_pairwise_fr_corr(
+       max_lag=10,    # maximum lag offset to search (in time bins)
+       n_jobs=-1,     # parallel threads (-1 = all cores)
+   )
+
+Both return values are :class:`~spikelab.spikedata.pairwise.PairwiseCompMatrix`
+objects wrapping an ``(N, N)`` NumPy array:
+
+- ``corr_matrix`` — peak cross-correlation coefficient for each pair. The
+  diagonal is always 1 (self-correlation).
+- ``lag_matrix`` — lag (in bins) at which the peak correlation occurs. The
+  diagonal is always 0 (self-lag).
+
+You can extract the lower triangle for summary statistics:
+
+.. code-block:: python
+
+   # 1-D array of all unique pairwise correlations
+   corr_values = corr_matrix.extract_lower_triangle()
+
+   print(f"Median pairwise correlation: {np.median(corr_values):.3f}")
+
+Visualise the full ``(N, N)`` correlation matrix as a heatmap:
+
+.. code-block:: python
+
+   from spikelab.spikedata.plot_utils import plot_heatmap
+
+   fig, ax = plot_heatmap(
+       corr_matrix.matrix,
+       vmin=-1,
+       vmax=1,
+       cmap="RdBu_r",
+       xlabel="Unit",
+       ylabel="Unit",
+       cbar_label="Correlation",
+   )
+
+.. figure:: /_static/images/fr_corr_matrices.png
+   :width: 100%
+   :alt: Firing-rate correlation matrices
+
+   Pairwise firing-rate correlation matrices for two conditions (left, middle)
+   and their difference (right).
+
+To compare distributions across conditions:
+
+.. code-block:: python
+
+   from spikelab.spikedata.plot_utils import plot_distribution
+   import matplotlib.pyplot as plt
+
+   fig, ax = plt.subplots(figsize=(6, 4))
+   plot_distribution(
+       ax,
+       metric_data={
+           "Baseline": corr_base.extract_lower_triangle(),
+           "Treatment": corr_treat.extract_lower_triangle(),
+       },
+       ylabel="FR correlation",
+       show_violin=True,
+       show_box=True,
+   )
+
+.. figure:: /_static/images/fr_corr_violins.png
+   :width: 100%
+   :alt: Violin plots of pairwise FR correlations across conditions
+
+   Distribution of pairwise firing-rate correlations for the different
+   experimental conditions. Shifts in the median or spread indicate changes
+   in functional network connectivity.
+
+
 FR Correlation vs STTC Scatter
 -------------------------------
 

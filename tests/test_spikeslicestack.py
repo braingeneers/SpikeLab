@@ -2445,7 +2445,7 @@ class TestApply:
 # ---------------------------------------------------------------------------
 
 
-class TestSpikeSliceStackConstructorEdgeCases:
+class TestSpikeSliceStackConstructor2:
     """Edge case tests for SpikeSliceStack.__init__."""
 
     def test_data_obj_with_zero_length_subtime(self):
@@ -2493,7 +2493,7 @@ class TestSpikeSliceStackConstructorEdgeCases:
         assert len(sss.spike_stack) == 1
 
 
-class TestToRasterArrayEdgeCases:
+class TestToRasterArray2:
     """Edge case tests for SpikeSliceStack.to_raster_array."""
 
     def test_inconsistent_slice_durations_via_spike_stack(self):
@@ -2540,7 +2540,7 @@ class TestToRasterArrayEdgeCases:
         assert result[0, 0, 0] == 3  # All 3 spikes in one bin
 
 
-class TestComputeFracActiveEdgeCases:
+class TestComputeFracActive2:
     """Edge case tests for SpikeSliceStack.compute_frac_active."""
 
     def test_negative_min_spikes_same_as_zero(self):
@@ -2572,7 +2572,7 @@ class TestComputeFracActiveEdgeCases:
         np.testing.assert_array_equal(frac_neg, 1.0)
 
 
-class TestSubsetEdgeCases:
+class TestSubset2:
     """Edge case tests for SpikeSliceStack.subset."""
 
     def test_empty_units_list(self):
@@ -2601,7 +2601,7 @@ class TestSubsetEdgeCases:
             assert len(s.train) == 0
 
 
-class TestSubtimeByIndexEdgeCases:
+class TestSubtimeByIndex2:
     """Edge case tests for SpikeSliceStack.subtime_by_index."""
 
     def test_non_integer_slice_duration(self):
@@ -2636,7 +2636,7 @@ class TestSubtimeByIndexEdgeCases:
                     assert np.all(unit_spikes < expected_duration + 1.0)
 
 
-class TestOrderUnitsAcrossSlicesEdgeCases:
+class TestOrderUnitsAcrossSlices2:
     """Edge case tests for SpikeSliceStack.order_units_across_slices."""
 
     def test_all_units_inactive_all_nan_timing(self):
@@ -2673,7 +2673,7 @@ class TestOrderUnitsAcrossSlicesEdgeCases:
         assert set(ids[0].tolist()) == {0, 1, 2}
 
 
-class TestUnitToUnitComparisonEdgeCases:
+class TestUnitToUnitComparison2:
     """Edge case tests for SpikeSliceStack.unit_to_unit_comparison."""
 
     def test_sttc_with_delt_zero_raises(self):
@@ -2688,7 +2688,7 @@ class TestUnitToUnitComparisonEdgeCases:
             sss.unit_to_unit_comparison(metric="sttc", delt=0)
 
 
-class TestSliceToSliceUnitComparisonEdgeCases:
+class TestSliceToSliceUnitComparison2:
     """Edge case tests for SpikeSliceStack.get_slice_to_slice_unit_comparison."""
 
     def test_all_units_below_min_frac(self):
@@ -2724,7 +2724,7 @@ class TestSliceToSliceUnitComparisonEdgeCases:
         assert np.all(np.isnan(av_corr))
 
 
-class TestApplyEdgeCases:
+class TestApply2:
     """Edge case tests for SpikeSliceStack.apply."""
 
     def test_function_returning_none_produces_object_array(self):
@@ -2749,7 +2749,7 @@ class TestApplyEdgeCases:
         assert all(v is None for v in result)
 
 
-class TestPlotUnitRasterEdgeCases:
+class TestPlotUnitRaster:
     """Edge case tests for SpikeSliceStack.plot_aligned_slice_single_unit."""
 
     def test_unit_idx_out_of_range_raises(self):
@@ -2774,7 +2774,7 @@ class TestPlotUnitRasterEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestSpikeSliceStackConstructorEdgeCases2:
+class TestSpikeSliceStackConstructor22:
     """Additional edge case tests for SpikeSliceStack.__init__."""
 
     def test_spike_stack_zero_length_slices(self):
@@ -2808,7 +2808,7 @@ class TestSpikeSliceStackConstructorEdgeCases2:
         assert sss.spike_stack[0].neuron_attributes is not None
 
 
-class TestToRasterArrayEdgeCases2:
+class TestToRasterArray22:
     """Additional edge case tests for SpikeSliceStack.to_raster_array."""
 
     def test_absolute_times_with_event_centered_slices(self):
@@ -2830,7 +2830,7 @@ class TestToRasterArrayEdgeCases2:
         assert raster.shape[2] == 2  # S=2 slices
 
 
-class TestSSSSubsetEdgeCases2:
+class TestSSSSubset2:
     """Additional edge case tests for SpikeSliceStack.subset."""
 
     def test_subset_empty_unit_list(self):
@@ -2847,7 +2847,7 @@ class TestSSSSubsetEdgeCases2:
         assert result.N == 0
 
 
-class TestSSSSubtimeByIndexEdgeCases2:
+class TestSSSSubtimeByIndex2:
     """Additional edge case tests for SpikeSliceStack.subtime_by_index."""
 
     def test_non_integer_slice_duration(self):
@@ -2868,7 +2868,7 @@ class TestSSSSubtimeByIndexEdgeCases2:
         assert len(result.spike_stack) == 2
 
 
-class TestComputeFracActiveEdgeCases2:
+class TestComputeFracActive22:
     """Additional edge case tests for SpikeSliceStack.compute_frac_active."""
 
     def test_negative_min_spikes(self):
@@ -2887,7 +2887,7 @@ class TestComputeFracActiveEdgeCases2:
         assert np.all(frac >= 0.0)
 
 
-class TestSSSOrderUnitsEdgeCases2:
+class TestSSSOrderUnits2:
     """Additional edge case tests for SpikeSliceStack.order_units_across_slices."""
 
     def test_constant_timing_first_mode(self):
@@ -2911,7 +2911,7 @@ class TestSSSOrderUnitsEdgeCases2:
         assert len(result) >= 4
 
 
-class TestSSSApplyEdgeCases2:
+class TestSSSApply2:
     """Additional edge case tests for SpikeSliceStack.apply."""
 
     def test_apply_inconsistent_shapes_raises(self):
@@ -2932,7 +2932,7 @@ class TestSSSApplyEdgeCases2:
             sss.apply(bad_func)
 
 
-class TestSSSUnitToUnitCompEdgeCases2:
+class TestSSSUnitToUnitComp2:
     """Additional edge case tests for SpikeSliceStack.unit_to_unit_comparison."""
 
     def test_sttc_all_empty_trains(self):
@@ -2951,7 +2951,7 @@ class TestSSSUnitToUnitCompEdgeCases2:
         assert corr.stack.shape == (3, 3, 2)
 
 
-class TestSSSSliceToSliceCompEdgeCases2:
+class TestSSSSliceToSliceComp2:
     """Additional edge case tests for SpikeSliceStack.get_slice_to_slice_unit_comparison."""
 
     def test_sttc_large_delt(self):
@@ -3092,7 +3092,7 @@ class TestCoverageGaps:
 # ---------------------------------------------------------------------------
 
 
-class TestSpikeSliceStackEdgeCasesCoreReview:
+class TestSpikeSliceStackCoreReview:
     """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
 
     def test_subslice_empty_list(self):

@@ -1,12 +1,11 @@
-=============================
-Firing Rates and Correlations
-=============================
+==========================
+Instantaneous Firing Rates
+==========================
 
 This guide covers how to compute instantaneous firing rates from spike trains,
-build pairwise firing-rate correlation matrices, and compare correlation
-structure across experimental conditions. By the end you will be able to go from
-a :class:`~spikelab.SpikeData` object to publication-ready correlation heatmaps
-and distribution plots.
+project them into low-dimensional manifolds, and work with the
+:class:`~spikelab.RateData` class. For pairwise firing-rate correlations, see
+the :doc:`pairwise_analysis` guide.
 
 All examples assume you already have a :class:`~spikelab.SpikeData` object
 loaded. See the :doc:`../getting_started/quickstart` for how to create one.
@@ -96,122 +95,63 @@ and dimensionality-reduction methods described below.
    reflects firing rate.
 
 
+Dimensionality Reduction
+------------------------
+
+:meth:`~spikelab.RateData.get_manifold` projects the firing-rate matrix into a
+low-dimensional space using PCA or UMAP. This is useful for visualising
+population dynamics over time or comparing activity structure across
+conditions.
+
+.. code-block:: python
+
+   # PCA — returns (embedding, explained_variance_ratio, components)
+   embedding, var_ratio, components = rd.get_manifold(
+       method="PCA",
+       n_components=3,
+   )
+   # embedding.shape == (T, 3) — one point per time bin
+
+   # UMAP — returns (embedding, trustworthiness)
+   embedding, trust = rd.get_manifold(
+       method="UMAP",
+       n_components=2,
+   )
+
+Visualise the embedding with
+:func:`~spikelab.spikedata.plot_utils.plot_manifold`:
+
+.. code-block:: python
+
+   from spikelab.spikedata.plot_utils import plot_manifold
+
+   fig, ax = plt.subplots(figsize=(5, 5))
+   plot_manifold(
+       ax,
+       embedding,
+       var_explained=var_ratio,
+       groups=condition_labels,       # integer array (T,)
+       group_labels=["D0", "D3", "D10", "D30", "D50"],
+       marker_size=1,
+       alpha=0.3,
+   )
+
+.. figure:: /_static/images/rate_pca_combined.png
+   :width: 100%
+   :alt: PCA embedding of firing rate dynamics
+
+   PCA embedding of instantaneous firing rate dynamics across conditions.
+   Each point is one time bin; colours indicate experimental conditions.
+
+
 Pairwise Firing-Rate Correlations
 ----------------------------------
 
-A natural next step is to ask how similarly pairs of units modulate their
-firing over time. :meth:`~spikelab.RateData.get_pairwise_fr_corr` computes the
-cross-correlation between every pair of units' instantaneous rate traces:
-
-.. code-block:: python
-
-   corr_matrix, lag_matrix = rd.get_pairwise_fr_corr(
-       max_lag=10,    # maximum lag offset to search (in time bins)
-       n_jobs=-1,     # parallel threads (-1 = all cores)
-   )
-
-Both return values are :class:`~spikelab.spikedata.pairwise.PairwiseCompMatrix`
-objects wrapping an ``(N, N)`` NumPy array:
-
-- ``corr_matrix`` — peak cross-correlation coefficient for each pair. The
-  diagonal is always 1 (self-correlation).
-- ``lag_matrix`` — lag (in bins) at which the peak correlation occurs. The
-  diagonal is always 0 (self-lag).
-
-You can extract the lower triangle for summary statistics:
-
-.. code-block:: python
-
-   # 1-D array of all unique pairwise correlations
-   corr_values = corr_matrix.extract_lower_triangle()
-
-   print(f"Median pairwise correlation: {np.median(corr_values):.3f}")
-
-
-Correlation Matrices
---------------------
-
-Visualise the full ``(N, N)`` correlation matrix as a heatmap using the
-built-in :func:`~spikelab.spikedata.plot_utils.plot_heatmap` utility:
-
-.. code-block:: python
-
-   from spikelab.spikedata.plot_utils import plot_heatmap
-
-   fig, ax = plot_heatmap(
-       corr_matrix.matrix,
-       vmin=-1,
-       vmax=1,
-       cmap="RdBu_r",
-       xlabel="Unit",
-       ylabel="Unit",
-       cbar_label="Correlation",
-   )
-
-The correlation matrix can also be converted to a NetworkX graph for
-graph-theoretic analysis:
-
-.. code-block:: python
-
-   G = corr_matrix.to_networkx()
-   print(f"Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
-
-.. figure:: /_static/images/fr_corr_matrices.png
-   :width: 100%
-   :alt: Firing-rate correlation matrices
-
-   Pairwise firing-rate correlation matrices for two conditions (left, middle)
-   and their difference (right).
-
-
-Cross-Condition Comparisons
----------------------------
-
-When you have recordings from multiple conditions (e.g. baseline vs.
-treatment, or successive days in culture), comparing the distributions of
-pairwise correlations reveals changes in network coordination.
-
-First, compute correlations for each condition:
-
-.. code-block:: python
-
-   # Assume sd_baseline and sd_treatment are SpikeData objects
-   times_base = np.arange(0, sd_baseline.length, 1.0)
-   times_treat = np.arange(0, sd_treatment.length, 1.0)
-
-   rd_base = RateData(sd_baseline.resampled_isi(times_base, sigma_ms=10.0), times_base)
-   rd_treat = RateData(sd_treatment.resampled_isi(times_treat, sigma_ms=10.0), times_treat)
-
-   corr_base, _ = rd_base.get_pairwise_fr_corr(max_lag=10)
-   corr_treat, _ = rd_treat.get_pairwise_fr_corr(max_lag=10)
-
-Then visualise the distributions side by side using
-:func:`~spikelab.spikedata.plot_utils.plot_distribution`:
-
-.. code-block:: python
-
-   from spikelab.spikedata.plot_utils import plot_distribution
-   import matplotlib.pyplot as plt
-
-   fig, ax = plt.subplots(figsize=(6, 4))
-   plot_distribution(
-       ax,
-       metric_data={
-           "Baseline": corr_base.extract_lower_triangle(),
-           "Treatment": corr_treat.extract_lower_triangle(),
-       },
-       ylabel="FR correlation",
-       show_violin=True,
-       show_box=True,
-   )
-
-.. figure:: /_static/images/fr_corr_violins.png
-   :width: 100%
-   :alt: Violin plots of pairwise FR correlations across conditions
-
-   Distribution of pairwise firing-rate correlations for the different
-   experimental conditions. Shifts in the median or spread indicate changes
-   in functional network connectivity.
+Once you have a ``RateData`` object, you can compute pairwise correlations
+between all unit pairs using
+:meth:`~spikelab.RateData.get_pairwise_fr_corr`. See the
+:doc:`pairwise_analysis` guide for full details, code examples, and
+visualisation of correlation matrices across conditions.
 
 
 Further Reading
@@ -219,6 +159,8 @@ Further Reading
 
 - :doc:`spike_analysis` — population rate, burst detection, and per-unit
   spike train metrics.
+- :doc:`pairwise_analysis` — pairwise firing-rate correlations, STTC,
+  network analysis, and spatial network visualisation.
 - :doc:`../getting_started/quickstart` — creating and loading
   :class:`~spikelab.SpikeData` objects.
 - The full :doc:`../api/ratedata` API reference documents every method on

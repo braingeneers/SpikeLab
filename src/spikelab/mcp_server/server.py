@@ -568,7 +568,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "bin_size": {
                             "type": "number",
-                            "default": 20.0,
+                            "default": 1.0,
                             "description": "Bin size in milliseconds",
                         },
                         "time_offset": {
@@ -596,7 +596,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "bin_size": {
                             "type": "number",
-                            "default": 20.0,
+                            "default": 1.0,
                             "description": "Bin size in milliseconds",
                         },
                         "channel_attr": {

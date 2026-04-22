@@ -680,6 +680,7 @@ class SpikeData:
             inst_Frate_data=rate_array,
             times=times,
             neuron_attributes=self.neuron_attributes,
+            rate_unit="Hz",
         )
 
     def sliding_rate(
@@ -788,6 +789,7 @@ class SpikeData:
             inst_Frate_data=rate_array,
             times=time_vector,
             neuron_attributes=self.neuron_attributes,
+            rate_unit="kHz",
         )
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):

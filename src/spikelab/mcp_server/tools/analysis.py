@@ -160,7 +160,7 @@ async def compute_raster(
     workspace_id: str,
     namespace: str,
     key: str,
-    bin_size: float = 20.0,
+    bin_size: float = 1.0,
     time_offset: float = 0.0,
 ) -> Dict[str, Any]:
     """Compute a dense spike raster array and store to workspace."""
@@ -182,7 +182,7 @@ async def compute_channel_raster(
     workspace_id: str,
     namespace: str,
     key: str,
-    bin_size: float = 20.0,
+    bin_size: float = 1.0,
     channel_attr: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compute a channel-grouped spike raster and store to workspace."""

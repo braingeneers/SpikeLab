@@ -55,7 +55,7 @@ class VolumeMountSpec(BaseModel):
 class NamespaceHookSpec(BaseModel):
     """Per-namespace overrides applied when a job targets a specific namespace."""
 
-    image_pull_policy: Optional[str] = None
+    image_pull_policy: Optional[Literal["Always", "IfNotPresent", "Never"]] = None
     default_command: List[str] = Field(default_factory=list)
     required_volumes: List[VolumeMountSpec] = Field(default_factory=list)
     env_defaults: Dict[str, str] = Field(default_factory=dict)

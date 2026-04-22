@@ -792,7 +792,7 @@ class TestPickleExporters:
 
 
 @skip_no_h5py
-class TestHDF5ExportersEdgeCases:
+class TestHDF5Exporters2:
     """
     Edge case tests for HDF5 export functionality.
 
@@ -944,7 +944,7 @@ class TestHDF5ExportersEdgeCases:
 
 
 @skip_no_h5py
-class TestNWBExportersEdgeCases:
+class TestNWBExporters2:
     """
     Edge case tests for NWB export functionality.
 
@@ -1083,7 +1083,7 @@ class TestNWBExportersEdgeCases:
             np.testing.assert_array_equal(elec_ids, [3, 5])
 
 
-class TestKiloSortExportersEdgeCases:
+class TestKiloSortExporters2:
     """
     Edge case tests for KiloSort export functionality.
 
@@ -1172,7 +1172,7 @@ class TestKiloSortExportersEdgeCases:
 
 
 @skip_no_h5py
-class TestHDF5ExportersEdgeCases2:
+class TestHDF5Exporters22:
     """Additional edge case tests for export_spikedata_to_hdf5."""
 
     def test_nonzero_start_time_roundtrip_ragged(self, tmp_path):
@@ -1255,7 +1255,7 @@ class TestHDF5ExportersEdgeCases2:
 
 
 @skip_no_h5py
-class TestNWBExportersEdgeCases2:
+class TestNWBExporters22:
     """Additional edge case tests for export_spikedata_to_nwb."""
 
     def test_nonzero_start_time_warning(self, tmp_path):
@@ -1298,7 +1298,7 @@ class TestNWBExportersEdgeCases2:
         assert loaded.N == 2
 
 
-class TestKiloSortExportersEdgeCases2:
+class TestKiloSortExporters22:
     """Additional edge case tests for export_spikedata_to_kilosort."""
 
     def test_nonzero_start_time_warning(self, tmp_path):
@@ -1393,7 +1393,7 @@ class TestCoverageGaps:
 
 
 @skip_no_h5py
-class TestEdgeCaseScan:
+class TestScan:
     """Edge-case tests for data_loaders/data_exporters.py."""
 
     def test_raster_style_zero_length_spikedata(self, tmp_path):
@@ -1590,7 +1590,7 @@ class TestEdgeCaseScan:
 
 
 @skip_no_h5py
-class TestExporterEdgeCasesIO:
+class TestExporterIO:
     """Edge case tests for data exporters from REVIEW.md I/O scan."""
 
     def test_ragged_samples_without_fs_hz(self, tmp_path):
@@ -1641,7 +1641,7 @@ class TestExporterEdgeCasesIO:
             assert "raw_time" not in f
 
 
-class TestPickleEdgeCasesIO:
+class TestPickleIO:
     """Edge case tests for export_to_pickle from REVIEW.md I/O scan."""
 
     def test_invalid_protocol_value(self, tmp_path):

@@ -2830,7 +2830,7 @@ class TestTemplateHalfWindowDenseTemplates:
 # ===========================================================================
 
 
-class TestDockerUtilsEdgeCases:
+class TestDockerUtils:
     """
     Edge case tests for docker_utils functions.
 
@@ -2908,7 +2908,7 @@ class TestDockerUtilsEdgeCases:
 # ===========================================================================
 
 
-class TestTemplateHalfWindowEdgeCases:
+class TestTemplateHalfWindow:
     """
     Edge case tests for _get_templates_half_windows_sizes.
 
@@ -3031,7 +3031,7 @@ class TestTemplateHalfWindowEdgeCases:
 
 
 @skip_no_spikeinterface
-class TestKilosort4BackendDockerEdgeCases:
+class TestKilosort4BackendDocker:
     """
     Edge case tests for Kilosort4Backend.sort() Docker branch.
 
@@ -5803,7 +5803,7 @@ class TestRecenterStimTimesPeakModes:
 # ===========================================================================
 
 
-class TestSortingPipelineConfigEdgeCases:
+class TestSortingPipelineConfig2:
     """Edge cases for SortingPipelineConfig.from_kwargs and .override."""
 
     def test_from_kwargs_empty_dict(self):
@@ -5848,7 +5848,7 @@ class TestSortingPipelineConfigEdgeCases:
 # ===========================================================================
 
 
-class TestTeeEdgeCases:
+class TestTee:
     """Edge cases for the Tee context manager."""
 
     def test_stdout_restored_on_exception(self, tmp_path):
@@ -5885,7 +5885,7 @@ class TestTeeEdgeCases:
 # ===========================================================================
 
 
-class TestMemToIntEdgeCases:
+class TestMemToInt:
     """Edge cases for Utils._mem_to_int."""
 
     def test_empty_string_raises(self):
@@ -5908,7 +5908,7 @@ class TestMemToIntEdgeCases:
 # ===========================================================================
 
 
-class TestEnsureChunkSizeEdgeCases:
+class TestEnsureChunkSize:
     """Edge cases for Utils.ensure_chunk_size."""
 
     def test_both_chunk_memory_and_total_memory_raises(self):
@@ -5933,7 +5933,7 @@ class TestEnsureChunkSizeEdgeCases:
 # ===========================================================================
 
 
-class TestEnsureNJobsEdgeCases:
+class TestEnsureNJobs:
     """Edge cases for Utils.ensure_n_jobs."""
 
     def test_n_jobs_zero_becomes_one(self):
@@ -5966,7 +5966,7 @@ class TestEnsureNJobsEdgeCases:
 # ===========================================================================
 
 
-class TestClassifyPolarityEdgeCases:
+class TestClassifyPolarity:
     """Edge cases for classify_polarity in waveform_utils."""
 
     def test_all_zero_templates(self):
@@ -6020,7 +6020,7 @@ class TestClassifyPolarityEdgeCases:
 # ===========================================================================
 
 
-class TestGetMaxChannelsEdgeCases:
+class TestGetMaxChannels:
     """Edge cases for get_max_channels in waveform_utils."""
 
     def test_tied_peak_values(self):
@@ -6059,7 +6059,7 @@ class TestGetMaxChannelsEdgeCases:
 # ===========================================================================
 
 
-class TestComputeHalfWindowSizesEdgeCases:
+class TestComputeHalfWindowSizes:
     """Edge cases for compute_half_window_sizes in waveform_utils."""
 
     def test_very_short_template(self):
@@ -6084,7 +6084,7 @@ class TestComputeHalfWindowSizesEdgeCases:
 # ===========================================================================
 
 
-class TestCenterSpikeTimesEdgeCases:
+class TestCenterSpikeTimes2:
     """Edge cases for center_spike_times in waveform_utils."""
 
     def test_half_window_zero(self):
@@ -6125,7 +6125,7 @@ class TestCenterSpikeTimesEdgeCases:
 # ===========================================================================
 
 
-class TestDivideSegmentIntoChunksEdgeCases:
+class TestDivideSegmentIntoChunks:
     """Edge cases for ChunkRecordingExecutor.divide_segment_into_chunks."""
 
     def test_chunk_size_none_returns_full_segment(self):
@@ -6163,7 +6163,7 @@ class TestDivideSegmentIntoChunksEdgeCases:
 # ===========================================================================
 
 
-class TestGetNoiseLevelsEdgeCases:
+class TestGetNoiseLevels:
     """Edge cases for _get_noise_levels in pipeline.py."""
 
     def test_short_recording_raises(self):
@@ -6191,7 +6191,7 @@ class TestGetNoiseLevelsEdgeCases:
 # ===========================================================================
 
 
-class TestGetNoiseLevelsRecordingIoEdgeCases:
+class TestGetNoiseLevelsRecordingIo:
     """Edge cases for _get_noise_levels in recording_io.py (same bug)."""
 
     def test_short_recording_raises(self):
@@ -6209,7 +6209,7 @@ class TestGetNoiseLevelsRecordingIoEdgeCases:
 # ===========================================================================
 
 
-class TestGetPathsEdgeCases:
+class TestGetPaths:
     """Edge cases for get_paths in sorting_utils."""
 
     def test_results_path_equals_inter_path(self, tmp_path):
@@ -6241,7 +6241,7 @@ class TestGetPathsEdgeCases:
 # ===========================================================================
 
 
-class TestGetComputedTemplateEdgeCases:
+class TestGetComputedTemplate:
     """Edge cases for WaveformExtractor.get_computed_template."""
 
     def test_invalid_mode_raises(self):
@@ -6262,7 +6262,7 @@ class TestGetComputedTemplateEdgeCases:
 # ===========================================================================
 
 
-class TestClassifierEdgeCases:
+class TestClassifier:
     """Edge cases for failure classifiers in _classifier.py."""
 
     def test_hdf5_marker_in_log_not_chain(self):
@@ -6561,7 +6561,7 @@ class TestClassifyRTSortFailure:
 # ===========================================================================
 
 
-class TestRecenteringEdgeCases:
+class TestRecentering:
     """Edge cases for stim_sorting recentering functions."""
 
     def test_max_offset_zero(self):
@@ -6660,7 +6660,7 @@ class TestRecenteringEdgeCases:
 # ===========================================================================
 
 
-class TestArtifactRemovalEdgeCases:
+class TestArtifactRemoval:
     """Edge cases for stim_sorting artifact removal functions."""
 
     def test_zero_channels(self):
@@ -6864,7 +6864,7 @@ class TestArtifactRemovalEdgeCases:
 
 
 @skip_no_pandas
-class TestKilosortSortingExtractorEdgeCases:
+class TestKilosortSortingExtractor2:
     """Edge cases for KilosortSortingExtractor."""
 
     def test_missing_params_py(self, tmp_path):
@@ -6923,7 +6923,7 @@ class TestKilosortSortingExtractorEdgeCases:
 # ===========================================================================
 
 
-class TestFiguresEdgeCases:
+class TestFigures:
     """Edge cases for spike sorting figure functions."""
 
     def test_plot_curation_bar_empty(self):
@@ -6955,7 +6955,7 @@ class TestFiguresEdgeCases:
 # ===========================================================================
 
 
-class TestGlobalPolynomialDetrendEdgeCases:
+class TestGlobalPolynomialDetrend:
     """Edge cases for _global_polynomial_detrend."""
 
     def test_overlap_samples_equals_window_samples(self):

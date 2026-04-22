@@ -52,7 +52,18 @@ class RateData:
           Use ``subtime_by_index`` for index-based slicing with negative indexing.
     """
 
-    def __init__(self, inst_Frate_data, times, neuron_attributes=None):
+    def __init__(self, inst_Frate_data, times, neuron_attributes=None, rate_unit=None):
+        """Initialize a RateData object.
+
+        Parameters:
+            inst_Frate_data (numpy.ndarray): Firing rate data, shape (N, T).
+            times (numpy.ndarray or list): Time points, length T.
+            neuron_attributes (list or None): Per-unit attribute dicts.
+            rate_unit (str or None): Unit of the rate values. Typically
+                ``"Hz"`` (spikes/s) for ``resampled_isi`` or ``"kHz"``
+                (spikes/ms) for ``sliding_rate``. When *None*, the unit
+                is unspecified.
+        """
         if inst_Frate_data.ndim != 2:
             raise ValueError(
                 f"rates must be a 2D array, got shape {inst_Frate_data.shape}"
@@ -67,6 +78,7 @@ class RateData:
             times = np.array(times)
         self.inst_Frate_data = inst_Frate_data
         self.times = times
+        self.rate_unit = rate_unit
 
         self.N = inst_Frate_data.shape[0]
         self.neuron_attributes = None
@@ -127,6 +139,7 @@ class RateData:
             inst_Frate_data=output,
             times=self.times,
             neuron_attributes=neuron_attributes,
+            rate_unit=self.rate_unit,
         )
 
     def subtime(self, start, end):
@@ -181,6 +194,7 @@ class RateData:
             inst_Frate_data=output,
             times=new_times,
             neuron_attributes=self.neuron_attributes,
+            rate_unit=self.rate_unit,
         )
 
     def subtime_by_index(self, start_idx, end_idx):
@@ -218,6 +232,7 @@ class RateData:
             inst_Frate_data=output,
             times=new_times,
             neuron_attributes=self.neuron_attributes,
+            rate_unit=self.rate_unit,
         )
 
     def frames(self, length, overlap=0):

@@ -149,8 +149,8 @@ def build_template_context(
     )
     pod_volumes = _build_pod_volumes(mounts)
     return {
-        "job_name": job_name,
-        "namespace": namespace,
+        "job_name": _sanitize_yaml_value(job_name),
+        "namespace": _sanitize_yaml_value(namespace),
         "labels": labels,
         "container": container,
         "resources": job_spec.resources.model_dump(),

@@ -409,11 +409,31 @@ spikes:
    sd_all_units = sd_a.concatenate_spike_data(sd_b)
 
 
+Pairwise Metrics
+-----------------
+
+``SpikeData`` provides methods for computing pairwise similarity between
+units directly from spike times:
+
+- :meth:`~spikelab.SpikeData.spike_time_tilings` computes the spike time
+  tiling coefficient (STTC) for all unit pairs, returning a
+  :class:`~spikelab.PairwiseCompMatrix`.
+- :meth:`~spikelab.SpikeData.get_pairwise_ccg` computes pairwise
+  cross-correlograms from binned spike trains.
+- :meth:`~spikelab.SpikeData.get_pairwise_latencies` computes nearest-spike
+  latency distributions between all unit pairs.
+
+See the :doc:`pairwise_analysis` guide for full details, code examples, and
+visualisation.
+
+
 Further Reading
 ---------------
 
-- :doc:`firing_rates` — instantaneous firing rates, pairwise correlations,
-  and the :class:`~spikelab.RateData` class.
+- :doc:`firing_rates` — instantaneous firing rates and the
+  :class:`~spikelab.RateData` class.
+- :doc:`pairwise_analysis` — STTC, firing-rate correlations,
+  cross-correlograms, network analysis, and spatial visualisation.
 - :doc:`../getting_started/quickstart` — creating and loading
   :class:`~spikelab.SpikeData` objects.
 - The full :doc:`../api/spikedata` API reference documents every method on

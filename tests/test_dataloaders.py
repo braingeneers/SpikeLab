@@ -2213,7 +2213,7 @@ class TestS3Utils:
         )
 
 
-class TestS3UtilsErrorPaths:
+class TestS3Utils2:
     """
     Tests for download_from_s3 error-handling paths.
 
@@ -2318,7 +2318,7 @@ class TestS3UtilsErrorPaths:
 
 
 @skip_no_h5py
-class TestHDF5LoaderEdgeCases:
+class TestHDF5Loader:
     """Edge case tests for load_spikedata_from_hdf5 and related helpers."""
 
     def test_all_zero_raster(self, tmp_path):
@@ -2504,7 +2504,7 @@ class TestHDF5LoaderEdgeCases:
         assert "source_file" in sd.metadata
 
 
-class TestTrainsFromFlatIndexEdgeCases:
+class TestTrainsFromFlatIndex:
     """Edge case tests for _trains_from_flat_index."""
 
     def test_empty_flat_times_and_indices(self):
@@ -2548,7 +2548,7 @@ class TestTrainsFromFlatIndexEdgeCases:
 
 
 @skip_no_h5py
-class TestReadRawArraysEdgeCases:
+class TestReadRawArrays:
     """Edge case tests for _read_raw_arrays."""
 
     def test_raw_dataset_without_raw_time(self, tmp_path):
@@ -2623,7 +2623,7 @@ class TestReadRawArraysEdgeCases:
 
 
 @skip_no_h5py
-class TestHDF5RawThresholdedEdgeCases:
+class TestHDF5RawThresholded:
     """Edge case tests for load_spikedata_from_hdf5_raw_thresholded."""
 
     def test_all_zero_raw_traces(self, tmp_path):
@@ -2705,7 +2705,7 @@ class TestHDF5RawThresholdedEdgeCases:
 
 
 @skip_no_h5py
-class TestNWBLoaderEdgeCases:
+class TestNWBLoader2:
     """Edge case tests for load_spikedata_from_nwb."""
 
     def test_nwb_zero_length_spike_times(self, tmp_path):
@@ -2751,7 +2751,7 @@ class TestNWBLoaderEdgeCases:
         assert sd.N == 2
 
 
-class TestKiloSortEdgeCases:
+class TestKiloSort:
     """Edge case tests for load_spikedata_from_kilosort."""
 
     def test_single_cluster(self, tmp_path):
@@ -2856,7 +2856,7 @@ class TestKiloSortEdgeCases:
         assert any("channel_map" in msg for msg in warning_messages)
 
 
-class TestSpikeInterfaceEdgeCases:
+class TestSpikeInterface:
     """Edge case tests for load_spikedata_from_spikeinterface."""
 
     def test_spikeinterface_with_channel_and_location_properties(self):
@@ -2937,7 +2937,7 @@ class TestSpikeInterfaceEdgeCases:
         assert len(sd.train[1]) == 2
 
 
-class TestSpikeInterfaceRecordingEdgeCases:
+class TestSpikeInterfaceRecording3:
     """Edge case tests for load_spikedata_from_spikeinterface_recording."""
 
     def test_square_data(self):
@@ -3037,7 +3037,7 @@ class TestSpikeInterfaceRecordingEdgeCases:
         assert sd.N == 2
 
 
-class TestPickleLoaderEdgeCases:
+class TestPickleLoader2:
     """Edge case tests for load_spikedata_from_pickle."""
 
     def test_pickle_file_not_found(self, tmp_path):
@@ -3078,7 +3078,7 @@ class TestPickleLoaderEdgeCases:
         assert loaded.N == 1
 
 
-class TestBuildSpikeDataEdgeCases:
+class TestBuildSpikeData3:
     """Edge case tests for _build_spikedata."""
 
     def test_all_empty_trains_length_inferred_zero(self):
@@ -3118,7 +3118,7 @@ class TestBuildSpikeDataEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestS3UtilsEdgeCases:
+class TestS3Utils4:
     """Edge case tests for s3_utils functions."""
 
     def test_is_s3_url_empty_string(self):
@@ -3236,7 +3236,7 @@ class TestS3UtilsEdgeCases:
         assert key == "file.h5?versionId=abc123"
 
 
-class TestDownloadFromS3EdgeCases:
+class TestDownloadFromS3:
     """Edge case tests for download_from_s3."""
 
     def test_boto3_not_installed(self):
@@ -3309,7 +3309,7 @@ class TestDownloadFromS3EdgeCases:
                 download_from_s3("s3://bucket/key.h5")
 
 
-class TestUploadToS3EdgeCases:
+class TestUploadToS3:
     """Edge case tests for upload_to_s3."""
 
     def test_local_file_does_not_exist(self):
@@ -3381,7 +3381,7 @@ class TestUploadToS3EdgeCases:
                 upload_to_s3(path, "s3://nonexistent/key.h5")
 
 
-class TestEnsureLocalFileEdgeCases:
+class TestEnsureLocalFile:
     """Edge case tests for ensure_local_file."""
 
     def test_local_file_does_not_exist(self):
@@ -3438,7 +3438,7 @@ class TestEnsureLocalFileEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestHDF5LoaderEdgeCases2:
+class TestHDF5Loader2:
     """Additional edge case tests for HDF5 loaders."""
 
     def test_raster_start_time_roundtrip(self, tmp_path):
@@ -3562,7 +3562,7 @@ class TestHDF5LoaderEdgeCases2:
         assert len(sd.train[3]) == 2
 
 
-class TestHDF5RawThresholdedEdgeCases2:
+class TestHDF5RawThresholded2:
     """Additional edge case tests for load_spikedata_from_hdf5_raw_thresholded."""
 
     def test_dataset_not_found_raises(self, tmp_path):
@@ -3584,7 +3584,7 @@ class TestHDF5RawThresholdedEdgeCases2:
             )
 
 
-class TestSpikeInterfaceEdgeCases2:
+class TestSpikeInterface2:
     """Additional edge case tests for load_spikedata_from_spikeinterface."""
 
     def test_sampling_frequency_zero_fallback(self):
@@ -3633,7 +3633,7 @@ class TestSpikeInterfaceEdgeCases2:
         assert sd.neuron_attributes[0]["location"] == [42.0]
 
 
-class TestSpikeInterfaceRecordingEdgeCases2:
+class TestSpikeInterfaceRecording2:
     """Additional edge case tests for load_spikedata_from_spikeinterface_recording."""
 
     def test_3d_traces_raises(self):
@@ -3651,7 +3651,7 @@ class TestSpikeInterfaceRecordingEdgeCases2:
             loaders.load_spikedata_from_spikeinterface_recording(mock_recording)
 
 
-class TestBuildSpikeDataEdgeCases2:
+class TestBuildSpikeData2:
     """Additional edge case tests for _build_spikedata."""
 
     def test_length_ms_none_with_negative_start_time(self):
@@ -3671,7 +3671,7 @@ class TestBuildSpikeDataEdgeCases2:
         assert sd.length == pytest.approx(20.0)
 
 
-class TestS3UtilsEdgeCases2:
+class TestS3Utils22:
     """Additional edge case tests for s3_utils."""
 
     def test_path_style_url_empty_key(self):
@@ -3707,7 +3707,7 @@ class TestS3UtilsEdgeCases2:
         assert key2 == "mykey"
 
 
-class TestDownloadFromS3EdgeCases2:
+class TestDownloadFromS32:
     """Additional edge case tests for download_from_s3."""
 
     def test_no_such_key_error(self, tmp_path):
@@ -3730,7 +3730,7 @@ class TestDownloadFromS3EdgeCases2:
                 download_from_s3("s3://bucket/key.h5", str(tmp_path / "out.h5"))
 
 
-class TestUploadToS3EdgeCases2:
+class TestUploadToS32:
     """Additional edge case tests for upload_to_s3."""
 
     def test_access_denied_on_upload(self, tmp_path):
@@ -3826,7 +3826,7 @@ class TestCoverageGaps:
 
 
 @skip_no_h5py
-class TestEdgeCaseScan:
+class TestScan:
     """Edge case tests for data_loaders/data_loaders.py."""
 
     def test_raster_with_nan_values(self, tmp_path):
@@ -4414,7 +4414,7 @@ class TestLoadSpikelabSortedNpz:
 
 
 @skip_no_h5py
-class TestHDF5LoaderEdgeCasesIO:
+class TestHDF5LoaderIO:
     """Edge case tests for load_spikedata_from_hdf5 from REVIEW.md I/O scan."""
 
     def test_raster_with_negative_values(self, tmp_path):
@@ -4490,7 +4490,7 @@ class TestHDF5LoaderEdgeCasesIO:
         np.testing.assert_allclose(sd.train[2], np.array([300.0, 500.0]))
 
 
-class TestBuildSpikeDataEdgeCases:
+class TestBuildSpikeData3:
     """Edge case tests for _build_spikedata helper."""
 
     def test_all_empty_trains_nonzero_start_time(self):
@@ -4509,7 +4509,7 @@ class TestBuildSpikeDataEdgeCases:
         assert sd.start_time == 500.0
 
 
-class TestPickleLoaderEdgeCases:
+class TestPickleLoader2:
     """Edge case tests for load_spikedata_from_pickle."""
 
     def test_empty_pickle_file(self, tmp_path):
@@ -4541,7 +4541,7 @@ class TestPickleLoaderEdgeCases:
             loaders.load_spikedata_from_pickle(path)
 
 
-class TestSpikeInterfaceLoaderEdgeCases:
+class TestSpikeInterfaceLoader:
     """Edge case tests for load_spikedata_from_spikeinterface."""
 
     def test_get_property_shorter_than_unit_count(self):
@@ -4577,7 +4577,7 @@ class TestSpikeInterfaceLoaderEdgeCases:
         assert "electrode" not in sd.neuron_attributes[2]
 
 
-class TestSpikeInterfaceRecordingEdgeCases:
+class TestSpikeInterfaceRecording3:
     """Edge case tests for load_spikedata_from_spikeinterface_recording."""
 
     def test_sampling_frequency_none_raises(self):
@@ -4600,7 +4600,7 @@ class TestSpikeInterfaceRecordingEdgeCases:
             loaders.load_spikedata_from_spikeinterface_recording(FakeRecording())
 
 
-class TestS3UtilsEdgeCases:
+class TestS3Utils4:
     """Edge case tests for s3_utils.py."""
 
     def test_is_s3_url_with_s3_in_path_not_hostname(self):

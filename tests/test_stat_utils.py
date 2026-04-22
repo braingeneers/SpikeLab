@@ -292,7 +292,7 @@ class TestApproxNormalQuantile:
 # ---------------------------------------------------------------------------
 
 
-class TestLinearRegressionEdgeCases:
+class TestLinearRegression2:
     """Edge case tests for linear_regression identified in the edge case scan."""
 
     def test_all_x_identical_raises(self):

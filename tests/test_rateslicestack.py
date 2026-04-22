@@ -1748,7 +1748,7 @@ class TestRankOrderCorrelationRate:
 # ---------------------------------------------------------------------------
 
 
-class TestRateSliceStackConstructorEdgeCases:
+class TestRateSliceStackConstructor2:
     """Edge case tests for RateSliceStack.__init__."""
 
     def test_spikedata_zero_length_raises(self):
@@ -1805,7 +1805,7 @@ class TestRateSliceStackConstructorEdgeCases:
         assert rss.times[0][1] == pytest.approx(70.0)
 
 
-class TestOrderUnitsAcrossSlicesEdgeCases:
+class TestOrderUnitsAcrossSlices2:
     """Edge case tests for RateSliceStack.order_units_across_slices."""
 
     def test_all_units_nan_peak_times(self):
@@ -1844,7 +1844,7 @@ class TestOrderUnitsAcrossSlicesEdgeCases:
         np.testing.assert_array_equal(peaks[0], [-1, -1, -1])
 
 
-class TestSliceToSliceUnitCorrEdgeCases:
+class TestSliceToSliceUnitCorr:
     """Edge case tests for RateSliceStack.get_slice_to_slice_unit_corr_from_stack."""
 
     def test_all_units_below_threshold(self):
@@ -1905,7 +1905,7 @@ class TestSliceToSliceUnitCorrEdgeCases:
         assert np.all(np.isnan(av_scores))
 
 
-class TestSliceToSliceTimeCorrEdgeCases:
+class TestSliceToSliceTimeCorr:
     """Edge case tests for RateSliceStack.get_slice_to_slice_time_corr_from_stack."""
 
     def test_all_zero_time_bins(self):
@@ -1936,7 +1936,7 @@ class TestSliceToSliceTimeCorrEdgeCases:
         assert np.all(np.isnan(av_scores))
 
 
-class TestSubsetEdgeCases:
+class TestSubset2:
     """Edge case tests for RateSliceStack.subset."""
 
     def test_empty_units_list(self):
@@ -1958,7 +1958,7 @@ class TestSubsetEdgeCases:
         assert sub.times == rss.times
 
 
-class TestGetUnitTimingPerSliceEdgeCases:
+class TestGetUnitTimingPerSlice:
     """Edge case tests for RateSliceStack.get_unit_timing_per_slice."""
 
     def test_all_nan_slice_argmax_on_nan(self):
@@ -2011,7 +2011,7 @@ class TestGetUnitTimingPerSliceEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestRateSliceStackConstructorEdgeCases2:
+class TestRateSliceStackConstructor22:
     """Additional edge case tests for RateSliceStack.__init__."""
 
     def test_zero_unit_event_matrix(self):
@@ -2027,7 +2027,7 @@ class TestRateSliceStackConstructorEdgeCases2:
         assert rss.event_stack.shape == (0, 10, 5)
 
 
-class TestOrderUnitsAcrossSlicesEdgeCases2:
+class TestOrderUnitsAcrossSlices22:
     """Additional edge case tests for RateSliceStack.order_units_across_slices."""
 
     def test_impossible_min_frac_threshold(self):
@@ -2052,7 +2052,7 @@ class TestOrderUnitsAcrossSlicesEdgeCases2:
         assert len(ids[1]) == 3  # all 3 units in LA group
 
 
-class TestSliceToSliceUnitCorrEdgeCases2:
+class TestSliceToSliceUnitCorr2:
     """Additional edge case tests for RateSliceStack.get_slice_to_slice_unit_corr_from_stack."""
 
     def test_exact_min_rate_threshold_boundary(self):
@@ -2076,7 +2076,7 @@ class TestSliceToSliceUnitCorrEdgeCases2:
         assert corr_stack.stack.shape[1] == 3
 
 
-class TestSliceToSliceTimeCorrEdgeCases2:
+class TestSliceToSliceTimeCorr2:
     """Additional edge case tests for RateSliceStack.get_slice_to_slice_time_corr_from_stack."""
 
     def test_all_zero_units_at_some_time_bins(self):
@@ -2097,7 +2097,7 @@ class TestSliceToSliceTimeCorrEdgeCases2:
         assert corr_stack.stack.shape == (2, 2, 10)
 
 
-class TestUnitToUnitCorrelationEdgeCases:
+class TestUnitToUnitCorrelation:
     """Additional edge case tests for RateSliceStack.unit_to_unit_correlation."""
 
     def test_two_units_minimum(self):
@@ -2115,7 +2115,7 @@ class TestUnitToUnitCorrelationEdgeCases:
         assert corr_stack.stack.shape == (2, 2, 3)
 
 
-class TestConvertToListOfRateDataEdgeCases:
+class TestConvertToListOfRateData2:
     """Additional edge case tests for RateSliceStack.convert_to_list_of_RateData."""
 
     def test_single_time_bin_stack(self):
@@ -2135,7 +2135,7 @@ class TestConvertToListOfRateDataEdgeCases:
         assert result[0].inst_Frate_data.shape == (3, 1)
 
 
-class TestRSSSubsetEdgeCases2:
+class TestRSSSubset2:
     """Additional edge case tests for RateSliceStack.subset."""
 
     def test_subset_by_duplicate_attribute_values(self):
@@ -2153,7 +2153,7 @@ class TestRSSSubsetEdgeCases2:
         assert result.event_stack.shape[0] == 2
 
 
-class TestRSSSubsliceEdgeCases:
+class TestRSSSubslice:
     """Additional edge case tests for RateSliceStack.subslice."""
 
     def test_subslice_negative_indices(self):
@@ -2170,7 +2170,7 @@ class TestRSSSubsliceEdgeCases:
         assert result.event_stack.shape[2] == 2
 
 
-class TestGetUnitTimingPerSliceEdgeCases2:
+class TestGetUnitTimingPerSlice2:
     """Additional edge case tests for RateSliceStack.get_unit_timing_per_slice."""
 
     def test_negative_firing_rates(self):
@@ -2347,7 +2347,7 @@ class TestCoverageGaps:
 # ---------------------------------------------------------------------------
 
 
-class TestRateSliceStackEdgeCasesCoreReview:
+class TestRateSliceStackCoreReview:
     """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
 
     def test_step_size_zero_division_by_zero(self):

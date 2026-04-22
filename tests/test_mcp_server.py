@@ -2962,7 +2962,7 @@ class TestLoadWorkspaceItemMCP:
 # ============================================================================
 
 
-class TestPadRaggedEdgeCases:
+class TestPadRagged:
     """Edge case tests for _pad_ragged helper function."""
 
     def test_empty_list_of_arrays(self):
@@ -3012,7 +3012,7 @@ class TestPadRaggedEdgeCases:
         assert result[0, 0] == 5.0
 
 
-class TestToListEdgeCases:
+class TestToList:
     """Edge case tests for _to_list helper function."""
 
     def test_non_array_input(self):
@@ -3031,7 +3031,7 @@ class TestToListEdgeCases:
         assert _to_list("hello") == "hello"
 
 
-class TestComputeRatesEdgeCases:
+class TestComputeRates:
     """Edge case tests for compute_rates MCP tool."""
 
     @pytestmark_server
@@ -3048,7 +3048,7 @@ class TestComputeRatesEdgeCases:
             await analysis.compute_rates(ws_id, ns, "rates", unit="invalid")
 
 
-class TestComputeBinnedEdgeCases:
+class TestComputeBinned:
     """Edge case tests for compute_binned and compute_binned_meanrate MCP tools."""
 
     @pytestmark_server
@@ -3094,7 +3094,7 @@ class TestComputeBinnedEdgeCases:
         assert result["info"]["type"] == "ndarray"
 
 
-class TestComputeRasterEdgeCases:
+class TestComputeRaster:
     """Edge case tests for compute_raster MCP tool."""
 
     @pytestmark_server
@@ -3124,7 +3124,7 @@ class TestComputeRasterEdgeCases:
             await analysis.compute_raster(ws_id, ns, "raster_neg", bin_size=-5.0)
 
 
-class TestComputeChannelRasterEdgeCases:
+class TestComputeChannelRaster:
     """Edge case tests for compute_channel_raster MCP tool."""
 
     @pytestmark_server
@@ -3165,7 +3165,7 @@ class TestComputeChannelRasterEdgeCases:
             )
 
 
-class TestComputeISIEdgeCases:
+class TestComputeISI:
     """Edge case tests for compute_interspike_intervals MCP tool."""
 
     @pytestmark_server
@@ -3214,7 +3214,7 @@ class TestComputeISIEdgeCases:
             assert np.all(np.isnan(arr[0, :]))
 
 
-class TestComputeResampledISIEdgeCases:
+class TestComputeResampledISI:
     """Edge case tests for compute_resampled_isi MCP tool."""
 
     @pytestmark_server
@@ -3256,7 +3256,7 @@ class TestComputeResampledISIEdgeCases:
         assert result["key"] == "rates_single"
 
 
-class TestComputeSpikeTimeTilingEdgeCases:
+class TestComputeSpikeTimeTiling:
     """Edge case tests for compute_spike_time_tiling MCP tool."""
 
     @pytestmark_server
@@ -3299,7 +3299,7 @@ class TestComputeSpikeTimeTilingEdgeCases:
             )
 
 
-class TestComputeSpikeTimeTilingsEdgeCases:
+class TestComputeSpikeTimeTilings:
     """Edge case tests for compute_spike_time_tilings and threshold MCP tools."""
 
     @pytestmark_server
@@ -3363,7 +3363,7 @@ class TestComputeSpikeTimeTilingsEdgeCases:
                     assert pcm.matrix[i, j] == 0.0
 
 
-class TestComputeLatenciesEdgeCases:
+class TestComputeLatencies:
     """Edge case tests for compute_latencies and compute_latencies_to_index MCP tools."""
 
     @pytestmark_server
@@ -3399,7 +3399,7 @@ class TestComputeLatenciesEdgeCases:
             )
 
 
-class TestSetNeuronAttributeEdgeCases:
+class TestSetNeuronAttribute:
     """Edge case tests for set_neuron_attribute MCP tool."""
 
     @pytestmark_server
@@ -3419,7 +3419,7 @@ class TestSetNeuronAttributeEdgeCases:
             )
 
 
-class TestGetNeuronAttributeEdgeCases:
+class TestGetNeuronAttribute:
     """Edge case tests for get_neuron_attribute MCP tool."""
 
     @pytestmark_server
@@ -3438,7 +3438,7 @@ class TestGetNeuronAttributeEdgeCases:
         assert result["values"] == [None, None, None]
 
 
-class TestSubtimeEdgeCases:
+class TestSubtime:
     """Edge case tests for subtime MCP tool."""
 
     @pytestmark_server
@@ -3493,7 +3493,7 @@ class TestSubtimeEdgeCases:
             )
 
 
-class TestSubsetEdgeCases:
+class TestSubset:
     """Edge case tests for subset MCP tool."""
 
     @pytestmark_server
@@ -3548,7 +3548,7 @@ class TestSubsetEdgeCases:
             await analysis.subset(ws_id, ns, units=[0], by="nonexistent")
 
 
-class TestAppendSessionEdgeCases:
+class TestAppendSession:
     """Edge case tests for append_session MCP tool."""
 
     @pytestmark_server
@@ -3569,7 +3569,7 @@ class TestAppendSessionEdgeCases:
             await analysis.append_session(ws_id, namespace_a=ns, namespace_b="rec_2u")
 
 
-class TestComputePairwiseCCGEdgeCases:
+class TestComputePairwiseCCG:
     """Edge case tests for compute_pairwise_ccg MCP tool."""
 
     @pytestmark_server
@@ -3589,7 +3589,7 @@ class TestComputePairwiseCCGEdgeCases:
             )
 
 
-class TestComputeRateManifoldEdgeCases:
+class TestComputeRateManifold:
     """Edge case tests for compute_rate_manifold MCP tool."""
 
     @pytestmark_server
@@ -3611,7 +3611,7 @@ class TestComputeRateManifoldEdgeCases:
             )
 
 
-class TestCreateRateSliceStackEdgeCases:
+class TestCreateRateSliceStack:
     """Edge case tests for create_rate_slice_stack MCP tool."""
 
     @pytestmark_server
@@ -3635,7 +3635,7 @@ class TestCreateRateSliceStackEdgeCases:
             pass
 
 
-class TestCreateSpikeSliceStackEdgeCases:
+class TestCreateSpikeSliceStack:
     """Edge case tests for create_spike_slice_stack MCP tool."""
 
     @pytestmark_server
@@ -3659,7 +3659,7 @@ class TestCreateSpikeSliceStackEdgeCases:
             pass
 
 
-class TestSpikeSliceToRasterEdgeCases:
+class TestSpikeSliceToRaster:
     """Edge case tests for spike_slice_to_raster MCP tool."""
 
     @pytestmark_server
@@ -3697,7 +3697,7 @@ class TestSpikeSliceToRasterEdgeCases:
             pass
 
 
-class TestAlignToEventsEdgeCases:
+class TestAlignToEvents:
     """Edge case tests for align_to_events MCP tool."""
 
     @pytestmark_server
@@ -3739,7 +3739,7 @@ class TestAlignToEventsEdgeCases:
         assert result["info"]["type"] == "RateSliceStack"
 
 
-class TestComputeRateSliceUnitCorrEdgeCases:
+class TestComputeRateSliceUnitCorr:
     """Edge case tests for compute_rate_slice_unit_corr MCP tool."""
 
     @pytestmark_server
@@ -3763,7 +3763,7 @@ class TestComputeRateSliceUnitCorrEdgeCases:
             )
 
 
-class TestGetDataInfoEdgeCases:
+class TestGetDataInfo:
     """Edge case tests for get_data_info MCP tool."""
 
     @pytestmark_server
@@ -3790,7 +3790,7 @@ class TestGetDataInfoEdgeCases:
         assert result["num_neurons"] == 1
 
 
-class TestDeleteWorkspaceEdgeCases:
+class TestDeleteWorkspace:
     """Edge case tests for delete_workspace MCP tool."""
 
     @pytestmark_server
@@ -3806,7 +3806,7 @@ class TestDeleteWorkspaceEdgeCases:
         assert result["deleted"] is False
 
 
-class TestDescribeWorkspaceEdgeCases:
+class TestDescribeWorkspace:
     """Edge case tests for describe_workspace MCP tool."""
 
     @pytestmark_server
@@ -3824,7 +3824,7 @@ class TestDescribeWorkspaceEdgeCases:
         assert desc["index"] == {}
 
 
-class TestRenameWorkspaceItemEdgeCases:
+class TestRenameWorkspaceItem:
     """Edge case tests for rename_workspace_item MCP tool."""
 
     @pytestmark_server
@@ -3845,7 +3845,7 @@ class TestRenameWorkspaceItemEdgeCases:
         assert result["success"] is False
 
 
-class TestAddWorkspaceNoteEdgeCases:
+class TestAddWorkspaceNote:
     """Edge case tests for add_workspace_note MCP tool."""
 
     @pytestmark_server
@@ -3864,7 +3864,7 @@ class TestAddWorkspaceNoteEdgeCases:
         assert result["success"] is False
 
 
-class TestDeleteWorkspaceItemEdgeCases:
+class TestDeleteWorkspaceItem:
     """Edge case tests for delete_workspace_item MCP tool."""
 
     @pytestmark_server
@@ -3883,7 +3883,7 @@ class TestDeleteWorkspaceItemEdgeCases:
         assert result["deleted"] is False
 
 
-class TestFetchWorkspaceItemEdgeCases:
+class TestFetchWorkspaceItem:
     """Edge case tests for fetch_workspace_item MCP tool."""
 
     @pytestmark_server
@@ -3942,7 +3942,7 @@ class TestFetchWorkspaceItemEdgeCases:
         assert result["shape"] == [3, 3]
 
 
-class TestNamespaceFromPathEdgeCases:
+class TestNamespaceFromPath:
     """Edge case tests for _namespace_from_path helper function."""
 
     def test_empty_file_path(self):
@@ -4018,7 +4018,7 @@ class TestNamespaceFromPathEdgeCases:
         assert result == "custom"
 
 
-class TestUniqueNamespaceEdgeCases:
+class TestUniqueNamespace:
     """Edge case tests for _unique_namespace helper function."""
 
     def test_collision_chain(self):
@@ -4077,7 +4077,7 @@ class TestUniqueNamespaceEdgeCases:
         assert result == "rec_1_1"
 
 
-class TestLoadFromHDF5EdgeCases:
+class TestLoadFromHDF5:
     """Edge case tests for load_from_hdf5 MCP tool."""
 
     @pytestmark_server
@@ -4106,7 +4106,7 @@ class TestLoadFromHDF5EdgeCases:
         assert result["workspace_key"] == "spikedata"
 
 
-class TestLoadFromKilosortEdgeCases:
+class TestLoadFromKilosort:
     """Edge case tests for load_from_kilosort MCP tool."""
 
     @pytestmark_server
@@ -4140,7 +4140,7 @@ class TestLoadFromKilosortEdgeCases:
             )
 
 
-class TestExportToHDF5EdgeCases:
+class TestExportToHDF5:
     """Edge case tests for export_to_hdf5_* MCP tools."""
 
     @pytestmark_server
@@ -4168,7 +4168,7 @@ class TestExportToHDF5EdgeCases:
                 os.unlink(tmp_path)
 
 
-class TestExportToKilosortEdgeCases:
+class TestExportToKilosort:
     """Edge case tests for export_to_kilosort MCP tool."""
 
     @pytestmark_server
@@ -4188,7 +4188,7 @@ class TestExportToKilosortEdgeCases:
             )
 
 
-class TestCallToolEdgeCases:
+class TestCallTool:
     """Edge case tests for server._call_tool function."""
 
     @pytestmark_server
@@ -4266,7 +4266,7 @@ class TestCallToolEdgeCases:
         assert "error" in data
 
 
-class TestGPLVMConsecutiveDurationsEdgeCases:
+class TestGPLVMConsecutiveDurations:
     """Edge case tests for compute_gplvm_consecutive_durations MCP tool."""
 
     @pytestmark_server
@@ -4308,7 +4308,7 @@ class TestGPLVMConsecutiveDurationsEdgeCases:
         assert result["n_durations"] == 0
 
 
-class TestRemoveByConditionEdgeCases:
+class TestRemoveByCondition:
     """Edge case tests for remove_by_condition MCP tool."""
 
     @pytestmark_server
@@ -4346,7 +4346,7 @@ class TestRemoveByConditionEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPadRaggedEdgeCases2:
+class TestPadRagged2:
     """Additional edge case tests for _pad_ragged."""
 
     @pytestmark_server
@@ -4373,7 +4373,7 @@ class TestPadRaggedEdgeCases2:
         assert result.dtype == np.float64
 
 
-class TestToListEdgeCases2:
+class TestToList2:
     """Additional edge case tests for _to_list."""
 
     @pytestmark_server
@@ -4401,7 +4401,7 @@ class TestToListEdgeCases2:
         assert result is None
 
 
-class TestComputeRatesEdgeCases2:
+class TestComputeRates2:
     """Additional edge case tests for compute_rates MCP tool."""
 
     @pytestmark_server
@@ -4441,7 +4441,7 @@ class TestComputeRatesEdgeCases2:
         np.testing.assert_array_equal(rates, 0.0)
 
 
-class TestComputeBinnedEdgeCases2:
+class TestComputeBinned2:
     """Additional edge case tests for compute_binned MCP tool."""
 
     @pytestmark_server
@@ -4458,7 +4458,7 @@ class TestComputeBinnedEdgeCases2:
             await analysis.compute_binned(ws_id, ns, "binned_neg", bin_size=-10.0)
 
 
-class TestComputeRasterEdgeCases2:
+class TestComputeRaster2:
     """Additional edge case tests for compute_raster MCP tool."""
 
     @pytestmark_server
@@ -4475,7 +4475,7 @@ class TestComputeRasterEdgeCases2:
             await analysis.compute_raster(ws_id, ns, "raster_neg", bin_size=-5.0)
 
 
-class TestComputeChannelRasterEdgeCases2:
+class TestComputeChannelRaster2:
     """Additional edge case tests for compute_channel_raster MCP tool."""
 
     @pytestmark_server
@@ -4495,7 +4495,7 @@ class TestComputeChannelRasterEdgeCases2:
             )
 
 
-class TestComputeISIEdgeCases2:
+class TestComputeISI2:
     """Additional edge case tests for compute_interspike_intervals MCP tool."""
 
     @pytestmark_server
@@ -4521,7 +4521,7 @@ class TestComputeISIEdgeCases2:
         assert isi.shape[1] == 0
 
 
-class TestComputeResampledISIEdgeCases2:
+class TestComputeResampledISI2:
     """Additional edge case tests for compute_resampled_isi MCP tool."""
 
     @pytestmark_server
@@ -4550,7 +4550,7 @@ class TestComputeResampledISIEdgeCases2:
             pass  # Expected in some scipy versions
 
 
-class TestComputeSpikeTimeTilingEdgeCases2:
+class TestComputeSpikeTimeTiling2:
     """Additional edge case tests for compute_spike_time_tiling MCP tool."""
 
     @pytestmark_server
@@ -4574,7 +4574,7 @@ class TestComputeSpikeTimeTilingEdgeCases2:
             )
 
 
-class TestComputeSpikeTimeTilingsEdgeCases2:
+class TestComputeSpikeTimeTilings2:
     """Additional edge case tests for compute_spike_time_tilings MCP tool."""
 
     @pytestmark_server
@@ -4598,7 +4598,7 @@ class TestComputeSpikeTimeTilingsEdgeCases2:
         assert pcm.matrix.shape == (0, 0)
 
 
-class TestComputeLatenciesEdgeCases2:
+class TestComputeLatencies2:
     """Additional edge case tests for compute_latencies MCP tool."""
 
     @pytestmark_server
@@ -4622,7 +4622,7 @@ class TestComputeLatenciesEdgeCases2:
         assert result["key"] == "lat_neg"
 
 
-class TestGetPopRateEdgeCases:
+class TestGetPopRate:
     """Edge case tests for get_pop_rate MCP tool."""
 
     @pytestmark_server
@@ -4644,7 +4644,7 @@ class TestGetPopRateEdgeCases:
         np.testing.assert_array_equal(pop_rate, 0.0)
 
 
-class TestComputeSpikeTriggeredPopRateEdgeCases:
+class TestComputeSpikeTriggeredPopRate:
     """Edge case tests for compute_spike_trig_pop_rate MCP tool."""
 
     @pytestmark_server
@@ -4667,7 +4667,7 @@ class TestComputeSpikeTriggeredPopRateEdgeCases:
             )
 
 
-class TestGetBurstsMCPEdgeCases:
+class TestGetBurstsMCP:
     """Edge case tests for get_bursts / burst_sensitivity MCP tools."""
 
     @pytestmark_server
@@ -4714,7 +4714,7 @@ class TestGetBurstsMCPEdgeCases:
         assert sens.shape[0] == 0
 
 
-class TestGetFracActiveMCPEdgeCases:
+class TestGetFracActiveMCP:
     """Edge case tests for get_frac_active MCP tool."""
 
     @pytestmark_server
@@ -4740,7 +4740,7 @@ class TestGetFracActiveMCPEdgeCases:
             )
 
 
-class TestGetDataInfoEdgeCases2:
+class TestGetDataInfo2:
     """Additional edge case tests for get_data_info MCP tool."""
 
     @pytestmark_server
@@ -4757,7 +4757,7 @@ class TestGetDataInfoEdgeCases2:
         assert "metadata" in result
 
 
-class TestListNeuronsMCPEdgeCases:
+class TestListNeuronsMCP:
     """Edge case tests for list_neurons MCP tool."""
 
     @pytestmark_server
@@ -4777,7 +4777,7 @@ class TestListNeuronsMCPEdgeCases:
         assert result["neurons"] == []
 
 
-class TestSetNeuronAttributeEdgeCases2:
+class TestSetNeuronAttribute2:
     """Additional edge case tests for set_neuron_attribute MCP tool."""
 
     @pytestmark_server
@@ -4799,7 +4799,7 @@ class TestSetNeuronAttributeEdgeCases2:
             )
 
 
-class TestSubtimeMCPEdgeCases2:
+class TestSubtimeMCP2:
     """Additional edge case tests for subtime MCP tool."""
 
     @pytestmark_server
@@ -4822,7 +4822,7 @@ class TestSubtimeMCPEdgeCases2:
             )
 
 
-class TestSubsetMCPEdgeCases2:
+class TestSubsetMCP2:
     """Additional edge case tests for subset MCP tool."""
 
     @pytestmark_server
@@ -4875,7 +4875,7 @@ class TestSubsetMCPEdgeCases2:
         assert sd.N == 0
 
 
-class TestAppendSessionMCPEdgeCases2:
+class TestAppendSessionMCP2:
     """Additional edge case tests for append_session MCP tool."""
 
     @pytestmark_server
@@ -4924,7 +4924,7 @@ class TestAppendSessionMCPEdgeCases2:
         assert sd.length == pytest.approx(90.0)
 
 
-class TestConcatenateUnitsMCPEdgeCases:
+class TestConcatenateUnitsMCP:
     """Edge case tests for concatenate_units MCP tool."""
 
     @pytestmark_server
@@ -4949,7 +4949,7 @@ class TestConcatenateUnitsMCPEdgeCases:
         assert sd.N == 3  # original 3 + 0
 
 
-class TestComputePairwiseCCGMCPEdgeCases2:
+class TestComputePairwiseCCGMCP2:
     """Additional edge case tests for compute_pairwise_ccg MCP tool."""
 
     @pytestmark_server
@@ -4977,7 +4977,7 @@ class TestComputePairwiseCCGMCPEdgeCases2:
         assert corr.matrix.shape == (1, 1)
 
 
-class TestComputeRateManifoldMCPEdgeCases2:
+class TestComputeRateManifoldMCP2:
     """Additional edge case tests for compute_rate_manifold MCP tool."""
 
     @pytestmark_server
@@ -5006,7 +5006,7 @@ class TestComputeRateManifoldMCPEdgeCases2:
             )
 
 
-class TestAlignToEventsMCPEdgeCases2:
+class TestAlignToEventsMCP2:
     """Additional edge case tests for align_to_events MCP tool."""
 
     @pytestmark_server
@@ -5031,7 +5031,7 @@ class TestAlignToEventsMCPEdgeCases2:
             )
 
 
-class TestSpikeSliceToRasterMCPEdgeCases2:
+class TestSpikeSliceToRasterMCP2:
     """Additional edge case tests for spike_slice_to_raster MCP tool."""
 
     @pytestmark_server
@@ -5061,7 +5061,7 @@ class TestSpikeSliceToRasterMCPEdgeCases2:
             )
 
 
-class TestFetchWorkspaceItemEdgeCases2:
+class TestFetchWorkspaceItem2:
     """Additional edge case tests for fetch_workspace_item MCP tool."""
 
     @pytestmark_server
@@ -5777,7 +5777,7 @@ class TestSliceAnalysisMCP:
 # ============================================================================
 
 
-class TestPairwiseTestsEdgeCases:
+class TestPairwiseTests:
     """Edge case tests for pairwise_tests MCP tool (HIGH: single group, invalid test)."""
 
     @pytestmark_server
@@ -5890,7 +5890,7 @@ class TestPairwiseTestsEdgeCases:
         assert result["n_comparisons"] == 1
 
 
-class TestSubsetStackEdgeCases:
+class TestSubsetStack:
     """Edge case tests for subset_stack MCP tool (HIGH: units_per_subset > N)."""
 
     @pytestmark_server
@@ -5931,7 +5931,7 @@ class TestSubsetStackEdgeCases:
             pass
 
 
-class TestAlignToEventsEdgeCasesFromReview:
+class TestAlignToEventsFromReview:
     """Edge case tests for align_to_events (HIGH: metadata string key)."""
 
     @pytestmark_server
@@ -6015,7 +6015,7 @@ class TestAlignToEventsEdgeCasesFromReview:
             pass
 
 
-class TestComputePairwiseLatenciesEdgeCases:
+class TestComputePairwiseLatencies:
     """Edge case tests for compute_pairwise_latencies (HIGH: window_ms=None)."""
 
     @pytestmark_server
@@ -6077,7 +6077,7 @@ class TestComputePairwiseLatenciesEdgeCases:
             pass
 
 
-class TestSetNeuronAttributeEdgeCasesReview:
+class TestSetNeuronAttributeReview:
     """Edge case tests for set_neuron_attribute (HIGH: no neuron_attributes)."""
 
     @pytestmark_server
@@ -6116,7 +6116,7 @@ class TestSetNeuronAttributeEdgeCasesReview:
         assert result["key"] == "score"
 
 
-class TestGetNeuronToChannelMapEdgeCases:
+class TestGetNeuronToChannelMap:
     """Edge case tests for get_neuron_to_channel_map."""
 
     @pytestmark_server
@@ -6155,7 +6155,7 @@ class TestGetNeuronToChannelMapEdgeCases:
         assert result["mapping"] == {}
 
 
-class TestComputeSpikeTriggeredPopRateEdgeCasesReview:
+class TestComputeSpikeTriggeredPopRateReview:
     """Edge case tests for compute_spike_trig_pop_rate."""
 
     @pytestmark_server
@@ -6194,7 +6194,7 @@ class TestComputeSpikeTriggeredPopRateEdgeCasesReview:
             )
 
 
-class TestPCAOnWorkspaceItemEdgeCases:
+class TestPCAOnWorkspaceItem:
     """Edge case tests for pca_on_workspace_item."""
 
     @pytestmark_server
@@ -6245,7 +6245,7 @@ class TestPCAOnWorkspaceItemEdgeCases:
             pass
 
 
-class TestCreateRateSliceStackEdgeCasesFromReview:
+class TestCreateRateSliceStackFromReview:
     """Edge case tests for create_rate_slice_stack (HIGH: wrong inner list length)."""
 
     @pytestmark_server
@@ -6282,7 +6282,7 @@ class TestCreateRateSliceStackEdgeCasesFromReview:
             )
 
 
-class TestBurstSensitivityEdgeCasesFromReview:
+class TestBurstSensitivityFromReview:
     """Edge case tests for burst_sensitivity (HIGH: empty dist_values)."""
 
     @pytestmark_server
@@ -6311,7 +6311,7 @@ class TestBurstSensitivityEdgeCasesFromReview:
             pass
 
 
-class TestGetFracActiveEdgeCasesFromReview:
+class TestGetFracActiveFromReview:
     """Edge case tests for get_frac_active (HIGH: edges shape wrong)."""
 
     @pytestmark_server
@@ -6346,7 +6346,7 @@ class TestGetFracActiveEdgeCasesFromReview:
 # ============================================================================
 
 
-class TestSpikeShuffleEdgeCases:
+class TestSpikeShuffle:
     """Edge case tests for spike_shuffle / spike_shuffle_stack."""
 
     @pytestmark_server
@@ -6386,7 +6386,7 @@ class TestSpikeShuffleEdgeCases:
             pass
 
 
-class TestComputePairwiseCCGEdgeCasesReview:
+class TestComputePairwiseCCGReview:
     """Additional edge case tests for compute_pairwise_ccg."""
 
     @pytestmark_server
@@ -6408,7 +6408,7 @@ class TestComputePairwiseCCGEdgeCasesReview:
             pass
 
 
-class TestRateDataSubsetEdgeCases:
+class TestRateDataSubset:
     """Edge case tests for ratedata_subset / ratedata_subtime."""
 
     @pytestmark_server
@@ -6449,7 +6449,7 @@ class TestRateDataSubsetEdgeCases:
             )
 
 
-class TestRateSliceSubsetEdgeCases:
+class TestRateSliceSubset:
     """Edge case tests for rate_slice_subset / rate_slice_subtime / rate_slice_subslice."""
 
     @pytestmark_server
@@ -6505,7 +6505,7 @@ class TestRateSliceSubsetEdgeCases:
             pass
 
 
-class TestShuffleStatsEdgeCases:
+class TestShuffleStats:
     """Edge case tests for shuffle_z_score / shuffle_percentile."""
 
     @pytestmark_server
@@ -6540,7 +6540,7 @@ class TestShuffleStatsEdgeCases:
             pass
 
 
-class TestSliceTrendEdgeCases:
+class TestSliceTrend:
     """Edge case tests for slice_trend."""
 
     @pytestmark_server
@@ -6565,7 +6565,7 @@ class TestSliceTrendEdgeCases:
             pass
 
 
-class TestSliceStabilityEdgeCases:
+class TestSliceStability:
     """Edge case tests for slice_stability."""
 
     @pytestmark_server
@@ -6588,7 +6588,7 @@ class TestSliceStabilityEdgeCases:
         assert "cv" in result
 
 
-class TestConcatenateUnitsEdgeCases:
+class TestConcatenateUnits:
     """Edge case tests for concatenate_units."""
 
     @pytestmark_server
@@ -6615,7 +6615,7 @@ class TestConcatenateUnitsEdgeCases:
             pass
 
 
-class TestSubtimeEdgeCasesFromReview:
+class TestSubtimeFromReview:
     """Edge case tests for subtime through MCP (from review)."""
 
     @pytestmark_server
@@ -6632,7 +6632,7 @@ class TestSubtimeEdgeCasesFromReview:
             await analysis.subtime(ws_id, ns, start=100.0, end=200.0)
 
 
-class TestExtractLowerTriangleFeaturesEdgeCases:
+class TestExtractLowerTriangleFeatures:
     """Edge case tests for extract_lower_triangle_features."""
 
     @pytestmark_server
@@ -6660,7 +6660,7 @@ class TestExtractLowerTriangleFeaturesEdgeCases:
         assert feat.shape == (3, 1)  # 1 lower-triangle element, 3 slices
 
 
-class TestComputeRateManifoldEdgeCasesReview:
+class TestComputeRateManifoldReview:
     """Additional edge case tests for compute_rate_manifold."""
 
     @pytestmark_server
@@ -7013,7 +7013,7 @@ class TestCurateSpikeDataMCP:
         assert result["workspace_key"] == "spikedata"
 
 
-class TestFetchWorkspaceItemEdgeCasesReview:
+class TestFetchWorkspaceItemReview:
     """Additional edge case tests for fetch_workspace_item."""
 
     @pytestmark_server

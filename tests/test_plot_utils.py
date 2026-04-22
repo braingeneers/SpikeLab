@@ -1691,7 +1691,7 @@ class TestSpikeSliceStackPlotUnitRaster:
 # ---------------------------------------------------------------------------
 
 
-class TestPlotDistributionEdgeCases:
+class TestPlotDistribution2:
     """Edge case tests for plot_distribution identified in the edge case scan."""
 
     DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -1730,7 +1730,7 @@ class TestPlotDistributionEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPlotScatterEdgeCases:
+class TestPlotScatter2:
     """Edge case tests for plot_scatter identified in the edge case scan."""
 
     def test_fit_linear_with_fewer_than_3_points(self):
@@ -1769,7 +1769,7 @@ class TestPlotScatterEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPlotUnitRasterEdgeCases:
+class TestPlotUnitRaster2:
     """Edge case tests for plot_aligned_slice_single_unit identified in the edge case scan."""
 
     def test_all_slices_empty(self):
@@ -1794,7 +1794,7 @@ class TestPlotUnitRasterEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestPlotBurstSensitivityEdgeCases:
+class TestPlotBurstSensitivity2:
     """Edge case tests for plot_burst_sensitivity."""
 
     DEFAULT_COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -2334,7 +2334,7 @@ class TestPlotPercentileBands:
             assert label.get_fontsize() == pytest.approx(14)
 
 
-class TestPlotPercentileBandsEdgeCases:
+class TestPlotPercentileBands2:
     """Edge case tests for plot_percentile_bands."""
 
     def test_single_unit(self):
@@ -3615,7 +3615,7 @@ class TestPlotSpatialNetworkWrappers:
 # ---------------------------------------------------------------------------
 
 
-class TestPlotHeatmapEdgeCases:
+class TestPlotHeatmap2:
     """Edge case tests for plot_heatmap."""
 
     def test_all_nan_matrix(self):
@@ -3643,7 +3643,7 @@ class TestPlotHeatmapEdgeCases:
         plt.close(fig)
 
 
-class TestPlotRecordingEdgeCases:
+class TestPlotRecording2:
     """Edge case tests for plot_recording."""
 
     def test_zero_unit_spikedata(self):
@@ -3659,7 +3659,7 @@ class TestPlotRecordingEdgeCases:
             plot_recording(sd, show=False)
 
 
-class TestPlotDistributionEdgeCases2:
+class TestPlotDistribution22:
     """Additional edge case tests for plot_distribution."""
 
     def test_all_identical_values(self):
@@ -3675,7 +3675,7 @@ class TestPlotDistributionEdgeCases2:
         plt.close(fig)
 
 
-class TestPlotScatterEdgeCases2:
+class TestPlotScatter22:
     """Additional edge case tests for plot_scatter."""
 
     def test_zero_data_points(self):
@@ -3690,7 +3690,7 @@ class TestPlotScatterEdgeCases2:
         plt.close(fig)
 
 
-class TestPlotLinesEdgeCases:
+class TestPlotLines2:
     """Edge case tests for plot_lines."""
 
     def test_all_nan_y_values(self):
@@ -3707,7 +3707,7 @@ class TestPlotLinesEdgeCases:
         plt.close(fig)
 
 
-class TestPlotPercentileBandsEdgeCases2:
+class TestPlotPercentileBands22:
     """Additional edge case tests for plot_percentile_bands."""
 
     def test_single_data_point(self):
@@ -3728,7 +3728,7 @@ class TestPlotPercentileBandsEdgeCases2:
         plt.close(fig)
 
 
-class TestPlotBurstSensitivityEdgeCases2:
+class TestPlotBurstSensitivity22:
     """Additional edge case tests for plot_burst_sensitivity."""
 
     def test_all_zero_counts(self):
@@ -3744,7 +3744,7 @@ class TestPlotBurstSensitivityEdgeCases2:
         plt.close(fig)
 
 
-class TestPlotAlignedSliceEdgeCases:
+class TestPlotAlignedSlice:
     """Edge case tests for plot_aligned_slice_single_unit."""
 
     def test_vlines_minimal_dict(self):
@@ -3779,7 +3779,7 @@ class TestPlotAlignedSliceEdgeCases:
         plt.close(fig)
 
 
-class TestPlotSpatialNetworkEdgeCases:
+class TestPlotSpatialNetwork2:
     """Edge case tests for plot_spatial_network."""
 
     def test_nan_positions(self):
@@ -3816,7 +3816,7 @@ class TestPlotSpatialNetworkEdgeCases:
         plt.close(fig)
 
 
-class TestPlotPvalueMatrixEdgeCases:
+class TestPlotPvalueMatrix2:
     """Edge case tests for plot_p_value_matrix."""
 
     def test_all_zero_p_values(self):
@@ -3833,7 +3833,7 @@ class TestPlotPvalueMatrixEdgeCases:
         plt.close(fig)
 
 
-class TestPlotAlignedPopRateEdgeCases:
+class TestPlotAlignedPopRate2:
     """Edge case tests for plot_aligned_pop_rate (via RateSliceStack.plot)."""
 
     def test_single_slice_rss(self):

@@ -5608,7 +5608,7 @@ class TestAlignToEvents:
 # ---------------------------------------------------------------------------
 
 
-class TestSpikeDataConstructorEdgeCases:
+class TestSpikeDataConstructor:
     """Edge case tests for SpikeData.__init__."""
 
     def test_empty_neuron_attributes_list_preserved(self):
@@ -5681,7 +5681,7 @@ class TestSpikeDataConstructorEdgeCases:
         assert np.all(np.isinf(sd.raw_time[1:]))
 
 
-class TestSpikeDataFromIdcesTimesEdgeCases:
+class TestSpikeDataFromIdcesTimes:
     """Edge case tests for SpikeData.from_idces_times."""
 
     def test_mismatched_idces_times_lengths(self):
@@ -5709,7 +5709,7 @@ class TestSpikeDataFromIdcesTimesEdgeCases:
             pass  # Expected if validation catches it
 
 
-class TestSpikeDataFromRasterEdgeCases:
+class TestSpikeDataFromRaster:
     """Edge case tests for SpikeData.from_raster."""
 
     def test_raster_with_negative_start_time(self):
@@ -5729,7 +5729,7 @@ class TestSpikeDataFromRasterEdgeCases:
             assert -100.0 <= t < 0.0
 
 
-class TestSpikeDataSubsetEdgeCases:
+class TestSpikeDataSubset:
     """Edge case tests for SpikeData.subset."""
 
     def test_subset_with_numpy_integer_type(self):
@@ -5745,7 +5745,7 @@ class TestSpikeDataSubsetEdgeCases:
         assert result.N == 2
 
 
-class TestSpikeDataSubtimeEdgeCases:
+class TestSpikeDataSubtime:
     """Edge case tests for SpikeData.subtime."""
 
     def test_subtime_shift_to_with_empty_window(self):
@@ -5776,7 +5776,7 @@ class TestSpikeDataSubtimeEdgeCases:
         assert len(result.train[0]) == 3
 
 
-class TestSpikeDataFramesEdgeCases:
+class TestSpikeDataFrames:
     """Edge case tests for SpikeData.frames."""
 
     def test_frames_with_negative_start_time(self):
@@ -5798,7 +5798,7 @@ class TestSpikeDataFramesEdgeCases:
         assert stack.times[1] == (0.0, 100.0)
 
 
-class TestSpikeDataAlignToEventsEdgeCases:
+class TestSpikeDataAlignToEvents:
     """Edge case tests for SpikeData.align_to_events."""
 
     def test_align_to_events_with_inf_events(self):
@@ -5818,7 +5818,7 @@ class TestSpikeDataAlignToEventsEdgeCases:
             sd.align_to_events([float("inf")], pre_ms=5.0, post_ms=5.0)
 
 
-class TestSpikeDataRatesEdgeCases:
+class TestSpikeDataRates2:
     """Edge case tests for SpikeData.rates."""
 
     def test_rates_all_empty_trains_nonzero_length(self):
@@ -5835,7 +5835,7 @@ class TestSpikeDataRatesEdgeCases:
         np.testing.assert_array_equal(r, 0.0)
 
 
-class TestResampledIsiSingleTimeEdgeCases:
+class TestResampledIsiSingleTime:
     """Edge case tests for the single-time query path in _resampled_isi."""
 
     def test_single_time_zero_spikes(self):
@@ -5935,7 +5935,7 @@ class TestResampledIsiSingleTimeEdgeCases:
         assert result2[0] == pytest.approx(200.0)
 
 
-class TestSlidingRateSingleTrainEdgeCases:
+class TestSlidingRateSingleTrain:
     """Edge case tests for _sliding_rate_single_train helper."""
 
     def test_validation_window_size_zero(self):
@@ -6127,7 +6127,7 @@ class TestSlidingRateSingleTrainEdgeCases:
         assert rd.inst_Frate_data.shape[1] == len(rd.times)
 
 
-class TestSpikeDataSlidingRateEdgeCases:
+class TestSpikeDataSlidingRate:
     """Edge case tests for SpikeData.sliding_rate."""
 
     def test_validation_no_step_or_rate(self):
@@ -6166,7 +6166,7 @@ class TestSpikeDataSlidingRateEdgeCases:
         assert rd.inst_Frate_data.shape[1] == len(rd.times)
 
 
-class TestSpikeDataRasterEdgeCases:
+class TestSpikeDataRaster:
     """Edge case tests for SpikeData.raster / sparse_raster."""
 
     def test_raster_large_time_offset(self):
@@ -6194,7 +6194,7 @@ class TestSpikeDataRasterEdgeCases:
         assert r.shape == (1, int(np.ceil(100.0 / 30.0)))
 
 
-class TestSpikeDataGetPairwiseCCGEdgeCases:
+class TestSpikeDataGetPairwiseCCG:
     """Edge case tests for SpikeData.get_pairwise_ccg."""
 
     def test_identical_spike_trains_all_units(self):
@@ -6216,7 +6216,7 @@ class TestSpikeDataGetPairwiseCCGEdgeCases:
                     assert lag.matrix[i, j] == 0
 
 
-class TestSpikeDataGetPairwiseLatenciesEdgeCases:
+class TestSpikeDataGetPairwiseLatencies:
     """Edge case tests for SpikeData.get_pairwise_latencies."""
 
     def test_return_distributions_all_empty_trains(self):
@@ -6234,7 +6234,7 @@ class TestSpikeDataGetPairwiseLatenciesEdgeCases:
         assert len(dists) == 3
 
 
-class TestSpikeDataGetBurstsEdgeCases:
+class TestSpikeDataGetBursts:
     """Edge case tests for SpikeData.get_bursts."""
 
     def test_min_burst_diff_zero(self):
@@ -6279,7 +6279,7 @@ class TestSpikeDataGetBurstsEdgeCases:
         assert isinstance(edges, np.ndarray)
 
 
-class TestSpikeDataGetFracActiveEdgeCases:
+class TestSpikeDataGetFracActive:
     """Edge case tests for SpikeData.get_frac_active."""
 
     def test_non_default_bin_size_with_fractional_edges(self):
@@ -6299,7 +6299,7 @@ class TestSpikeDataGetFracActiveEdgeCases:
         assert frac_per_unit.shape == (2,)
 
 
-class TestSpikeDataShuffleEdgeCases:
+class TestSpikeDataShuffle2:
     """Edge case tests for SpikeData.spike_shuffle."""
 
     def test_shuffle_all_spikes_in_single_bin(self):
@@ -6318,7 +6318,7 @@ class TestSpikeDataShuffleEdgeCases:
         assert shuffled.N == 3
 
 
-class TestSpikeDataComputeStPREdgeCases:
+class TestSpikeDataComputeStPR:
     """Edge case tests for SpikeData.compute_spike_trig_pop_rate."""
 
     def test_all_neurons_silent(self):
@@ -6334,7 +6334,7 @@ class TestSpikeDataComputeStPREdgeCases:
         np.testing.assert_array_equal(cs_zero, 0.0)
 
 
-class TestSpikeDataBurstSensitivityEdgeCases:
+class TestSpikeDataBurstSensitivity:
     """Edge case tests for SpikeData.burst_sensitivity."""
 
     def test_empty_thr_values(self):

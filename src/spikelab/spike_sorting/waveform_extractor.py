@@ -1131,8 +1131,6 @@ class ChunkRecordingExecutor:
         _func = func
 
 
-global _worker_ctx
-global _func
 # ProcessPoolExecutor: using stdlib concurrent.futures instead of vendored copy
 # (already imported at top of module)
 
@@ -1163,7 +1161,6 @@ class Utils:
             dictionary containing parsed file
 
         """
-        from six import exec_
         import re
 
         path = Path(path).absolute()
@@ -1173,7 +1170,7 @@ class Utils:
             contents = f.read()
         contents = re.sub(r"range\(([\d,]*)\)", r"list(range(\1))", contents)
         metadata = {}
-        exec_(contents, {}, metadata)
+        exec(contents, {}, metadata)
         metadata = {k.lower(): v for (k, v) in metadata.items()}
         return metadata
 

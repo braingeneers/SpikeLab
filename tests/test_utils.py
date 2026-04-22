@@ -2593,7 +2593,7 @@ class TestCheckNeuronAttributes:
 # ---------------------------------------------------------------------------
 
 
-class TestGetSttcEdgeCases:
+class TestGetSttc2:
     """Edge case tests for get_sttc identified in the edge case scan."""
 
     def test_length_zero_division_by_zero(self):
@@ -2637,7 +2637,7 @@ class TestGetSttcEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestResampledIsiEdgeCases:
+class TestResampledIsi2:
     """Edge case tests for _resampled_isi identified in the edge case scan."""
 
     def test_non_uniform_time_grid(self):
@@ -2684,7 +2684,7 @@ class TestResampledIsiEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestButterFilterEdgeCases:
+class TestButterFilter2:
     """Edge case tests for butter_filter identified in the edge case scan."""
 
     def test_fs_zero_division_by_zero(self):
@@ -2705,7 +2705,7 @@ class TestButterFilterEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestRandomizeEdgeCases:
+class TestRandomize2:
     """Edge case tests for randomize identified in the edge case scan."""
 
     def test_all_ones_raster(self):
@@ -2731,7 +2731,7 @@ class TestRandomizeEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestComputeCrossCorrelationEdgeCases:
+class TestComputeCrossCorrelation:
     """Edge case tests for compute_cross_correlation_with_lag."""
 
     def test_different_length_signals(self):
@@ -2776,7 +2776,7 @@ class TestComputeCrossCorrelationEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestComputeCosineSimilarityEdgeCases:
+class TestComputeCosineSimilarity:
     """Edge case tests for compute_cosine_similarity_with_lag."""
 
     def test_max_lag_ge_signal_length(self):
@@ -2815,7 +2815,7 @@ class TestComputeCosineSimilarityEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestConsecutiveDurationsEdgeCases:
+class TestConsecutiveDurations2:
     """Edge case tests for consecutive_durations."""
 
     def test_values_at_threshold_boundary(self):
@@ -2841,7 +2841,7 @@ class TestConsecutiveDurationsEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestShuffleZScoreEdgeCases:
+class TestShuffleZScore2:
     """Edge case tests for shuffle_z_score."""
 
     def test_empty_distribution(self):
@@ -2864,7 +2864,7 @@ class TestShuffleZScoreEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestSliceTrendEdgeCases:
+class TestSliceTrend2:
     """Edge case tests for slice_trend."""
 
     def test_constant_values_zero_slope(self):
@@ -2886,7 +2886,7 @@ class TestSliceTrendEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestSliceStabilityEdgeCases:
+class TestSliceStability2:
     """Edge case tests for slice_stability."""
 
     def test_all_nan_values(self):
@@ -2911,7 +2911,7 @@ class TestSliceStabilityEdgeCases:
 from spikelab.spikedata.utils import _validate_time_start_to_end
 
 
-class TestValidateTimeStartToEndEdgeCases:
+class TestValidateTimeStartToEnd:
     """Edge case tests for _validate_time_start_to_end."""
 
     def test_all_negative_start_preserved(self):
@@ -2975,7 +2975,7 @@ class TestValidateTimeStartToEndEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestTimesConversionEdgeCases:
+class TestTimesConversion:
     """Edge case tests for times_from_ms and to_ms."""
 
     def test_fs_hz_inf_produces_zero_samples(self):
@@ -3020,7 +3020,7 @@ class TestTimesConversionEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestGetSttcEdgeCases2:
+class TestGetSttc22:
     """Additional edge case tests for get_sttc."""
 
     def test_length_zero_with_non_empty_trains(self):
@@ -3072,7 +3072,7 @@ class TestGetSttcEdgeCases2:
         assert np.isfinite(result)
 
 
-class TestResampledIsiEdgeCases2:
+class TestResampledIsi22:
     """Additional edge case tests for _resampled_isi."""
 
     def test_negative_sigma(self):
@@ -3095,7 +3095,7 @@ class TestResampledIsiEdgeCases2:
             pass  # Expected for scipy versions that validate sigma
 
 
-class TestComputeCrossCorrelationEdgeCases2:
+class TestComputeCrossCorrelation2:
     """Additional edge case tests for compute_cross_correlation_with_lag."""
 
     def test_length_one_signal(self):
@@ -3124,7 +3124,7 @@ class TestComputeCrossCorrelationEdgeCases2:
         assert np.isfinite(max_corr)
 
 
-class TestComputeCosineSimilarityEdgeCases2:
+class TestComputeCosineSimilarity2:
     """Additional edge case tests for compute_cosine_similarity_with_lag."""
 
     def test_max_lag_equals_signal_length_minus_one(self):
@@ -3154,7 +3154,7 @@ class TestComputeCosineSimilarityEdgeCases2:
         assert max_lag == 0
 
 
-class TestPCAReductionEdgeCases:
+class TestPCAReduction2:
     """Edge case tests for PCA_reduction."""
 
     @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not installed")
@@ -3176,7 +3176,7 @@ class TestPCAReductionEdgeCases:
         assert embedding.shape == (10, 0) or embedding.shape[1] == 0
 
 
-class TestButterFilterEdgeCases2:
+class TestButterFilter22:
     """Additional edge case tests for butter_filter."""
 
     def test_lowcut_zero_with_highcut(self):
@@ -3197,7 +3197,7 @@ class TestButterFilterEdgeCases2:
             butter_filter(data, lowcut=0, highcut=100, fs=20000)
 
 
-class TestRandomizeEdgeCases2:
+class TestRandomize22:
     """Additional edge case tests for randomize."""
 
     def test_all_ones_raster(self):
@@ -3235,7 +3235,7 @@ class TestRandomizeEdgeCases2:
         assert result[0, 0] == 1
 
 
-class TestConsecutiveDurationsEdgeCases2:
+class TestConsecutiveDurations22:
     """Additional edge case tests for consecutive_durations."""
 
     def test_min_dur_zero(self):
@@ -3265,7 +3265,7 @@ class TestConsecutiveDurationsEdgeCases2:
         assert len(result_below) == 0
 
 
-class TestShuffleZScoreEdgeCases2:
+class TestShuffleZScore22:
     """Additional edge case tests for shuffle_z_score."""
 
     def test_single_element_distribution(self):
@@ -3280,7 +3280,7 @@ class TestShuffleZScoreEdgeCases2:
         assert np.isnan(result)
 
 
-class TestShufflePercentileEdgeCases:
+class TestShufflePercentile2:
     """Edge case tests for shuffle_percentile."""
 
     def test_nan_in_distribution(self):
@@ -3296,7 +3296,7 @@ class TestShufflePercentileEdgeCases:
         assert result == pytest.approx(0.5)
 
 
-class TestSliceTrendEdgeCases2:
+class TestSliceTrend22:
     """Additional edge case tests for slice_trend."""
 
     def test_exactly_two_non_nan_values(self):
@@ -3312,7 +3312,7 @@ class TestSliceTrendEdgeCases2:
         assert slope == pytest.approx(1.0)
 
 
-class TestSliceStabilityEdgeCases2:
+class TestSliceStability22:
     """Additional edge case tests for slice_stability."""
 
     def test_all_identical_values(self):
@@ -3339,7 +3339,7 @@ class TestSliceStabilityEdgeCases2:
         assert result.shape == (2,)
 
 
-class TestValidateTimeStartToEndEdgeCases2:
+class TestValidateTimeStartToEnd2:
     """Additional edge case tests for _validate_time_start_to_end."""
 
     def test_exact_boundary_match(self):
@@ -3359,7 +3359,7 @@ class TestValidateTimeStartToEndEdgeCases2:
         assert result[0] == (0.0, 100.0)
 
 
-class TestRankOrderCorrelationEdgeCases:
+class TestRankOrderCorrelation:
     """Edge case tests for _rank_order_correlation_from_timing."""
 
     def test_identical_timing_values_across_pair(self):
@@ -3932,7 +3932,7 @@ class TestSlidingRateSingleTrain:
 # ---------------------------------------------------------------------------
 
 
-class TestUtilsEdgeCasesCoreReview:
+class TestUtilsCoreReview:
     """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
 
     def test_get_sttc_length_shorter_than_spike_times(self):

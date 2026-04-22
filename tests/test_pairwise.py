@@ -1417,7 +1417,7 @@ class TestRemoveByConditionStack:
 # ---------------------------------------------------------------------------
 
 
-class TestPairwiseCompMatrixPostInitEdgeCases:
+class TestPairwiseCompMatrixPostInit:
     """Additional edge case tests for PairwiseCompMatrix.__post_init__."""
 
     def test_3d_array_raises(self):
@@ -1442,7 +1442,7 @@ class TestPairwiseCompMatrixPostInitEdgeCases:
         assert pcm.labels == []
 
 
-class TestPairwiseCompMatrixToNetworkxEdgeCases:
+class TestPairwiseCompMatrixToNetworkx2:
     """Additional edge case tests for PairwiseCompMatrix.to_networkx."""
 
     def test_to_networkx_import_failure(self):
@@ -1475,7 +1475,7 @@ class TestPairwiseCompMatrixToNetworkxEdgeCases:
         assert len(G.edges) == 0
 
 
-class TestPairwiseCompMatrixThresholdEdgeCases:
+class TestPairwiseCompMatrixThreshold2:
     """Additional edge case tests for PairwiseCompMatrix.threshold."""
 
     def test_threshold_nan(self):
@@ -1501,7 +1501,7 @@ class TestPairwiseCompMatrixThresholdEdgeCases:
         np.testing.assert_array_equal(result.matrix, 1)
 
 
-class TestPairwiseCompMatrixExtractLowerTriangleEdgeCases:
+class TestPairwiseCompMatrixExtractLowerTriangle2:
     """Additional edge case tests for PairwiseCompMatrix.extract_lower_triangle."""
 
     def test_extract_lower_triangle_0x0(self):
@@ -1516,7 +1516,7 @@ class TestPairwiseCompMatrixExtractLowerTriangleEdgeCases:
         assert len(result) == 0
 
 
-class TestRemoveByConditionMatrixEdgeCases:
+class TestRemoveByConditionMatrix2:
     """Additional edge case tests for PairwiseCompMatrix.remove_by_condition."""
 
     def test_remove_by_condition_nan_threshold(self):
@@ -1547,7 +1547,7 @@ class TestRemoveByConditionMatrixEdgeCases:
         assert np.all(np.isinf(result.matrix))
 
 
-class TestPairwiseCompMatrixStackEdgeCases:
+class TestPairwiseCompMatrixStack:
     """Additional edge case tests for PairwiseCompMatrixStack."""
 
     def test_stack_times_non_tuple_elements(self):
@@ -1571,7 +1571,7 @@ class TestPairwiseCompMatrixStackEdgeCases:
         assert stack.stack.shape == (3, 3, 0)
 
 
-class TestPairwiseCompMatrixStackGetItemEdgeCases:
+class TestPairwiseCompMatrixStackGetItem:
     """Additional edge case tests for PairwiseCompMatrixStack.__getitem__."""
 
     def test_getitem_times_none(self):
@@ -1588,7 +1588,7 @@ class TestPairwiseCompMatrixStackGetItemEdgeCases:
         assert result.matrix.shape == (2, 2)
 
 
-class TestPairwiseCompMatrixStackSubsliceEdgeCases:
+class TestPairwiseCompMatrixStackSubslice2:
     """Additional edge case tests for PairwiseCompMatrixStack.subslice."""
 
     def test_subslice_numpy_array_indices(self):
@@ -1603,7 +1603,7 @@ class TestPairwiseCompMatrixStackSubsliceEdgeCases:
         assert result.stack.shape == (2, 2, 3)
 
 
-class TestPairwiseCompMatrixStackMeanEdgeCases:
+class TestPairwiseCompMatrixStackMean2:
     """Additional edge case tests for PairwiseCompMatrixStack.mean."""
 
     def test_mean_partial_all_nan_columns(self):
@@ -1626,7 +1626,7 @@ class TestPairwiseCompMatrixStackMeanEdgeCases:
         assert result.matrix[0, 0] == pytest.approx(1.0)
 
 
-class TestPairwiseCompMatrixStackDimRedEdgeCases:
+class TestPairwiseCompMatrixStackDimRed2:
     """Additional edge case tests for PairwiseCompMatrixStack dim reduction."""
 
     def test_dim_red_1x1xS_stack(self):
@@ -2428,7 +2428,7 @@ class TestPairwiseCompMatrixStackNormalize:
 # ---------------------------------------------------------------------------
 
 
-class TestPairwiseEdgeCasesCoreReview:
+class TestPairwiseCoreReview:
     """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
 
     def test_to_networkx_non_inverted_inf(self):

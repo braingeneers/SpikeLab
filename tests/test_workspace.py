@@ -2933,7 +2933,7 @@ class TestMergeFrom:
 # ---------------------------------------------------------------------------
 
 
-class TestAnalysisWorkspaceEdgeCases:
+class TestAnalysisWorkspace2:
     """Edge case tests for AnalysisWorkspace (workspace/workspace.py)."""
 
     def test_workspace_name_none_repr(self):
@@ -3092,7 +3092,7 @@ class TestAnalysisWorkspaceEdgeCases:
             )
 
 
-class TestWorkspaceManagerEdgeCases:
+class TestWorkspaceManager2:
     """Edge case tests for WorkspaceManager (workspace/workspace.py)."""
 
     @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
@@ -3129,7 +3129,7 @@ class TestWorkspaceManagerEdgeCases:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestLazyAnalysisWorkspaceEdgeCases:
+class TestLazyAnalysisWorkspace2:
     """Edge case tests for LazyAnalysisWorkspace (workspace/workspace.py)."""
 
     def test_items_property_raises(self):
@@ -3251,7 +3251,7 @@ class TestLazyAnalysisWorkspaceEdgeCases:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestHDF5IOEdgeCases:
+class TestHDF5IO2:
     """Edge case tests for workspace/hdf5_io.py."""
 
     def _roundtrip(self, obj, namespace="ns", key="item"):
@@ -3663,7 +3663,7 @@ class TestHDF5IOEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestAnalysisWorkspaceEdgeCases2:
+class TestAnalysisWorkspace22:
     """Additional edge case tests for AnalysisWorkspace."""
 
     def test_rename_same_key(self):
@@ -3686,7 +3686,7 @@ class TestAnalysisWorkspaceEdgeCases2:
         assert ws.get("ns", "key") is not None
 
 
-class TestHDF5IOEdgeCases2:
+class TestHDF5IO22:
     """Additional edge case tests for hdf5_io functions."""
 
     def test_spikedata_nonzero_start_time_roundtrip(self):
@@ -3850,7 +3850,7 @@ class TestHDF5IOEdgeCases2:
             assert loaded_sd.metadata["val"] == float("inf")
 
 
-class TestMakeSummaryEdgeCases:
+class TestMakeSummary2:
     """Edge case tests for _make_summary."""
 
     def test_spikeslicestack_single_slice(self):
@@ -3993,7 +3993,7 @@ class TestCoverageGaps:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py required")
-class TestEdgeCaseScan:
+class TestScan:
     """Edge-case tests for workspace persistence and in-memory operations."""
 
     # ------------------------------------------------------------------
@@ -4423,7 +4423,7 @@ class TestEdgeCaseScan:
         np.testing.assert_array_equal(loaded2, arr)
 
 
-class TestRemainingEdgeCases:
+class TestRemaining:
     """Tests for remaining untested edge cases from REVIEW.md."""
 
     def test_save_path_with_spaces(self, tmp_path):
@@ -4667,7 +4667,7 @@ class TestLoadWorkspaceFullValidation:
 # ---------------------------------------------------------------------------
 
 
-class TestWorkspaceEdgeCasesIO:
+class TestWorkspaceIO:
     """Edge case tests for workspace.py from REVIEW.md I/O scan."""
 
     def test_store_note_as_non_string_type(self):
@@ -4761,7 +4761,7 @@ class TestWorkspaceEdgeCasesIO:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestLazyWorkspaceEdgeCasesIO:
+class TestLazyWorkspaceIO:
     """Edge case tests for LazyAnalysisWorkspace from REVIEW.md I/O scan."""
 
     def test_store_unsupported_type_raises(self):
@@ -4805,7 +4805,7 @@ class TestLazyWorkspaceEdgeCasesIO:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestHDF5IOEdgeCasesIO:
+class TestHDF5IOIO:
     """Edge case tests for hdf5_io.py from REVIEW.md I/O scan."""
 
     def test_dump_neuron_attributes_inconsistent_array_shapes(self, tmp_path):

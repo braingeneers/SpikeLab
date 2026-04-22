@@ -1019,7 +1019,7 @@ class TestRateDataGetManifold:
 # ---------------------------------------------------------------------------
 
 
-class TestRateDataConstructorEdgeCases:
+class TestRateDataConstructor2:
     """Edge case tests for the RateData constructor."""
 
     def test_empty_neuron_attributes_list(self):
@@ -1084,7 +1084,7 @@ class TestRateDataConstructorEdgeCases:
         np.testing.assert_array_equal(rd_tuple.times, [0.0, 1.0, 2.0])
 
 
-class TestRateDataSubsetEdgeCases:
+class TestRateDataSubset2:
     """Edge case tests for the RateData.subset() method."""
 
     def test_subset_negative_index(self):
@@ -1106,7 +1106,7 @@ class TestRateDataSubsetEdgeCases:
         np.testing.assert_array_equal(sub.inst_Frate_data[0], rd.inst_Frate_data[-1])
 
 
-class TestRateDataSubtimeEdgeCases:
+class TestRateDataSubtime2:
     """Edge case tests for the RateData.subtime() method."""
 
     def test_subtime_empty_times_array(self):
@@ -1142,7 +1142,7 @@ class TestRateDataSubtimeEdgeCases:
         assert float(result.times[0]) == pytest.approx(0.0)
 
 
-class TestRateDataSubtimeByIndexEdgeCases:
+class TestRateDataSubtimeByIndex2:
     """Edge case tests for the RateData.subtime_by_index() method."""
 
     def test_subtime_by_index_both_negative(self):
@@ -1165,7 +1165,7 @@ class TestRateDataSubtimeByIndexEdgeCases:
         assert float(result.times[0]) == pytest.approx(5.0)  # index 5, step=1.0
 
 
-class TestRateDataFramesEdgeCases:
+class TestRateDataFrames2:
     """Edge case tests for the RateData.frames() method."""
 
     def test_frames_single_time_point_step_size_fallback(self):
@@ -1209,7 +1209,7 @@ class TestRateDataFramesEdgeCases:
         assert stack.event_stack.shape[1] == 20
 
 
-class TestRateDataGetPairwiseFrCorrEdgeCases:
+class TestRateDataGetPairwiseFrCorr2:
     """Edge case tests for the RateData.get_pairwise_fr_corr() method."""
 
     def test_get_pairwise_fr_corr_all_nan_rates(self):
@@ -1236,7 +1236,7 @@ class TestRateDataGetPairwiseFrCorrEdgeCases:
         assert np.all(np.isnan(corr.matrix))
 
 
-class TestRateDataGetManifoldEdgeCases:
+class TestRateDataGetManifold2:
     """Edge case tests for the RateData.get_manifold() method."""
 
     def test_get_manifold_all_constant_features(self):
@@ -1284,7 +1284,7 @@ class TestRateDataGetManifoldEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestRateDataConstructorEdgeCases2:
+class TestRateDataConstructor22:
     """Additional edge case tests for RateData.__init__."""
 
     def test_empty_neuron_attributes_list_preserved(self):
@@ -1334,7 +1334,7 @@ class TestRateDataConstructorEdgeCases2:
         assert rd.times.dtype.kind in ("U", "O")
 
 
-class TestRateDataSubsetEdgeCases2:
+class TestRateDataSubset22:
     """Additional edge case tests for RateData.subset."""
 
     def test_subset_by_multiple_match(self):
@@ -1370,7 +1370,7 @@ class TestRateDataSubsetEdgeCases2:
             rd.subset(np.int64(2))
 
 
-class TestRateDataSubtimeEdgeCases2:
+class TestRateDataSubtime22:
     """Additional edge case tests for RateData.subtime."""
 
     def test_subtime_single_time_point_both_none(self):
@@ -1416,7 +1416,7 @@ class TestRateDataSubtimeEdgeCases2:
             rd.subtime(float("nan"), 5.0)
 
 
-class TestRateDataSubtimeByIndexEdgeCases2:
+class TestRateDataSubtimeByIndex22:
     """Additional edge case tests for RateData.subtime_by_index."""
 
     def test_subtime_by_index_zero_column(self):
@@ -1434,7 +1434,7 @@ class TestRateDataSubtimeByIndexEdgeCases2:
             rd.subtime_by_index(0, 1)
 
 
-class TestRateDataFramesEdgeCases2:
+class TestRateDataFrames22:
     """Additional edge case tests for RateData.frames."""
 
     def test_frames_length_zero(self):
@@ -1449,7 +1449,7 @@ class TestRateDataFramesEdgeCases2:
             rd.frames(length=0, overlap=0)
 
 
-class TestRateDataGetPairwiseFrCorrEdgeCases2:
+class TestRateDataGetPairwiseFrCorr22:
     """Additional edge case tests for RateData.get_pairwise_fr_corr."""
 
     def test_return_type_is_pairwise_comp_matrix(self):
@@ -1481,7 +1481,7 @@ class TestRateDataGetPairwiseFrCorrEdgeCases2:
         np.testing.assert_array_equal(lag.matrix, 0)
 
 
-class TestRateDataGetManifoldEdgeCases2:
+class TestRateDataGetManifold22:
     """Additional edge case tests for RateData.get_manifold."""
 
     def test_mixed_case_method(self):
@@ -1564,7 +1564,7 @@ class TestCoverageGaps:
 # ---------------------------------------------------------------------------
 
 
-class TestRateDataEdgeCasesCoreReview:
+class TestRateDataCoreReview:
     """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
 
     def test_integer_input_array(self):

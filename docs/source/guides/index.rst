@@ -18,4 +18,5 @@ In-depth guides covering the main workflows in SpikeLab.
    exporting_data
    workspace
    mcp_server
+   parallel_computing
    batch_jobs

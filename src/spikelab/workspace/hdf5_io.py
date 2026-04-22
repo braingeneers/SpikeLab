@@ -436,6 +436,16 @@ def _dump_neuron_attributes(grp, neuron_attributes: list) -> None:
                 next(v for v in non_none if isinstance(v, (np.ndarray, list, tuple)))
             )
             arr_shape = sample.shape
+            for v in non_none:
+                if isinstance(v, (np.ndarray, list, tuple)):
+                    v_shape = np.asarray(v).shape
+                    if v_shape != arr_shape:
+                        raise ValueError(
+                            f"Neuron attribute {attr_key!r} has inconsistent "
+                            f"shapes: expected {arr_shape}, got {v_shape}. "
+                            f"All units must have the same array shape for "
+                            f"a given attribute."
+                        )
             stacked = np.full((N, *arr_shape), np.nan, dtype=np.float64)
             for i, v in enumerate(values):
                 if v is not None:
