@@ -6839,3 +6839,184 @@ class TestBestMatchAssignment:
         assert result["total_score"] == 0.0
         assert len(result["row_order"]) == 0
         assert len(result["col_order"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# SpikeData.sliding_rate (multi-unit method)
+# ---------------------------------------------------------------------------
+
+
+class TestSlidingRate:
+    """Tests for SpikeData.sliding_rate multi-unit method."""
+
+    def test_basic_computation(self):
+        """
+        sliding_rate returns a RateData with correct shape (N, T).
+
+        Tests:
+            (Test Case 1) inst_Frate_data has N rows matching unit count.
+            (Test Case 2) times length matches T columns.
+            (Test Case 3) All rates are non-negative.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0], [15.0, 25.0, 35.0]], length=40.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=40)
+        assert rd.inst_Frate_data.shape[0] == 2
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
+        assert np.all(rd.inst_Frate_data >= 0)
+
+    def test_parameter_validation_positive_window(self):
+        """
+        window_size must be positive.
+
+        Tests:
+            (Test Case 1) Zero window raises ValueError.
+            (Test Case 2) Negative window raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            sd.sliding_rate(window_size=0, step_size=1)
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            sd.sliding_rate(window_size=-5, step_size=1)
+
+    def test_parameter_validation_mutually_exclusive(self):
+        """
+        step_size and sampling_rate are mutually exclusive.
+
+        Tests:
+            (Test Case 1) Providing both raises ValueError.
+            (Test Case 2) Providing neither raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            sd.sliding_rate(window_size=2, step_size=0.5, sampling_rate=2.0)
+        with pytest.raises(ValueError, match="Must provide either"):
+            sd.sliding_rate(window_size=2)
+
+    def test_parameter_validation_gauss_sigma(self):
+        """
+        gauss_sigma must be non-negative.
+
+        Tests:
+            (Test Case 1) Negative gauss_sigma raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="gauss_sigma must be non-negative"):
+            sd.sliding_rate(window_size=2, step_size=1, gauss_sigma=-1.0)
+
+    def test_parameter_validation_t_end_gt_t_start(self):
+        """
+        t_end must be greater than t_start.
+
+        Tests:
+            (Test Case 1) t_end == t_start raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="t_end must be greater"):
+            sd.sliding_rate(window_size=2, step_size=1, t_start=10, t_end=10)
+
+    def test_gaussian_smoothing(self):
+        """
+        gauss_sigma > 0 applies Gaussian smoothing to the rate.
+
+        Tests:
+            (Test Case 1) Smoothed rate has lower variance than unsmoothed.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
+        rd_raw = sd.sliding_rate(
+            window_size=5.0, step_size=1.0, gauss_sigma=0.0, t_start=0, t_end=50
+        )
+        rd_smooth = sd.sliding_rate(
+            window_size=5.0, step_size=1.0, gauss_sigma=5.0, t_start=0, t_end=50
+        )
+        assert np.var(rd_smooth.inst_Frate_data) < np.var(rd_raw.inst_Frate_data)
+
+    def test_apply_square_false(self):
+        """
+        apply_square=False skips square-window smoothing.
+
+        Tests:
+            (Test Case 1) Rate is non-negative.
+            (Test Case 2) Result differs from apply_square=True.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0, 40.0]], length=50.0)
+        rd_sq = sd.sliding_rate(
+            window_size=10.0, step_size=1.0, apply_square=True, t_start=0, t_end=50
+        )
+        rd_no_sq = sd.sliding_rate(
+            window_size=10.0, step_size=1.0, apply_square=False, t_start=0, t_end=50
+        )
+        assert np.all(rd_no_sq.inst_Frate_data >= 0)
+        assert not np.allclose(rd_sq.inst_Frate_data, rd_no_sq.inst_Frate_data)
+
+    def test_empty_spike_trains(self):
+        """
+        Empty spike trains produce zero rates.
+
+        Tests:
+            (Test Case 1) All rates for an empty unit are zero.
+            (Test Case 2) Non-empty unit still has non-zero rates.
+        """
+        sd = SpikeData([[], [10.0, 20.0, 30.0]], length=40.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=40)
+        np.testing.assert_array_equal(rd.inst_Frate_data[0], 0.0)
+        assert np.max(rd.inst_Frate_data[1]) > 0
+
+    def test_single_unit(self):
+        """
+        Single-unit SpikeData produces a (1, T) rate array.
+
+        Tests:
+            (Test Case 1) Shape is (1, T).
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0]], length=30.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=30)
+        assert rd.inst_Frate_data.shape[0] == 1
+        assert rd.inst_Frate_data.shape[1] > 0
+
+    def test_custom_t_start_t_end(self):
+        """
+        Custom t_start and t_end restrict the output time range.
+
+        Tests:
+            (Test Case 1) Time vector starts near t_start.
+            (Test Case 2) Time vector ends near t_end.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=20, t_end=80)
+        assert rd.times[0] >= 20.0 - 1.0
+        assert rd.times[-1] <= 80.0 + 1.0
+
+    def test_neuron_attributes_propagation(self):
+        """
+        neuron_attributes from SpikeData are propagated to the returned RateData.
+
+        Tests:
+            (Test Case 1) RateData.neuron_attributes matches input.
+        """
+        attrs = [{"label": "unit_A"}, {"label": "unit_B"}]
+        sd = SpikeData(
+            [[10.0, 20.0], [15.0, 25.0]],
+            length=30.0,
+            neuron_attributes=attrs,
+        )
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=30)
+        assert rd.neuron_attributes is not None
+        assert len(rd.neuron_attributes) == 2
+        assert rd.neuron_attributes[0]["label"] == "unit_A"
+        assert rd.neuron_attributes[1]["label"] == "unit_B"
+
+    def test_sampling_rate_parameter(self):
+        """
+        sampling_rate is equivalent to step_size = 1/sampling_rate.
+
+        Tests:
+            (Test Case 1) Results from sampling_rate=2.0 match step_size=0.5.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=40.0)
+        rd_step = sd.sliding_rate(window_size=10.0, step_size=0.5, t_start=0, t_end=40)
+        rd_rate = sd.sliding_rate(
+            window_size=10.0, sampling_rate=2.0, t_start=0, t_end=40
+        )
+        np.testing.assert_allclose(
+            rd_step.inst_Frate_data, rd_rate.inst_Frate_data, atol=1e-12
+        )

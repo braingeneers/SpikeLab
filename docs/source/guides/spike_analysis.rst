@@ -215,6 +215,12 @@ Firing rates
 The returned array has one entry per unit. Use the ``unit`` parameter to choose
 between Hz and kHz.
 
+.. figure:: /_static/images/firing_rate.png
+   :width: 100%
+   :alt: Per-unit firing rate distributions across conditions
+
+   Per-unit firing rate distributions across experimental conditions.
+
 Inter-spike intervals
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -225,6 +231,12 @@ Inter-spike intervals
 
 Each element is the ``np.diff`` of that unit's spike train — useful for ISI
 histograms, coefficient of variation, or burst index calculations.
+
+.. figure:: /_static/images/isi_cv.png
+   :width: 100%
+   :alt: ISI coefficient of variation distributions across conditions
+
+   ISI coefficient of variation distributions across experimental conditions.
 
 Spike-triggered population rate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -249,21 +261,48 @@ coupling between individual units and the population:
 - ``delays`` — ``(N,)`` lag at which each unit's coupling peaks.
 - ``lags`` — ``(2*window_ms+1,)`` lag axis in ms.
 
-.. figure:: /_static/images/firing_rate_violins.png
+.. figure:: /_static/images/pop_coupling.png
    :width: 100%
-   :alt: Firing rate distributions across conditions
+   :alt: Population coupling strength distributions across conditions
 
-   Violin plots of per-unit firing rates compared across experimental
-   conditions.
+   Population coupling strength distributions across experimental conditions.
 
 
-Per-Unit Burst Participation
+Burst Participation per Unit
 ----------------------------
 
-To quantify how much each unit contributes to network bursts, use
-:meth:`~spikelab.SpikeData.get_frac_spikes_in_burst`. This computes the
-fraction of each unit's total spikes that fall inside the detected burst
-windows:
+:meth:`~spikelab.SpikeData.get_frac_active` computes, for each unit, the
+fraction of bursts in which it fires at least a minimum number of spikes.
+It also identifies backbone units — those active in at least a given fraction
+of all bursts:
+
+.. code-block:: python
+
+   frac_per_unit, frac_per_burst, backbone = sd.get_frac_active(
+       edges,
+       MIN_SPIKES=2,              # minimum spikes to count as active
+       backbone_threshold=0.5,    # active in >= 50% of bursts to be backbone
+       bin_size=1.0,
+   )
+   # frac_per_unit.shape == (N,) — fraction of bursts each unit participates in
+   # frac_per_burst.shape == (B,) — fraction of units active per burst
+   # backbone: indices of backbone units
+
+.. figure:: /_static/images/frac_bursts_active.png
+   :width: 100%
+   :alt: Fraction of bursts each unit participates in
+
+   Fraction of bursts in which each unit fires at least two spikes,
+   across experimental conditions.
+
+
+Fraction of Spikes in Bursts
+-----------------------------
+
+:meth:`~spikelab.SpikeData.get_frac_spikes_in_burst` takes a complementary
+view: for each unit, it computes the fraction of its total spikes that fall
+inside burst windows. A high fraction indicates the unit fires predominantly
+during bursts; a low fraction indicates tonic or inter-burst firing:
 
 .. code-block:: python
 
@@ -274,8 +313,100 @@ The ``edges`` parameter is the ``(B, 2)`` array of burst boundaries returned
 by :meth:`~spikelab.SpikeData.get_bursts`. The ``bin_size`` must match the
 ``raster_bin_size_ms`` used when detecting bursts.
 
-Units with a high fraction are predominantly burst-locked, while a low
-fraction indicates the unit is largely silent during bursts.
+.. figure:: /_static/images/frac_spikes_in_burst.png
+   :width: 100%
+   :alt: Fraction of spikes inside burst windows per unit
+
+   Fraction of each unit's total spikes falling inside burst windows,
+   across experimental conditions.
+
+
+Selecting and Combining Data
+-----------------------------
+
+SpikeLab provides methods for selecting subsets of units or time ranges from
+a :class:`~spikelab.SpikeData` object, and for combining multiple objects.
+Equivalent ``subset`` and ``subtime`` methods exist on
+:class:`~spikelab.RateData` (see :doc:`firing_rates`) and on slice stacks
+(see :doc:`event_aligned_analysis`).
+
+Unit selection
+^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.subset` returns a new ``SpikeData`` with only the
+specified units:
+
+.. code-block:: python
+
+   # Select by index
+   sd_sub = sd.subset([0, 2, 5])
+
+   # Select by neuron attribute (e.g. units on electrode 12 or 34)
+   sd_sub = sd.subset([12, 34], by="electrode")
+
+To select units based on a computed feature, combine ``subset`` with a boolean
+condition:
+
+.. code-block:: python
+
+   import numpy as np
+
+   # Keep only units with firing rate above 1 Hz
+   rates = sd.rates(unit="Hz")
+   active_units = list(np.where(rates > 1.0)[0])
+   sd_active = sd.subset(active_units)
+
+   # Keep only units that participate in at least 50% of bursts
+   frac_per_unit, _, _ = sd.get_frac_active(edges, MIN_SPIKES=2, backbone_threshold=0.5)
+   burst_units = list(np.where(frac_per_unit > 0.5)[0])
+   sd_burst = sd.subset(burst_units)
+
+Time selection
+^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.subtime` extracts a time window and shifts spike
+times relative to a chosen origin. By default the start of the window becomes
+t=0. Pass ``shift_to`` to set a different origin — all spike times are shifted
+so that ``shift_to`` becomes t=0 in the output:
+
+.. code-block:: python
+
+   # Extract 100-200 ms; output spikes are in [0, 100)
+   sd_window = sd.subtime(100, 200)
+
+   # Event-centered: shift_to=150 makes 150 ms the new t=0
+   # so the output range is [-50, +50)
+   sd_centered = sd.subtime(100, 200, shift_to=150)
+
+Appending recordings
+^^^^^^^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.append` concatenates two recordings of the **same
+units** in time. The second recording is placed immediately after the first.
+Use ``offset`` to insert a gap (in ms) between them:
+
+.. code-block:: python
+
+   # Seamless concatenation (default offset=0)
+   sd_combined = sd_first.append(sd_second)
+
+   # Insert a 500 ms gap between the two recordings
+   sd_combined = sd_first.append(sd_second, offset=500)
+
+Both objects must have the same number of units.
+
+Combining units
+^^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.concatenate_spike_data` merges units from two
+``SpikeData`` objects. If the two have different time ranges, the second is
+adjusted to match the first's range: spikes outside the first's range are
+dropped, and if the second is shorter, the missing time is filled with no
+spikes:
+
+.. code-block:: python
+
+   sd_all_units = sd_a.concatenate_spike_data(sd_b)
 
 
 Further Reading

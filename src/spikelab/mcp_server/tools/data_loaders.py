@@ -15,6 +15,7 @@ from ...data_loaders.data_loaders import (
     load_spikedata_from_kilosort,
     load_spikedata_from_nwb,
     load_spikedata_from_pickle,
+    load_spikedata_from_spikelab_sorted_npz,
     query_ibl_probes as _query_ibl_probes,
 )
 
@@ -768,4 +769,48 @@ async def query_ibl_probes(
         "probes": probes,
         "n_probes": len(probes),
         "stats": stats,
+    }
+
+
+async def load_from_spikelab_sorted_npz(
+    file_path: str,
+    length_ms: Optional[float] = None,
+    workspace_id: str = "",
+    namespace: str = "",
+) -> Dict[str, Any]:
+    """Load spike data from a SpikeLab compiled sorting .npz file.
+
+    These .npz files are produced by the spike sorting pipeline's
+    compile_results step and contain per-unit spike trains, electrode
+    locations, waveform templates, and quality metrics.
+
+    Args:
+        file_path: Local file path to the .npz file.
+        length_ms: Optional recording duration in ms; inferred from max
+            spike time if not provided.
+        workspace_id: Workspace to store results; creates a new one if empty.
+        namespace: Namespace within the workspace; derived from file name if empty.
+
+    Returns:
+        Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
+    """
+    spikedata = load_spikedata_from_spikelab_sorted_npz(
+        file_path, length_ms=length_ms
+    )
+
+    ns_derived = _namespace_from_path(file_path, namespace)
+    ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+    ns_final = _unique_namespace(ws, ns_derived)
+    ws.store(ns_final, "spikedata", spikedata)
+
+    return {
+        "workspace_id": resolved_wid,
+        "namespace": ns_final,
+        "workspace_key": "spikedata",
+        "info": {
+            "num_neurons": spikedata.N,
+            "length_ms": spikedata.length,
+            "start_time": spikedata.start_time,
+            "metadata": spikedata.metadata,
+        },
     }

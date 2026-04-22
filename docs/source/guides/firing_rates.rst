@@ -20,8 +20,15 @@ Instantaneous Firing Rates
 --------------------------
 
 Mean firing rates (``sd.rates()``) give one number per unit, but many analyses
-require a time-resolved estimate. SpikeLab computes instantaneous firing rates
-by interpolating the inverse inter-spike interval at arbitrary time points and
+require a time-resolved estimate. SpikeLab provides two methods for computing
+per-unit instantaneous firing rate traces, both returning a
+:class:`~spikelab.RateData` object.
+
+ISI interpolation
+^^^^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.resampled_isi` estimates the instantaneous rate by
+interpolating the inverse inter-spike interval at a set of time points and
 smoothing with a Gaussian kernel:
 
 .. code-block:: python
@@ -31,27 +38,54 @@ smoothing with a Gaussian kernel:
    # Define the time grid (e.g. every 1 ms across the recording)
    times = np.arange(0, sd.length, 1.0)
 
-   # Compute instantaneous firing rate matrix
-   fr_matrix = sd.resampled_isi(
+   rd = sd.resampled_isi(
        times,
        sigma_ms=10.0,   # Gaussian smoothing kernel width (ms)
    )
-   # fr_matrix.shape == (sd.N, len(times))
+   # rd.inst_Frate_data.shape == (sd.N, len(times))
 
-The result is a ``(N, T)`` NumPy array where each row is one unit's smoothed
-firing rate over time. To work with this data using SpikeLab's higher-level
-tools, wrap it in a :class:`~spikelab.RateData` object:
+Sliding window
+^^^^^^^^^^^^^^
+
+:meth:`~spikelab.SpikeData.sliding_rate` computes rates by counting spikes in
+a centered sliding window and dividing by the window width. Both the
+sliding-window step and an additional Gaussian smoothing step are optional and
+can be used independently or in combination:
 
 .. code-block:: python
 
-   rd = RateData(fr_matrix, times)
+   rd = sd.sliding_rate(
+       window_size=50,       # sliding window width (ms)
+       step_size=1.0,        # advance step (ms)
+       gauss_sigma=10.0,     # optional Gaussian smoothing (ms); 0 to disable
+       apply_square=True,    # set False to skip the sliding window step
+   )
+   # rd.inst_Frate_data.shape == (sd.N, T)
+
+You can also specify ``sampling_rate`` instead of ``step_size``
+(they are mutually exclusive).
+
+Working with RateData
+^^^^^^^^^^^^^^^^^^^^^
+
+Both methods return a :class:`~spikelab.RateData` object that carries the rate
+matrix together with its time axis. ``RateData`` supports unit and time
+subsetting (``rd.subset()``, ``rd.subtime()``), and provides the correlation
+and dimensionality-reduction methods described below.
+
+.. code-block:: python
+
+   from spikelab import RateData
+
    print(rd.N)                      # number of units
    print(rd.inst_Frate_data.shape)  # (N, T)
 
-:class:`~spikelab.RateData` carries the rate matrix together with its time
-axis, supports unit and time subsetting (``rd.subset()``, ``rd.subtime()``),
-and provides the correlation and dimensionality-reduction methods described
-below.
+   # Plot raster with firing rate heatmap
+   fig = sd.plot(
+       show_raster=True,
+       show_fr_rates=True,
+       fr_rates=rd.inst_Frate_data,
+   )
 
 .. figure:: /_static/images/raster_fr_heatmap_D0.png
    :width: 100%
@@ -126,9 +160,8 @@ graph-theoretic analysis:
    :width: 100%
    :alt: Firing-rate correlation matrices
 
-   Pairwise firing-rate correlation matrices for multiple experimental
-   conditions. Warm colours indicate positively correlated unit pairs; cool
-   colours indicate anti-correlated pairs.
+   Pairwise firing-rate correlation matrices for two conditions (left, middle)
+   and their difference (right).
 
 
 Cross-Condition Comparisons
@@ -176,41 +209,9 @@ Then visualise the distributions side by side using
    :width: 100%
    :alt: Violin plots of pairwise FR correlations across conditions
 
-   Distribution of pairwise firing-rate correlations for two experimental
-   conditions. Shifts in the median or spread indicate changes in functional
-   network connectivity.
-
-You can also threshold the correlation matrix and convert it to a NetworkX
-graph for graph-theoretic analysis:
-
-.. code-block:: python
-
-   G = corr_base.to_networkx(threshold=0.3)
-   print(f"Nodes: {G.number_of_nodes()}, Edges: {G.number_of_edges()}")
-
-
-Temporal Trends and Stability
------------------------------
-
-When comparing a metric across ordered slices (e.g. burst-aligned windows over
-time), two utility functions in :mod:`spikelab.spikedata.utils` help quantify
-whether the metric drifts or remains stable:
-
-.. code-block:: python
-
-   from spikelab.spikedata.utils import slice_trend, slice_stability
-
-   # values is a (S,) array — e.g. mean pairwise correlation per burst
-   slope, p_value = slice_trend(values)
-   cv = slice_stability(values)
-
-:func:`~spikelab.spikedata.utils.slice_trend` fits a linear regression across
-slices and returns the slope and its p-value. A significant slope indicates
-that the metric is drifting over the course of the recording.
-
-:func:`~spikelab.spikedata.utils.slice_stability` returns the coefficient of
-variation (std / abs(mean)). Lower values indicate a more stable metric across
-slices.
+   Distribution of pairwise firing-rate correlations for the different
+   experimental conditions. Shifts in the median or spread indicate changes
+   in functional network connectivity.
 
 
 Further Reading

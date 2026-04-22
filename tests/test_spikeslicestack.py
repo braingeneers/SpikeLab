@@ -3085,3 +3085,144 @@ class TestCoverageGaps:
         fig, ax, _ = sss.plot_aligned_slice_single_unit(0, invert_y=True)
         assert ax.yaxis_inverted()
         plt.close("all")
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan (HIGH + MEDIUM)
+# ---------------------------------------------------------------------------
+
+
+class TestSpikeSliceStackEdgeCasesCoreReview:
+    """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
+
+    def test_subslice_empty_list(self):
+        """
+        subslice with an empty list [].
+
+        Tests:
+            (Test Case 1) Empty indices list raises ValueError since the
+                resulting stack would have 0 slices.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(10.0, 30.0), (50.0, 70.0)])
+        with pytest.raises((ValueError, IndexError)):
+            sss.subslice([])
+
+    def test_subtime_by_index_single_ms_window(self):
+        """
+        subtime_by_index with a single-ms window (start_idx, start_idx+1).
+
+        Tests:
+            (Test Case 1) Each slice's duration is 1 ms.
+            (Test Case 2) Times reflect the 1ms sub-window.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0, seed=42)
+        times = [(10.0, 60.0), (80.0, 130.0)]
+        sss = SpikeSliceStack(sd, times_start_to_end=times)
+        result = sss.subtime_by_index(5, 6)
+        assert len(result.spike_stack) == 2
+        for sd_slice in result.spike_stack:
+            assert sd_slice.length == pytest.approx(1.0)
+
+    def test_compute_frac_active_min_spikes_zero(self):
+        """
+        min_spikes=0 semantics: empty units count as active.
+
+        Tests:
+            (Test Case 1) With min_spikes=0, even units with 0 spikes count
+                as active (len(train) >= 0 is always True).
+            (Test Case 2) All frac_active values are 1.0.
+        """
+        empty = np.array([], dtype=float)
+        sd1 = SpikeData([empty, empty], length=50.0)
+        sd2 = SpikeData([empty, empty], length=50.0)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
+        frac = sss.compute_frac_active(min_spikes=0)
+        assert frac.shape == (2,)
+        np.testing.assert_array_equal(frac, 1.0)
+
+    def test_spike_stack_negative_start_time(self):
+        """
+        spike_stack with event-centered slices (negative start_time).
+
+        Tests:
+            (Test Case 1) SpikeData objects with negative start_time are accepted.
+            (Test Case 2) Spike times within each slice are preserved.
+        """
+        # start_time=-10, length=20: spikes must be in [-10, 10]
+        sd1 = SpikeData([np.array([-5.0, 5.0])], length=20.0, start_time=-10.0)
+        sd2 = SpikeData([np.array([-3.0, 8.0])], length=20.0, start_time=-10.0)
+        sss = SpikeSliceStack(
+            spike_stack=[sd1, sd2],
+            times_start_to_end=[(-10.0, 10.0), (20.0, 40.0)],
+        )
+        assert len(sss.spike_stack) == 2
+        assert sss.N == 1
+
+    def test_drop_slice_attributes_false_reference(self):
+        """
+        drop_slice_attributes=False should preserve slice_attributes and
+        the reference should be independent (not shared).
+
+        Tests:
+            (Test Case 1) slice_attributes are preserved when drop=False.
+        """
+        sd = make_spikedata(n_units=2, length_ms=200.0)
+        sss = SpikeSliceStack(
+            sd,
+            times_start_to_end=[(10.0, 30.0), (50.0, 70.0)],
+            drop_slice_attributes=False,
+        )
+        assert len(sss.spike_stack) == 2
+
+    def test_rank_order_correlation_n_shuffles_zero(self):
+        """
+        rank_order_correlation with n_shuffles=0.
+
+        Tests:
+            (Test Case 1) n_shuffles=0 produces raw correlation without
+                shuffle correction.
+            (Test Case 2) Diagonal is 1.0 (self-correlation).
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=42)
+        corr, av, overlap = sss.rank_order_correlation(n_shuffles=0)
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert corr.matrix.shape == (5, 5)
+        # Diagonal should be 1.0
+        np.testing.assert_allclose(np.diag(corr.matrix), 1.0, atol=1e-10)
+
+    def test_rank_order_correlation_n_shuffles_positive(self):
+        """
+        rank_order_correlation with n_shuffles > 0.
+
+        Tests:
+            (Test Case 1) n_shuffles > 0 produces shuffle-corrected result.
+            (Test Case 2) Result shape is correct.
+        """
+        sss = _make_correlated_stack(n_units=4, n_slices=5, seed=42)
+        corr, av, overlap = sss.rank_order_correlation(n_shuffles=10)
+        assert isinstance(corr, PairwiseCompMatrix)
+        assert corr.matrix.shape == (5, 5)
+
+    def test_get_unit_timing_timing_first_min_spikes_1(self):
+        """
+        get_unit_timing_per_slice with timing='first' and min_spikes=1.
+
+        Tests:
+            (Test Case 1) With min_spikes=1, units with 0 spikes in a slice
+                get NaN timing.
+            (Test Case 2) Units with >= 1 spike get the time of the first spike.
+        """
+        # Create stack with some empty units
+        sd1 = SpikeData([np.array([5.0, 15.0, 25.0]), np.array([])], length=50.0)
+        sd2 = SpikeData([np.array([10.0, 30.0]), np.array([20.0])], length=50.0)
+        sss = SpikeSliceStack(spike_stack=[sd1, sd2])
+        tm = sss.get_unit_timing_per_slice(timing="first", min_spikes=1)
+        assert tm.shape == (2, 2)
+        # Unit 0 has spikes in both slices
+        assert not np.isnan(tm[0, 0])
+        assert not np.isnan(tm[0, 1])
+        # Unit 1 has 0 spikes in slice 0 → NaN
+        assert np.isnan(tm[1, 0])
+        # Unit 1 has 1 spike in slice 1 → valid
+        assert not np.isnan(tm[1, 1])

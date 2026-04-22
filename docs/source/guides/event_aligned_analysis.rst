@@ -150,12 +150,31 @@ Applying a function across slices
 The function must return a value with a consistent shape across slices.
 The output array has a leading axis of size S.
 
-Trimming the time axis
-^^^^^^^^^^^^^^^^^^^^^^
+Subsetting slice stacks
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-:meth:`~spikelab.RateSliceStack.subtime_by_index` extracts a range of time
-bins from every slice in a ``RateSliceStack``, producing a narrower window
-without re-aligning:
+Both :class:`~spikelab.RateSliceStack` and :class:`~spikelab.SpikeSliceStack`
+support subsetting along each of their dimensions.
+
+Select units across all slices with ``subset``:
+
+.. code-block:: python
+
+   rss_sub = rss.subset([0, 2, 5])
+   sss_sub = sss.subset([0, 2, 5])
+
+   # Select by neuron attribute
+   rss_sub = rss.subset([12, 34], by="electrode")
+
+Select specific slices with ``subslice``:
+
+.. code-block:: python
+
+   rss_first10 = rss.subslice(list(range(10)))
+   sss_first10 = sss.subslice(list(range(10)))
+
+Trim the time axis of a :class:`~spikelab.RateSliceStack` with
+:meth:`~spikelab.RateSliceStack.subtime_by_index`:
 
 .. code-block:: python
 
@@ -346,3 +365,80 @@ relative order from burst to burst, suggesting a stereotyped activation
 sequence.  The shuffle-based significance test compares the observed
 correlations to a null distribution obtained by randomly permuting unit
 labels within each trial.
+
+
+Temporal Trends and Stability
+-----------------------------
+
+Slice stacks can also be created without aligning to events. The
+:meth:`~spikelab.SpikeData.frames` method divides a recording into
+sequential windows of a fixed length, returning a
+:class:`~spikelab.SpikeSliceStack`:
+
+.. code-block:: python
+
+   # Split recording into 5-second non-overlapping windows
+   sss_frames = sd.frames(length=5000, overlap=0)
+
+:meth:`~spikelab.RateData.frames` works the same way on a
+:class:`~spikelab.RateData` object, returning a
+:class:`~spikelab.RateSliceStack`.
+
+Because each slice in a ``SpikeSliceStack`` is a full
+:class:`~spikelab.SpikeData` object, any analysis method available on
+``SpikeData`` can be applied per slice — firing rates, STTC correlations,
+burst detection, population rate, and so on. Use
+:meth:`~spikelab.SpikeSliceStack.apply` to compute a metric across all slices
+and stack the results:
+
+.. code-block:: python
+
+   import numpy as np
+
+   # Track mean firing rate across frames
+   mean_fr = sss_frames.apply(lambda sd: np.mean(sd.rates(unit="Hz")))
+   # mean_fr.shape == (S,)
+
+Two utility functions in :mod:`spikelab.spikedata.utils` help quantify whether
+a metric drifts or remains stable across ordered slices:
+
+.. code-block:: python
+
+   from spikelab.spikedata.utils import slice_trend, slice_stability
+
+   # values is a (S,) array — e.g. mean pairwise correlation per frame
+   slope, p_value = slice_trend(values)
+   cv = slice_stability(values)
+
+:func:`~spikelab.spikedata.utils.slice_trend` fits a linear regression across
+slices and returns the slope and its p-value. A significant slope indicates
+that the metric is drifting over the course of the recording.
+
+:func:`~spikelab.spikedata.utils.slice_stability` returns the coefficient of
+variation (std / abs(mean)). Lower values indicate a more stable metric across
+slices.
+
+
+Shuffled Null Distributions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Another use of slice stacks is building null distributions for statistical
+testing. :meth:`~spikelab.SpikeData.spike_shuffle_stack` generates multiple
+degree-preserving shuffled copies of a recording, each stored as a slice in a
+``SpikeSliceStack``. You can then compute the same metric on each shuffled copy
+and compare to the observed value:
+
+.. code-block:: python
+
+   shuffle_stack = sd.spike_shuffle_stack(n_shuffles=100, seed=42)
+
+   shuffle_values = shuffle_stack.apply(
+       lambda sd: np.mean(sd.rates(unit="Hz"))
+   )
+
+   from spikelab.spikedata.utils import shuffle_z_score
+   observed = np.mean(sd.rates(unit="Hz"))
+   z = shuffle_z_score(observed, shuffle_values)
+
+See the :doc:`shuffled_data` guide for more details on shuffling methods and
+statistical comparison functions.

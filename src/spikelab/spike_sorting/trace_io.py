@@ -204,7 +204,7 @@ def save_traces_mea(
         verbose (bool): Print progress messages.
     """
 
-    rec_h5 = h5py.File(rec_path)
+    rec_h5 = h5py.File(rec_path, "r")
     rec_si = MaxwellRecordingExtractor(rec_path)
 
     start_frame = round(start_ms * samp_freq)
@@ -214,22 +214,25 @@ def save_traces_mea(
     else:
         end_frame = round(end_ms * samp_freq)
 
-    if "sig" in rec_h5:  # Old file format
-        chan_ind = [int(chan_id) for chan_id in rec_si.get_channel_ids()]
-        get_traces = _get_traces_mea_old
-    else:
-        # Check that h5py matches rec_si
-        raw_shape = rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
-            "raw"
-        ].shape
-        expected_shape = (rec_si.get_num_channels(), rec_si.get_total_samples())
-        if raw_shape != expected_shape:
-            raise ValueError(
-                f"HDF5 raw data shape {raw_shape} does not match "
-                f"SpikeInterface shape {expected_shape}."
-            )
-        chan_ind = list(range(rec_si.get_num_channels()))
-        get_traces = _get_traces_mea_new
+    try:
+        if "sig" in rec_h5:  # Old file format
+            chan_ind = [int(chan_id) for chan_id in rec_si.get_channel_ids()]
+            get_traces = _get_traces_mea_old
+        else:
+            # Check that h5py matches rec_si
+            raw_shape = rec_h5["recordings"]["rec0000"]["well000"]["groups"]["routed"][
+                "raw"
+            ].shape
+            expected_shape = (rec_si.get_num_channels(), rec_si.get_total_samples())
+            if raw_shape != expected_shape:
+                raise ValueError(
+                    f"HDF5 raw data shape {raw_shape} does not match "
+                    f"SpikeInterface shape {expected_shape}."
+                )
+            chan_ind = list(range(rec_si.get_num_channels()))
+            get_traces = _get_traces_mea_new
+    finally:
+        rec_h5.close()
     if rec_si.has_scaleable_traces():
         gain = rec_si.get_channel_gains()
     else:

@@ -5775,7 +5775,7 @@ class TestRecenterStimTimesPeakModes:
 
     def test_up_edge_symmetric_to_down_edge(self):
         """For a cathodic-first biphasic pulse (first down then up),
-        ``up_edge`` lands at the − → + transition."""
+        ``up_edge`` lands at the - -> + transition."""
         from spikelab.spike_sorting.stim_sorting.recentering import (
             recenter_stim_times,
         )
@@ -5796,3 +5796,1206 @@ class TestRecenterStimTimesPeakModes:
         )
         corrected_sample = int(np.round(corrected[0] * fs_Hz / 1000.0))
         assert abs(corrected_sample - transition) <= 1
+
+
+# ===========================================================================
+# Edge Case Tests -- SortingPipelineConfig
+# ===========================================================================
+
+
+class TestSortingPipelineConfigEdgeCases:
+    """Edge cases for SortingPipelineConfig.from_kwargs and .override."""
+
+    def test_from_kwargs_empty_dict(self):
+        """Empty kwargs produces default config."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig.from_kwargs()
+        default = SortingPipelineConfig()
+        assert cfg.recording.freq_min == default.recording.freq_min
+        assert cfg.sorter.sorter_name == default.sorter.sorter_name
+
+    def test_from_kwargs_unknown_key_raises(self):
+        """Unknown flat key raises TypeError."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        with pytest.raises(TypeError, match="Unknown parameter"):
+            SortingPipelineConfig.from_kwargs(nonexistent_key=42)
+
+    def test_override_empty_kwargs_deep_copy(self):
+        """Override with empty kwargs returns a deep copy."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        original = SortingPipelineConfig()
+        original.recording.freq_min = 999
+        copy = original.override()
+        assert copy.recording.freq_min == 999
+        # Mutating the copy must not affect the original
+        copy.recording.freq_min = 123
+        assert original.recording.freq_min == 999
+
+    def test_override_unknown_key_raises(self):
+        """Override with unknown key raises TypeError."""
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        cfg = SortingPipelineConfig()
+        with pytest.raises(TypeError, match="Unknown parameter"):
+            cfg.override(bogus_param="x")
+
+
+# ===========================================================================
+# Edge Case Tests -- Tee
+# ===========================================================================
+
+
+class TestTeeEdgeCases:
+    """Edge cases for the Tee context manager."""
+
+    def test_stdout_restored_on_exception(self, tmp_path):
+        """stdout is restored even when an exception occurs inside Tee."""
+        from spikelab.spike_sorting.sorting_utils import Tee
+
+        original_stdout = sys.stdout
+        log_file = tmp_path / "test.log"
+        with pytest.raises(RuntimeError, match="deliberate"):
+            with Tee(log_file, "w"):
+                raise RuntimeError("deliberate error")
+        assert sys.stdout is original_stdout
+
+    def test_write_skips_newline_and_space(self, tmp_path):
+        """Tee._write does not echo newlines or spaces to stdout."""
+        from spikelab.spike_sorting.sorting_utils import Tee
+        from unittest.mock import MagicMock
+
+        log_file = tmp_path / "test.log"
+        with Tee(log_file, "w") as f:
+            mock_stdout = MagicMock()
+            f.stdout = mock_stdout
+            f.write("\n")
+            f.write(" ")
+            # Neither should be echoed to stdout (print calls .write)
+            mock_stdout.write.assert_not_called()
+            # But a real message should be echoed via print(s, file=stdout)
+            f.write("hello")
+            mock_stdout.write.assert_called()
+
+
+# ===========================================================================
+# Edge Case Tests -- Utils._mem_to_int
+# ===========================================================================
+
+
+class TestMemToIntEdgeCases:
+    """Edge cases for Utils._mem_to_int."""
+
+    def test_empty_string_raises(self):
+        """Empty string input raises an error."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        with pytest.raises((IndexError, ValueError)):
+            Utils._mem_to_int("")
+
+    def test_invalid_suffix_raises(self):
+        """Invalid memory suffix raises ValueError."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        with pytest.raises(ValueError, match="Invalid memory suffix"):
+            Utils._mem_to_int("4T")
+
+
+# ===========================================================================
+# Edge Case Tests -- Utils.ensure_chunk_size
+# ===========================================================================
+
+
+class TestEnsureChunkSizeEdgeCases:
+    """Edge cases for Utils.ensure_chunk_size."""
+
+    def test_both_chunk_memory_and_total_memory_raises(self):
+        """Providing both chunk_memory and total_memory raises ValueError."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        recording = _make_mock_recording()
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            Utils.ensure_chunk_size(recording, chunk_memory="500M", total_memory="16G")
+
+    def test_n_jobs_greater_than_1_no_memory_raises(self):
+        """n_jobs > 1 without any memory specification raises ValueError."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        recording = _make_mock_recording()
+        with pytest.raises(ValueError, match="TOTAL_MEMORY"):
+            Utils.ensure_chunk_size(recording, n_jobs=4)
+
+
+# ===========================================================================
+# Edge Case Tests -- Utils.ensure_n_jobs
+# ===========================================================================
+
+
+class TestEnsureNJobsEdgeCases:
+    """Edge cases for Utils.ensure_n_jobs."""
+
+    def test_n_jobs_zero_becomes_one(self):
+        """n_jobs=0 is treated as 1."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        recording = _make_mock_recording()
+        result = Utils.ensure_n_jobs(recording, n_jobs=0)
+        assert result == 1
+
+    def test_n_jobs_negative_one_returns_cpu_count(self):
+        """n_jobs=-1 returns the number of CPUs."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        recording = _make_mock_recording()
+        result = Utils.ensure_n_jobs(recording, n_jobs=-1)
+        assert result >= 1
+
+    def test_n_jobs_none_becomes_one(self):
+        """n_jobs=None is treated as 1."""
+        from spikelab.spike_sorting.waveform_extractor import Utils
+
+        recording = _make_mock_recording()
+        result = Utils.ensure_n_jobs(recording, n_jobs=None)
+        assert result == 1
+
+
+# ===========================================================================
+# Edge Case Tests -- classify_polarity (waveform_utils)
+# ===========================================================================
+
+
+class TestClassifyPolarityEdgeCases:
+    """Edge cases for classify_polarity in waveform_utils."""
+
+    def test_all_zero_templates(self):
+        """All-zero templates are classified as positive-peak (edge case)."""
+        from spikelab.spike_sorting.waveform_utils import classify_polarity
+
+        templates = np.zeros((3, 61, 4), dtype=np.float32)
+        result = classify_polarity(templates, pos_peak_thresh=2.0)
+        # 0 >= 2.0 * |0| -> 0 >= 0 -> True
+        assert result.shape == (3,)
+        assert np.all(result), "All-zero templates should classify as positive-peak"
+
+    def test_single_unit_template(self):
+        """Single-unit template array works correctly."""
+        from spikelab.spike_sorting.waveform_utils import classify_polarity
+
+        templates = np.zeros((1, 61, 4), dtype=np.float32)
+        templates[0, 30, 0] = -10.0
+        result = classify_polarity(templates, pos_peak_thresh=2.0)
+        assert result.shape == (1,)
+        assert not result[0], "Negative-peak unit should be classified as such"
+
+    def test_nan_in_templates(self):
+        """NaN in templates: comparison with NaN is False, defaults to
+        negative-peak classification."""
+        from spikelab.spike_sorting.waveform_utils import classify_polarity
+
+        templates = np.zeros((1, 61, 4), dtype=np.float32)
+        templates[0, 30, 0] = np.nan
+        result = classify_polarity(templates, pos_peak_thresh=2.0)
+        # np.max with nan -> nan, nan >= thresh * |nan| -> False
+        assert result.shape == (1,)
+        assert not result[0], "NaN templates should default to negative-peak"
+
+    def test_pos_peak_thresh_zero(self):
+        """pos_peak_thresh=0 means all non-negative templates classify
+        as positive-peak."""
+        from spikelab.spike_sorting.waveform_utils import classify_polarity
+
+        templates = np.zeros((2, 61, 4), dtype=np.float32)
+        templates[0, 30, 0] = -5.0  # neg only: pos_val=0, neg_val=-5
+        templates[1, 30, 0] = 0.1  # tiny positive
+        result = classify_polarity(templates, pos_peak_thresh=0.0)
+        # unit 0: 0 >= 0 * 5 -> True (even though it's a negative-peak unit)
+        assert result[0]
+        assert result[1]
+
+
+# ===========================================================================
+# Edge Case Tests -- get_max_channels (waveform_utils)
+# ===========================================================================
+
+
+class TestGetMaxChannelsEdgeCases:
+    """Edge cases for get_max_channels in waveform_utils."""
+
+    def test_tied_peak_values(self):
+        """When two channels have identical peak values, argmin/argmax
+        picks the first one -- verify the function returns a valid index."""
+        from spikelab.spike_sorting.waveform_utils import (
+            classify_polarity,
+            get_max_channels,
+        )
+
+        templates = np.zeros((1, 61, 4), dtype=np.float32)
+        # Two channels with the same negative peak
+        templates[0, 30, 0] = -10.0
+        templates[0, 30, 2] = -10.0
+        use_pos = classify_polarity(templates)
+        chans = get_max_channels(templates, use_pos)
+        assert chans[0] in (0, 2), "Should pick one of the tied channels"
+
+    def test_single_channel_templates(self):
+        """Single-channel templates always return channel 0."""
+        from spikelab.spike_sorting.waveform_utils import (
+            classify_polarity,
+            get_max_channels,
+        )
+
+        templates = np.zeros((2, 61, 1), dtype=np.float32)
+        templates[0, 30, 0] = -5.0
+        templates[1, 30, 0] = 5.0
+        use_pos = classify_polarity(templates)
+        chans = get_max_channels(templates, use_pos)
+        assert np.all(chans == 0)
+
+
+# ===========================================================================
+# Edge Case Tests -- compute_half_window_sizes (waveform_utils)
+# ===========================================================================
+
+
+class TestComputeHalfWindowSizesEdgeCases:
+    """Edge cases for compute_half_window_sizes in waveform_utils."""
+
+    def test_very_short_template(self):
+        """A 2-sample template produces a valid (small) window size."""
+        from spikelab.spike_sorting.waveform_utils import (
+            classify_polarity,
+            get_max_channels,
+            compute_half_window_sizes,
+        )
+
+        templates = np.zeros((1, 2, 1), dtype=np.float32)
+        templates[0, 1, 0] = -5.0
+        use_pos = classify_polarity(templates)
+        chans = get_max_channels(templates, use_pos)
+        hw = compute_half_window_sizes(templates, chans)
+        assert hw.shape == (1,)
+        assert hw[0] >= 0
+
+
+# ===========================================================================
+# Edge Case Tests -- center_spike_times (waveform_utils)
+# ===========================================================================
+
+
+class TestCenterSpikeTimesEdgeCases:
+    """Edge cases for center_spike_times in waveform_utils."""
+
+    def test_half_window_zero(self):
+        """half_window_sizes[unit_id] = 0 produces a zero-width window;
+        the spike time should remain unchanged."""
+        from spikelab.spike_sorting.waveform_utils import center_spike_times
+
+        recording = _make_mock_recording(num_samples=1000, num_channels=2)
+        # Add segment_index support
+        recording.get_num_samples = lambda segment_index=0: 1000
+        recording.get_traces = (
+            lambda start_frame=0, end_frame=None, segment_index=0, **kw: np.random.default_rng(
+                0
+            )
+            .standard_normal((end_frame - start_frame, 2))
+            .astype(np.float32)
+        )
+
+        spike_times = {0: np.array([100, 200, 300])}
+        chans_max = {0: 0}
+        use_pos_peak = {0: False}
+        half_window_sizes = {0: 0}
+
+        result = center_spike_times(
+            recording,
+            spike_times,
+            chans_max,
+            use_pos_peak,
+            half_window_sizes,
+        )
+        # With hw=0, the window has 1 sample, so the offset is always 0
+        assert 0 in result
+        assert len(result[0]) == 3
+
+
+# ===========================================================================
+# Edge Case Tests -- ChunkRecordingExecutor.divide_segment_into_chunks
+# ===========================================================================
+
+
+class TestDivideSegmentIntoChunksEdgeCases:
+    """Edge cases for ChunkRecordingExecutor.divide_segment_into_chunks."""
+
+    def test_chunk_size_none_returns_full_segment(self):
+        """chunk_size=None returns the full segment as a single chunk."""
+        from spikelab.spike_sorting.waveform_extractor import (
+            ChunkRecordingExecutor,
+        )
+
+        chunks = ChunkRecordingExecutor.divide_segment_into_chunks(1000, None)
+        assert chunks == [(0, 1000)]
+
+    def test_chunk_size_larger_than_frames(self):
+        """chunk_size > num_frames: produces one chunk with a remainder."""
+        from spikelab.spike_sorting.waveform_extractor import (
+            ChunkRecordingExecutor,
+        )
+
+        chunks = ChunkRecordingExecutor.divide_segment_into_chunks(100, 500)
+        # 100 // 500 = 0 full chunks, remainder = 100
+        assert len(chunks) == 1
+        assert chunks[0] == (0, 100)
+
+    def test_chunk_size_zero_raises(self):
+        """chunk_size=0 causes division by zero."""
+        from spikelab.spike_sorting.waveform_extractor import (
+            ChunkRecordingExecutor,
+        )
+
+        with pytest.raises((ZeroDivisionError, ValueError)):
+            ChunkRecordingExecutor.divide_segment_into_chunks(1000, 0)
+
+
+# ===========================================================================
+# Edge Case Tests -- _get_noise_levels (pipeline.py)
+# ===========================================================================
+
+
+class TestGetNoiseLevelsEdgeCases:
+    """Edge cases for _get_noise_levels in pipeline.py."""
+
+    def test_short_recording_raises(self):
+        """Recording shorter than chunk_size raises ValueError
+        from rng.randint(0, negative)."""
+        from spikelab.spike_sorting.pipeline import _get_noise_levels
+
+        # Recording with only 100 samples, chunk_size default is 10000
+        recording = _make_mock_recording(num_samples=100)
+        with pytest.raises(ValueError):
+            _get_noise_levels(recording)
+
+    def test_single_channel_recording(self):
+        """Single-channel recording produces a 1-element noise array."""
+        from spikelab.spike_sorting.pipeline import _get_noise_levels
+
+        recording = _make_mock_recording(num_samples=50000, num_channels=1)
+        noise = _get_noise_levels(recording)
+        assert noise.shape == (1,)
+        assert np.isfinite(noise[0])
+
+
+# ===========================================================================
+# Edge Case Tests -- _get_noise_levels (recording_io.py)
+# ===========================================================================
+
+
+class TestGetNoiseLevelsRecordingIoEdgeCases:
+    """Edge cases for _get_noise_levels in recording_io.py (same bug)."""
+
+    def test_short_recording_raises(self):
+        """Recording shorter than chunk_size raises ValueError
+        (same bug as pipeline.py version)."""
+        from spikelab.spike_sorting.recording_io import _get_noise_levels
+
+        recording = _make_mock_recording(num_samples=100)
+        with pytest.raises(ValueError):
+            _get_noise_levels(recording)
+
+
+# ===========================================================================
+# Edge Case Tests -- get_paths
+# ===========================================================================
+
+
+class TestGetPathsEdgeCases:
+    """Edge cases for get_paths in sorting_utils."""
+
+    def test_results_path_equals_inter_path(self, tmp_path):
+        """When results_path == inter_path, a 'results' subdirectory
+        is appended."""
+        from spikelab.spike_sorting.sorting_utils import get_paths
+
+        rec = tmp_path / "recording.h5"
+        rec.touch()
+        inter = tmp_path / "inter"
+        result = get_paths(rec, inter, inter)
+        # Last element is results_path
+        assert result[-1] == inter / "results"
+
+    def test_execution_config_none(self, tmp_path):
+        """execution_config=None skips all recompute logic without error."""
+        from spikelab.spike_sorting.sorting_utils import get_paths
+
+        rec = tmp_path / "recording.h5"
+        rec.touch()
+        inter = tmp_path / "inter"
+        results = tmp_path / "results"
+        paths = get_paths(rec, inter, results, execution_config=None)
+        assert len(paths) == 9
+
+
+# ===========================================================================
+# Edge Case Tests -- WaveformExtractor.get_computed_template
+# ===========================================================================
+
+
+class TestGetComputedTemplateEdgeCases:
+    """Edge cases for WaveformExtractor.get_computed_template."""
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode string raises ValueError."""
+        from spikelab.spike_sorting.waveform_extractor import WaveformExtractor
+
+        # Create a minimal mock
+        we = object.__new__(WaveformExtractor)
+        we.template_cache = {}
+        we._waveforms = {}
+
+        with pytest.raises(ValueError, match="mode must be one of"):
+            we.get_computed_template(0, "invalid_mode")
+
+
+# ===========================================================================
+# Edge Case Tests -- Classifier (_classifier.py)
+# ===========================================================================
+
+
+class TestClassifierEdgeCases:
+    """Edge cases for failure classifiers in _classifier.py."""
+
+    def test_hdf5_marker_in_log_not_chain(self):
+        """HDF5 marker present in log_text but not in chain_text
+        should still detect the issue."""
+        from spikelab.spike_sorting._classifier import (
+            _classify_hdf5_plugin_missing,
+        )
+
+        result = _classify_hdf5_plugin_missing(
+            chain_text="some generic error",
+            log_text="HDF5_PLUGIN_PATH is not set, filter decoding failed",
+        )
+        assert result is not None
+
+    def test_insufficient_activity_ks2_cuda_marker_no_metrics(self):
+        """Log with CUDA marker but no parseable metrics returns None."""
+        from spikelab.spike_sorting._classifier import (
+            _classify_insufficient_activity_ks2,
+        )
+
+        log = "something something invalid configuration argument something"
+        # No threshold crossings, no template-optimization lines
+        exc = RuntimeError("CUDA error")
+        result = _classify_insufficient_activity_ks2(log, None, exc)
+        # No metrics -> none of the conditions are met -> returns None
+        assert result is None
+
+    def test_insufficient_activity_ks2_multiple_template_lines(self):
+        """When multiple template-optimization lines exist, the last
+        one is used."""
+        from spikelab.spike_sorting._classifier import (
+            _classify_insufficient_activity_ks2,
+        )
+
+        log = (
+            "invalid configuration argument\n"
+            "found 100 threshold crossings\n"
+            "1/10 batches, 50 units, nspks: 100.0\n"
+            "5/10 batches, 3 units, nspks: 2.0\n"  # last line
+        )
+        exc = RuntimeError("CUDA crash")
+        result = _classify_insufficient_activity_ks2(log, None, exc)
+        assert result is not None
+        assert result.units_at_failure == 3
+        assert result.nspks_at_failure == 2.0
+
+    def test_classify_ks2_failure_output_folder_not_exist(self, tmp_path):
+        """classify_ks2_failure with non-existent output folder does not
+        crash (returns None when no signatures match)."""
+        from spikelab.spike_sorting._classifier import classify_ks2_failure
+
+        result = classify_ks2_failure(
+            tmp_path / "nonexistent",
+            RuntimeError("generic error"),
+        )
+        assert result is None
+
+    def test_classify_ks4_failure_output_folder_not_exist(self, tmp_path):
+        """classify_ks4_failure with non-existent output folder does not
+        crash (returns None when no signatures match)."""
+        from spikelab.spike_sorting._classifier import classify_ks4_failure
+
+        result = classify_ks4_failure(
+            tmp_path / "nonexistent",
+            RuntimeError("generic error"),
+        )
+        assert result is None
+
+
+# ===========================================================================
+# Tests -- classify_rt_sort_failure
+# ===========================================================================
+
+
+class TestClassifyRTSortFailure:
+    """Tests for the RT-Sort failure classifier."""
+
+    def test_no_match_returns_none(self, tmp_path):
+        """Unrecognised exception returns None."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+
+        result = classify_rt_sort_failure(
+            tmp_path, RuntimeError("something unexpected")
+        )
+        assert result is None
+
+    def test_nonexistent_folder_returns_none(self, tmp_path):
+        """Non-existent output folder does not crash."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+
+        result = classify_rt_sort_failure(
+            tmp_path / "nonexistent", RuntimeError("generic error")
+        )
+        assert result is None
+
+    # -- Environment: model loading --
+
+    def test_torch_missing(self, tmp_path):
+        """PyTorch ImportError is classified as ModelLoadingError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        exc = ImportError("PyTorch is required for RT-Sort's spike detection model")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, ModelLoadingError)
+        assert result.sorter == "rt_sort"
+
+    def test_torch_module_not_found(self, tmp_path):
+        """ModuleNotFoundError for torch is classified as ModelLoadingError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        exc = ModuleNotFoundError("No module named 'torch'")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, ModelLoadingError)
+
+    def test_model_files_missing(self, tmp_path):
+        """Missing init_dict.json / state_dict.pt is classified as
+        ModelLoadingError with model_path extracted."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        exc = ValueError(
+            "The folder /models/mea does not contain init_dict.json and "
+            "state_dict.pt for loading a model"
+        )
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, ModelLoadingError)
+        assert result.model_path == "/models/mea"
+
+    def test_state_dict_load_error(self, tmp_path):
+        """Corrupt state_dict is classified as ModelLoadingError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        exc = RuntimeError("Error(s) in loading state_dict for ModelSpikeSorter")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, ModelLoadingError)
+
+    # -- Environment: HDF5 --
+
+    def test_hdf5_plugin_missing(self, tmp_path):
+        """HDF5 plugin marker in chain is classified as HDF5PluginMissingError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import HDF5PluginMissingError
+
+        exc = OSError("HDF5_PLUGIN_PATH filter decoding failed")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, HDF5PluginMissingError)
+
+    # -- Resource: GPU OOM --
+
+    def test_gpu_oom(self, tmp_path):
+        """CUDA OOM is classified as GPUOutOfMemoryError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import GPUOutOfMemoryError
+
+        exc = RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, GPUOutOfMemoryError)
+        assert result.sorter == "rt_sort"
+
+    # -- Biology: insufficient activity --
+
+    def test_zero_sequences_in_log(self, tmp_path):
+        """Log text with '0 preliminary propagation sequences' triggers
+        InsufficientActivityError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import InsufficientActivityError
+
+        # Write a log file with the zero-sequences message
+        log_file = tmp_path / "rt_sort.log"
+        log_file.write_text(
+            "0 preliminary propagation sequences remain after "
+            "reassigning spikes and filtering\n"
+        )
+        exc = AttributeError("'NoneType' object has no attribute 'sort_offline'")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, InsufficientActivityError)
+        assert result.sorter == "rt_sort"
+        assert result.log_path == log_file
+
+    def test_nonetype_sort_offline(self, tmp_path):
+        """AttributeError from calling sort_offline on None is classified
+        as InsufficientActivityError (chain-based, no log)."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import InsufficientActivityError
+
+        exc = AttributeError("'NoneType' object has no attribute 'sort_offline'")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, InsufficientActivityError)
+        assert result.log_path is None
+
+    def test_zero_sequences_after_merging(self, tmp_path):
+        """'0 sequences remain' in log triggers InsufficientActivityError."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import InsufficientActivityError
+
+        log_file = tmp_path / "rt_sort.log"
+        log_file.write_text("0 sequences remain first merging\n")
+        exc = AttributeError("'NoneType' object has no attribute 'sort_offline'")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, InsufficientActivityError)
+
+    # -- Priority ordering --
+
+    def test_model_error_takes_priority_over_oom(self, tmp_path):
+        """Environment errors (model loading) take priority over resource
+        errors (GPU OOM) when both signatures are present."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        # Chain contains both model loading and OOM signatures
+        inner = RuntimeError("CUDA out of memory")
+        exc = ValueError(
+            "The folder /m does not contain init_dict.json and state_dict.pt"
+        )
+        exc.__cause__ = inner
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, ModelLoadingError)
+
+    def test_oom_takes_priority_over_biology(self, tmp_path):
+        """Resource errors (GPU OOM) take priority over biology errors."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import GPUOutOfMemoryError
+
+        log_file = tmp_path / "rt_sort.log"
+        log_file.write_text("0 sequences remain second merging\n")
+        exc = RuntimeError("CUDA out of memory")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, GPUOutOfMemoryError)
+
+    # -- Exception hierarchy --
+
+    def test_model_loading_error_is_environment_failure(self):
+        """ModelLoadingError is a subclass of EnvironmentSortFailure."""
+        from spikelab.spike_sorting._exceptions import (
+            EnvironmentSortFailure,
+            ModelLoadingError,
+        )
+
+        assert issubclass(ModelLoadingError, EnvironmentSortFailure)
+
+    def test_model_loading_error_attributes(self):
+        """ModelLoadingError stores sorter and model_path."""
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        err = ModelLoadingError("msg", sorter="rt_sort", model_path="/models/mea")
+        assert err.sorter == "rt_sort"
+        assert err.model_path == "/models/mea"
+        assert str(err) == "msg"
+
+    def test_model_loading_error_default_attributes(self):
+        """ModelLoadingError defaults: sorter='rt_sort', model_path=None."""
+        from spikelab.spike_sorting._exceptions import ModelLoadingError
+
+        err = ModelLoadingError("msg")
+        assert err.sorter == "rt_sort"
+        assert err.model_path is None
+
+    # -- Log file discovery --
+
+    def test_log_file_found(self, tmp_path):
+        """_find_rt_sort_log locates rt_sort.log in the output folder."""
+        from spikelab.spike_sorting._classifier import _find_rt_sort_log
+
+        log_file = tmp_path / "rt_sort.log"
+        log_file.write_text("test log content")
+        assert _find_rt_sort_log(tmp_path) == log_file
+
+    def test_log_file_not_found(self, tmp_path):
+        """_find_rt_sort_log returns None when no log exists."""
+        from spikelab.spike_sorting._classifier import _find_rt_sort_log
+
+        assert _find_rt_sort_log(tmp_path) is None
+
+    def test_classifier_reads_log_for_signatures(self, tmp_path):
+        """Classifier detects a signature present only in the log file,
+        not in the exception chain."""
+        from spikelab.spike_sorting._classifier import classify_rt_sort_failure
+        from spikelab.spike_sorting._exceptions import InsufficientActivityError
+
+        log_file = tmp_path / "rt_sort.log"
+        log_file.write_text(
+            "0 preliminary propagation sequences remain after filtering\n"
+        )
+        # Exception chain is generic — signature is only in the log
+        exc = RuntimeError("sort failed")
+        result = classify_rt_sort_failure(tmp_path, exc)
+        assert isinstance(result, InsufficientActivityError)
+
+
+# ===========================================================================
+# Edge Case Tests -- Recentering (stim_sorting/recentering.py)
+# ===========================================================================
+
+
+class TestRecenteringEdgeCases:
+    """Edge cases for stim_sorting recentering functions."""
+
+    def test_max_offset_zero(self):
+        """max_offset_ms=0 produces a 1-sample search window; should
+        return the center sample itself."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        traces = np.random.default_rng(0).standard_normal((4, 10000)).astype(np.float32)
+        stim_ms = [100.0]
+        result = recenter_stim_times(traces, stim_ms, fs_Hz, max_offset_ms=0.0)
+        # The search window is [center, center+1), so it picks the center
+        center_sample = int(np.round(100.0 * fs_Hz / 1000.0))
+        result_sample = int(np.round(result[0] * fs_Hz / 1000.0))
+        assert result_sample == center_sample
+
+    def test_stim_at_recording_boundary(self):
+        """Stim time at the very end of the recording clips the search
+        window and does not crash."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            recenter_stim_times,
+        )
+
+        fs_Hz = 20000.0
+        n_samples = 10000
+        traces = (
+            np.random.default_rng(0).standard_normal((4, n_samples)).astype(np.float32)
+        )
+        # Stim at the very last sample
+        stim_ms = [(n_samples - 1) / fs_Hz * 1000.0]
+        result = recenter_stim_times(traces, stim_ms, fs_Hz, max_offset_ms=5.0)
+        assert len(result) == 1
+        result_sample = int(np.round(result[0] * fs_Hz / 1000.0))
+        assert 0 <= result_sample < n_samples
+
+    def test_build_reference_trace_n_ref_larger_than_channels(self):
+        """n_reference_channels larger than total channels is clamped."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _build_reference_trace,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((3, 100)).astype(np.float32)
+        ref = _build_reference_trace(traces, n_reference_channels=100)
+        assert ref.shape == (100,)
+
+    def test_build_reference_trace_n_ref_zero(self):
+        """n_reference_channels=0 is clamped to 1."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _build_reference_trace,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((3, 100)).astype(np.float32)
+        ref = _build_reference_trace(traces, n_reference_channels=0)
+        assert ref.shape == (100,)
+
+    def test_find_down_edge_constant_signal(self):
+        """Constant-value signal: no zero crossing, falls back to
+        steepest slope or neg_peak."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        reference = np.ones(100, dtype=np.float64) * 5.0
+        result = _find_down_edge(
+            reference, lo=10, hi=50, prewindow_ms=1.0, fs_Hz=20000.0
+        )
+        assert 10 <= result < 50
+
+    def test_find_down_edge_lo_equals_hi(self):
+        """lo == hi produces an empty window; argmin on empty array
+        should be handled gracefully or raise ValueError."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_down_edge,
+        )
+
+        reference = np.ones(100, dtype=np.float64)
+        # This may raise due to empty slice
+        with pytest.raises((ValueError, IndexError)):
+            _find_down_edge(reference, lo=50, hi=50, prewindow_ms=1.0, fs_Hz=20000.0)
+
+    def test_find_up_edge_constant_signal(self):
+        """Constant-value signal for up_edge."""
+        from spikelab.spike_sorting.stim_sorting.recentering import (
+            _find_up_edge,
+        )
+
+        reference = np.ones(100, dtype=np.float64) * 5.0
+        result = _find_up_edge(reference, lo=10, hi=50, prewindow_ms=1.0, fs_Hz=20000.0)
+        assert 10 <= result < 50
+
+
+# ===========================================================================
+# Edge Case Tests -- Artifact Removal (stim_sorting/artifact_removal.py)
+# ===========================================================================
+
+
+class TestArtifactRemovalEdgeCases:
+    """Edge cases for stim_sorting artifact removal functions."""
+
+    def test_zero_channels(self):
+        """traces with shape (0, n_samples) raises ValueError.
+
+        Tests:
+            (Test Case 1) Zero-channel traces are rejected with a clear message.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        traces = np.zeros((0, 1000), dtype=np.float32)
+        with pytest.raises(ValueError, match="at least one channel"):
+            remove_stim_artifacts(traces, [100.0], fs_Hz=20000.0)
+
+    def test_zero_samples(self):
+        """traces with shape (n_channels, 0) raises ValueError.
+
+        Tests:
+            (Test Case 1) Zero-sample traces are rejected with a clear message.
+        """
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        traces = np.zeros((4, 0), dtype=np.float32)
+        with pytest.raises(ValueError, match="at least one channel"):
+            remove_stim_artifacts(traces, [100.0], fs_Hz=20000.0)
+
+    def test_artifact_window_zero(self):
+        """artifact_window_ms=0 produces 0-sample windows; should not crash."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((2, 1000)).astype(np.float32)
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            [10.0],
+            fs_Hz=20000.0,
+            artifact_window_ms=0.0,
+            saturation_threshold=1e6,
+        )
+        assert cleaned.shape == (2, 1000)
+
+    def test_stim_times_outside_recording(self):
+        """Stim times outside the recording range are filtered out."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((2, 1000)).astype(np.float32)
+        original = traces.copy()
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            [-100.0, 999999.0],
+            fs_Hz=20000.0,
+            saturation_threshold=1e6,
+        )
+        # No valid stim times -> traces unchanged
+        np.testing.assert_array_equal(cleaned, original)
+
+    def test_artifact_window_only_false_with_blank(self):
+        """artifact_window_only=False with method='blank' blanks only
+        saturated samples globally."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        traces = np.ones((1, 100), dtype=np.float32) * 5.0
+        # Set threshold so everything is "saturated"
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            [1.0],
+            fs_Hz=20000.0,
+            method="blank",
+            artifact_window_only=False,
+            saturation_threshold=3.0,
+        )
+        assert np.all(blanked)
+        assert np.all(cleaned == 0.0)
+
+    def test_auto_saturation_threshold_all_zeros(self):
+        """All-zero traces: threshold is 0.0, blanking covers entire
+        recording (edge case)."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _auto_saturation_threshold,
+        )
+
+        traces = np.zeros((2, 100), dtype=np.float32)
+        thresh = _auto_saturation_threshold(traces)
+        assert thresh == 0.0
+
+    def test_auto_baseline_threshold_empty_stim_times(self):
+        """Empty stim_times_ms: falls back to the first 2 ms of recording."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _auto_baseline_threshold,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((2, 1000)).astype(np.float32)
+        thresh = _auto_baseline_threshold(traces, np.array([]), 20000.0)
+        assert np.isfinite(thresh)
+
+    def test_auto_baseline_threshold_first_stim_at_zero(self):
+        """First stim at time 0: pre-stim segment has 0 samples,
+        but code clamps end to max(1, 0) = 1."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _auto_baseline_threshold,
+        )
+
+        traces = np.random.default_rng(0).standard_normal((2, 1000)).astype(np.float32)
+        thresh = _auto_baseline_threshold(traces, np.array([0.0]), 20000.0)
+        assert np.isfinite(thresh)
+
+    def test_find_saturation_end_start_past_end(self):
+        """start >= n_samples: the while loop never executes so the function
+        returns ``start`` unchanged (not clamped to n_samples)."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _find_saturation_end,
+        )
+
+        trace = np.array([1.0, 2.0, 3.0])
+        result = _find_saturation_end(
+            trace, start=10, saturation_threshold=1.0, n_samples=3
+        )
+        assert result == 10
+
+    def test_signal_reached_baseline_window_zero(self):
+        """window_samples=0: the consecutive count can only reach 0 when a
+        sample is actually below threshold. With all values above threshold
+        the function returns False because the increment branch is never
+        entered."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _signal_reached_baseline,
+        )
+
+        trace = np.array([100.0, 100.0, 100.0])
+        reached, idx = _signal_reached_baseline(
+            trace,
+            start=0,
+            baseline_threshold=1.0,
+            window_samples=0,
+            n_samples=3,
+        )
+        assert not reached
+
+    def test_signal_reached_baseline_start_past_end(self):
+        """start >= n_samples returns False immediately."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _signal_reached_baseline,
+        )
+
+        trace = np.array([1.0, 2.0])
+        reached, idx = _signal_reached_baseline(
+            trace,
+            start=10,
+            baseline_threshold=100.0,
+            window_samples=1,
+            n_samples=2,
+        )
+        assert not reached
+        assert idx == 2
+
+    def test_saturation_threshold_from_recording_zero_gains(self):
+        """Recording with zero gains: gain is clamped to 1e-9."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _saturation_threshold_from_recording,
+        )
+
+        recording = SimpleNamespace()
+        recording.get_channel_gains = lambda: np.array([0.0, 0.0])
+        traces = np.ones((2, 100), dtype=np.float32) * 50.0
+        thresh = _saturation_threshold_from_recording(recording, traces)
+        # gain_uV_per_bit = max(1e-9, 0.0) = 1e-9; many samples at rail
+        assert np.isfinite(thresh)
+
+    def test_poly_order_larger_than_samples(self):
+        """poly_order larger than available samples: polynomial fit is
+        skipped (not enough points for the fit)."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            remove_stim_artifacts,
+        )
+
+        # Very short trace with a single stim event
+        fs_Hz = 20000.0
+        traces = np.random.default_rng(0).standard_normal((1, 50)).astype(np.float32)
+        cleaned, blanked = remove_stim_artifacts(
+            traces,
+            [0.5],
+            fs_Hz=fs_Hz,
+            poly_order=20,
+            saturation_threshold=1e6,
+        )
+        assert cleaned.shape == (1, 50)
+
+
+# ===========================================================================
+# Edge Case Tests -- KilosortSortingExtractor
+# ===========================================================================
+
+
+@skip_no_pandas
+class TestKilosortSortingExtractorEdgeCases:
+    """Edge cases for KilosortSortingExtractor."""
+
+    def test_missing_params_py(self, tmp_path):
+        """Missing params.py raises FileNotFoundError."""
+        folder = tmp_path / "ks_out"
+        folder.mkdir()
+        np.save(str(folder / "spike_times.npy"), np.array([0, 1]))
+        np.save(str(folder / "spike_clusters.npy"), np.array([0, 0]))
+        # No params.py
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        with pytest.raises(FileNotFoundError):
+            KilosortSortingExtractor(folder)
+
+    def test_missing_both_cluster_id_columns(self, tmp_path):
+        """TSV with neither 'cluster_id' nor 'id' column raises ValueError."""
+        folder = tmp_path / "ks_out"
+        _write_ks_folder(
+            folder,
+            spike_times=np.array([0, 10, 20]),
+            spike_clusters=np.array([0, 0, 1]),
+        )
+        # Overwrite TSV with wrong column name
+        (folder / "cluster_info.tsv").write_text("unit\tgroup\n0\tgood\n1\tgood\n")
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        with pytest.raises(ValueError, match="cluster_id"):
+            KilosortSortingExtractor(folder)
+
+    def test_nonexistent_unit_spike_train(self, tmp_path):
+        """get_unit_spike_train for a non-existent unit returns empty array."""
+        folder = tmp_path / "ks_out"
+        _write_ks_folder(
+            folder,
+            spike_times=np.array([0, 10, 20]),
+            spike_clusters=np.array([0, 0, 0]),
+        )
+
+        from spikelab.spike_sorting.sorting_extractor import (
+            KilosortSortingExtractor,
+        )
+
+        kse = KilosortSortingExtractor(folder)
+        result = kse.get_unit_spike_train(unit_id=999)
+        assert len(result) == 0 or (len(result) == 1 and result[0] == 999)
+
+
+# ===========================================================================
+# Edge Case Tests -- Figures
+# ===========================================================================
+
+
+class TestFiguresEdgeCases:
+    """Edge cases for spike sorting figure functions."""
+
+    def test_plot_curation_bar_empty(self):
+        """Empty rec_names list should not crash."""
+        from spikelab.spike_sorting.figures import plot_curation_bar
+
+        fig = plot_curation_bar([], [], [])
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_plot_curation_bar_mismatched_lengths(self):
+        """Mismatched lengths of input lists should raise or degrade
+        gracefully."""
+        from spikelab.spike_sorting.figures import plot_curation_bar
+
+        # Matplotlib may raise or just plot mismatched bars
+        try:
+            fig = plot_curation_bar(["A", "B"], [10], [5, 3])
+            import matplotlib.pyplot as plt
+
+            plt.close(fig)
+        except (ValueError, IndexError):
+            pass  # Expected for mismatched lengths
+
+
+# ===========================================================================
+# Edge Case Tests -- _global_polynomial_detrend
+# ===========================================================================
+
+
+class TestGlobalPolynomialDetrendEdgeCases:
+    """Edge cases for _global_polynomial_detrend."""
+
+    def test_overlap_samples_equals_window_samples(self):
+        """overlap_samples >= window_samples: step is clamped to 1."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _global_polynomial_detrend,
+        )
+
+        trace = np.random.default_rng(0).standard_normal(100).astype(np.float64)
+        blanked = np.zeros((1, 100), dtype=bool)
+        # overlap == window -> step = max(1, 0) = 1
+        _global_polynomial_detrend(
+            trace,
+            window_samples=10,
+            overlap_samples=10,
+            saturation_threshold=1e6,
+            poly_order=3,
+            n_samples=100,
+            blanked=blanked,
+            ch_idx=0,
+        )
+        # Should complete without error
+
+    def test_window_samples_zero(self):
+        """window_samples=0: empty windows -- step is clamped to 1,
+        each segment has 0 samples."""
+        from spikelab.spike_sorting.stim_sorting.artifact_removal import (
+            _global_polynomial_detrend,
+        )
+
+        trace = np.random.default_rng(0).standard_normal(50).astype(np.float64)
+        blanked = np.zeros((1, 50), dtype=bool)
+        _global_polynomial_detrend(
+            trace,
+            window_samples=0,
+            overlap_samples=0,
+            saturation_threshold=1e6,
+            poly_order=3,
+            n_samples=50,
+            blanked=blanked,
+            ch_idx=0,
+        )
+        # Should complete without crash

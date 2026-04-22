@@ -9,20 +9,47 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import h5py
 import numpy as np
-from natsort import natsorted
-from scipy.io import savemat
-from tqdm import tqdm
 
-import spikeinterface.core.segmentutils as si_segmentutils
-from spikeinterface.core import BaseRecording
-from spikeinterface.extractors.extractor_classes import (
-    MaxwellRecordingExtractor,
-    NwbRecordingExtractor,
-)
-from spikeinterface.preprocessing import bandpass_filter
-from spikeinterface.preprocessing.preprocessing_classes import ScaleRecording
+try:
+    import h5py
+except ImportError:  # pragma: no cover
+    h5py = None
+
+try:
+    from natsort import natsorted
+except ImportError:  # pragma: no cover
+    natsorted = None
+
+try:
+    from scipy.io import savemat
+except ImportError:  # pragma: no cover
+    savemat = None
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover
+    tqdm = None
+
+try:
+    import spikeinterface.core.segmentutils as si_segmentutils
+    from spikeinterface.core import BaseRecording
+    from spikeinterface.extractors.extractor_classes import (
+        MaxwellRecordingExtractor,
+        NwbRecordingExtractor,
+    )
+    from spikeinterface.preprocessing import bandpass_filter
+    from spikeinterface.preprocessing.preprocessing_classes import ScaleRecording
+
+    _SI_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    si_segmentutils = None
+    BaseRecording = None
+    MaxwellRecordingExtractor = None
+    NwbRecordingExtractor = None
+    bandpass_filter = None
+    ScaleRecording = None
+    _SI_AVAILABLE = False
 
 from . import _globals
 from .ks2_runner import spike_sort

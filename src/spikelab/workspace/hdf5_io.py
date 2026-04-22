@@ -29,7 +29,8 @@ import h5py
 class _NumpyEncoder(json.JSONEncoder):
     """JSON encoder that converts numpy arrays and scalar types to Python primitives."""
 
-    def default(self, obj):
+    def default(self, obj):  # noqa: D102
+        """Convert numpy types to JSON-serializable Python primitives."""
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         if isinstance(obj, np.integer):
@@ -490,7 +491,7 @@ def _load_neuron_attributes(grp) -> Optional[list]:
                 row = raw[i]
                 if np.all(np.isnan(row)):
                     continue
-                result[i][attr_key] = row.tolist()
+                result[i][attr_key] = row.copy()
         else:
             for i, v in enumerate(raw.tolist()):
                 # Skip NaN sentinels used for missing float values

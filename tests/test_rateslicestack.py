@@ -2340,3 +2340,151 @@ class TestCoverageGaps:
                 times_start_to_end=[(10.0, 30.0), (50.0, 70.0)],
                 sigma_ms=-5,
             )
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan (HIGH + MEDIUM)
+# ---------------------------------------------------------------------------
+
+
+class TestRateSliceStackEdgeCasesCoreReview:
+    """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
+
+    def test_step_size_zero_division_by_zero(self):
+        """
+        step_size=0 is not validated and would cause division by zero in
+        convert_to_list_of_RateData or auto-generated times.
+
+        Tests:
+            (Test Case 1) step_size=0 is accepted by the constructor.
+            (Test Case 2) Auto-generated times have zero-duration slices.
+        """
+        mat = np.ones((2, 5, 3))
+        # step_size=0 means duration = T * 0 = 0, which creates zero-duration windows
+        rss = RateSliceStack(event_matrix=mat, step_size=0.0)
+        assert rss.step_size == 0.0
+        # All auto-generated times have zero duration
+        for start, end in rss.times:
+            assert start == end
+
+    def test_construct_zero_time_bins_raises(self):
+        """
+        RateSliceStack with T=0 raises ValueError at construction time.
+
+        Tests:
+            (Test Case 1) A (3, 0, 2) event_matrix is rejected.
+        """
+        mat = np.zeros((3, 0, 2))
+        with pytest.raises(ValueError, match="zero time bins"):
+            RateSliceStack(event_matrix=mat, step_size=1.0)
+
+    def test_order_units_identical_peak_times(self):
+        """
+        All units have identical peak times — tie-breaking not tested.
+
+        Tests:
+            (Test Case 1) When all units peak at the same time, all peak
+                times are equal and the sort order is stable but arbitrary.
+            (Test Case 2) No exception is raised.
+        """
+        mat = np.zeros((3, 20, 4))
+        for s in range(4):
+            for u in range(3):
+                mat[u, 10, s] = 5.0  # All units peak at t=10
+        rss = RateSliceStack(event_matrix=mat)
+        reordered, order, std, peaks, frac = rss.order_units_across_slices("median")
+        assert len(order[0]) == 3
+        # All peak times should be 10
+        np.testing.assert_array_equal(peaks[0], [10, 10, 10])
+
+    def test_slice_to_slice_unit_corr_max_lag_none(self):
+        """
+        get_slice_to_slice_unit_corr_from_stack with max_lag=None.
+
+        Tests:
+            (Test Case 1) max_lag=None is treated as 0 by the underlying
+                correlation function. No exception is raised.
+            (Test Case 2) Output shapes are correct.
+        """
+        mat = np.random.default_rng(42).random((3, 20, 4)) + 0.5
+        rss = RateSliceStack(event_matrix=mat)
+        pcm_stack, av = rss.get_slice_to_slice_unit_corr_from_stack(max_lag=None)
+        assert pcm_stack.stack.shape == (4, 4, 3)
+        assert av.shape == (3,)
+
+    def test_slice_to_slice_unit_corr_all_identical_slices(self):
+        """
+        All slices identical: fast path should produce all-1.0 correlations.
+
+        Tests:
+            (Test Case 1) All off-diagonal entries in the SxS matrix are 1.0
+                for each unit.
+            (Test Case 2) Average score per unit is 1.0.
+        """
+        rng = np.random.default_rng(42)
+        single = rng.random((3, 20, 1)) + 0.5
+        # Stack 4 identical slices
+        mat = np.repeat(single, 4, axis=2)
+        rss = RateSliceStack(event_matrix=mat)
+        pcm, av = rss.get_slice_to_slice_unit_corr_from_stack(max_lag=0)
+        assert pcm.stack.shape == (4, 4, 3)
+        for u in range(3):
+            # All entries (including off-diagonal) should be 1.0
+            np.testing.assert_allclose(pcm.stack[:, :, u], 1.0, atol=1e-10)
+        np.testing.assert_allclose(av, 1.0, atol=1e-10)
+
+    def test_subslice_mixed_positive_negative_indices(self):
+        """
+        Mixed positive/negative indices: sorted() sorts unresolved indices,
+        so -1 sorts before 2, resulting in order [-1, 2] = [4, 2].
+
+        Tests:
+            (Test Case 1) subslice([2, -1]) selects 2 slices.
+            (Test Case 2) sorted([-1, 2]) = [-1, 2], so first slice is index -1
+                (last) and second is index 2.
+        """
+        mat = np.random.default_rng(0).random((2, 10, 5))
+        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
+        rss = RateSliceStack(event_matrix=mat, times_start_to_end=times)
+        sub = rss.subslice([2, -1])
+        assert sub.event_stack.shape == (2, 10, 2)
+        # sorted([-1, 2]) = [-1, 2]; -1 maps to slice 4
+        np.testing.assert_array_equal(sub.event_stack[:, :, 0], mat[:, :, -1])
+        np.testing.assert_array_equal(sub.event_stack[:, :, 1], mat[:, :, 2])
+
+    def test_get_unit_timing_identical_peak_times(self):
+        """
+        Identical peak times across all units.
+
+        Tests:
+            (Test Case 1) When all units peak at the same time in every slice,
+                the timing matrix has identical values everywhere.
+        """
+        mat = np.zeros((3, 20, 4))
+        for s in range(4):
+            for u in range(3):
+                mat[u, 7, s] = 5.0
+        rss = RateSliceStack(event_matrix=mat)
+        tm = rss.get_unit_timing_per_slice()
+        assert tm.shape == (3, 4)
+        # All peaks at index 7
+        np.testing.assert_array_equal(tm, 7)
+
+    def test_spikedata_negative_start_time(self):
+        """
+        SpikeData with negative start_time for event-centered data.
+
+        Tests:
+            (Test Case 1) Construction succeeds with negative-start windows.
+            (Test Case 2) event_stack has correct shape.
+        """
+        # Spikes must be within [start_time, start_time + length].
+        # With start_time=-25, length=50, range is [-25, 25].
+        sd = SpikeData(
+            [np.array([-20.0, -5.0, 10.0, 20.0])], length=50.0, start_time=-25.0
+        )
+        # Use windows within that range.
+        times = [(-25.0, -5.0), (0.0, 20.0)]
+        rss = RateSliceStack(data_obj=sd, times_start_to_end=times)
+        assert rss.event_stack.shape[2] == 2
+        assert rss.event_stack.shape[0] == 1

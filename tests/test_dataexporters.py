@@ -1582,3 +1582,180 @@ class TestEdgeCaseScan:
             result = exporters.export_to_pickle(sd, s3_url, s3_upload=True)
 
         assert result == s3_url
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md I/O scan (HIGH and MEDIUM severity)
+# ---------------------------------------------------------------------------
+
+
+@skip_no_h5py
+class TestExporterEdgeCasesIO:
+    """Edge case tests for data exporters from REVIEW.md I/O scan."""
+
+    def test_ragged_samples_without_fs_hz(self, tmp_path):
+        """
+        spike_times_unit='samples' without fs_Hz (ragged) -- error path.
+
+        Tests:
+            (Test Case 1) ValueError is raised when fs_Hz is None and
+                spike_times_unit='samples'.
+        """
+        sd = make_sd()
+        path = str(tmp_path / "ragged_no_fs.h5")
+
+        with pytest.raises(ValueError, match="fs_Hz"):
+            exporters.export_spikedata_to_hdf5(
+                sd,
+                path,
+                style="ragged",
+                spike_times_unit="samples",
+                fs_Hz=None,
+            )
+
+    def test_raw_data_empty_with_raw_dataset(self, tmp_path):
+        """
+        raw_data.size == 0 with raw_dataset provided -- raw data is not written.
+
+        Tests:
+            (Test Case 1) Export succeeds when raw_data is empty (size 0).
+            (Test Case 2) Raw dataset is not created in the HDF5 file because
+                the exporter checks raw_data.size > 0.
+        """
+        raw_data = np.array([]).reshape(0, 10)
+        sd = SpikeData(
+            [np.array([5.0])], length=20.0, raw_data=raw_data, raw_time=np.arange(10.0)
+        )
+        path = str(tmp_path / "empty_raw.h5")
+
+        exporters.export_spikedata_to_hdf5(
+            sd,
+            path,
+            style="ragged",
+            raw_dataset="raw",
+            raw_time_dataset="raw_time",
+        )
+
+        with h5py.File(path, "r") as f:
+            assert "raw" not in f
+            assert "raw_time" not in f
+
+
+class TestPickleEdgeCasesIO:
+    """Edge case tests for export_to_pickle from REVIEW.md I/O scan."""
+
+    def test_invalid_protocol_value(self, tmp_path):
+        """
+        protocol=-1 is valid in Python's pickle module -- it is an alias
+        for pickle.HIGHEST_PROTOCOL, so the export succeeds without error.
+
+        Tests:
+            (Test Case 1) protocol=-1 succeeds (alias for HIGHEST_PROTOCOL).
+        """
+        sd = make_sd()
+        path = str(tmp_path / "bad_proto.pkl")
+
+        result = exporters.export_to_pickle(sd, path, protocol=-1)
+        assert os.path.isfile(path)
+        assert result == path
+
+    def test_pickle_pairwise_comp_matrix_roundtrip(self, tmp_path):
+        """
+        export_to_pickle round-trip for PairwiseCompMatrix.
+
+        Tests:
+            (Test Case 1) Export and reimport preserves matrix data.
+            (Test Case 2) Labels are preserved.
+        """
+        import pickle
+        from spikelab.spikedata.pairwise import PairwiseCompMatrix
+
+        matrix = np.array([[1.0, 0.5, 0.3], [0.5, 1.0, 0.7], [0.3, 0.7, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=matrix, labels=["A", "B", "C"])
+        path = str(tmp_path / "pcm.pkl")
+
+        exporters.export_to_pickle(pcm, path)
+
+        with open(path, "rb") as f:
+            pcm2 = pickle.load(f)
+
+        np.testing.assert_array_equal(pcm2.matrix, matrix)
+        assert pcm2.labels == ["A", "B", "C"]
+
+    def test_pickle_pairwise_comp_matrix_stack_roundtrip(self, tmp_path):
+        """
+        export_to_pickle round-trip for PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) Export and reimport preserves stack data.
+            (Test Case 2) Times and labels are preserved.
+        """
+        import pickle
+        from spikelab.spikedata.pairwise import PairwiseCompMatrixStack
+
+        stack = np.random.default_rng(0).random((3, 3, 5))
+        times = [(i * 10.0, (i + 1) * 10.0) for i in range(5)]
+        pcms = PairwiseCompMatrixStack(stack=stack, labels=["A", "B", "C"], times=times)
+        path = str(tmp_path / "pcms.pkl")
+
+        exporters.export_to_pickle(pcms, path)
+
+        with open(path, "rb") as f:
+            pcms2 = pickle.load(f)
+
+        np.testing.assert_array_equal(pcms2.stack, stack)
+        assert pcms2.labels == ["A", "B", "C"]
+        assert pcms2.times == times
+
+    def test_pickle_rate_slice_stack_roundtrip(self, tmp_path):
+        """
+        export_to_pickle round-trip for RateSliceStack.
+
+        Tests:
+            (Test Case 1) Export and reimport preserves event_stack data.
+            (Test Case 2) Times are preserved.
+        """
+        import pickle
+        from spikelab.spikedata.rateslicestack import RateSliceStack
+
+        arr = np.random.default_rng(1).random((3, 20, 4))
+        times = [(i * 20, (i + 1) * 20) for i in range(4)]
+        rss = RateSliceStack(data_obj=None, event_matrix=arr, times_start_to_end=times)
+        path = str(tmp_path / "rss.pkl")
+
+        exporters.export_to_pickle(rss, path)
+
+        with open(path, "rb") as f:
+            rss2 = pickle.load(f)
+
+        np.testing.assert_array_equal(rss2.event_stack, arr)
+        assert rss2.times == times
+
+    def test_pickle_spike_slice_stack_roundtrip(self, tmp_path):
+        """
+        export_to_pickle round-trip for SpikeSliceStack.
+
+        Tests:
+            (Test Case 1) Export and reimport preserves spike_stack contents.
+            (Test Case 2) N and times are preserved.
+        """
+        import pickle
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        # Build a SpikeSliceStack from frames of a SpikeData
+        trains = [np.array([5.0, 15.0, 25.0, 35.0]), np.array([10.0, 30.0])]
+        sd = SpikeData(trains, length=40.0)
+        sss = sd.frames(20.0)
+        path = str(tmp_path / "sss.pkl")
+
+        exporters.export_to_pickle(sss, path)
+
+        with open(path, "rb") as f:
+            sss2 = pickle.load(f)
+
+        assert sss2.N == sss.N
+        assert len(sss2.spike_stack) == len(sss.spike_stack)
+        for orig, loaded in zip(sss.spike_stack, sss2.spike_stack):
+            assert orig.N == loaded.N
+            for a, b in zip(orig.train, loaded.train):
+                np.testing.assert_array_equal(a, b)

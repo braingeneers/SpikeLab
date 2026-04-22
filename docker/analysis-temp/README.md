@@ -1,7 +1,7 @@
 # Temporary NRP Job Image
 
 This folder provides a temporary image layer that can be built quickly and submitted
-through `spikelab-nrp-jobs`.
+through `spikelab-batch-jobs`.
 
 ## Build
 
@@ -33,6 +33,6 @@ python scripts/nrp_generate_job_config.py \
 ## Deploy
 
 ```bash
-spikelab-nrp-jobs render-job --profile nrp --job-config configs/nrp-temp-job.yaml --output-manifest /tmp/nrp-job.yaml
-spikelab-nrp-jobs deploy-job --profile nrp --job-config configs/nrp-temp-job.yaml --wait --max-wait-seconds 3600
+spikelab-batch-jobs render-job --profile nrp --job-config configs/nrp-temp-job.yaml --output-manifest /tmp/nrp-job.yaml
+spikelab-batch-jobs deploy-job --profile nrp --job-config configs/nrp-temp-job.yaml --wait --max-wait-seconds 3600
 ```

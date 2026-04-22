@@ -27,7 +27,8 @@ def get_spikedata(ws, namespace: str) -> SpikeData:
             "Load a recording first using one of: "
             "load_from_hdf5_raster, load_from_hdf5_ragged, load_from_hdf5_group, "
             "load_from_hdf5_paired, load_from_nwb, load_from_kilosort, "
-            "load_from_pickle, load_from_hdf5_thresholded."
+            "load_from_pickle, load_from_hdf5_thresholded, load_from_ibl, "
+            "load_from_spikelab_sorted_npz."
         )
     return sd
 

@@ -631,6 +631,12 @@ def remove_stim_artifacts(
             "expected 'polynomial' or 'blank'."
         )
 
+    if traces.shape[0] == 0 or traces.shape[1] == 0:
+        raise ValueError(
+            f"traces must have at least one channel and one sample, "
+            f"got shape {traces.shape}"
+        )
+
     # Pick the source of truth for saturation detection.  Prefer raw
     # (pre-bandpass) traces when provided — filter ringing after a stim
     # artifact can drive filtered samples past the raw ADC rail even

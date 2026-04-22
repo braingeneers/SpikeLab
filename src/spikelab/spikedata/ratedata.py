@@ -71,7 +71,7 @@ class RateData:
         self.N = inst_Frate_data.shape[0]
         self.neuron_attributes = None
         if neuron_attributes is not None:
-            self.neuron_attributes = neuron_attributes.copy()
+            self.neuron_attributes = list(neuron_attributes)
             if len(neuron_attributes) != self.N:
                 raise ValueError(
                     f"neuron_attributes has {len(neuron_attributes)} items "

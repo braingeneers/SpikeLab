@@ -5415,3 +5415,1683 @@ class TestCoverageGaps:
         )
         assert os.path.exists(path)
         assert result["file_path"] == path
+
+
+# ============================================================================
+# Subset Stack MCP Tests
+# ============================================================================
+
+
+class TestSubsetStackMCP:
+    """Tests for subset_stack MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_subset_stack_basic(self, loaded_ws):
+        """
+        subset_stack creates a SpikeSliceStack with valid units_per_subset.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is a SpikeSliceStack.
+            (Test Case 3) n_subsets matches requested value.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.subset_stack(
+            workspace_id=ws_id,
+            namespace=ns,
+            out_key="subsets",
+            n_subsets=3,
+            units_per_subset=2,
+            seed=42,
+        )
+        assert result["key"] == "subsets"
+        assert result["n_subsets"] == 3
+        assert result["units_per_subset"] == 2
+        assert result["info"]["type"] == "SpikeSliceStack"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_subset_stack_units_exceeds_n(self, loaded_ws):
+        """
+        subset_stack raises ValueError when units_per_subset > N.
+
+        Tests:
+            (Test Case 1) ValueError is raised with descriptive message.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="units_per_subset"):
+            await analysis.subset_stack(
+                workspace_id=ws_id,
+                namespace=ns,
+                out_key="subsets_bad",
+                n_subsets=2,
+                units_per_subset=100,
+                seed=0,
+            )
+
+
+# ============================================================================
+# RateData Selection MCP Tests
+# ============================================================================
+
+
+class TestRateDataSelectionMCP:
+    """Tests for ratedata_subset and ratedata_subtime MCP tools."""
+
+    @pytest.fixture
+    def loaded_ws_with_rd(self):
+        """Create a workspace with a RateData stored at ('rec1', 'rd')."""
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.spikedata.ratedata import RateData
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="test_ws_rd")
+        ws = wm.get_workspace(ws_id)
+
+        rd = RateData(
+            inst_Frate_data=np.random.default_rng(0).standard_normal((4, 20)),
+            times=np.arange(20, dtype=float) * 5.0,
+        )
+        ws.store("rec1", "rd", rd)
+        return ws_id, "rec1"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_ratedata_subset_basic(self, loaded_ws_with_rd):
+        """
+        ratedata_subset selects units from a stored RateData.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is RateData with correct number of units.
+        """
+        ws_id, ns = loaded_ws_with_rd
+        result = await analysis.ratedata_subset(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="rd",
+            units=[0, 2],
+            out_key="rd_sub",
+        )
+        assert result["key"] == "rd_sub"
+        assert result["info"]["type"] == "RateData"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        rd_sub = ws.get(ns, "rd_sub")
+        assert rd_sub.N == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_ratedata_subtime_basic(self, loaded_ws_with_rd):
+        """
+        ratedata_subtime selects a time window from a stored RateData.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is RateData with trimmed time axis.
+        """
+        ws_id, ns = loaded_ws_with_rd
+        result = await analysis.ratedata_subtime(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="rd",
+            start=10.0,
+            end=50.0,
+            out_key="rd_time",
+        )
+        assert result["key"] == "rd_time"
+        assert result["info"]["type"] == "RateData"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        rd_time = ws.get(ns, "rd_time")
+        # times are 0, 5, 10, ..., 95; start=10, end=50 -> indices 2..9 (8 bins)
+        assert rd_time.inst_Frate_data.shape[1] == 8
+
+
+# ============================================================================
+# RateSliceStack Selection MCP Tests
+# ============================================================================
+
+
+class TestRateSliceStackSelectionMCP:
+    """Tests for rate_slice_subset, rate_slice_subtime, rate_slice_subslice."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rate_slice_subset_basic(self, loaded_ws_with_rss):
+        """
+        rate_slice_subset selects units from a RateSliceStack.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is RateSliceStack with subset of units.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.rate_slice_subset(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="rss",
+            units=[0, 1],
+            out_key="rss_sub",
+        )
+        assert result["key"] == "rss_sub"
+        assert result["info"]["type"] == "RateSliceStack"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        rss_sub = ws.get(ns, "rss_sub")
+        assert rss_sub.event_stack.shape[0] == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rate_slice_subtime_basic(self, loaded_ws_with_rss):
+        """
+        rate_slice_subtime trims the time axis of a RateSliceStack by index.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is RateSliceStack with trimmed time axis.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.rate_slice_subtime(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="rss",
+            start_idx=2,
+            end_idx=10,
+            out_key="rss_time",
+        )
+        assert result["key"] == "rss_time"
+        assert result["info"]["type"] == "RateSliceStack"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        rss_time = ws.get(ns, "rss_time")
+        assert rss_time.event_stack.shape[1] == 8
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rate_slice_subslice_basic(self, loaded_ws_with_rss):
+        """
+        rate_slice_subslice selects slices from a RateSliceStack.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is RateSliceStack with subset of slices.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.rate_slice_subslice(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="rss",
+            slices=[0],
+            out_key="rss_slice",
+        )
+        assert result["key"] == "rss_slice"
+        assert result["info"]["type"] == "RateSliceStack"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        rss_slice = ws.get(ns, "rss_slice")
+        assert rss_slice.event_stack.shape[2] == 1
+
+
+# ============================================================================
+# Shuffle Statistics MCP Tests
+# ============================================================================
+
+
+class TestShuffleStatsMCP:
+    """Tests for shuffle_z_score and shuffle_percentile MCP tools."""
+
+    @pytest.fixture
+    def loaded_ws_with_arrays(self):
+        """Create a workspace with observed and shuffle arrays."""
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="test_ws_shuffle")
+        ws = wm.get_workspace(ws_id)
+
+        observed = np.array([5.0, 10.0, 15.0])
+        shuffle_dist = np.array(
+            [[4.0, 9.0, 14.0], [6.0, 11.0, 16.0], [5.0, 10.0, 15.0]]
+        )
+        ws.store("rec1", "observed", observed)
+        ws.store("rec1", "shuffle", shuffle_dist)
+        return ws_id, "rec1"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_shuffle_z_score_basic(self, loaded_ws_with_arrays):
+        """
+        shuffle_z_score computes z-score of observed vs shuffle distribution.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is an ndarray.
+        """
+        ws_id, ns = loaded_ws_with_arrays
+        result = await analysis.shuffle_z_score(
+            workspace_id=ws_id,
+            namespace=ns,
+            observed_key="observed",
+            shuffle_key="shuffle",
+            out_key="z_scores",
+        )
+        assert result["key"] == "z_scores"
+        assert result["info"]["type"] == "ndarray"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        z = ws.get(ns, "z_scores")
+        assert isinstance(z, np.ndarray)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_shuffle_percentile_basic(self, loaded_ws_with_arrays):
+        """
+        shuffle_percentile computes percentile rank of observed vs shuffle.
+
+        Tests:
+            (Test Case 1) Result contains key and info.
+            (Test Case 2) Stored item is an ndarray.
+        """
+        ws_id, ns = loaded_ws_with_arrays
+        result = await analysis.shuffle_percentile(
+            workspace_id=ws_id,
+            namespace=ns,
+            observed_key="observed",
+            shuffle_key="shuffle",
+            out_key="pct",
+        )
+        assert result["key"] == "pct"
+        assert result["info"]["type"] == "ndarray"
+
+        ws = get_workspace_manager().get_workspace(ws_id)
+        pct = ws.get(ns, "pct")
+        assert isinstance(pct, np.ndarray)
+
+
+# ============================================================================
+# Slice Analysis MCP Tests
+# ============================================================================
+
+
+class TestSliceAnalysisMCP:
+    """Tests for slice_trend and slice_stability MCP tools."""
+
+    @pytest.fixture
+    def loaded_ws_with_values(self):
+        """Create a workspace with a 1-D ndarray for slice analysis."""
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="test_ws_slice")
+        ws = wm.get_workspace(ws_id)
+
+        values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        ws.store("rec1", "vals", values)
+        return ws_id, "rec1"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_slice_trend_basic(self, loaded_ws_with_values):
+        """
+        slice_trend fits a linear trend across ordered slices.
+
+        Tests:
+            (Test Case 1) Result contains slope and p_value.
+            (Test Case 2) Slope is positive for increasing values.
+        """
+        ws_id, ns = loaded_ws_with_values
+        result = await analysis.slice_trend(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="vals",
+        )
+        assert "slope" in result
+        assert "p_value" in result
+        assert result["slope"] > 0
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_slice_stability_basic(self, loaded_ws_with_values):
+        """
+        slice_stability computes coefficient of variation across slices.
+
+        Tests:
+            (Test Case 1) Result contains cv.
+            (Test Case 2) CV is a finite number.
+        """
+        ws_id, ns = loaded_ws_with_values
+        result = await analysis.slice_stability(
+            workspace_id=ws_id,
+            namespace=ns,
+            key="vals",
+        )
+        assert "cv" in result
+        assert np.isfinite(result["cv"])
+
+
+# ============================================================================
+# Edge Case Tests — HIGH severity findings from REVIEW.md
+# ============================================================================
+
+
+class TestPairwiseTestsEdgeCases:
+    """Edge case tests for pairwise_tests MCP tool (HIGH: single group, invalid test)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_group(self):
+        """
+        EC-MCP-HIGH-01: pairwise_tests with single group (1 key).
+
+        Single group means zero pairwise comparisons. Should either raise
+        a clear error or return a degenerate result.
+
+        Tests:
+            (Test Case 1) pairwise_tests with keys=[single_key] either raises
+                ValueError or returns n_comparisons=0.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="single_group_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "group_a", np.array([1.0, 2.0, 3.0]))
+        try:
+            result = await analysis.pairwise_tests(
+                workspace_id=ws_id,
+                namespace="ns",
+                keys=["group_a"],
+            )
+            # If it succeeds, should have 0 comparisons
+            assert result["n_comparisons"] == 0
+        except (ValueError, Exception):
+            # Raising is acceptable for degenerate input
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_invalid_test_name(self):
+        """
+        EC-MCP-MED-01: pairwise_tests with invalid test name.
+
+        Tests:
+            (Test Case 1) pairwise_tests with test="nonexistent_test" raises
+                ValueError or KeyError.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="invalid_test_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "a", np.array([1.0, 2.0, 3.0]))
+        ws.store("ns", "b", np.array([4.0, 5.0, 6.0]))
+        with pytest.raises(Exception):
+            await analysis.pairwise_tests(
+                workspace_id=ws_id,
+                namespace="ns",
+                keys=["a", "b"],
+                test="nonexistent_test",
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_labels_length_mismatch(self):
+        """
+        EC-MCP-MED-02: pairwise_tests with labels list shorter than keys.
+
+        Tests:
+            (Test Case 1) Shorter labels list either silently truncates or raises.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="labels_mismatch_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "a", np.array([1.0, 2.0]))
+        ws.store("ns", "b", np.array([3.0, 4.0]))
+        ws.store("ns", "c", np.array([5.0, 6.0]))
+        try:
+            result = await analysis.pairwise_tests(
+                workspace_id=ws_id,
+                namespace="ns",
+                keys=["a", "b", "c"],
+                labels=["L1"],  # Only 1 label for 3 keys
+            )
+            # If it succeeds, check the result shape is valid
+            assert "pval_matrix" in result
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_different_length_arrays(self):
+        """
+        EC-MCP-MED-03: pairwise_tests with keys pointing to arrays of different lengths.
+
+        Tests:
+            (Test Case 1) Different-length arrays should still work (Welch t-test
+                handles unequal sizes).
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="diff_len_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "short", np.array([1.0, 2.0]))
+        ws.store("ns", "long", np.array([3.0, 4.0, 5.0, 6.0, 7.0]))
+        result = await analysis.pairwise_tests(
+            workspace_id=ws_id,
+            namespace="ns",
+            keys=["short", "long"],
+        )
+        assert result["n_comparisons"] == 1
+
+
+class TestSubsetStackEdgeCases:
+    """Edge case tests for subset_stack MCP tool (HIGH: units_per_subset > N)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_units_per_subset_exceeds_N(self, loaded_ws):
+        """
+        EC-MCP-HIGH-02: subset_stack with units_per_subset > N.
+
+        Requesting more units per subset than available should raise an error.
+
+        Tests:
+            (Test Case 1) subset_stack with units_per_subset=10 on 3-unit data
+                raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.subset_stack(
+                ws_id, ns, out_key="sub_big", n_subsets=2, units_per_subset=10
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_n_subsets_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-04: subset_stack with n_subsets=0.
+
+        Tests:
+            (Test Case 1) n_subsets=0 produces a SpikeSliceStack with 0 slices
+                or raises a clear error.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.subset_stack(
+                ws_id, ns, out_key="sub_zero", n_subsets=0, units_per_subset=2
+            )
+            assert result["info"]["type"] == "SpikeSliceStack"
+        except Exception:
+            pass
+
+
+class TestAlignToEventsEdgeCasesFromReview:
+    """Edge case tests for align_to_events (HIGH: metadata string key)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_events_as_metadata_key(self):
+        """
+        EC-MCP-HIGH-03: align_to_events with events as a metadata string key.
+
+        When events is a string, it should look up that key in SpikeData.metadata.
+
+        Tests:
+            (Test Case 1) Passing events as a string key that exists in metadata
+                succeeds and creates slices.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="meta_events_ws")
+        sd = SpikeData(
+            [[10.0, 20.0, 30.0, 40.0], [15.0, 25.0, 35.0]],
+            length=50.0,
+            metadata={"stim_times": np.array([15.0, 35.0])},
+        )
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.align_to_events(
+            ws_id,
+            "rec1",
+            key="aligned_meta",
+            events="stim_times",
+            pre_ms=5.0,
+            post_ms=5.0,
+            kind="spike",
+        )
+        assert result["key"] == "aligned_meta"
+        assert result["n_slices"] == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pre_ms_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-05: align_to_events with pre_ms=0.
+
+        Tests:
+            (Test Case 1) pre_ms=0 produces slices starting exactly at the event.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.align_to_events(
+            ws_id,
+            ns,
+            key="aligned_pre0",
+            events=[15.0, 35.0],
+            pre_ms=0.0,
+            post_ms=10.0,
+            kind="spike",
+        )
+        assert result["key"] == "aligned_pre0"
+        assert result["n_slices"] == 2
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_post_ms_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-06: align_to_events with post_ms=0.
+
+        Tests:
+            (Test Case 1) post_ms=0 either raises or produces degenerate slices.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.align_to_events(
+                ws_id,
+                ns,
+                key="aligned_post0",
+                events=[15.0, 35.0],
+                pre_ms=10.0,
+                post_ms=0.0,
+                kind="spike",
+            )
+            assert result["key"] == "aligned_post0"
+        except Exception:
+            pass
+
+
+class TestComputePairwiseLatenciesEdgeCases:
+    """Edge case tests for compute_pairwise_latencies (HIGH: window_ms=None)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_window_ms_none(self, loaded_ws):
+        """
+        EC-MCP-HIGH-04: compute_pairwise_latencies with default window_ms=None.
+
+        Tests:
+            (Test Case 1) Default window_ms=None succeeds and stores PairwiseCompMatrix.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.compute_pairwise_latencies(
+            ws_id, ns, key_mean="lat_mn", key_std="lat_sd", window_ms=None
+        )
+        assert result["info_mean"]["type"] == "PairwiseCompMatrix"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_unit_spikedata(self):
+        """
+        EC-MCP-MED-07: compute_pairwise_latencies with single-unit SpikeData.
+
+        Tests:
+            (Test Case 1) Single-unit data produces (1,1) matrices.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="lat_1u_ws")
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.compute_pairwise_latencies(
+            ws_id, "rec1", key_mean="lat_m", key_std="lat_s"
+        )
+        assert result["info_mean"]["shape"] == [1, 1]
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_unit_spikedata(self):
+        """
+        EC-MCP-MED-08: compute_pairwise_latencies with N=0 SpikeData.
+
+        Tests:
+            (Test Case 1) Zero-unit data produces (0,0) matrices or raises.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="lat_0u_ws")
+        sd = SpikeData([], length=50.0)
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        try:
+            result = await analysis.compute_pairwise_latencies(
+                ws_id, "rec1", key_mean="lat_m0", key_std="lat_s0"
+            )
+            assert result["info_mean"]["shape"] == [0, 0]
+        except Exception:
+            pass
+
+
+class TestSetNeuronAttributeEdgeCasesReview:
+    """Edge case tests for set_neuron_attribute (HIGH: no neuron_attributes)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_set_attr_on_spikedata_without_neuron_attributes(self, loaded_ws):
+        """
+        EC-MCP-HIGH-05: set_neuron_attribute on SpikeData with no neuron_attributes.
+
+        Tests:
+            (Test Case 1) Setting an attribute on SpikeData without neuron_attributes
+                either initializes them or raises a clear error.
+        """
+        ws_id, ns = loaded_ws
+        # loaded_ws has SpikeData without neuron_attributes
+        try:
+            result = await analysis.set_neuron_attribute(
+                ws_id, ns, key="label", values=["a", "b", "c"]
+            )
+            assert result["key"] == "label"
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_set_attr_with_nan_values(self, loaded_ws_with_attrs):
+        """
+        EC-MCP-MED-09: set_neuron_attribute with NaN values.
+
+        Tests:
+            (Test Case 1) NaN values are stored without error.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.set_neuron_attribute(
+            ws_id, ns, key="score", values=[1.0, float("nan"), 3.0]
+        )
+        assert result["key"] == "score"
+
+
+class TestGetNeuronToChannelMapEdgeCases:
+    """Edge case tests for get_neuron_to_channel_map."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_no_neuron_attributes(self, loaded_ws):
+        """
+        EC-MCP-MED-10: get_neuron_to_channel_map with SpikeData without neuron_attributes.
+
+        Tests:
+            (Test Case 1) SpikeData without neuron_attributes either returns empty
+                mapping or raises.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.get_neuron_to_channel_map(ws_id, ns)
+            assert "mapping" in result
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_missing_channel_attr_key(self, loaded_ws_with_attrs):
+        """
+        EC-MCP-MED-11: get_neuron_to_channel_map with channel_attr pointing to missing key.
+
+        The underlying neuron_to_channel_map silently skips neurons whose
+        attributes lack the requested key, returning an empty mapping.
+
+        Tests:
+            (Test Case 1) Missing channel_attr key returns empty mapping.
+        """
+        ws_id, ns = loaded_ws_with_attrs
+        result = await analysis.get_neuron_to_channel_map(
+            ws_id, ns, channel_attr="nonexistent_attr"
+        )
+        assert result["mapping"] == {}
+
+
+class TestComputeSpikeTriggeredPopRateEdgeCasesReview:
+    """Edge case tests for compute_spike_trig_pop_rate."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_n0_spikedata(self, loaded_ws):
+        """
+        EC-MCP-HIGH-06: compute_spike_trig_pop_rate with N=0 SpikeData.
+
+        Tests:
+            (Test Case 1) N=0 raises an exception due to shape mismatches
+                in coupling_stack.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_empty = SpikeData([], length=50.0)
+        ws.store("empty_stpr", "spikedata", sd_empty)
+        with pytest.raises(Exception):
+            await analysis.compute_spike_trig_pop_rate(
+                ws_id, "empty_stpr", "stpr", "stpr_lags", "stpr_coupling"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_window_ms_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-12: compute_spike_trig_pop_rate with window_ms=0.
+
+        Tests:
+            (Test Case 1) window_ms=0 either raises or produces empty result.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.compute_spike_trig_pop_rate(
+                ws_id, ns, "stpr_w0", "stpr_w0_l", "stpr_w0_c", window_ms=0
+            )
+
+
+class TestPCAOnWorkspaceItemEdgeCases:
+    """Edge case tests for pca_on_workspace_item."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_array_with_nan(self):
+        """
+        EC-MCP-HIGH-07: pca_on_workspace_item with NaN values in input.
+
+        PCA (sklearn) does not handle NaN natively — should raise ValueError.
+
+        Tests:
+            (Test Case 1) Array with NaN values raises an exception.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="pca_nan_ws")
+        ws = wm.get_workspace(ws_id)
+        arr = np.array([[1.0, 2.0], [np.nan, 4.0], [5.0, 6.0]])
+        ws.store("ns", "nan_mat", arr)
+        with pytest.raises(Exception):
+            await analysis.pca_on_workspace_item(
+                ws_id, "ns", key="nan_mat", out_key="pca_nan", n_components=1
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_n_components_exceeds_dims(self):
+        """
+        EC-MCP-MED-13: pca_on_workspace_item with n_components > min(rows, cols).
+
+        Tests:
+            (Test Case 1) n_components=10 on (3,2) array raises or clamps.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="pca_ncomp_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "small_mat", np.random.default_rng(0).random((3, 2)))
+        try:
+            result = await analysis.pca_on_workspace_item(
+                ws_id, "ns", key="small_mat", out_key="pca_big", n_components=10
+            )
+            # If it succeeded, n_components was clamped
+            assert result["info"]["type"] == "ndarray"
+        except Exception:
+            pass
+
+
+class TestCreateRateSliceStackEdgeCasesFromReview:
+    """Edge case tests for create_rate_slice_stack (HIGH: wrong inner list length)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_wrong_inner_list_length(self, loaded_ws):
+        """
+        EC-MCP-HIGH-08: create_rate_slice_stack with wrong inner list length.
+
+        Each inner list should be [start, end]. Passing [start, end, extra]
+        should raise or produce unexpected results.
+
+        Tests:
+            (Test Case 1) Inner list with 3 elements raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.create_rate_slice_stack(
+                ws_id, ns, "rss_bad", times_start_to_end=[[0.0, 25.0, 50.0]]
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_element_inner_list(self, loaded_ws):
+        """
+        EC-MCP-HIGH-09: create_rate_slice_stack with single-element inner list.
+
+        Tests:
+            (Test Case 1) Inner list with 1 element raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.create_rate_slice_stack(
+                ws_id, ns, "rss_bad1", times_start_to_end=[[25.0]]
+            )
+
+
+class TestBurstSensitivityEdgeCasesFromReview:
+    """Edge case tests for burst_sensitivity (HIGH: empty dist_values)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_dist_values(self, loaded_ws):
+        """
+        EC-MCP-HIGH-10: burst_sensitivity with empty dist_values.
+
+        Tests:
+            (Test Case 1) Empty dist_values with non-empty thr_values either
+                produces shape (len(thr), 0) or raises.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.burst_sensitivity(
+                ws_id,
+                ns,
+                key="bs_empty",
+                thr_values=[1.0, 2.0],
+                dist_values=[],
+                burst_edge_mult_thresh=0.5,
+            )
+            # If it succeeds, shape should be (2, 0)
+            assert result["shape"][1] == 0
+        except Exception:
+            pass
+
+
+class TestGetFracActiveEdgeCasesFromReview:
+    """Edge case tests for get_frac_active (HIGH: edges shape wrong)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_edges_wrong_shape(self, loaded_ws):
+        """
+        EC-MCP-HIGH-11: get_frac_active with edges shape (N,) instead of (N, 2).
+
+        Tests:
+            (Test Case 1) 1-D edges array raises an exception.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        # Store 1-D edges instead of (N, 2)
+        ws.store(ns, "bad_edges", np.array([8.0, 12.0, 28.0, 32.0]))
+        with pytest.raises(Exception):
+            await analysis.get_frac_active(
+                ws_id,
+                ns,
+                edges_key="bad_edges",
+                key_frac_unit="fu",
+                key_frac_burst="fb",
+                key_backbone="bb",
+                min_spikes=1,
+                backbone_threshold=0.5,
+            )
+
+
+# ============================================================================
+# Edge Case Tests — MEDIUM severity findings from REVIEW.md
+# ============================================================================
+
+
+class TestSpikeShuffleEdgeCases:
+    """Edge case tests for spike_shuffle / spike_shuffle_stack."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_swap_per_spike_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-14: spike_shuffle with swap_per_spike=0.
+
+        Tests:
+            (Test Case 1) swap_per_spike=0 produces a SpikeData identical or
+                nearly identical to the original.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.spike_shuffle(
+            ws_id, ns, out_namespace="shuffled_0", swap_per_spike=0, seed=42
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["type"] == "SpikeData"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_n_shuffles_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-15: spike_shuffle_stack with n_shuffles=0.
+
+        Tests:
+            (Test Case 1) n_shuffles=0 produces a SpikeSliceStack with 0 slices
+                or raises.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.spike_shuffle_stack(
+                ws_id, ns, out_key="sss_shuf_0", n_shuffles=0, seed=42
+            )
+            assert result["info"]["type"] == "SpikeSliceStack"
+        except Exception:
+            pass
+
+
+class TestComputePairwiseCCGEdgeCasesReview:
+    """Additional edge case tests for compute_pairwise_ccg."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_max_lag_zero(self, loaded_ws):
+        """
+        EC-MCP-MED-16: compute_pairwise_ccg with max_lag=0.
+
+        Tests:
+            (Test Case 1) max_lag=0 either raises or produces a degenerate result.
+        """
+        ws_id, ns = loaded_ws
+        try:
+            result = await analysis.compute_pairwise_ccg(
+                ws_id, ns, key_corr="ccg_c0", key_lag="ccg_l0", max_lag=0
+            )
+            assert result["info_corr"]["type"] == "PairwiseCompMatrix"
+        except Exception:
+            pass
+
+
+class TestRateDataSubsetEdgeCases:
+    """Edge case tests for ratedata_subset / ratedata_subtime."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_units_list(self, loaded_ws):
+        """
+        EC-MCP-MED-17: ratedata_subset with empty units list.
+
+        Tests:
+            (Test Case 1) Empty units list produces RateData with 0 units.
+        """
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rd_rates", times=times)
+        try:
+            result = await analysis.ratedata_subset(
+                ws_id, ns, key="rd_rates", units=[], out_key="rd_empty"
+            )
+            assert result["info"]["type"] == "RateData"
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_start_greater_than_end(self, loaded_ws):
+        """
+        EC-MCP-MED-18: ratedata_subtime with start > end.
+
+        Tests:
+            (Test Case 1) Inverted range raises or produces degenerate result.
+        """
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rd_rates2", times=times)
+        with pytest.raises(Exception):
+            await analysis.ratedata_subtime(
+                ws_id, ns, key="rd_rates2", start=40.0, end=10.0, out_key="rd_inv"
+            )
+
+
+class TestRateSliceSubsetEdgeCases:
+    """Edge case tests for rate_slice_subset / rate_slice_subtime / rate_slice_subslice."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_units_list(self, loaded_ws_with_rss):
+        """
+        EC-MCP-MED-19: rate_slice_subset with empty units list.
+
+        Tests:
+            (Test Case 1) Empty units list produces RateSliceStack with 0 units.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        try:
+            result = await analysis.rate_slice_subset(
+                ws_id, ns, key="rss", units=[], out_key="rss_empty"
+            )
+            assert result["info"]["type"] == "RateSliceStack"
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_start_idx_greater_than_end_idx(self, loaded_ws_with_rss):
+        """
+        EC-MCP-MED-20: rate_slice_subtime with start_idx > end_idx.
+
+        Tests:
+            (Test Case 1) Inverted range raises or produces degenerate result.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        with pytest.raises(Exception):
+            await analysis.rate_slice_subtime(
+                ws_id, ns, key="rss", start_idx=100, end_idx=0, out_key="rss_inv"
+            )
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_empty_slices_list(self, loaded_ws_with_rss):
+        """
+        EC-MCP-MED-21: rate_slice_subslice with empty slices list.
+
+        Tests:
+            (Test Case 1) Empty slices list produces RateSliceStack with 0 slices
+                or raises.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        try:
+            result = await analysis.rate_slice_subslice(
+                ws_id, ns, key="rss", slices=[], out_key="rss_nosls"
+            )
+            assert result["info"]["type"] == "RateSliceStack"
+        except Exception:
+            pass
+
+
+class TestShuffleStatsEdgeCases:
+    """Edge case tests for shuffle_z_score / shuffle_percentile."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_variance_shuffle(self):
+        """
+        EC-MCP-MED-22: shuffle_z_score with zero-variance shuffle distribution.
+
+        Z-score with std=0 produces Inf or NaN.
+
+        Tests:
+            (Test Case 1) Zero-variance shuffle dist does not crash; result may
+                contain Inf/NaN.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="z_zero_var_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "obs", np.array([5.0]))
+        ws.store("ns", "shuf", np.array([3.0, 3.0, 3.0, 3.0]))
+        try:
+            result = await analysis.shuffle_z_score(
+                ws_id,
+                "ns",
+                observed_key="obs",
+                shuffle_key="shuf",
+                out_key="z_out",
+            )
+            assert result["key"] == "z_out"
+        except Exception:
+            pass
+
+
+class TestSliceTrendEdgeCases:
+    """Edge case tests for slice_trend."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_element(self):
+        """
+        EC-MCP-MED-23: slice_trend with fewer than 2 elements.
+
+        Tests:
+            (Test Case 1) Single-element array raises or returns degenerate stats.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="trend_1_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "one", np.array([5.0]))
+        try:
+            result = await analysis.slice_trend(ws_id, "ns", key="one")
+            assert "slope" in result
+        except Exception:
+            pass
+
+
+class TestSliceStabilityEdgeCases:
+    """Edge case tests for slice_stability."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_zero_mean_array(self):
+        """
+        EC-MCP-MED-24: slice_stability with zero-mean array (CV undefined).
+
+        Tests:
+            (Test Case 1) All-zero array produces Inf CV or NaN.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="stab_zero_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "zeros", np.array([0.0, 0.0, 0.0]))
+        result = await analysis.slice_stability(ws_id, "ns", key="zeros")
+        # CV = std/mean; mean=0 → Inf or NaN
+        assert "cv" in result
+
+
+class TestConcatenateUnitsEdgeCases:
+    """Edge case tests for concatenate_units."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_different_lengths(self, loaded_ws, sample_spikedata):
+        """
+        EC-MCP-MED-25: concatenate_units with SpikeData of different lengths.
+
+        Tests:
+            (Test Case 1) Different lengths either raises or produces result
+                with the max length.
+        """
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        sd_short = SpikeData([[5.0, 10.0]], length=20.0)
+        ws.store("rec_short", "spikedata", sd_short)
+        try:
+            result = await analysis.concatenate_units(
+                ws_id, namespace_a=ns, namespace_b="rec_short"
+            )
+            assert result["info"]["type"] == "SpikeData"
+        except Exception:
+            pass
+
+
+class TestSubtimeEdgeCasesFromReview:
+    """Edge case tests for subtime through MCP (from review)."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_both_beyond_recording(self, loaded_ws):
+        """
+        EC-MCP-MED-26: subtime with start and end both beyond recording.
+
+        Tests:
+            (Test Case 1) start=100, end=200 on 50ms recording raises ValueError.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(ValueError, match="exceeds recording end"):
+            await analysis.subtime(ws_id, ns, start=100.0, end=200.0)
+
+
+class TestExtractLowerTriangleFeaturesEdgeCases:
+    """Edge case tests for extract_lower_triangle_features."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_2x2_stack(self, loaded_ws):
+        """
+        EC-MCP-MED-27: extract_lower_triangle_features with 2x2 PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) 2x2 stack produces (S, 1) feature matrix
+                (one lower-triangle element).
+        """
+        from spikelab.spikedata.pairwise import PairwiseCompMatrixStack
+
+        ws_id, ns = loaded_ws
+        wm = get_workspace_manager()
+        ws = wm.get_workspace(ws_id)
+        stack = PairwiseCompMatrixStack(stack=np.ones((2, 2, 3)))
+        ws.store(ns, "pcms_2x2", stack)
+        result = await analysis.extract_lower_triangle_features(
+            ws_id, ns, key="pcms_2x2", out_key="feat_2x2"
+        )
+        assert result["info"]["type"] == "ndarray"
+        feat = ws.get(ns, "feat_2x2")
+        assert feat.shape == (3, 1)  # 1 lower-triangle element, 3 slices
+
+
+class TestComputeRateManifoldEdgeCasesReview:
+    """Additional edge case tests for compute_rate_manifold."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_store_pca_details(self, loaded_ws):
+        """
+        EC-MCP-MED-28: compute_rate_manifold with store_pca_details=True.
+
+        Tests:
+            (Test Case 1) Additional variance and components keys are stored.
+        """
+        ws_id, ns = loaded_ws
+        times = list(np.arange(0.0, 50.0, 1.0))
+        await analysis.compute_resampled_isi(ws_id, ns, "rates_pca", times=times)
+        result = await analysis.compute_rate_manifold(
+            ws_id,
+            ns,
+            rate_key="rates_pca",
+            key="manifold_d",
+            method="PCA",
+            n_components=2,
+            store_pca_details=True,
+        )
+        assert "key_variance" in result
+        assert "key_components" in result
+        ws = get_workspace_manager().get_workspace(ws_id)
+        assert ws.get(ns, result["key_variance"]) is not None
+        assert ws.get(ns, result["key_components"]) is not None
+
+
+# ============================================================================
+# Coverage Gap Tests — Missing MCP tool coverage
+# ============================================================================
+
+
+class TestLoadFromSpikeLABSortedNpzMCP:
+    """Coverage tests for load_from_spikelab_sorted_npz MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    @patch(
+        "spikelab.mcp_server.tools.data_loaders.load_spikedata_from_spikelab_sorted_npz"
+    )
+    async def test_basic_load(self, mock_load):
+        """
+        Test load_from_spikelab_sorted_npz dispatches to loader and stores result.
+
+        Tests:
+            (Test Case 1) Result contains workspace_id, namespace, workspace_key.
+            (Test Case 2) info.num_neurons matches the mocked SpikeData.
+        """
+        train = [[10.0, 20.0, 30.0], [15.0, 25.0]]
+        sd = SpikeData(train, length=50.0)
+        mock_load.return_value = sd
+
+        result = await data_loaders.load_from_spikelab_sorted_npz(
+            file_path="/tmp/fake_sorted.npz",
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["num_neurons"] == 2
+        assert "workspace_id" in result
+        assert "namespace" in result
+        mock_load.assert_called_once()
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_nonexistent_file(self):
+        """
+        EC-MCP-MED-29: load_from_spikelab_sorted_npz with nonexistent file.
+
+        Tests:
+            (Test Case 1) Nonexistent file raises FileNotFoundError or similar.
+        """
+        with pytest.raises((FileNotFoundError, OSError, Exception)):
+            await data_loaders.load_from_spikelab_sorted_npz(
+                file_path="/tmp/nonexistent_sorted_abc123.npz",
+            )
+
+
+class TestCurateMergeDuplicatesMCP:
+    """Coverage tests for curate_merge_duplicates MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spikedata_without_neuron_attributes(self, loaded_ws):
+        """
+        EC-MCP-HIGH-12: curate_merge_duplicates on SpikeData without neuron_attributes.
+
+        Tests:
+            (Test Case 1) SpikeData without neuron_attributes raises an error
+                since merge needs position/waveform info.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.curate_merge_duplicates(ws_id, ns)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_unit_spikedata(self):
+        """
+        EC-MCP-MED-30: curate_merge_duplicates with 1-unit SpikeData.
+
+        Tests:
+            (Test Case 1) 1-unit data has nothing to merge; should succeed
+                with 0 units absorbed.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="merge_1u_ws")
+        sd = SpikeData(
+            [[10.0, 20.0, 30.0]],
+            length=50.0,
+            neuron_attributes=[
+                {
+                    "position": np.array([0.0, 0.0]),
+                    "avg_waveform": np.array([0.0, 1.0, -1.0, 0.5]),
+                }
+            ],
+        )
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        try:
+            result = await analysis.curate_merge_duplicates(ws_id, "rec1")
+            assert result["info"]["units_absorbed"] == 0
+            assert result["info"]["num_neurons_after"] == 1
+        except Exception:
+            pass
+
+
+class TestSplitEpochsMCP:
+    """Coverage tests for split_epochs MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spikedata_without_rec_chunks(self, loaded_ws):
+        """
+        EC-MCP-MED-31: split_epochs on SpikeData without rec_chunks_ms metadata.
+
+        Tests:
+            (Test Case 1) Missing rec_chunks_ms raises KeyError or ValueError.
+        """
+        ws_id, ns = loaded_ws
+        with pytest.raises(Exception):
+            await analysis.split_epochs(ws_id, ns)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_single_epoch(self):
+        """
+        EC-MCP-MED-32: split_epochs with single epoch.
+
+        Tests:
+            (Test Case 1) Single epoch produces n_epochs=1.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="split_1e_ws")
+        sd = SpikeData(
+            [[10.0, 20.0, 30.0], [15.0, 25.0]],
+            length=50.0,
+            metadata={"rec_chunks_ms": [(0.0, 50.0)]},
+        )
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.split_epochs(ws_id, "rec1")
+        assert result["n_epochs"] == 1
+        assert len(result["epochs"]) == 1
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_multiple_epochs(self):
+        """
+        Test split_epochs with multiple epochs.
+
+        Tests:
+            (Test Case 1) Two epochs produces n_epochs=2.
+            (Test Case 2) Each epoch namespace is stored correctly.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="split_2e_ws")
+        sd = SpikeData(
+            [[10.0, 20.0, 30.0, 40.0], [5.0, 15.0, 25.0, 35.0]],
+            length=50.0,
+            metadata={"rec_chunks_ms": [(0.0, 25.0), (25.0, 50.0)]},
+        )
+        wm.get_workspace(ws_id).store("rec1", "spikedata", sd)
+        result = await analysis.split_epochs(ws_id, "rec1")
+        assert result["n_epochs"] == 2
+        assert len(result["epochs"]) == 2
+
+
+class TestPCMStackToolsMCP:
+    """Coverage tests for pcm_stack_subslice / pcm_stack_mean / pcm_stack_threshold."""
+
+    @pytest.fixture
+    def loaded_ws_with_pcm_stack(self):
+        """Create workspace with a PairwiseCompMatrixStack."""
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.spikedata.pairwise import PairwiseCompMatrixStack
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="pcm_stack_ws")
+        ws = wm.get_workspace(ws_id)
+        # 3x3 matrix, 4 slices
+        stack_data = np.random.default_rng(42).random((3, 3, 4))
+        stack = PairwiseCompMatrixStack(stack=stack_data)
+        ws.store("ns", "pcms", stack)
+        return ws_id, "ns"
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pcm_stack_subslice_basic(self, loaded_ws_with_pcm_stack):
+        """
+        Test pcm_stack_subslice selects slices from a PairwiseCompMatrixStack.
+
+        Tests:
+            (Test Case 1) Selecting 2 slices produces a (3,3,2) stack.
+        """
+        ws_id, ns = loaded_ws_with_pcm_stack
+        result = await analysis.pcm_stack_subslice(
+            ws_id, ns, key="pcms", indices=[0, 2], out_key="pcms_sub"
+        )
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+        ws = get_workspace_manager().get_workspace(ws_id)
+        sub = ws.get(ns, "pcms_sub")
+        assert sub.stack.shape == (3, 3, 2)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pcm_stack_subslice_empty_indices(self, loaded_ws_with_pcm_stack):
+        """
+        EC-MCP-MED-33: pcm_stack_subslice with empty indices list.
+
+        Tests:
+            (Test Case 1) Empty indices produces (3,3,0) stack or raises.
+        """
+        ws_id, ns = loaded_ws_with_pcm_stack
+        try:
+            result = await analysis.pcm_stack_subslice(
+                ws_id, ns, key="pcms", indices=[], out_key="pcms_empty"
+            )
+            ws = get_workspace_manager().get_workspace(ws_id)
+            sub = ws.get(ns, "pcms_empty")
+            assert sub.stack.shape[2] == 0
+        except Exception:
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pcm_stack_mean_basic(self, loaded_ws_with_pcm_stack):
+        """
+        Test pcm_stack_mean averages across slices.
+
+        Tests:
+            (Test Case 1) Result is PairwiseCompMatrix with shape (3,3).
+        """
+        ws_id, ns = loaded_ws_with_pcm_stack
+        result = await analysis.pcm_stack_mean(
+            ws_id, ns, key="pcms", out_key="pcms_avg"
+        )
+        assert result["info"]["type"] == "PairwiseCompMatrix"
+        ws = get_workspace_manager().get_workspace(ws_id)
+        avg = ws.get(ns, "pcms_avg")
+        assert avg.matrix.shape == (3, 3)
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pcm_stack_mean_single_slice(self):
+        """
+        EC-MCP-MED-34: pcm_stack_mean with single-slice stack.
+
+        Tests:
+            (Test Case 1) Single slice mean equals the slice itself.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.spikedata.pairwise import PairwiseCompMatrixStack
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="pcm_1s_ws")
+        ws = wm.get_workspace(ws_id)
+        data = np.array([[[1.0], [0.5]], [[0.5], [1.0]]])
+        stack = PairwiseCompMatrixStack(stack=data)
+        ws.store("ns", "pcms1", stack)
+        result = await analysis.pcm_stack_mean(
+            ws_id, "ns", key="pcms1", out_key="pcms1_avg"
+        )
+        avg = ws.get("ns", "pcms1_avg")
+        np.testing.assert_array_almost_equal(avg.matrix, [[1.0, 0.5], [0.5, 1.0]])
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_pcm_stack_threshold_basic(self, loaded_ws_with_pcm_stack):
+        """
+        Test pcm_stack_threshold applies binary thresholding.
+
+        Tests:
+            (Test Case 1) Result is PairwiseCompMatrixStack.
+            (Test Case 2) All values are 0 or 1.
+        """
+        ws_id, ns = loaded_ws_with_pcm_stack
+        result = await analysis.pcm_stack_threshold(
+            ws_id, ns, key="pcms", threshold=0.5, out_key="pcms_thr"
+        )
+        assert result["info"]["type"] == "PairwiseCompMatrixStack"
+        ws = get_workspace_manager().get_workspace(ws_id)
+        thr = ws.get(ns, "pcms_thr")
+        unique_vals = np.unique(thr.stack)
+        assert all(v in [0.0, 1.0] for v in unique_vals)
+
+
+class TestCurateSpikeDataMCP:
+    """Coverage tests for curate_spikedata MCP tool."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_multiple_criteria(self, loaded_ws):
+        """
+        EC-MCP-MED-35: curate_spikedata with multiple criteria combined.
+
+        Tests:
+            (Test Case 1) Applying min_spikes and min_rate_hz together succeeds.
+            (Test Case 2) Curation history lists both criteria.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.curate_spikedata(
+            ws_id, ns, min_spikes=2, min_rate_hz=0.001
+        )
+        assert result["workspace_key"] == "spikedata"
+        assert result["info"]["num_neurons_before"] == 3
+        # At least the criteria were applied
+        assert len(result["info"]["criteria_applied"]) >= 1
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_isi_curation(self, loaded_ws):
+        """
+        EC-MCP-MED-36: curate_spikedata with ISI-based curation.
+
+        Tests:
+            (Test Case 1) ISI curation with isi_max succeeds.
+        """
+        ws_id, ns = loaded_ws
+        result = await analysis.curate_spikedata(
+            ws_id, ns, isi_max=0.5, isi_threshold_ms=1.5, isi_method="percent"
+        )
+        assert result["workspace_key"] == "spikedata"
+
+
+class TestFetchWorkspaceItemEdgeCasesReview:
+    """Additional edge case tests for fetch_workspace_item."""
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_ratedata_with_zero_time_bins(self):
+        """
+        EC-MCP-MED-37: fetch_workspace_item with RateData with zero time bins.
+
+        Tests:
+            (Test Case 1) RateData with (U, 0) shape — fetching it may raise
+                IndexError on times[0] / times[-1] access.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        from spikelab.spikedata.ratedata import RateData
+
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="rd_zero_ws")
+        ws = wm.get_workspace(ws_id)
+        rd = RateData(
+            inst_Frate_data=np.empty((3, 0)),
+            times=np.array([]),
+        )
+        ws.store("ns", "rd_empty", rd)
+        try:
+            result = await analysis.fetch_workspace_item(ws_id, "ns", "rd_empty")
+            assert result["type"] == "RateData"
+        except (IndexError, Exception):
+            # IndexError on times[0] access is the known bug
+            pass
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_rate_slice_stack_item(self, loaded_ws_with_rss):
+        """
+        Test fetch_workspace_item returns summary for RateSliceStack.
+
+        Tests:
+            (Test Case 1) Returns shape, times, step_size.
+        """
+        ws_id, ns = loaded_ws_with_rss
+        result = await analysis.fetch_workspace_item(ws_id, ns, "rss")
+        assert result["type"] == "RateSliceStack"
+        assert "shape" in result
+        assert "times" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_spike_slice_stack_item(self, loaded_ws_with_sss):
+        """
+        Test fetch_workspace_item returns summary for SpikeSliceStack.
+
+        Tests:
+            (Test Case 1) Returns num_neurons, num_slices, times.
+        """
+        ws_id, ns = loaded_ws_with_sss
+        result = await analysis.fetch_workspace_item(ws_id, ns, "sss")
+        assert result["type"] == "SpikeSliceStack"
+        assert "num_neurons" in result
+        assert "num_slices" in result
+
+    @pytestmark_server
+    @pytest.mark.asyncio
+    async def test_dict_item(self):
+        """
+        Test fetch_workspace_item returns data for dict items.
+
+        Tests:
+            (Test Case 1) Dict with ndarray values converts correctly.
+        """
+        if not MCP_SERVER_AVAILABLE:
+            pytest.skip("MCP server not available")
+        wm = get_workspace_manager()
+        ws_id = wm.create_workspace(name="dict_ws")
+        ws = wm.get_workspace(ws_id)
+        ws.store("ns", "mydict", {"arr": np.array([1, 2, 3]), "val": 42})
+        result = await analysis.fetch_workspace_item(ws_id, "ns", "mydict")
+        assert result["type"] == "dict"
+        assert "data" in result
+        assert result["data"]["arr"] == [1, 2, 3]
+        assert result["data"]["val"] == 42

@@ -1246,10 +1246,9 @@ class TestHDF5IO:
         for i in range(3):
             assert "waveform" in out.neuron_attributes[i]
             wf = out.neuron_attributes[i]["waveform"]
-            assert isinstance(wf, list)
-            wf_arr = np.asarray(wf)
-            assert wf_arr.shape == (10, 5)
-            np.testing.assert_array_almost_equal(wf_arr, waveforms[i])
+            assert isinstance(wf, np.ndarray)
+            assert wf.shape == (10, 5)
+            np.testing.assert_array_almost_equal(wf, waveforms[i])
             assert float(out.neuron_attributes[i]["channel"]) == pytest.approx(float(i))
 
     def test_roundtrip_spikedata_neuron_attributes_array_partial(self):
@@ -1304,7 +1303,7 @@ class TestHDF5IO:
         np.testing.assert_array_almost_equal(
             out.neuron_attributes[1]["location"], [200.0, 800.0]
         )
-        assert isinstance(out.neuron_attributes[0]["location"], list)
+        assert isinstance(out.neuron_attributes[0]["location"], np.ndarray)
         assert len(out.neuron_attributes[0]["location"]) == 2
         # Test Case 3: scalar preserved
         assert float(out.neuron_attributes[0]["channel"]) == pytest.approx(0.0)
@@ -4636,3 +4635,366 @@ class TestRemainingEdgeCases:
                 assert os.path.getsize(h5_path) > len(b"dummy")
             except (OSError, PermissionError):
                 pass  # Expected on Windows
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestLoadWorkspaceFullValidation:
+    """Tests for load_workspace_full input validation."""
+
+    def test_non_workspace_hdf5_raises(self, tmp_path):
+        """
+        A plain HDF5 file without __workspace_id__ raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message about missing attribute.
+        """
+        from spikelab.workspace.hdf5_io import load_workspace_full
+
+        # Create a plain HDF5 file without workspace metadata
+        h5_path = str(tmp_path / "plain.h5")
+        with h5py.File(h5_path, "w") as f:
+            f.create_dataset("some_data", data=np.array([1, 2, 3]))
+
+        base_path = str(tmp_path / "plain")
+        with pytest.raises(
+            ValueError, match="does not appear to be a SpikeLab workspace"
+        ):
+            load_workspace_full(base_path)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md I/O scan (HIGH and MEDIUM severity)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceEdgeCasesIO:
+    """Edge case tests for workspace.py from REVIEW.md I/O scan."""
+
+    def test_store_note_as_non_string_type(self):
+        """
+        store() with note as non-string type -- not tested.
+
+        Tests:
+            (Test Case 1) Passing an integer as note does not crash.
+            (Test Case 2) The note is stored (as-is or converted).
+        """
+        ws = AnalysisWorkspace(name="note_test")
+        ws.store("ns", "key", np.array([1.0]), note=42)
+        info = ws.get_info("ns", "key")
+        assert info["note"] == 42
+
+    def test_merge_from_lazy_workspace_returns_none(self, tmp_path):
+        """
+        Merge from lazy workspace where get() returns None for a stored key
+        (e.g., the backing HDF5 was corrupted).
+
+        Tests:
+            (Test Case 1) merge_from does not crash when get() returns None.
+            (Test Case 2) The None value is stored in the target workspace.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+
+        lazy_ws = LazyAnalysisWorkspace(name="lazy")
+        lazy_ws.store("ns", "arr", np.array([1.0, 2.0, 3.0]))
+
+        target = AnalysisWorkspace(name="target")
+        result = target.merge_from(lazy_ws)
+        assert result["merged"] == 1
+        # The object should have been loaded via get()
+        loaded = target.get("ns", "arr")
+        assert loaded is not None
+        np.testing.assert_array_equal(loaded, np.array([1.0, 2.0, 3.0]))
+
+    def test_workspace_manager_load_overwrites_existing(self, tmp_path):
+        """
+        Loading workspace with same ID as existing -- overwrites silently.
+
+        Tests:
+            (Test Case 1) Loading the same workspace file twice overwrites
+                the first registration.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+
+        ws = AnalysisWorkspace(name="original")
+        ws.store("ns", "data", np.array([1.0]))
+        base = str(tmp_path / "ws")
+        ws.save(base)
+
+        mgr = WorkspaceManager()
+        ws_id1 = mgr.load_workspace(base)
+        # Modify the in-memory workspace
+        mgr.get_workspace(ws_id1).store("ns", "extra", np.array([99.0]))
+
+        # Load again -- same workspace_id, should overwrite
+        ws_id2 = mgr.load_workspace(base)
+        assert ws_id1 == ws_id2
+
+        # The "extra" key should be gone (overwritten by the loaded version)
+        reloaded = mgr.get_workspace(ws_id2)
+        assert reloaded.get("ns", "extra") is None
+        np.testing.assert_array_equal(reloaded.get("ns", "data"), np.array([1.0]))
+
+    def test_make_summary_spikeslicestack_empty_times(self):
+        """
+        SpikeSliceStack with empty `times` but non-empty `spike_stack` --
+        length_ms should be None.
+
+        Tests:
+            (Test Case 1) _make_summary does not crash when times is empty.
+            (Test Case 2) length_ms is None.
+        """
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        sd = SpikeData([np.array([5.0, 10.0])], length=20.0)
+        sss = SpikeSliceStack.__new__(SpikeSliceStack)
+        sss.spike_stack = [sd]
+        sss.times = []  # empty times
+        sss.N = 1
+        sss.neuron_attributes = None
+
+        summary = _make_summary(sss)
+        assert summary["type"] == "SpikeSliceStack"
+        assert summary["length_ms"] is None
+        assert summary["N_slices"] == 1
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestLazyWorkspaceEdgeCasesIO:
+    """Edge case tests for LazyAnalysisWorkspace from REVIEW.md I/O scan."""
+
+    def test_store_unsupported_type_raises(self):
+        """
+        Store unsupported type -- _dump_item raises TypeError.
+        The index is updated BEFORE the dump, so if dump fails, a ghost
+        entry remains in _index.
+
+        Tests:
+            (Test Case 1) Storing a set raises TypeError.
+            (Test Case 2) Ghost entry remains in _index after failure (documents
+                the known bug).
+        """
+        ws = LazyAnalysisWorkspace(name="ghost")
+
+        with pytest.raises(TypeError, match="Cannot serialise"):
+            ws.store("ns", "bad", {1, 2, 3})  # set is unsupported
+
+        # Known bug: the index entry was added before the dump failed
+        assert "bad" in ws._index.get("ns", {})
+
+    def test_store_after_backing_file_deleted(self):
+        """
+        Store after backing file deleted -- h5py opens in append mode
+        which silently creates a new empty file, so the store succeeds
+        without error.
+
+        Tests:
+            (Test Case 1) Deleting the backing file and then storing does
+                not raise -- h5py recreates the file in append mode.
+        """
+        ws = LazyAnalysisWorkspace(name="deleted_backing")
+        ws.store("ns", "arr", np.array([1.0]))
+
+        # Delete the backing file
+        os.unlink(ws._h5_path)
+
+        # h5py.File(path, "a") recreates the file, so no error is raised
+        ws.store("ns", "arr2", np.array([2.0]))
+        assert os.path.isfile(ws._h5_path)
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestHDF5IOEdgeCasesIO:
+    """Edge case tests for hdf5_io.py from REVIEW.md I/O scan."""
+
+    def test_dump_neuron_attributes_inconsistent_array_shapes(self, tmp_path):
+        """
+        Array-valued attributes with inconsistent shapes -- first non-None
+        entry determines shape; mismatched shapes crash.
+
+        Tests:
+            (Test Case 1) Mismatched array shapes raise an exception.
+        """
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [
+            {"location": np.array([1.0, 2.0])},  # shape (2,)
+            {"location": np.array([3.0, 4.0, 5.0])},  # shape (3,) -- mismatch!
+        ]
+
+        path = str(tmp_path / "mismatch.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises((ValueError, Exception)):
+                _dump_neuron_attributes(grp, attrs)
+
+    def test_dump_neuron_attributes_all_none(self, tmp_path):
+        """
+        All values None for an attribute -- roundtrip loses key.
+
+        Tests:
+            (Test Case 1) An attribute where every unit has None is stored
+                as all-NaN.
+            (Test Case 2) On reload, the key is lost because NaN is the
+                sentinel for missing values.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [
+            {"electrode": None, "unit_id": 0},
+            {"electrode": None, "unit_id": 1},
+        ]
+
+        path = str(tmp_path / "all_none.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+
+        # unit_id should be present, electrode should be lost (all NaN sentinel)
+        assert loaded is not None
+        for d in loaded:
+            assert "unit_id" in d
+            # electrode key was all-None -> stored as NaN -> lost on load
+            assert "electrode" not in d
+
+    def test_string_attribute_all_empty_strings(self, tmp_path):
+        """
+        String attribute with all empty strings -- omitted by sentinel check.
+
+        Tests:
+            (Test Case 1) An attribute where every unit has "" is stored
+                as empty strings.
+            (Test Case 2) On reload, the key is omitted because "" is the
+                sentinel for missing string values.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [
+            {"label": "", "unit_id": 0},
+            {"label": "", "unit_id": 1},
+        ]
+
+        path = str(tmp_path / "empty_str.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+
+        assert loaded is not None
+        for d in loaded:
+            assert "unit_id" in d
+            # Empty strings are sentinels -> key is omitted on load
+            assert "label" not in d
+
+    def test_dump_metadata_json_datetime64_raises(self, tmp_path):
+        """
+        numpy datetime64/timedelta64 values -- not handled; raises TypeError
+        wrapped in ValueError.
+
+        Tests:
+            (Test Case 1) Metadata with datetime64 raises ValueError.
+        """
+        from spikelab.workspace.hdf5_io import _dump_metadata_json
+
+        metadata = {"timestamp": np.datetime64("2025-01-01")}
+
+        path = str(tmp_path / "datetime.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="non-JSON-serialisable"):
+                _dump_metadata_json(grp, metadata)
+
+    def test_dump_labels_all_none_roundtrip(self, tmp_path):
+        """
+        All-None labels list -- roundtrip loses labels.
+
+        Tests:
+            (Test Case 1) _dump_labels with all-None list skips writing.
+            (Test Case 2) _load_labels returns None for missing labels.
+        """
+        from spikelab.workspace.hdf5_io import _dump_labels, _load_labels
+
+        path = str(tmp_path / "labels_none.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_labels(grp, [None, None, None])
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_labels(f["test"])
+
+        assert loaded is None
+
+    def test_spikedata_raw_time_scalar_roundtrip(self, tmp_path):
+        """
+        raw_time as scalar float -- loaded as 0-d array.
+
+        Tests:
+            (Test Case 1) A SpikeData with scalar raw_time can be stored and
+                loaded via workspace, and the raw_time is preserved.
+        """
+        ws = AnalysisWorkspace(name="scalar_raw")
+        raw_data = np.random.default_rng(0).random((2, 5))
+        # Use scalar raw_time (a single float representing sampling rate or step)
+        sd = SpikeData(
+            [np.array([1.0, 2.0, 3.0])],
+            length=10.0,
+            raw_data=raw_data,
+            raw_time=1.0,
+        )
+        ws.store("ns", "sd", sd)
+
+        base = str(tmp_path / "scalar_raw_ws")
+        ws.save(base)
+        ws2 = AnalysisWorkspace.load(base)
+        sd2 = ws2.get("ns", "sd")
+
+        assert sd2 is not None
+        assert sd2.N == 1
+        np.testing.assert_array_equal(sd2.raw_data, raw_data)
+
+    def test_spikeslicestack_different_N_in_slices(self, tmp_path):
+        """
+        Inner SpikeData objects with different N -- loaded stack N reflects
+        first slice only.
+
+        Tests:
+            (Test Case 1) A SpikeSliceStack with varying N per slice can be
+                stored and loaded.
+            (Test Case 2) N on the loaded stack comes from the attrs or
+                first slice.
+        """
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        sd1 = SpikeData([np.array([1.0, 2.0])], length=10.0)  # N=1
+        sd2 = SpikeData([np.array([3.0]), np.array([4.0, 5.0])], length=10.0)  # N=2
+
+        sss = SpikeSliceStack.__new__(SpikeSliceStack)
+        sss.spike_stack = [sd1, sd2]
+        sss.times = [(0.0, 10.0), (10.0, 20.0)]
+        sss.N = 1  # Set to first slice's N
+        sss.neuron_attributes = None
+
+        ws = AnalysisWorkspace(name="diff_n")
+        ws.store("ns", "sss", sss)
+
+        base = str(tmp_path / "diff_n_ws")
+        ws.save(base)
+        ws2 = AnalysisWorkspace.load(base)
+        sss2 = ws2.get("ns", "sss")
+
+        assert sss2 is not None
+        assert len(sss2.spike_stack) == 2
+        assert sss2.spike_stack[0].N == 1
+        assert sss2.spike_stack[1].N == 2

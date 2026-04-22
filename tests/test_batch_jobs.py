@@ -500,7 +500,7 @@ class TestArtifactPackager:
             input_paths=[str(input_file)],
             run_id="run-001",
             output_dir=str(tmp_path / "out"),
-            output_format="pickle",
+            output_format="workspace",
         )
 
         assert Path(zip_path).exists()
@@ -515,14 +515,14 @@ class TestArtifactPackager:
 
     def test_manifest_contains_sha256_and_metadata(self, tmp_path):
         """manifest.json includes per-file checksums and user metadata."""
-        input_file = tmp_path / "result.nwb"
-        input_file.write_bytes(b"fake nwb content")
+        input_file = tmp_path / "result.h5"
+        input_file.write_bytes(b"fake workspace content")
 
         zip_path = package_analysis_bundle(
             input_paths=[str(input_file)],
             run_id="run-002",
             output_dir=str(tmp_path / "out"),
-            output_format="nwb",
+            output_format="sorting",
             metadata={"workspace_id": "ws-42"},
         )
 
@@ -533,16 +533,16 @@ class TestArtifactPackager:
             manifest = json.loads(zf.read("run-002/manifest.json"))
 
         assert manifest["run_id"] == "run-002"
-        assert manifest["output_format"] == "nwb"
+        assert manifest["output_format"] == "sorting"
         assert manifest["metadata"]["workspace_id"] == "ws-42"
         assert len(manifest["files"]) == 1
-        assert manifest["files"][0]["name"] == "result.nwb"
+        assert manifest["files"][0]["name"] == "result.h5"
         assert len(manifest["files"][0]["sha256"]) == 64  # hex SHA256
 
     def test_multiple_input_files(self, tmp_path):
         """Multiple input files are all included in the bundle."""
         f1 = tmp_path / "a.pkl"
-        f2 = tmp_path / "b.nwb"
+        f2 = tmp_path / "b.h5"
         f1.write_bytes(b"data1")
         f2.write_bytes(b"data2")
 
@@ -550,7 +550,7 @@ class TestArtifactPackager:
             input_paths=[str(f1), str(f2)],
             run_id="run-multi",
             output_dir=str(tmp_path / "out"),
-            output_format="both",
+            output_format="custom",
         )
 
         import zipfile
@@ -558,7 +558,7 @@ class TestArtifactPackager:
         with zipfile.ZipFile(zip_path) as zf:
             names = zf.namelist()
             assert "run-multi/a.pkl" in names
-            assert "run-multi/b.nwb" in names
+            assert "run-multi/b.h5" in names
             assert "run-multi/manifest.json" in names
 
     def test_missing_input_file_raises(self, tmp_path):
@@ -568,7 +568,7 @@ class TestArtifactPackager:
                 input_paths=["/nonexistent/file.pkl"],
                 run_id="run-bad",
                 output_dir=str(tmp_path / "out"),
-                output_format="pickle",
+                output_format="workspace",
             )
 
     def test_invalid_output_format_raises(self, tmp_path):
@@ -589,7 +589,7 @@ class TestArtifactPackager:
             input_paths=[],
             run_id="run-empty",
             output_dir=str(tmp_path / "out"),
-            output_format="pickle",
+            output_format="workspace",
         )
 
         import json
@@ -622,7 +622,7 @@ class TestArtifactPackager:
             input_paths=[str(f)],
             run_id="run-nest",
             output_dir=str(out_dir),
-            output_format="pickle",
+            output_format="workspace",
         )
         assert Path(zip_path).exists()
 
@@ -1148,10 +1148,10 @@ class TestValidationModule:
         with pytest.raises(PydanticValidationError):
             validate_run_config({})
 
-    def test_validate_run_config_invalid_format(self):
-        """validate_run_config rejects invalid output_format."""
+    def test_validate_run_config_invalid_wait(self):
+        """validate_run_config rejects max_wait_seconds below minimum."""
         with pytest.raises(PydanticValidationError):
-            validate_run_config({"input_path": "/data/x.h5", "output_format": "csv"})
+            validate_run_config({"input_path": "/data/x.h5", "max_wait_seconds": 0})
 
     def test_summarize_validation_error_format(self):
         """summarize_validation_error produces a readable string."""
@@ -1390,3 +1390,1985 @@ class TestBackendEdgeCases:
         backend.delete_job("test-job")
         assert any("delete" in cmd for cmd in calls)
         assert any("test-job" in cmd for cmd in calls)
+
+
+# ---------------------------------------------------------------------------
+# Policy boundary and precedence edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestPolicyBoundaryEdgeCases:
+    def test_gpu_exactly_at_threshold(self):
+        """requests_gpu == max_interactive_gpus should PASS (not WARN)."""
+        payload = _example_payload()
+        payload["resources"]["requests_gpu"] = 2
+        payload["resources"]["limits_gpu"] = 2
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            policy=PolicyConfig(max_interactive_gpus=2),
+        )
+        findings = evaluate_policy(job_spec, profile)
+        gpu_finding = [f for f in findings if f.code == "interactive_gpu_limit"][0]
+        assert gpu_finding.level == "PASS"
+
+    def test_block_sleep_infinity_disabled(self):
+        """block_sleep_infinity=False allows sleep commands through."""
+        payload = _example_payload()
+        payload["container"]["args"] = ["sleep", "infinity"]
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            policy=PolicyConfig(block_sleep_infinity=False),
+        )
+        findings = evaluate_policy(job_spec, profile)
+        sleep_finding = [f for f in findings if f.code == "sleep_in_batch_job"][0]
+        assert sleep_finding.level == "PASS"
+
+    def test_active_deadline_at_boundary(self):
+        """active_deadline_seconds == max_runtime_seconds should not WARN."""
+        payload = _example_payload()
+        payload["active_deadline_seconds"] = 1_209_600  # exactly 14 days
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(
+            name="test",
+            policy=PolicyConfig(max_runtime_seconds=1_209_600),
+        )
+        findings = evaluate_policy(job_spec, profile)
+        codes = {f.code for f in findings}
+        assert "long_runtime" not in codes
+
+    def test_mixed_block_and_warn_findings(self):
+        """BLOCK takes precedence over WARN in summarize_preflight."""
+        payload = _example_payload()
+        # Trigger BLOCK: sleep infinity
+        payload["container"]["args"] = ["sleep", "infinity"]
+        # Trigger WARN: GPU above threshold
+        payload["resources"]["requests_gpu"] = 5
+        payload["resources"]["limits_gpu"] = 5
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test")
+        findings = evaluate_policy(job_spec, profile)
+        level, text = summarize_preflight(findings)
+        assert level == "BLOCK"
+        # Both findings should appear in the summary text
+        assert "sleep_in_batch_job" in text
+        assert "interactive_gpu_limit" in text
+
+
+# ---------------------------------------------------------------------------
+# Sleep detection edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSleepDetectionEdgeCases:
+    def test_sleep_scientific_notation(self):
+        """sleep 1e6 (scientific notation) should be caught as large number."""
+        assert _contains_disallowed_sleep(["sleep"], ["1e6"])
+
+    def test_sleep_negative_number(self):
+        """sleep -1 should not be flagged (negative is below threshold)."""
+        assert not _contains_disallowed_sleep(["sleep"], ["-1"])
+
+    def test_nosleep_substring_false_positive(self):
+        """Commands containing 'sleep' as substring should not be flagged."""
+        # "nosleep" contains "sleep" but is not a sleep command
+        assert not _contains_disallowed_sleep(["nosleep"], [])
+        # "sleepless" as a command name
+        assert not _contains_disallowed_sleep(["sleepless"], ["module"])
+
+
+# ---------------------------------------------------------------------------
+# _build_job_name edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBuildJobNameEdgeCases:
+    def test_empty_prefix(self):
+        """Empty prefix produces a name that is just '-<token>'."""
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("")
+        # Empty string rstripped of hyphens is still empty, so name is "-<8hex>"
+        assert len(name) <= 63
+        token = name.split("-")[-1]
+        assert len(token) == 8
+        int(token, 16)
+
+    def test_all_hyphens_prefix(self):
+        """Prefix like '---' is rstripped to empty, producing '-<token>'."""
+        from spikelab.batch_jobs.session import RunSession
+
+        name = RunSession._build_job_name("---")
+        assert len(name) <= 63
+        token = name.split("-")[-1]
+        assert len(token) == 8
+        int(token, 16)
+
+    def test_prefix_exactly_at_max_length(self):
+        """54-char prefix fits exactly (54 + 1 + 8 = 63)."""
+        from spikelab.batch_jobs.session import RunSession
+
+        prefix = "a" * 54
+        name = RunSession._build_job_name(prefix)
+        assert len(name) == 63
+        assert name.startswith("a" * 54 + "-")
+
+
+# ---------------------------------------------------------------------------
+# RunConfig validation edge cases
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.models import RunConfig
+
+
+class TestRunConfigValidation:
+    def test_max_wait_seconds_zero_rejected(self):
+        """max_wait_seconds=0 should fail validation (ge=1)."""
+        with pytest.raises(PydanticValidationError):
+            RunConfig(input_path="/data/test.h5", max_wait_seconds=0)
+
+    def test_max_wait_seconds_one_accepted(self):
+        """max_wait_seconds=1 is the minimum allowed value."""
+        config = RunConfig(input_path="/data/test.h5", max_wait_seconds=1)
+        assert config.max_wait_seconds == 1
+
+    def test_max_runtime_seconds_zero_rejected(self):
+        """PolicyConfig max_runtime_seconds=0 should fail validation (ge=1)."""
+        with pytest.raises(PydanticValidationError):
+            PolicyConfig(max_runtime_seconds=0)
+
+
+# ---------------------------------------------------------------------------
+# SubmitResult model tests
+# ---------------------------------------------------------------------------
+
+from spikelab.batch_jobs.models import SubmitResult
+
+
+class TestSubmitResult:
+    def test_construction_workspace_type(self):
+        """
+        SubmitResult can be constructed with job_type='workspace'.
+
+        Tests:
+            (Test Case 1) All fields are stored correctly.
+            (Test Case 2) job_type is 'workspace'.
+        """
+        result = SubmitResult(
+            job_name="test-job-abc",
+            manifest_yaml="apiVersion: batch/v1\n",
+            run_id="abc123",
+            uploaded_input_uri="s3://bucket/inputs/abc123/bundle.zip",
+            output_prefix="s3://bucket/outputs/abc123/",
+            logs_prefix="s3://bucket/logs/abc123/",
+            job_type="workspace",
+        )
+        assert result.job_name == "test-job-abc"
+        assert result.run_id == "abc123"
+        assert result.job_type == "workspace"
+
+    def test_construction_sorting_type(self):
+        """
+        SubmitResult accepts job_type='sorting'.
+
+        Tests:
+            (Test Case 1) job_type is 'sorting'.
+        """
+        result = SubmitResult(
+            job_name="sort-job-def",
+            manifest_yaml="kind: Job\n",
+            run_id="def456",
+            uploaded_input_uri="s3://bucket/inputs/def456/bundle.zip",
+            output_prefix="s3://bucket/outputs/def456/",
+            logs_prefix="s3://bucket/logs/def456/",
+            job_type="sorting",
+        )
+        assert result.job_type == "sorting"
+
+    def test_construction_prepared_type(self):
+        """
+        SubmitResult accepts job_type='prepared'.
+
+        Tests:
+            (Test Case 1) job_type is 'prepared'.
+        """
+        result = SubmitResult(
+            job_name="prep-job",
+            manifest_yaml="",
+            run_id="ghi789",
+            uploaded_input_uri="",
+            output_prefix="",
+            logs_prefix="",
+            job_type="prepared",
+        )
+        assert result.job_type == "prepared"
+
+    def test_invalid_job_type_rejected(self):
+        """
+        SubmitResult rejects invalid job_type values.
+
+        Tests:
+            (Test Case 1) job_type='pickle' is not accepted.
+        """
+        with pytest.raises(PydanticValidationError):
+            SubmitResult(
+                job_name="bad",
+                manifest_yaml="",
+                run_id="x",
+                uploaded_input_uri="",
+                output_prefix="",
+                logs_prefix="",
+                job_type="pickle",
+            )
+
+
+# ---------------------------------------------------------------------------
+# S3StorageClient download/list tests
+# ---------------------------------------------------------------------------
+
+
+class TestS3StorageClientDownload:
+    def _make_client(self, prefix="s3://bucket/prefix/"):
+        """Build an S3StorageClient with mocked boto3."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_s3 = MagicMock()
+            mock_boto3.client.return_value = mock_s3
+            client = S3StorageClient(prefix=prefix)
+        return client, mock_s3
+
+    def test_download_file_calls_boto3(self, tmp_path):
+        """
+        download_file delegates to boto3 client.download_file.
+
+        Tests:
+            (Test Case 1) Correct bucket and key parsed from URI.
+            (Test Case 2) Returns the local_path.
+        """
+        client, mock_s3 = self._make_client()
+        local = str(tmp_path / "out.h5")
+        result = client.download_file(
+            s3_uri="s3://bucket/prefix/outputs/run-1/workspace.h5",
+            local_path=local,
+        )
+        mock_s3.download_file.assert_called_once_with(
+            "bucket", "prefix/outputs/run-1/workspace.h5", local
+        )
+        assert result == local
+
+    def test_download_file_creates_parent_dirs(self, tmp_path):
+        """
+        download_file creates intermediate directories if needed.
+
+        Tests:
+            (Test Case 1) Nested parent directories are created.
+        """
+        client, mock_s3 = self._make_client()
+        local = str(tmp_path / "deep" / "nested" / "file.h5")
+        client.download_file(
+            s3_uri="s3://bucket/key/file.h5",
+            local_path=local,
+        )
+        assert (tmp_path / "deep" / "nested").is_dir()
+
+    def test_download_output_uses_output_prefix(self, tmp_path):
+        """
+        download_output composes the output prefix with the filename.
+
+        Tests:
+            (Test Case 1) Downloads from the correct S3 URI.
+            (Test Case 2) Saves to the correct local path.
+        """
+        client, mock_s3 = self._make_client(prefix="s3://bucket/pfx/")
+        local = client.download_output(
+            run_id="run-1", filename="workspace.h5", local_dir=str(tmp_path)
+        )
+        expected_uri = "s3://bucket/pfx/outputs/run-1/workspace.h5"
+        # download_file is called internally; check the underlying boto3 call
+        mock_s3.download_file.assert_called_once()
+        call_args = mock_s3.download_file.call_args
+        assert call_args[0][1] == "pfx/outputs/run-1/workspace.h5"
+        assert local == str(tmp_path / "workspace.h5")
+
+    def test_list_output_files_paginates(self):
+        """
+        list_output_files uses a paginator to list all keys.
+
+        Tests:
+            (Test Case 1) Keys from multiple pages are combined.
+            (Test Case 2) Returns full S3 keys.
+        """
+        client, mock_s3 = self._make_client(prefix="s3://bucket/pfx/")
+        mock_paginator = MagicMock()
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {"Contents": [{"Key": "pfx/outputs/r1/a.h5"}]},
+            {"Contents": [{"Key": "pfx/outputs/r1/b.json"}]},
+        ]
+
+        keys = client.list_output_files("r1")
+        assert keys == ["pfx/outputs/r1/a.h5", "pfx/outputs/r1/b.json"]
+        mock_s3.get_paginator.assert_called_once_with("list_objects_v2")
+
+    def test_list_output_files_empty_prefix(self):
+        """
+        list_output_files returns empty list when prefix is None.
+
+        Tests:
+            (Test Case 1) No S3 calls made, empty list returned.
+        """
+        client, mock_s3 = self._make_client(prefix=None)
+        keys = client.list_output_files("r1")
+        assert keys == []
+
+    def test_list_output_files_no_contents(self):
+        """
+        list_output_files handles pages with no Contents key.
+
+        Tests:
+            (Test Case 1) Returns empty list when no objects found.
+        """
+        client, mock_s3 = self._make_client(prefix="s3://bucket/pfx/")
+        mock_paginator = MagicMock()
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [{}]
+
+        keys = client.list_output_files("r1")
+        assert keys == []
+
+
+# ---------------------------------------------------------------------------
+# RunSession: submit_workspace_job tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunSessionWorkspaceJob:
+    def _make_session(self):
+        """Build a RunSession with fully mocked backend/storage."""
+        from spikelab.batch_jobs.session import RunSession
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        backend.apply_manifest.return_value = "test-job-abc"
+
+        storage = MagicMock(spec=S3StorageClient)
+        storage.upload_bundle.return_value = "s3://test/inputs/run/bundle.zip"
+        storage.output_prefix_for_run.return_value = "s3://test/outputs/run/"
+        storage.logs_prefix_for_run.return_value = "s3://test/logs/run/"
+
+        creds = MagicMock()
+
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=creds,
+        )
+        return session, backend, storage
+
+    def test_submit_workspace_job_with_object(self, tmp_path):
+        """
+        submit_workspace_job accepts an AnalysisWorkspace object.
+
+        Tests:
+            (Test Case 1) Returns SubmitResult with job_type='workspace'.
+            (Test Case 2) Bundle is uploaded to S3.
+            (Test Case 3) Container command is the workspace entrypoint.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, backend, storage = self._make_session()
+        ws = AnalysisWorkspace(name="test-ws")
+
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_workspace_job(
+            workspace=ws,
+            script=str(script),
+            job_spec=job_spec,
+        )
+
+        assert result.job_type == "workspace"
+        assert result.run_id  # non-empty
+        storage.upload_bundle.assert_called_once()
+        backend.apply_manifest.assert_called_once()
+
+    def test_submit_workspace_job_with_path(self, tmp_path):
+        """
+        submit_workspace_job accepts a string path to a saved workspace.
+
+        Tests:
+            (Test Case 1) Workspace is loaded from the path.
+            (Test Case 2) Returns SubmitResult.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, _, storage = self._make_session()
+
+        # Save a workspace to disk
+        ws = AnalysisWorkspace(name="saved-ws")
+        base = str(tmp_path / "my_workspace")
+        ws.save(base)
+
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_workspace_job(
+            workspace=base,
+            script=str(script),
+            job_spec=job_spec,
+        )
+        assert result.job_type == "workspace"
+
+    def test_submit_workspace_job_missing_workspace_raises(self, tmp_path):
+        """
+        submit_workspace_job raises FileNotFoundError for missing workspace.
+
+        Tests:
+            (Test Case 1) Non-existent workspace path raises.
+        """
+        session, _, _ = self._make_session()
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        job_spec = validate_job_spec(_example_payload())
+        with pytest.raises(FileNotFoundError, match="Workspace file not found"):
+            session.submit_workspace_job(
+                workspace="/nonexistent/workspace",
+                script=str(script),
+                job_spec=job_spec,
+            )
+
+    def test_submit_workspace_job_missing_script_raises(self, tmp_path):
+        """
+        submit_workspace_job raises FileNotFoundError for missing script.
+
+        Tests:
+            (Test Case 1) Non-existent script path raises.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, _, _ = self._make_session()
+        ws = AnalysisWorkspace(name="test-ws")
+        job_spec = validate_job_spec(_example_payload())
+
+        with pytest.raises(FileNotFoundError, match="Analysis script not found"):
+            session.submit_workspace_job(
+                workspace=ws,
+                script="/nonexistent/script.py",
+                job_spec=job_spec,
+            )
+
+    def test_submit_workspace_job_policy_block(self, tmp_path):
+        """
+        submit_workspace_job raises on policy BLOCK.
+
+        Tests:
+            (Test Case 1) Sleep infinity command triggers policy block.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, _, _ = self._make_session()
+        ws = AnalysisWorkspace(name="test-ws")
+        script = tmp_path / "analyze.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        payload = _example_payload()
+        payload["container"]["args"] = ["sleep", "infinity"]
+        job_spec = validate_job_spec(payload)
+
+        with pytest.raises(RuntimeError, match="Policy preflight blocked"):
+            session.submit_workspace_job(
+                workspace=ws, script=str(script), job_spec=job_spec
+            )
+
+    def test_submit_workspace_job_env_vars_set(self, tmp_path):
+        """
+        submit_workspace_job injects INPUT_URI, OUTPUT_PREFIX, SCRIPT_NAME.
+
+        Tests:
+            (Test Case 1) The manifest YAML contains the expected env vars.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, backend, storage = self._make_session()
+        ws = AnalysisWorkspace(name="test-ws")
+        script = tmp_path / "my_analysis.py"
+        script.write_text("print('hello')", encoding="utf-8")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_workspace_job(
+            workspace=ws, script=str(script), job_spec=job_spec
+        )
+
+        manifest = result.manifest_yaml
+        assert "INPUT_URI" in manifest
+        assert "OUTPUT_PREFIX" in manifest
+        assert "SCRIPT_NAME" in manifest
+        assert "my_analysis.py" in manifest
+
+
+# ---------------------------------------------------------------------------
+# RunSession: submit_sorting_job tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunSessionSortingJob:
+    def _make_session(self):
+        """Build a RunSession with fully mocked backend/storage."""
+        from spikelab.batch_jobs.session import RunSession
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        backend.apply_manifest.return_value = "sort-job-abc"
+
+        storage = MagicMock(spec=S3StorageClient)
+        storage.upload_bundle.return_value = "s3://test/inputs/run/bundle.zip"
+        storage.output_prefix_for_run.return_value = "s3://test/outputs/run/"
+        storage.logs_prefix_for_run.return_value = "s3://test/logs/run/"
+
+        creds = MagicMock()
+
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=creds,
+        )
+        return session, backend, storage
+
+    def test_submit_sorting_job_default_config(self, tmp_path):
+        """
+        submit_sorting_job works with config=None (default config).
+
+        Tests:
+            (Test Case 1) Returns SubmitResult with job_type='sorting'.
+            (Test Case 2) Bundle is uploaded to S3.
+        """
+        session, backend, storage = self._make_session()
+
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_sorting_job(
+            recording_paths=[str(rec)],
+            config=None,
+            job_spec=job_spec,
+        )
+
+        assert result.job_type == "sorting"
+        storage.upload_bundle.assert_called_once()
+        backend.apply_manifest.assert_called_once()
+
+    def test_submit_sorting_job_preset_string(self, tmp_path):
+        """
+        submit_sorting_job accepts a preset name string.
+
+        Tests:
+            (Test Case 1) 'kilosort4' is resolved to a config.
+            (Test Case 2) Returns valid SubmitResult.
+        """
+        session, _, _ = self._make_session()
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_sorting_job(
+            recording_paths=[str(rec)],
+            config="kilosort4",
+            job_spec=job_spec,
+        )
+        assert result.job_type == "sorting"
+
+    def test_submit_sorting_job_config_object(self, tmp_path):
+        """
+        submit_sorting_job accepts a SortingPipelineConfig object.
+
+        Tests:
+            (Test Case 1) Config is serialized and bundled.
+        """
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        session, _, _ = self._make_session()
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        config = SortingPipelineConfig()
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_sorting_job(
+            recording_paths=[str(rec)],
+            config=config,
+            job_spec=job_spec,
+        )
+        assert result.job_type == "sorting"
+
+    def test_submit_sorting_job_with_overrides(self, tmp_path):
+        """
+        submit_sorting_job applies config_overrides.
+
+        Tests:
+            (Test Case 1) Overrides are applied without error.
+        """
+        session, _, _ = self._make_session()
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_sorting_job(
+            recording_paths=[str(rec)],
+            config=None,
+            config_overrides={"freq_min": 200},
+            job_spec=job_spec,
+        )
+        assert result.job_type == "sorting"
+
+    def test_submit_sorting_job_invalid_preset_raises(self, tmp_path):
+        """
+        submit_sorting_job raises ValueError for unknown preset name.
+
+        Tests:
+            (Test Case 1) 'nonexistent' preset raises ValueError.
+        """
+        session, _, _ = self._make_session()
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        job_spec = validate_job_spec(_example_payload())
+        with pytest.raises(ValueError, match="Unknown sorting preset"):
+            session.submit_sorting_job(
+                recording_paths=[str(rec)],
+                config="nonexistent",
+                job_spec=job_spec,
+            )
+
+    def test_submit_sorting_job_missing_recording_raises(self):
+        """
+        submit_sorting_job raises FileNotFoundError for missing recording.
+
+        Tests:
+            (Test Case 1) Non-existent recording path raises.
+        """
+        session, _, _ = self._make_session()
+        job_spec = validate_job_spec(_example_payload())
+        with pytest.raises(FileNotFoundError, match="Recording file not found"):
+            session.submit_sorting_job(
+                recording_paths=["/nonexistent/recording.h5"],
+                config=None,
+                job_spec=job_spec,
+            )
+
+    def test_submit_sorting_job_container_command(self, tmp_path):
+        """
+        submit_sorting_job sets the sorting entrypoint as container command.
+
+        Tests:
+            (Test Case 1) Manifest contains the sorting entrypoint module.
+        """
+        session, _, _ = self._make_session()
+        rec = tmp_path / "recording.h5"
+        rec.write_bytes(b"fake recording")
+
+        job_spec = validate_job_spec(_example_payload())
+        result = session.submit_sorting_job(
+            recording_paths=[str(rec)],
+            config=None,
+            job_spec=job_spec,
+        )
+        assert "spikelab.batch_jobs.entrypoints.sorting" in result.manifest_yaml
+
+
+# ---------------------------------------------------------------------------
+# RunSession: retrieve_result tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunSessionRetrieve:
+    def _make_session(self):
+        """Build a RunSession with fully mocked backend/storage."""
+        from spikelab.batch_jobs.session import RunSession
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+
+        storage = MagicMock(spec=S3StorageClient)
+        storage.output_prefix_for_run.return_value = "s3://test/outputs/run/"
+        storage.logs_prefix_for_run.return_value = "s3://test/logs/run/"
+
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=MagicMock(),
+        )
+        return session, storage
+
+    def test_retrieve_workspace_result(self, tmp_path):
+        """
+        retrieve_result downloads and loads workspace for workspace jobs.
+
+        Tests:
+            (Test Case 1) Calls download_output for .h5 and .json files.
+            (Test Case 2) Returns an AnalysisWorkspace.
+        """
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        # Pre-create the workspace files that download_output would produce
+        ws = AnalysisWorkspace(name="result-ws")
+        base = str(tmp_path / "workspace")
+        ws.save(base)
+
+        # Mock download_output to be a no-op (files already exist)
+        storage.download_output.side_effect = lambda **kwargs: str(
+            tmp_path / kwargs["filename"]
+        )
+
+        submit_result = SubmitResult(
+            job_name="test-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://test/inputs/run-1/bundle.zip",
+            output_prefix="s3://test/outputs/run-1/",
+            logs_prefix="s3://test/logs/run-1/",
+            job_type="workspace",
+        )
+
+        result_ws = session.retrieve_result(submit_result, str(tmp_path))
+        assert isinstance(result_ws, AnalysisWorkspace)
+        assert storage.download_output.call_count == 2
+
+    def test_retrieve_sorting_result(self, tmp_path):
+        """
+        retrieve_result builds workspace from sorting pickle outputs.
+
+        Tests:
+            (Test Case 1) Downloads all files from output prefix.
+            (Test Case 2) SpikeData pickles are loaded into workspace namespaces.
+        """
+        import pickle
+
+        import numpy as np
+        from spikelab.spikedata.spikedata import SpikeData
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        session, storage = self._make_session()
+
+        # Create a SpikeData pickle that will be "downloaded"
+        sd = SpikeData([np.array([1.0, 2.0]), np.array([3.0])], length=10.0)
+        pkl_path = tmp_path / "rec1_curated.pkl"
+        with open(pkl_path, "wb") as f:
+            pickle.dump(sd, f)
+
+        # Mock list_output_files to return one pickle
+        storage.list_output_files.return_value = ["pfx/outputs/run-1/rec1_curated.pkl"]
+        storage.output_prefix_for_run.return_value = "s3://bucket/pfx/outputs/run-1/"
+
+        # Mock download_file to copy the pickle
+        def fake_download(*, s3_uri, local_path):
+            import shutil
+
+            shutil.copy2(str(pkl_path), local_path)
+            return local_path
+
+        storage.download_file.side_effect = fake_download
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://bucket/pfx/inputs/run-1/bundle.zip",
+            output_prefix="s3://bucket/pfx/outputs/run-1/",
+            logs_prefix="s3://bucket/pfx/logs/run-1/",
+            job_type="sorting",
+        )
+
+        result_ws = session.retrieve_result(submit_result, str(tmp_path / "out"))
+        assert isinstance(result_ws, AnalysisWorkspace)
+        # SpikeData should be stored under namespace derived from filename
+        sd_loaded = result_ws.get("rec1_curated", "spikedata")
+        assert sd_loaded is not None
+        assert sd_loaded.N == 2
+
+    def test_retrieve_prepared_raises(self, tmp_path):
+        """
+        retrieve_result raises ValueError for 'prepared' job type.
+
+        Tests:
+            (Test Case 1) Prepared jobs have no retrievable outputs.
+        """
+        session, _ = self._make_session()
+        submit_result = SubmitResult(
+            job_name="prep-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="",
+            output_prefix="",
+            logs_prefix="",
+            job_type="prepared",
+        )
+        with pytest.raises(ValueError, match="Cannot retrieve results"):
+            session.retrieve_result(submit_result, str(tmp_path))
+
+    def test_retrieve_sorting_no_files_raises(self, tmp_path):
+        """
+        retrieve_result raises FileNotFoundError when no output files exist.
+
+        Tests:
+            (Test Case 1) Empty output prefix raises.
+        """
+        session, storage = self._make_session()
+        storage.list_output_files.return_value = []
+
+        submit_result = SubmitResult(
+            job_name="sort-job",
+            manifest_yaml="",
+            run_id="run-1",
+            uploaded_input_uri="s3://bucket/inputs/run-1/bundle.zip",
+            output_prefix="s3://bucket/outputs/run-1/",
+            logs_prefix="s3://bucket/logs/run-1/",
+            job_type="sorting",
+        )
+        with pytest.raises(FileNotFoundError, match="No output files found"):
+            session.retrieve_result(submit_result, str(tmp_path))
+
+
+# ---------------------------------------------------------------------------
+# RunSession: _inject_env and _resolve_sorting_config tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunSessionHelpers:
+    def test_inject_env_adds_vars(self):
+        """
+        _inject_env adds environment variables to job spec container.
+
+        Tests:
+            (Test Case 1) New env vars are present.
+            (Test Case 2) Existing env vars are preserved.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        job_spec = validate_job_spec(_example_payload())
+        enriched = RunSession._inject_env(
+            job_spec, {"NEW_VAR": "new_value", "OTHER": "other_value"}
+        )
+        assert enriched.container.env["NEW_VAR"] == "new_value"
+        assert enriched.container.env["OTHER"] == "other_value"
+        # Original env preserved
+        assert (
+            enriched.container.env["OUTPUT_PREFIX"] == "s3://test-bucket/test-prefix/"
+        )
+
+    def test_inject_env_overrides_existing(self):
+        """
+        _inject_env overrides existing env vars with new values.
+
+        Tests:
+            (Test Case 1) Existing key is overwritten by new value.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        job_spec = validate_job_spec(_example_payload())
+        enriched = RunSession._inject_env(
+            job_spec, {"OUTPUT_PREFIX": "s3://new-bucket/new-prefix/"}
+        )
+        assert enriched.container.env["OUTPUT_PREFIX"] == "s3://new-bucket/new-prefix/"
+
+    def test_resolve_sorting_config_none(self):
+        """
+        _resolve_sorting_config with None returns default config dict.
+
+        Tests:
+            (Test Case 1) Returns a dict with expected sub-config keys.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        config_dict = RunSession._resolve_sorting_config(None, None)
+        assert isinstance(config_dict, dict)
+        assert "recording" in config_dict
+        assert "sorter" in config_dict
+        assert "curation" in config_dict
+
+    def test_resolve_sorting_config_preset_string(self):
+        """
+        _resolve_sorting_config resolves a preset name string.
+
+        Tests:
+            (Test Case 1) 'kilosort4' resolves without error.
+            (Test Case 2) Sorter name is 'kilosort4' in the output.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        config_dict = RunSession._resolve_sorting_config("kilosort4", None)
+        assert config_dict["sorter"]["sorter_name"] == "kilosort4"
+
+    def test_resolve_sorting_config_with_overrides(self):
+        """
+        _resolve_sorting_config applies overrides to the config.
+
+        Tests:
+            (Test Case 1) freq_min override is reflected in output.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        config_dict = RunSession._resolve_sorting_config(None, {"freq_min": 200})
+        assert config_dict["recording"]["freq_min"] == 200
+
+    def test_resolve_sorting_config_invalid_preset_raises(self):
+        """
+        _resolve_sorting_config raises ValueError for unknown preset.
+
+        Tests:
+            (Test Case 1) 'nonexistent' raises ValueError.
+        """
+        from spikelab.batch_jobs.session import RunSession
+
+        with pytest.raises(ValueError, match="Unknown sorting preset"):
+            RunSession._resolve_sorting_config("nonexistent", None)
+
+
+# ---------------------------------------------------------------------------
+# Entrypoint tests (mocked I/O)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceEntrypoint:
+    def test_require_env_raises_on_missing(self):
+        """
+        _require_env raises RuntimeError for missing env var.
+
+        Tests:
+            (Test Case 1) Missing env var raises with descriptive message.
+        """
+        from spikelab.batch_jobs.entrypoints.workspace import _require_env
+
+        with pytest.raises(RuntimeError, match="INPUT_URI"):
+            _require_env("INPUT_URI")
+
+    def test_require_env_returns_value(self, monkeypatch):
+        """
+        _require_env returns the env var value when set.
+
+        Tests:
+            (Test Case 1) Set env var is returned.
+        """
+        from spikelab.batch_jobs.entrypoints.workspace import _require_env
+
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input.zip")
+        assert _require_env("INPUT_URI") == "s3://bucket/input.zip"
+
+    def test_main_runs_script_with_workspace(self, tmp_path, monkeypatch):
+        """
+        Workspace entrypoint loads workspace, runs script, uploads result.
+
+        Tests:
+            (Test Case 1) Script receives workspace object.
+            (Test Case 2) Updated workspace is uploaded as .h5 + .json.
+        """
+        import json
+        import zipfile
+
+        from spikelab.workspace.workspace import AnalysisWorkspace
+
+        # Create a workspace and save it
+        ws = AnalysisWorkspace(name="entry-test")
+        ws_base = str(tmp_path / "workspace")
+        ws.save(ws_base)
+
+        # Create a script that modifies the workspace
+        script = tmp_path / "my_script.py"
+        script.write_text(
+            "import numpy as np\nworkspace.store('ns', 'marker', np.array([1, 2, 3]))\n",
+            encoding="utf-8",
+        )
+
+        # Create bundle zip
+        bundle_dir = tmp_path / "bundle" / "run-1"
+        bundle_dir.mkdir(parents=True)
+        import shutil
+
+        shutil.copy2(f"{ws_base}.h5", bundle_dir / "workspace.h5")
+        shutil.copy2(f"{ws_base}.json", bundle_dir / "workspace.json")
+        shutil.copy2(str(script), bundle_dir / "my_script.py")
+        # Write manifest
+        manifest = {"run_id": "run-1", "output_format": "workspace", "files": []}
+        (bundle_dir / "manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        zip_path = str(tmp_path / "bundle.zip")
+        shutil.make_archive(
+            str(tmp_path / "bundle"),
+            "zip",
+            root_dir=str(tmp_path / "bundle"),
+            base_dir="run-1",
+        )
+
+        # Mock S3StorageClient
+        upload_calls = []
+
+        def fake_download(*, s3_uri, local_path):
+            shutil.copy2(zip_path, local_path)
+            return local_path
+
+        def fake_upload(*, local_path, s3_uri):
+            upload_calls.append((local_path, s3_uri))
+            return s3_uri
+
+        mock_storage = MagicMock()
+        mock_storage.download_file.side_effect = fake_download
+        mock_storage.upload_file.side_effect = fake_upload
+
+        monkeypatch.setenv("INPUT_URI", "s3://bucket/input/bundle.zip")
+        monkeypatch.setenv("OUTPUT_PREFIX", "s3://bucket/outputs/run-1/")
+        monkeypatch.setenv("SCRIPT_NAME", "my_script.py")
+        monkeypatch.setattr(
+            "spikelab.batch_jobs.storage_s3.S3StorageClient",
+            lambda **kwargs: mock_storage,
+        )
+
+        from spikelab.batch_jobs.entrypoints.workspace import main
+
+        main()
+
+        # Verify uploads happened (workspace.h5 + workspace.json)
+        assert len(upload_calls) == 2
+        uploaded_uris = {uri for _, uri in upload_calls}
+        assert "s3://bucket/outputs/run-1/workspace.h5" in uploaded_uris
+        assert "s3://bucket/outputs/run-1/workspace.json" in uploaded_uris
+
+
+class TestSortingEntrypoint:
+    def test_require_env_raises_on_missing(self):
+        """
+        _require_env raises RuntimeError for missing env var.
+
+        Tests:
+            (Test Case 1) Missing env var raises with descriptive message.
+        """
+        from spikelab.batch_jobs.entrypoints.sorting import _require_env
+
+        with pytest.raises(RuntimeError, match="INPUT_URI"):
+            _require_env("INPUT_URI")
+
+    def test_reconstruct_config(self):
+        """
+        _reconstruct_config rebuilds SortingPipelineConfig from dict.
+
+        Tests:
+            (Test Case 1) Reconstructed config matches original.
+            (Test Case 2) Sub-configs have correct field values.
+        """
+        import dataclasses
+
+        from spikelab.batch_jobs.entrypoints.sorting import _reconstruct_config
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        original = SortingPipelineConfig()
+        original_dict = dataclasses.asdict(original)
+        reconstructed = _reconstruct_config(original_dict)
+
+        assert isinstance(reconstructed, SortingPipelineConfig)
+        assert reconstructed.recording.freq_min == original.recording.freq_min
+        assert reconstructed.sorter.sorter_name == original.sorter.sorter_name
+        assert reconstructed.curation.fr_min == original.curation.fr_min
+
+    def test_reconstruct_config_with_overrides(self):
+        """
+        _reconstruct_config preserves non-default values.
+
+        Tests:
+            (Test Case 1) Custom freq_min is preserved after roundtrip.
+        """
+        import dataclasses
+
+        from spikelab.batch_jobs.entrypoints.sorting import _reconstruct_config
+        from spikelab.spike_sorting.config import SortingPipelineConfig
+
+        config = SortingPipelineConfig()
+        config = config.override(freq_min=200)
+        config_dict = dataclasses.asdict(config)
+        reconstructed = _reconstruct_config(config_dict)
+        assert reconstructed.recording.freq_min == 200
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests — batch_jobs (HIGH and MEDIUM severity findings)
+# ---------------------------------------------------------------------------
+
+
+class TestVolumeMountSpecEdgeCases:
+    """Edge cases for VolumeMountSpec._validate_source."""
+
+    def test_empty_string_secret_name_rejected(self):
+        """Empty string secret_name (falsy) should fail validation."""
+        with pytest.raises(PydanticValidationError, match="secret_name or pvc_name"):
+            VolumeMountSpec(name="vol", mount_path="/mnt", secret_name="")
+
+    def test_empty_string_pvc_name_rejected(self):
+        """Empty string pvc_name (falsy) should fail validation."""
+        with pytest.raises(PydanticValidationError, match="secret_name or pvc_name"):
+            VolumeMountSpec(name="vol", mount_path="/mnt", pvc_name="")
+
+    def test_empty_string_both_sources_rejected(self):
+        """Both empty string sources should fail validation."""
+        with pytest.raises(PydanticValidationError, match="secret_name or pvc_name"):
+            VolumeMountSpec(name="vol", mount_path="/mnt", secret_name="", pvc_name="")
+
+
+class TestJobSpecNamePrefixEdgeCases:
+    """Edge cases for JobSpec._validate_name_prefix."""
+
+    def test_unicode_characters_pass_through(self):
+        """Unicode letters pass isalnum() but are invalid for K8s RFC 1123 labels.
+
+        This documents a known gap: the sanitizer uses Python's isalnum()
+        which accepts Unicode letters, but K8s labels require ASCII only.
+        """
+        payload = _example_payload()
+        payload["name_prefix"] = "análysis-jöb"
+        job_spec = validate_job_spec(payload)
+        # Unicode chars pass through isalnum() check — this is the gap
+        assert "á" in job_spec.name_prefix or "ö" in job_spec.name_prefix
+        # Verify the result is NOT valid ASCII (documenting the issue)
+        with pytest.raises(UnicodeEncodeError):
+            job_spec.name_prefix.encode("ascii")
+
+    def test_trailing_hyphens_after_truncation(self):
+        """Truncation at 40 chars can leave trailing hyphens.
+
+        This documents a known gap: strip("-") runs before [:40], so
+        truncation can expose interior hyphens at the boundary.
+        """
+        payload = _example_payload()
+        # Create a prefix where position 40 falls right after hyphens
+        payload["name_prefix"] = "a" * 37 + "---xyz"
+        job_spec = validate_job_spec(payload)
+        assert len(job_spec.name_prefix) <= 40
+        # Documenting the gap: trailing hyphens remain after truncation
+        assert job_spec.name_prefix.endswith("-")
+
+
+class TestSleepDetectionMoreEdgeCases:
+    """Additional edge cases for _contains_disallowed_sleep."""
+
+    def test_sleep_in_quoted_string_false_positive(self):
+        """sleep in a quoted argument string is a known false positive."""
+        # This tests the documented behavior — the heuristic does flag this
+        result = _contains_disallowed_sleep(
+            ["sh", "-c"], ['echo "do not sleep infinity"']
+        )
+        # Documenting that this is a known false positive
+        assert result is True  # heuristic triggers on substring match
+
+
+class TestPolicySummarizePreflight:
+    """Edge cases for summarize_preflight aggregation."""
+
+    def test_multiple_findings_same_level_all_in_text(self):
+        """Multiple WARN findings should all appear in the summary text."""
+        from spikelab.batch_jobs.policy import PolicyFinding
+
+        findings = [
+            PolicyFinding("check_a", "WARN", "Warning A"),
+            PolicyFinding("check_b", "WARN", "Warning B"),
+            PolicyFinding("check_c", "PASS", "Passed C"),
+        ]
+        level, text = summarize_preflight(findings)
+        assert level == "WARN"
+        assert "check_a" in text
+        assert "check_b" in text
+        assert "check_c" in text
+        # All three lines present
+        assert text.count("\n") == 2
+
+    def test_warn_only_findings(self):
+        """All WARN findings produce aggregate WARN level."""
+        from spikelab.batch_jobs.policy import PolicyFinding
+
+        findings = [
+            PolicyFinding("c1", "WARN", "w1"),
+            PolicyFinding("c2", "WARN", "w2"),
+        ]
+        level, _ = summarize_preflight(findings)
+        assert level == "WARN"
+
+    def test_all_pass_findings(self):
+        """All PASS findings produce aggregate PASS level."""
+        from spikelab.batch_jobs.policy import PolicyFinding
+
+        findings = [
+            PolicyFinding("c1", "PASS", "p1"),
+            PolicyFinding("c2", "PASS", "p2"),
+        ]
+        level, _ = summarize_preflight(findings)
+        assert level == "PASS"
+
+
+class TestProfilesEdgeCases:
+    """Edge cases for profiles._read_yaml."""
+
+    def test_empty_yaml_file(self, tmp_path):
+        """Empty YAML file produces a Pydantic ValidationError (missing 'name')."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        empty_file = tmp_path / "empty.yaml"
+        empty_file.write_text("", encoding="utf-8")
+        with pytest.raises(PydanticValidationError):
+            load_cluster_profile(str(empty_file))
+
+    def test_yaml_null_only(self, tmp_path):
+        """YAML file containing only 'null' raises ValidationError."""
+        from spikelab.batch_jobs.profiles import load_cluster_profile
+
+        null_file = tmp_path / "null.yaml"
+        null_file.write_text("null\n", encoding="utf-8")
+        with pytest.raises(PydanticValidationError):
+            load_cluster_profile(str(null_file))
+
+
+class TestWaitForCompletionEdgeCases:
+    """Edge cases for RunSession.wait_for_completion."""
+
+    def test_zero_wait_immediately_complete_returns_timeout(self):
+        """max_wait_seconds=0 returns Timeout even if job is already complete."""
+        from spikelab.batch_jobs.session import RunSession
+
+        profile = ClusterProfile(name="test")
+        backend = MagicMock(spec=KubernetesBatchJobBackend)
+        backend.job_status.return_value = "Complete"
+        storage = MagicMock(spec=S3StorageClient)
+        session = RunSession(
+            profile=profile,
+            backend=backend,
+            storage_client=storage,
+            credentials=MagicMock(),
+        )
+        # max_wait_seconds=0 means the deadline is already in the past
+        state = session.wait_for_completion(
+            job_name="test-job", max_wait_seconds=0, poll_interval_seconds=0
+        )
+        assert state == "Timeout"
+
+
+class TestS3StorageClientEdgeCases:
+    """Edge cases for S3StorageClient."""
+
+    def test_boto3_not_installed(self):
+        """ImportError raised when boto3 is not available."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3", None):
+            with pytest.raises(ImportError, match="boto3 is required"):
+                S3StorageClient(prefix="s3://bucket/pfx/")
+
+    def test_build_uri_invalid_category_falls_back_to_inputs(self):
+        """Invalid category string falls back to inputs template."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        # "invalid_category" doesn't exist as a template attribute
+        uri = client.build_uri(
+            run_id="run-1", filename="data.pkl", category="invalid_category"
+        )
+        # Falls back to inputs template
+        assert uri == "s3://bucket/pfx/inputs/run-1/data.pkl"
+
+    def test_build_uri_special_chars_in_run_id(self):
+        """Special characters in run_id are passed through to the URI."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        uri = client.build_uri(run_id="run/with spaces", filename="data.pkl")
+        assert "run/with spaces" in uri
+
+    def test_build_uri_special_chars_in_filename(self):
+        """Special characters in filename are passed through to the URI."""
+        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
+            mock_boto3.client.return_value = MagicMock()
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
+        uri = client.build_uri(run_id="run-1", filename="my file (1).pkl")
+        assert "my file (1).pkl" in uri
+
+
+class TestArtifactPackagerEdgeCases:
+    """Edge cases for package_analysis_bundle."""
+
+    def test_duplicate_filenames_last_wins(self, tmp_path):
+        """Duplicate filenames in input_paths: last file overwrites earlier ones."""
+        dir_a = tmp_path / "a"
+        dir_a.mkdir()
+        dir_b = tmp_path / "b"
+        dir_b.mkdir()
+
+        file_a = dir_a / "data.pkl"
+        file_a.write_bytes(b"content_a")
+        file_b = dir_b / "data.pkl"
+        file_b.write_bytes(b"content_b")
+
+        import zipfile
+
+        zip_path = package_analysis_bundle(
+            input_paths=[str(file_a), str(file_b)],
+            run_id="run-dup",
+            output_dir=str(tmp_path / "out"),
+            output_format="workspace",
+        )
+
+        with zipfile.ZipFile(zip_path) as zf:
+            content = zf.read("run-dup/data.pkl")
+            # Last copy wins (shutil.copy2 overwrites)
+            assert content == b"content_b"
+
+    def test_large_file_hashing(self, tmp_path):
+        """Files larger than the read chunk size are hashed correctly."""
+        large_file = tmp_path / "large.bin"
+        # Write >8192 bytes to trigger multi-chunk hashing
+        content = b"x" * 20000
+        large_file.write_bytes(content)
+
+        import hashlib
+
+        expected = hashlib.sha256(content).hexdigest()
+        assert _sha256(Path(large_file)) == expected
+
+
+class TestKubernetesBatchJobBackendK8sClientPath:
+    """Tests for K8s client code paths (HIGH severity — previously untested)."""
+
+    def test_apply_manifest_k8s_client_from_string(self):
+        """apply_manifest via K8s client parses YAML string and calls create_namespaced_job."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        manifest = "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: my-job\n"
+        result = backend.apply_manifest(manifest)
+
+        mock_batch_api.create_namespaced_job.assert_called_once()
+        call_kwargs = mock_batch_api.create_namespaced_job.call_args
+        assert call_kwargs[1]["namespace"] == "test-ns"
+        assert result == "my-job"
+
+    def test_apply_manifest_k8s_client_from_file(self, tmp_path):
+        """apply_manifest via K8s client reads YAML file and calls create_namespaced_job."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        manifest_file = tmp_path / "job.yaml"
+        manifest_file.write_text(
+            "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: file-job\n",
+            encoding="utf-8",
+        )
+        result = backend.apply_manifest(str(manifest_file))
+
+        mock_batch_api.create_namespaced_job.assert_called_once()
+        assert result == "file-job"
+
+    def test_apply_manifest_k8s_client_invalid_yaml(self):
+        """apply_manifest via K8s client with invalid YAML raises."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        # YAML that parses as a string, not a dict — will fail on metadata access
+        with pytest.raises((TypeError, KeyError, AttributeError)):
+            backend.apply_manifest("just a plain string without yaml structure")
+
+    def test_apply_manifest_k8s_client_missing_metadata_name(self):
+        """apply_manifest via K8s client raises when metadata.name is missing."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        manifest = "apiVersion: batch/v1\nkind: Job\nmetadata:\n  labels: {}\n"
+        with pytest.raises(KeyError):
+            backend.apply_manifest(manifest)
+
+    def test_delete_job_k8s_client(self):
+        """delete_job via K8s client calls delete_namespaced_job."""
+        mock_client_module = MagicMock()
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        with patch("spikelab.batch_jobs.backend_k8s.client", mock_client_module):
+            backend.delete_job("my-job")
+        mock_batch_api.delete_namespaced_job.assert_called_once()
+        call_kwargs = mock_batch_api.delete_namespaced_job.call_args[1]
+        assert call_kwargs["name"] == "my-job"
+        assert call_kwargs["namespace"] == "test-ns"
+
+    def test_job_status_k8s_client_complete(self):
+        """job_status via K8s client returns 'Complete' for succeeded job."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        status_mock = MagicMock()
+        status_mock.status.to_dict.return_value = {"succeeded": 1}
+        mock_batch_api.read_namespaced_job_status.return_value = status_mock
+
+        assert backend.job_status("my-job") == "Complete"
+
+    def test_job_status_k8s_client_failed(self):
+        """job_status via K8s client returns 'Failed' for failed job."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        status_mock = MagicMock()
+        status_mock.status.to_dict.return_value = {"failed": 1}
+        mock_batch_api.read_namespaced_job_status.return_value = status_mock
+
+        assert backend.job_status("my-job") == "Failed"
+
+    def test_job_status_k8s_client_running(self):
+        """job_status via K8s client returns 'Running' for active job."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        status_mock = MagicMock()
+        status_mock.status.to_dict.return_value = {"active": 1}
+        mock_batch_api.read_namespaced_job_status.return_value = status_mock
+
+        assert backend.job_status("my-job") == "Running"
+
+    def test_job_status_k8s_client_pending(self):
+        """job_status via K8s client returns 'Pending' for empty status."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        status_mock = MagicMock()
+        status_mock.status.to_dict.return_value = {}
+        mock_batch_api.read_namespaced_job_status.return_value = status_mock
+
+        assert backend.job_status("my-job") == "Pending"
+
+    def test_job_status_k8s_client_status_obj_none(self):
+        """job_status via K8s client returns 'Pending' when status_obj is None."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        mock_batch_api.read_namespaced_job_status.return_value = None
+
+        assert backend.job_status("my-job") == "Pending"
+
+    def test_job_status_k8s_client_status_attr_none(self):
+        """job_status via K8s client returns 'Pending' when status_obj.status is None."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_batch_api = MagicMock()
+        backend._batch_api = mock_batch_api
+
+        status_mock = MagicMock()
+        status_mock.status = None
+        mock_batch_api.read_namespaced_job_status.return_value = status_mock
+
+        assert backend.job_status("my-job") == "Pending"
+
+    def test_pods_for_job_k8s_client(self):
+        """pods_for_job via K8s client returns pod names."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_core_api = MagicMock()
+        backend._core_api = mock_core_api
+
+        pod1 = MagicMock()
+        pod1.metadata.name = "pod-abc"
+        pod2 = MagicMock()
+        pod2.metadata.name = "pod-def"
+        mock_core_api.list_namespaced_pod.return_value = MagicMock(items=[pod1, pod2])
+
+        pods = backend.pods_for_job("my-job")
+        assert pods == ["pod-abc", "pod-def"]
+        mock_core_api.list_namespaced_pod.assert_called_once_with(
+            namespace="test-ns", label_selector="job-name=my-job"
+        )
+
+
+class TestStreamLogsEdgeCases:
+    """Tests for KubernetesBatchJobBackend.stream_logs (HIGH — zero coverage)."""
+
+    def test_stream_logs_kubectl_follow(self, monkeypatch):
+        """stream_logs with follow=True via kubectl uses -f flag."""
+        import subprocess
+
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        backend._core_api = None
+
+        mock_process = MagicMock()
+        mock_process.stdout = iter(["line 1\n", "line 2\n"])
+
+        def fake_popen(cmd, **kwargs):
+            assert "-f" in cmd
+            assert "test-pod" in cmd
+            return mock_process
+
+        monkeypatch.setattr("subprocess.Popen", fake_popen)
+        lines = list(backend.stream_logs("test-pod", follow=True))
+        assert lines == ["line 1", "line 2"]
+
+    def test_stream_logs_kubectl_no_follow(self, monkeypatch):
+        """stream_logs with follow=False via kubectl does not use -f flag."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        backend._core_api = None
+
+        mock_process = MagicMock()
+        mock_process.stdout = iter(["log line\n"])
+
+        def fake_popen(cmd, **kwargs):
+            assert "-f" not in cmd
+            return mock_process
+
+        monkeypatch.setattr("subprocess.Popen", fake_popen)
+        lines = list(backend.stream_logs("test-pod", follow=False))
+        assert lines == ["log line"]
+
+    def test_stream_logs_k8s_client_follow_with_watch(self):
+        """stream_logs with follow=True via K8s client uses watch.Watch."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_core_api = MagicMock()
+        backend._core_api = mock_core_api
+
+        mock_watcher = MagicMock()
+        mock_watcher.stream.return_value = iter(["log line 1", "log line 2"])
+
+        with patch("spikelab.batch_jobs.backend_k8s.watch") as mock_watch_module:
+            mock_watch_module.Watch.return_value = mock_watcher
+            lines = list(backend.stream_logs("test-pod", follow=True))
+
+        assert lines == ["log line 1", "log line 2"]
+        mock_watcher.stream.assert_called_once()
+
+    def test_stream_logs_k8s_client_follow_without_watch(self):
+        """stream_logs with follow=True but watch is None falls back to non-follow."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_core_api = MagicMock()
+        backend._core_api = mock_core_api
+        mock_core_api.read_namespaced_pod_log.return_value = "line a\nline b"
+
+        with patch("spikelab.batch_jobs.backend_k8s.watch", None):
+            lines = list(backend.stream_logs("test-pod", follow=True))
+
+        assert lines == ["line a", "line b"]
+
+    def test_stream_logs_k8s_client_no_follow(self):
+        """stream_logs with follow=False via K8s client reads log text."""
+        backend = KubernetesBatchJobBackend(namespace="test-ns")
+        mock_core_api = MagicMock()
+        backend._core_api = mock_core_api
+        mock_core_api.read_namespaced_pod_log.return_value = "hello\nworld"
+
+        lines = list(backend.stream_logs("test-pod", follow=False))
+        assert lines == ["hello", "world"]
+
+
+class TestK8sBackendConfigException:
+    """Edge case for KubernetesBatchJobBackend.__init__ config failure."""
+
+    def test_config_exception_falls_back_to_kubectl(self):
+        """ConfigException during init leaves _batch_api as None (kubectl fallback)."""
+        mock_client = MagicMock()
+        mock_config = MagicMock()
+        mock_config.ConfigException = type("ConfigException", (Exception,), {})
+        mock_config.load_kube_config.side_effect = mock_config.ConfigException("fail")
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "kubernetes": MagicMock(),
+                "kubernetes.client": mock_client,
+                "kubernetes.config": mock_config,
+                "kubernetes.watch": MagicMock(),
+            },
+        ):
+            with patch("spikelab.batch_jobs.backend_k8s.client", mock_client):
+                with patch("spikelab.batch_jobs.backend_k8s.config", mock_config):
+                    backend = KubernetesBatchJobBackend(namespace="test")
+                    assert backend._batch_api is None
+                    assert backend._core_api is None
+
+
+class TestCliEdgeCases:
+    """Edge cases for CLI module."""
+
+    def test_load_payload_json_file(self, tmp_path):
+        """_load_payload reads a JSON config file."""
+        config_path = tmp_path / "job.json"
+        import json
+
+        payload = _example_payload()
+        config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        loaded = cli._load_payload(str(config_path))
+        assert loaded["name_prefix"] == "analysis-job"
+        assert isinstance(loaded, dict)
+
+    def test_load_payload_non_dict_raises(self, tmp_path):
+        """_load_payload raises ValueError for non-dict content."""
+        config_path = tmp_path / "bad.yaml"
+        config_path.write_text("- item1\n- item2\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="must contain an object"):
+            cli._load_payload(str(config_path))
+
+    def test_load_payload_non_dict_json_raises(self, tmp_path):
+        """_load_payload raises ValueError for JSON array content."""
+        import json
+
+        config_path = tmp_path / "bad.json"
+        config_path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="must contain an object"):
+            cli._load_payload(str(config_path))
+
+    def test_apply_image_selection_override_takes_precedence(self):
+        """image_override takes precedence over image_profile."""
+        payload = {
+            "container": {
+                "image": "existing:v1",
+                "command": ["python"],
+                "args": [],
+                "env": {},
+            }
+        }
+        profile = ClusterProfile(
+            name="test",
+            default_images={"gpu": "ghcr.io/example/gpu:latest"},
+        )
+        updated = cli._apply_image_selection(
+            payload,
+            profile=profile,
+            image_profile="gpu",
+            image_override="my-custom:v2",
+        )
+        assert updated["container"]["image"] == "my-custom:v2"
+
+    def test_apply_image_selection_profile_not_found(self):
+        """Image profile not in default_images leaves container image unchanged."""
+        payload = {
+            "container": {
+                "image": "original:v1",
+                "command": ["python"],
+                "args": [],
+                "env": {},
+            }
+        }
+        profile = ClusterProfile(name="test", default_images={})
+        updated = cli._apply_image_selection(
+            payload,
+            profile=profile,
+            image_profile="nonexistent",
+            image_override=None,
+        )
+        # Image not changed because profile has no such key
+        assert updated["container"]["image"] == "original:v1"
+
+    def test_apply_image_selection_container_not_dict_raises(self):
+        """container field that is not a dict raises ValueError."""
+        payload = {"container": "not-a-dict"}
+        profile = ClusterProfile(name="test")
+        with pytest.raises(ValueError, match="container.*must be an object"):
+            cli._apply_image_selection(
+                payload,
+                profile=profile,
+                image_profile=None,
+                image_override=None,
+            )
+
+    def test_cmd_deploy_render_only_with_output_manifest(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        """render_only=True with output_manifest writes to file."""
+        config_path = tmp_path / "job.yaml"
+        config_path.write_text(
+            "name_prefix: analysis-job\nnamespace: default\n"
+            "container:\n  image: ghcr.io/example/image:latest\n"
+            "  command: ['python']\n  args: ['-m', 'run']\n  env: {}\n"
+            "resources:\n  requests_cpu: '1'\n  requests_memory: 2Gi\n"
+            "  limits_cpu: '1'\n  limits_memory: 2Gi\n"
+            "  requests_gpu: 0\n  limits_gpu: 0\n  node_selector: {}\n"
+            "volumes: []\n",
+            encoding="utf-8",
+        )
+
+        class DummySession:
+            def render_manifest(self, *, job_name, job_spec, run_id):
+                return f"metadata:\n  name: {job_name}\n"
+
+        monkeypatch.setattr(
+            cli,
+            "_load_profile",
+            lambda *args, **kwargs: ClusterProfile(name="test"),
+        )
+        monkeypatch.setattr(
+            cli, "_build_session", lambda *args, **kwargs: DummySession()
+        )
+
+        output_file = tmp_path / "output.yaml"
+        args = SimpleNamespace(
+            profile="defaults",
+            profile_file=None,
+            kubeconfig=None,
+            job_config=str(config_path),
+            allow_policy_risk=False,
+            render_only=True,
+            output_manifest=str(output_file),
+            wait=False,
+            max_wait_seconds=0,
+            follow_logs=False,
+            image_profile=None,
+            image=None,
+        )
+        exit_code = cli._cmd_deploy(args)
+        assert exit_code == 0
+        assert output_file.exists()
+        content = output_file.read_text(encoding="utf-8")
+        assert "metadata:" in content
+        out = capsys.readouterr().out
+        assert f"MANIFEST_PATH={output_file}" in out
+
+    def test_cmd_deploy_validation_error_without_errors_attr(
+        self, monkeypatch, tmp_path
+    ):
+        """Validation error without .errors() attribute uses str(exc)."""
+        config_path = tmp_path / "bad.yaml"
+        config_path.write_text(
+            "name_prefix: analysis-job\nnamespace: default\n"
+            "container:\n  image: ''\n  command: []\n  args: []\n  env: {}\n"
+            "resources:\n  requests_cpu: '1'\n  requests_memory: 2Gi\n"
+            "  limits_cpu: '1'\n  limits_memory: 2Gi\n"
+            "  requests_gpu: 0\n  limits_gpu: 0\n  node_selector: {}\n"
+            "volumes: []\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr(
+            cli,
+            "_load_profile",
+            lambda *args, **kwargs: ClusterProfile(name="test"),
+        )
+        monkeypatch.setattr(
+            cli,
+            "_build_session",
+            lambda *args, **kwargs: MagicMock(),
+        )
+
+        args = SimpleNamespace(
+            profile="defaults",
+            profile_file=None,
+            kubeconfig=None,
+            job_config=str(config_path),
+            allow_policy_risk=False,
+            render_only=False,
+            output_manifest=None,
+            wait=False,
+            max_wait_seconds=0,
+            follow_logs=False,
+            image_profile=None,
+            image=None,
+        )
+        with pytest.raises(SystemExit, match="Invalid job config"):
+            cli._cmd_deploy(args)
+
+    def test_cmd_logs_no_pods_raises(self, monkeypatch):
+        """_cmd_logs raises SystemExit when no pods found."""
+        mock_session = MagicMock()
+        mock_session.backend.pods_for_job.return_value = []
+
+        monkeypatch.setattr(
+            cli,
+            "_load_profile",
+            lambda *args, **kwargs: ClusterProfile(name="test"),
+        )
+        monkeypatch.setattr(cli, "_build_session", lambda *args, **kwargs: mock_session)
+
+        args = SimpleNamespace(
+            profile="defaults",
+            profile_file=None,
+            kubeconfig=None,
+            job_name="test-job",
+            follow=False,
+        )
+        with pytest.raises(SystemExit, match="No pods found"):
+            cli._cmd_logs(args)
+
+    def test_cmd_status(self, monkeypatch, capsys):
+        """_cmd_status prints job status."""
+        mock_session = MagicMock()
+        mock_session.backend.job_status.return_value = "Running"
+
+        monkeypatch.setattr(
+            cli,
+            "_load_profile",
+            lambda *args, **kwargs: ClusterProfile(name="test"),
+        )
+        monkeypatch.setattr(cli, "_build_session", lambda *args, **kwargs: mock_session)
+
+        args = SimpleNamespace(
+            profile="defaults",
+            profile_file=None,
+            kubeconfig=None,
+            job_name="test-job",
+        )
+        exit_code = cli._cmd_status(args)
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert "JOB_STATUS=Running" in out
+
+    def test_cmd_delete(self, monkeypatch, capsys):
+        """_cmd_delete prints deleted job name."""
+        mock_session = MagicMock()
+
+        monkeypatch.setattr(
+            cli,
+            "_load_profile",
+            lambda *args, **kwargs: ClusterProfile(name="test"),
+        )
+        monkeypatch.setattr(cli, "_build_session", lambda *args, **kwargs: mock_session)
+
+        args = SimpleNamespace(
+            profile="defaults",
+            profile_file=None,
+            kubeconfig=None,
+            job_name="delete-me",
+        )
+        exit_code = cli._cmd_delete(args)
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert "DELETED_JOB=delete-me" in out
+        mock_session.backend.delete_job.assert_called_once_with("delete-me")
+
+
+class TestTemplatingEdgeCases:
+    """Edge cases for the templating module."""
+
+    def test_sanitize_yaml_value_strips_unsafe_chars(self):
+        """_sanitize_yaml_value removes newlines, tabs, quotes, backslashes."""
+        from spikelab.batch_jobs.templating import _sanitize_yaml_value
+
+        result = _sanitize_yaml_value('hello\nworld\t"test\\value')
+        assert "\n" not in result
+        assert "\t" not in result
+        assert '"' not in result
+        assert "\\" not in result
+        assert result == "helloworldtestvalue"
+
+    def test_sanitize_yaml_value_injection_attempt(self):
+        """YAML injection via label values is stripped."""
+        from spikelab.batch_jobs.templating import _sanitize_yaml_value
+
+        malicious = 'value"\ninjected_key: injected_value'
+        result = _sanitize_yaml_value(malicious)
+        assert "\n" not in result
+        assert '"' not in result
+
+    def test_build_pod_volumes_mount_with_no_name_skipped(self):
+        """Mounts with no name are silently dropped."""
+        from spikelab.batch_jobs.templating import _build_pod_volumes
+
+        mounts = [
+            {"name": "vol1", "mount_path": "/a", "secret_name": "sec1"},
+            {"mount_path": "/b", "secret_name": "sec2"},  # no name
+            {"name": "", "mount_path": "/c", "secret_name": "sec3"},  # empty name
+        ]
+        volumes = _build_pod_volumes(mounts)
+        names = [v["name"] for v in volumes]
+        assert "vol1" in names
+        # Empty string name may or may not be included; no-name mount is skipped
+        assert len(volumes) <= 2
+
+    def test_build_template_context_empty_namespace_fallback(self):
+        """Empty string namespace falls back to profile namespace."""
+        payload = _example_payload()
+        payload["namespace"] = ""
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test", namespace="fallback-ns")
+        context = build_template_context(
+            job_name="test-ctx",
+            job_spec=job_spec,
+            profile=profile,
+        )
+        assert context["namespace"] == "fallback-ns"
+
+    def test_build_template_context_empty_labels(self):
+        """Empty labels from all sources still produces a dict."""
+        payload = _example_payload()
+        payload["labels"] = {}
+        job_spec = validate_job_spec(payload)
+        profile = ClusterProfile(name="test", labels={})
+        context = build_template_context(
+            job_name="test-empty-labels",
+            job_spec=job_spec,
+            profile=profile,
+            extra_labels=None,
+        )
+        assert isinstance(context["labels"], dict)
+
+
+class TestValidationEdgeCases:
+    """Edge cases for the validation module."""
+
+    def test_summarize_validation_error_empty_loc(self):
+        """summarize_validation_error handles error with empty loc tuple."""
+        from spikelab.batch_jobs.validation import summarize_validation_error
+
+        # Create a mock ValidationError with an empty loc
+        mock_exc = MagicMock()
+        mock_exc.errors.return_value = [
+            {"loc": (), "msg": "custom error message"},
+        ]
+        result = summarize_validation_error(mock_exc)
+        assert result == "custom error message"
+
+
+class TestInitLazyImportEdgeCases:
+    """Edge cases for batch_jobs.__init__.__getattr__."""
+
+    def test_nonexistent_attribute_raises_attribute_error(self):
+        """Accessing a non-existent attribute raises AttributeError."""
+        import spikelab.batch_jobs as batch_jobs_pkg
+
+        with pytest.raises(AttributeError, match="has no attribute"):
+            _ = batch_jobs_pkg.NoSuchThing
+
+    def test_known_symbol_accessible(self):
+        """Public symbols like JobSpec are accessible via lazy import."""
+        import spikelab.batch_jobs as batch_jobs_pkg
+
+        js = batch_jobs_pkg.JobSpec
+        assert js is JobSpec
+
+
+class TestCredentialEdgeCasesExtended:
+    """Additional edge cases for credentials module."""
+
+    def test_resolve_credentials_empty_string_falls_back_to_env(self, monkeypatch):
+        """Empty string explicit arg falls back to environment variable."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "env-key")
+        creds = resolve_credentials(aws_access_key_id="")
+        # Empty string is falsy, so `or` falls back to env var
+        assert creds.aws_access_key_id == "env-key"
+
+    def test_redact_sensitive_map_case_insensitive(self):
+        """redact_sensitive_map matches keys case-insensitively (via upper)."""
+        redacted = redact_sensitive_map(
+            {
+                "db_password": "hunter2",
+                "Api_Secret": "key123",
+                "auth_token": "tok-abc",
+            }
+        )
+        assert redacted["db_password"] == "***REDACTED***"
+        assert redacted["Api_Secret"] == "***REDACTED***"
+        assert redacted["auth_token"] == "***REDACTED***"
+
+    def test_redact_sensitive_map_no_false_positive_on_access_key_id(self):
+        """AWS_ACCESS_KEY_ID should not be redacted (no SECRET/TOKEN/PASSWORD)."""
+        redacted = redact_sensitive_map({"AWS_ACCESS_KEY_ID": "AKIAEXAMPLE"})
+        assert redacted["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE"

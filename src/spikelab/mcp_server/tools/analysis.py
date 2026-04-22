@@ -2270,6 +2270,64 @@ async def curate_spikedata(
     }
 
 
+async def curate_merge_duplicates(
+    workspace_id: str,
+    namespace: str,
+    out_namespace: Optional[str] = None,
+    dist_um: float = 24.8,
+    max_violation_rate: float = 0.04,
+    isi_threshold_ms: float = 1.5,
+    cosine_threshold: float = 0.5,
+    max_lag: int = 10,
+    delta_ms: float = 0.4,
+    max_isi_increase: float = 0.04,
+    verbose: bool = False,
+) -> Dict[str, Any]:
+    """Merge duplicate units by spatial proximity and waveform similarity.
+
+    Reads SpikeData from (namespace, 'spikedata'), runs the merge-based
+    deduplication pipeline, stores the merged SpikeData at
+    (out_namespace, 'spikedata'), and returns merge statistics inline.
+
+    Requires neuron_attributes with position and avg_waveform entries.
+    Unlike curate_spikedata, this merges spike trains rather than
+    simply removing units.
+    """
+    from ...spikedata.curation import curate_by_merge_duplicates
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    sd_merged, result = curate_by_merge_duplicates(
+        sd,
+        dist_um=dist_um,
+        max_violation_rate=max_violation_rate,
+        isi_threshold_ms=isi_threshold_ms,
+        cosine_threshold=cosine_threshold,
+        max_lag=max_lag,
+        delta_ms=delta_ms,
+        max_isi_increase=max_isi_increase,
+        verbose=verbose,
+    )
+
+    target_ns = out_namespace if out_namespace else namespace + "_merged"
+    ws.store(target_ns, _SPIKEDATA_KEY, sd_merged)
+
+    n_absorbed = int((~result["passed"]).sum())
+    return {
+        "workspace_id": workspace_id,
+        "namespace": target_ns,
+        "workspace_key": _SPIKEDATA_KEY,
+        "info": {
+            "num_neurons_before": sd.N,
+            "num_neurons_after": sd_merged.N,
+            "units_absorbed": n_absorbed,
+        },
+        "metric": result["metric"].tolist(),
+        "passed": result["passed"].tolist(),
+    }
+
+
 async def compute_gplvm_consecutive_durations(
     workspace_id: str,
     namespace: str,

@@ -24,7 +24,7 @@ COPY src ./src
 RUN python -m pip install --upgrade pip && \
     python -m pip install --index-url https://download.pytorch.org/whl/cu124 \
       torch torchvision torchaudio && \
-    python -m pip install -e ".[nrp-jobs,s3,neo,spike-sorting]"
+    python -m pip install -e ".[batch-jobs,s3,neo,spike-sorting]"
 
 COPY docker/analysis-base/entrypoint.sh /usr/local/bin/spikelab-entrypoint
 RUN chmod +x /usr/local/bin/spikelab-entrypoint

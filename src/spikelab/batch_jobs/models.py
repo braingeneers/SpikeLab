@@ -128,11 +128,22 @@ class ClusterProfile(BaseModel):
     region_name: Optional[str] = None
 
 
+class SubmitResult(BaseModel):
+    """Result returned by job submission methods."""
+
+    job_name: str
+    manifest_yaml: str
+    run_id: str
+    uploaded_input_uri: str
+    output_prefix: str
+    logs_prefix: str
+    job_type: Literal["workspace", "sorting", "prepared"]
+
+
 class RunConfig(BaseModel):
     """User-facing run config consumed by CLI/session."""
 
     profile_name: str = "defaults"
-    output_format: Literal["pickle", "nwb", "both"] = "pickle"
     input_path: str
     output_prefix: Optional[str] = None
     workspace_id: Optional[str] = None

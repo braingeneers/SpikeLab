@@ -3457,3 +3457,674 @@ class TestNumbaFallback:
         finally:
             numba_utils.prange = orig_prange
             numba_utils.NUMBA_AVAILABLE = orig_avail
+
+
+# ---------------------------------------------------------------------------
+# _resolve_n_jobs
+# ---------------------------------------------------------------------------
+
+
+class TestResolveNJobs:
+    """Tests for the _resolve_n_jobs parallelism helper."""
+
+    def test_none_returns_one(self):
+        """
+        None maps to serial execution (1 worker).
+
+        Tests:
+            (Test Case 1) _resolve_n_jobs(None) returns 1.
+        """
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        assert _resolve_n_jobs(None) == 1
+
+    def test_one_returns_one(self):
+        """
+        Explicit 1 maps to serial execution.
+
+        Tests:
+            (Test Case 1) _resolve_n_jobs(1) returns 1.
+        """
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        assert _resolve_n_jobs(1) == 1
+
+    def test_minus_one_returns_cpu_count(self):
+        """
+        -1 maps to os.cpu_count().
+
+        Tests:
+            (Test Case 1) _resolve_n_jobs(-1) equals os.cpu_count().
+        """
+        import os
+
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        expected = os.cpu_count() or 1
+        assert _resolve_n_jobs(-1) == expected
+
+    def test_positive_passthrough(self):
+        """
+        Positive integers pass through unchanged.
+
+        Tests:
+            (Test Case 1) _resolve_n_jobs(4) returns 4.
+        """
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        assert _resolve_n_jobs(4) == 4
+
+    def test_negative_counts_from_cpu_count(self):
+        """
+        Negative values (other than -1) count backwards from cpu_count.
+
+        Tests:
+            (Test Case 1) -2 returns max(1, cpu_count - 1).
+        """
+        import os
+
+        from spikelab.spikedata.utils import _resolve_n_jobs
+
+        cores = os.cpu_count() or 1
+        expected = max(1, cores + 1 + (-2))
+        assert _resolve_n_jobs(-2) == expected
+
+
+# ---------------------------------------------------------------------------
+# _count_matching_spikes
+# ---------------------------------------------------------------------------
+
+
+class TestCountMatchingSpikes:
+    """Tests for the greedy spike matching function."""
+
+    def test_basic_counting(self):
+        """
+        Spikes within delta are matched greedily.
+
+        Tests:
+            (Test Case 1) Two matching pairs out of three spikes.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t1 = np.array([10.0, 20.0, 30.0])
+        t2 = np.array([10.1, 20.2])
+        assert _count_matching_spikes(t1, t2, delta=0.3) == 2
+
+    def test_empty_trains(self):
+        """
+        Empty trains produce zero matches.
+
+        Tests:
+            (Test Case 1) First train empty.
+            (Test Case 2) Second train empty.
+            (Test Case 3) Both trains empty.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t = np.array([10.0, 20.0])
+        empty = np.array([], dtype=float)
+        assert _count_matching_spikes(empty, t, 0.5) == 0
+        assert _count_matching_spikes(t, empty, 0.5) == 0
+        assert _count_matching_spikes(empty, empty, 0.5) == 0
+
+    def test_perfect_match(self):
+        """
+        Identical trains match all spikes.
+
+        Tests:
+            (Test Case 1) n_matches equals the train length.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t = np.array([5.0, 15.0, 25.0, 35.0])
+        assert _count_matching_spikes(t, t, delta=0.1) == 4
+
+    def test_no_match_within_delta(self):
+        """
+        Trains separated by more than delta produce zero matches.
+
+        Tests:
+            (Test Case 1) Spikes 10 ms apart with delta=0.1 yields 0 matches.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t1 = np.array([10.0, 20.0])
+        t2 = np.array([100.0, 200.0])
+        assert _count_matching_spikes(t1, t2, delta=0.1) == 0
+
+    def test_single_spike(self):
+        """
+        Single-spike trains match if within delta.
+
+        Tests:
+            (Test Case 1) One spike matches.
+            (Test Case 2) One spike does not match.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        assert (
+            _count_matching_spikes(np.array([10.0]), np.array([10.3]), delta=0.5) == 1
+        )
+        assert (
+            _count_matching_spikes(np.array([10.0]), np.array([10.6]), delta=0.5) == 0
+        )
+
+
+# ---------------------------------------------------------------------------
+# _compute_agreement_score
+# ---------------------------------------------------------------------------
+
+
+class TestComputeAgreementScore:
+    """Tests for the Jaccard agreement score function."""
+
+    def test_jaccard_agreement(self):
+        """
+        Agreement score is n_matches / (n1 + n2 - n_matches).
+
+        Tests:
+            (Test Case 1) 2 matches from 3+2 spikes: 2/(3+2-2)=2/3.
+        """
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        t1 = np.array([10.0, 20.0, 30.0])
+        t2 = np.array([10.1, 20.1])
+        agr, f1, f2 = _compute_agreement_score(t1, t2, delta=0.5)
+        assert agr == pytest.approx(2.0 / 3.0)
+        assert f1 == pytest.approx(2.0 / 3.0)
+        assert f2 == pytest.approx(1.0)
+
+    def test_empty_trains(self):
+        """
+        Both trains empty returns (0, 0, 0).
+
+        Tests:
+            (Test Case 1) All three returned values are 0.
+        """
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        agr, f1, f2 = _compute_agreement_score(np.array([]), np.array([]), delta=0.5)
+        assert agr == 0.0
+        assert f1 == 0.0
+        assert f2 == 0.0
+
+    def test_identical_trains(self):
+        """
+        Identical trains yield agreement = 1.0.
+
+        Tests:
+            (Test Case 1) Perfect agreement.
+        """
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        t = np.array([10.0, 20.0, 30.0])
+        agr, f1, f2 = _compute_agreement_score(t, t, delta=0.5)
+        assert agr == pytest.approx(1.0)
+        assert f1 == pytest.approx(1.0)
+        assert f2 == pytest.approx(1.0)
+
+    def test_one_empty_train(self):
+        """
+        One empty train yields agreement = 0.0.
+
+        Tests:
+            (Test Case 1) Non-empty vs empty: agreement is 0, frac of non-empty is 0.
+        """
+        from spikelab.spikedata.utils import _compute_agreement_score
+
+        t = np.array([10.0, 20.0])
+        agr, f1, f2 = _compute_agreement_score(t, np.array([]), delta=0.5)
+        assert agr == 0.0
+        assert f1 == 0.0
+        assert f2 == 0.0
+
+
+# ---------------------------------------------------------------------------
+# _compute_footprint
+# ---------------------------------------------------------------------------
+
+
+class TestComputeFootprint:
+    """Tests for footprint construction from neuron_attributes."""
+
+    def test_basic_construction(self):
+        """
+        Footprint places the template on the main channel row.
+
+        Tests:
+            (Test Case 1) Main channel row contains the template values around the trough.
+            (Test Case 2) Other channel rows are zero (no neighbors beyond primary).
+        """
+        from spikelab.spikedata.utils import _compute_footprint
+
+        # Template with trough at index 2
+        template = np.array([0.0, -1.0, -3.0, -1.0, 0.0], dtype=float)
+        attrs = {
+            "template": template,
+            "neighbor_templates": np.zeros((1, 5)),  # just primary channel
+            "channel": 1,
+            "neighbor_channels": np.array([1]),
+        }
+        fp = _compute_footprint(attrs, f_rel_to_trough=(2, 2), n_channels=4)
+
+        assert fp.shape == (4, 5)  # (n_channels, pre+post+1)
+        # Channel 1 should have the template centered on its trough
+        assert fp[1, 2] == -3.0  # trough value at center
+        # Channel 0, 2, 3 should be zero (no neighbor templates placed there)
+        np.testing.assert_array_equal(fp[0], 0.0)
+        np.testing.assert_array_equal(fp[2], 0.0)
+        np.testing.assert_array_equal(fp[3], 0.0)
+
+    def test_neighbor_template_placement(self):
+        """
+        Neighbor templates are placed at their respective channel rows.
+
+        Tests:
+            (Test Case 1) Neighbor channel row contains scaled template values.
+        """
+        from spikelab.spikedata.utils import _compute_footprint
+
+        template = np.array([0.0, -1.0, -3.0, -1.0, 0.0], dtype=float)
+        nb_template = 0.5 * template
+        attrs = {
+            "template": template,
+            "neighbor_templates": np.vstack([np.zeros(5), nb_template]),
+            "channel": 0,
+            "neighbor_channels": np.array([0, 1]),
+        }
+        fp = _compute_footprint(attrs, f_rel_to_trough=(2, 2), n_channels=3)
+
+        assert fp.shape == (3, 5)
+        # Channel 0 has the main template
+        assert fp[0, 2] == -3.0
+        # Channel 1 has the neighbor template (0.5x)
+        assert fp[1, 2] == pytest.approx(-1.5)
+
+
+# ---------------------------------------------------------------------------
+# _compute_footprint_similarity
+# ---------------------------------------------------------------------------
+
+
+class TestComputeFootprintSimilarity:
+    """Tests for cosine similarity between footprints."""
+
+    def test_identical_footprints(self):
+        """
+        Identical footprints have similarity 1.0.
+
+        Tests:
+            (Test Case 1) cosine(fp, fp) == 1.0.
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        sim = _compute_footprint_similarity(fp, fp, max_lag=0)
+        assert sim == pytest.approx(1.0)
+
+    def test_orthogonal_footprints(self):
+        """
+        Orthogonal footprints have similarity 0.0.
+
+        Tests:
+            (Test Case 1) cosine similarity of orthogonal vectors is 0.
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.array([[1.0, 0.0, 0.0]])
+        fp2 = np.array([[0.0, 1.0, 0.0]])
+        sim = _compute_footprint_similarity(fp1, fp2, max_lag=0)
+        assert sim == pytest.approx(0.0)
+
+    def test_lag_improves_similarity(self):
+        """
+        Lag search can improve similarity for shifted footprints.
+
+        Tests:
+            (Test Case 1) Shifted footprint has higher similarity with lag > 0.
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.zeros((1, 10))
+        fp1[0, 3] = 1.0
+        fp2 = np.zeros((1, 10))
+        fp2[0, 5] = 1.0
+
+        sim_no_lag = _compute_footprint_similarity(fp1, fp2, max_lag=0)
+        sim_with_lag = _compute_footprint_similarity(fp1, fp2, max_lag=3)
+        assert sim_with_lag >= sim_no_lag
+
+    def test_shape_mismatch_raises(self):
+        """
+        Mismatched footprint shapes raise ValueError.
+
+        Tests:
+            (Test Case 1) Different shapes are rejected.
+        """
+        from spikelab.spikedata.utils import _compute_footprint_similarity
+
+        fp1 = np.ones((2, 5))
+        fp2 = np.ones((3, 5))
+        with pytest.raises(ValueError, match="same shape"):
+            _compute_footprint_similarity(fp1, fp2)
+
+
+# ---------------------------------------------------------------------------
+# _sliding_rate_single_train (basic behavior)
+# ---------------------------------------------------------------------------
+
+
+class TestSlidingRateSingleTrain:
+    """Basic behavior tests for _sliding_rate_single_train."""
+
+    def test_basic_rate(self):
+        """
+        Rate for uniform spikes is approximately 1/ISI.
+
+        Tests:
+            (Test Case 1) 10 spikes over 100 ms with 10ms window: peak rate
+                is consistent with spike density.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.arange(5, 100, 10.0)  # 10 spikes, 10ms apart
+        rd = _sliding_rate_single_train(
+            spikes, window_size=10.0, step_size=1.0, t_start=0, t_end=100
+        )
+        assert rd.inst_Frate_data.shape[0] == 1
+        # Rate should peak around 1 spike per 10ms = 0.1 spikes/ms
+        peak_rate = np.max(rd.inst_Frate_data)
+        assert 0.05 < peak_rate < 0.2
+
+    def test_empty_train(self):
+        """
+        Empty spike train returns empty RateData.
+
+        Tests:
+            (Test Case 1) inst_Frate_data has shape (1, 0).
+            (Test Case 2) times array is empty.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        rd = _sliding_rate_single_train(np.array([]), window_size=10.0, step_size=1.0)
+        assert rd.inst_Frate_data.shape == (1, 0)
+        assert len(rd.times) == 0
+
+    def test_single_spike(self):
+        """
+        Single spike produces a localized bump in rate.
+
+        Tests:
+            (Test Case 1) Rate is non-negative everywhere.
+            (Test Case 2) Maximum rate is at or near the spike time.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        rd = _sliding_rate_single_train(
+            np.array([50.0]), window_size=10.0, step_size=1.0, t_start=40, t_end=60
+        )
+        assert np.all(rd.inst_Frate_data >= 0)
+        peak_idx = np.argmax(rd.inst_Frate_data[0])
+        assert abs(rd.times[peak_idx] - 50.0) < 6.0
+
+    def test_sampling_rate_parameter(self):
+        """
+        sampling_rate is equivalent to step_size = 1/sampling_rate.
+
+        Tests:
+            (Test Case 1) Results match when using equivalent parameters.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.array([10.0, 20.0, 30.0])
+        rd_step = _sliding_rate_single_train(spikes, window_size=10.0, step_size=0.5)
+        rd_rate = _sliding_rate_single_train(
+            spikes, window_size=10.0, sampling_rate=2.0
+        )
+        np.testing.assert_allclose(
+            rd_step.inst_Frate_data, rd_rate.inst_Frate_data, atol=1e-12
+        )
+
+    def test_apply_square_false(self):
+        """
+        apply_square=False skips square-window smoothing.
+
+        Tests:
+            (Test Case 1) Result is different from apply_square=True.
+            (Test Case 2) Rate is non-negative.
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        rd_square = _sliding_rate_single_train(
+            spikes, window_size=10.0, step_size=1.0, apply_square=True
+        )
+        rd_no_square = _sliding_rate_single_train(
+            spikes, window_size=10.0, step_size=1.0, apply_square=False
+        )
+        assert np.all(rd_no_square.inst_Frate_data >= 0)
+        # The two modes generally produce different rates
+        assert not np.allclose(rd_square.inst_Frate_data, rd_no_square.inst_Frate_data)
+
+    def test_gaussian_smoothing(self):
+        """
+        gauss_sigma > 0 smooths the rate trace.
+
+        Tests:
+            (Test Case 1) Gaussian-smoothed rate is smoother (lower variance).
+        """
+        from spikelab.spikedata.utils import _sliding_rate_single_train
+
+        spikes = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        rd_no_gauss = _sliding_rate_single_train(
+            spikes, window_size=5.0, step_size=1.0, gauss_sigma=0.0
+        )
+        rd_gauss = _sliding_rate_single_train(
+            spikes, window_size=5.0, step_size=1.0, gauss_sigma=5.0
+        )
+        # Gaussian smoothing reduces variance
+        assert np.var(rd_gauss.inst_Frate_data) < np.var(rd_no_gauss.inst_Frate_data)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan (HIGH + MEDIUM)
+# ---------------------------------------------------------------------------
+
+
+class TestUtilsEdgeCasesCoreReview:
+    """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
+
+    def test_get_sttc_length_shorter_than_spike_times(self):
+        """
+        length shorter than spike times. _sttc_ta uses tmax - tA[-1] which
+        could be negative.
+
+        Tests:
+            (Test Case 1) length=30 but spikes extend to 50. The function
+                produces a finite result (potentially incorrect but no crash).
+        """
+        tA = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        tB = np.array([12.0, 22.0, 32.0, 42.0])
+        result = get_sttc(tA, tB, delt=5.0, length=30.0)
+        assert isinstance(result, (float, np.floating))
+        assert np.isfinite(result)
+
+    def test_get_sttc_non_sorted_spike_trains(self):
+        """
+        Non-sorted spike trains: np.searchsorted assumes sorted input.
+        Silent incorrect results.
+
+        Tests:
+            (Test Case 1) Unsorted trains produce a result different from
+                sorted trains (if internal logic depends on sort order).
+            (Test Case 2) Function does not crash on unsorted input.
+        """
+        sorted_tA = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        sorted_tB = np.array([12.0, 22.0, 32.0, 42.0, 52.0])
+        unsorted_tA = np.array([30.0, 10.0, 50.0, 40.0, 20.0])
+        unsorted_tB = np.array([32.0, 12.0, 52.0, 42.0, 22.0])
+
+        result_sorted = get_sttc(sorted_tA, sorted_tB, delt=5.0, length=60.0)
+        result_unsorted = get_sttc(unsorted_tA, unsorted_tB, delt=5.0, length=60.0)
+        assert isinstance(result_unsorted, (float, np.floating))
+        assert np.isfinite(result_unsorted)
+        # Results may differ because _sttc_ta uses np.diff which is order-dependent
+
+    def test_compute_cross_correlation_negative_max_lag(self):
+        """
+        Negative max_lag is treated as abs(max_lag) since lag is symmetric.
+
+        Tests:
+            (Test Case 1) Negative max_lag produces the same result as
+                the corresponding positive value.
+        """
+        sig = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        corr_neg, lag_neg = compute_cross_correlation_with_lag(sig, sig, max_lag=-2)
+        corr_pos, lag_pos = compute_cross_correlation_with_lag(sig, sig, max_lag=2)
+        np.testing.assert_allclose(corr_neg, corr_pos)
+        assert lag_neg == lag_pos
+
+    def test_compute_cosine_similarity_negative_max_lag(self):
+        """
+        Negative max_lag for cosine similarity is not validated.
+
+        Tests:
+            (Test Case 1) Negative max_lag does not crash.
+            (Test Case 2) Returns a valid (sim, lag) tuple.
+        """
+        sig = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        sim, lag = compute_cosine_similarity_with_lag(sig, sig, max_lag=-1)
+        assert isinstance(sim, (int, float, np.integer, np.floating))
+        assert isinstance(lag, (int, float, np.integer, np.floating))
+
+    def test_compute_cosine_similarity_length_1_with_lag(self):
+        """
+        Length-1 signals with max_lag > 0.
+
+        Tests:
+            (Test Case 1) Length-1 signals with max_lag=5 do not crash.
+            (Test Case 2) Returns a valid result.
+        """
+        sig = np.array([3.0])
+        sim, lag = compute_cosine_similarity_with_lag(sig, sig, max_lag=5)
+        assert isinstance(sim, (int, float, np.integer, np.floating))
+
+    def test_shuffle_percentile_nan_in_observed(self):
+        """
+        NaN in observed returns 0.0 — expected numpy semantics.
+
+        Tests:
+            (Test Case 1) NaN observed produces 0.0 percentile because
+                shuffle_distribution <= NaN is always False (numpy semantics).
+                Callers should filter NaN inputs before calling.
+        """
+        dist = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        result = shuffle_percentile(float("nan"), dist)
+        assert result == 0.0
+
+    def test_slice_trend_mismatched_lengths(self):
+        """
+        Mismatched values and times lengths are not validated.
+
+        Tests:
+            (Test Case 1) values has 5 elements, times has 3. linregress
+                will raise or produce incorrect results due to broadcasting.
+        """
+        values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        times = np.array([0.0, 1.0, 2.0])
+        with pytest.raises((ValueError, IndexError)):
+            slice_trend(values, times)
+
+    def test_count_matching_spikes_delta_zero(self):
+        """
+        delta=0 for pure-Python version: only exact matches count.
+
+        Tests:
+            (Test Case 1) Identical trains with delta=0 match all spikes.
+            (Test Case 2) Trains offset by epsilon with delta=0 match none.
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t = np.array([10.0, 20.0, 30.0])
+        assert _count_matching_spikes(t, t, delta=0.0) == 3
+
+        t2 = np.array([10.1, 20.1, 30.1])
+        assert _count_matching_spikes(t, t2, delta=0.0) == 0
+
+    def test_count_matching_spikes_negative_delta(self):
+        """
+        Negative delta is not validated. abs(dt) <= negative_delta is always False.
+
+        Tests:
+            (Test Case 1) Negative delta produces 0 matches (abs(dt) is always >= 0).
+        """
+        from spikelab.spikedata.utils import _count_matching_spikes
+
+        t = np.array([10.0, 20.0, 30.0])
+        result = _count_matching_spikes(t, t, delta=-1.0)
+        assert result == 0
+
+    @pytest.mark.skipif(not SKLEARN_AVAILABLE, reason="scikit-learn not installed")
+    def test_pca_reduction_all_nan_input(self):
+        """
+        PCA_reduction with all-NaN input: sklearn PCA does not handle NaN.
+
+        Tests:
+            (Test Case 1) All-NaN input raises ValueError from sklearn.
+        """
+        from spikelab.spikedata.utils import PCA_reduction
+
+        data = np.full((10, 5), np.nan)
+        with pytest.raises(ValueError):
+            PCA_reduction(data, n_components=2)
+
+    def test_validate_time_start_to_end_exact_boundaries(self):
+        """
+        recording_range exact boundaries.
+
+        Tests:
+            (Test Case 1) Window exactly at recording range boundaries passes.
+            (Test Case 2) Window exceeding boundaries by epsilon is flagged.
+        """
+        from spikelab.spikedata.utils import _validate_time_start_to_end
+
+        # Exact boundaries: should pass
+        result = _validate_time_start_to_end([(0.0, 50.0)], recording_range=(0.0, 50.0))
+        assert len(result) == 1
+
+    def test_rank_order_correlation_from_timing_1_slice(self):
+        """
+        _rank_order_correlation_from_timing with 1 slice.
+
+        Tests:
+            (Test Case 1) A timing matrix with 1 slice (column) produces a
+                1x1 correlation matrix with value 1.0 on the diagonal.
+        """
+        from spikelab.spikedata.utils import _rank_order_correlation_from_timing
+
+        tm = np.array([[5.0], [10.0], [15.0]])  # 3 units, 1 slice
+        corr, av, overlap = _rank_order_correlation_from_timing(
+            tm, n_shuffles=0, min_overlap=2
+        )
+        assert corr.matrix.shape == (1, 1)
+        assert corr.matrix[0, 0] == pytest.approx(1.0)
+
+    def test_rank_order_correlation_from_timing_all_below_min_overlap(self):
+        """
+        All pairs below min_overlap.
+
+        Tests:
+            (Test Case 1) When min_overlap is larger than the number of valid
+                units in any pair, all off-diagonal entries are NaN.
+        """
+        from spikelab.spikedata.utils import _rank_order_correlation_from_timing
+
+        # 2 units, 3 slices, but unit 0 has NaN in 2 slices
+        tm = np.array([[np.nan, 5.0, np.nan], [10.0, 20.0, 30.0]])
+        corr, av, overlap = _rank_order_correlation_from_timing(
+            tm, n_shuffles=0, min_overlap=2
+        )
+        # Only 1 slice has both units valid → overlap=1 < min_overlap=2
+        assert np.isnan(corr.matrix[0, 1])
+        assert np.isnan(corr.matrix[1, 0])

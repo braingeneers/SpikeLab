@@ -134,13 +134,11 @@ class PairwiseCompMatrix:
         """Return a normalized copy of this matrix.
 
         Parameters:
-            method (str): Normalization method.  One of:
-                - ``"min_max"`` — scale values to [0, 1] range.
-                - ``"z_score"`` — subtract mean, divide by std.
-                - ``"row"`` — normalize each row independently
-                  (shorthand for ``axis="row"`` with the chosen
-                  method; defaults to min-max).
-                - ``"col"`` — normalize each column independently.
+            method (str): Normalization method. One of
+                ``"min_max"`` (scale to [0, 1]),
+                ``"z_score"`` (subtract mean, divide by std),
+                ``"row"`` (per-row min-max), or
+                ``"col"`` (per-column min-max).
             axis (str or None): When set to ``"row"`` or ``"col"``,
                 normalization is applied per-row or per-column instead
                 of globally.  When None (default), the entire matrix
@@ -546,7 +544,7 @@ class PairwiseCompMatrixStack:
             >>> stack[0:5]    # Get first 5 matrices as new stack
             >>> stack[::2]    # Get every other matrix
         """
-        if isinstance(index, slice):
+        if isinstance(index, (slice, np.ndarray, list)):
             return PairwiseCompMatrixStack(
                 stack=self.stack[:, :, index],
                 labels=self.labels,
@@ -662,6 +660,13 @@ class PairwiseCompMatrixStack:
                     )
             normalized = np.stack(slices, axis=2)
         else:
+            if axis is not None:
+                raise ValueError(
+                    f"axis={axis!r} is only supported with per_slice=True. "
+                    "Global (per_slice=False) normalization operates on the "
+                    "entire stack — per-row/col normalization is ambiguous "
+                    "across slices."
+                )
             stk = self.stack.astype(np.float64)
             if method == "min_max":
                 lo = np.nanmin(stk)
@@ -888,14 +893,13 @@ class PairwiseCompMatrixStack:
                 ``metric``).
 
         Returns:
-            result (tuple): If method="PCA": ``(embedding, explained_variance_ratio,
-                components)`` where embedding has shape ``(S, n_components)``,
-                explained_variance_ratio has shape ``(n_components,)``, and
-                components has shape ``(n_components, F)`` with
-                F = N*(N-1)/2. If method="UMAP": ``(embedding,
-                trustworthiness)`` where embedding has shape
-                ``(S, n_components)`` and trustworthiness is a float in
-                [0, 1].
+            result (tuple): For PCA: a 3-tuple
+                ``(embedding, explained_variance_ratio, components)`` with
+                shapes ``(S, n_components)``, ``(n_components,)``, and
+                ``(n_components, F)`` where ``F = N*(N-1)//2``.
+                For UMAP: a 2-tuple ``(embedding, trustworthiness)`` with
+                embedding shape ``(S, n_components)`` and trustworthiness
+                a float in [0, 1].
         """
         from .utils import PCA_reduction, UMAP_reduction
 

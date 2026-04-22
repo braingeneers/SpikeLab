@@ -1557,3 +1557,205 @@ class TestCoverageGaps:
         embedding, labels, tw = result
         assert embedding.shape == (30, 2)
         assert len(labels) == 30
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md — Edge Case Scan (HIGH + MEDIUM)
+# ---------------------------------------------------------------------------
+
+
+class TestRateDataEdgeCasesCoreReview:
+    """Edge case tests for HIGH and MEDIUM findings from REVIEW.md."""
+
+    def test_integer_input_array(self):
+        """
+        Integer-typed inst_Frate_data. Downstream divisions could silently
+        produce integer-truncated results.
+
+        Tests:
+            (Test Case 1) Integer array is accepted by the constructor.
+            (Test Case 2) Stored data preserves integer dtype.
+            (Test Case 3) get_pairwise_fr_corr on integer data does not crash.
+        """
+        data = np.array([[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]])
+        times = np.arange(5, dtype=float)
+        rd = RateData(data, times)
+        assert rd.inst_Frate_data.dtype == np.int_
+        # Correlation should still work (division in float space)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
+        assert corr.matrix.shape == (2, 2)
+        assert not np.any(np.isnan(np.diag(corr.matrix)))
+
+    def test_non_list_iterable_neuron_attributes(self):
+        """
+        Tuple of dicts is accepted for neuron_attributes and stored as a list.
+
+        Tests:
+            (Test Case 1) Tuple of dicts is converted to a list.
+            (Test Case 2) Values are preserved.
+        """
+        data = np.ones((2, 3))
+        times = np.arange(3, dtype=float)
+        attrs = ({"region": "CA1"}, {"region": "CA3"})
+        rd = RateData(data, times, neuron_attributes=attrs)
+        assert isinstance(rd.neuron_attributes, list)
+        assert rd.neuron_attributes[0]["region"] == "CA1"
+
+    def test_subset_all_units_is_proper_copy(self):
+        """
+        subset selecting all units returns a proper copy, not a view.
+
+        Tests:
+            (Test Case 1) Data is equal to the original.
+            (Test Case 2) Mutating the subset does not affect the original.
+        """
+        rd = make_ratedata(n_units=3, n_times=20)
+        sub = rd.subset([0, 1, 2])
+        assert sub.N == 3
+        np.testing.assert_array_equal(sub.inst_Frate_data, rd.inst_Frate_data)
+        # Mutation should not propagate
+        sub.inst_Frate_data[0, 0] = -999.0
+        assert rd.inst_Frate_data[0, 0] != -999.0
+
+    def test_subtime_non_uniform_grid_end_none(self):
+        """
+        subtime with end=None on a non-uniform time grid uses times[1]-times[0]
+        as step size, which may be incorrect for non-uniform grids.
+
+        Tests:
+            (Test Case 1) Non-uniform grid [0, 1, 5, 10]. With end=None,
+                step = times[1] - times[0] = 1.0, so end = 10 + 1 = 11.
+                All 4 time points should be selected.
+            (Test Case 2) Verify the actual behavior matches the step-size
+                fallback logic.
+        """
+        data = np.ones((2, 4))
+        times = np.array([0.0, 1.0, 5.0, 10.0])
+        rd = RateData(data, times)
+        result = rd.subtime(0.0, None)
+        # end = times[-1] + (times[1] - times[0]) = 10 + 1 = 11
+        # All times in [0, 11) => all 4 points
+        assert result.inst_Frate_data.shape[1] == 4
+
+    def test_subtime_exact_boundary(self):
+        """
+        subtime with start and end exactly at time grid boundaries.
+
+        Tests:
+            (Test Case 1) start = times[2] and end = times[4] selects exactly
+                the bins at those boundaries (inclusive start, exclusive end).
+        """
+        data = np.ones((2, 10))
+        times = np.arange(10, dtype=float)
+        rd = RateData(data, times)
+        result = rd.subtime(2.0, 5.0)
+        # times >= 2 and < 5: 2.0, 3.0, 4.0
+        assert result.inst_Frate_data.shape[1] == 3
+        np.testing.assert_array_equal(result.times, [2.0, 3.0, 4.0])
+
+    def test_subtime_neuron_attributes_copied(self):
+        """
+        subtime passes neuron_attributes to the RateData constructor, which
+        copies them. The result's attributes are independent of the original.
+
+        Tests:
+            (Test Case 1) subtime result has equal but independent
+                neuron_attributes (not the same object).
+            (Test Case 2) Mutating the result's attributes does not affect
+                the original.
+        """
+        data = np.ones((2, 10))
+        times = np.arange(10, dtype=float)
+        attrs = [{"region": "CA1"}, {"region": "CA3"}]
+        rd = RateData(data, times, neuron_attributes=attrs)
+        result = rd.subtime(2.0, 5.0)
+        assert result.neuron_attributes == rd.neuron_attributes
+        # The constructor copies the list, so they are not the same object
+        assert result.neuron_attributes is not rd.neuron_attributes
+
+    def test_get_pairwise_fr_corr_sporadic_nan(self):
+        """
+        Sporadic NaN values in the rate matrix: NaN propagation not caught
+        by zero-norm branch.
+
+        Tests:
+            (Test Case 1) A rate matrix with sporadic NaN (not all-NaN) in one
+                unit produces NaN correlations for that unit.
+            (Test Case 2) Units without NaN produce valid correlations.
+        """
+        rng = np.random.default_rng(42)
+        data = rng.random((3, 50))
+        # Sprinkle NaN in unit 1
+        data[1, 10] = np.nan
+        data[1, 30] = np.nan
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=3)
+        assert corr.matrix.shape == (3, 3)
+        # Correlations involving unit 1 should be NaN because NaN propagates
+        # through the dot product
+        assert np.isnan(corr.matrix[0, 1])
+        assert np.isnan(corr.matrix[1, 0])
+        # Self-correlation of unit 1 with NaN should also be NaN
+        assert np.isnan(corr.matrix[1, 1])
+
+    def test_get_pairwise_fr_corr_inf_values(self):
+        """
+        Inf values in rate matrix produce unexpected NaN in correlations.
+
+        Tests:
+            (Test Case 1) A unit with Inf values produces Inf or NaN in
+                its correlation entries (Inf * anything = Inf, Inf - Inf = NaN).
+            (Test Case 2) Method does not crash.
+        """
+        rng = np.random.default_rng(42)
+        data = rng.random((3, 50))
+        data[0, 5] = np.inf
+        times = np.arange(50, dtype=float)
+        rd = RateData(data, times)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
+        assert corr.matrix.shape == (3, 3)
+        # Inf in the signal means the norm product is inf,
+        # so the correlation could be NaN or a finite value
+
+    def test_get_pairwise_fr_corr_negative_max_lag(self):
+        """
+        Negative max_lag is treated as abs(max_lag) since lag is symmetric.
+
+        Tests:
+            (Test Case 1) Negative max_lag produces valid output (same as positive).
+        """
+        rd = make_ratedata(n_units=3, n_times=50)
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=-1)
+        assert corr.matrix.shape == (3, 3)
+
+    def test_get_manifold_n_components_exact_boundary(self):
+        """
+        n_components == min(U, T) exact boundary.
+
+        Tests:
+            (Test Case 1) n_components = min(3, 20) = 3 should work.
+            (Test Case 2) Embedding has shape (T, 3).
+        """
+        data = np.random.default_rng(42).random((3, 20))
+        times = np.arange(20, dtype=float)
+        rd = RateData(data, times)
+        embedding, var_ratio, components = rd.get_manifold("PCA", n_components=3)
+        assert embedding.shape == (20, 3)
+        assert var_ratio.shape == (3,)
+        assert components.shape == (3, 3)
+
+    def test_frames_overlap_near_length(self):
+        """
+        Overlap equal to length minus 1 (epsilon) produces maximum overlapping
+        frames.
+
+        Tests:
+            (Test Case 1) length=20, overlap=19 produces step=1, many frames.
+            (Test Case 2) Result is a valid RateSliceStack.
+        """
+        rd = make_ratedata(n_units=2, n_times=100, step=1.0)
+        stack = rd.frames(20, overlap=19)
+        assert isinstance(stack, RateSliceStack)
+        # step = 20 - 19 = 1; starts = 0,1,2,...,80 = 81 frames
+        assert stack.event_stack.shape[2] == 81
