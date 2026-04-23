@@ -59,6 +59,7 @@ class KubernetesBatchJobBackend:
                 return self._run_kubectl(
                     ["apply", "-f", str(path), "-n", self.namespace]
                 )
+            temp_path = None
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".yaml", encoding="utf-8", delete=False
             ) as f:
@@ -69,7 +70,8 @@ class KubernetesBatchJobBackend:
                     ["apply", "-f", temp_path, "-n", self.namespace]
                 )
             finally:
-                Path(temp_path).unlink(missing_ok=True)
+                if temp_path:
+                    Path(temp_path).unlink(missing_ok=True)
 
         path = Path(manifest_path_or_str)
         if path.exists():

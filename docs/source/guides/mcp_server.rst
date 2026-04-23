@@ -17,9 +17,9 @@ Run the MCP server as a Python module:
 
    python -m spikelab.mcp_server
 
-This starts the server on stdio transport. MCP clients (such as Claude Desktop
-or other MCP-compatible tools) connect by launching this command as a
-subprocess and communicating over stdin/stdout.
+This starts the server on stdio transport (the default). MCP clients (such as
+Claude Desktop or other MCP-compatible tools) connect by launching this command
+as a subprocess and communicating over stdin/stdout.
 
 Example configuration for an MCP client:
 
@@ -33,6 +33,15 @@ Example configuration for an MCP client:
        }
      }
    }
+
+To use SSE (Server-Sent Events) transport instead, pass ``--transport sse``:
+
+.. code-block:: bash
+
+   python -m spikelab.mcp_server --transport sse --port 8080
+
+SSE transport requires the ``sse`` optional dependency group
+(``pip install spikelab[sse]``).
 
 The server requires the ``mcp`` Python package as a dependency.
 

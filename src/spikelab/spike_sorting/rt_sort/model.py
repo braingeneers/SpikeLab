@@ -36,12 +36,12 @@ import numpy as np
 try:
     import torch
     from torch import nn
-except ImportError as _exc:  # pragma: no cover
-    raise ImportError(
-        "PyTorch is required for RT-Sort's spike detection model. "
-        "Install it with the appropriate CUDA version from "
-        "https://pytorch.org/get-started/locally/"
-    ) from _exc
+
+    _TORCH_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    torch = None
+    nn = None
+    _TORCH_AVAILABLE = False
 
 try:
     import torch_tensorrt  # noqa: F401
@@ -93,7 +93,10 @@ utils = _LocalUtils()
 plot = _LocalPlot()
 
 
-class ModelSpikeSorter(nn.Module):
+_ModelBase = nn.Module if _TORCH_AVAILABLE else object
+
+
+class ModelSpikeSorter(_ModelBase):
     """DL model for spike sorting"""
 
     # Performance report when multiple waveforms can appear per sample
@@ -113,7 +116,7 @@ class ModelSpikeSorter(nn.Module):
         input_scale=0.01,
         samp_freq=None,
         device: str = "cuda",
-        dtype=torch.float16,
+        dtype=None,
         architecture_params=None,
     ):
         """
@@ -144,6 +147,14 @@ class ModelSpikeSorter(nn.Module):
             Device to run model ("cpu" for CPU and "cuda:0" for GPU)
         :param architecture_params
         """
+        if not _TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for RT-Sort's spike detection model. "
+                "Install it with the appropriate CUDA version from "
+                "https://pytorch.org/get-started/locally/"
+            )
+        if dtype is None:
+            dtype = torch.float16
         super(ModelSpikeSorter, self).__init__()
 
         # Cache init args

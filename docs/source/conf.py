@@ -58,6 +58,11 @@ autodoc_mock_imports = [
     "tqdm",
     "threadpoolctl",
     "pynvml",
+    "pydantic",
+    "jinja2",
+    "yaml",
+    "kubernetes",
+    "docker",
 ]
 
 # Napoleon

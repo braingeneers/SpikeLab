@@ -484,7 +484,14 @@ end"""
 
     @classmethod
     def get_result_from_folder(cls, output_folder):
-        return KilosortSortingExtractor(folder_path=output_folder)
+        return KilosortSortingExtractor(
+            folder_path=output_folder,
+            keep_good_only=bool(
+                _globals.KILOSORT_PARAMS
+                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+            ),
+            pos_peak_thresh=_globals.POS_PEAK_THRESH,
+        )
 
 
 class ShellScript:
@@ -610,7 +617,7 @@ class ShellScript:
         try:
             retcode = self._process.wait(timeout=timeout)
             return retcode
-        except:
+        except subprocess.TimeoutExpired:
             return None
 
     def cleanup(self) -> None:
@@ -635,7 +642,7 @@ class ShellScript:
             try:
                 self._process.wait(timeout=0.02)
                 return
-            except:
+            except subprocess.TimeoutExpired:
                 pass
 
     def kill(self) -> None:
@@ -650,9 +657,8 @@ class ShellScript:
         self._process.send_signal(signal.SIGKILL)
         try:
             self._process.wait(timeout=1)
-        except:
+        except subprocess.TimeoutExpired:
             print("WARNING: unable to kill shell script.")
-            pass
 
     def stopWithSignal(self, sig, timeout) -> bool:
         if not self.isRunning():
@@ -667,7 +673,7 @@ class ShellScript:
         try:
             self._process.wait(timeout=timeout)
             return True
-        except:
+        except subprocess.TimeoutExpired:
             return False
 
     def elapsedTimeSinceStart(self) -> Optional[float]:
@@ -722,7 +728,7 @@ class ShellScript:
             try:
                 shutil.rmtree(dirname)
                 break
-            except:
+            except OSError:
                 if retry_num < num_retries:
                     print("Retrying to remove directory: {}".format(dirname))
                     time.sleep(delay_between_tries)
@@ -889,7 +895,13 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
         # Fallback: some SI versions put output directly in the folder
         sorter_output = output_folder
 
-    return KilosortSortingExtractor(folder_path=sorter_output)
+    return KilosortSortingExtractor(
+        folder_path=sorter_output,
+        keep_good_only=bool(
+            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
+        ),
+        pos_peak_thresh=_globals.POS_PEAK_THRESH,
+    )
 
 
 def spike_sort(
@@ -924,7 +936,14 @@ def spike_sort(
             and (output_folder / "spike_times.npy").exists()
         ):
             print("Loading Kilosort2's sorting results")
-            sorting = KilosortSortingExtractor(folder_path=output_folder)
+            sorting = KilosortSortingExtractor(
+                folder_path=output_folder,
+                keep_good_only=bool(
+                    _globals.KILOSORT_PARAMS
+                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                ),
+                pos_peak_thresh=_globals.POS_PEAK_THRESH,
+            )
         elif _globals.USE_DOCKER:
             # Docker: SpikeInterface handles .dat conversion internally
             create_folder(output_folder)

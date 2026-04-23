@@ -5,10 +5,10 @@ sorter log and returns a specific
 :class:`SpikeSortingClassifiedError` subclass when it recognises the
 signature, or ``None`` to let the caller keep the original exception.
 
-Dispatchers :func:`classify_ks2_failure` and
-:func:`classify_ks4_failure` run the applicable helpers in priority
-order (environment and resource signatures before biology, so a
-genuine config problem on an active well is not misclassified as
+Dispatchers :func:`classify_ks2_failure`, :func:`classify_ks4_failure`,
+and :func:`classify_rt_sort_failure` run the applicable helpers in
+priority order (environment and resource signatures before biology,
+so a genuine config problem on an active well is not misclassified as
 "insufficient activity").
 
 All regex signatures are tolerant of surrounding formatting so they
@@ -26,6 +26,7 @@ from ._exceptions import (
     GPUOutOfMemoryError,
     HDF5PluginMissingError,
     InsufficientActivityError,
+    ModelLoadingError,
     NoGoodChannelsError,
     SpikeSortingClassifiedError,
 )
@@ -349,7 +350,8 @@ def _classify_insufficient_activity_ks4(
             "TruncatedSVD requires at least 1. Well is effectively silent."
         )
     else:
-        assert kmeans_match is not None
+        if kmeans_match is None:
+            raise ValueError(f"Could not parse KMeans error from exception: {exc!r}")
         n_samples = int(kmeans_match.group(1))
         n_clusters = int(kmeans_match.group(2))
         reason = (
@@ -427,3 +429,148 @@ def classify_ks4_failure(
     if oom is not None:
         return oom
     return _classify_insufficient_activity_ks4(chain_text, log_path, exc)
+
+
+# ---------------------------------------------------------------------------
+# RT-Sort helpers
+# ---------------------------------------------------------------------------
+
+
+def _find_rt_sort_log(output_folder: Path) -> Optional[Path]:
+    """Locate ``rt_sort.log`` when present."""
+    candidate = output_folder / "rt_sort.log"
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+_RT_SORT_TORCH_MISSING_MARKERS = (
+    "PyTorch is required for RT-Sort",
+    "No module named 'torch'",
+    "ModuleNotFoundError: torch",
+)
+
+_RT_SORT_MODEL_LOAD_MARKERS = (
+    "does not contain init_dict.json and state_dict.pt",
+    "init_dict.json",
+    "state_dict.pt",
+    "Error(s) in loading state_dict",
+    "Invalid architecture parameter",
+)
+
+
+def _classify_model_loading(
+    chain_text: str, log_text: Optional[str]
+) -> Optional[SpikeSortingClassifiedError]:
+    """RT-Sort detection model could not be loaded."""
+    haystack = chain_text if log_text is None else f"{chain_text}\n{log_text}"
+
+    if any(marker in haystack for marker in _RT_SORT_TORCH_MISSING_MARKERS):
+        return ModelLoadingError(
+            "PyTorch is not installed. RT-Sort requires PyTorch with CUDA "
+            "support for its deep-learning spike detection model. Install "
+            "a CUDA-matching wheel from https://pytorch.org/get-started/locally/",
+            sorter="rt_sort",
+        )
+
+    if any(marker in haystack for marker in _RT_SORT_MODEL_LOAD_MARKERS):
+        # Try to extract the model path from the chain
+        model_path = None
+        path_match = re.search(
+            r"The folder (.+?) does not contain init_dict", chain_text
+        )
+        if path_match:
+            model_path = path_match.group(1)
+
+        return ModelLoadingError(
+            "RT-Sort detection model could not be loaded. Verify that the "
+            "model folder exists and contains valid init_dict.json and "
+            "state_dict.pt files.",
+            sorter="rt_sort",
+            model_path=model_path,
+        )
+
+    return None
+
+
+_RT_SORT_NO_SEQUENCES_MARKERS = (
+    "0 preliminary propagation sequences",
+    "0 sequences remain",
+    "'NoneType' object has no attribute 'sort_offline'",
+)
+
+_RT_SORT_EMPTY_CLUSTER_RE = re.compile(
+    r"(\d+)\s+preliminary propagation sequences remain"
+)
+
+
+def _classify_insufficient_activity_rt_sort(
+    chain_text: str,
+    log_text: Optional[str],
+    log_path: Optional[Path],
+    exc: BaseException,
+) -> Optional[InsufficientActivityError]:
+    """RT-Sort found no sequences — recording is too silent to sort."""
+    haystack = chain_text if log_text is None else f"{chain_text}\n{log_text}"
+
+    # detect_sequences returns None on zero sequences, which causes
+    # an AttributeError when sort_offline is called on None
+    if any(marker in haystack for marker in _RT_SORT_NO_SEQUENCES_MARKERS):
+        message = (
+            "RT-Sort detected no propagation sequences — the recording "
+            "has too little spiking activity for sorting. "
+            f"Original exception: {exc!r}."
+            + (f" See {log_path} for full trace." if log_path else "")
+        )
+        return InsufficientActivityError(
+            message,
+            sorter="rt_sort",
+            log_path=log_path,
+        )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# RT-Sort dispatcher
+# ---------------------------------------------------------------------------
+
+
+def classify_rt_sort_failure(
+    output_folder: Path, exc: BaseException
+) -> Optional[SpikeSortingClassifiedError]:
+    """Return a classified exception for an RT-Sort failure, or ``None``.
+
+    Priority: environment → resource → biology. RT-Sort does not use
+    Docker, but the HDF5 plugin check applies because it reads HDF5
+    recordings. GPU OOM is possible during model inference.
+
+    Parameters:
+        output_folder (Path): RT-Sort output directory (may contain
+            ``rt_sort.log``).
+        exc (BaseException): The caught exception.
+
+    Returns:
+        classified (SpikeSortingClassifiedError or None): A classified
+            exception if a known signature was found, otherwise None.
+    """
+    output_folder = Path(output_folder)
+    log_path = _find_rt_sort_log(output_folder)
+    log_text = _read_log_if_exists(log_path)
+    chain_text = _walk_exception_chain(exc)
+
+    # Environment
+    model_err = _classify_model_loading(chain_text, log_text)
+    if model_err is not None:
+        return model_err
+    hdf5 = _classify_hdf5_plugin_missing(chain_text, log_text)
+    if hdf5 is not None:
+        return hdf5
+
+    # Resource
+    oom = _classify_gpu_oom("rt_sort", chain_text, log_text, log_path)
+    if oom is not None:
+        return oom
+
+    # Biology
+    return _classify_insufficient_activity_rt_sort(chain_text, log_text, log_path, exc)

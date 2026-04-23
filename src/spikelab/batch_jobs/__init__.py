@@ -14,6 +14,7 @@ def __getattr__(name):
         "JobSpec",
         "ResourceSpec",
         "RunConfig",
+        "SubmitResult",
         "VolumeMountSpec",
         "RunSession",
         "load_cluster_profile",
@@ -27,6 +28,7 @@ def __getattr__(name):
                 "JobSpec",
                 "ResourceSpec",
                 "RunConfig",
+                "SubmitResult",
                 "VolumeMountSpec",
             }:
                 from .models import (
@@ -35,6 +37,7 @@ def __getattr__(name):
                     JobSpec,
                     ResourceSpec,
                     RunConfig,
+                    SubmitResult,
                     VolumeMountSpec,
                 )
 
@@ -49,7 +52,7 @@ def __getattr__(name):
                 return RunSession
         except ImportError as exc:
             raise ImportError(
-                f"Cannot import '{name}' — install the nrp-jobs extra: "
+                f"Cannot import '{name}' — install the batch-jobs extra: "
                 "pip install spikelab[batch-jobs]"
             ) from exc
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -61,6 +64,7 @@ __all__ = [
     "JobSpec",
     "ResourceSpec",
     "RunConfig",
+    "SubmitResult",
     "VolumeMountSpec",
     "RunSession",
     "load_cluster_profile",

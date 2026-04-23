@@ -13,7 +13,7 @@ from ._classifier import classify_ks4_failure
 from ._exceptions import SpikeSortingClassifiedError
 from .docker_utils import get_docker_image
 from .sorting_extractor import KilosortSortingExtractor
-from .sorting_utils import Stopwatch, print_stage
+from .sorting_utils import Stopwatch, Tee, print_stage
 
 
 def spike_sort(
@@ -55,57 +55,77 @@ def spike_sort(
     if hasattr(output_folder, "__fspath__") or isinstance(output_folder, str):
         output_folder_path = Path(output_folder)
 
-    # Reuse existing results if present and we're not forced to recompute
-    if (
-        not _globals.RECOMPUTE_SORTING
-        and output_folder_path.exists()
-        and (output_folder_path / "spike_times.npy").exists()
-    ):
-        print("Loading existing Kilosort4 results")
-        sorting = KilosortSortingExtractor(folder_path=output_folder_path)
-        stopwatch.log_time("Done loading existing results.")
-        return sorting
+    output_folder_path.mkdir(parents=True, exist_ok=True)
+    log_path = output_folder_path / "kilosort4.log"
 
-    try:
-        docker_kwargs = {}
-        if _globals.USE_DOCKER:
-            docker_kwargs["docker_image"] = (
-                _globals.USE_DOCKER
-                if isinstance(_globals.USE_DOCKER, str)
-                else get_docker_image("kilosort4")
+    with Tee(log_path, file_mode="w"):
+        # Reuse existing results if present and we're not forced to recompute
+        if (
+            not _globals.RECOMPUTE_SORTING
+            and output_folder_path.exists()
+            and (output_folder_path / "spike_times.npy").exists()
+        ):
+            print("Loading existing Kilosort4 results")
+            sorting = KilosortSortingExtractor(
+                folder_path=output_folder_path,
+                keep_good_only=bool(
+                    _globals.KILOSORT_PARAMS
+                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                ),
+                pos_peak_thresh=_globals.POS_PEAK_THRESH,
             )
-            # Use "pypi" instead of "no-install" to work around an SI
-            # 0.104 bug where extra_requirements triggers an undefined
-            # 'cmd' variable when installation_mode="no-install".
-            # SI will detect the pre-installed version and skip the install.
-            docker_kwargs["installation_mode"] = "pypi"
+            stopwatch.log_time("Done loading existing results.")
+            return sorting
 
-        ss.run_sorter(
-            "kilosort4",
-            rec_cache,
-            folder=str(output_folder),
-            remove_existing_folder=True,
-            verbose=True,
-            **sorter_params,
-            **docker_kwargs,
+        try:
+            docker_kwargs = {}
+            if _globals.USE_DOCKER:
+                docker_kwargs["docker_image"] = (
+                    _globals.USE_DOCKER
+                    if isinstance(_globals.USE_DOCKER, str)
+                    else get_docker_image("kilosort4")
+                )
+                # Use "pypi" instead of "no-install" to work around an SI
+                # 0.104 bug where extra_requirements triggers an undefined
+                # 'cmd' variable when installation_mode="no-install".
+                # SI will detect the pre-installed version and skip the
+                # install.
+                docker_kwargs["installation_mode"] = "pypi"
+
+            ss.run_sorter(
+                "kilosort4",
+                rec_cache,
+                folder=str(output_folder),
+                remove_existing_folder=True,
+                verbose=True,
+                **sorter_params,
+                **docker_kwargs,
+            )
+        except SpikeSortingClassifiedError:
+            # Already classified (e.g. nested call re-raised); propagate.
+            raise
+        except Exception as e:
+            classified = classify_ks4_failure(Path(output_folder), e)
+            if classified is not None:
+                raise classified from e
+            print(f"Kilosort4 sorting failed: {e}")
+            stopwatch.log_time("Sorting failed.")
+            return e
+
+        # Load results using the shared KilosortSortingExtractor
+        # (KS4 output format is compatible: spike_times.npy,
+        # spike_clusters.npy)
+        sorter_output = output_folder_path
+        if (output_folder_path / "sorter_output").exists():
+            sorter_output = output_folder_path / "sorter_output"
+
+        sorting = KilosortSortingExtractor(
+            folder_path=sorter_output,
+            keep_good_only=bool(
+                _globals.KILOSORT_PARAMS
+                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+            ),
+            pos_peak_thresh=_globals.POS_PEAK_THRESH,
         )
-    except SpikeSortingClassifiedError:
-        # Already classified (e.g. nested call re-raised); let it propagate.
-        raise
-    except Exception as e:
-        classified = classify_ks4_failure(Path(output_folder), e)
-        if classified is not None:
-            raise classified from e
-        print(f"Kilosort4 sorting failed: {e}")
-        stopwatch.log_time("Sorting failed.")
-        return e
-
-    # Load results using the shared KilosortSortingExtractor
-    # (KS4 output format is compatible: spike_times.npy, spike_clusters.npy)
-    sorter_output = output_folder_path
-    if (output_folder_path / "sorter_output").exists():
-        sorter_output = output_folder_path / "sorter_output"
-
-    sorting = KilosortSortingExtractor(folder_path=sorter_output)
-    stopwatch.log_time("Done sorting with Kilosort4.")
-    return sorting
+        stopwatch.log_time("Done sorting with Kilosort4.")
+        return sorting

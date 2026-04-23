@@ -2368,6 +2368,11 @@ def plot_spatial_network(
         raise ValueError("Provide only one of edge_threshold or top_pct.")
 
     positions = np.asarray(positions)
+    if positions.ndim != 2 or positions.shape[1] < 2:
+        raise ValueError(
+            f"positions must be 2D with at least 2 columns (N, 2+), "
+            f"got shape {positions.shape}"
+        )
     matrix = np.asarray(matrix, dtype=float)
     n = len(positions)
 

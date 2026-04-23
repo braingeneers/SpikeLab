@@ -6,7 +6,6 @@ from typing import Any, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from . import _globals
 from .waveform_extractor import Utils
 
 
@@ -22,10 +21,17 @@ class KilosortSortingExtractor:
         Cluster groups to exclude (e.g. "noise" or ["noise", "mua"])
     """
 
-    def __init__(self, folder_path, exclude_cluster_groups=None):
+    def __init__(
+        self,
+        folder_path,
+        exclude_cluster_groups=None,
+        keep_good_only=False,
+        pos_peak_thresh=2.0,
+    ):
         # Folder containing the numpy results of Kilosort
         phy_folder = Path(folder_path)
         self.folder = phy_folder.absolute()
+        self.pos_peak_thresh = pos_peak_thresh
 
         self.spike_times = np.atleast_1d(
             np.load(str(phy_folder / "spike_times.npy")).astype(int).flatten()
@@ -86,11 +92,7 @@ class KilosortSortingExtractor:
                     for exclude_group in exclude_cluster_groups:
                         cluster_info = cluster_info.query(f"group != '{exclude_group}'")
 
-        if (
-            _globals.KILOSORT_PARAMS is not None
-            and _globals.KILOSORT_PARAMS.get("keep_good_only")
-            and "KSLabel" in cluster_info.columns
-        ):
+        if keep_good_only and "KSLabel" in cluster_info.columns:
             cluster_info = cluster_info.query("KSLabel == 'good'")
 
         all_unit_ids = cluster_info["cluster_id"].values
@@ -159,7 +161,7 @@ class KilosortSortingExtractor:
         chans_pos_peaks_indices = chans_pos_peaks_values.argmax(axis=1)
         chans_pos_peaks_values = np.max(chans_pos_peaks_values, axis=1)
 
-        use_pos_peak = chans_pos_peaks_values >= _globals.POS_PEAK_THRESH * np.abs(
+        use_pos_peak = chans_pos_peaks_values >= self.pos_peak_thresh * np.abs(
             chans_neg_peaks_values
         )
         chans_max_kilosort = np.where(

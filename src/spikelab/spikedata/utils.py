@@ -584,7 +584,8 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
         ref_rate (array): Reference firing rate signal.
         comp_rate (array): Comparison firing rate signal.
         max_lag (int or None): Maximum lag in frames to search for
-            similarity. If None, lag is set to 0.
+            similarity. If None, lag is set to 0. Negative values
+            are treated as their absolute value (lag is symmetric).
 
     Returns:
         max_corr (float): Maximum correlation coefficient.
@@ -593,6 +594,7 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
     """
     if max_lag is None:
         max_lag = 0
+    max_lag = abs(max_lag)
 
     # Handle zero-norm vectors:
     # - Both zero → undefined (NaN)
@@ -605,14 +607,17 @@ def compute_cross_correlation_with_lag(ref_rate, comp_rate, max_lag=0):
         return 0.0, 0
     norm_product = ref_norm * comp_norm
 
-    # Fast path for zero lag: direct dot-product normalisation (equivalent to
-    # the general path below with max_lag=0, but avoids scipy.signal overhead).
+    # Fast path for zero lag: direct dot-product normalisation.
+    # Normalises by sqrt(sum(ref^2) * sum(comp^2)) — the L2 norms.
     if max_lag == 0:
         max_corr = np.sum(ref_rate * comp_rate) / np.sqrt(norm_product)
         return max_corr, 0
-    # General path: use scipy.signal.correlate and normalise by the geometric
-    # mean of the zero-lag autocorrelations (equivalent to dividing by the
-    # product of L2 norms, but computed via correlate for consistency).
+    # General path: use scipy.signal.correlate and normalise by
+    # sqrt(autocorr_ref[0] * autocorr_comp[0]).  For practical signal
+    # lengths this equals the L2-norm product used in the fast path;
+    # a tiny difference can arise for very short even-length signals
+    # because correlate(..., 'same') may offset the centre by half a
+    # sample.
     auto_ref = signal.correlate(ref_rate, ref_rate, mode="same")[len(ref_rate) // 2]
     auto_comp = signal.correlate(comp_rate, comp_rate, mode="same")[len(comp_rate) // 2]
     denom = auto_ref * auto_comp
@@ -651,7 +656,8 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
         ref_rate (array): Reference firing rate signal.
         comp_rate (array): Comparison firing rate signal.
         max_lag (int or None): Maximum lag in frames to search for
-            similarity. If None, lag is set to 0.
+            similarity. If None, lag is set to 0. Negative values
+            are treated as their absolute value (lag is symmetric).
 
     Returns:
         max_sim (float): Maximum cosine similarity coefficient.
@@ -664,6 +670,7 @@ def compute_cosine_similarity_with_lag(ref_rate, comp_rate, max_lag=0):
     # Handle None case (convert to 0)
     if max_lag is None:
         max_lag = 0
+    max_lag = abs(max_lag)
 
     if max_lag == 0:
         # Only check zero lag

@@ -396,6 +396,49 @@ async def _list_tools() -> list[types.Tool]:
                 },
             ),
             types.Tool(
+                name="load_from_spikelab_sorted_npz",
+                description=(
+                    "Load spike data from a SpikeLab compiled sorting .npz file. "
+                    "These files are produced by the spike sorting pipeline and "
+                    "contain per-unit spike trains, electrode locations, waveform "
+                    "templates, and quality metrics. "
+                    "Stores SpikeData at (namespace, 'spikedata')."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Local path to the .npz file",
+                        },
+                        "length_ms": {
+                            "type": "number",
+                            "description": (
+                                "Recording duration in ms. Inferred from "
+                                "max spike time if not provided."
+                            ),
+                        },
+                        "workspace_id": {
+                            "type": "string",
+                            "description": (
+                                "Workspace ID to store the SpikeData in. "
+                                "If empty, a new workspace is created."
+                            ),
+                            "default": "",
+                        },
+                        "namespace": {
+                            "type": "string",
+                            "description": (
+                                "Recording namespace within the workspace. "
+                                "If empty, derived from the file name."
+                            ),
+                            "default": "",
+                        },
+                    },
+                    "required": ["file_path"],
+                },
+            ),
+            types.Tool(
                 name="query_ibl_probes",
                 description=(
                     "Search the IBL Brain-Wide Map database for probes matching given "
@@ -525,7 +568,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "bin_size": {
                             "type": "number",
-                            "default": 20.0,
+                            "default": 1.0,
                             "description": "Bin size in milliseconds",
                         },
                         "time_offset": {
@@ -553,7 +596,7 @@ async def _list_tools() -> list[types.Tool]:
                         },
                         "bin_size": {
                             "type": "number",
-                            "default": 20.0,
+                            "default": 1.0,
                             "description": "Bin size in milliseconds",
                         },
                         "channel_attr": {
@@ -1279,6 +1322,84 @@ async def _list_tools() -> list[types.Tool]:
                     "required": ["workspace_id", "namespace"],
                 },
             ),
+            types.Tool(
+                name="curate_merge_duplicates",
+                description=(
+                    "Merge duplicate units by spatial proximity and waveform "
+                    "similarity. Finds nearby unit pairs, filters by ISI "
+                    "violations and cosine similarity, then greedily merges "
+                    "accepted pairs. Requires neuron_attributes with position "
+                    "and avg_waveform entries. Stores merged SpikeData at "
+                    "(out_namespace, 'spikedata')."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "out_namespace": {
+                            "type": "string",
+                            "description": (
+                                "Namespace for the merged SpikeData. "
+                                "Defaults to '<namespace>_merged'."
+                            ),
+                        },
+                        "dist_um": {
+                            "type": "number",
+                            "default": 24.8,
+                            "description": (
+                                "Maximum inter-electrode distance in µm "
+                                "to consider a pair as candidate duplicates."
+                            ),
+                        },
+                        "max_violation_rate": {
+                            "type": "number",
+                            "default": 0.04,
+                            "description": (
+                                "Maximum ISI violation rate (fraction) for "
+                                "a unit to participate in a merge."
+                            ),
+                        },
+                        "isi_threshold_ms": {
+                            "type": "number",
+                            "default": 1.5,
+                            "description": "Refractory period threshold in ms.",
+                        },
+                        "cosine_threshold": {
+                            "type": "number",
+                            "default": 0.5,
+                            "description": "Minimum cosine similarity to merge a pair.",
+                        },
+                        "max_lag": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": (
+                                "Maximum lag in samples for cosine similarity alignment."
+                            ),
+                        },
+                        "delta_ms": {
+                            "type": "number",
+                            "default": 0.4,
+                            "description": (
+                                "Spike deduplication window in ms when merging trains."
+                            ),
+                        },
+                        "max_isi_increase": {
+                            "type": "number",
+                            "default": 0.04,
+                            "description": (
+                                "Maximum allowable absolute increase in ISI "
+                                "violation fraction after merging."
+                            ),
+                        },
+                        "verbose": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "Print per-pair merge decisions.",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
         ]
     )
 
@@ -1618,7 +1739,7 @@ async def _list_tools() -> list[types.Tool]:
                         "bin_size": {
                             "type": "number",
                             "default": 1.0,
-                            "description": "Bin size in ms for the sparse raster",
+                            "description": "Bin size in ms for the raster",
                         },
                     },
                     "required": ["workspace_id", "namespace", "stack_key", "key"],
@@ -3760,7 +3881,14 @@ async def _list_tools() -> list[types.Tool]:
             ),
             types.Tool(
                 name="export_to_pickle",
-                description="Export spike data to a pickle file. Accepts local file paths or S3 URLs.",
+                description=(
+                    "Export a workspace item to a pickle file. When key is "
+                    "omitted, exports SpikeData at (namespace, 'spikedata'). "
+                    "When key is provided, exports any supported type: "
+                    "SpikeData, RateData, PairwiseCompMatrix, "
+                    "PairwiseCompMatrixStack, RateSliceStack, SpikeSliceStack. "
+                    "Accepts local file paths or S3 URLs."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -3769,6 +3897,13 @@ async def _list_tools() -> list[types.Tool]:
                         "file_path": {
                             "type": "string",
                             "description": "Local file path or S3 URL",
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": (
+                                "Workspace key of the item to export. "
+                                "Defaults to 'spikedata'."
+                            ),
                         },
                         "protocol": {"type": "integer"},
                         "aws_access_key_id": {"type": "string"},
@@ -3824,6 +3959,7 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "load_from_hdf5_thresholded": data_loaders.load_from_hdf5_thresholded,
     "load_from_pickle": data_loaders.load_from_pickle,
     "load_from_ibl": data_loaders.load_from_ibl,
+    "load_from_spikelab_sorted_npz": data_loaders.load_from_spikelab_sorted_npz,
     "query_ibl_probes": data_loaders.query_ibl_probes,
     # Basic analysis tools
     "compute_rates": analysis.compute_rates,
@@ -3857,6 +3993,7 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "concatenate_units": analysis.concatenate_units,
     # Curation tools
     "curate_spikedata": analysis.curate_spikedata,
+    "curate_merge_duplicates": analysis.curate_merge_duplicates,
     # RateData-based analysis tools
     "compute_pairwise_fr_corr": analysis.compute_pairwise_fr_corr,
     "compute_pairwise_ccg": analysis.compute_pairwise_ccg,
@@ -4003,10 +4140,16 @@ async def main():
     args = _parse_args()
 
     if args.transport == "sse":
-        from mcp.server.sse import SseServerTransport
-        from starlette.applications import Starlette
-        from starlette.routing import Mount
-        import uvicorn
+        try:
+            from mcp.server.sse import SseServerTransport
+            from starlette.applications import Starlette
+            from starlette.routing import Mount
+            import uvicorn
+        except ImportError as exc:
+            raise ImportError(
+                "SSE transport requires starlette and uvicorn. "
+                "Install them with: pip install starlette uvicorn"
+            ) from exc
 
         sse = SseServerTransport("/messages/")
 

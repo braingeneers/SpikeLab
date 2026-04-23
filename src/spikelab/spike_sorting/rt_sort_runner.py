@@ -20,7 +20,9 @@ from typing import Any
 import numpy as np
 
 from . import _globals
-from .sorting_utils import Stopwatch, print_stage
+from ._classifier import classify_rt_sort_failure
+from ._exceptions import SpikeSortingClassifiedError
+from .sorting_utils import Stopwatch, Tee, print_stage
 
 
 def _load_detection_model(model_path, probe):
@@ -89,108 +91,124 @@ def spike_sort(
     output_folder = Path(output_folder)
     output_folder.mkdir(parents=True, exist_ok=True)
 
+    log_path = output_folder / "rt_sort.log"
     rt_sort_pickle = output_folder / "rt_sort.pickle"
     cached_sorting_npz = output_folder / "sorting.npz"
 
-    # Reuse cached results when recompute is not forced
-    if (
-        not _globals.RECOMPUTE_SORTING
-        and rt_sort_pickle.exists()
-        and cached_sorting_npz.exists()
-    ):
-        print("Loading existing RT-Sort results")
-        try:
-            sorting = _load_cached_sorting(cached_sorting_npz, rec_cache)
-            root_elecs_path = output_folder / "root_elecs.npy"
-            root_elecs = (
-                list(np.load(str(root_elecs_path)))
-                if root_elecs_path.exists()
-                else None
-            )
-            stopwatch.log_time("Done loading existing results.")
-            return sorting, root_elecs
-        except Exception as exc:
-            print(f"Failed to load cached sorting ({exc}); recomputing.")
-
-    try:
-        detection_model = _load_detection_model(
-            _globals.RT_SORT_MODEL_PATH,
-            probe=(_globals.RT_SORT_PARAMS or {}).get("probe", "mea"),
-        )
-
-        # Resolve the detection window.  If the user set
-        # ``detection_window_s``, it narrows the window used *only*
-        # during sequence detection — ``sort_offline`` below still uses
-        # the full ``RT_SORT_RECORDING_WINDOW_MS`` so every spike in
-        # the recording is assigned to one of the detected sequences.
-        sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
-        det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
-        if det_window_s is not None:
-            start_ms = sort_window_ms[0] if sort_window_ms is not None else 0.0
-            detect_window_ms = (start_ms, start_ms + float(det_window_s) * 1000.0)
-            if _globals.RT_SORT_VERBOSE:
-                print(
-                    f"[rt_sort] Detection window narrowed to "
-                    f"{detect_window_ms[0]/1000:.1f}-{detect_window_ms[1]/1000:.1f} s "
-                    f"(sort_offline still covers full recording)."
+    with Tee(log_path, file_mode="w"):
+        # Reuse cached results when recompute is not forced
+        if (
+            not _globals.RECOMPUTE_SORTING
+            and rt_sort_pickle.exists()
+            and cached_sorting_npz.exists()
+        ):
+            print("Loading existing RT-Sort results")
+            try:
+                sorting = _load_cached_sorting(cached_sorting_npz, rec_cache)
+                root_elecs_path = output_folder / "root_elecs.npy"
+                root_elecs = (
+                    list(np.load(str(root_elecs_path)))
+                    if root_elecs_path.exists()
+                    else None
                 )
-        else:
-            detect_window_ms = sort_window_ms
+                stopwatch.log_time("Done loading existing results.")
+                return sorting, root_elecs
+            except Exception as exc:
+                print(f"Failed to load cached sorting ({exc}); recomputing.")
 
-        # Assemble the detect_sequences kwargs from globals + param
-        # override dict.  The override dict wins.
-        ds_kwargs = dict(
-            recording_window_ms=detect_window_ms,
-            device=_globals.RT_SORT_DEVICE,
-            num_processes=_globals.RT_SORT_NUM_PROCESSES,
-            delete_inter=_globals.RT_SORT_DELETE_INTER,
-            verbose=_globals.RT_SORT_VERBOSE,
-        )
-        param_overrides = dict(_globals.RT_SORT_PARAMS or {})
-        param_overrides.pop("probe", None)  # consumed above
-        ds_kwargs.update(param_overrides)
+        try:
+            detection_model = _load_detection_model(
+                _globals.RT_SORT_MODEL_PATH,
+                probe=(_globals.RT_SORT_PARAMS or {}).get("probe", "mea"),
+            )
 
-        rt_sort = detect_sequences(
-            recording=rec_cache,
-            inter_path=output_folder,
-            detection_model=detection_model,
-            **ds_kwargs,
-        )
-    except Exception as exc:
-        print(f"RT-Sort sequence detection failed: {exc}")
-        stopwatch.log_time("Sequence detection failed.")
-        return exc
+            # Resolve the detection window.  If the user set
+            # ``detection_window_s``, it narrows the window used *only*
+            # during sequence detection — ``sort_offline`` below still uses
+            # the full ``RT_SORT_RECORDING_WINDOW_MS`` so every spike in
+            # the recording is assigned to one of the detected sequences.
+            sort_window_ms = _globals.RT_SORT_RECORDING_WINDOW_MS
+            det_window_s = _globals.RT_SORT_DETECTION_WINDOW_S
+            if det_window_s is not None:
+                start_ms = sort_window_ms[0] if sort_window_ms is not None else 0.0
+                detect_window_ms = (
+                    start_ms,
+                    start_ms + float(det_window_s) * 1000.0,
+                )
+                if _globals.RT_SORT_VERBOSE:
+                    print(
+                        f"[rt_sort] Detection window narrowed to "
+                        f"{detect_window_ms[0]/1000:.1f}-"
+                        f"{detect_window_ms[1]/1000:.1f} s "
+                        f"(sort_offline still covers full recording)."
+                    )
+            else:
+                detect_window_ms = sort_window_ms
 
-    try:
-        sorting = rt_sort.sort_offline(
-            recording=rec_cache,
-            inter_path=output_folder,
-            recording_window_ms=sort_window_ms,
-            return_spikeinterface_sorter=True,
-            verbose=_globals.RT_SORT_VERBOSE,
-        )
-    except Exception as exc:
-        print(f"RT-Sort offline sorting failed: {exc}")
-        stopwatch.log_time("Offline sorting failed.")
-        return exc
+            # Assemble the detect_sequences kwargs from globals + param
+            # override dict.  The override dict wins.
+            ds_kwargs = dict(
+                recording_window_ms=detect_window_ms,
+                device=_globals.RT_SORT_DEVICE,
+                num_processes=_globals.RT_SORT_NUM_PROCESSES,
+                delete_inter=_globals.RT_SORT_DELETE_INTER,
+                verbose=_globals.RT_SORT_VERBOSE,
+            )
+            param_overrides = dict(_globals.RT_SORT_PARAMS or {})
+            param_overrides.pop("probe", None)  # consumed above
+            ds_kwargs.update(param_overrides)
 
-    # Persist the trained sequences for Phase 2 reuse.
-    # RTSort.save() strips the unpicklable compiled model before
-    # serialization and restores it in-memory afterward.  The compiled
-    # model is already cached at output_folder / "compiled.ts" by
-    # detect_sequences, so load_rt_sort() can reattach it on load.
-    if _globals.RT_SORT_SAVE_PICKLE:
-        rt_sort.save(rt_sort_pickle)
+            rt_sort = detect_sequences(
+                recording=rec_cache,
+                inter_path=output_folder,
+                detection_model=detection_model,
+                **ds_kwargs,
+            )
+        except SpikeSortingClassifiedError:
+            raise
+        except Exception as exc:
+            print(f"RT-Sort sequence detection failed: {exc}")
+            stopwatch.log_time("Sequence detection failed.")
+            classified = classify_rt_sort_failure(output_folder, exc)
+            if classified is not None:
+                raise classified from exc
+            return exc
 
-    # Cache the sorting for fast reload on subsequent runs
-    _save_sorting_cache(sorting, cached_sorting_npz)
+        try:
+            sorting = rt_sort.sort_offline(
+                recording=rec_cache,
+                inter_path=output_folder,
+                recording_window_ms=sort_window_ms,
+                return_spikeinterface_sorter=True,
+                verbose=_globals.RT_SORT_VERBOSE,
+            )
+        except SpikeSortingClassifiedError:
+            raise
+        except Exception as exc:
+            print(f"RT-Sort offline sorting failed: {exc}")
+            stopwatch.log_time("Offline sorting failed.")
+            classified = classify_rt_sort_failure(output_folder, exc)
+            if classified is not None:
+                raise classified from exc
+            return exc
 
-    # Save root electrodes for the KilosortSortingExtractor conversion
-    root_elecs = list(rt_sort._seq_root_elecs)
-    np.save(str(output_folder / "root_elecs.npy"), np.array(root_elecs))
+        # Persist the trained sequences for Phase 2 reuse.
+        # RTSort.save() strips the unpicklable compiled model before
+        # serialization and restores it in-memory afterward.  The compiled
+        # model is already cached at output_folder / "compiled.ts" by
+        # detect_sequences, so load_rt_sort() can reattach it on load.
+        if _globals.RT_SORT_SAVE_PICKLE:
+            rt_sort.save(rt_sort_pickle)
 
-    stopwatch.log_time("Done sorting with RT-Sort.")
-    return sorting, root_elecs
+        # Cache the sorting for fast reload on subsequent runs
+        _save_sorting_cache(sorting, cached_sorting_npz)
+
+        # Save root electrodes for the KilosortSortingExtractor conversion
+        root_elecs = list(rt_sort._seq_root_elecs)
+        np.save(str(output_folder / "root_elecs.npy"), np.array(root_elecs))
+
+        stopwatch.log_time("Done sorting with RT-Sort.")
+        return sorting, root_elecs
 
 
 def _save_sorting_cache(sorting, path):

@@ -57,8 +57,8 @@ class ResourceSortFailure(SpikeSortingClassifiedError):
 class InsufficientActivityError(BiologicalSortFailure):
     """Sorting crashed because the recording has too little spiking activity.
 
-    Both Kilosort2 and Kilosort4 fall over on near-silent recordings, but in
-    different ways:
+    Kilosort2, Kilosort4, and RT-Sort all fail on near-silent recordings,
+    but in different ways:
 
     * **Kilosort2:** mex kernels launch with degenerate grid/block
       configurations when template counts and per-batch spike counts
@@ -70,9 +70,15 @@ class InsufficientActivityError(BiologicalSortFailure):
       matrix, or ``KMeans`` fails the ``n_samples >= n_clusters`` check,
       when the initial spike-detection pass finds essentially no events.
 
+    * **RT-Sort:** ``detect_sequences`` produces zero propagation
+      sequences when the recording lacks sufficient spiking activity for
+      clustering. Returns ``None``, which causes an ``AttributeError``
+      when ``sort_offline`` is subsequently called.
+
     Attributes:
         threshold_crossings: KS2 only; count of detected threshold
-            crossings parsed from ``kilosort2.log``. ``None`` for KS4.
+            crossings parsed from ``kilosort2.log``. ``None`` for
+            KS4 / RT-Sort.
         units_at_failure: KS2 template count at the crash, or KS4
             ``n_samples`` when KMeans complained. ``None`` when the log
             did not expose the value.
@@ -80,7 +86,7 @@ class InsufficientActivityError(BiologicalSortFailure):
             template-optimization step.
         log_path: Sorter log file carrying the full trace when located.
         sorter: Short identifier of the sorter that raised
-            (``"kilosort2"``, ``"kilosort4"``).
+            (``"kilosort2"``, ``"kilosort4"``, ``"rt_sort"``).
     """
 
     def __init__(
@@ -248,6 +254,31 @@ class DockerEnvironmentError(EnvironmentSortFailure):
 # ---------------------------------------------------------------------------
 # Resource failures
 # ---------------------------------------------------------------------------
+
+
+class ModelLoadingError(EnvironmentSortFailure):
+    """Detection model could not be loaded or is unusable.
+
+    Raised when RT-Sort's ``ModelSpikeSorter.load()`` fails — typically
+    because PyTorch is missing, weights are corrupt, the model folder
+    does not exist, or the architecture parameters do not match the
+    saved state dict.
+
+    Attributes:
+        model_path: Path that was attempted, when known.
+        sorter: Short identifier of the sorter that raised.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        sorter: str = "rt_sort",
+        model_path: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.sorter = sorter
+        self.model_path = model_path
 
 
 class GPUOutOfMemoryError(ResourceSortFailure):

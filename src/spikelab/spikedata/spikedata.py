@@ -116,6 +116,9 @@ class SpikeData:
               ``start_time``, not t=0), pass ``start_time`` in kwargs so that
               spike times are correctly offset. Without it, bin 0 maps to t=0.
         """
+        raster = np.asarray(raster)
+        if raster.ndim != 2:
+            raise ValueError(f"raster must be 2D (N x T), got {raster.ndim}D array")
         raster = raster.astype(int)
         N, T = raster.shape
         # Offset generated spike times by start_time so bin 0 maps to
@@ -671,7 +674,12 @@ class SpikeData:
         rate_array = np.array([_resampled_isi(t, times, sigma_ms) for t in self.train])
         if rate_array.ndim == 1:
             rate_array = rate_array[:, np.newaxis]
-        return RateData(inst_Frate_data=rate_array, times=times)
+        return RateData(
+            inst_Frate_data=rate_array,
+            times=times,
+            neuron_attributes=self.neuron_attributes,
+            rate_unit="Hz",
+        )
 
     def sliding_rate(
         self,
@@ -775,7 +783,12 @@ class SpikeData:
                     rate_array[i], sigma=sigma_bins
                 )
 
-        return RateData(inst_Frate_data=rate_array, times=time_vector)
+        return RateData(
+            inst_Frate_data=rate_array,
+            times=time_vector,
+            neuron_attributes=self.neuron_attributes,
+            rate_unit="kHz",
+        )
 
     def set_neuron_attribute(self, key: str, values, neuron_indices=None):
         """Set an attribute across neurons in neuron_attributes.
@@ -1416,6 +1429,8 @@ class SpikeData:
 
         from .numba_utils import NUMBA_AVAILABLE
 
+        # Use numba only when N > 2 (more than 1 pair); for N <= 2
+        # the JIT compilation overhead exceeds the serial computation.
         if NUMBA_AVAILABLE and self.N > 2:
             from .numba_utils import flatten_spike_trains, nb_sttc_all_pairs
 
@@ -2365,14 +2380,14 @@ class SpikeData:
                 (in bins).
             burst_edge_mult_thresh (float): Threshold multiplier for burst
                 edge detection.
-            square_width (int): Square window width for calculating pop_rate
-                (in bins).
-            gauss_sigma (int): Gaussian window sigma for calculating
-                pop_rate (in bins).
-            acc_square_width (int): Square window width for calculating
-                pop_rate_acc (in bins).
-            acc_gauss_sigma (int): Gaussian window sigma for calculating
-                pop_rate_acc (in bins).
+            square_width (float): Square window width for calculating pop_rate
+                (in milliseconds).
+            gauss_sigma (float): Gaussian window sigma for calculating
+                pop_rate (in milliseconds).
+            acc_square_width (float): Square window width for calculating
+                pop_rate_acc (in milliseconds).
+            acc_gauss_sigma (float): Gaussian window sigma for calculating
+                pop_rate_acc (in milliseconds).
             raster_bin_size_ms (float): Time bin size for calculating
                 population rate in ms.
             peak_to_trough (bool): Flag to calculate bursts peak-to-trough
@@ -2386,8 +2401,7 @@ class SpikeData:
 
         Returns:
             tburst (numpy.ndarray): Time bin indices of detected bursts.
-            edges (numpy.ndarray): Time bin indices of burst edges, shape
-                (N, 2).
+            edges (numpy.ndarray): Burst edge indices, shape ``(N, 2)``.
             peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding
                 array indices.
 
@@ -2397,9 +2411,9 @@ class SpikeData:
             - Using the peak-to-zero calculations may result in several
               bursts being detected at one peak.
             - Returned time bin indices are relative to bin 0 of the raster.
-              For event-centered data (start_time < 0), add start_time to
-              convert bin indices to event-relative times:
-              ``event_relative_ms = tburst * raster_bin_size_ms + start_time``.
+              For event-centered data (``start_time < 0``), convert to
+              event-relative ms via
+              ``tburst * raster_bin_size_ms + start_time``.
         """
         # Get pop rates and rms
         if pop_rate is None:

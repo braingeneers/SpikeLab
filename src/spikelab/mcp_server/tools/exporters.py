@@ -371,6 +371,7 @@ async def export_to_pickle(
     workspace_id: str,
     namespace: str,
     file_path: str,
+    key: Optional[str] = None,
     protocol: Optional[int] = None,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
@@ -378,12 +379,18 @@ async def export_to_pickle(
     region_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Export spike data to a pickle file.
+    Export a workspace item to a pickle file.
+
+    When key is omitted or 'spikedata', exports the SpikeData stored at
+    (namespace, 'spikedata'). When key is provided, exports the item at
+    (namespace, key) — supports SpikeData, RateData, PairwiseCompMatrix,
+    PairwiseCompMatrixStack, RateSliceStack, and SpikeSliceStack.
 
     Args:
-        workspace_id: Workspace ID containing the SpikeData
+        workspace_id: Workspace ID containing the item
         namespace: Namespace within the workspace
         file_path: Local file path or S3 URL for output
+        key: Workspace key of the item to export. Defaults to 'spikedata'.
         protocol: Pickle protocol version (None uses highest available)
         aws_access_key_id: Optional AWS access key for S3
         aws_secret_access_key: Optional AWS secret key for S3
@@ -391,12 +398,24 @@ async def export_to_pickle(
         region_name: Optional AWS region name
 
     Returns:
-        Dictionary with 'file_path' (output path)
+        Dictionary with 'file_path' (output path) and 'type' (exported object type)
     """
-    spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
+    ws = _get_workspace(workspace_id)
+    resolved_key = key if key else "spikedata"
+    obj = ws.get(namespace, resolved_key)
+    if obj is None:
+        if resolved_key == "spikedata":
+            raise ValueError(
+                f"No SpikeData found at ({namespace!r}, 'spikedata'). "
+                "Load data first using one of: load_from_hdf5_raster, "
+                "load_from_hdf5_ragged, load_from_hdf5_group, load_from_hdf5_paired, "
+                "load_from_nwb, load_from_kilosort, load_from_pickle, "
+                "load_from_hdf5_thresholded, load_from_spikelab_sorted_npz."
+            )
+        raise ValueError(f"No item found at ({namespace!r}, {resolved_key!r}).")
 
     result_path = _export_to_pickle(
-        spikedata,
+        obj,
         file_path,
         protocol=protocol,
         s3_upload=is_s3_url(file_path),
@@ -406,4 +425,4 @@ async def export_to_pickle(
         region_name=region_name,
     )
 
-    return {"file_path": result_path}
+    return {"file_path": result_path, "type": type(obj).__name__}

@@ -192,6 +192,12 @@ class RateSliceStack:
             self.event_stack = event_matrix
             self.times = times_start_to_end
 
+        if self.event_stack.shape[1] == 0:
+            raise ValueError(
+                "event_stack has zero time bins (T=0). "
+                "A RateSliceStack requires at least one time bin."
+            )
+
         if neuron_attributes is None and data_obj is not None:
             neuron_attributes = getattr(data_obj, "neuron_attributes", None)
 
@@ -450,10 +456,6 @@ class RateSliceStack:
 
                 if np.sum(valid) < 2:
                     # Not enough valid slices for pairwise comparison
-                    if frac_active is not None:
-                        unit_valid = frac_active[unit] >= (1 - MIN_FRAC)
-                    else:
-                        unit_valid = n_invalid / num_slices <= MIN_FRAC
                     av_slice_corr_scores[unit] = np.nan
                     continue
 

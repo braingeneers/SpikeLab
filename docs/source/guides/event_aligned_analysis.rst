@@ -3,7 +3,7 @@ Event-Aligned Analysis
 ======================
 
 This guide covers extracting windows of neural activity aligned to
-experimental events (such as network bursts or stimulus onsets), and running
+internal or external events (such as network bursts or stimulus onsets), and running
 analyses on the resulting stacks of trials.
 
 After working through this guide you will know how to:
@@ -150,12 +150,31 @@ Applying a function across slices
 The function must return a value with a consistent shape across slices.
 The output array has a leading axis of size S.
 
-Trimming the time axis
-^^^^^^^^^^^^^^^^^^^^^^
+Subsetting slice stacks
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-:meth:`~spikelab.RateSliceStack.subtime_by_index` extracts a range of time
-bins from every slice in a ``RateSliceStack``, producing a narrower window
-without re-aligning:
+Both :class:`~spikelab.RateSliceStack` and :class:`~spikelab.SpikeSliceStack`
+support subsetting along each of their dimensions.
+
+Select units across all slices with ``subset``:
+
+.. code-block:: python
+
+   rss_sub = rss.subset([0, 2, 5])
+   sss_sub = sss.subset([0, 2, 5])
+
+   # Select by neuron attribute
+   rss_sub = rss.subset([12, 34], by="electrode")
+
+Select specific slices with ``subslice``:
+
+.. code-block:: python
+
+   rss_first10 = rss.subslice(list(range(10)))
+   sss_first10 = sss.subslice(list(range(10)))
+
+Trim the time axis of a :class:`~spikelab.RateSliceStack` with
+:meth:`~spikelab.RateSliceStack.subtime_by_index`:
 
 .. code-block:: python
 
@@ -191,8 +210,13 @@ visualize one unit's spike times across all trials as a raster plot:
    times for one unit, aligned to the burst peak at time zero.
 
 
-Burst-to-Burst Correlations
------------------------------
+Slice-to-Slice Unit Correlations
+----------------------------------
+
+The slice-to-slice correlation methods described in this and the following
+section are based on Van Der Molen, T., Spaeth, A., Chini, M. et al.
+Preconfigured neuronal firing sequences in human brain organoids. *Nature
+Neuroscience* 29, 123--135 (2026).
 
 To measure how consistent each unit's activity pattern is across trials,
 use :meth:`~spikelab.RateSliceStack.get_slice_to_slice_unit_corr_from_stack`.
@@ -221,14 +245,80 @@ activity pattern is more stereotyped across trials.
    :width: 100%
    :alt: Burst-to-burst correlation heatmap
 
-   Slice-by-slice correlation matrix for a single unit, showing
+   Slice-by-slice correlation matrix averaged over all units, showing
    trial-to-trial consistency of the burst response.
+
+
+Slice-to-Slice Time Correlations
+----------------------------------
+
+While the unit correlation above measures consistency per unit, you can also
+ask how similar the temporal profile of population activity is across slices.
+:meth:`~spikelab.RateSliceStack.get_slice_to_slice_time_corr_from_stack`
+computes pairwise similarity between slices at each time bin, producing a
+:class:`~spikelab.PairwiseCompMatrixStack` of shape ``(S, S, T)``:
+
+.. code-block:: python
+
+   corr_stack_time, av_corr_per_bin = rss.get_slice_to_slice_time_corr_from_stack(
+       n_jobs=-1,       # parallel threads
+   )
+
+   # corr_stack_time: PairwiseCompMatrixStack with shape (S, S, T)
+   # av_corr_per_bin: ndarray (T,) — average slice-to-slice correlation per time bin
+
+The ``av_corr_per_bin`` trace shows how slice similarity evolves over time
+relative to the event. High values indicate that the population response is
+reproducible at that moment; lower values indicate more variable activity
+across slices.
+
+Plot the trace with :func:`~spikelab.spikedata.plot_utils.plot_lines`:
+
+.. code-block:: python
+
+   import numpy as np
+   from spikelab.spikedata.plot_utils import plot_lines
+
+   t_axis = np.arange(len(av_corr_per_bin)) - pre_ms
+
+   fig, ax = plt.subplots(figsize=(6, 3))
+   plot_lines(
+       ax,
+       {"similarity": av_corr_per_bin},
+       x=t_axis,
+       xlabel="Time from event (ms)",
+       ylabel="Slice similarity",
+   )
+
+To overlay the average event-aligned population rate for context, use
+:meth:`~spikelab.SpikeData.plot_aligned_pop_rate`. This cuts the population
+rate around each event and plots the mean trace:
+
+.. code-block:: python
+
+   sd.plot_aligned_pop_rate(
+       events=tburst,
+       pre_ms=250,
+       post_ms=500,
+       ax=ax_top,
+       pop_rate=pop_rate,           # pre-computed population rate
+       burst_edges=edges,           # overlay burst edge markers
+       edge_percentile=100,         # use the outermost edges
+   )
+
+.. figure:: /_static/images/s2s_time_corr.png
+   :width: 100%
+   :alt: Slice-to-slice time correlation
+
+   Top: burst-aligned average population rate across conditions. Bottom:
+   average slice-to-slice similarity at each time bin, clipped to the burst
+   window boundaries.
 
 
 Unit-to-Unit PCA
 ------------------
 
-To ask whether the overall pattern of pairwise interactions changes across
+To see whether the overall pattern of pairwise interactions changes across
 conditions, compute unit-to-unit correlations per slice and then apply PCA
 to the resulting feature vectors.
 
@@ -346,3 +436,80 @@ relative order from burst to burst, suggesting a stereotyped activation
 sequence.  The shuffle-based significance test compares the observed
 correlations to a null distribution obtained by randomly permuting unit
 labels within each trial.
+
+
+Temporal Trends and Stability
+-----------------------------
+
+Slice stacks can also be created without aligning to events. The
+:meth:`~spikelab.SpikeData.frames` method divides a recording into
+sequential windows of a fixed length, returning a
+:class:`~spikelab.SpikeSliceStack`:
+
+.. code-block:: python
+
+   # Split recording into 5-second non-overlapping windows
+   sss_frames = sd.frames(length=5000, overlap=0)
+
+:meth:`~spikelab.RateData.frames` works the same way on a
+:class:`~spikelab.RateData` object, returning a
+:class:`~spikelab.RateSliceStack`.
+
+Because each slice in a ``SpikeSliceStack`` is a full
+:class:`~spikelab.SpikeData` object, any analysis method available on
+``SpikeData`` can be applied per slice — firing rates, STTC correlations,
+burst detection, population rate, and so on. Use
+:meth:`~spikelab.SpikeSliceStack.apply` to compute a metric across all slices
+and stack the results:
+
+.. code-block:: python
+
+   import numpy as np
+
+   # Track mean firing rate across frames
+   mean_fr = sss_frames.apply(lambda sd: np.mean(sd.rates(unit="Hz")))
+   # mean_fr.shape == (S,)
+
+Two utility functions in :mod:`spikelab.spikedata.utils` help quantify whether
+a metric drifts or remains stable across ordered slices:
+
+.. code-block:: python
+
+   from spikelab.spikedata.utils import slice_trend, slice_stability
+
+   # values is a (S,) array — e.g. mean pairwise correlation per frame
+   slope, p_value = slice_trend(values)
+   cv = slice_stability(values)
+
+:func:`~spikelab.spikedata.utils.slice_trend` fits a linear regression across
+slices and returns the slope and its p-value. A significant slope indicates
+that the metric is drifting over the course of the recording.
+
+:func:`~spikelab.spikedata.utils.slice_stability` returns the coefficient of
+variation (std / abs(mean)). Lower values indicate a more stable metric across
+slices.
+
+
+Shuffled Null Distributions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Another use of slice stacks is building null distributions for statistical
+testing. :meth:`~spikelab.SpikeData.spike_shuffle_stack` generates multiple
+degree-preserving shuffled copies of a recording, each stored as a slice in a
+``SpikeSliceStack``. You can then compute the same metric on each shuffled copy
+and compare to the observed value:
+
+.. code-block:: python
+
+   shuffle_stack = sd.spike_shuffle_stack(n_shuffles=100, seed=42)
+
+   shuffle_values = shuffle_stack.apply(
+       lambda sd: np.mean(sd.rates(unit="Hz"))
+   )
+
+   from spikelab.spikedata.utils import shuffle_z_score
+   observed = np.mean(sd.rates(unit="Hz"))
+   z = shuffle_z_score(observed, shuffle_values)
+
+See the :doc:`shuffled_data` guide for more details on shuffling methods and
+statistical comparison functions.

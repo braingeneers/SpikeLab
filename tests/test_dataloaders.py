@@ -358,30 +358,20 @@ class TestHDF5Loaders:
 
     def test_trains_from_flat_index_non_monotonic(self):
         """
-        Verify that _trains_from_flat_index handles or tolerates
-        non-monotonic end_indices by slicing according to the given indices.
+        Verify that _trains_from_flat_index raises ValueError for
+        non-monotonic end_indices.
 
         Tests:
-            (Test Case 1) Non-monotonic end_indices (e.g. [3, 2, 5]) produce
-                segments based on sequential start-stop iteration. The second
-                segment will be empty because stop < start after the first
-                segment consumed indices 0..2.
+            (Test Case 1) Non-monotonic end_indices (e.g. [3, 2, 5]) raise
+                ValueError because the indices are not non-decreasing.
         """
         flat_times = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
-        # Non-monotonic: first segment uses [0:3], second tries [3:2] -> empty,
-        # third uses [2:5]
         end_indices = np.array([3, 2, 5])
 
-        trains = loaders._trains_from_flat_index(
-            flat_times, end_indices, unit="ms", fs_Hz=None
-        )
-        assert len(trains) == 3
-        # First segment: indices 0..2 -> [10, 20, 30]
-        assert len(trains[0]) == 3
-        # Second segment: start=3, stop=2 -> empty slice
-        assert len(trains[1]) == 0
-        # Third segment: start=2, stop=5 -> [30, 40, 50]
-        assert len(trains[2]) == 3
+        with pytest.raises(ValueError, match="monotonically non-decreasing"):
+            loaders._trains_from_flat_index(
+                flat_times, end_indices, unit="ms", fs_Hz=None
+            )
 
     def test_ec_dl_01_explicit_length_ms_override(self, tmp_path):
         """
@@ -532,6 +522,48 @@ class TestNWBLoader:
 
         with pytest.raises(ValueError, match="spike_times"):
             loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+
+    def test_nwb_zero_length_spike_times(self, tmp_path):
+        """
+        NWB file where spike_times is empty and spike_times_index is [0, 0].
+
+        Tests:
+            (Test Case 1) sd.N == 2.
+            (Test Case 2) All trains are empty.
+            (Test Case 3) sd.length == 0.0.
+        """
+        path = str(tmp_path / "empty_spikes.nwb")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([], dtype=float))
+            g.create_dataset("spike_times_index", data=np.array([0, 0]))
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert sd.N == 2
+        for train in sd.train:
+            assert len(train) == 0
+        assert sd.length == 0.0
+
+    def test_nwb_duplicate_spike_times_candidates(self, tmp_path):
+        """
+        NWB file with multiple datasets ending in 'spike_times'. The loader
+        should use the first match.
+
+        Tests:
+            (Test Case 1) No exception is raised.
+            (Test Case 2) SpikeData is loaded successfully.
+        """
+        path = str(tmp_path / "multi_st.nwb")
+        with h5py.File(path, "w") as f:
+            g = f.create_group("units")
+            g.create_dataset("spike_times", data=np.array([0.1, 0.2]))
+            g.create_dataset("spike_times_index", data=np.array([1, 2]))
+            # Additional dataset ending in spike_times
+            g.create_dataset("other_spike_times", data=np.array([0.5]))
+
+        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 2
 
 
 class TestKiloSortAndSpikeInterface:
@@ -2222,13 +2254,37 @@ class TestS3Utils:
             empty_file, "mybucket", "empty.txt"
         )
 
+    def test_path_style_url_empty_key(self):
+        """
+        Path-style URL with no key raises ValueError.
 
-class TestS3UtilsErrorPaths:
-    """
-    Tests for download_from_s3 error-handling paths.
+        Tests:
+            (Test Case 1) https://s3.amazonaws.com/bucket raises because no object key.
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
 
-    Mocks boto3 to simulate S3 errors without real AWS connections.
-    """
+        with pytest.raises(ValueError, match="no object key"):
+            parse_s3_url("https://s3.amazonaws.com/mybucket")
+
+    def test_virtual_hosted_url_with_region(self):
+        """
+        Virtual-hosted S3 URL with region subdomain is parsed correctly.
+
+        Tests:
+            (Test Case 1) bucket.s3.us-west-2.amazonaws.com/key → (bucket, key).
+            (Test Case 2) bucket.s3.amazonaws.com/key → (bucket, key).
+        """
+        from spikelab.data_loaders.s3_utils import parse_s3_url
+
+        bucket, key = parse_s3_url(
+            "https://mybucket.s3.us-west-2.amazonaws.com/path/to/file.h5"
+        )
+        assert bucket == "mybucket"
+        assert key == "path/to/file.h5"
+
+        bucket2, key2 = parse_s3_url("https://mybucket.s3.amazonaws.com/mykey")
+        assert bucket2 == "mybucket"
+        assert key2 == "mykey"
 
     def _make_client_error(self, code: str) -> Exception:
         """Build a botocore ClientError with the given error code."""
@@ -2328,7 +2384,7 @@ class TestS3UtilsErrorPaths:
 
 
 @skip_no_h5py
-class TestHDF5LoaderEdgeCases:
+class TestHDF5Loader:
     """Edge case tests for load_spikedata_from_hdf5 and related helpers."""
 
     def test_all_zero_raster(self, tmp_path):
@@ -2513,8 +2569,128 @@ class TestHDF5LoaderEdgeCases:
         assert sd.metadata["notes"] == "test\nwith\nnewlines"
         assert "source_file" in sd.metadata
 
+    def test_raster_start_time_roundtrip(self, tmp_path):
+        """
+        Non-zero start_time stored in HDF5 is correctly propagated through raster load.
 
-class TestTrainsFromFlatIndexEdgeCases:
+        Tests:
+            (Test Case 1) start_time=-100 written to HDF5 attrs is read back.
+        """
+        import h5py
+
+        path = str(tmp_path / "raster_start.h5")
+        raster = np.array([[0, 1, 0, 1, 0]])
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=raster)
+            f.attrs["start_time"] = -100.0
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, raster_dataset="raster", raster_bin_size_ms=20.0
+        )
+        assert sd.start_time == pytest.approx(-100.0)
+
+    def test_raster_single_time_bin(self, tmp_path):
+        """
+        Raster with a single time bin (U, 1).
+
+        Tests:
+            (Test Case 1) Shape (U, 1) produces a SpikeData with total_time
+                equal to raster_bin_size_ms.
+        """
+        import h5py
+
+        path = str(tmp_path / "single_bin.h5")
+        raster = np.array([[1], [0], [1]])
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=raster)
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, raster_dataset="raster", raster_bin_size_ms=10.0
+        )
+        assert sd.N == 3
+        assert sd.length == pytest.approx(10.0, abs=1e-6)
+
+    def test_ragged_non_monotonic_end_indices(self, tmp_path):
+        """
+        Ragged style with non-monotonic end_indices raises ValueError.
+
+        Tests:
+            (Test Case 1) end_indices [5, 3, 10] are not monotonically
+                non-decreasing, so a ValueError is raised.
+        """
+        import h5py
+
+        path = str(tmp_path / "non_mono.h5")
+        flat = np.arange(10, dtype=float)
+        end_indices = np.array([5, 3, 10])
+        with h5py.File(path, "w") as f:
+            f.create_dataset("flat_spike_times", data=flat)
+            f.create_dataset("end_indices", data=end_indices)
+
+        with pytest.raises(ValueError, match="monotonically non-decreasing"):
+            loaders.load_spikedata_from_hdf5(
+                path,
+                spike_times_dataset="flat_spike_times",
+                spike_times_index_dataset="end_indices",
+                spike_times_unit="ms",
+            )
+
+    def test_group_per_unit_lexicographic_sort(self, tmp_path):
+        """
+        Group-per-unit loader with non-numeric dataset names uses lexicographic sort.
+
+        Tests:
+            (Test Case 1) Keys ["1", "10", "2"] are sorted as ["1", "10", "2"]
+                not [1, 2, 10].
+        """
+        import h5py
+
+        path = str(tmp_path / "lexico.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("units")
+            grp.create_dataset("1", data=[1.0, 2.0])
+            grp.create_dataset("10", data=[3.0, 4.0])
+            grp.create_dataset("2", data=[5.0, 6.0])
+            grp.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="ms"
+        )
+        assert sd.N == 3
+        # First unit in lexicographic order is "1", then "10", then "2"
+        np.testing.assert_array_equal(sd.train[0], [1.0, 2.0])
+        np.testing.assert_array_equal(sd.train[1], [3.0, 4.0])
+        np.testing.assert_array_equal(sd.train[2], [5.0, 6.0])
+
+    def test_paired_gaps_in_unit_indices(self, tmp_path):
+        """
+        Paired style with gaps in unit indices creates empty trains for missing units.
+
+        Tests:
+            (Test Case 1) idces [0, 0, 3, 3] with N=4 creates units 1 and 2
+                with empty trains.
+        """
+        import h5py
+
+        path = str(tmp_path / "gaps.h5")
+        idces = np.array([0, 0, 3, 3])
+        times = np.array([1.0, 2.0, 3.0, 4.0])
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=idces)
+            f.create_dataset("times", data=times)
+            f.attrs["time_unit"] = "ms"
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
+        )
+        assert sd.N == 4
+        assert len(sd.train[1]) == 0
+        assert len(sd.train[2]) == 0
+        assert len(sd.train[0]) == 2
+        assert len(sd.train[3]) == 2
+
+
+class TestTrainsFromFlatIndex:
     """Edge case tests for _trains_from_flat_index."""
 
     def test_empty_flat_times_and_indices(self):
@@ -2548,24 +2724,17 @@ class TestTrainsFromFlatIndexEdgeCases:
         end_indices = [10] with flat_times having only 3 elements.
 
         Tests:
-            (Test Case 1) No exception is raised (numpy slicing beyond array
-                length returns a truncated slice).
-            (Test Case 2) The train contains all 3 elements.
-
-        Notes:
-            - numpy slicing [0:10] on a 3-element array silently returns
-              elements [0:3]. This is valid numpy behavior but could mask
-              data integrity issues upstream.
+            (Test Case 1) ValueError is raised because end_indices[-1]
+                exceeds flat_times length.
         """
-        trains = loaders._trains_from_flat_index(
-            np.array([1.0, 2.0, 3.0]), np.array([10]), unit="ms", fs_Hz=None
-        )
-        assert len(trains) == 1
-        assert np.allclose(trains[0], [1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="exceeds flat_times length"):
+            loaders._trains_from_flat_index(
+                np.array([1.0, 2.0, 3.0]), np.array([10]), unit="ms", fs_Hz=None
+            )
 
 
 @skip_no_h5py
-class TestReadRawArraysEdgeCases:
+class TestReadRawArrays:
     """Edge case tests for _read_raw_arrays."""
 
     def test_raw_dataset_without_raw_time(self, tmp_path):
@@ -2640,7 +2809,7 @@ class TestReadRawArraysEdgeCases:
 
 
 @skip_no_h5py
-class TestHDF5RawThresholdedEdgeCases:
+class TestHDF5RawThresholded:
     """Edge case tests for load_spikedata_from_hdf5_raw_thresholded."""
 
     def test_all_zero_raw_traces(self, tmp_path):
@@ -2720,55 +2889,27 @@ class TestHDF5RawThresholdedEdgeCases:
         assert isinstance(sd, SpikeData)
         assert sd.N == 2
 
+    def test_dataset_not_found_raises(self, tmp_path):
+        """
+        Dataset not found in HDF5 raises KeyError.
+
+        Tests:
+            (Test Case 1) Nonexistent dataset path raises KeyError.
+        """
+        import h5py
+
+        path = str(tmp_path / "nodata.h5")
+        with h5py.File(path, "w") as f:
+            f.create_dataset("real_data", data=np.zeros((2, 100)))
+
+        with pytest.raises(KeyError):
+            loaders.load_spikedata_from_hdf5_raw_thresholded(
+                path, dataset="nonexistent", fs_Hz=20000
+            )
+
 
 @skip_no_h5py
-class TestNWBLoaderEdgeCases:
-    """Edge case tests for load_spikedata_from_nwb."""
-
-    def test_nwb_zero_length_spike_times(self, tmp_path):
-        """
-        NWB file where spike_times is empty and spike_times_index is [0, 0].
-
-        Tests:
-            (Test Case 1) sd.N == 2.
-            (Test Case 2) All trains are empty.
-            (Test Case 3) sd.length == 0.0.
-        """
-        path = str(tmp_path / "empty_spikes.nwb")
-        with h5py.File(path, "w") as f:
-            g = f.create_group("units")
-            g.create_dataset("spike_times", data=np.array([], dtype=float))
-            g.create_dataset("spike_times_index", data=np.array([0, 0]))
-
-        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
-        assert sd.N == 2
-        for train in sd.train:
-            assert len(train) == 0
-        assert sd.length == 0.0
-
-    def test_nwb_duplicate_spike_times_candidates(self, tmp_path):
-        """
-        NWB file with multiple datasets ending in 'spike_times'. The loader
-        should use the first match.
-
-        Tests:
-            (Test Case 1) No exception is raised.
-            (Test Case 2) SpikeData is loaded successfully.
-        """
-        path = str(tmp_path / "multi_st.nwb")
-        with h5py.File(path, "w") as f:
-            g = f.create_group("units")
-            g.create_dataset("spike_times", data=np.array([0.1, 0.2]))
-            g.create_dataset("spike_times_index", data=np.array([1, 2]))
-            # Additional dataset ending in spike_times
-            g.create_dataset("other_spike_times", data=np.array([0.5]))
-
-        sd = loaders.load_spikedata_from_nwb(path, prefer_pynwb=False)
-        assert isinstance(sd, SpikeData)
-        assert sd.N == 2
-
-
-class TestKiloSortEdgeCases:
+class TestKiloSort:
     """Edge case tests for load_spikedata_from_kilosort."""
 
     def test_single_cluster(self, tmp_path):
@@ -2873,7 +3014,7 @@ class TestKiloSortEdgeCases:
         assert any("channel_map" in msg for msg in warning_messages)
 
 
-class TestSpikeInterfaceEdgeCases:
+class TestSpikeInterface:
     """Edge case tests for load_spikedata_from_spikeinterface."""
 
     def test_spikeinterface_with_channel_and_location_properties(self):
@@ -2953,8 +3094,53 @@ class TestSpikeInterfaceEdgeCases:
         assert len(sd.train[0]) == 0
         assert len(sd.train[1]) == 2
 
+    def test_sampling_frequency_zero_fallback(self):
+        """
+        sampling_frequency=0.0 is falsy and falls back to get_sampling_frequency().
 
-class TestSpikeInterfaceRecordingEdgeCases:
+        Tests:
+            (Test Case 1) Explicit 0.0 triggers the `or` fallback.
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_unit_spike_train.return_value = np.array([100, 200, 300])
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+        # Test that has_recording is False
+        mock_sorting.has_recording.return_value = False
+
+        sd = loaders.load_spikedata_from_spikeinterface(
+            mock_sorting, sampling_frequency=0.0
+        )
+        # Should fall back to 30000 Hz
+        assert sd.N == 1
+
+    def test_scalar_location_property(self):
+        """
+        SpikeInterface with scalar location property (not array).
+
+        Tests:
+            (Test Case 1) Scalar location is wrapped in a list via
+                `list(loc) if hasattr(loc, "__iter__") else [loc]`.
+        """
+        mock_sorting = MagicMock()
+        mock_sorting.get_unit_ids.return_value = [0]
+        mock_sorting.get_unit_spike_train.return_value = np.array([100, 200])
+        mock_sorting.get_sampling_frequency.return_value = 30000.0
+
+        def mock_get_property(key):
+            if key == "location":
+                return [42.0]  # scalar per unit (not array)
+            raise KeyError(key)
+
+        mock_sorting.get_property = mock_get_property
+
+        sd = loaders.load_spikedata_from_spikeinterface(mock_sorting)
+        assert sd.N == 1
+        # location should be wrapped in a list
+        assert sd.neuron_attributes[0]["location"] == [42.0]
+
+
+class TestSpikeInterfaceRecording3:
     """Edge case tests for load_spikedata_from_spikeinterface_recording."""
 
     def test_square_data(self):
@@ -3054,7 +3240,7 @@ class TestSpikeInterfaceRecordingEdgeCases:
         assert sd.N == 2
 
 
-class TestPickleLoaderEdgeCases:
+class TestPickleLoader2:
     """Edge case tests for load_spikedata_from_pickle."""
 
     def test_pickle_file_not_found(self, tmp_path):
@@ -3095,7 +3281,7 @@ class TestPickleLoaderEdgeCases:
         assert loaded.N == 1
 
 
-class TestBuildSpikeDataEdgeCases:
+class TestBuildSpikeData3:
     """Edge case tests for _build_spikedata."""
 
     def test_all_empty_trains_length_inferred_zero(self):
@@ -3135,7 +3321,7 @@ class TestBuildSpikeDataEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestS3UtilsEdgeCases:
+class TestS3Utils4:
     """Edge case tests for s3_utils functions."""
 
     def test_is_s3_url_empty_string(self):
@@ -3253,7 +3439,7 @@ class TestS3UtilsEdgeCases:
         assert key == "file.h5?versionId=abc123"
 
 
-class TestDownloadFromS3EdgeCases:
+class TestDownloadFromS3:
     """Edge case tests for download_from_s3."""
 
     def test_boto3_not_installed(self):
@@ -3325,8 +3511,27 @@ class TestDownloadFromS3EdgeCases:
             with pytest.raises(RuntimeError, match="Error downloading from S3"):
                 download_from_s3("s3://bucket/key.h5")
 
+    def test_no_such_key_error(self, tmp_path):
+        """
+        NoSuchKey error code maps to ValueError.
 
-class TestUploadToS3EdgeCases:
+        Tests:
+            (Test Case 1) ClientError with code NoSuchKey raises ValueError.
+        """
+        from spikelab.data_loaders.s3_utils import download_from_s3
+        from botocore.exceptions import ClientError
+
+        error_response = {"Error": {"Code": "NoSuchKey", "Message": "Not found"}}
+        mock_client = MagicMock()
+        mock_client.download_file.side_effect = ClientError(error_response, "GetObject")
+
+        with patch("spikelab.data_loaders.s3_utils.boto3") as mock_boto:
+            mock_boto.client.return_value = mock_client
+            with pytest.raises(ValueError, match="not found"):
+                download_from_s3("s3://bucket/key.h5", str(tmp_path / "out.h5"))
+
+
+class TestUploadToS3:
     """Edge case tests for upload_to_s3."""
 
     def test_local_file_does_not_exist(self):
@@ -3397,361 +3602,6 @@ class TestUploadToS3EdgeCases:
             with pytest.raises(ValueError, match="S3 bucket not found"):
                 upload_to_s3(path, "s3://nonexistent/key.h5")
 
-
-class TestEnsureLocalFileEdgeCases:
-    """Edge case tests for ensure_local_file."""
-
-    def test_local_file_does_not_exist(self):
-        """
-        ensure_local_file raises FileNotFoundError for non-existent local path.
-
-        Tests:
-            (Test Case 1) FileNotFoundError is raised.
-        """
-        from spikelab.data_loaders.s3_utils import ensure_local_file
-
-        with pytest.raises(FileNotFoundError, match="File not found"):
-            ensure_local_file("/nonexistent/path/file.h5")
-
-    def test_s3_url_returns_is_temporary_true(self):
-        """
-        ensure_local_file with S3 URL returns is_temporary=True.
-
-        Tests:
-            (Test Case 1) is_temporary is True.
-            (Test Case 2) download_from_s3 is called.
-        """
-        from spikelab.data_loaders.s3_utils import ensure_local_file
-
-        with patch("spikelab.data_loaders.s3_utils.download_from_s3") as mock_dl:
-            mock_dl.return_value = "/tmp/downloaded.h5"
-            local_path, is_temp = ensure_local_file("s3://bucket/key.h5")
-
-        assert is_temp is True
-        assert local_path == "/tmp/downloaded.h5"
-        mock_dl.assert_called_once()
-
-    def test_local_file_returns_is_temporary_false(self, tmp_path):
-        """
-        ensure_local_file with existing local path returns is_temporary=False.
-
-        Tests:
-            (Test Case 1) is_temporary is False.
-            (Test Case 2) Returned path matches input path.
-        """
-        from spikelab.data_loaders.s3_utils import ensure_local_file
-
-        path = str(tmp_path / "data.h5")
-        with open(path, "w") as f:
-            f.write("data")
-
-        local_path, is_temp = ensure_local_file(path)
-        assert is_temp is False
-        assert local_path == path
-
-
-# ---------------------------------------------------------------------------
-# Edge case tests from the edge case scan
-# ---------------------------------------------------------------------------
-
-
-class TestHDF5LoaderEdgeCases2:
-    """Additional edge case tests for HDF5 loaders."""
-
-    def test_raster_start_time_roundtrip(self, tmp_path):
-        """
-        Non-zero start_time stored in HDF5 is correctly propagated through raster load.
-
-        Tests:
-            (Test Case 1) start_time=-100 written to HDF5 attrs is read back.
-        """
-        import h5py
-
-        path = str(tmp_path / "raster_start.h5")
-        raster = np.array([[0, 1, 0, 1, 0]])
-        with h5py.File(path, "w") as f:
-            f.create_dataset("raster", data=raster)
-            f.attrs["start_time"] = -100.0
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path, raster_dataset="raster", raster_bin_size_ms=20.0
-        )
-        assert sd.start_time == pytest.approx(-100.0)
-
-    def test_raster_single_time_bin(self, tmp_path):
-        """
-        Raster with a single time bin (U, 1).
-
-        Tests:
-            (Test Case 1) Shape (U, 1) produces a SpikeData with total_time
-                equal to raster_bin_size_ms.
-        """
-        import h5py
-
-        path = str(tmp_path / "single_bin.h5")
-        raster = np.array([[1], [0], [1]])
-        with h5py.File(path, "w") as f:
-            f.create_dataset("raster", data=raster)
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path, raster_dataset="raster", raster_bin_size_ms=10.0
-        )
-        assert sd.N == 3
-        assert sd.length == pytest.approx(10.0, abs=1e-6)
-
-    def test_ragged_non_monotonic_end_indices(self, tmp_path):
-        """
-        Ragged style with non-monotonic end_indices produces empty arrays silently.
-
-        Tests:
-            (Test Case 1) end_indices [5, 3, 10] with flat_times of length 10
-                produces second unit with empty train (slice [5:3] is empty).
-        """
-        import h5py
-
-        path = str(tmp_path / "non_mono.h5")
-        flat = np.arange(10, dtype=float)
-        end_indices = np.array([5, 3, 10])
-        with h5py.File(path, "w") as f:
-            f.create_dataset("flat_spike_times", data=flat)
-            f.create_dataset("end_indices", data=end_indices)
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path,
-            spike_times_dataset="flat_spike_times",
-            spike_times_index_dataset="end_indices",
-            spike_times_unit="ms",
-        )
-        assert sd.N == 3
-        # Second unit gets flat[5:3] which is empty
-        assert len(sd.train[1]) == 0
-
-    def test_group_per_unit_lexicographic_sort(self, tmp_path):
-        """
-        Group-per-unit loader with non-numeric dataset names uses lexicographic sort.
-
-        Tests:
-            (Test Case 1) Keys ["1", "10", "2"] are sorted as ["1", "10", "2"]
-                not [1, 2, 10].
-        """
-        import h5py
-
-        path = str(tmp_path / "lexico.h5")
-        with h5py.File(path, "w") as f:
-            grp = f.create_group("units")
-            grp.create_dataset("1", data=[1.0, 2.0])
-            grp.create_dataset("10", data=[3.0, 4.0])
-            grp.create_dataset("2", data=[5.0, 6.0])
-            grp.attrs["time_unit"] = "ms"
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path, group_per_unit="units", group_time_unit="ms"
-        )
-        assert sd.N == 3
-        # First unit in lexicographic order is "1", then "10", then "2"
-        np.testing.assert_array_equal(sd.train[0], [1.0, 2.0])
-        np.testing.assert_array_equal(sd.train[1], [3.0, 4.0])
-        np.testing.assert_array_equal(sd.train[2], [5.0, 6.0])
-
-    def test_paired_gaps_in_unit_indices(self, tmp_path):
-        """
-        Paired style with gaps in unit indices creates empty trains for missing units.
-
-        Tests:
-            (Test Case 1) idces [0, 0, 3, 3] with N=4 creates units 1 and 2
-                with empty trains.
-        """
-        import h5py
-
-        path = str(tmp_path / "gaps.h5")
-        idces = np.array([0, 0, 3, 3])
-        times = np.array([1.0, 2.0, 3.0, 4.0])
-        with h5py.File(path, "w") as f:
-            f.create_dataset("idces", data=idces)
-            f.create_dataset("times", data=times)
-            f.attrs["time_unit"] = "ms"
-
-        sd = loaders.load_spikedata_from_hdf5(
-            path, idces_dataset="idces", times_dataset="times", times_unit="ms"
-        )
-        assert sd.N == 4
-        assert len(sd.train[1]) == 0
-        assert len(sd.train[2]) == 0
-        assert len(sd.train[0]) == 2
-        assert len(sd.train[3]) == 2
-
-
-class TestHDF5RawThresholdedEdgeCases2:
-    """Additional edge case tests for load_spikedata_from_hdf5_raw_thresholded."""
-
-    def test_dataset_not_found_raises(self, tmp_path):
-        """
-        Dataset not found in HDF5 raises KeyError.
-
-        Tests:
-            (Test Case 1) Nonexistent dataset path raises KeyError.
-        """
-        import h5py
-
-        path = str(tmp_path / "nodata.h5")
-        with h5py.File(path, "w") as f:
-            f.create_dataset("real_data", data=np.zeros((2, 100)))
-
-        with pytest.raises(KeyError):
-            loaders.load_spikedata_from_hdf5_raw_thresholded(
-                path, dataset="nonexistent", fs_Hz=20000
-            )
-
-
-class TestSpikeInterfaceEdgeCases2:
-    """Additional edge case tests for load_spikedata_from_spikeinterface."""
-
-    def test_sampling_frequency_zero_fallback(self):
-        """
-        sampling_frequency=0.0 is falsy and falls back to get_sampling_frequency().
-
-        Tests:
-            (Test Case 1) Explicit 0.0 triggers the `or` fallback.
-        """
-        mock_sorting = MagicMock()
-        mock_sorting.get_unit_ids.return_value = [0]
-        mock_sorting.get_unit_spike_train.return_value = np.array([100, 200, 300])
-        mock_sorting.get_sampling_frequency.return_value = 30000.0
-        # Test that has_recording is False
-        mock_sorting.has_recording.return_value = False
-
-        sd = loaders.load_spikedata_from_spikeinterface(
-            mock_sorting, sampling_frequency=0.0
-        )
-        # Should fall back to 30000 Hz
-        assert sd.N == 1
-
-    def test_scalar_location_property(self):
-        """
-        SpikeInterface with scalar location property (not array).
-
-        Tests:
-            (Test Case 1) Scalar location is wrapped in a list via
-                `list(loc) if hasattr(loc, "__iter__") else [loc]`.
-        """
-        mock_sorting = MagicMock()
-        mock_sorting.get_unit_ids.return_value = [0]
-        mock_sorting.get_unit_spike_train.return_value = np.array([100, 200])
-        mock_sorting.get_sampling_frequency.return_value = 30000.0
-
-        def mock_get_property(key):
-            if key == "location":
-                return [42.0]  # scalar per unit (not array)
-            raise KeyError(key)
-
-        mock_sorting.get_property = mock_get_property
-
-        sd = loaders.load_spikedata_from_spikeinterface(mock_sorting)
-        assert sd.N == 1
-        # location should be wrapped in a list
-        assert sd.neuron_attributes[0]["location"] == [42.0]
-
-
-class TestSpikeInterfaceRecordingEdgeCases2:
-    """Additional edge case tests for load_spikedata_from_spikeinterface_recording."""
-
-    def test_3d_traces_raises(self):
-        """
-        3D traces raise ValueError with appropriate message.
-
-        Tests:
-            (Test Case 1) A 3D array passed as traces triggers ndim != 2 check.
-        """
-        mock_recording = MagicMock()
-        mock_recording.get_traces.return_value = np.zeros((2, 100, 3))
-        mock_recording.get_sampling_frequency.return_value = 30000.0
-
-        with pytest.raises(ValueError, match="2D"):
-            loaders.load_spikedata_from_spikeinterface_recording(mock_recording)
-
-
-class TestBuildSpikeDataEdgeCases2:
-    """Additional edge case tests for _build_spikedata."""
-
-    def test_length_ms_none_with_negative_start_time(self):
-        """
-        _build_spikedata with length_ms=None and negative start_time.
-
-        Tests:
-            (Test Case 1) length_ms inferred as max(spike_times) - start_time.
-                With negative start_time, length is larger than max spike time.
-        """
-        trains = [np.array([1.0, 5.0, 10.0])]
-        sd = loaders._build_spikedata(
-            trains, length_ms=None, start_time=-10.0, metadata=None
-        )
-        assert sd.start_time == -10.0
-        # length = max(10.0) - (-10.0) = 20.0
-        assert sd.length == pytest.approx(20.0)
-
-
-class TestS3UtilsEdgeCases2:
-    """Additional edge case tests for s3_utils."""
-
-    def test_path_style_url_empty_key(self):
-        """
-        Path-style URL with no key raises ValueError.
-
-        Tests:
-            (Test Case 1) https://s3.amazonaws.com/bucket raises because no object key.
-        """
-        from spikelab.data_loaders.s3_utils import parse_s3_url
-
-        with pytest.raises(ValueError, match="no object key"):
-            parse_s3_url("https://s3.amazonaws.com/mybucket")
-
-    def test_virtual_hosted_url_with_region(self):
-        """
-        Virtual-hosted S3 URL with region subdomain is parsed correctly.
-
-        Tests:
-            (Test Case 1) bucket.s3.us-west-2.amazonaws.com/key → (bucket, key).
-            (Test Case 2) bucket.s3.amazonaws.com/key → (bucket, key).
-        """
-        from spikelab.data_loaders.s3_utils import parse_s3_url
-
-        bucket, key = parse_s3_url(
-            "https://mybucket.s3.us-west-2.amazonaws.com/path/to/file.h5"
-        )
-        assert bucket == "mybucket"
-        assert key == "path/to/file.h5"
-
-        bucket2, key2 = parse_s3_url("https://mybucket.s3.amazonaws.com/mykey")
-        assert bucket2 == "mybucket"
-        assert key2 == "mykey"
-
-
-class TestDownloadFromS3EdgeCases2:
-    """Additional edge case tests for download_from_s3."""
-
-    def test_no_such_key_error(self, tmp_path):
-        """
-        NoSuchKey error code maps to ValueError.
-
-        Tests:
-            (Test Case 1) ClientError with code NoSuchKey raises ValueError.
-        """
-        from spikelab.data_loaders.s3_utils import download_from_s3
-        from botocore.exceptions import ClientError
-
-        error_response = {"Error": {"Code": "NoSuchKey", "Message": "Not found"}}
-        mock_client = MagicMock()
-        mock_client.download_file.side_effect = ClientError(error_response, "GetObject")
-
-        with patch("spikelab.data_loaders.s3_utils.boto3") as mock_boto:
-            mock_boto.client.return_value = mock_client
-            with pytest.raises(ValueError, match="not found"):
-                download_from_s3("s3://bucket/key.h5", str(tmp_path / "out.h5"))
-
-
-class TestUploadToS3EdgeCases2:
-    """Additional edge case tests for upload_to_s3."""
-
     def test_access_denied_on_upload(self, tmp_path):
         """
         AccessDenied error on upload raises PermissionError.
@@ -3818,6 +3668,101 @@ class TestUploadToS3EdgeCases2:
                 upload_to_s3(str(local_file), "s3://bucket/key.h5")
 
 
+class TestEnsureLocalFile:
+    """Edge case tests for ensure_local_file."""
+
+    def test_local_file_does_not_exist(self):
+        """
+        ensure_local_file raises FileNotFoundError for non-existent local path.
+
+        Tests:
+            (Test Case 1) FileNotFoundError is raised.
+        """
+        from spikelab.data_loaders.s3_utils import ensure_local_file
+
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            ensure_local_file("/nonexistent/path/file.h5")
+
+    def test_s3_url_returns_is_temporary_true(self):
+        """
+        ensure_local_file with S3 URL returns is_temporary=True.
+
+        Tests:
+            (Test Case 1) is_temporary is True.
+            (Test Case 2) download_from_s3 is called.
+        """
+        from spikelab.data_loaders.s3_utils import ensure_local_file
+
+        with patch("spikelab.data_loaders.s3_utils.download_from_s3") as mock_dl:
+            mock_dl.return_value = "/tmp/downloaded.h5"
+            local_path, is_temp = ensure_local_file("s3://bucket/key.h5")
+
+        assert is_temp is True
+        assert local_path == "/tmp/downloaded.h5"
+        mock_dl.assert_called_once()
+
+    def test_local_file_returns_is_temporary_false(self, tmp_path):
+        """
+        ensure_local_file with existing local path returns is_temporary=False.
+
+        Tests:
+            (Test Case 1) is_temporary is False.
+            (Test Case 2) Returned path matches input path.
+        """
+        from spikelab.data_loaders.s3_utils import ensure_local_file
+
+        path = str(tmp_path / "data.h5")
+        with open(path, "w") as f:
+            f.write("data")
+
+        local_path, is_temp = ensure_local_file(path)
+        assert is_temp is False
+        assert local_path == path
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from the edge case scan
+# ---------------------------------------------------------------------------
+
+
+class TestSpikeInterfaceRecording2:
+    """Additional edge case tests for load_spikedata_from_spikeinterface_recording."""
+
+    def test_3d_traces_raises(self):
+        """
+        3D traces raise ValueError with appropriate message.
+
+        Tests:
+            (Test Case 1) A 3D array passed as traces triggers ndim != 2 check.
+        """
+        mock_recording = MagicMock()
+        mock_recording.get_traces.return_value = np.zeros((2, 100, 3))
+        mock_recording.get_sampling_frequency.return_value = 30000.0
+
+        with pytest.raises(ValueError, match="2D"):
+            loaders.load_spikedata_from_spikeinterface_recording(mock_recording)
+
+
+class TestBuildSpikeData2:
+    """Additional edge case tests for _build_spikedata."""
+
+    def test_length_ms_none_with_negative_start_time(self):
+        """
+        _build_spikedata with length_ms=None and negative start_time.
+
+        Tests:
+            (Test Case 1) length_ms inferred as max(spike_times) - start_time.
+                With negative start_time, length is larger than max spike time.
+        """
+        trains = [np.array([1.0, 5.0, 10.0])]
+        sd = loaders._build_spikedata(
+            trains, length_ms=None, start_time=-10.0, metadata=None
+        )
+        assert sd.start_time == -10.0
+        # length = max(10.0) - (-10.0) = 20.0
+        assert sd.length == pytest.approx(20.0)
+
+
 class TestCoverageGaps:
     """Tests for loader coverage gaps."""
 
@@ -3845,7 +3790,7 @@ class TestCoverageGaps:
 
 
 @skip_no_h5py
-class TestEdgeCaseScan:
+class TestScan:
     """Edge case tests for data_loaders/data_loaders.py."""
 
     def test_raster_with_nan_values(self, tmp_path):
@@ -3942,24 +3887,17 @@ class TestEdgeCaseScan:
 
     def test_trains_from_flat_index_non_monotonic_indices(self):
         """
-        Tests: _trains_from_flat_index with non-monotonic end indices [5, 3, 10].
-        (Test Case 5) The function iterates start=0->stop=5, start=5->stop=3
-        (empty), start=3->stop=10. The second segment is empty because
-        stop < start after advancing.
+        Tests: _trains_from_flat_index with non-monotonic end indices raises ValueError.
+        (Test Case 5) end_indices [5, 3, 10] are not monotonically
+        non-decreasing, so a ValueError is raised.
         """
         flat_times = np.arange(10, dtype=float)  # [0..9]
         end_indices = np.array([5, 3, 10])
 
-        trains = loaders._trains_from_flat_index(
-            flat_times, end_indices, unit="ms", fs_Hz=None
-        )
-        assert len(trains) == 3
-        # First: flat_times[0:5] = [0,1,2,3,4]
-        assert len(trains[0]) == 5
-        # Second: flat_times[5:3] = empty (backwards range)
-        assert len(trains[1]) == 0
-        # Third: flat_times[3:10] = [3,4,5,6,7,8,9]
-        assert len(trains[2]) == 7
+        with pytest.raises(ValueError, match="monotonically non-decreasing"):
+            loaders._trains_from_flat_index(
+                flat_times, end_indices, unit="ms", fs_Hz=None
+            )
 
     def test_raw_dataset_present_but_raw_time_absent(self, tmp_path):
         """
@@ -4252,3 +4190,405 @@ class TestEdgeCaseScan:
 
         with pytest.raises(ValueError, match="positive sampling_frequency"):
             loaders.load_spikedata_from_spikeinterface(mock)
+
+
+class TestLoadSpikelabSortedNpz:
+    """Tests for load_spikedata_from_spikelab_sorted_npz."""
+
+    def _make_npz(self, tmp_path, units, fs, locations=None):
+        """Helper: write a SpikeLab-style .npz and return the path."""
+        path = str(tmp_path / "sorted.npz")
+        kwargs = {"units": np.array(units, dtype=object), "fs": np.float64(fs)}
+        if locations is not None:
+            kwargs["locations"] = np.array(locations)
+        np.savez(path, **kwargs)
+        return path
+
+    def _make_unit(
+        self,
+        unit_id=0,
+        spike_train=None,
+        x_max=10.0,
+        y_max=20.0,
+        electrode=3,
+        template=None,
+        amplitudes=None,
+        std_norms=None,
+        peak_sign="neg",
+        max_channel_id="5",
+        extras=True,
+    ):
+        """Build a single unit dict with all or a subset of fields."""
+        if spike_train is None:
+            spike_train = np.array([100, 200, 300])
+        d = {
+            "spike_train": spike_train,
+            "unit_id": unit_id,
+            "x_max": x_max,
+            "y_max": y_max,
+            "electrode": electrode,
+        }
+        if extras:
+            d["template"] = template if template is not None else np.ones((2, 10))
+            d["amplitudes"] = (
+                amplitudes if amplitudes is not None else np.array([1.0, 2.0, 3.0])
+            )
+            d["std_norms"] = std_norms if std_norms is not None else np.array([0.5])
+            d["peak_sign"] = peak_sign
+            d["max_channel_id"] = max_channel_id
+        return d
+
+    def test_basic_load(self, tmp_path):
+        """
+        Round-trip: build .npz, load, verify SpikeData structure.
+
+        Tests:
+            (Test Case 1) Returned object is SpikeData with correct unit count.
+            (Test Case 2) Spike times are converted from samples to ms correctly.
+        """
+        fs = 30000.0
+        spike_samples = np.array([30000, 60000, 90000])
+        unit = self._make_unit(unit_id=1, spike_train=spike_samples)
+        path = self._make_npz(tmp_path, [unit], fs)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 1
+        expected_ms = np.sort(spike_samples.astype(float) / fs * 1000.0)
+        np.testing.assert_allclose(sd.train[0], expected_ms)
+
+    def test_neuron_attributes_populated(self, tmp_path):
+        """
+        Verify neuron_attributes contains all expected keys when present.
+
+        Tests:
+            (Test Case 1) unit_id, location, electrode, template, amplitudes,
+                          std_norms, peak_sign, max_channel_id are all set.
+        """
+        unit = self._make_unit(unit_id=7, x_max=1.0, y_max=2.0, electrode=4)
+        path = self._make_npz(tmp_path, [unit], 30000.0)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        attrs = sd.neuron_attributes[0]
+        assert attrs["unit_id"] == 7
+        assert attrs["location"] == [1.0, 2.0]
+        assert attrs["electrode"] == 4
+        np.testing.assert_array_equal(attrs["template"], np.ones((2, 10)))
+        np.testing.assert_array_equal(attrs["amplitudes"], np.array([1.0, 2.0, 3.0]))
+        np.testing.assert_array_equal(attrs["std_norms"], np.array([0.5]))
+        assert attrs["peak_sign"] == "neg"
+        assert attrs["max_channel_id"] == "5"
+
+    def test_metadata_populated(self, tmp_path):
+        """
+        Verify metadata contains source_file, source_format, fs_Hz,
+        and channel_locations when locations are provided.
+
+        Tests:
+            (Test Case 1) source_format is 'SpikeLab_npz'.
+            (Test Case 2) fs_Hz matches the sampling rate.
+            (Test Case 3) channel_locations present when locations supplied.
+        """
+        locs = np.array([[0.0, 0.0], [1.0, 1.0]])
+        unit = self._make_unit()
+        path = self._make_npz(tmp_path, [unit], 20000.0, locations=locs)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        assert sd.metadata["source_format"] == "SpikeLab_npz"
+        assert sd.metadata["fs_Hz"] == 20000.0
+        assert "source_file" in sd.metadata
+        np.testing.assert_array_equal(sd.metadata["channel_locations"], locs)
+
+    def test_empty_units(self, tmp_path):
+        """
+        .npz with an empty units list produces a SpikeData with zero units.
+
+        Tests:
+            (Test Case 1) N == 0 and train list is empty.
+        """
+        path = self._make_npz(tmp_path, [], 30000.0)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        assert isinstance(sd, SpikeData)
+        assert sd.N == 0
+        assert len(sd.train) == 0
+
+    def test_missing_optional_fields(self, tmp_path):
+        """
+        Units without optional attributes (template, amplitudes, etc.)
+        should still load; those keys are absent from neuron_attributes.
+
+        Tests:
+            (Test Case 1) SpikeData loads without error.
+            (Test Case 2) Only unit_id and location/electrode are present.
+        """
+        unit = self._make_unit(extras=False)
+        path = self._make_npz(tmp_path, [unit], 30000.0)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        assert sd.N == 1
+        attrs = sd.neuron_attributes[0]
+        assert "unit_id" in attrs
+        assert "location" in attrs
+        assert "electrode" in attrs
+        assert "template" not in attrs
+        assert "amplitudes" not in attrs
+        assert "std_norms" not in attrs
+        assert "peak_sign" not in attrs
+        assert "max_channel_id" not in attrs
+
+    def test_single_unit(self, tmp_path):
+        """
+        Single unit in units list loads correctly.
+
+        Tests:
+            (Test Case 1) N == 1 and spike times are correct.
+        """
+        fs = 10000.0
+        samples = np.array([10000, 50000])
+        unit = self._make_unit(unit_id=0, spike_train=samples)
+        path = self._make_npz(tmp_path, [unit], fs)
+
+        sd = loaders.load_spikedata_from_spikelab_sorted_npz(path)
+
+        assert sd.N == 1
+        expected_ms = np.sort(samples.astype(float) / fs * 1000.0)
+        np.testing.assert_allclose(sd.train[0], expected_ms)
+
+    def test_file_not_found(self, tmp_path):
+        """
+        Nonexistent path raises FileNotFoundError.
+
+        Tests:
+            (Test Case 1) FileNotFoundError for a missing .npz.
+        """
+        bad_path = str(tmp_path / "does_not_exist.npz")
+        with pytest.raises(FileNotFoundError):
+            loaders.load_spikedata_from_spikelab_sorted_npz(bad_path)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md I/O scan (HIGH and MEDIUM severity)
+# ---------------------------------------------------------------------------
+
+
+@skip_no_h5py
+class TestHDF5LoaderIO:
+    """Edge case tests for load_spikedata_from_hdf5 from REVIEW.md I/O scan."""
+
+    def test_raster_with_negative_values(self, tmp_path):
+        """
+        Raster with negative values -- from_raster computes
+        np.linspace(0, bin_size, n_spikes + 2) which raises ValueError
+        when n_spikes + 2 < 0 (i.e. n_spikes <= -3).
+
+        Notes:
+            Bug: negative raster values with magnitude >= 3 crash in
+            np.linspace because the num argument becomes negative.
+
+        Tests:
+            (Test Case 1) Loader raises ValueError on raster values <= -3.
+        """
+        path = str(tmp_path / "neg_raster.h5")
+        raster = np.array([[0, -1, 2, 0], [1, 0, -3, 0]], dtype=int)
+        with h5py.File(path, "w") as f:
+            f.create_dataset("raster", data=raster)
+
+        with pytest.raises(ValueError, match="must be non-negative"):
+            loaders.load_spikedata_from_hdf5(
+                path, raster_dataset="raster", raster_bin_size_ms=10.0
+            )
+
+    def test_paired_negative_unit_indices(self, tmp_path):
+        """
+        Paired style with negative unit indices -- produces incorrect N
+        because N = int(idces.max()) + 1 ignores negatives.
+
+        Tests:
+            (Test Case 1) Loader does not crash on negative indices.
+            (Test Case 2) N is determined by max index, so negative indices
+                are effectively ignored for unit count.
+        """
+        path = str(tmp_path / "neg_idces.h5")
+        idces = np.array([-1, 0, 1, 0], dtype=int)
+        times = np.array([0.1, 0.2, 0.3, 0.4])  # seconds
+        with h5py.File(path, "w") as f:
+            f.create_dataset("idces", data=idces)
+            f.create_dataset("times", data=times)
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, idces_dataset="idces", times_dataset="times", times_unit="s"
+        )
+        # N = max(1) + 1 = 2, but -1 index is silently placed elsewhere
+        assert sd.N == 2
+
+    def test_group_per_unit_non_numeric_names(self, tmp_path):
+        """
+        Group-per-unit with non-numeric dataset names -- lexicographic order
+        may not match intended unit order.
+
+        Tests:
+            (Test Case 1) Datasets named "alpha", "beta", "gamma" are sorted
+                lexicographically, producing a valid SpikeData.
+            (Test Case 2) N matches number of datasets.
+        """
+        path = str(tmp_path / "alpha_group.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("units")
+            grp.create_dataset("gamma", data=np.array([0.3, 0.5]))
+            grp.create_dataset("alpha", data=np.array([0.1, 0.2]))
+            grp.create_dataset("beta", data=np.array([0.4]))
+
+        sd = loaders.load_spikedata_from_hdf5(
+            path, group_per_unit="units", group_time_unit="s"
+        )
+        assert sd.N == 3
+        # Sorted order: alpha, beta, gamma
+        np.testing.assert_allclose(sd.train[0], np.array([100.0, 200.0]))
+        np.testing.assert_allclose(sd.train[1], np.array([400.0]))
+        np.testing.assert_allclose(sd.train[2], np.array([300.0, 500.0]))
+
+
+class TestBuildSpikeData3:
+    """Edge case tests for _build_spikedata helper."""
+
+    def test_all_empty_trains_nonzero_start_time(self):
+        """
+        All trains empty with non-zero start_time -- length inference
+        returns 0.0 ignoring start_time.
+
+        Tests:
+            (Test Case 1) length is inferred as 0.0 when all trains are empty,
+                regardless of start_time.
+        """
+        trains = [np.array([], float), np.array([], float)]
+        sd = loaders._build_spikedata(trains, start_time=500.0)
+        # length inferred as 0.0 because no spikes exist
+        assert sd.length == 0.0
+        assert sd.start_time == 500.0
+
+
+class TestPickleLoader2:
+    """Edge case tests for load_spikedata_from_pickle."""
+
+    def test_empty_pickle_file(self, tmp_path):
+        """
+        Empty pickle file -- EOFError is raised (not caught/wrapped).
+
+        Tests:
+            (Test Case 1) Loading a 0-byte pickle file raises an exception.
+        """
+        path = str(tmp_path / "empty.pkl")
+        with open(path, "wb") as f:
+            pass  # Write nothing
+
+        with pytest.raises(Exception):
+            loaders.load_spikedata_from_pickle(path)
+
+    def test_pickle_wrong_type(self, tmp_path):
+        """
+        Pickle containing a non-SpikeData object raises ValueError.
+
+        Tests:
+            (Test Case 1) Pickle with a plain dict raises ValueError.
+        """
+        path = str(tmp_path / "wrong.pkl")
+        with open(path, "wb") as f:
+            pickle.dump({"not": "spikedata"}, f)
+
+        with pytest.raises(ValueError, match="does not contain a SpikeData"):
+            loaders.load_spikedata_from_pickle(path)
+
+
+class TestSpikeInterfaceLoader:
+    """Edge case tests for load_spikedata_from_spikeinterface."""
+
+    def test_get_property_shorter_than_unit_count(self):
+        """
+        get_property returns array shorter than unit count -- electrode
+        info is only assigned for available indices.
+
+        Tests:
+            (Test Case 1) No crash when channel property is shorter than IDs.
+            (Test Case 2) First unit gets electrode, second does not.
+        """
+
+        class FakeSorting:
+            def get_unit_ids(self):
+                return [0, 1, 2]
+
+            def get_sampling_frequency(self):
+                return 30000.0
+
+            def get_unit_spike_train(self, unit_id=None, segment_index=0):
+                return np.array([100, 200, 300])
+
+            def get_property(self, name):
+                if name == "channel":
+                    return np.array([10])  # Only 1 element for 3 units
+                raise KeyError(name)
+
+        sd = loaders.load_spikedata_from_spikeinterface(FakeSorting())
+        assert sd.N == 3
+        # Only unit 0 (index 0 < len(channel_prop)=1) gets electrode
+        assert sd.neuron_attributes[0].get("electrode") == 10
+        assert "electrode" not in sd.neuron_attributes[1]
+        assert "electrode" not in sd.neuron_attributes[2]
+
+
+class TestSpikeInterfaceRecording3:
+    """Edge case tests for load_spikedata_from_spikeinterface_recording."""
+
+    def test_sampling_frequency_none_raises(self):
+        """
+        get_sampling_frequency returns None -- float(None) raises TypeError
+        before the explicit ValueError guard is reached.
+
+        Tests:
+            (Test Case 1) TypeError for None sampling frequency.
+        """
+
+        class FakeRecording:
+            def get_sampling_frequency(self):
+                return None
+
+            def get_traces(self, segment_index=0):
+                return np.zeros((2, 100))
+
+        with pytest.raises(TypeError):
+            loaders.load_spikedata_from_spikeinterface_recording(FakeRecording())
+
+
+class TestS3Utils4:
+    """Edge case tests for s3_utils.py."""
+
+    def test_is_s3_url_with_s3_in_path_not_hostname(self):
+        """
+        URL with 's3' in path but not hostname -- should return False.
+
+        Tests:
+            (Test Case 1) https://example.com/s3/bucket/key is not an S3 URL.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("https://example.com/s3/bucket/key") is False
+        assert is_s3_url("https://example.com/data/s3-backup/file.h5") is False
+
+    def test_is_s3_url_valid_patterns(self):
+        """
+        Verify valid S3 URL patterns are recognized.
+
+        Tests:
+            (Test Case 1) s3:// prefix returns True.
+            (Test Case 2) https://s3.amazonaws.com/... returns True.
+        """
+        from spikelab.data_loaders.s3_utils import is_s3_url
+
+        assert is_s3_url("s3://bucket/key") is True
+        assert is_s3_url("https://s3.amazonaws.com/bucket/key") is True
+        assert is_s3_url("https://bucket.s3.us-west-2.amazonaws.com/key") is True

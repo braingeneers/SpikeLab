@@ -220,7 +220,7 @@ class AnalysisWorkspace:
         """Return the names of all top-level namespaces in the workspace.
 
         Returns:
-            namespaces (list[str]): Sorted list of namespace names.
+            namespaces (list[str]): List of namespace names in insertion order.
         """
         return list(self._items.keys())
 
@@ -791,7 +791,7 @@ class WorkspaceManager:
         with self._lock:
             result = []
             for ws in self._workspaces.values():
-                index = ws._index if hasattr(ws, "_index") else ws._items
+                index = ws._index
                 item_count = sum(len(v) for v in index.values())
                 result.append(
                     {

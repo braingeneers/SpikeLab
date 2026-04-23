@@ -2462,6 +2462,19 @@ class TestSpikeDataRates:
         # With no smoothing, each bin should be 0 or a positive integer
         assert np.all(result >= 0)
 
+    def test_rates_all_empty_trains_nonzero_length(self):
+        """
+        rates() on SpikeData with N>0 but all-empty trains returns all zeros.
+
+        Tests:
+            (Test Case 1) Three units with no spikes and length=100 returns
+                array of zeros with shape (3,).
+        """
+        sd = SpikeData([[], [], []], length=100.0)
+        r = sd.rates()
+        assert r.shape == (3,)
+        np.testing.assert_array_equal(r, 0.0)
+
 
 class TestSpikeDataCorrelation:
     """Tests for SpikeData correlation methods: spike_time_tiling, get_pairwise_ccg, get_pairwise_latencies, spike_time_tilings, latencies, latencies_to_index."""
@@ -4599,6 +4612,21 @@ class TestSpikeDataShuffle:
         with pytest.raises(ValueError, match="n_shuffles must be at least 1"):
             sd.spike_shuffle_stack(n_shuffles=0, seed=0)
 
+    def test_shuffle_all_spikes_in_single_bin(self):
+        """
+        spike_shuffle on a SpikeData where all spikes are in a single time bin.
+
+        Tests:
+            (Test Case 1) A binary raster with a single column of 1s issues a
+                RuntimeWarning about insufficient swaps (no swaps possible).
+        """
+        # All spikes at t=0.5, length=1 → single bin
+        sd = SpikeData([[0.5], [0.5], [0.5]], length=1.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            shuffled = sd.spike_shuffle(seed=42, bin_size=1)
+        assert shuffled.N == 3
+
 
 class TestSpikeDataSubsetStack:
     """Tests for SpikeData.subset_stack."""
@@ -5608,7 +5636,7 @@ class TestAlignToEvents:
 # ---------------------------------------------------------------------------
 
 
-class TestSpikeDataConstructorEdgeCases:
+class TestSpikeDataConstructor:
     """Edge case tests for SpikeData.__init__."""
 
     def test_empty_neuron_attributes_list_preserved(self):
@@ -5681,7 +5709,7 @@ class TestSpikeDataConstructorEdgeCases:
         assert np.all(np.isinf(sd.raw_time[1:]))
 
 
-class TestSpikeDataFromIdcesTimesEdgeCases:
+class TestSpikeDataFromIdcesTimes:
     """Edge case tests for SpikeData.from_idces_times."""
 
     def test_mismatched_idces_times_lengths(self):
@@ -5709,7 +5737,7 @@ class TestSpikeDataFromIdcesTimesEdgeCases:
             pass  # Expected if validation catches it
 
 
-class TestSpikeDataFromRasterEdgeCases:
+class TestSpikeDataFromRaster:
     """Edge case tests for SpikeData.from_raster."""
 
     def test_raster_with_negative_start_time(self):
@@ -5729,7 +5757,7 @@ class TestSpikeDataFromRasterEdgeCases:
             assert -100.0 <= t < 0.0
 
 
-class TestSpikeDataSubsetEdgeCases:
+class TestSpikeDataSubset:
     """Edge case tests for SpikeData.subset."""
 
     def test_subset_with_numpy_integer_type(self):
@@ -5745,7 +5773,7 @@ class TestSpikeDataSubsetEdgeCases:
         assert result.N == 2
 
 
-class TestSpikeDataSubtimeEdgeCases:
+class TestSpikeDataSubtime:
     """Edge case tests for SpikeData.subtime."""
 
     def test_subtime_shift_to_with_empty_window(self):
@@ -5776,7 +5804,7 @@ class TestSpikeDataSubtimeEdgeCases:
         assert len(result.train[0]) == 3
 
 
-class TestSpikeDataFramesEdgeCases:
+class TestSpikeDataFrames:
     """Edge case tests for SpikeData.frames."""
 
     def test_frames_with_negative_start_time(self):
@@ -5798,7 +5826,7 @@ class TestSpikeDataFramesEdgeCases:
         assert stack.times[1] == (0.0, 100.0)
 
 
-class TestSpikeDataAlignToEventsEdgeCases:
+class TestSpikeDataAlignToEvents:
     """Edge case tests for SpikeData.align_to_events."""
 
     def test_align_to_events_with_inf_events(self):
@@ -5818,24 +5846,7 @@ class TestSpikeDataAlignToEventsEdgeCases:
             sd.align_to_events([float("inf")], pre_ms=5.0, post_ms=5.0)
 
 
-class TestSpikeDataRatesEdgeCases:
-    """Edge case tests for SpikeData.rates."""
-
-    def test_rates_all_empty_trains_nonzero_length(self):
-        """
-        rates() on SpikeData with N>0 but all-empty trains returns all zeros.
-
-        Tests:
-            (Test Case 1) Three units with no spikes and length=100 returns
-                array of zeros with shape (3,).
-        """
-        sd = SpikeData([[], [], []], length=100.0)
-        r = sd.rates()
-        assert r.shape == (3,)
-        np.testing.assert_array_equal(r, 0.0)
-
-
-class TestResampledIsiSingleTimeEdgeCases:
+class TestResampledIsiSingleTime:
     """Edge case tests for the single-time query path in _resampled_isi."""
 
     def test_single_time_zero_spikes(self):
@@ -5935,7 +5946,7 @@ class TestResampledIsiSingleTimeEdgeCases:
         assert result2[0] == pytest.approx(200.0)
 
 
-class TestSlidingRateSingleTrainEdgeCases:
+class TestSlidingRateSingleTrain:
     """Edge case tests for _sliding_rate_single_train helper."""
 
     def test_validation_window_size_zero(self):
@@ -6127,7 +6138,7 @@ class TestSlidingRateSingleTrainEdgeCases:
         assert rd.inst_Frate_data.shape[1] == len(rd.times)
 
 
-class TestSpikeDataSlidingRateEdgeCases:
+class TestSpikeDataSlidingRate:
     """Edge case tests for SpikeData.sliding_rate."""
 
     def test_validation_no_step_or_rate(self):
@@ -6166,7 +6177,7 @@ class TestSpikeDataSlidingRateEdgeCases:
         assert rd.inst_Frate_data.shape[1] == len(rd.times)
 
 
-class TestSpikeDataRasterEdgeCases:
+class TestSpikeDataRaster:
     """Edge case tests for SpikeData.raster / sparse_raster."""
 
     def test_raster_large_time_offset(self):
@@ -6194,7 +6205,7 @@ class TestSpikeDataRasterEdgeCases:
         assert r.shape == (1, int(np.ceil(100.0 / 30.0)))
 
 
-class TestSpikeDataGetPairwiseCCGEdgeCases:
+class TestSpikeDataGetPairwiseCCG:
     """Edge case tests for SpikeData.get_pairwise_ccg."""
 
     def test_identical_spike_trains_all_units(self):
@@ -6216,7 +6227,7 @@ class TestSpikeDataGetPairwiseCCGEdgeCases:
                     assert lag.matrix[i, j] == 0
 
 
-class TestSpikeDataGetPairwiseLatenciesEdgeCases:
+class TestSpikeDataGetPairwiseLatencies:
     """Edge case tests for SpikeData.get_pairwise_latencies."""
 
     def test_return_distributions_all_empty_trains(self):
@@ -6234,7 +6245,7 @@ class TestSpikeDataGetPairwiseLatenciesEdgeCases:
         assert len(dists) == 3
 
 
-class TestSpikeDataGetBurstsEdgeCases:
+class TestSpikeDataGetBursts:
     """Edge case tests for SpikeData.get_bursts."""
 
     def test_min_burst_diff_zero(self):
@@ -6279,7 +6290,7 @@ class TestSpikeDataGetBurstsEdgeCases:
         assert isinstance(edges, np.ndarray)
 
 
-class TestSpikeDataGetFracActiveEdgeCases:
+class TestSpikeDataGetFracActive:
     """Edge case tests for SpikeData.get_frac_active."""
 
     def test_non_default_bin_size_with_fractional_edges(self):
@@ -6299,26 +6310,7 @@ class TestSpikeDataGetFracActiveEdgeCases:
         assert frac_per_unit.shape == (2,)
 
 
-class TestSpikeDataShuffleEdgeCases:
-    """Edge case tests for SpikeData.spike_shuffle."""
-
-    def test_shuffle_all_spikes_in_single_bin(self):
-        """
-        spike_shuffle on a SpikeData where all spikes are in a single time bin.
-
-        Tests:
-            (Test Case 1) A binary raster with a single column of 1s issues a
-                RuntimeWarning about insufficient swaps (no swaps possible).
-        """
-        # All spikes at t=0.5, length=1 → single bin
-        sd = SpikeData([[0.5], [0.5], [0.5]], length=1.0)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            shuffled = sd.spike_shuffle(seed=42, bin_size=1)
-        assert shuffled.N == 3
-
-
-class TestSpikeDataComputeStPREdgeCases:
+class TestSpikeDataComputeStPR:
     """Edge case tests for SpikeData.compute_spike_trig_pop_rate."""
 
     def test_all_neurons_silent(self):
@@ -6334,7 +6326,7 @@ class TestSpikeDataComputeStPREdgeCases:
         np.testing.assert_array_equal(cs_zero, 0.0)
 
 
-class TestSpikeDataBurstSensitivityEdgeCases:
+class TestSpikeDataBurstSensitivity:
     """Edge case tests for SpikeData.burst_sensitivity."""
 
     def test_empty_thr_values(self):
@@ -6839,3 +6831,184 @@ class TestBestMatchAssignment:
         assert result["total_score"] == 0.0
         assert len(result["row_order"]) == 0
         assert len(result["col_order"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# SpikeData.sliding_rate (multi-unit method)
+# ---------------------------------------------------------------------------
+
+
+class TestSlidingRate:
+    """Tests for SpikeData.sliding_rate multi-unit method."""
+
+    def test_basic_computation(self):
+        """
+        sliding_rate returns a RateData with correct shape (N, T).
+
+        Tests:
+            (Test Case 1) inst_Frate_data has N rows matching unit count.
+            (Test Case 2) times length matches T columns.
+            (Test Case 3) All rates are non-negative.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0], [15.0, 25.0, 35.0]], length=40.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=40)
+        assert rd.inst_Frate_data.shape[0] == 2
+        assert rd.inst_Frate_data.shape[1] == len(rd.times)
+        assert np.all(rd.inst_Frate_data >= 0)
+
+    def test_parameter_validation_positive_window(self):
+        """
+        window_size must be positive.
+
+        Tests:
+            (Test Case 1) Zero window raises ValueError.
+            (Test Case 2) Negative window raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            sd.sliding_rate(window_size=0, step_size=1)
+        with pytest.raises(ValueError, match="window_size must be positive"):
+            sd.sliding_rate(window_size=-5, step_size=1)
+
+    def test_parameter_validation_mutually_exclusive(self):
+        """
+        step_size and sampling_rate are mutually exclusive.
+
+        Tests:
+            (Test Case 1) Providing both raises ValueError.
+            (Test Case 2) Providing neither raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            sd.sliding_rate(window_size=2, step_size=0.5, sampling_rate=2.0)
+        with pytest.raises(ValueError, match="Must provide either"):
+            sd.sliding_rate(window_size=2)
+
+    def test_parameter_validation_gauss_sigma(self):
+        """
+        gauss_sigma must be non-negative.
+
+        Tests:
+            (Test Case 1) Negative gauss_sigma raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="gauss_sigma must be non-negative"):
+            sd.sliding_rate(window_size=2, step_size=1, gauss_sigma=-1.0)
+
+    def test_parameter_validation_t_end_gt_t_start(self):
+        """
+        t_end must be greater than t_start.
+
+        Tests:
+            (Test Case 1) t_end == t_start raises ValueError.
+        """
+        sd = SpikeData([[1.0, 2.0]], length=5.0)
+        with pytest.raises(ValueError, match="t_end must be greater"):
+            sd.sliding_rate(window_size=2, step_size=1, t_start=10, t_end=10)
+
+    def test_gaussian_smoothing(self):
+        """
+        gauss_sigma > 0 applies Gaussian smoothing to the rate.
+
+        Tests:
+            (Test Case 1) Smoothed rate has lower variance than unsmoothed.
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
+        rd_raw = sd.sliding_rate(
+            window_size=5.0, step_size=1.0, gauss_sigma=0.0, t_start=0, t_end=50
+        )
+        rd_smooth = sd.sliding_rate(
+            window_size=5.0, step_size=1.0, gauss_sigma=5.0, t_start=0, t_end=50
+        )
+        assert np.var(rd_smooth.inst_Frate_data) < np.var(rd_raw.inst_Frate_data)
+
+    def test_apply_square_false(self):
+        """
+        apply_square=False skips square-window smoothing.
+
+        Tests:
+            (Test Case 1) Rate is non-negative.
+            (Test Case 2) Result differs from apply_square=True.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0, 40.0]], length=50.0)
+        rd_sq = sd.sliding_rate(
+            window_size=10.0, step_size=1.0, apply_square=True, t_start=0, t_end=50
+        )
+        rd_no_sq = sd.sliding_rate(
+            window_size=10.0, step_size=1.0, apply_square=False, t_start=0, t_end=50
+        )
+        assert np.all(rd_no_sq.inst_Frate_data >= 0)
+        assert not np.allclose(rd_sq.inst_Frate_data, rd_no_sq.inst_Frate_data)
+
+    def test_empty_spike_trains(self):
+        """
+        Empty spike trains produce zero rates.
+
+        Tests:
+            (Test Case 1) All rates for an empty unit are zero.
+            (Test Case 2) Non-empty unit still has non-zero rates.
+        """
+        sd = SpikeData([[], [10.0, 20.0, 30.0]], length=40.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=40)
+        np.testing.assert_array_equal(rd.inst_Frate_data[0], 0.0)
+        assert np.max(rd.inst_Frate_data[1]) > 0
+
+    def test_single_unit(self):
+        """
+        Single-unit SpikeData produces a (1, T) rate array.
+
+        Tests:
+            (Test Case 1) Shape is (1, T).
+        """
+        sd = SpikeData([[5.0, 15.0, 25.0]], length=30.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=30)
+        assert rd.inst_Frate_data.shape[0] == 1
+        assert rd.inst_Frate_data.shape[1] > 0
+
+    def test_custom_t_start_t_end(self):
+        """
+        Custom t_start and t_end restrict the output time range.
+
+        Tests:
+            (Test Case 1) Time vector starts near t_start.
+            (Test Case 2) Time vector ends near t_end.
+        """
+        sd = SpikeData([[10.0, 50.0, 90.0]], length=100.0)
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=20, t_end=80)
+        assert rd.times[0] >= 20.0 - 1.0
+        assert rd.times[-1] <= 80.0 + 1.0
+
+    def test_neuron_attributes_propagation(self):
+        """
+        neuron_attributes from SpikeData are propagated to the returned RateData.
+
+        Tests:
+            (Test Case 1) RateData.neuron_attributes matches input.
+        """
+        attrs = [{"label": "unit_A"}, {"label": "unit_B"}]
+        sd = SpikeData(
+            [[10.0, 20.0], [15.0, 25.0]],
+            length=30.0,
+            neuron_attributes=attrs,
+        )
+        rd = sd.sliding_rate(window_size=10.0, step_size=1.0, t_start=0, t_end=30)
+        assert rd.neuron_attributes is not None
+        assert len(rd.neuron_attributes) == 2
+        assert rd.neuron_attributes[0]["label"] == "unit_A"
+        assert rd.neuron_attributes[1]["label"] == "unit_B"
+
+    def test_sampling_rate_parameter(self):
+        """
+        sampling_rate is equivalent to step_size = 1/sampling_rate.
+
+        Tests:
+            (Test Case 1) Results from sampling_rate=2.0 match step_size=0.5.
+        """
+        sd = SpikeData([[10.0, 20.0, 30.0]], length=40.0)
+        rd_step = sd.sliding_rate(window_size=10.0, step_size=0.5, t_start=0, t_end=40)
+        rd_rate = sd.sliding_rate(
+            window_size=10.0, sampling_rate=2.0, t_start=0, t_end=40
+        )
+        np.testing.assert_allclose(
+            rd_step.inst_Frate_data, rd_rate.inst_Frate_data, atol=1e-12
+        )

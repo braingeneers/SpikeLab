@@ -136,7 +136,7 @@ def _cmd_render(args: argparse.Namespace) -> int:
         "render_only": True,
         "wait": False,
         "follow_logs": False,
-        "max_wait_seconds": 0,
+        "max_wait_seconds": 1,
         "allow_policy_risk": False,
     }
     render_args = argparse.Namespace(**{**vars(args), **overrides})

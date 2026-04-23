@@ -13,8 +13,8 @@ After working through this guide you will know how to:
   :meth:`~spikelab.SpikeData.spike_time_tilings`.
 - Compare firing-rate correlation and STTC with scatter plots using marginal
   histograms.
-- Convert a :class:`~spikelab.PairwiseCompMatrix` to a NetworkX graph and
-  run Louvain community detection.
+- Convert a :class:`~spikelab.PairwiseCompMatrix` to a NetworkX graph for
+  graph analyses.
 - Plot functional connectivity as a spatial network on MEA electrode
   positions.
 
@@ -22,10 +22,14 @@ After working through this guide you will know how to:
 Spike Time Tiling Coefficient (STTC)
 -------------------------------------
 
-The STTC quantifies the temporal co-occurrence of spikes between two neurons.
-It ranges from -1 (anti-correlated) to +1 (perfectly coincident) and is
-unbiased with respect to firing rate, making it preferable to raw
-cross-correlation for comparing pairs with different activity levels.
+The STTC (Cutts & Eglen 2014) quantifies the temporal co-occurrence of spikes
+between two neurons. It ranges from -1 (anti-correlated) to +1 (perfectly
+coincident) and is unbiased with respect to firing rate, making it preferable
+to raw cross-correlation for comparing pairs with different activity levels.
+
+- Cutts, C. S. & Eglen, S. J. Detecting pairwise correlations in spike trains:
+  an objective comparison of methods and application to the study of retinal
+  waves. *J Neurosci* 34, 14288--14303 (2014).
 
 The ``delt`` parameter sets the coincidence window in milliseconds.  A spike
 in neuron A is considered coincident with neuron B if any spike of B falls
@@ -83,18 +87,103 @@ visualize them side by side:
    :width: 100%
    :alt: STTC matrices for baseline and treated conditions
 
-   Pairwise STTC matrices ordered by mean firing-rate correlation, showing
-   changes in temporal co-firing between conditions.
+   Pairwise STTC matrices for two conditions (left, middle)
+   and their difference (right).
+
+
+Firing-Rate Correlations
+-------------------------
+
+Firing-rate correlation measures how similarly pairs of units modulate their
+activity over time. See :doc:`firing_rates` for how to compute the
+instantaneous rate traces.
+
+:meth:`~spikelab.RateData.get_pairwise_fr_corr` computes the peak
+cross-correlation between every pair of units' rate traces:
+
+.. code-block:: python
+
+   corr_matrix, lag_matrix = rd.get_pairwise_fr_corr(
+       max_lag=10,    # maximum lag offset to search (in time bins)
+       n_jobs=-1,     # parallel threads (-1 = all cores)
+   )
+
+Both return values are :class:`~spikelab.spikedata.pairwise.PairwiseCompMatrix`
+objects wrapping an ``(N, N)`` NumPy array:
+
+- ``corr_matrix`` — peak cross-correlation coefficient for each pair. The
+  diagonal is always 1 (self-correlation).
+- ``lag_matrix`` — lag (in bins) at which the peak correlation occurs. The
+  diagonal is always 0 (self-lag).
+
+You can extract the lower triangle for summary statistics:
+
+.. code-block:: python
+
+   # 1-D array of all unique pairwise correlations
+   corr_values = corr_matrix.extract_lower_triangle()
+
+   print(f"Median pairwise correlation: {np.median(corr_values):.3f}")
+
+Visualise the full ``(N, N)`` correlation matrix as a heatmap:
+
+.. code-block:: python
+
+   from spikelab.spikedata.plot_utils import plot_heatmap
+
+   fig, ax = plot_heatmap(
+       corr_matrix.matrix,
+       vmin=-1,
+       vmax=1,
+       cmap="RdBu_r",
+       xlabel="Unit",
+       ylabel="Unit",
+       cbar_label="Correlation",
+   )
+
+.. figure:: /_static/images/fr_corr_matrices.png
+   :width: 100%
+   :alt: Firing-rate correlation matrices
+
+   Pairwise firing-rate correlation matrices for two conditions (left, middle)
+   and their difference (right).
+
+To compare distributions across conditions:
+
+.. code-block:: python
+
+   from spikelab.spikedata.plot_utils import plot_distribution
+   import matplotlib.pyplot as plt
+
+   fig, ax = plt.subplots(figsize=(6, 4))
+   plot_distribution(
+       ax,
+       metric_data={
+           "D0": corr_d0.extract_lower_triangle(),
+           "D3": corr_d3.extract_lower_triangle(),
+           "D10": corr_d10.extract_lower_triangle(),
+           "D30": corr_d30.extract_lower_triangle(),
+           "D50": corr_d50.extract_lower_triangle(),
+       },
+       ylabel="FR correlation",
+       show_violin=True,
+       show_box=True,
+   )
+
+.. figure:: /_static/images/fr_corr_violins.png
+   :width: 100%
+   :alt: Violin plots of pairwise FR correlations across conditions
+
+   Distribution of pairwise firing-rate correlations for the different
+   experimental conditions. Shifts in the median or spread indicate changes
+   in functional network connectivity.
 
 
 FR Correlation vs STTC Scatter
 -------------------------------
 
 Firing-rate correlation and STTC capture different aspects of functional
-connectivity.  Firing-rate correlation reflects co-modulation on slower
-timescales, while STTC captures millisecond-precision coincidences.
-Plotting one against the other reveals whether tightly synchronized pairs
-also share slow rate fluctuations.
+connectivity. You can plot one against the other to see how they compare.
 
 Use :func:`~spikelab.spikedata.plot_utils.plot_scatter_with_marginals` to
 create a scatter plot with marginal histograms.  The function accepts a

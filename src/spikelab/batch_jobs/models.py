@@ -55,7 +55,7 @@ class VolumeMountSpec(BaseModel):
 class NamespaceHookSpec(BaseModel):
     """Per-namespace overrides applied when a job targets a specific namespace."""
 
-    image_pull_policy: Optional[str] = None
+    image_pull_policy: Optional[Literal["Always", "IfNotPresent", "Never"]] = None
     default_command: List[str] = Field(default_factory=list)
     required_volumes: List[VolumeMountSpec] = Field(default_factory=list)
     env_defaults: Dict[str, str] = Field(default_factory=dict)
@@ -128,11 +128,22 @@ class ClusterProfile(BaseModel):
     region_name: Optional[str] = None
 
 
+class SubmitResult(BaseModel):
+    """Result returned by job submission methods."""
+
+    job_name: str
+    manifest_yaml: str
+    run_id: str
+    uploaded_input_uri: str
+    output_prefix: str
+    logs_prefix: str
+    job_type: Literal["workspace", "sorting", "prepared"]
+
+
 class RunConfig(BaseModel):
     """User-facing run config consumed by CLI/session."""
 
     profile_name: str = "defaults"
-    output_format: Literal["pickle", "nwb", "both"] = "pickle"
     input_path: str
     output_prefix: Optional[str] = None
     workspace_id: Optional[str] = None

@@ -171,7 +171,16 @@ class FigureConfig:
     bar_total_label: str = "First Curation"
     bar_selected_label: str = "Selected Curation"
     scatter_std_max_units_per_recording: Optional[int] = None
-    scatter_recording_colors: Optional[List[str]] = None
+    scatter_recording_colors: List[str] = field(
+        default_factory=lambda: [
+            "#f74343",
+            "#fccd56",
+            "#74fc56",
+            "#56fcf6",
+            "#1e1efa",
+            "#fa1ed2",
+        ]
+    )
     scatter_recording_alpha: float = 1.0
     scatter_x_label: str = "Number of Spikes"
     scatter_y_label: str = "avg. STD / amplitude"
@@ -188,17 +197,6 @@ class FigureConfig:
     templates_line_ms_after: Optional[float] = 4.0
     templates_x_label: str = "Time Rel. to Peak (ms)"
 
-    def __post_init__(self) -> None:
-        if self.scatter_recording_colors is None:
-            self.scatter_recording_colors = [
-                "#f74343",
-                "#fccd56",
-                "#74fc56",
-                "#56fcf6",
-                "#1e1efa",
-                "#fa1ed2",
-            ]
-
 
 @dataclass
 class ExecutionConfig:
@@ -209,6 +207,7 @@ class ExecutionConfig:
     use_parallel_processing_for_raw_conversion: bool = True
     save_script: bool = False
     out_file: str = "sort_with_kilosort2.out"
+    random_seed: int = 1
     recompute_recording: bool = False
     recompute_sorting: bool = False
     reextract_waveforms: bool = False
@@ -432,6 +431,7 @@ class SortingPipelineConfig:
             ),
             "all_templates_x_label": ("figures", "templates_x_label"),
             # ExecutionConfig
+            "random_seed": ("execution", "random_seed"),
             "n_jobs": ("execution", "n_jobs"),
             "total_memory": ("execution", "total_memory"),
             "use_parallel_processing_for_raw_conversion": (

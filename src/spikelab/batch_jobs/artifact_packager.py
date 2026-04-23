@@ -1,4 +1,4 @@
-"""Create uploadable analysis bundles for NRP execution."""
+"""Create uploadable analysis bundles for batch job execution."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal
 
-SupportedFormat = Literal["pickle", "nwb", "both"]
+SupportedFormat = Literal["workspace", "sorting", "custom"]
 
 
 def _sha256(path: Path) -> str:
@@ -29,8 +29,8 @@ def package_analysis_bundle(
     metadata: Dict[str, object] | None = None,
 ) -> str:
     """Create a run zip bundle and return its absolute path."""
-    if output_format not in {"pickle", "nwb", "both"}:
-        raise ValueError("output_format must be one of: pickle, nwb, both")
+    if output_format not in {"workspace", "sorting", "custom"}:
+        raise ValueError("output_format must be one of: workspace, sorting, custom")
 
     output_base = Path(output_dir).resolve()
     output_base.mkdir(parents=True, exist_ok=True)

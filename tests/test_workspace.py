@@ -751,6 +751,180 @@ class TestAnalysisWorkspace:
         """
         assert AnalysisWorkspace.comparison_namespace() == "C_"
 
+    def test_rename_same_key(self):
+        """
+        Renaming a key to itself warns about key conflict and returns False.
+
+        Tests:
+            (Test Case 1) rename(old_key, old_key) without overwrite=True
+                returns False due to the existing-key check.
+        """
+        import warnings
+
+        ws = AnalysisWorkspace(name="rename_test")
+        ws.store("ns", "key", np.array([1.0, 2.0]))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = ws.rename("ns", "key", "key")
+        assert result is False
+        # Original key should still exist
+        assert ws.get("ns", "key") is not None
+
+    def test_workspace_name_none_repr(self):
+        """
+        Workspace with name=None produces a valid repr without the name part.
+
+        Tests:
+            (Test Case 1) name is None by default.
+            (Test Case 2) repr does not include a name segment when name is None.
+            (Test Case 3) repr still contains 'AnalysisWorkspace'.
+        """
+        ws = AnalysisWorkspace()
+        assert ws.name is None
+        r = repr(ws)
+        assert "AnalysisWorkspace" in r
+        # When name is None, the name part is omitted (no None in output)
+        assert "None" not in r
+
+    def test_delete_last_key_in_namespace_removes_namespace(self):
+        """
+        Deleting the last key in a namespace removes the namespace entirely.
+
+        Tests:
+            (Test Case 1) delete returns True.
+            (Test Case 2) The namespace is removed from _items and _index.
+            (Test Case 3) list_namespaces no longer lists the namespace.
+        """
+        ws = AnalysisWorkspace(name="test")
+        ws.store("ns", "only_key", np.array([1.0]))
+
+        assert ws.delete("ns", "only_key") is True
+        assert ws.get("ns", "only_key") is None
+        assert "ns" not in ws._items
+        assert "ns" not in ws._index
+        assert "ns" not in ws.list_namespaces()
+
+    def test_merge_from_self(self):
+        """
+        Merging a workspace into itself does not duplicate items (overwrite=False skips
+        all existing keys).
+
+        Tests:
+            (Test Case 1) merge_from returns with all items skipped.
+            (Test Case 2) Original data is unchanged after self-merge.
+        """
+        ws = AnalysisWorkspace(name="self_merge")
+        ws.store("ns", "a", np.array([1.0, 2.0]))
+        ws.store("ns", "b", np.array([3.0]))
+
+        result = ws.merge_from(ws, overwrite=False)
+        assert result["skipped"] == 2
+        assert result["merged"] == 0
+        np.testing.assert_array_equal(ws.get("ns", "a"), [1.0, 2.0])
+        np.testing.assert_array_equal(ws.get("ns", "b"), [3.0])
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_save_empty_workspace(self):
+        """
+        Saving a workspace with zero namespaces and zero items creates valid files.
+
+        Tests:
+            (Test Case 1) save() does not raise.
+            (Test Case 2) Both .h5 and .json files are created.
+            (Test Case 3) The loaded workspace has zero namespaces.
+        """
+        ws = AnalysisWorkspace(name="empty")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "empty_ws")
+            ws.save(base)
+
+            assert pathlib.Path(f"{base}.h5").exists()
+            assert pathlib.Path(f"{base}.json").exists()
+
+            loaded = AnalysisWorkspace.load(base)
+            assert loaded.list_namespaces() == []
+            assert loaded.name == "empty"
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_save_to_nonexistent_parent_directory_raises(self):
+        """
+        Saving to a path whose parent directory does not exist raises an error.
+
+        Tests:
+            (Test Case 1) save() raises OSError (or FileNotFoundError) when the
+                parent directory does not exist.
+        """
+        ws = AnalysisWorkspace(name="test")
+        ws.store("ns", "arr", np.zeros(3))
+
+        bad_path = str(
+            pathlib.Path(tempfile.gettempdir()) / "nonexistent_dir_abc123" / "ws"
+        )
+        with pytest.raises(OSError):
+            ws.save(bad_path)
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_save_overwrites_existing_files(self):
+        """
+        Saving to the same path twice overwrites the previous files.
+
+        Tests:
+            (Test Case 1) Second save does not raise.
+            (Test Case 2) Loaded workspace reflects the second save's data.
+        """
+        ws = AnalysisWorkspace(name="overwrite_test")
+        ws.store("ns", "arr", np.array([1.0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+
+            # Modify and save again to same path
+            ws.store("ns", "arr", np.array([99.0]))
+            ws.save(base)
+
+            loaded = AnalysisWorkspace.load(base)
+            np.testing.assert_array_equal(loaded.get("ns", "arr"), [99.0])
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_load_without_json_sidecar(self):
+        """
+        Loading from a path where .h5 exists but .json does not still works,
+        because AnalysisWorkspace.load() only reads the .h5 file.
+
+        Tests:
+            (Test Case 1) load() does not raise when .json is absent.
+            (Test Case 2) Loaded workspace has the correct items.
+        """
+        ws = AnalysisWorkspace(name="no_json")
+        ws.store("ns", "arr", np.array([1.0, 2.0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+
+            # Remove the .json file
+            json_path = pathlib.Path(f"{base}.json")
+            json_path.unlink()
+            assert not json_path.exists()
+
+            loaded = AnalysisWorkspace.load(base)
+            np.testing.assert_array_equal(loaded.get("ns", "arr"), [1.0, 2.0])
+
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_load_from_nonexistent_path_raises(self):
+        """
+        Loading from a path where neither .h5 nor .json exist raises an error.
+
+        Tests:
+            (Test Case 1) load() raises OSError (or FileNotFoundError).
+        """
+        with pytest.raises(OSError):
+            AnalysisWorkspace.load(
+                str(pathlib.Path(tempfile.gettempdir()) / "nonexistent_ws_abc123")
+            )
+
 
 # ---------------------------------------------------------------------------
 # Tests: _make_summary
@@ -871,6 +1045,28 @@ class TestMakeSummary:
 
         s = _make_summary(MyCustomObj())
         assert s["type"] == "MyCustomObj"
+
+    def test_spikeslicestack_single_slice(self):
+        """
+        _make_summary for SpikeSliceStack with 1 slice.
+
+        Tests:
+            (Test Case 1) Single-slice SpikeSliceStack produces a valid summary.
+        """
+        sd = SpikeData([[5.0]], length=10.0)
+        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 10.0)])
+        summary = _make_summary(sss)
+        assert "SpikeSliceStack" in summary["type"]
+
+    def test_zero_dimensional_ndarray(self):
+        """
+        _make_summary for a 0-dimensional ndarray.
+
+        Tests:
+            (Test Case 1) np.array(5.0) produces shape [].
+        """
+        summary = _make_summary(np.array(5.0))
+        assert summary["shape"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -1074,6 +1270,33 @@ class TestWorkspaceManager:
         assert isinstance(external_ref, AnalysisWorkspace)
         np.testing.assert_array_equal(external_ref.get("ns", "arr"), [1.0, 2.0])
 
+    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+    def test_load_workspace_item_nonexistent_key_in_file_raises(self):
+        """
+        load_workspace_item raises KeyError when the file exists but the
+        requested (namespace, key) does not.
+
+        Tests:
+            (Test Case 1) Missing namespace raises KeyError.
+            (Test Case 2) Missing key within an existing namespace raises KeyError.
+        """
+        mgr = WorkspaceManager()
+        wid = mgr.create_workspace(name="source")
+        ws = mgr.get_workspace(wid)
+        ws.store("ns", "real_key", np.array([1.0]))
+
+        target_wid = mgr.create_workspace(name="target")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            mgr.save_workspace(wid, base)
+
+            with pytest.raises(KeyError):
+                mgr.load_workspace_item(base, "wrong_ns", "real_key", target_wid)
+
+            with pytest.raises(KeyError):
+                mgr.load_workspace_item(base, "ns", "wrong_key", target_wid)
+
 
 # ---------------------------------------------------------------------------
 # Tests: hdf5_io — HDF5 round-trips for every supported type
@@ -1246,10 +1469,9 @@ class TestHDF5IO:
         for i in range(3):
             assert "waveform" in out.neuron_attributes[i]
             wf = out.neuron_attributes[i]["waveform"]
-            assert isinstance(wf, list)
-            wf_arr = np.asarray(wf)
-            assert wf_arr.shape == (10, 5)
-            np.testing.assert_array_almost_equal(wf_arr, waveforms[i])
+            assert isinstance(wf, np.ndarray)
+            assert wf.shape == (10, 5)
+            np.testing.assert_array_almost_equal(wf, waveforms[i])
             assert float(out.neuron_attributes[i]["channel"]) == pytest.approx(float(i))
 
     def test_roundtrip_spikedata_neuron_attributes_array_partial(self):
@@ -1304,7 +1526,7 @@ class TestHDF5IO:
         np.testing.assert_array_almost_equal(
             out.neuron_attributes[1]["location"], [200.0, 800.0]
         )
-        assert isinstance(out.neuron_attributes[0]["location"], list)
+        assert isinstance(out.neuron_attributes[0]["location"], np.ndarray)
         assert len(out.neuron_attributes[0]["location"]) == 2
         # Test Case 3: scalar preserved
         assert float(out.neuron_attributes[0]["channel"]) == pytest.approx(0.0)
@@ -2031,6 +2253,569 @@ class TestHDF5IO:
             assert out.neuron_attributes[i]["channel"] == pytest.approx(float(i))
             assert out.neuron_attributes[i]["depth"] == pytest.approx((i + 1) * 100.0)
 
+    def test_spikedata_nonzero_start_time_roundtrip(self):
+        """
+        SpikeData with non-zero start_time survives HDF5 workspace roundtrip.
+
+        Tests:
+            (Test Case 1) start_time=-100 is preserved through save/load.
+        """
+        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
+        sd = SpikeData(trains, length=200.0, start_time=-100.0)
+        ws = AnalysisWorkspace(name="start_time_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            assert loaded_sd.start_time == pytest.approx(-100.0)
+            assert loaded_sd.length == pytest.approx(200.0)
+            np.testing.assert_allclose(loaded_sd.train[0], [-90.0, -50.0, 0.0, 10.0])
+
+    def test_metadata_non_string_keys(self):
+        """
+        SpikeData metadata with integer keys loses precision through JSON roundtrip.
+
+        Tests:
+            (Test Case 1) Integer key 42 becomes string "42" after JSON roundtrip.
+        """
+        sd = SpikeData([[5.0]], length=10.0, metadata={42: "answer"})
+        ws = AnalysisWorkspace(name="meta_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            # Integer key becomes string through JSON
+            assert "42" in loaded_sd.metadata
+
+    def test_ratedata_nan_roundtrip(self):
+        """
+        RateData with NaN values survives HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) NaN values in inst_Frate_data are preserved.
+        """
+        data = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, 6.0]])
+        times = np.array([0.0, 1.0, 2.0])
+        rd = RateData(data, times)
+        ws = AnalysisWorkspace(name="nan_rd_test")
+        ws.store("data", "rd", rd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_rd = loaded.get("data", "rd")
+            np.testing.assert_array_equal(
+                np.isnan(loaded_rd.inst_Frate_data), np.isnan(data)
+            )
+
+    def test_rateslicestack_roundtrip(self):
+        """
+        RateSliceStack HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) RateSliceStack survives save/load roundtrip.
+        """
+        mat = np.random.default_rng(0).random((2, 10, 3))
+        rss = RateSliceStack(event_matrix=mat)
+        ws = AnalysisWorkspace(name="rss_test")
+        ws.store("data", "rss", rss)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_rss = loaded.get("data", "rss")
+            np.testing.assert_allclose(loaded_rss.event_stack, mat)
+
+    def test_pairwise_nan_roundtrip(self):
+        """
+        PairwiseCompMatrix with NaN values survives HDF5 roundtrip.
+
+        Tests:
+            (Test Case 1) NaN values are preserved through save/load.
+        """
+        mat = np.array([[1.0, np.nan], [np.nan, 1.0]])
+        pcm = PairwiseCompMatrix(matrix=mat)
+        ws = AnalysisWorkspace(name="pcm_nan_test")
+        ws.store("data", "pcm", pcm)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_pcm = loaded.get("data", "pcm")
+            np.testing.assert_array_equal(np.isnan(loaded_pcm.matrix), np.isnan(mat))
+
+    def test_overwrite_item_different_type(self):
+        """
+        Overwriting a workspace item with a different type works correctly.
+
+        Tests:
+            (Test Case 1) ndarray replacing SpikeData works correctly.
+        """
+        sd = SpikeData([[5.0]], length=10.0)
+        arr = np.array([1.0, 2.0, 3.0])
+
+        ws = AnalysisWorkspace(name="overwrite_test")
+        ws.store("ns", "key", sd)
+        ws.store("ns", "key2", arr)
+        # Verify both are stored correctly
+        loaded_sd = ws.get("ns", "key")
+        loaded_arr = ws.get("ns", "key2")
+        assert isinstance(loaded_sd, SpikeData)
+        np.testing.assert_array_equal(loaded_arr, arr)
+
+    def test_labels_with_none_entries(self):
+        """
+        PairwiseCompMatrix labels with None entries crash during HDF5 save.
+
+        Tests:
+            (Test Case 1) Labels [1, None, 3] create an object-dtype array
+                that HDF5 cannot serialize, raising TypeError.
+
+        Notes:
+            - This is a known bug: _dump_labels does not handle mixed
+              int/None labels. np.array([1, None, 3]) creates an object
+              array which has no HDF5 equivalent.
+        """
+        mat = np.eye(3)
+        pcm = PairwiseCompMatrix(matrix=mat, labels=[1, None, 3])
+        ws = AnalysisWorkspace(name="labels_none_test")
+        ws.store("data", "pcm", pcm)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            with pytest.raises(TypeError):
+                ws.save(base)
+
+    def test_metadata_with_inf(self):
+        """
+        Metadata with inf/-inf values roundtrip through HDF5.
+
+        Tests:
+            (Test Case 1) Inf values are preserved through save/load.
+        """
+        sd = SpikeData([[5.0]], length=10.0, metadata={"val": float("inf")})
+        ws = AnalysisWorkspace(name="inf_meta_test")
+        ws.store("data", "sd", sd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+            loaded_sd = loaded.get("data", "sd")
+            assert loaded_sd.metadata["val"] == float("inf")
+
+    def _roundtrip(self, obj, namespace="ns", key="item"):
+        """
+        Helper: store obj in a workspace, save to HDF5, reload the full workspace,
+        and return the reconstructed object.
+        """
+        ws = AnalysisWorkspace(name="test")
+        ws.store(namespace, key, obj)
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded_ws = AnalysisWorkspace.load(base)
+        return loaded_ws.get(namespace, key)
+
+    # ------------------------------------------------------------------
+    # dump_workspace / load_workspace_full
+    # ------------------------------------------------------------------
+
+    def test_dump_and_load_empty_workspace(self):
+        """
+        dump_workspace with a workspace containing no items produces a valid HDF5 file.
+
+        Tests:
+            (Test Case 1) Saving does not raise.
+            (Test Case 2) Loaded workspace has zero namespaces.
+            (Test Case 3) workspace_id and name are preserved.
+        """
+        ws = AnalysisWorkspace(name="empty")
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+            loaded = AnalysisWorkspace.load(base)
+
+        assert loaded.list_namespaces() == []
+        assert loaded.workspace_id == ws.workspace_id
+        assert loaded.name == "empty"
+
+    def test_load_workspace_empty_name_becomes_none(self):
+        """
+        When workspace_name attribute is an empty string in HDF5, load_workspace_full
+        converts it to None.
+
+        Tests:
+            (Test Case 1) Workspace saved with name="" loads with name=None.
+
+        Notes:
+            - dump_workspace stores `ws.name or ""`, so name=None and name="" both
+              produce "". On load, empty string is converted back to None.
+        """
+        import h5py as h5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            h5_path = f"{base}.h5"
+
+            # Write a minimal HDF5 file with empty workspace_name
+            with h5.File(h5_path, "w") as f:
+                f.attrs["__workspace_id__"] = "test-id"
+                f.attrs["__workspace_name__"] = ""
+                f.attrs["__created_at__"] = 1000.0
+
+            loaded = AnalysisWorkspace.load(base)
+            assert loaded.name is None
+
+    # ------------------------------------------------------------------
+    # _load_item: unknown or missing __type__
+    # ------------------------------------------------------------------
+
+    def test_unknown_type_tag_raises(self):
+        """
+        An HDF5 group with an unrecognized __type__ attribute raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError is raised with a message mentioning the unknown type.
+        """
+        import h5py as h5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5_path = str(pathlib.Path(tmp) / "test.h5")
+            with h5.File(h5_path, "w") as f:
+                # Workspace-level metadata required by load_workspace_full
+                f.attrs["__workspace_id__"] = "test-id"
+                f.attrs["__workspace_name__"] = "test"
+                f.attrs["__created_at__"] = 0.0
+                ns_grp = f.create_group("ns")
+                key_grp = ns_grp.create_group("item")
+                key_grp.attrs["__type__"] = "UnknownType"
+                key_grp.attrs["__created_at__"] = 0.0
+
+            with pytest.raises(ValueError, match="Unknown __type__"):
+                AnalysisWorkspace.load(str(pathlib.Path(tmp) / "test"))
+
+    def test_missing_type_attribute_raises(self):
+        """
+        An HDF5 group without a __type__ attribute (defaults to empty string)
+        raises ValueError because "" is not in the dispatch dict.
+
+        Tests:
+            (Test Case 1) ValueError is raised mentioning the empty type tag.
+        """
+        import h5py as h5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5_path = str(pathlib.Path(tmp) / "test.h5")
+            with h5.File(h5_path, "w") as f:
+                # Workspace-level metadata required by load_workspace_full
+                f.attrs["__workspace_id__"] = "test-id"
+                f.attrs["__workspace_name__"] = "test"
+                f.attrs["__created_at__"] = 0.0
+                ns_grp = f.create_group("ns")
+                key_grp = ns_grp.create_group("item")
+                key_grp.attrs["__created_at__"] = 0.0
+                # Deliberately omit __type__
+
+            with pytest.raises(ValueError, match="Unknown __type__"):
+                AnalysisWorkspace.load(str(pathlib.Path(tmp) / "test"))
+
+    # ------------------------------------------------------------------
+    # SpikeData edge cases
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_spikedata_zero_units(self):
+        """
+        Round-trip a SpikeData with zero units (N=0, train=[]).
+
+        Tests:
+            (Test Case 1) Save does not raise.
+            (Test Case 2) Loaded object is a SpikeData with N=0.
+            (Test Case 3) train is an empty list.
+            (Test Case 4) length_ms is preserved.
+        """
+        sd = SpikeData([], length=100.0)
+        assert sd.N == 0
+        out = self._roundtrip(sd)
+        assert isinstance(out, SpikeData)
+        assert out.N == 0
+        assert len(out.train) == 0
+        assert out.length == pytest.approx(100.0)
+
+    def test_roundtrip_spikedata_nan_spike_times(self):
+        """
+        SpikeData rejects NaN spike times at construction.
+
+        Tests:
+            (Test Case 1) ValueError is raised when constructing SpikeData
+                with NaN spike times.
+
+        Notes:
+            - SpikeData.__init__ validates spike times and rejects NaN values
+              to prevent silent corruption of downstream computations.
+              This means NaN spike times cannot be round-tripped through HDF5.
+        """
+        with pytest.raises(ValueError, match="NaN"):
+            SpikeData([[1.0, np.nan, 3.0], [np.nan]], length=50.0)
+
+    def test_roundtrip_spikedata_empty_raw_data_skipped(self):
+        """
+        SpikeData with raw_data of size 0 has raw_data skipped during dump.
+
+        Tests:
+            (Test Case 1) Save does not raise.
+            (Test Case 2) After round-trip, raw_data is the default empty array
+                np.zeros((0, 0)) because it was not stored in HDF5.
+
+        Notes:
+            - The dump code checks `sd.raw_data.size > 0` before writing. An
+              empty raw_data array causes it to be skipped entirely. On load,
+              SpikeData defaults to np.zeros((0, 0)) when raw_data is not
+              provided.
+        """
+        sd = SpikeData(
+            [[1.0, 2.0]],
+            length=10.0,
+            raw_data=np.array([]).reshape(0, 0),
+            raw_time=np.array([]),
+        )
+        assert sd.raw_data.size == 0
+        out = self._roundtrip(sd)
+        assert out.raw_data.shape == (0, 0)
+
+    # ------------------------------------------------------------------
+    # Neuron attributes edge cases
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_neuron_attributes_mixed_types(self):
+        """
+        Neuron attributes where one unit has a numeric value and another has a
+        string value for the same key. The string path takes precedence.
+
+        Tests:
+            (Test Case 1) Save does not raise.
+            (Test Case 2) Both values are present as strings after load.
+
+        Notes:
+            - When any value is a string, _dump_neuron_attributes takes the
+              use_string path and converts all values via str().
+        """
+        sd = make_spikedata(n_units=2, length_ms=100.0)
+        sd.neuron_attributes = [
+            {"label": 42},
+            {"label": "hello"},
+        ]
+        out = self._roundtrip(sd)
+        assert out.neuron_attributes is not None
+        # The string path converts everything to strings
+        assert out.neuron_attributes[0]["label"] == "42"
+        assert out.neuron_attributes[1]["label"] == "hello"
+
+    # ------------------------------------------------------------------
+    # Dict edge cases
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_dict_with_list_of_strings(self):
+        """
+        A dict with a list of strings fails during HDF5 save because h5py
+        cannot store numpy unicode string arrays (dtype '<U...') directly.
+
+        Tests:
+            (Test Case 1) TypeError is raised during save due to h5py's
+                inability to handle numpy unicode string dtype.
+
+        Notes:
+            - np.asarray(["alpha", ...]) creates a dtype('<U5') array. h5py
+              does not have a conversion path for this dtype, causing a
+              TypeError in create_dataset.
+        """
+        ws = AnalysisWorkspace(name="test")
+        ws.store("ns", "item", {"names": ["alpha", "beta", "gamma"]})
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            with pytest.raises(TypeError, match="No conversion path"):
+                ws.save(base)
+
+    def test_roundtrip_dict_with_none_value_raises(self):
+        """
+        A dict containing None as a value raises TypeError on save, because
+        None goes through _dump_item which does not support NoneType.
+
+        Tests:
+            (Test Case 1) Saving a dict with None value raises TypeError.
+        """
+        ws = AnalysisWorkspace(name="test")
+        ws.store("ns", "d", {"key": None})
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            with pytest.raises(TypeError):
+                ws.save(base)
+
+    def test_roundtrip_dict_with_numpy_scalars(self):
+        """
+        A dict containing numpy scalar values (np.float64, np.int64) round-trips
+        correctly through the scalar path.
+
+        Tests:
+            (Test Case 1) np.float64 value is preserved.
+            (Test Case 2) np.int64 value is preserved.
+        """
+        d = {"x": np.float64(3.14), "n": np.int64(42)}
+        out = self._roundtrip(d)
+        assert out["x"] == pytest.approx(3.14)
+        assert out["n"] == 42
+
+    def test_roundtrip_dict_with_boolean_false(self):
+        """
+        A dict containing False as a value round-trips correctly. isinstance(False, int)
+        is True in Python, so it goes through the scalar path.
+
+        Tests:
+            (Test Case 1) False value is preserved after round-trip.
+            (Test Case 2) True value is preserved after round-trip.
+        """
+        d = {"flag_false": False, "flag_true": True}
+        out = self._roundtrip(d)
+        assert out["flag_false"] is False
+        assert out["flag_true"] is True
+
+    # ------------------------------------------------------------------
+    # _dump_times_tuples / _load_times_tuples
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_empty_times_list(self):
+        """
+        A PairwiseCompMatrixStack or RateSliceStack with an empty times list.
+
+        Tests:
+            (Test Case 1) Save does not raise.
+            (Test Case 2) After round-trip, times is either an empty list or None.
+
+        Notes:
+            - np.array([], dtype=np.float64) has shape (0,) not (0, 2). When
+              _load_times_tuples reads this, iterating over rows of a 1-D array
+              would fail because each "row" is a scalar with no row[0]/row[1].
+              This is a potential bug depending on how the stack class handles it.
+        """
+        import h5py as h5
+        from spikelab.workspace.hdf5_io import _dump_times_tuples, _load_times_tuples
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5_path = str(pathlib.Path(tmp) / "test.h5")
+            with h5.File(h5_path, "w") as f:
+                grp = f.create_group("test")
+                _dump_times_tuples(grp, [])
+
+            with h5.File(h5_path, "r") as f:
+                grp = f["test"]
+                if "times" in grp:
+                    # The dataset exists but has shape (0,) not (0, 2)
+                    # _load_times_tuples tries to iterate and access row[0], row[1]
+                    # This may raise or return an empty list
+                    try:
+                        result = _load_times_tuples(grp)
+                        assert result == []
+                    except (IndexError, ValueError):
+                        # If it raises, this documents the bug
+                        pytest.skip(
+                            "Empty times list causes IndexError in "
+                            "_load_times_tuples due to shape (0,) instead of (0, 2)"
+                        )
+
+    # ------------------------------------------------------------------
+    # Metadata edge cases
+    # ------------------------------------------------------------------
+
+    def test_roundtrip_metadata_deeply_nested_numpy_arrays(self):
+        """
+        Metadata containing nested dicts with numpy arrays inside.
+
+        Tests:
+            (Test Case 1) Save does not raise.
+            (Test Case 2) Nested numpy array is recovered as a Python list.
+        """
+        sd = SpikeData(
+            [[1.0, 2.0]],
+            length=10.0,
+            metadata={
+                "outer": {
+                    "inner_arr": np.array([10.0, 20.0, 30.0]),
+                    "inner_scalar": np.float64(99.0),
+                },
+                "top_level": "hello",
+            },
+        )
+        out = self._roundtrip(sd)
+        assert out.metadata["outer"]["inner_arr"] == [10.0, 20.0, 30.0]
+        assert out.metadata["outer"]["inner_scalar"] == pytest.approx(99.0)
+        assert out.metadata["top_level"] == "hello"
+
+    # ------------------------------------------------------------------
+    # dump_item_to_file: overwrite existing item
+    # ------------------------------------------------------------------
+
+    def test_dump_item_to_file_overwrites_existing(self):
+        """
+        dump_item_to_file overwrites an existing item at the same (namespace, key).
+
+        Tests:
+            (Test Case 1) After overwrite, load_item_from_file returns the new value.
+            (Test Case 2) The old value is no longer present.
+        """
+        from spikelab.workspace.hdf5_io import dump_item_to_file, load_item_from_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h5_path = str(pathlib.Path(tmp) / "test.h5")
+            arr1 = np.array([1.0, 2.0, 3.0])
+            arr2 = np.array([99.0])
+
+            dump_item_to_file(h5_path, "ns", "key", arr1, created_at=0.0)
+            dump_item_to_file(h5_path, "ns", "key", arr2, created_at=1.0)
+
+            loaded = load_item_from_file(h5_path, "ns", "key")
+            np.testing.assert_array_equal(loaded, arr2)
+
+    # ------------------------------------------------------------------
+    # Namespace / key with special characters
+    # ------------------------------------------------------------------
+
+    def test_namespace_with_slash_creates_nested_groups(self):
+        """
+        A namespace containing '/' creates nested HDF5 groups, which causes
+        the loader to fail because the intermediate group lacks __type__.
+
+        Tests:
+            (Test Case 1) Storing and saving does not raise.
+            (Test Case 2) Loading raises ValueError because the nested group
+                structure confuses the loader (intermediate group has no __type__).
+
+        Notes:
+            - This is a known consequence of HDF5 group naming. Using '/' in
+              namespace or key names should be avoided. The slash causes HDF5
+              to create nested groups (ns -> sub -> key), and the loader
+              interprets 'sub' as a key group but it lacks __type__ metadata.
+        """
+        ws = AnalysisWorkspace(name="slash_test")
+        ws.store("ns/sub", "key", np.array([1.0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(pathlib.Path(tmp) / "ws")
+            ws.save(base)
+
+            # Loading fails because the nested group 'sub' is interpreted as a
+            # key group but lacks __type__ attribute
+            with pytest.raises(ValueError, match="Unknown __type__"):
+                AnalysisWorkspace.load(base)
+
 
 # ---------------------------------------------------------------------------
 # Tests: LazyAnalysisWorkspace — dedicated coverage
@@ -2527,6 +3312,118 @@ class TestLazyAnalysisWorkspace:
         with pytest.raises(OSError):
             ws.get("ns", "arr")
 
+    def test_items_property_raises(self):
+        """
+        Accessing _items on a LazyAnalysisWorkspace raises NotImplementedError.
+
+        Tests:
+            (Test Case 1) Reading _items raises NotImplementedError.
+        """
+        ws = LazyAnalysisWorkspace(name="test_items")
+        with pytest.raises(NotImplementedError, match="does not use _items"):
+            _ = ws._items
+
+    def test_get_after_delete(self):
+        """
+        Calling get() after delete() for the same (namespace, key) returns None.
+
+        Tests:
+            (Test Case 1) get() returns the value before deletion.
+            (Test Case 2) delete() returns True.
+            (Test Case 3) get() returns None after deletion.
+        """
+        ws = LazyAnalysisWorkspace(name="get_after_del")
+        arr = np.array([1.0, 2.0, 3.0])
+        ws.store("ns", "k", arr)
+
+        np.testing.assert_array_equal(ws.get("ns", "k"), arr)
+        assert ws.delete("ns", "k") is True
+        assert ws.get("ns", "k") is None
+
+    def test_rename_when_get_returns_none(self):
+        """
+        Rename returns False when get() returns None (e.g. if HDF5 data is corrupted
+        or the item was deleted from the backing file externally).
+
+        Tests:
+            (Test Case 1) rename returns False.
+            (Test Case 2) Index is unchanged.
+
+        Notes:
+            - This tests the code path where namespace and old_key exist in _index
+              but the backing HDF5 file no longer has the data, causing get() to
+              return None.
+        """
+        ws = LazyAnalysisWorkspace(name="rename_none")
+        ws.store("ns", "key", np.array([1.0]))
+
+        # Manually corrupt the _index to reference a key that doesn't exist in HDF5
+        from spikelab.workspace.hdf5_io import delete_item_from_file
+
+        delete_item_from_file(ws._h5_path, "ns", "key")
+        # _index still has the entry, but get() will return None
+        assert ws.get("ns", "key") is None
+
+        result = ws.rename("ns", "key", "new_key")
+        assert result is False
+
+    def test_delete_last_key_removes_namespace(self):
+        """
+        In LazyAnalysisWorkspace, deleting the last key in a namespace removes
+        the namespace from _index entirely.
+
+        Tests:
+            (Test Case 1) delete returns True.
+            (Test Case 2) The namespace is removed from _index.
+            (Test Case 3) list_namespaces no longer includes the namespace.
+
+        Notes:
+            - This differs from AnalysisWorkspace.delete which leaves the empty
+              namespace in _items and _index.
+        """
+        ws = LazyAnalysisWorkspace(name="del_last")
+        ws.store("ns", "only", np.array([1.0]))
+
+        assert ws.delete("ns", "only") is True
+        assert "ns" not in ws._index
+        assert "ns" not in ws.list_namespaces()
+
+    def test_temp_file_cleanup_on_del(self):
+        """
+        The temp HDF5 file is removed when the LazyAnalysisWorkspace is garbage
+        collected (__del__ is called).
+
+        Tests:
+            (Test Case 1) The temp file exists while the workspace is alive.
+            (Test Case 2) After explicit __del__, the temp file is removed.
+        """
+        ws = LazyAnalysisWorkspace(name="cleanup")
+        ws.store("ns", "arr", np.zeros(3))
+        h5_path = ws._h5_path
+
+        assert pathlib.Path(h5_path).exists()
+
+        ws.__del__()
+        assert not pathlib.Path(h5_path).exists()
+
+    def test_double_del_is_safe(self):
+        """
+        Calling __del__ twice does not raise, because it checks os.path.exists
+        before attempting to unlink.
+
+        Tests:
+            (Test Case 1) First __del__ removes the file.
+            (Test Case 2) Second __del__ does not raise.
+        """
+        ws = LazyAnalysisWorkspace(name="double_del")
+        h5_path = ws._h5_path
+
+        ws.__del__()
+        assert not pathlib.Path(h5_path).exists()
+
+        # Second call should be a no-op
+        ws.__del__()
+
 
 # ---------------------------------------------------------------------------
 # delete_item_from_file
@@ -2934,316 +3831,12 @@ class TestMergeFrom:
 # ---------------------------------------------------------------------------
 
 
-class TestAnalysisWorkspaceEdgeCases:
-    """Edge case tests for AnalysisWorkspace (workspace/workspace.py)."""
-
-    def test_workspace_name_none_repr(self):
-        """
-        Workspace with name=None produces a valid repr without the name part.
-
-        Tests:
-            (Test Case 1) name is None by default.
-            (Test Case 2) repr does not include a name segment when name is None.
-            (Test Case 3) repr still contains 'AnalysisWorkspace'.
-        """
-        ws = AnalysisWorkspace()
-        assert ws.name is None
-        r = repr(ws)
-        assert "AnalysisWorkspace" in r
-        # When name is None, the name part is omitted (no None in output)
-        assert "None" not in r
-
-    def test_delete_last_key_in_namespace_removes_namespace(self):
-        """
-        Deleting the last key in a namespace removes the namespace entirely.
-
-        Tests:
-            (Test Case 1) delete returns True.
-            (Test Case 2) The namespace is removed from _items and _index.
-            (Test Case 3) list_namespaces no longer lists the namespace.
-        """
-        ws = AnalysisWorkspace(name="test")
-        ws.store("ns", "only_key", np.array([1.0]))
-
-        assert ws.delete("ns", "only_key") is True
-        assert ws.get("ns", "only_key") is None
-        assert "ns" not in ws._items
-        assert "ns" not in ws._index
-        assert "ns" not in ws.list_namespaces()
-
-    def test_merge_from_self(self):
-        """
-        Merging a workspace into itself does not duplicate items (overwrite=False skips
-        all existing keys).
-
-        Tests:
-            (Test Case 1) merge_from returns with all items skipped.
-            (Test Case 2) Original data is unchanged after self-merge.
-        """
-        ws = AnalysisWorkspace(name="self_merge")
-        ws.store("ns", "a", np.array([1.0, 2.0]))
-        ws.store("ns", "b", np.array([3.0]))
-
-        result = ws.merge_from(ws, overwrite=False)
-        assert result["skipped"] == 2
-        assert result["merged"] == 0
-        np.testing.assert_array_equal(ws.get("ns", "a"), [1.0, 2.0])
-        np.testing.assert_array_equal(ws.get("ns", "b"), [3.0])
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_save_empty_workspace(self):
-        """
-        Saving a workspace with zero namespaces and zero items creates valid files.
-
-        Tests:
-            (Test Case 1) save() does not raise.
-            (Test Case 2) Both .h5 and .json files are created.
-            (Test Case 3) The loaded workspace has zero namespaces.
-        """
-        ws = AnalysisWorkspace(name="empty")
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "empty_ws")
-            ws.save(base)
-
-            assert pathlib.Path(f"{base}.h5").exists()
-            assert pathlib.Path(f"{base}.json").exists()
-
-            loaded = AnalysisWorkspace.load(base)
-            assert loaded.list_namespaces() == []
-            assert loaded.name == "empty"
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_save_to_nonexistent_parent_directory_raises(self):
-        """
-        Saving to a path whose parent directory does not exist raises an error.
-
-        Tests:
-            (Test Case 1) save() raises OSError (or FileNotFoundError) when the
-                parent directory does not exist.
-        """
-        ws = AnalysisWorkspace(name="test")
-        ws.store("ns", "arr", np.zeros(3))
-
-        bad_path = str(
-            pathlib.Path(tempfile.gettempdir()) / "nonexistent_dir_abc123" / "ws"
-        )
-        with pytest.raises(OSError):
-            ws.save(bad_path)
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_save_overwrites_existing_files(self):
-        """
-        Saving to the same path twice overwrites the previous files.
-
-        Tests:
-            (Test Case 1) Second save does not raise.
-            (Test Case 2) Loaded workspace reflects the second save's data.
-        """
-        ws = AnalysisWorkspace(name="overwrite_test")
-        ws.store("ns", "arr", np.array([1.0]))
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-
-            # Modify and save again to same path
-            ws.store("ns", "arr", np.array([99.0]))
-            ws.save(base)
-
-            loaded = AnalysisWorkspace.load(base)
-            np.testing.assert_array_equal(loaded.get("ns", "arr"), [99.0])
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_load_without_json_sidecar(self):
-        """
-        Loading from a path where .h5 exists but .json does not still works,
-        because AnalysisWorkspace.load() only reads the .h5 file.
-
-        Tests:
-            (Test Case 1) load() does not raise when .json is absent.
-            (Test Case 2) Loaded workspace has the correct items.
-        """
-        ws = AnalysisWorkspace(name="no_json")
-        ws.store("ns", "arr", np.array([1.0, 2.0]))
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-
-            # Remove the .json file
-            json_path = pathlib.Path(f"{base}.json")
-            json_path.unlink()
-            assert not json_path.exists()
-
-            loaded = AnalysisWorkspace.load(base)
-            np.testing.assert_array_equal(loaded.get("ns", "arr"), [1.0, 2.0])
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_load_from_nonexistent_path_raises(self):
-        """
-        Loading from a path where neither .h5 nor .json exist raises an error.
-
-        Tests:
-            (Test Case 1) load() raises OSError (or FileNotFoundError).
-        """
-        with pytest.raises(OSError):
-            AnalysisWorkspace.load(
-                str(pathlib.Path(tempfile.gettempdir()) / "nonexistent_ws_abc123")
-            )
-
-
-class TestWorkspaceManagerEdgeCases:
-    """Edge case tests for WorkspaceManager (workspace/workspace.py)."""
-
-    @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-    def test_load_workspace_item_nonexistent_key_in_file_raises(self):
-        """
-        load_workspace_item raises KeyError when the file exists but the
-        requested (namespace, key) does not.
-
-        Tests:
-            (Test Case 1) Missing namespace raises KeyError.
-            (Test Case 2) Missing key within an existing namespace raises KeyError.
-        """
-        mgr = WorkspaceManager()
-        wid = mgr.create_workspace(name="source")
-        ws = mgr.get_workspace(wid)
-        ws.store("ns", "real_key", np.array([1.0]))
-
-        target_wid = mgr.create_workspace(name="target")
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            mgr.save_workspace(wid, base)
-
-            with pytest.raises(KeyError):
-                mgr.load_workspace_item(base, "wrong_ns", "real_key", target_wid)
-
-            with pytest.raises(KeyError):
-                mgr.load_workspace_item(base, "ns", "wrong_key", target_wid)
-
-
 # ---------------------------------------------------------------------------
 # Edge Case Tests: LazyAnalysisWorkspace
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestLazyAnalysisWorkspaceEdgeCases:
-    """Edge case tests for LazyAnalysisWorkspace (workspace/workspace.py)."""
-
-    def test_items_property_raises(self):
-        """
-        Accessing _items on a LazyAnalysisWorkspace raises NotImplementedError.
-
-        Tests:
-            (Test Case 1) Reading _items raises NotImplementedError.
-        """
-        ws = LazyAnalysisWorkspace(name="test_items")
-        with pytest.raises(NotImplementedError, match="does not use _items"):
-            _ = ws._items
-
-    def test_get_after_delete(self):
-        """
-        Calling get() after delete() for the same (namespace, key) returns None.
-
-        Tests:
-            (Test Case 1) get() returns the value before deletion.
-            (Test Case 2) delete() returns True.
-            (Test Case 3) get() returns None after deletion.
-        """
-        ws = LazyAnalysisWorkspace(name="get_after_del")
-        arr = np.array([1.0, 2.0, 3.0])
-        ws.store("ns", "k", arr)
-
-        np.testing.assert_array_equal(ws.get("ns", "k"), arr)
-        assert ws.delete("ns", "k") is True
-        assert ws.get("ns", "k") is None
-
-    def test_rename_when_get_returns_none(self):
-        """
-        Rename returns False when get() returns None (e.g. if HDF5 data is corrupted
-        or the item was deleted from the backing file externally).
-
-        Tests:
-            (Test Case 1) rename returns False.
-            (Test Case 2) Index is unchanged.
-
-        Notes:
-            - This tests the code path where namespace and old_key exist in _index
-              but the backing HDF5 file no longer has the data, causing get() to
-              return None.
-        """
-        ws = LazyAnalysisWorkspace(name="rename_none")
-        ws.store("ns", "key", np.array([1.0]))
-
-        # Manually corrupt the _index to reference a key that doesn't exist in HDF5
-        from spikelab.workspace.hdf5_io import delete_item_from_file
-
-        delete_item_from_file(ws._h5_path, "ns", "key")
-        # _index still has the entry, but get() will return None
-        assert ws.get("ns", "key") is None
-
-        result = ws.rename("ns", "key", "new_key")
-        assert result is False
-
-    def test_delete_last_key_removes_namespace(self):
-        """
-        In LazyAnalysisWorkspace, deleting the last key in a namespace removes
-        the namespace from _index entirely.
-
-        Tests:
-            (Test Case 1) delete returns True.
-            (Test Case 2) The namespace is removed from _index.
-            (Test Case 3) list_namespaces no longer includes the namespace.
-
-        Notes:
-            - This differs from AnalysisWorkspace.delete which leaves the empty
-              namespace in _items and _index.
-        """
-        ws = LazyAnalysisWorkspace(name="del_last")
-        ws.store("ns", "only", np.array([1.0]))
-
-        assert ws.delete("ns", "only") is True
-        assert "ns" not in ws._index
-        assert "ns" not in ws.list_namespaces()
-
-    def test_temp_file_cleanup_on_del(self):
-        """
-        The temp HDF5 file is removed when the LazyAnalysisWorkspace is garbage
-        collected (__del__ is called).
-
-        Tests:
-            (Test Case 1) The temp file exists while the workspace is alive.
-            (Test Case 2) After explicit __del__, the temp file is removed.
-        """
-        ws = LazyAnalysisWorkspace(name="cleanup")
-        ws.store("ns", "arr", np.zeros(3))
-        h5_path = ws._h5_path
-
-        assert pathlib.Path(h5_path).exists()
-
-        ws.__del__()
-        assert not pathlib.Path(h5_path).exists()
-
-    def test_double_del_is_safe(self):
-        """
-        Calling __del__ twice does not raise, because it checks os.path.exists
-        before attempting to unlink.
-
-        Tests:
-            (Test Case 1) First __del__ removes the file.
-            (Test Case 2) Second __del__ does not raise.
-        """
-        ws = LazyAnalysisWorkspace(name="double_del")
-        h5_path = ws._h5_path
-
-        ws.__del__()
-        assert not pathlib.Path(h5_path).exists()
-
-        # Second call should be a no-op
-        ws.__del__()
 
 
 # ---------------------------------------------------------------------------
@@ -3252,629 +3845,11 @@ class TestLazyAnalysisWorkspaceEdgeCases:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
-class TestHDF5IOEdgeCases:
-    """Edge case tests for workspace/hdf5_io.py."""
-
-    def _roundtrip(self, obj, namespace="ns", key="item"):
-        """
-        Helper: store obj in a workspace, save to HDF5, reload the full workspace,
-        and return the reconstructed object.
-        """
-        ws = AnalysisWorkspace(name="test")
-        ws.store(namespace, key, obj)
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded_ws = AnalysisWorkspace.load(base)
-        return loaded_ws.get(namespace, key)
-
-    # ------------------------------------------------------------------
-    # dump_workspace / load_workspace_full
-    # ------------------------------------------------------------------
-
-    def test_dump_and_load_empty_workspace(self):
-        """
-        dump_workspace with a workspace containing no items produces a valid HDF5 file.
-
-        Tests:
-            (Test Case 1) Saving does not raise.
-            (Test Case 2) Loaded workspace has zero namespaces.
-            (Test Case 3) workspace_id and name are preserved.
-        """
-        ws = AnalysisWorkspace(name="empty")
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-
-        assert loaded.list_namespaces() == []
-        assert loaded.workspace_id == ws.workspace_id
-        assert loaded.name == "empty"
-
-    def test_load_workspace_empty_name_becomes_none(self):
-        """
-        When workspace_name attribute is an empty string in HDF5, load_workspace_full
-        converts it to None.
-
-        Tests:
-            (Test Case 1) Workspace saved with name="" loads with name=None.
-
-        Notes:
-            - dump_workspace stores `ws.name or ""`, so name=None and name="" both
-              produce "". On load, empty string is converted back to None.
-        """
-        import h5py as h5
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            h5_path = f"{base}.h5"
-
-            # Write a minimal HDF5 file with empty workspace_name
-            with h5.File(h5_path, "w") as f:
-                f.attrs["__workspace_id__"] = "test-id"
-                f.attrs["__workspace_name__"] = ""
-                f.attrs["__created_at__"] = 1000.0
-
-            loaded = AnalysisWorkspace.load(base)
-            assert loaded.name is None
-
-    # ------------------------------------------------------------------
-    # _load_item: unknown or missing __type__
-    # ------------------------------------------------------------------
-
-    def test_unknown_type_tag_raises(self):
-        """
-        An HDF5 group with an unrecognized __type__ attribute raises ValueError.
-
-        Tests:
-            (Test Case 1) ValueError is raised with a message mentioning the unknown type.
-        """
-        import h5py as h5
-
-        with tempfile.TemporaryDirectory() as tmp:
-            h5_path = str(pathlib.Path(tmp) / "test.h5")
-            with h5.File(h5_path, "w") as f:
-                # Workspace-level metadata required by load_workspace_full
-                f.attrs["__workspace_id__"] = "test-id"
-                f.attrs["__workspace_name__"] = "test"
-                f.attrs["__created_at__"] = 0.0
-                ns_grp = f.create_group("ns")
-                key_grp = ns_grp.create_group("item")
-                key_grp.attrs["__type__"] = "UnknownType"
-                key_grp.attrs["__created_at__"] = 0.0
-
-            with pytest.raises(ValueError, match="Unknown __type__"):
-                AnalysisWorkspace.load(str(pathlib.Path(tmp) / "test"))
-
-    def test_missing_type_attribute_raises(self):
-        """
-        An HDF5 group without a __type__ attribute (defaults to empty string)
-        raises ValueError because "" is not in the dispatch dict.
-
-        Tests:
-            (Test Case 1) ValueError is raised mentioning the empty type tag.
-        """
-        import h5py as h5
-
-        with tempfile.TemporaryDirectory() as tmp:
-            h5_path = str(pathlib.Path(tmp) / "test.h5")
-            with h5.File(h5_path, "w") as f:
-                # Workspace-level metadata required by load_workspace_full
-                f.attrs["__workspace_id__"] = "test-id"
-                f.attrs["__workspace_name__"] = "test"
-                f.attrs["__created_at__"] = 0.0
-                ns_grp = f.create_group("ns")
-                key_grp = ns_grp.create_group("item")
-                key_grp.attrs["__created_at__"] = 0.0
-                # Deliberately omit __type__
-
-            with pytest.raises(ValueError, match="Unknown __type__"):
-                AnalysisWorkspace.load(str(pathlib.Path(tmp) / "test"))
-
-    # ------------------------------------------------------------------
-    # SpikeData edge cases
-    # ------------------------------------------------------------------
-
-    def test_roundtrip_spikedata_zero_units(self):
-        """
-        Round-trip a SpikeData with zero units (N=0, train=[]).
-
-        Tests:
-            (Test Case 1) Save does not raise.
-            (Test Case 2) Loaded object is a SpikeData with N=0.
-            (Test Case 3) train is an empty list.
-            (Test Case 4) length_ms is preserved.
-        """
-        sd = SpikeData([], length=100.0)
-        assert sd.N == 0
-        out = self._roundtrip(sd)
-        assert isinstance(out, SpikeData)
-        assert out.N == 0
-        assert len(out.train) == 0
-        assert out.length == pytest.approx(100.0)
-
-    def test_roundtrip_spikedata_nan_spike_times(self):
-        """
-        SpikeData rejects NaN spike times at construction.
-
-        Tests:
-            (Test Case 1) ValueError is raised when constructing SpikeData
-                with NaN spike times.
-
-        Notes:
-            - SpikeData.__init__ validates spike times and rejects NaN values
-              to prevent silent corruption of downstream computations.
-              This means NaN spike times cannot be round-tripped through HDF5.
-        """
-        with pytest.raises(ValueError, match="NaN"):
-            SpikeData([[1.0, np.nan, 3.0], [np.nan]], length=50.0)
-
-    def test_roundtrip_spikedata_empty_raw_data_skipped(self):
-        """
-        SpikeData with raw_data of size 0 has raw_data skipped during dump.
-
-        Tests:
-            (Test Case 1) Save does not raise.
-            (Test Case 2) After round-trip, raw_data is the default empty array
-                np.zeros((0, 0)) because it was not stored in HDF5.
-
-        Notes:
-            - The dump code checks `sd.raw_data.size > 0` before writing. An
-              empty raw_data array causes it to be skipped entirely. On load,
-              SpikeData defaults to np.zeros((0, 0)) when raw_data is not
-              provided.
-        """
-        sd = SpikeData(
-            [[1.0, 2.0]],
-            length=10.0,
-            raw_data=np.array([]).reshape(0, 0),
-            raw_time=np.array([]),
-        )
-        assert sd.raw_data.size == 0
-        out = self._roundtrip(sd)
-        assert out.raw_data.shape == (0, 0)
-
-    # ------------------------------------------------------------------
-    # Neuron attributes edge cases
-    # ------------------------------------------------------------------
-
-    def test_roundtrip_neuron_attributes_mixed_types(self):
-        """
-        Neuron attributes where one unit has a numeric value and another has a
-        string value for the same key. The string path takes precedence.
-
-        Tests:
-            (Test Case 1) Save does not raise.
-            (Test Case 2) Both values are present as strings after load.
-
-        Notes:
-            - When any value is a string, _dump_neuron_attributes takes the
-              use_string path and converts all values via str().
-        """
-        sd = make_spikedata(n_units=2, length_ms=100.0)
-        sd.neuron_attributes = [
-            {"label": 42},
-            {"label": "hello"},
-        ]
-        out = self._roundtrip(sd)
-        assert out.neuron_attributes is not None
-        # The string path converts everything to strings
-        assert out.neuron_attributes[0]["label"] == "42"
-        assert out.neuron_attributes[1]["label"] == "hello"
-
-    # ------------------------------------------------------------------
-    # Dict edge cases
-    # ------------------------------------------------------------------
-
-    def test_roundtrip_dict_with_list_of_strings(self):
-        """
-        A dict with a list of strings fails during HDF5 save because h5py
-        cannot store numpy unicode string arrays (dtype '<U...') directly.
-
-        Tests:
-            (Test Case 1) TypeError is raised during save due to h5py's
-                inability to handle numpy unicode string dtype.
-
-        Notes:
-            - np.asarray(["alpha", ...]) creates a dtype('<U5') array. h5py
-              does not have a conversion path for this dtype, causing a
-              TypeError in create_dataset.
-        """
-        ws = AnalysisWorkspace(name="test")
-        ws.store("ns", "item", {"names": ["alpha", "beta", "gamma"]})
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            with pytest.raises(TypeError, match="No conversion path"):
-                ws.save(base)
-
-    def test_roundtrip_dict_with_none_value_raises(self):
-        """
-        A dict containing None as a value raises TypeError on save, because
-        None goes through _dump_item which does not support NoneType.
-
-        Tests:
-            (Test Case 1) Saving a dict with None value raises TypeError.
-        """
-        ws = AnalysisWorkspace(name="test")
-        ws.store("ns", "d", {"key": None})
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            with pytest.raises(TypeError):
-                ws.save(base)
-
-    def test_roundtrip_dict_with_numpy_scalars(self):
-        """
-        A dict containing numpy scalar values (np.float64, np.int64) round-trips
-        correctly through the scalar path.
-
-        Tests:
-            (Test Case 1) np.float64 value is preserved.
-            (Test Case 2) np.int64 value is preserved.
-        """
-        d = {"x": np.float64(3.14), "n": np.int64(42)}
-        out = self._roundtrip(d)
-        assert out["x"] == pytest.approx(3.14)
-        assert out["n"] == 42
-
-    def test_roundtrip_dict_with_boolean_false(self):
-        """
-        A dict containing False as a value round-trips correctly. isinstance(False, int)
-        is True in Python, so it goes through the scalar path.
-
-        Tests:
-            (Test Case 1) False value is preserved after round-trip.
-            (Test Case 2) True value is preserved after round-trip.
-        """
-        d = {"flag_false": False, "flag_true": True}
-        out = self._roundtrip(d)
-        assert out["flag_false"] is False
-        assert out["flag_true"] is True
-
-    # ------------------------------------------------------------------
-    # _dump_times_tuples / _load_times_tuples
-    # ------------------------------------------------------------------
-
-    def test_roundtrip_empty_times_list(self):
-        """
-        A PairwiseCompMatrixStack or RateSliceStack with an empty times list.
-
-        Tests:
-            (Test Case 1) Save does not raise.
-            (Test Case 2) After round-trip, times is either an empty list or None.
-
-        Notes:
-            - np.array([], dtype=np.float64) has shape (0,) not (0, 2). When
-              _load_times_tuples reads this, iterating over rows of a 1-D array
-              would fail because each "row" is a scalar with no row[0]/row[1].
-              This is a potential bug depending on how the stack class handles it.
-        """
-        import h5py as h5
-        from spikelab.workspace.hdf5_io import _dump_times_tuples, _load_times_tuples
-
-        with tempfile.TemporaryDirectory() as tmp:
-            h5_path = str(pathlib.Path(tmp) / "test.h5")
-            with h5.File(h5_path, "w") as f:
-                grp = f.create_group("test")
-                _dump_times_tuples(grp, [])
-
-            with h5.File(h5_path, "r") as f:
-                grp = f["test"]
-                if "times" in grp:
-                    # The dataset exists but has shape (0,) not (0, 2)
-                    # _load_times_tuples tries to iterate and access row[0], row[1]
-                    # This may raise or return an empty list
-                    try:
-                        result = _load_times_tuples(grp)
-                        assert result == []
-                    except (IndexError, ValueError):
-                        # If it raises, this documents the bug
-                        pytest.skip(
-                            "Empty times list causes IndexError in "
-                            "_load_times_tuples due to shape (0,) instead of (0, 2)"
-                        )
-
-    # ------------------------------------------------------------------
-    # Metadata edge cases
-    # ------------------------------------------------------------------
-
-    def test_roundtrip_metadata_deeply_nested_numpy_arrays(self):
-        """
-        Metadata containing nested dicts with numpy arrays inside.
-
-        Tests:
-            (Test Case 1) Save does not raise.
-            (Test Case 2) Nested numpy array is recovered as a Python list.
-        """
-        sd = SpikeData(
-            [[1.0, 2.0]],
-            length=10.0,
-            metadata={
-                "outer": {
-                    "inner_arr": np.array([10.0, 20.0, 30.0]),
-                    "inner_scalar": np.float64(99.0),
-                },
-                "top_level": "hello",
-            },
-        )
-        out = self._roundtrip(sd)
-        assert out.metadata["outer"]["inner_arr"] == [10.0, 20.0, 30.0]
-        assert out.metadata["outer"]["inner_scalar"] == pytest.approx(99.0)
-        assert out.metadata["top_level"] == "hello"
-
-    # ------------------------------------------------------------------
-    # dump_item_to_file: overwrite existing item
-    # ------------------------------------------------------------------
-
-    def test_dump_item_to_file_overwrites_existing(self):
-        """
-        dump_item_to_file overwrites an existing item at the same (namespace, key).
-
-        Tests:
-            (Test Case 1) After overwrite, load_item_from_file returns the new value.
-            (Test Case 2) The old value is no longer present.
-        """
-        from spikelab.workspace.hdf5_io import dump_item_to_file, load_item_from_file
-
-        with tempfile.TemporaryDirectory() as tmp:
-            h5_path = str(pathlib.Path(tmp) / "test.h5")
-            arr1 = np.array([1.0, 2.0, 3.0])
-            arr2 = np.array([99.0])
-
-            dump_item_to_file(h5_path, "ns", "key", arr1, created_at=0.0)
-            dump_item_to_file(h5_path, "ns", "key", arr2, created_at=1.0)
-
-            loaded = load_item_from_file(h5_path, "ns", "key")
-            np.testing.assert_array_equal(loaded, arr2)
-
-    # ------------------------------------------------------------------
-    # Namespace / key with special characters
-    # ------------------------------------------------------------------
-
-    def test_namespace_with_slash_creates_nested_groups(self):
-        """
-        A namespace containing '/' creates nested HDF5 groups, which causes
-        the loader to fail because the intermediate group lacks __type__.
-
-        Tests:
-            (Test Case 1) Storing and saving does not raise.
-            (Test Case 2) Loading raises ValueError because the nested group
-                structure confuses the loader (intermediate group has no __type__).
-
-        Notes:
-            - This is a known consequence of HDF5 group naming. Using '/' in
-              namespace or key names should be avoided. The slash causes HDF5
-              to create nested groups (ns -> sub -> key), and the loader
-              interprets 'sub' as a key group but it lacks __type__ metadata.
-        """
-        ws = AnalysisWorkspace(name="slash_test")
-        ws.store("ns/sub", "key", np.array([1.0]))
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-
-            # Loading fails because the nested group 'sub' is interpreted as a
-            # key group but lacks __type__ attribute
-            with pytest.raises(ValueError, match="Unknown __type__"):
-                AnalysisWorkspace.load(base)
 
 
 # ---------------------------------------------------------------------------
 # Edge case tests from the edge case scan
 # ---------------------------------------------------------------------------
-
-
-class TestAnalysisWorkspaceEdgeCases2:
-    """Additional edge case tests for AnalysisWorkspace."""
-
-    def test_rename_same_key(self):
-        """
-        Renaming a key to itself warns about key conflict and returns False.
-
-        Tests:
-            (Test Case 1) rename(old_key, old_key) without overwrite=True
-                returns False due to the existing-key check.
-        """
-        import warnings
-
-        ws = AnalysisWorkspace(name="rename_test")
-        ws.store("ns", "key", np.array([1.0, 2.0]))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-            result = ws.rename("ns", "key", "key")
-        assert result is False
-        # Original key should still exist
-        assert ws.get("ns", "key") is not None
-
-
-class TestHDF5IOEdgeCases2:
-    """Additional edge case tests for hdf5_io functions."""
-
-    def test_spikedata_nonzero_start_time_roundtrip(self):
-        """
-        SpikeData with non-zero start_time survives HDF5 workspace roundtrip.
-
-        Tests:
-            (Test Case 1) start_time=-100 is preserved through save/load.
-        """
-        trains = [np.array([-90.0, -50.0, 0.0, 10.0])]
-        sd = SpikeData(trains, length=200.0, start_time=-100.0)
-        ws = AnalysisWorkspace(name="start_time_test")
-        ws.store("data", "sd", sd)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_sd = loaded.get("data", "sd")
-            assert loaded_sd.start_time == pytest.approx(-100.0)
-            assert loaded_sd.length == pytest.approx(200.0)
-            np.testing.assert_allclose(loaded_sd.train[0], [-90.0, -50.0, 0.0, 10.0])
-
-    def test_metadata_non_string_keys(self):
-        """
-        SpikeData metadata with integer keys loses precision through JSON roundtrip.
-
-        Tests:
-            (Test Case 1) Integer key 42 becomes string "42" after JSON roundtrip.
-        """
-        sd = SpikeData([[5.0]], length=10.0, metadata={42: "answer"})
-        ws = AnalysisWorkspace(name="meta_test")
-        ws.store("data", "sd", sd)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_sd = loaded.get("data", "sd")
-            # Integer key becomes string through JSON
-            assert "42" in loaded_sd.metadata
-
-    def test_ratedata_nan_roundtrip(self):
-        """
-        RateData with NaN values survives HDF5 roundtrip.
-
-        Tests:
-            (Test Case 1) NaN values in inst_Frate_data are preserved.
-        """
-        data = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, 6.0]])
-        times = np.array([0.0, 1.0, 2.0])
-        rd = RateData(data, times)
-        ws = AnalysisWorkspace(name="nan_rd_test")
-        ws.store("data", "rd", rd)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_rd = loaded.get("data", "rd")
-            np.testing.assert_array_equal(
-                np.isnan(loaded_rd.inst_Frate_data), np.isnan(data)
-            )
-
-    def test_rateslicestack_roundtrip(self):
-        """
-        RateSliceStack HDF5 roundtrip.
-
-        Tests:
-            (Test Case 1) RateSliceStack survives save/load roundtrip.
-        """
-        mat = np.random.default_rng(0).random((2, 10, 3))
-        rss = RateSliceStack(event_matrix=mat)
-        ws = AnalysisWorkspace(name="rss_test")
-        ws.store("data", "rss", rss)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_rss = loaded.get("data", "rss")
-            np.testing.assert_allclose(loaded_rss.event_stack, mat)
-
-    def test_pairwise_nan_roundtrip(self):
-        """
-        PairwiseCompMatrix with NaN values survives HDF5 roundtrip.
-
-        Tests:
-            (Test Case 1) NaN values are preserved through save/load.
-        """
-        mat = np.array([[1.0, np.nan], [np.nan, 1.0]])
-        pcm = PairwiseCompMatrix(matrix=mat)
-        ws = AnalysisWorkspace(name="pcm_nan_test")
-        ws.store("data", "pcm", pcm)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_pcm = loaded.get("data", "pcm")
-            np.testing.assert_array_equal(np.isnan(loaded_pcm.matrix), np.isnan(mat))
-
-    def test_overwrite_item_different_type(self):
-        """
-        Overwriting a workspace item with a different type works correctly.
-
-        Tests:
-            (Test Case 1) ndarray replacing SpikeData works correctly.
-        """
-        sd = SpikeData([[5.0]], length=10.0)
-        arr = np.array([1.0, 2.0, 3.0])
-
-        ws = AnalysisWorkspace(name="overwrite_test")
-        ws.store("ns", "key", sd)
-        ws.store("ns", "key2", arr)
-        # Verify both are stored correctly
-        loaded_sd = ws.get("ns", "key")
-        loaded_arr = ws.get("ns", "key2")
-        assert isinstance(loaded_sd, SpikeData)
-        np.testing.assert_array_equal(loaded_arr, arr)
-
-    def test_labels_with_none_entries(self):
-        """
-        PairwiseCompMatrix labels with None entries crash during HDF5 save.
-
-        Tests:
-            (Test Case 1) Labels [1, None, 3] create an object-dtype array
-                that HDF5 cannot serialize, raising TypeError.
-
-        Notes:
-            - This is a known bug: _dump_labels does not handle mixed
-              int/None labels. np.array([1, None, 3]) creates an object
-              array which has no HDF5 equivalent.
-        """
-        mat = np.eye(3)
-        pcm = PairwiseCompMatrix(matrix=mat, labels=[1, None, 3])
-        ws = AnalysisWorkspace(name="labels_none_test")
-        ws.store("data", "pcm", pcm)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            with pytest.raises(TypeError):
-                ws.save(base)
-
-    def test_metadata_with_inf(self):
-        """
-        Metadata with inf/-inf values roundtrip through HDF5.
-
-        Tests:
-            (Test Case 1) Inf values are preserved through save/load.
-        """
-        sd = SpikeData([[5.0]], length=10.0, metadata={"val": float("inf")})
-        ws = AnalysisWorkspace(name="inf_meta_test")
-        ws.store("data", "sd", sd)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            base = str(pathlib.Path(tmp) / "ws")
-            ws.save(base)
-            loaded = AnalysisWorkspace.load(base)
-            loaded_sd = loaded.get("data", "sd")
-            assert loaded_sd.metadata["val"] == float("inf")
-
-
-class TestMakeSummaryEdgeCases:
-    """Edge case tests for _make_summary."""
-
-    def test_spikeslicestack_single_slice(self):
-        """
-        _make_summary for SpikeSliceStack with 1 slice.
-
-        Tests:
-            (Test Case 1) Single-slice SpikeSliceStack produces a valid summary.
-        """
-        sd = SpikeData([[5.0]], length=10.0)
-        sss = SpikeSliceStack(sd, times_start_to_end=[(0.0, 10.0)])
-        summary = _make_summary(sss)
-        assert "SpikeSliceStack" in summary["type"]
-
-    def test_zero_dimensional_ndarray(self):
-        """
-        _make_summary for a 0-dimensional ndarray.
-
-        Tests:
-            (Test Case 1) np.array(5.0) produces shape [].
-        """
-        summary = _make_summary(np.array(5.0))
-        assert summary["shape"] == []
 
 
 class TestCoverageGaps:
@@ -3994,7 +3969,7 @@ class TestCoverageGaps:
 
 
 @pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py required")
-class TestEdgeCaseScan:
+class TestScan:
     """Edge-case tests for workspace persistence and in-memory operations."""
 
     # ------------------------------------------------------------------
@@ -4424,7 +4399,7 @@ class TestEdgeCaseScan:
         np.testing.assert_array_equal(loaded2, arr)
 
 
-class TestRemainingEdgeCases:
+class TestRemaining:
     """Tests for remaining untested edge cases from REVIEW.md."""
 
     def test_save_path_with_spaces(self, tmp_path):
@@ -4636,3 +4611,366 @@ class TestRemainingEdgeCases:
                 assert os.path.getsize(h5_path) > len(b"dummy")
             except (OSError, PermissionError):
                 pass  # Expected on Windows
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestLoadWorkspaceFullValidation:
+    """Tests for load_workspace_full input validation."""
+
+    def test_non_workspace_hdf5_raises(self, tmp_path):
+        """
+        A plain HDF5 file without __workspace_id__ raises ValueError.
+
+        Tests:
+            (Test Case 1) ValueError with descriptive message about missing attribute.
+        """
+        from spikelab.workspace.hdf5_io import load_workspace_full
+
+        # Create a plain HDF5 file without workspace metadata
+        h5_path = str(tmp_path / "plain.h5")
+        with h5py.File(h5_path, "w") as f:
+            f.create_dataset("some_data", data=np.array([1, 2, 3]))
+
+        base_path = str(tmp_path / "plain")
+        with pytest.raises(
+            ValueError, match="does not appear to be a SpikeLab workspace"
+        ):
+            load_workspace_full(base_path)
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests from REVIEW.md I/O scan (HIGH and MEDIUM severity)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceIO:
+    """Edge case tests for workspace.py from REVIEW.md I/O scan."""
+
+    def test_store_note_as_non_string_type(self):
+        """
+        store() with note as non-string type -- not tested.
+
+        Tests:
+            (Test Case 1) Passing an integer as note does not crash.
+            (Test Case 2) The note is stored (as-is or converted).
+        """
+        ws = AnalysisWorkspace(name="note_test")
+        ws.store("ns", "key", np.array([1.0]), note=42)
+        info = ws.get_info("ns", "key")
+        assert info["note"] == 42
+
+    def test_merge_from_lazy_workspace_returns_none(self, tmp_path):
+        """
+        Merge from lazy workspace where get() returns None for a stored key
+        (e.g., the backing HDF5 was corrupted).
+
+        Tests:
+            (Test Case 1) merge_from does not crash when get() returns None.
+            (Test Case 2) The None value is stored in the target workspace.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+
+        lazy_ws = LazyAnalysisWorkspace(name="lazy")
+        lazy_ws.store("ns", "arr", np.array([1.0, 2.0, 3.0]))
+
+        target = AnalysisWorkspace(name="target")
+        result = target.merge_from(lazy_ws)
+        assert result["merged"] == 1
+        # The object should have been loaded via get()
+        loaded = target.get("ns", "arr")
+        assert loaded is not None
+        np.testing.assert_array_equal(loaded, np.array([1.0, 2.0, 3.0]))
+
+    def test_workspace_manager_load_overwrites_existing(self, tmp_path):
+        """
+        Loading workspace with same ID as existing -- overwrites silently.
+
+        Tests:
+            (Test Case 1) Loading the same workspace file twice overwrites
+                the first registration.
+        """
+        if not H5PY_AVAILABLE:
+            pytest.skip("h5py not installed")
+
+        ws = AnalysisWorkspace(name="original")
+        ws.store("ns", "data", np.array([1.0]))
+        base = str(tmp_path / "ws")
+        ws.save(base)
+
+        mgr = WorkspaceManager()
+        ws_id1 = mgr.load_workspace(base)
+        # Modify the in-memory workspace
+        mgr.get_workspace(ws_id1).store("ns", "extra", np.array([99.0]))
+
+        # Load again -- same workspace_id, should overwrite
+        ws_id2 = mgr.load_workspace(base)
+        assert ws_id1 == ws_id2
+
+        # The "extra" key should be gone (overwritten by the loaded version)
+        reloaded = mgr.get_workspace(ws_id2)
+        assert reloaded.get("ns", "extra") is None
+        np.testing.assert_array_equal(reloaded.get("ns", "data"), np.array([1.0]))
+
+    def test_make_summary_spikeslicestack_empty_times(self):
+        """
+        SpikeSliceStack with empty `times` but non-empty `spike_stack` --
+        length_ms should be None.
+
+        Tests:
+            (Test Case 1) _make_summary does not crash when times is empty.
+            (Test Case 2) length_ms is None.
+        """
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        sd = SpikeData([np.array([5.0, 10.0])], length=20.0)
+        sss = SpikeSliceStack.__new__(SpikeSliceStack)
+        sss.spike_stack = [sd]
+        sss.times = []  # empty times
+        sss.N = 1
+        sss.neuron_attributes = None
+
+        summary = _make_summary(sss)
+        assert summary["type"] == "SpikeSliceStack"
+        assert summary["length_ms"] is None
+        assert summary["N_slices"] == 1
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestLazyWorkspaceIO:
+    """Edge case tests for LazyAnalysisWorkspace from REVIEW.md I/O scan."""
+
+    def test_store_unsupported_type_raises(self):
+        """
+        Store unsupported type -- _dump_item raises TypeError.
+        The index is updated BEFORE the dump, so if dump fails, a ghost
+        entry remains in _index.
+
+        Tests:
+            (Test Case 1) Storing a set raises TypeError.
+            (Test Case 2) Ghost entry remains in _index after failure (documents
+                the known bug).
+        """
+        ws = LazyAnalysisWorkspace(name="ghost")
+
+        with pytest.raises(TypeError, match="Cannot serialise"):
+            ws.store("ns", "bad", {1, 2, 3})  # set is unsupported
+
+        # Known bug: the index entry was added before the dump failed
+        assert "bad" in ws._index.get("ns", {})
+
+    def test_store_after_backing_file_deleted(self):
+        """
+        Store after backing file deleted -- h5py opens in append mode
+        which silently creates a new empty file, so the store succeeds
+        without error.
+
+        Tests:
+            (Test Case 1) Deleting the backing file and then storing does
+                not raise -- h5py recreates the file in append mode.
+        """
+        ws = LazyAnalysisWorkspace(name="deleted_backing")
+        ws.store("ns", "arr", np.array([1.0]))
+
+        # Delete the backing file
+        os.unlink(ws._h5_path)
+
+        # h5py.File(path, "a") recreates the file, so no error is raised
+        ws.store("ns", "arr2", np.array([2.0]))
+        assert os.path.isfile(ws._h5_path)
+
+
+@pytest.mark.skipif(not H5PY_AVAILABLE, reason="h5py not installed")
+class TestHDF5IOIO:
+    """Edge case tests for hdf5_io.py from REVIEW.md I/O scan."""
+
+    def test_dump_neuron_attributes_inconsistent_array_shapes(self, tmp_path):
+        """
+        Array-valued attributes with inconsistent shapes -- first non-None
+        entry determines shape; mismatched shapes crash.
+
+        Tests:
+            (Test Case 1) Mismatched array shapes raise an exception.
+        """
+        from spikelab.workspace.hdf5_io import _dump_neuron_attributes
+
+        attrs = [
+            {"location": np.array([1.0, 2.0])},  # shape (2,)
+            {"location": np.array([3.0, 4.0, 5.0])},  # shape (3,) -- mismatch!
+        ]
+
+        path = str(tmp_path / "mismatch.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises((ValueError, Exception)):
+                _dump_neuron_attributes(grp, attrs)
+
+    def test_dump_neuron_attributes_all_none(self, tmp_path):
+        """
+        All values None for an attribute -- roundtrip loses key.
+
+        Tests:
+            (Test Case 1) An attribute where every unit has None is stored
+                as all-NaN.
+            (Test Case 2) On reload, the key is lost because NaN is the
+                sentinel for missing values.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [
+            {"electrode": None, "unit_id": 0},
+            {"electrode": None, "unit_id": 1},
+        ]
+
+        path = str(tmp_path / "all_none.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+
+        # unit_id should be present, electrode should be lost (all NaN sentinel)
+        assert loaded is not None
+        for d in loaded:
+            assert "unit_id" in d
+            # electrode key was all-None -> stored as NaN -> lost on load
+            assert "electrode" not in d
+
+    def test_string_attribute_all_empty_strings(self, tmp_path):
+        """
+        String attribute with all empty strings -- omitted by sentinel check.
+
+        Tests:
+            (Test Case 1) An attribute where every unit has "" is stored
+                as empty strings.
+            (Test Case 2) On reload, the key is omitted because "" is the
+                sentinel for missing string values.
+        """
+        from spikelab.workspace.hdf5_io import (
+            _dump_neuron_attributes,
+            _load_neuron_attributes,
+        )
+
+        attrs = [
+            {"label": "", "unit_id": 0},
+            {"label": "", "unit_id": 1},
+        ]
+
+        path = str(tmp_path / "empty_str.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_neuron_attributes(grp, attrs)
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_neuron_attributes(f["test"])
+
+        assert loaded is not None
+        for d in loaded:
+            assert "unit_id" in d
+            # Empty strings are sentinels -> key is omitted on load
+            assert "label" not in d
+
+    def test_dump_metadata_json_datetime64_raises(self, tmp_path):
+        """
+        numpy datetime64/timedelta64 values -- not handled; raises TypeError
+        wrapped in ValueError.
+
+        Tests:
+            (Test Case 1) Metadata with datetime64 raises ValueError.
+        """
+        from spikelab.workspace.hdf5_io import _dump_metadata_json
+
+        metadata = {"timestamp": np.datetime64("2025-01-01")}
+
+        path = str(tmp_path / "datetime.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            with pytest.raises(ValueError, match="non-JSON-serialisable"):
+                _dump_metadata_json(grp, metadata)
+
+    def test_dump_labels_all_none_roundtrip(self, tmp_path):
+        """
+        All-None labels list -- roundtrip loses labels.
+
+        Tests:
+            (Test Case 1) _dump_labels with all-None list skips writing.
+            (Test Case 2) _load_labels returns None for missing labels.
+        """
+        from spikelab.workspace.hdf5_io import _dump_labels, _load_labels
+
+        path = str(tmp_path / "labels_none.h5")
+        with h5py.File(path, "w") as f:
+            grp = f.create_group("test")
+            _dump_labels(grp, [None, None, None])
+
+        with h5py.File(path, "r") as f:
+            loaded = _load_labels(f["test"])
+
+        assert loaded is None
+
+    def test_spikedata_raw_time_scalar_roundtrip(self, tmp_path):
+        """
+        raw_time as scalar float -- loaded as 0-d array.
+
+        Tests:
+            (Test Case 1) A SpikeData with scalar raw_time can be stored and
+                loaded via workspace, and the raw_time is preserved.
+        """
+        ws = AnalysisWorkspace(name="scalar_raw")
+        raw_data = np.random.default_rng(0).random((2, 5))
+        # Use scalar raw_time (a single float representing sampling rate or step)
+        sd = SpikeData(
+            [np.array([1.0, 2.0, 3.0])],
+            length=10.0,
+            raw_data=raw_data,
+            raw_time=1.0,
+        )
+        ws.store("ns", "sd", sd)
+
+        base = str(tmp_path / "scalar_raw_ws")
+        ws.save(base)
+        ws2 = AnalysisWorkspace.load(base)
+        sd2 = ws2.get("ns", "sd")
+
+        assert sd2 is not None
+        assert sd2.N == 1
+        np.testing.assert_array_equal(sd2.raw_data, raw_data)
+
+    def test_spikeslicestack_different_N_in_slices(self, tmp_path):
+        """
+        Inner SpikeData objects with different N -- loaded stack N reflects
+        first slice only.
+
+        Tests:
+            (Test Case 1) A SpikeSliceStack with varying N per slice can be
+                stored and loaded.
+            (Test Case 2) N on the loaded stack comes from the attrs or
+                first slice.
+        """
+        from spikelab.spikedata.spikeslicestack import SpikeSliceStack
+
+        sd1 = SpikeData([np.array([1.0, 2.0])], length=10.0)  # N=1
+        sd2 = SpikeData([np.array([3.0]), np.array([4.0, 5.0])], length=10.0)  # N=2
+
+        sss = SpikeSliceStack.__new__(SpikeSliceStack)
+        sss.spike_stack = [sd1, sd2]
+        sss.times = [(0.0, 10.0), (10.0, 20.0)]
+        sss.N = 1  # Set to first slice's N
+        sss.neuron_attributes = None
+
+        ws = AnalysisWorkspace(name="diff_n")
+        ws.store("ns", "sss", sss)
+
+        base = str(tmp_path / "diff_n_ws")
+        ws.save(base)
+        ws2 = AnalysisWorkspace.load(base)
+        sss2 = ws2.get("ns", "sss")
+
+        assert sss2 is not None
+        assert len(sss2.spike_stack) == 2
+        assert sss2.spike_stack[0].N == 1
+        assert sss2.spike_stack[1].N == 2
