@@ -114,6 +114,7 @@ class Kilosort4Backend(SorterBackend):
         waveforms_folder: Any,
         curation_folder: Any,
         rec_path: Any = None,
+        rng: Any = None,
     ) -> Any:
         """Extract waveforms via the custom WaveformExtractor.
 
@@ -131,4 +132,5 @@ class Kilosort4Backend(SorterBackend):
             n_jobs=self.config.execution.n_jobs,
             total_memory=self.config.execution.total_memory,
             progress_bar=True,
+            rng=rng,
         )

@@ -66,7 +66,14 @@ def spike_sort(
             and (output_folder_path / "spike_times.npy").exists()
         ):
             print("Loading existing Kilosort4 results")
-            sorting = KilosortSortingExtractor(folder_path=output_folder_path)
+            sorting = KilosortSortingExtractor(
+                folder_path=output_folder_path,
+                keep_good_only=bool(
+                    _globals.KILOSORT_PARAMS
+                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                ),
+                pos_peak_thresh=_globals.POS_PEAK_THRESH,
+            )
             stopwatch.log_time("Done loading existing results.")
             return sorting
 
@@ -112,6 +119,13 @@ def spike_sort(
         if (output_folder_path / "sorter_output").exists():
             sorter_output = output_folder_path / "sorter_output"
 
-        sorting = KilosortSortingExtractor(folder_path=sorter_output)
+        sorting = KilosortSortingExtractor(
+            folder_path=sorter_output,
+            keep_good_only=bool(
+                _globals.KILOSORT_PARAMS
+                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+            ),
+            pos_peak_thresh=_globals.POS_PEAK_THRESH,
+        )
         stopwatch.log_time("Done sorting with Kilosort4.")
         return sorting

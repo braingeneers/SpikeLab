@@ -244,10 +244,76 @@ activity pattern is more stereotyped across trials.
    trial-to-trial consistency of the burst response.
 
 
+Slice-to-Slice Time Correlations
+----------------------------------
+
+While the unit correlation above measures consistency per unit, you can also
+ask how similar the temporal profile of population activity is across slices.
+:meth:`~spikelab.RateSliceStack.get_slice_to_slice_time_corr_from_stack`
+computes pairwise similarity between slices at each time bin, producing a
+:class:`~spikelab.PairwiseCompMatrixStack` of shape ``(S, S, T)``:
+
+.. code-block:: python
+
+   corr_stack_time, av_corr_per_bin = rss.get_slice_to_slice_time_corr_from_stack(
+       max_lag=0,       # lag in bins (0 = instantaneous similarity)
+       n_jobs=-1,       # parallel threads
+   )
+
+   # corr_stack_time: PairwiseCompMatrixStack with shape (S, S, T)
+   # av_corr_per_bin: ndarray (T,) — average slice-to-slice correlation per time bin
+
+The ``av_corr_per_bin`` trace shows how slice similarity evolves over time
+relative to the event. High values indicate that the population response is
+reproducible at that moment; lower values indicate more variable activity
+across slices.
+
+Plot the trace with
+:func:`~spikelab.spikedata.plot_utils.plot_percentile_bands` or as a simple
+line:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   import numpy as np
+
+   t_axis = np.arange(len(av_corr_per_bin)) - pre_ms
+
+   fig, ax = plt.subplots(figsize=(6, 3))
+   ax.plot(t_axis, av_corr_per_bin)
+   ax.set_xlabel("Time from event (ms)")
+   ax.set_ylabel("Slice similarity")
+   ax.axvline(0, color="0.4", linewidth=0.5, linestyle="--")
+
+To overlay the average event-aligned population rate for context, use
+:meth:`~spikelab.SpikeData.plot_aligned_pop_rate`. This cuts the population
+rate around each event and plots the mean trace:
+
+.. code-block:: python
+
+   sd.plot_aligned_pop_rate(
+       events=tburst,
+       pre_ms=250,
+       post_ms=500,
+       ax=ax_top,
+       pop_rate=pop_rate,           # pre-computed population rate
+       burst_edges=edges,           # overlay burst edge markers
+       edge_percentile=100,         # use the outermost edges
+   )
+
+.. figure:: /_static/images/s2s_time_corr.png
+   :width: 100%
+   :alt: Slice-to-slice time correlation
+
+   Top: burst-aligned average population rate across conditions. Bottom:
+   average slice-to-slice similarity at each time bin, clipped to the burst
+   window boundaries.
+
+
 Unit-to-Unit PCA
 ------------------
 
-To ask whether the overall pattern of pairwise interactions changes across
+To see whether the overall pattern of pairwise interactions changes across
 conditions, compute unit-to-unit correlations per slice and then apply PCA
 to the resulting feature vectors.
 

@@ -521,6 +521,7 @@ def extract_waveforms(
     sorting: Any,
     root_folder: Path,
     initial_folder: Path,
+    rng: Any = None,
     **job_kwargs: Any,
 ) -> Any:
     """
@@ -554,12 +555,12 @@ def extract_waveforms(
     ):  # Load saved waveform extractor
         print("Loading waveforms from folder")
         we = WaveformExtractor.load_from_folder(
-            recording, sorting, root_folder, initial_folder
+            recording, sorting, root_folder, initial_folder, rng=rng
         )
         stopwatch.log_time("Done extracting waveforms.")
     else:  # Create new waveform extractor
         we = WaveformExtractor.create_initial(
-            recording_path, recording, sorting, root_folder, initial_folder
+            recording_path, recording, sorting, root_folder, initial_folder, rng=rng
         )
         if _globals.STREAMING_WAVEFORMS:
             # Streaming path: per-unit waveforms + templates in one pass.

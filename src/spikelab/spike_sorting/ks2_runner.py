@@ -484,7 +484,14 @@ end"""
 
     @classmethod
     def get_result_from_folder(cls, output_folder):
-        return KilosortSortingExtractor(folder_path=output_folder)
+        return KilosortSortingExtractor(
+            folder_path=output_folder,
+            keep_good_only=bool(
+                _globals.KILOSORT_PARAMS
+                and _globals.KILOSORT_PARAMS.get("keep_good_only")
+            ),
+            pos_peak_thresh=_globals.POS_PEAK_THRESH,
+        )
 
 
 class ShellScript:
@@ -888,7 +895,13 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
         # Fallback: some SI versions put output directly in the folder
         sorter_output = output_folder
 
-    return KilosortSortingExtractor(folder_path=sorter_output)
+    return KilosortSortingExtractor(
+        folder_path=sorter_output,
+        keep_good_only=bool(
+            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
+        ),
+        pos_peak_thresh=_globals.POS_PEAK_THRESH,
+    )
 
 
 def spike_sort(
@@ -923,7 +936,14 @@ def spike_sort(
             and (output_folder / "spike_times.npy").exists()
         ):
             print("Loading Kilosort2's sorting results")
-            sorting = KilosortSortingExtractor(folder_path=output_folder)
+            sorting = KilosortSortingExtractor(
+                folder_path=output_folder,
+                keep_good_only=bool(
+                    _globals.KILOSORT_PARAMS
+                    and _globals.KILOSORT_PARAMS.get("keep_good_only")
+                ),
+                pos_peak_thresh=_globals.POS_PEAK_THRESH,
+            )
         elif _globals.USE_DOCKER:
             # Docker: SpikeInterface handles .dat conversion internally
             create_folder(output_folder)

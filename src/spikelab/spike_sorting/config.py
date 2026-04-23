@@ -209,6 +209,7 @@ class ExecutionConfig:
     use_parallel_processing_for_raw_conversion: bool = True
     save_script: bool = False
     out_file: str = "sort_with_kilosort2.out"
+    random_seed: int = 1
     recompute_recording: bool = False
     recompute_sorting: bool = False
     reextract_waveforms: bool = False
@@ -432,6 +433,7 @@ class SortingPipelineConfig:
             ),
             "all_templates_x_label": ("figures", "templates_x_label"),
             # ExecutionConfig
+            "random_seed": ("execution", "random_seed"),
             "n_jobs": ("execution", "n_jobs"),
             "total_memory": ("execution", "total_memory"),
             "use_parallel_processing_for_raw_conversion": (

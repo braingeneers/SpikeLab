@@ -173,7 +173,7 @@ def save_traces_mea(
     save_path: Union[str, Path],
     start_ms: float = 0,
     end_ms: Optional[float] = None,
-    samp_freq: float = 20,  # kHz
+    samp_freq: Optional[float] = None,
     default_gain: float = 1,
     chunk_size: int = 100000,
     num_processes: int = 2,
@@ -193,7 +193,8 @@ def save_traces_mea(
         start_ms (float): Start time in milliseconds (default 0).
         end_ms (float or None): End time in milliseconds. When *None*,
             the full recording is used.
-        samp_freq (float): Sampling frequency in kHz (default 20).
+        samp_freq (float or None): Sampling frequency in kHz. When
+            *None* (default), read from the recording file.
         default_gain (float): Fallback gain factor when the recording does
             not report channel gains (default 1).
         chunk_size (int): Number of frames per processing chunk
@@ -206,6 +207,9 @@ def save_traces_mea(
 
     rec_h5 = h5py.File(rec_path, "r")
     rec_si = MaxwellRecordingExtractor(rec_path)
+
+    if samp_freq is None:
+        samp_freq = rec_si.get_sampling_frequency() / 1000.0  # Hz → kHz
 
     start_frame = round(start_ms * samp_freq)
 

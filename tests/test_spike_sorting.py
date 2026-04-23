@@ -348,16 +348,8 @@ class TestKilosortSortingExtractor:
         }
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting._globals as ks_mod
-
-        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
-        ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
-        try:
-            kse = ks_module.KilosortSortingExtractor(tmp_path)
-            assert kse.unit_ids == [0]
-        finally:
-            if old_params is not None:
-                ks_mod.KILOSORT_PARAMS = old_params
+        kse = ks_module.KilosortSortingExtractor(tmp_path, keep_good_only=True)
+        assert kse.unit_ids == [0]
 
     def test_units_with_zero_spikes_excluded(self, tmp_path, ks_module):
         """
@@ -371,17 +363,9 @@ class TestKilosortSortingExtractor:
         tsv = {"cluster_id": [0, 1, 2], "group": ["good", "good", "good"]}
         _write_ks_folder(tmp_path, spike_times, spike_clusters, tsv_data=tsv)
 
-        import spikelab.spike_sorting._globals as ks_mod
-
-        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
-        ks_mod.KILOSORT_PARAMS = {"keep_good_only": False}
-        try:
-            kse = ks_module.KilosortSortingExtractor(tmp_path)
-            assert 2 not in kse.unit_ids
-            assert set(kse.unit_ids) == {0, 1}
-        finally:
-            if old_params is not None:
-                ks_mod.KILOSORT_PARAMS = old_params
+        kse = ks_module.KilosortSortingExtractor(tmp_path, keep_good_only=False)
+        assert 2 not in kse.unit_ids
+        assert set(kse.unit_ids) == {0, 1}
 
     def test_get_unit_spike_train_slicing(self, tmp_path, ks_module):
         """
@@ -598,16 +582,8 @@ class TestKilosortSortingExtractor:
             "cluster_id\tKSLabel\n0\tgood\n1\tmua"
         )
 
-        import spikelab.spike_sorting._globals as ks_mod
-
-        old_params = getattr(ks_mod, "KILOSORT_PARAMS", None)
-        ks_mod.KILOSORT_PARAMS = {"keep_good_only": True}
-        try:
-            kse = ks_module.KilosortSortingExtractor(folder)
-            assert kse.unit_ids == [0]
-        finally:
-            if old_params is not None:
-                ks_mod.KILOSORT_PARAMS = old_params
+        kse = ks_module.KilosortSortingExtractor(folder, keep_good_only=True)
+        assert kse.unit_ids == [0]
 
     def test_spike_train_start_equals_end(self, tmp_path, ks_module):
         """
@@ -5928,8 +5904,6 @@ class TestRecenterStimTimesPeakModes:
 # ===========================================================================
 
 
-
-
 # ===========================================================================
 # Edge Case Tests -- Tee
 # ===========================================================================
@@ -6169,8 +6143,6 @@ class TestComputeHalfWindowSizes:
 # ===========================================================================
 # Edge Case Tests -- center_spike_times (waveform_utils)
 # ===========================================================================
-
-
 
 
 # ===========================================================================

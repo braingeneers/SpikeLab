@@ -103,11 +103,16 @@ def compute_half_window_sizes(
 
     for i in range(n_units):
         t = templates_max_ch[i, :]
-        zeros_before_mid = np.flatnonzero(np.isclose(t[:template_mid], 0))
-        if len(zeros_before_mid) > 0:
-            size = template_mid - zeros_before_mid[-1]
+        # Find where the template amplitude drops below 1% of peak
+        # before the midpoint.  Works for both zero-padded (KS2) and
+        # dense (KS4) templates — matches KilosortSortingExtractor logic.
+        peak_amp = np.abs(t).max()
+        threshold = peak_amp * 0.01
+        small_before_mid = np.flatnonzero(np.abs(t[:template_mid]) < threshold)
+        if len(small_before_mid) > 0:
+            size = template_mid - small_before_mid[-1]
         else:
-            # No zero crossing found — use full half
+            # No sub-threshold region found — use full half
             size = template_mid
         half_windows[i] = max(1, int(size * window_size_scale))
 

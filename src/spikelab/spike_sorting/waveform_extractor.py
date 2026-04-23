@@ -35,7 +35,7 @@ class WaveformExtractor:
     """
 
     # region Initialize
-    def __init__(self, recording, sorting, root_folder, folder):
+    def __init__(self, recording, sorting, root_folder, folder, rng=None):
         with open(root_folder / "extraction_parameters.json", "r") as f:
             parameters = json.load(f)
 
@@ -46,6 +46,9 @@ class WaveformExtractor:
         self.root_folder = root_folder
         self.folder = Path(folder)
         create_folder(self.folder)
+
+        # Random number generator for reproducible spike sampling
+        self.rng = rng if rng is not None else np.random.default_rng()
 
         # Cache in memory
         self._waveforms = {}
@@ -78,7 +81,7 @@ class WaveformExtractor:
 
     @classmethod
     def create_initial(
-        cls, recording_path, recording, sorting, root_folder, initial_folder
+        cls, recording_path, recording, sorting, root_folder, initial_folder, rng=None
     ):
         # Create root waveform folder and data
         root_folder = Path(root_folder)
@@ -109,7 +112,7 @@ class WaveformExtractor:
         with open(root_folder / "extraction_parameters.json", "w") as f:
             json.dump(parameters, f)
 
-        we = cls(recording, sorting, root_folder, initial_folder)
+        we = cls(recording, sorting, root_folder, initial_folder, rng=rng)
 
         # Get template window sizes for computing location of negative peak during waveform extraction
         (
@@ -141,9 +144,10 @@ class WaveformExtractor:
         use_pos_peak=None,
         chans_max_kilosort=None,
         chans_max_all=None,
+        rng=None,
     ):
         # Load waveform data from folder
-        we = cls(recording, sorting, root_folder, folder)
+        we = cls(recording, sorting, root_folder, folder, rng=rng)
 
         _possible_template_modes = ("average", "std", "median")
         for mode in _possible_template_modes:
@@ -471,7 +475,7 @@ class WaveformExtractor:
             total = np.sum(n_per_segment)
             if _globals.MAX_WAVEFORMS_PER_UNIT is not None:
                 if total > _globals.MAX_WAVEFORMS_PER_UNIT:
-                    global_inds = np.random.choice(
+                    global_inds = self.rng.choice(
                         total, size=_globals.MAX_WAVEFORMS_PER_UNIT, replace=False
                     )
                     global_inds = np.sort(global_inds)

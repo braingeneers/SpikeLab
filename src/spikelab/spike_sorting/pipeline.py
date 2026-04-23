@@ -613,6 +613,7 @@ def process_recording(
     rec_loaded=None,
     rec_chunks=None,
     rec_chunk_names=None,
+    rng=None,
 ):
     """Run the full sorting pipeline on a single recording.
 
@@ -630,6 +631,9 @@ def process_recording(
         rec_loaded: Pre-loaded recording object, or None.
         rec_chunks (list of (int, int) or None): Epoch frame boundaries.
         rec_chunk_names (list of str or None): Epoch file names.
+        rng (np.random.Generator or None): Random number generator for
+            reproducible waveform sampling.  When ``None``, a new
+            ``default_rng()`` is created.
 
     Returns:
         result (SpikeData or tuple or Exception): ``sd_curated`` on
@@ -681,6 +685,7 @@ def process_recording(
             waveforms_root_folder,
             curation_initial_folder,
             rec_path=rec_path,
+            rng=rng,
         )
 
         # Convert to SpikeData
@@ -1026,7 +1031,7 @@ def sort_recording(
     except ImportError:
         pass
 
-    np.random.seed(1)
+    rng = np.random.default_rng(config.execution.random_seed)
 
     # Main loop
     spikedata_results = []
@@ -1058,6 +1063,7 @@ def sort_recording(
             rec_loaded=rec_loaded,
             rec_chunks=config.recording.rec_chunks or None,
             rec_chunk_names=getattr(backend, "rec_chunk_names", None),
+            rng=rng,
         )
 
         if isinstance(result, BaseException):

@@ -112,7 +112,13 @@ def _numpy_sorting_to_ks_extractor(sorting, recording, output_folder, root_elecs
         f.write(f"dtype = 'float32'\n")
         f.write(f"hp_filtered = True\n")
 
-    return KilosortSortingExtractor(folder_path=output_folder)
+    return KilosortSortingExtractor(
+        folder_path=output_folder,
+        keep_good_only=bool(
+            _globals.KILOSORT_PARAMS and _globals.KILOSORT_PARAMS.get("keep_good_only")
+        ),
+        pos_peak_thresh=_globals.POS_PEAK_THRESH,
+    )
 
 
 class RTSortBackend(SorterBackend):
@@ -255,6 +261,7 @@ class RTSortBackend(SorterBackend):
         waveforms_folder: Any,
         curation_folder: Any,
         rec_path: Any = None,
+        rng: Any = None,
     ) -> Any:
         """Extract waveforms via the shared custom WaveformExtractor.
 
@@ -273,4 +280,5 @@ class RTSortBackend(SorterBackend):
             n_jobs=self.config.execution.n_jobs,
             total_memory=self.config.execution.total_memory,
             progress_bar=True,
+            rng=rng,
         )
