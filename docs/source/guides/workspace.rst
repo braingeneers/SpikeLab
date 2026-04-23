@@ -168,7 +168,7 @@ the object to a temporary HDF5 file and releases it from memory, and each
    # Load also returns a LazyAnalysisWorkspace when the file is large
    ws = LazyAnalysisWorkspace.load("results/workspace")
 
-The lazy workspace requires ``h5py`` to be installed.  All other operations
+All other operations
 -- ``list_namespaces``, ``list_keys``, ``describe``, ``get_info`` -- work
 from an in-memory index and do not trigger disk reads.
 
@@ -195,3 +195,29 @@ switch to the regular workspace for interactive exploration:
    # Later, for interactive exploration — load everything into RAM
    ws = AnalysisWorkspace.load("results/workspace")
    sd = ws.get("D0", "spikedata")
+
+
+Merging Workspaces
+------------------
+
+When analyses are run separately (e.g. by different scripts or on different
+machines), you can combine their results into a single workspace with
+:meth:`~spikelab.workspace.workspace.AnalysisWorkspace.merge_from`:
+
+.. code-block:: python
+
+   ws_main = AnalysisWorkspace(name="combined")
+
+   ws_a = AnalysisWorkspace.load("results/analysis_a/workspace")
+   ws_b = AnalysisWorkspace.load("results/analysis_b/workspace")
+
+   result = ws_main.merge_from(ws_a)
+   print(f"Merged {result['merged']} items from A")
+
+   result = ws_main.merge_from(ws_b)
+   print(f"Merged {result['merged']} items from B, skipped {result['skipped']}")
+
+   ws_main.save("results/combined/workspace")
+
+By default, existing keys are kept and incoming duplicates are skipped. Pass
+``overwrite=True`` to replace existing items with the incoming values instead.

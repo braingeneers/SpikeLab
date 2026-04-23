@@ -3,13 +3,28 @@ Spike Sorting and Curation
 ==========================
 
 SpikeLab includes a spike-sorting pipeline in the ``spikelab.spike_sorting``
-sub-package. It supports three sorting algorithms — Kilosort2, Kilosort4, and
-RT-Sort — behind a unified interface. The pipeline returns curated
+sub-package. It supports three sorting algorithms — Kilosort2
+(Pachitariu et al. 2016), Kilosort4 (Pachitariu et al. 2024), and RT-Sort
+(Van der Molen et al. 2024) — behind a unified interface built on
+SpikeInterface (Buccino et al. 2020). The pipeline returns curated
 :class:`~spikelab.SpikeData` objects ready for downstream analysis.
 
 SpikeLab also provides standalone curation methods that can be used on any
 ``SpikeData`` object, whether it came from the sorting pipeline or from an
 external source.
+
+**References:**
+
+- Pachitariu, M., Steinmetz, N., Kadir, S., Carandini, M. & Harris, K. D.
+  Kilosort: realtime spike-sorting for extracellular electrophysiology with
+  hundreds of channels. *bioRxiv* (2016).
+- Pachitariu, M., Sridhar, S., Pennington, J. & Stringer, C. Spike sorting
+  with Kilosort4. *Nature Methods* 21, 914--921 (2024).
+- Van der Molen, T., Lim, M., Bartram, J. et al. RT-Sort: An action potential
+  propagation-based algorithm for real time spike detection and sorting with
+  millisecond latencies. *PLoS ONE* 19, e0312438 (2024).
+- Buccino, A. P., Hurwitz, C. L., Garcia, S. et al. SpikeInterface, a unified
+  framework for spike sorting. *eLife* 9, e61834 (2020).
 
 .. contents:: On this page
    :local:
@@ -139,6 +154,70 @@ waveforms). Control which stages are re-run with the ``recompute_*`` flags:
 
 See the :doc:`API reference </api/spike_sorting>` for the full configuration
 options.
+
+
+Stimulation Artifact Removal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When sorting recordings with electrical stimulation, stim artifacts must be
+removed before spike detection. SpikeLab provides
+:func:`~spikelab.spike_sorting.stim_sorting.artifact_removal.remove_stim_artifacts`
+for this purpose.
+
+Two methods are available:
+
+- **polynomial** (default) — fits a low-order polynomial to the
+  post-saturation artifact tail and subtracts it, preserving neural spikes
+  that ride on the artifact decay. Saturated samples are blanked (zeroed).
+- **blank** — zeros the entire artifact window. Simpler but discards any
+  spikes within the window.
+
+Stim times logged by the hardware may not align exactly with the artifact in
+the recording. Use
+:func:`~spikelab.spike_sorting.stim_sorting.recentering.recenter_stim_times`
+to find the true artifact onset:
+
+.. code-block:: python
+
+   from spikelab.spike_sorting.stim_sorting.recentering import recenter_stim_times
+   from spikelab.spike_sorting.stim_sorting.artifact_removal import remove_stim_artifacts
+
+   # Recenter stim times to the actual artifact onset
+   corrected_times = recenter_stim_times(
+       traces,                    # (channels, samples) raw voltage
+       stim_times_ms,             # logged stim times in ms
+       fs_Hz=20000,
+       peak_mode="down_edge",     # alignment mode for biphasic pulses
+   )
+
+   # Remove artifacts
+   cleaned, blanked_mask = remove_stim_artifacts(
+       traces,
+       corrected_times,
+       fs_Hz=20000,
+       method="polynomial",
+       artifact_window_ms=10.0,   # max tail duration after desaturation
+       poly_order=3,              # cubic polynomial (default)
+   )
+
+The ``peak_mode`` parameter controls how each artifact is aligned:
+
+- ``"abs_max"`` — largest absolute voltage (monophasic pulses)
+- ``"down_edge"`` — positive-to-negative zero-crossing (biphasic
+  anodic-first)
+- ``"up_edge"`` — negative-to-positive zero-crossing (biphasic
+  cathodic-first)
+- ``"pos_peak"`` / ``"neg_peak"`` — largest positive or most negative voltage
+
+When multiple stim events occur in rapid succession (e.g. burst or
+paired-pulse protocols), the module automatically detects whether the signal
+has returned to baseline between events and extends the blanking region
+across the entire burst if needed.
+
+The polynomial detrend approach is related to SALPA, adapted for offline use:
+
+- Wagenaar, D. A. & Potter, S. M. Real-time multi-channel stimulus artifact
+  suppression by local curve fitting. *J Neurosci Methods* 120, 113--120 (2002).
 
 
 Unit Curation

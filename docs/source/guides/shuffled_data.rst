@@ -3,8 +3,13 @@ Shuffled Data
 ==============
 
 SpikeLab provides methods for generating shuffled null distributions from spike
-train data. These are useful for testing whether observed patterns (e.g.
-correlations, synchrony metrics) exceed what would be expected by chance.
+train data using degree-preserving double-edge swaps (Okun et al. 2012). These
+are useful for testing whether observed patterns (e.g. correlations, synchrony
+metrics) exceed what would be expected by chance.
+
+- Okun, M., Yger, P., Marguet, S. L. et al. Population rate dynamics and
+  multineuron firing patterns in sensory cortex. *J Neurosci* 32, 17108--17119
+  (2012).
 
 .. contents:: On this page
    :local:

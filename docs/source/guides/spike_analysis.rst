@@ -261,6 +261,9 @@ coupling between individual units and the population:
 - ``delays`` — ``(N,)`` lag at which each unit's coupling peaks.
 - ``lags`` — ``(2*window_ms+1,)`` lag axis in ms.
 
+See Bimbard, C., Harris, K. D. & Carandini, M. Invariant activity sequences
+across the mouse brain. *bioRxiv* (2025).
+
 .. figure:: /_static/images/pop_coupling.png
    :width: 100%
    :alt: Population coupling strength distributions across conditions

@@ -18,7 +18,7 @@ Install the batch jobs optional dependencies:
 
 .. code-block:: bash
 
-   pip install -e ".[batch-jobs,s3]"
+   pip install spikelab[batch-jobs,s3]
 
 Ensure Kubernetes access is configured:
 

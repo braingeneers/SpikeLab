@@ -210,8 +210,13 @@ visualize one unit's spike times across all trials as a raster plot:
    times for one unit, aligned to the burst peak at time zero.
 
 
-Burst-to-Burst Correlations
------------------------------
+Slice-to-Slice Unit Correlations
+----------------------------------
+
+The slice-to-slice correlation methods described in this and the following
+section are based on Van Der Molen, T., Spaeth, A., Chini, M. et al.
+Preconfigured neuronal firing sequences in human brain organoids. *Nature
+Neuroscience* 29, 123--135 (2026).
 
 To measure how consistent each unit's activity pattern is across trials,
 use :meth:`~spikelab.RateSliceStack.get_slice_to_slice_unit_corr_from_stack`.
@@ -256,7 +261,6 @@ computes pairwise similarity between slices at each time bin, producing a
 .. code-block:: python
 
    corr_stack_time, av_corr_per_bin = rss.get_slice_to_slice_time_corr_from_stack(
-       max_lag=0,       # lag in bins (0 = instantaneous similarity)
        n_jobs=-1,       # parallel threads
    )
 
@@ -268,22 +272,23 @@ relative to the event. High values indicate that the population response is
 reproducible at that moment; lower values indicate more variable activity
 across slices.
 
-Plot the trace with
-:func:`~spikelab.spikedata.plot_utils.plot_percentile_bands` or as a simple
-line:
+Plot the trace with :func:`~spikelab.spikedata.plot_utils.plot_lines`:
 
 .. code-block:: python
 
-   import matplotlib.pyplot as plt
    import numpy as np
+   from spikelab.spikedata.plot_utils import plot_lines
 
    t_axis = np.arange(len(av_corr_per_bin)) - pre_ms
 
    fig, ax = plt.subplots(figsize=(6, 3))
-   ax.plot(t_axis, av_corr_per_bin)
-   ax.set_xlabel("Time from event (ms)")
-   ax.set_ylabel("Slice similarity")
-   ax.axvline(0, color="0.4", linewidth=0.5, linestyle="--")
+   plot_lines(
+       ax,
+       {"similarity": av_corr_per_bin},
+       x=t_axis,
+       xlabel="Time from event (ms)",
+       ylabel="Slice similarity",
+   )
 
 To overlay the average event-aligned population rate for context, use
 :meth:`~spikelab.SpikeData.plot_aligned_pop_rate`. This cuts the population

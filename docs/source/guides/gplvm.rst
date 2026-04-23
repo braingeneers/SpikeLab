@@ -4,8 +4,13 @@ GPLVM Analysis
 
 SpikeLab can fit a Gaussian Process Latent Variable Model (GPLVM) to spike
 train data, uncovering discrete latent states that describe the network's
-activity over time. This is useful for identifying recurring population
-dynamics such as UP/DOWN states or multi-state transitions.
+activity over time (Zheng et al. 2025). This is useful for identifying
+recurring population dynamics such as UP/DOWN states or multi-state
+transitions.
+
+- Zheng, Z., Zutshi, I., Huszar, R. et al. From labels to latents:
+  revealing state-dependent hippocampal computations with Jump Latent Variable
+  Model. *bioRxiv* (2025).
 
 .. note::
 
