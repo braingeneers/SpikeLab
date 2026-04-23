@@ -27,6 +27,25 @@ except ImportError:  # pragma: no cover
     ClientError = Exception
     NoCredentialsError = Exception
 
+def _build_s3_kwargs(
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    aws_session_token=None,
+    region_name=None,
+):
+    """Build boto3 client kwargs from optional credential parameters."""
+    kwargs = {}
+    if aws_access_key_id:
+        kwargs["aws_access_key_id"] = aws_access_key_id
+    if aws_secret_access_key:
+        kwargs["aws_secret_access_key"] = aws_secret_access_key
+    if aws_session_token:
+        kwargs["aws_session_token"] = aws_session_token
+    if region_name:
+        kwargs["region_name"] = region_name
+    return kwargs
+
+
 __all__ = [
     "is_s3_url",
     "parse_s3_url",
@@ -163,16 +182,9 @@ def download_from_s3(
 
     bucket, key = parse_s3_url(url)
 
-    s3_kwargs = {}
-    if aws_access_key_id:
-        s3_kwargs["aws_access_key_id"] = aws_access_key_id
-    if aws_secret_access_key:
-        s3_kwargs["aws_secret_access_key"] = aws_secret_access_key
-    if aws_session_token:
-        s3_kwargs["aws_session_token"] = aws_session_token
-    if region_name:
-        s3_kwargs["region_name"] = region_name
-
+    s3_kwargs = _build_s3_kwargs(
+        aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
+    )
     s3_client = boto3.client("s3", **s3_kwargs)
 
     if local_path is None:
@@ -247,15 +259,9 @@ def upload_to_s3(
 
     bucket, key = parse_s3_url(s3_url)
 
-    s3_kwargs = {}
-    if aws_access_key_id:
-        s3_kwargs["aws_access_key_id"] = aws_access_key_id
-    if aws_secret_access_key:
-        s3_kwargs["aws_secret_access_key"] = aws_secret_access_key
-    if aws_session_token:
-        s3_kwargs["aws_session_token"] = aws_session_token
-    if region_name:
-        s3_kwargs["region_name"] = region_name
+    s3_kwargs = _build_s3_kwargs(
+        aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
+    )
 
     s3_client = boto3.client("s3", **s3_kwargs)
 

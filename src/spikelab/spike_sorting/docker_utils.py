@@ -7,7 +7,6 @@ without manual image selection.
 """
 
 import subprocess
-from typing import Dict, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # CUDA driver → maximum supported toolkit version mapping
@@ -15,7 +14,7 @@ from typing import Dict, Optional, Tuple
 # ---------------------------------------------------------------------------
 # Each entry: (minimum_driver_version, cuda_toolkit_tag)
 # Ordered newest first; the first match wins.
-_DRIVER_TO_CUDA: list[Tuple[int, str]] = [
+_DRIVER_TO_CUDA: list[tuple[int, str]] = [
     (560, "cu130"),  # Driver 560+ → CUDA 13.0
     (550, "cu126"),  # Driver 550+ → CUDA 12.6
     (545, "cu124"),  # Driver 545+ → CUDA 12.4
@@ -28,7 +27,7 @@ _DRIVER_TO_CUDA: list[Tuple[int, str]] = [
 # Maps (sorter, cuda_tag) → full Docker image name.
 # When a cuda_tag has no entry, falls back to the newest available.
 # ---------------------------------------------------------------------------
-_IMAGE_REGISTRY: Dict[str, Dict[str, str]] = {
+_IMAGE_REGISTRY: dict[str, dict[str, str]] = {
     "kilosort2": {
         # KS2 uses compiled MATLAB Runtime — MW_CUDA_FORWARD_COMPATIBILITY
         # handles GPU compatibility, so one image works for all CUDA versions.
@@ -43,7 +42,7 @@ _IMAGE_REGISTRY: Dict[str, Dict[str, str]] = {
 }
 
 
-def get_host_cuda_driver_version() -> Optional[int]:
+def get_host_cuda_driver_version() -> int | None:
     """Query the host's NVIDIA driver major version.
 
     Returns:
@@ -62,7 +61,7 @@ def get_host_cuda_driver_version() -> Optional[int]:
         return None
 
 
-def get_host_cuda_tag() -> Optional[str]:
+def get_host_cuda_tag() -> str | None:
     """Determine the highest CUDA toolkit tag supported by the host driver.
 
     Returns:
@@ -78,7 +77,7 @@ def get_host_cuda_tag() -> Optional[str]:
     return None
 
 
-def get_docker_image(sorter: str, cuda_tag: Optional[str] = None) -> str:
+def get_docker_image(sorter: str, cuda_tag: str | None = None) -> str:
     """Select the best Docker image for a sorter and CUDA version.
 
     Parameters:

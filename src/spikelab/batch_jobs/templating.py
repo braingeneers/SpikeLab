@@ -100,6 +100,13 @@ def _apply_namespace_hooks(
 
 
 def _build_pod_volumes(mounts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicate volume mounts by name into pod volume specs.
+
+    First-writer-wins: when the same volume name appears in multiple
+    mounts, the first mount's secret_name/pvc_name is kept. Later
+    mounts only fill in missing fields (e.g., a mount with secret_name
+    followed by one with pvc_name merges both).
+    """
     volumes_by_name: Dict[str, Dict[str, Any]] = {}
     for mount in mounts:
         name = mount.get("name")

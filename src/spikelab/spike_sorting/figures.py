@@ -402,6 +402,8 @@ def _draw_templates_on_axes(
         return (0.0, 0.0)
 
     for template, peak_ind, curated in units:
+        if len(template) == 0:
+            continue
         shifted = template - y_offset
         x_ms = (np.arange(len(template)) - peak_ind) / fs_Hz * 1000.0
         color = color_curated if curated else color_failed

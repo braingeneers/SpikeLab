@@ -1509,19 +1509,18 @@ class TestRateDataCoreReview:
 
     def test_integer_input_array(self):
         """
-        Integer-typed inst_Frate_data. Downstream divisions could silently
-        produce integer-truncated results.
+        Integer-typed inst_Frate_data is converted to float.
 
         Tests:
             (Test Case 1) Integer array is accepted by the constructor.
-            (Test Case 2) Stored data preserves integer dtype.
-            (Test Case 3) get_pairwise_fr_corr on integer data does not crash.
+            (Test Case 2) Stored data is converted to float64.
+            (Test Case 3) get_pairwise_fr_corr on the data does not crash.
         """
         data = np.array([[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]])
         times = np.arange(5, dtype=float)
         rd = RateData(data, times)
-        assert rd.inst_Frate_data.dtype == np.int_
-        # Correlation should still work (division in float space)
+        assert rd.inst_Frate_data.dtype == np.float64
+        # Correlation works correctly with float data
         corr, lag = rd.get_pairwise_fr_corr(max_lag=0)
         assert corr.matrix.shape == (2, 2)
         assert not np.any(np.isnan(np.diag(corr.matrix)))

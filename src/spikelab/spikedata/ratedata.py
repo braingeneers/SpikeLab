@@ -76,7 +76,7 @@ class RateData:
 
         if not isinstance(times, np.ndarray):
             times = np.array(times)
-        self.inst_Frate_data = inst_Frate_data
+        self.inst_Frate_data = np.array(inst_Frate_data, dtype=float)
         self.times = times
         self.rate_unit = rate_unit
 

@@ -791,7 +791,7 @@ class WorkspaceManager:
         with self._lock:
             result = []
             for ws in self._workspaces.values():
-                index = ws._index if hasattr(ws, "_index") else ws._items
+                index = ws._index
                 item_count = sum(len(v) for v in index.values())
                 result.append(
                     {
