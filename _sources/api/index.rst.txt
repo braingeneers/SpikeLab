@@ -54,6 +54,14 @@ Spike Sorting and Curation
    spike_sorting
    curation
 
+Batch Jobs
+----------
+
+.. toctree::
+   :maxdepth: 2
+
+   batch_jobs
+
 Server
 ------
 

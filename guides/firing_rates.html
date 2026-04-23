@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Firing Rates and Correlations &mdash; SpikeLab 0.1.0 documentation</title>
+  <title>Instantaneous Firing Rates &mdash; SpikeLab 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -88,15 +88,18 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#unit-curation">Unit Curation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#curation-history">Curation history</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
@@ -110,16 +113,28 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Firing Rates and Correlations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#dimensionality-reduction">Dimensionality Reduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#correlation-matrices">Correlation Matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -128,16 +143,22 @@
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
-<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pairwise_analysis.html">Pairwise Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
@@ -179,6 +200,7 @@
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
@@ -192,31 +214,32 @@
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#retrieving-results">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id2">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
 </ul>
 </li>
 </ul>
@@ -339,7 +362,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
@@ -352,6 +379,21 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -379,7 +421,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Guides</a></li>
-      <li class="breadcrumb-item active">Firing Rates and Correlations</li>
+      <li class="breadcrumb-item active">Instantaneous Firing Rates</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/guides/firing_rates.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -389,194 +431,149 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="firing-rates-and-correlations">
-<h1>Firing Rates and Correlations<a class="headerlink" href="#firing-rates-and-correlations" title="Link to this heading"></a></h1>
+  <section id="instantaneous-firing-rates">
+<h1>Instantaneous Firing Rates<a class="headerlink" href="#instantaneous-firing-rates" title="Link to this heading"></a></h1>
 <p>This guide covers how to compute instantaneous firing rates from spike trains,
-build pairwise firing-rate correlation matrices, and compare correlation
-structure across experimental conditions. By the end you will be able to go from
-a <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> object to publication-ready correlation heatmaps
-and distribution plots.</p>
+project them into low-dimensional manifolds, and work with the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code> class. For pairwise firing-rate correlations, see
+the <a class="reference internal" href="pairwise_analysis.html"><span class="doc">Pairwise Analysis</span></a> guide.</p>
 <p>All examples assume you already have a <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> object
 loaded. See the <a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">Quick Start</span></a> for how to create one.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpikeData</span><span class="p">,</span> <span class="n">RateData</span>
 </pre></div>
 </div>
-<section id="instantaneous-firing-rates">
-<h2>Instantaneous Firing Rates<a class="headerlink" href="#instantaneous-firing-rates" title="Link to this heading"></a></h2>
+<section id="id1">
+<h2>Instantaneous Firing Rates<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <p>Mean firing rates (<code class="docutils literal notranslate"><span class="pre">sd.rates()</span></code>) give one number per unit, but many analyses
-require a time-resolved estimate. SpikeLab computes instantaneous firing rates
-by interpolating the inverse inter-spike interval at arbitrary time points and
+require a time-resolved estimate. SpikeLab provides two methods for computing
+per-unit instantaneous firing rate traces, both returning a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code> object.</p>
+<section id="isi-interpolation">
+<h3>ISI interpolation<a class="headerlink" href="#isi-interpolation" title="Link to this heading"></a></h3>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">resampled_isi()</span></code> estimates the instantaneous rate by
+interpolating the inverse inter-spike interval at a set of time points and
 smoothing with a Gaussian kernel:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="c1"># Define the time grid (e.g. every 1 ms across the recording)</span>
 <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
 
-<span class="c1"># Compute instantaneous firing rate matrix</span>
-<span class="n">fr_matrix</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span>
+<span class="n">rd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span>
     <span class="n">times</span><span class="p">,</span>
     <span class="n">sigma_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>   <span class="c1"># Gaussian smoothing kernel width (ms)</span>
 <span class="p">)</span>
-<span class="c1"># fr_matrix.shape == (sd.N, len(times))</span>
+<span class="c1"># rd.inst_Frate_data.shape == (sd.N, len(times))</span>
 </pre></div>
 </div>
-<p>The result is a <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">T)</span></code> NumPy array where each row is one unit’s smoothed
-firing rate over time. To work with this data using SpikeLab’s higher-level
-tools, wrap it in a <code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code> object:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">rd</span> <span class="o">=</span> <span class="n">RateData</span><span class="p">(</span><span class="n">fr_matrix</span><span class="p">,</span> <span class="n">times</span><span class="p">)</span>
+</section>
+<section id="sliding-window">
+<h3>Sliding window<a class="headerlink" href="#sliding-window" title="Link to this heading"></a></h3>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">sliding_rate()</span></code> computes rates by counting spikes in
+a centered sliding window and dividing by the window width. Both the
+sliding-window step and an additional Gaussian smoothing step are optional and
+can be used independently or in combination:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">rd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">sliding_rate</span><span class="p">(</span>
+    <span class="n">window_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>       <span class="c1"># sliding window width (ms)</span>
+    <span class="n">step_size</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># advance step (ms)</span>
+    <span class="n">gauss_sigma</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>     <span class="c1"># optional Gaussian smoothing (ms); 0 to disable</span>
+    <span class="n">apply_square</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># set False to skip the sliding window step</span>
+<span class="p">)</span>
+<span class="c1"># rd.inst_Frate_data.shape == (sd.N, T)</span>
+</pre></div>
+</div>
+<p>You can also specify <code class="docutils literal notranslate"><span class="pre">sampling_rate</span></code> instead of <code class="docutils literal notranslate"><span class="pre">step_size</span></code>
+(they are mutually exclusive).</p>
+</section>
+<section id="working-with-ratedata">
+<h3>Working with RateData<a class="headerlink" href="#working-with-ratedata" title="Link to this heading"></a></h3>
+<p>Both methods return a <code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code> object that carries the rate
+matrix together with its time axis. <code class="docutils literal notranslate"><span class="pre">RateData</span></code> supports unit and time
+subsetting (<code class="docutils literal notranslate"><span class="pre">rd.subset()</span></code>, <code class="docutils literal notranslate"><span class="pre">rd.subtime()</span></code>), and provides the correlation
+and dimensionality-reduction methods described below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateData</span>
+
 <span class="nb">print</span><span class="p">(</span><span class="n">rd</span><span class="o">.</span><span class="n">N</span><span class="p">)</span>                      <span class="c1"># number of units</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">rd</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (N, T)</span>
+
+<span class="c1"># Plot raster with firing rate heatmap</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+    <span class="n">show_raster</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">show_fr_rates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">fr_rates</span><span class="o">=</span><span class="n">rd</span><span class="o">.</span><span class="n">inst_Frate_data</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="xref py py-class docutils literal notranslate"><span class="pre">RateData</span></code> carries the rate matrix together with its time
-axis, supports unit and time subsetting (<code class="docutils literal notranslate"><span class="pre">rd.subset()</span></code>, <code class="docutils literal notranslate"><span class="pre">rd.subtime()</span></code>),
-and provides the correlation and dimensionality-reduction methods described
-below.</p>
-<figure class="align-default" id="id1">
+<figure class="align-default" id="id2">
 <a class="reference internal image-reference" href="../_images/raster_fr_heatmap_D0.png"><img alt="Spike raster with instantaneous firing rate heatmap" src="../_images/raster_fr_heatmap_D0.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Spike raster (top) and instantaneous firing rate heatmap (bottom) for an
 MEA recording. Each row in the heatmap is one unit; colour intensity
-reflects firing rate.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+reflects firing rate.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="dimensionality-reduction">
+<h2>Dimensionality Reduction<a class="headerlink" href="#dimensionality-reduction" title="Link to this heading"></a></h2>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_manifold()</span></code> projects the firing-rate matrix into a
+low-dimensional space using PCA or UMAP. This is useful for visualising
+population dynamics over time or comparing activity structure across
+conditions.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># PCA — returns (embedding, explained_variance_ratio, components)</span>
+<span class="n">embedding</span><span class="p">,</span> <span class="n">var_ratio</span><span class="p">,</span> <span class="n">components</span> <span class="o">=</span> <span class="n">rd</span><span class="o">.</span><span class="n">get_manifold</span><span class="p">(</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;PCA&quot;</span><span class="p">,</span>
+    <span class="n">n_components</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># embedding.shape == (T, 3) — one point per time bin</span>
+
+<span class="c1"># UMAP — returns (embedding, trustworthiness)</span>
+<span class="n">embedding</span><span class="p">,</span> <span class="n">trust</span> <span class="o">=</span> <span class="n">rd</span><span class="o">.</span><span class="n">get_manifold</span><span class="p">(</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;UMAP&quot;</span><span class="p">,</span>
+    <span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Visualise the embedding with
+<a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_manifold" title="spikelab.spikedata.plot_utils.plot_manifold"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_manifold()</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_manifold</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">plot_manifold</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">embedding</span><span class="p">,</span>
+    <span class="n">var_explained</span><span class="o">=</span><span class="n">var_ratio</span><span class="p">,</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">condition_labels</span><span class="p">,</span>       <span class="c1"># integer array (T,)</span>
+    <span class="n">group_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;D0&quot;</span><span class="p">,</span> <span class="s2">&quot;D3&quot;</span><span class="p">,</span> <span class="s2">&quot;D10&quot;</span><span class="p">,</span> <span class="s2">&quot;D30&quot;</span><span class="p">,</span> <span class="s2">&quot;D50&quot;</span><span class="p">],</span>
+    <span class="n">marker_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../_images/rate_pca_combined.png"><img alt="PCA embedding of firing rate dynamics" src="../_images/rate_pca_combined.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">PCA embedding of instantaneous firing rate dynamics across conditions.
+Each point is one time bin; colours indicate experimental conditions.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>
 <section id="pairwise-firing-rate-correlations">
 <h2>Pairwise Firing-Rate Correlations<a class="headerlink" href="#pairwise-firing-rate-correlations" title="Link to this heading"></a></h2>
-<p>A natural next step is to ask how similarly pairs of units modulate their
-firing over time. <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_pairwise_fr_corr()</span></code> computes the
-cross-correlation between every pair of units’ instantaneous rate traces:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">corr_matrix</span><span class="p">,</span> <span class="n">lag_matrix</span> <span class="o">=</span> <span class="n">rd</span><span class="o">.</span><span class="n">get_pairwise_fr_corr</span><span class="p">(</span>
-    <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>    <span class="c1"># maximum lag offset to search (in time bins)</span>
-    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># parallel threads (-1 = all cores)</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>Both return values are <a class="reference internal" href="../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix"><code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code></a>
-objects wrapping an <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> NumPy array:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">corr_matrix</span></code> — peak cross-correlation coefficient for each pair. The
-diagonal is always 1 (self-correlation).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lag_matrix</span></code> — lag (in bins) at which the peak correlation occurs. The
-diagonal is always 0 (self-lag).</p></li>
-</ul>
-<p>You can extract the lower triangle for summary statistics:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1-D array of all unique pairwise correlations</span>
-<span class="n">corr_values</span> <span class="o">=</span> <span class="n">corr_matrix</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median pairwise correlation: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">corr_values</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="correlation-matrices">
-<h2>Correlation Matrices<a class="headerlink" href="#correlation-matrices" title="Link to this heading"></a></h2>
-<p>Visualise the full <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> correlation matrix as a heatmap using the
-built-in <a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_heatmap" title="spikelab.spikedata.plot_utils.plot_heatmap"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a> utility:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_heatmap</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_heatmap</span><span class="p">(</span>
-    <span class="n">corr_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>
-    <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
-    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
-    <span class="n">cbar_label</span><span class="o">=</span><span class="s2">&quot;Correlation&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The correlation matrix can also be converted to a NetworkX graph for
-graph-theoretic analysis:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">G</span> <span class="o">=</span> <span class="n">corr_matrix</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nodes: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_nodes</span><span class="p">()</span><span class="si">}</span><span class="s2">, Edges: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_edges</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<figure class="align-default" id="id2">
-<a class="reference internal image-reference" href="../_images/fr_corr_matrices.png"><img alt="Firing-rate correlation matrices" src="../_images/fr_corr_matrices.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Pairwise firing-rate correlation matrices for multiple experimental
-conditions. Warm colours indicate positively correlated unit pairs; cool
-colours indicate anti-correlated pairs.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
-</figcaption>
-</figure>
-</section>
-<section id="cross-condition-comparisons">
-<h2>Cross-Condition Comparisons<a class="headerlink" href="#cross-condition-comparisons" title="Link to this heading"></a></h2>
-<p>When you have recordings from multiple conditions (e.g. baseline vs.
-treatment, or successive days in culture), comparing the distributions of
-pairwise correlations reveals changes in network coordination.</p>
-<p>First, compute correlations for each condition:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume sd_baseline and sd_treatment are SpikeData objects</span>
-<span class="n">times_base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd_baseline</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
-<span class="n">times_treat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd_treatment</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
-
-<span class="n">rd_base</span> <span class="o">=</span> <span class="n">RateData</span><span class="p">(</span><span class="n">sd_baseline</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">times_base</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">),</span> <span class="n">times_base</span><span class="p">)</span>
-<span class="n">rd_treat</span> <span class="o">=</span> <span class="n">RateData</span><span class="p">(</span><span class="n">sd_treatment</span><span class="o">.</span><span class="n">resampled_isi</span><span class="p">(</span><span class="n">times_treat</span><span class="p">,</span> <span class="n">sigma_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">),</span> <span class="n">times_treat</span><span class="p">)</span>
-
-<span class="n">corr_base</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rd_base</span><span class="o">.</span><span class="n">get_pairwise_fr_corr</span><span class="p">(</span><span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<span class="n">corr_treat</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rd_treat</span><span class="o">.</span><span class="n">get_pairwise_fr_corr</span><span class="p">(</span><span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Then visualise the distributions side by side using
-<a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_distribution" title="spikelab.spikedata.plot_utils.plot_distribution"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_distribution()</span></code></a>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_distribution</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-<span class="n">plot_distribution</span><span class="p">(</span>
-    <span class="n">ax</span><span class="p">,</span>
-    <span class="n">metric_data</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;Baseline&quot;</span><span class="p">:</span> <span class="n">corr_base</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
-        <span class="s2">&quot;Treatment&quot;</span><span class="p">:</span> <span class="n">corr_treat</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
-    <span class="p">},</span>
-    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;FR correlation&quot;</span><span class="p">,</span>
-    <span class="n">show_violin</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">show_box</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<figure class="align-default" id="id3">
-<a class="reference internal image-reference" href="../_images/fr_corr_violins.png"><img alt="Violin plots of pairwise FR correlations across conditions" src="../_images/fr_corr_violins.png" style="width: 100%;" />
-</a>
-<figcaption>
-<p><span class="caption-text">Distribution of pairwise firing-rate correlations for two experimental
-conditions. Shifts in the median or spread indicate changes in functional
-network connectivity.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
-</figcaption>
-</figure>
-<p>You can also threshold the correlation matrix and convert it to a NetworkX
-graph for graph-theoretic analysis:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">G</span> <span class="o">=</span> <span class="n">corr_base</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nodes: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_nodes</span><span class="p">()</span><span class="si">}</span><span class="s2">, Edges: </span><span class="si">{</span><span class="n">G</span><span class="o">.</span><span class="n">number_of_edges</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="temporal-trends-and-stability">
-<h2>Temporal Trends and Stability<a class="headerlink" href="#temporal-trends-and-stability" title="Link to this heading"></a></h2>
-<p>When comparing a metric across ordered slices (e.g. burst-aligned windows over
-time), two utility functions in <a class="reference internal" href="../api/utilities.html#module-spikelab.spikedata.utils" title="spikelab.spikedata.utils"><code class="xref py py-mod docutils literal notranslate"><span class="pre">spikelab.spikedata.utils</span></code></a> help quantify
-whether the metric drifts or remains stable:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">slice_trend</span><span class="p">,</span> <span class="n">slice_stability</span>
-
-<span class="c1"># values is a (S,) array — e.g. mean pairwise correlation per burst</span>
-<span class="n">slope</span><span class="p">,</span> <span class="n">p_value</span> <span class="o">=</span> <span class="n">slice_trend</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-<span class="n">cv</span> <span class="o">=</span> <span class="n">slice_stability</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_trend" title="spikelab.spikedata.utils.slice_trend"><code class="xref py py-func docutils literal notranslate"><span class="pre">slice_trend()</span></code></a> fits a linear regression across
-slices and returns the slope and its p-value. A significant slope indicates
-that the metric is drifting over the course of the recording.</p>
-<p><a class="reference internal" href="../api/utilities.html#spikelab.spikedata.utils.slice_stability" title="spikelab.spikedata.utils.slice_stability"><code class="xref py py-func docutils literal notranslate"><span class="pre">slice_stability()</span></code></a> returns the coefficient of
-variation (std / abs(mean)). Lower values indicate a more stable metric across
-slices.</p>
+<p>Once you have a <code class="docutils literal notranslate"><span class="pre">RateData</span></code> object, you can compute pairwise correlations
+between all unit pairs using
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">get_pairwise_fr_corr()</span></code>. See the
+<a class="reference internal" href="pairwise_analysis.html"><span class="doc">Pairwise Analysis</span></a> guide for full details, code examples, and
+visualisation of correlation matrices across conditions.</p>
 </section>
 <section id="further-reading">
 <h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="spike_analysis.html"><span class="doc">Spike Analysis</span></a> — population rate, burst detection, and per-unit
 spike train metrics.</p></li>
+<li><p><a class="reference internal" href="pairwise_analysis.html"><span class="doc">Pairwise Analysis</span></a> — pairwise firing-rate correlations, STTC,
+network analysis, and spatial network visualisation.</p></li>
 <li><p><a class="reference internal" href="../getting_started/quickstart.html"><span class="doc">Quick Start</span></a> — creating and loading
 <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> objects.</p></li>
 <li><p>The full <a class="reference internal" href="../api/ratedata.html"><span class="doc">RateData</span></a> API reference documents every method on

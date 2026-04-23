@@ -88,15 +88,18 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#unit-curation">Unit Curation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#curation-history">Curation history</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
@@ -110,16 +113,28 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Firing Rates and Correlations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -128,16 +143,22 @@
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
-<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Pairwise Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#firing-rate-correlations">Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#spatial-network-visualization">Spatial Network Visualization</a></li>
@@ -179,6 +200,7 @@
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
@@ -192,31 +214,32 @@
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#retrieving-results">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id2">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
 </ul>
 </li>
 </ul>
@@ -339,7 +362,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
@@ -352,6 +379,21 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -401,17 +443,22 @@ MEA layout.</p>
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">spike_time_tilings()</span></code>.</p></li>
 <li><p>Compare firing-rate correlation and STTC with scatter plots using marginal
 histograms.</p></li>
-<li><p>Convert a <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> to a NetworkX graph and
-run Louvain community detection.</p></li>
+<li><p>Convert a <code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code> to a NetworkX graph for
+graph analyses.</p></li>
 <li><p>Plot functional connectivity as a spatial network on MEA electrode
 positions.</p></li>
 </ul>
 <section id="spike-time-tiling-coefficient-sttc">
 <h2>Spike Time Tiling Coefficient (STTC)<a class="headerlink" href="#spike-time-tiling-coefficient-sttc" title="Link to this heading"></a></h2>
-<p>The STTC quantifies the temporal co-occurrence of spikes between two neurons.
-It ranges from -1 (anti-correlated) to +1 (perfectly coincident) and is
-unbiased with respect to firing rate, making it preferable to raw
-cross-correlation for comparing pairs with different activity levels.</p>
+<p>The STTC (Cutts &amp; Eglen 2014) quantifies the temporal co-occurrence of spikes
+between two neurons. It ranges from -1 (anti-correlated) to +1 (perfectly
+coincident) and is unbiased with respect to firing rate, making it preferable
+to raw cross-correlation for comparing pairs with different activity levels.</p>
+<ul class="simple">
+<li><p>Cutts, C. S. &amp; Eglen, S. J. Detecting pairwise correlations in spike trains:
+an objective comparison of methods and application to the study of retinal
+waves. <em>J Neurosci</em> 34, 14288–14303 (2014).</p></li>
+</ul>
 <p>The <code class="docutils literal notranslate"><span class="pre">delt</span></code> parameter sets the coincidence window in milliseconds.  A spike
 in neuron A is considered coincident with neuron B if any spike of B falls
 within <code class="docutils literal notranslate"><span class="pre">delt</span></code> ms.  Typical values range from 5 to 50 ms; 20 ms is a common
@@ -463,18 +510,95 @@ visualize them side by side:</p>
 <a class="reference internal image-reference" href="../_images/sttc_matrices.png"><img alt="STTC matrices for baseline and treated conditions" src="../_images/sttc_matrices.png" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Pairwise STTC matrices ordered by mean firing-rate correlation, showing
-changes in temporal co-firing between conditions.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+<p><span class="caption-text">Pairwise STTC matrices for two conditions (left, middle)
+and their difference (right).</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="firing-rate-correlations">
+<h2>Firing-Rate Correlations<a class="headerlink" href="#firing-rate-correlations" title="Link to this heading"></a></h2>
+<p>Firing-rate correlation measures how similarly pairs of units modulate their
+activity over time. See <a class="reference internal" href="firing_rates.html"><span class="doc">Instantaneous Firing Rates</span></a> for how to compute the
+instantaneous rate traces.</p>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_pairwise_fr_corr()</span></code> computes the peak
+cross-correlation between every pair of units’ rate traces:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">corr_matrix</span><span class="p">,</span> <span class="n">lag_matrix</span> <span class="o">=</span> <span class="n">rd</span><span class="o">.</span><span class="n">get_pairwise_fr_corr</span><span class="p">(</span>
+    <span class="n">max_lag</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>    <span class="c1"># maximum lag offset to search (in time bins)</span>
+    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>     <span class="c1"># parallel threads (-1 = all cores)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Both return values are <a class="reference internal" href="../api/pairwise.html#spikelab.spikedata.pairwise.PairwiseCompMatrix" title="spikelab.spikedata.pairwise.PairwiseCompMatrix"><code class="xref py py-class docutils literal notranslate"><span class="pre">PairwiseCompMatrix</span></code></a>
+objects wrapping an <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> NumPy array:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">corr_matrix</span></code> — peak cross-correlation coefficient for each pair. The
+diagonal is always 1 (self-correlation).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lag_matrix</span></code> — lag (in bins) at which the peak correlation occurs. The
+diagonal is always 0 (self-lag).</p></li>
+</ul>
+<p>You can extract the lower triangle for summary statistics:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1-D array of all unique pairwise correlations</span>
+<span class="n">corr_values</span> <span class="o">=</span> <span class="n">corr_matrix</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median pairwise correlation: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">corr_values</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Visualise the full <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> correlation matrix as a heatmap:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_heatmap</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plot_heatmap</span><span class="p">(</span>
+    <span class="n">corr_matrix</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;Unit&quot;</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="o">=</span><span class="s2">&quot;Correlation&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<a class="reference internal image-reference" href="../_images/fr_corr_matrices.png"><img alt="Firing-rate correlation matrices" src="../_images/fr_corr_matrices.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Pairwise firing-rate correlation matrices for two conditions (left, middle)
+and their difference (right).</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>To compare distributions across conditions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spikedata.plot_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_distribution</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">plot_distribution</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">metric_data</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;D0&quot;</span><span class="p">:</span> <span class="n">corr_d0</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
+        <span class="s2">&quot;D3&quot;</span><span class="p">:</span> <span class="n">corr_d3</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
+        <span class="s2">&quot;D10&quot;</span><span class="p">:</span> <span class="n">corr_d10</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
+        <span class="s2">&quot;D30&quot;</span><span class="p">:</span> <span class="n">corr_d30</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
+        <span class="s2">&quot;D50&quot;</span><span class="p">:</span> <span class="n">corr_d50</span><span class="o">.</span><span class="n">extract_lower_triangle</span><span class="p">(),</span>
+    <span class="p">},</span>
+    <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;FR correlation&quot;</span><span class="p">,</span>
+    <span class="n">show_violin</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">show_box</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../_images/fr_corr_violins.png"><img alt="Violin plots of pairwise FR correlations across conditions" src="../_images/fr_corr_violins.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Distribution of pairwise firing-rate correlations for the different
+experimental conditions. Shifts in the median or spread indicate changes
+in functional network connectivity.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>
 <section id="fr-correlation-vs-sttc-scatter">
 <h2>FR Correlation vs STTC Scatter<a class="headerlink" href="#fr-correlation-vs-sttc-scatter" title="Link to this heading"></a></h2>
 <p>Firing-rate correlation and STTC capture different aspects of functional
-connectivity.  Firing-rate correlation reflects co-modulation on slower
-timescales, while STTC captures millisecond-precision coincidences.
-Plotting one against the other reveals whether tightly synchronized pairs
-also share slow rate fluctuations.</p>
+connectivity. You can plot one against the other to see how they compare.</p>
 <p>Use <a class="reference internal" href="../api/plot_utils.html#spikelab.spikedata.plot_utils.plot_scatter_with_marginals" title="spikelab.spikedata.plot_utils.plot_scatter_with_marginals"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_scatter_with_marginals()</span></code></a> to
 create a scatter plot with marginal histograms.  The function accepts a
 <code class="docutils literal notranslate"><span class="pre">GridSpec</span></code> slot and a parent figure, so you can embed multiple panels in a
@@ -511,13 +635,13 @@ single layout:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<figure class="align-default" id="id2">
+<figure class="align-default" id="id4">
 <a class="reference internal image-reference" href="../_images/fr_vs_sttc_scatter.png"><img alt="Scatter plot of firing-rate correlation vs STTC with marginal histograms" src="../_images/fr_vs_sttc_scatter.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Each point is one unit pair.  Density coloring highlights the core of the
 distribution.  The identity line shows where the two metrics would agree
-perfectly.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+perfectly.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>
@@ -627,13 +751,13 @@ scale varies across conditions:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<figure class="align-default" id="id3">
+<figure class="align-default" id="id5">
 <a class="reference internal image-reference" href="../_images/mea_network_D0.png"><img alt="Spatial network of functional connectivity on the MEA layout" src="../_images/mea_network_D0.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Units plotted at their MEA positions.  Node size and color reflect mean
 pairwise connectivity; red lines connect pairs exceeding the threshold,
-with line opacity proportional to edge strength.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+with line opacity proportional to edge strength.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 </section>

@@ -88,15 +88,18 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#curation-history">Curation history</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -110,16 +113,28 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -128,16 +143,22 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
@@ -179,6 +200,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
@@ -192,31 +214,32 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_docker_workflow.html">Batch Docker Workflow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#base-images">Base images</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#artifacts">Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#current-checks">Current checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#id2">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/artifact_packaging_zip.html">Artifact Packaging</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/artifact_packaging_zip.html#flow">Flow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/artifact_packaging_zip.html#python-api-example">Python API example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
 </ul>
 </li>
 </ul>
@@ -339,7 +362,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
@@ -352,6 +379,21 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -415,29 +457,45 @@ Install only what you need:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ml</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">io</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[io]</span></code></p></td>
+<td><p>pandas (KiloSort cluster info, IBL queries)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ml</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[ml]</span></code></p></td>
 <td><p>scikit-learn, umap-learn, networkx, python-louvain</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">neo</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">neo</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[neo]</span></code></p></td>
 <td><p>neo, quantities, pynwb</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">numba</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">numba</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[numba]</span></code></p></td>
 <td><p>numba (JIT-compiled analysis functions)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">s3</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">s3</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[s3]</span></code></p></td>
 <td><p>boto3 (Amazon S3 access)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spike-sorting</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[spike-sorting]</span></code></p></td>
-<td><p>spikeinterface, natsort, six (Kilosort2 pipeline)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gplvm</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[gplvm]</span></code></p></td>
 <td><p>poor-man-gplvm, jax, jaxlib, jaxopt, optax</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spike-sorting</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[spike-sorting]</span></code></p></td>
+<td><p>spikeinterface, natsort, six, pandas</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">kilosort4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[kilosort4]</span></code></p></td>
+<td><p>kilosort (PyTorch + CUDA must be installed separately)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">batch-jobs</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[batch-jobs]</span></code></p></td>
+<td><p>pydantic, PyYAML, Jinja2, kubernetes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mcp</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[mcp]</span></code></p></td>
+<td><p>mcp (Model Context Protocol server)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">spikelab[all]</span></code></p></td>

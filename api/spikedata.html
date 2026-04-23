@@ -88,15 +88,18 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#unit-curation">Unit Curation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_sorting.html#curation-history">Curation history</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_sorting.html#handling-sort-failures">Handling Sort Failures</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/spike_analysis.html">Spike Analysis</a><ul>
@@ -110,16 +113,28 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Firing Rates and Correlations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -128,16 +143,22 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/pairwise_analysis.html">Pairwise Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
@@ -179,6 +200,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#saving-and-loading">Saving and Loading</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../guides/mcp_server.html">MCP Server</a><ul>
@@ -192,31 +214,32 @@
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp_server.html#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_docker_workflow.html">Batch Docker Workflow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#base-images">Base images</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_docker_workflow.html#artifacts">Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#retrieving-results">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#current-checks">Current checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#id2">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../guides/artifact_packaging_zip.html">Artifact Packaging</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../guides/artifact_packaging_zip.html#flow">Flow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../guides/artifact_packaging_zip.html#python-api-example">Python API example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
 </ul>
 </li>
 </ul>
@@ -339,7 +362,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="curation.html">Curation</a><ul>
@@ -352,6 +379,21 @@
 <li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -1925,14 +1967,14 @@ applied to the coupling curves.</p></li>
 (in bins).</p></li>
 <li><p><strong>burst_edge_mult_thresh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Threshold multiplier for burst
 edge detection.</p></li>
-<li><p><strong>square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Square window width for calculating pop_rate
-(in bins).</p></li>
-<li><p><strong>gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Gaussian window sigma for calculating
-pop_rate (in bins).</p></li>
-<li><p><strong>acc_square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Square window width for calculating
-pop_rate_acc (in bins).</p></li>
-<li><p><strong>acc_gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Gaussian window sigma for calculating
-pop_rate_acc (in bins).</p></li>
+<li><p><strong>square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Square window width for calculating pop_rate
+(in milliseconds).</p></li>
+<li><p><strong>gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Gaussian window sigma for calculating
+pop_rate (in milliseconds).</p></li>
+<li><p><strong>acc_square_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Square window width for calculating
+pop_rate_acc (in milliseconds).</p></li>
+<li><p><strong>acc_gauss_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Gaussian window sigma for calculating
+pop_rate_acc (in milliseconds).</p></li>
 <li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time bin size for calculating
 population rate in ms.</p></li>
 <li><p><strong>peak_to_trough</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Flag to calculate bursts peak-to-trough
@@ -1947,14 +1989,11 @@ threshold baseline.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Time bin indices of detected bursts.
-edges (numpy.ndarray): Time bin indices of burst edges, shape</p>
+edges (numpy.ndarray): Burst edge indices, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code>.
+peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding</p>
 <blockquote>
-<div><p>(N, 2).</p>
+<div><p>array indices.</p>
 </div></blockquote>
-<dl class="simple">
-<dt>peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding</dt><dd><p>array indices.</p>
-</dd>
-</dl>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -1968,9 +2007,9 @@ calculate using squared widths and sigmas.</p></li>
 <li><p>Using the peak-to-zero calculations may result in several
 bursts being detected at one peak.</p></li>
 <li><p>Returned time bin indices are relative to bin 0 of the raster.
-For event-centered data (start_time &lt; 0), add start_time to
-convert bin indices to event-relative times:
-<code class="docutils literal notranslate"><span class="pre">event_relative_ms</span> <span class="pre">=</span> <span class="pre">tburst</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span> <span class="pre">start_time</span></code>.</p></li>
+For event-centered data (<code class="docutils literal notranslate"><span class="pre">start_time</span> <span class="pre">&lt;</span> <span class="pre">0</span></code>), convert to
+event-relative ms via
+<code class="docutils literal notranslate"><span class="pre">tburst</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span> <span class="pre">start_time</span></code>.</p></li>
 </ul>
 </dd></dl>
 

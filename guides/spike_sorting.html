@@ -88,15 +88,18 @@
 <li class="toctree-l4"><a class="reference internal" href="#configuration-and-presets">Configuration and presets</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#multi-stream-recordings">Multi-stream recordings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#reusing-intermediate-results">Reusing intermediate results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#stimulation-artifact-removal">Stimulation Artifact Removal</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#unit-curation">Unit Curation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#individual-criteria">Individual criteria</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#merge-based-deduplication">Merge-based deduplication</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#batch-curation">Batch curation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#curation-history">Curation history</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#splitting-concatenated-recordings">Splitting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sorting-concatenated-recordings">Sorting Concatenated Recordings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#handling-sort-failures">Handling Sort Failures</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="spike_analysis.html">Spike Analysis</a><ul>
@@ -110,16 +113,28 @@
 <li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#spike-triggered-population-rate">Spike-triggered population rate</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#per-unit-burst-participation">Per-Unit Burst Participation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#burst-participation-per-unit">Burst Participation per Unit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#fraction-of-spikes-in-bursts">Fraction of Spikes in Bursts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#selecting-and-combining-data">Selecting and Combining Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#unit-selection">Unit selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#time-selection">Time selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#appending-recordings">Appending recordings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="spike_analysis.html#combining-units">Combining units</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#pairwise-metrics">Pairwise Metrics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spike_analysis.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Firing Rates and Correlations</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#instantaneous-firing-rates">Instantaneous Firing Rates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="firing_rates.html">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#id1">Instantaneous Firing Rates</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#isi-interpolation">ISI interpolation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#sliding-window">Sliding window</a></li>
+<li class="toctree-l4"><a class="reference internal" href="firing_rates.html#working-with-ratedata">Working with RateData</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#dimensionality-reduction">Dimensionality Reduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#pairwise-firing-rate-correlations">Pairwise Firing-Rate Correlations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#correlation-matrices">Correlation Matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#cross-condition-comparisons">Cross-Condition Comparisons</a></li>
-<li class="toctree-l3"><a class="reference internal" href="firing_rates.html#temporal-trends-and-stability">Temporal Trends and Stability</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firing_rates.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
@@ -128,16 +143,22 @@
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rateslicestack">RateSliceStack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#spikeslicestack">SpikeSliceStack</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#applying-a-function-across-slices">Applying a function across slices</a></li>
-<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#trimming-the-time-axis">Trimming the time axis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#subsetting-slice-stacks">Subsetting slice stacks</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#burst-to-burst-correlations">Burst-to-Burst Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-unit-correlations">Slice-to-Slice Unit Correlations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#slice-to-slice-time-correlations">Slice-to-Slice Time Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#unit-to-unit-pca">Unit-to-Unit PCA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#rank-order-analysis">Rank-Order Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="event_aligned_analysis.html#temporal-trends-and-stability">Temporal Trends and Stability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="event_aligned_analysis.html#shuffled-null-distributions">Shuffled Null Distributions</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pairwise_analysis.html">Pairwise Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spike-time-tiling-coefficient-sttc">Spike Time Tiling Coefficient (STTC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#firing-rate-correlations">Firing-Rate Correlations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#fr-correlation-vs-sttc-scatter">FR Correlation vs STTC Scatter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#network-analysis">Network Analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pairwise_analysis.html#spatial-network-visualization">Spatial Network Visualization</a></li>
@@ -179,6 +200,7 @@
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#saving-and-loading">Saving and Loading</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#listing-and-retrieving">Listing and Retrieving</a></li>
 <li class="toctree-l3"><a class="reference internal" href="workspace.html#lazy-loading">Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workspace.html#merging-workspaces">Merging Workspaces</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
@@ -192,31 +214,32 @@
 <li class="toctree-l3"><a class="reference internal" href="mcp_server.html#workspace-addressing">Workspace addressing</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_jobs_quickstart.html">Batch Jobs Quickstart</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#minimal-job-config">Minimal job config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#dry-run-render">Dry-run render</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#deploy-and-monitor">Deploy and monitor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#using-a-cluster-profile">Using a cluster profile</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_jobs_quickstart.html#s3-destination">S3 destination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parallel_computing.html">Parallel Computing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#thread-pool-parallelism">Thread-Pool Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parallel_computing.html#numba-acceleration">Numba Acceleration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_docker_workflow.html">Batch Docker Workflow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#base-images">Base images</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#temporary-image-workflow">Temporary image workflow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#smoke-check-render-and-deploy">Smoke-check render and deploy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_docker_workflow.html#artifacts">Artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#setting-up-a-session">Setting Up a Session</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#analysis-jobs">Analysis Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#submitting">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#writing-an-analysis-script">Writing an analysis script</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#retrieving-results">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="batch_policy_guardrails.html">Batch Policy Guardrails</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#current-checks">Current checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#override-behavior">Override behavior</a></li>
-<li class="toctree-l3"><a class="reference internal" href="batch_policy_guardrails.html#operational-guidance">Operational guidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#sorting-jobs">Sorting Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id1">Submitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#id2">Retrieving results</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="artifact_packaging_zip.html">Artifact Packaging</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#flow">Flow</a></li>
-<li class="toctree-l3"><a class="reference internal" href="artifact_packaging_zip.html#python-api-example">Python API example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#policy-guardrails">Policy Guardrails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#docker-images">Docker Images</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#base-images">Base images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="batch_jobs.html#temporary-images">Temporary images</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="batch_jobs.html#monitoring-jobs">Monitoring Jobs</a></li>
 </ul>
 </li>
 </ul>
@@ -339,7 +362,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#spike-sorting-and-curation">Spike Sorting and Curation</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/spike_sorting.html">Spike Sorting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#sort-with-kilosort2">sort_with_kilosort2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#entry-points">Entry Points</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.config">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#module-spikelab.spike_sorting.backends">Backend Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#classified-exceptions">Classified Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/spike_sorting.html#post-failure-classifiers">Post-Failure Classifiers</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/curation.html">Curation</a><ul>
@@ -352,6 +379,21 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate"><code class="docutils literal notranslate"><span class="pre">curate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.build_curation_history"><code class="docutils literal notranslate"><span class="pre">build_curation_history()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/curation.html#spikelab.spikedata.curation.curate_by_merge_duplicates"><code class="docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#batch-jobs">Batch Jobs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/batch_jobs.html">Batch Jobs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#policy-engine">Policy Engine</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.profiles">Profile Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#run-session">Run Session</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.backend_k8s">Kubernetes Backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.storage_s3">S3 Storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.artifact_packager">Artifact Packager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.credentials">Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/batch_jobs.html#module-spikelab.batch_jobs.validation">Validation</a></li>
 </ul>
 </li>
 </ul>
@@ -392,12 +434,27 @@
   <section id="spike-sorting-and-curation">
 <h1>Spike Sorting and Curation<a class="headerlink" href="#spike-sorting-and-curation" title="Link to this heading"></a></h1>
 <p>SpikeLab includes a spike-sorting pipeline in the <code class="docutils literal notranslate"><span class="pre">spikelab.spike_sorting</span></code>
-sub-package. It supports three sorting algorithms — Kilosort2, Kilosort4, and
-RT-Sort — behind a unified interface. The pipeline returns curated
+sub-package. It supports three sorting algorithms — Kilosort2
+(Pachitariu et al. 2016), Kilosort4 (Pachitariu et al. 2024), and RT-Sort
+(Van der Molen et al. 2024) — behind a unified interface built on
+SpikeInterface (Buccino et al. 2020). The pipeline returns curated
 <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> objects ready for downstream analysis.</p>
 <p>SpikeLab also provides standalone curation methods that can be used on any
 <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> object, whether it came from the sorting pipeline or from an
 external source.</p>
+<p><strong>References:</strong></p>
+<ul class="simple">
+<li><p>Pachitariu, M., Steinmetz, N., Kadir, S., Carandini, M. &amp; Harris, K. D.
+Kilosort: realtime spike-sorting for extracellular electrophysiology with
+hundreds of channels. <em>bioRxiv</em> (2016).</p></li>
+<li><p>Pachitariu, M., Sridhar, S., Pennington, J. &amp; Stringer, C. Spike sorting
+with Kilosort4. <em>Nature Methods</em> 21, 914–921 (2024).</p></li>
+<li><p>Van der Molen, T., Lim, M., Bartram, J. et al. RT-Sort: An action potential
+propagation-based algorithm for real time spike detection and sorting with
+millisecond latencies. <em>PLoS ONE</em> 19, e0312438 (2024).</p></li>
+<li><p>Buccino, A. P., Hurwitz, C. L., Garcia, S. et al. SpikeInterface, a unified
+framework for spike sorting. <em>eLife</em> 9, e61834 (2020).</p></li>
+</ul>
 <nav class="contents local" id="on-this-page">
 <p class="topic-title">On this page</p>
 <ul class="simple">
@@ -408,16 +465,19 @@ external source.</p>
 <li><p><a class="reference internal" href="#configuration-and-presets" id="id4">Configuration and presets</a></p></li>
 <li><p><a class="reference internal" href="#multi-stream-recordings" id="id5">Multi-stream recordings</a></p></li>
 <li><p><a class="reference internal" href="#reusing-intermediate-results" id="id6">Reusing intermediate results</a></p></li>
+<li><p><a class="reference internal" href="#stimulation-artifact-removal" id="id7">Stimulation Artifact Removal</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#unit-curation" id="id7">Unit Curation</a></p>
+<li><p><a class="reference internal" href="#unit-curation" id="id8">Unit Curation</a></p>
 <ul>
-<li><p><a class="reference internal" href="#individual-criteria" id="id8">Individual criteria</a></p></li>
-<li><p><a class="reference internal" href="#batch-curation" id="id9">Batch curation</a></p></li>
-<li><p><a class="reference internal" href="#curation-history" id="id10">Curation history</a></p></li>
+<li><p><a class="reference internal" href="#individual-criteria" id="id9">Individual criteria</a></p></li>
+<li><p><a class="reference internal" href="#merge-based-deduplication" id="id10">Merge-based deduplication</a></p></li>
+<li><p><a class="reference internal" href="#batch-curation" id="id11">Batch curation</a></p></li>
+<li><p><a class="reference internal" href="#curation-history" id="id12">Curation history</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#splitting-concatenated-recordings" id="id11">Splitting Concatenated Recordings</a></p></li>
+<li><p><a class="reference internal" href="#sorting-concatenated-recordings" id="id13">Sorting Concatenated Recordings</a></p></li>
+<li><p><a class="reference internal" href="#handling-sort-failures" id="id14">Handling Sort Failures</a></p></li>
 </ul>
 </nav>
 <section id="spike-sorting">
@@ -439,7 +499,7 @@ missing.</p>
 </section>
 <section id="basic-usage">
 <h3><a class="toc-backref" href="#id3" role="doc-backlink">Basic usage</a><a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h3>
-<p>The main entry point is <code class="xref py py-func docutils literal notranslate"><span class="pre">sort_recording()</span></code>, which
+<p>The main entry point is <a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting.sort_recording" title="spikelab.spike_sorting.sort_recording"><code class="xref py py-func docutils literal notranslate"><span class="pre">sort_recording()</span></code></a>, which
 accepts a list of recording files and returns a list of
 <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> objects:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_recording</span>
@@ -459,7 +519,7 @@ accepts a list of recording files and returns a list of
 </section>
 <section id="configuration-and-presets">
 <h3><a class="toc-backref" href="#id4" role="doc-backlink">Configuration and presets</a><a class="headerlink" href="#configuration-and-presets" title="Link to this heading"></a></h3>
-<p>The pipeline is configured via a <code class="xref py py-class docutils literal notranslate"><span class="pre">SortingPipelineConfig</span></code>
+<p>The pipeline is configured via a <a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting.config.SortingPipelineConfig" title="spikelab.spike_sorting.config.SortingPipelineConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">SortingPipelineConfig</span></code></a>
 dataclass composed of sub-configs for recording I/O, sorting, curation,
 waveform extraction, and execution. Pre-built presets provide sensible defaults:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">KILOSORT4</span>
@@ -495,7 +555,7 @@ waveform extraction, and execution. Pre-built presets provide sensible defaults:
 <section id="multi-stream-recordings">
 <h3><a class="toc-backref" href="#id5" role="doc-backlink">Multi-stream recordings</a><a class="headerlink" href="#multi-stream-recordings" title="Link to this heading"></a></h3>
 <p>For multi-stream files (e.g. Maxwell multi-well <code class="docutils literal notranslate"><span class="pre">.raw.h5</span></code>), use
-<code class="xref py py-func docutils literal notranslate"><span class="pre">sort_multistream()</span></code>:</p>
+<a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting.sort_multistream" title="spikelab.spike_sorting.sort_multistream"><code class="xref py py-func docutils literal notranslate"><span class="pre">sort_multistream()</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_multistream</span>
 
 <span class="n">stream_results</span> <span class="o">=</span> <span class="n">sort_multistream</span><span class="p">(</span>
@@ -526,9 +586,68 @@ waveforms). Control which stages are re-run with the <code class="docutils liter
 <p>See the <a class="reference internal" href="../api/spike_sorting.html"><span class="doc">API reference</span></a> for the full configuration
 options.</p>
 </section>
+<section id="stimulation-artifact-removal">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Stimulation Artifact Removal</a><a class="headerlink" href="#stimulation-artifact-removal" title="Link to this heading"></a></h3>
+<p>When sorting recordings with electrical stimulation, stim artifacts must be
+removed before spike detection. SpikeLab provides
+<code class="xref py py-func docutils literal notranslate"><span class="pre">remove_stim_artifacts()</span></code>
+for this purpose.</p>
+<p>Two methods are available:</p>
+<ul class="simple">
+<li><p><strong>polynomial</strong> (default) — fits a low-order polynomial to the
+post-saturation artifact tail and subtracts it, preserving neural spikes
+that ride on the artifact decay. Saturated samples are blanked (zeroed).</p></li>
+<li><p><strong>blank</strong> — zeros the entire artifact window. Simpler but discards any
+spikes within the window.</p></li>
+</ul>
+<p>Stim times logged by the hardware may not align exactly with the artifact in
+the recording. Use
+<code class="xref py py-func docutils literal notranslate"><span class="pre">recenter_stim_times()</span></code>
+to find the true artifact onset:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting.stim_sorting.recentering</span><span class="w"> </span><span class="kn">import</span> <span class="n">recenter_stim_times</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting.stim_sorting.artifact_removal</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_stim_artifacts</span>
+
+<span class="c1"># Recenter stim times to the actual artifact onset</span>
+<span class="n">corrected_times</span> <span class="o">=</span> <span class="n">recenter_stim_times</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>                    <span class="c1"># (channels, samples) raw voltage</span>
+    <span class="n">stim_times_ms</span><span class="p">,</span>             <span class="c1"># logged stim times in ms</span>
+    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+    <span class="n">peak_mode</span><span class="o">=</span><span class="s2">&quot;down_edge&quot;</span><span class="p">,</span>     <span class="c1"># alignment mode for biphasic pulses</span>
+<span class="p">)</span>
+
+<span class="c1"># Remove artifacts</span>
+<span class="n">cleaned</span><span class="p">,</span> <span class="n">blanked_mask</span> <span class="o">=</span> <span class="n">remove_stim_artifacts</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>
+    <span class="n">corrected_times</span><span class="p">,</span>
+    <span class="n">fs_Hz</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+    <span class="n">artifact_window_ms</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>   <span class="c1"># max tail duration after desaturation</span>
+    <span class="n">poly_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>              <span class="c1"># cubic polynomial (default)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">peak_mode</span></code> parameter controls how each artifact is aligned:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;abs_max&quot;</span></code> — largest absolute voltage (monophasic pulses)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;down_edge&quot;</span></code> — positive-to-negative zero-crossing (biphasic
+anodic-first)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;up_edge&quot;</span></code> — negative-to-positive zero-crossing (biphasic
+cathodic-first)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;pos_peak&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;neg_peak&quot;</span></code> — largest positive or most negative voltage</p></li>
+</ul>
+<p>When multiple stim events occur in rapid succession (e.g. burst or
+paired-pulse protocols), the module automatically detects whether the signal
+has returned to baseline between events and extends the blanking region
+across the entire burst if needed.</p>
+<p>The polynomial detrend approach is related to SALPA, adapted for offline use:</p>
+<ul class="simple">
+<li><p>Wagenaar, D. A. &amp; Potter, S. M. Real-time multi-channel stimulus artifact
+suppression by local curve fitting. <em>J Neurosci Methods</em> 120, 113–120 (2002).</p></li>
+</ul>
+</section>
 </section>
 <section id="unit-curation">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Unit Curation</a><a class="headerlink" href="#unit-curation" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Unit Curation</a><a class="headerlink" href="#unit-curation" title="Link to this heading"></a></h2>
 <p>SpikeLab provides curation methods that filter units by quality metrics.
 These work on any <code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeData</span></code> object — not just output from
 the sorting pipeline.</p>
@@ -540,7 +659,7 @@ original units.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;passed&quot;</span></code> — <code class="docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">(N,)</span></code> boolean mask of units that passed.</p></li>
 </ul>
 <section id="individual-criteria">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink">Individual criteria</a><a class="headerlink" href="#individual-criteria" title="Link to this heading"></a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Individual criteria</a><a class="headerlink" href="#individual-criteria" title="Link to this heading"></a></h3>
 <p>Apply a single quality criterion at a time:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Remove units with fewer than 50 spikes</span>
 <span class="n">sd_curated</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">curate_by_min_spikes</span><span class="p">(</span><span class="n">min_spikes</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
@@ -569,8 +688,29 @@ metrics have not been pre-computed, call
 </pre></div>
 </div>
 </section>
+<section id="merge-based-deduplication">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Merge-based deduplication</a><a class="headerlink" href="#merge-based-deduplication" title="Link to this heading"></a></h3>
+<p>When spike sorting produces duplicate units for the same neuron recorded on
+adjacent electrodes, you can merge them using
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">curate_by_merge_duplicates()</span></code>. This finds spatially
+nearby unit pairs, filters by ISI violation rate and waveform cosine
+similarity, then greedily merges accepted pairs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sd_merged</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">curate_by_merge_duplicates</span><span class="p">(</span>
+    <span class="n">dist_um</span><span class="o">=</span><span class="mf">24.8</span><span class="p">,</span>            <span class="c1"># max inter-electrode distance in um</span>
+    <span class="n">cosine_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>    <span class="c1"># min waveform similarity</span>
+    <span class="n">max_isi_increase</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>   <span class="c1"># reject merge if ISI violations rise too much</span>
+<span class="p">)</span>
+
+<span class="n">n_absorbed</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;passed&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Merged </span><span class="si">{</span><span class="n">n_absorbed</span><span class="si">}</span><span class="s2"> duplicate units&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This requires <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> with position and <code class="docutils literal notranslate"><span class="pre">avg_waveform</span></code> entries,
+which are set automatically when the <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> comes from the sorting
+pipeline.</p>
+</section>
 <section id="batch-curation">
-<h3><a class="toc-backref" href="#id9" role="doc-backlink">Batch curation</a><a class="headerlink" href="#batch-curation" title="Link to this heading"></a></h3>
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Batch curation</a><a class="headerlink" href="#batch-curation" title="Link to this heading"></a></h3>
 <p>To apply multiple criteria in one call, use
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">curate()</span></code>. Only criteria with non-<code class="docutils literal notranslate"><span class="pre">None</span></code> values
 are applied:</p>
@@ -589,7 +729,7 @@ are applied:</p>
 </div>
 </section>
 <section id="curation-history">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">Curation history</a><a class="headerlink" href="#curation-history" title="Link to this heading"></a></h3>
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Curation history</a><a class="headerlink" href="#curation-history" title="Link to this heading"></a></h3>
 <p>For reproducibility, build a serialisable record of what was removed and why:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">history</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">build_curation_history</span><span class="p">(</span>
     <span class="n">sd_original</span><span class="o">=</span><span class="n">sd_raw</span><span class="p">,</span>
@@ -602,8 +742,8 @@ are applied:</p>
 saved alongside the curated data.</p>
 </section>
 </section>
-<section id="splitting-concatenated-recordings">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Splitting Concatenated Recordings</a><a class="headerlink" href="#splitting-concatenated-recordings" title="Link to this heading"></a></h2>
+<section id="sorting-concatenated-recordings">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Sorting Concatenated Recordings</a><a class="headerlink" href="#sorting-concatenated-recordings" title="Link to this heading"></a></h2>
 <p>When a directory containing multiple recording files is passed to
 <code class="docutils literal notranslate"><span class="pre">sort_recording</span></code>, the pipeline concatenates them into a single recording for
 sorting. The returned <code class="docutils literal notranslate"><span class="pre">SpikeData</span></code> objects are automatically split back into
@@ -620,6 +760,69 @@ epoch to start at t=0:</p>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> units, </span><span class="si">{</span><span class="n">epoch_sd</span><span class="o">.</span><span class="n">length</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
+<section id="handling-sort-failures">
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">Handling Sort Failures</a><a class="headerlink" href="#handling-sort-failures" title="Link to this heading"></a></h2>
+<p>When a sorting run fails, SpikeLab can classify the failure into one of three
+categories so that batch scripts can implement skip/retry/stop policies without
+parsing generic error messages.</p>
+<p>The three categories are:</p>
+<ul class="simple">
+<li><p><strong>BiologicalSortFailure</strong> – the recording itself cannot be sorted (too
+silent, all channels bad, no waveforms to compute metrics on). Recommended
+policy: mark the target as not-sortable and move on.</p></li>
+<li><p><strong>EnvironmentSortFailure</strong> – the host environment or container runtime is
+misconfigured (Docker down, HDF5 plugin missing). Recommended policy: stop
+and fix the environment.</p></li>
+<li><p><strong>ResourceSortFailure</strong> – the job exhausted a machine resource (GPU out of
+memory). Recommended policy: retry with reduced parameters.</p></li>
+</ul>
+<p>All three inherit from
+<a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting._exceptions.SpikeSortingClassifiedError" title="spikelab.spike_sorting._exceptions.SpikeSortingClassifiedError"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpikeSortingClassifiedError</span></code></a>, which
+in turn inherits from <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code>.</p>
+<p>Each sorter has a dedicated classifier that inspects both sorter logs and
+exception chains to identify known failure signatures:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">classify_ks2_failure</span></code> — Kilosort2</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">classify_ks4_failure</span></code> — Kilosort4</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">classify_rt_sort_failure</span></code> — RT-Sort</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting._classifier</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">classify_ks2_failure</span><span class="p">,</span>
+    <span class="n">classify_ks4_failure</span><span class="p">,</span>
+    <span class="n">classify_rt_sort_failure</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spikelab.spike_sorting._exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BiologicalSortFailure</span><span class="p">,</span>
+    <span class="n">EnvironmentSortFailure</span><span class="p">,</span>
+    <span class="n">ResourceSortFailure</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Pick the classifier matching your sorter</span>
+<span class="n">classify</span> <span class="o">=</span> <span class="n">classify_ks4_failure</span>  <span class="c1"># or classify_ks2_failure, classify_rt_sort_failure</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">sort_recording</span><span class="p">([</span><span class="s2">&quot;session1.raw.h5&quot;</span><span class="p">],</span> <span class="n">sorter</span><span class="o">=</span><span class="s2">&quot;kilosort4&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="n">classified</span> <span class="o">=</span> <span class="n">classify</span><span class="p">(</span><span class="n">output_folder</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">classified</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">BiologicalSortFailure</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping (biology): </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">EnvironmentSortFailure</span><span class="p">):</span>
+            <span class="k">raise</span>  <span class="c1"># stop the batch</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">classified</span><span class="p">,</span> <span class="n">ResourceSortFailure</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retry with smaller batch: </span><span class="si">{</span><span class="n">classified</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span>  <span class="c1"># unrecognised failure</span>
+</pre></div>
+</div>
+<p>Specific exception classes carry diagnostic attributes. For example,
+<a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting._exceptions.InsufficientActivityError" title="spikelab.spike_sorting._exceptions.InsufficientActivityError"><code class="xref py py-class docutils literal notranslate"><span class="pre">InsufficientActivityError</span></code></a> exposes
+<code class="docutils literal notranslate"><span class="pre">threshold_crossings</span></code>, <code class="docutils literal notranslate"><span class="pre">units_at_failure</span></code>, and <code class="docutils literal notranslate"><span class="pre">nspks_at_failure</span></code> parsed
+from sorter logs. RT-Sort additionally raises
+<a class="reference internal" href="../api/spike_sorting.html#spikelab.spike_sorting._exceptions.ModelLoadingError" title="spikelab.spike_sorting._exceptions.ModelLoadingError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelLoadingError</span></code></a> when the
+detection model cannot be loaded. See the
+<a class="reference internal" href="../api/spike_sorting.html"><span class="doc">API reference</span></a> for the full exception hierarchy.</p>
 </section>
 </section>
 
