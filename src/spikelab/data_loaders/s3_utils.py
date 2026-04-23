@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover
     ClientError = Exception
     NoCredentialsError = Exception
 
+
 def _build_s3_kwargs(
     aws_access_key_id=None,
     aws_secret_access_key=None,

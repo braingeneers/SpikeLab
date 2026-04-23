@@ -361,9 +361,7 @@ class RunSession:
                 "Only 'workspace' and 'sorting' jobs produce retrievable outputs."
             )
 
-    def _retrieve_workspace(
-        self, result: SubmitResult, local_dir: Path
-    ) -> Any:
+    def _retrieve_workspace(self, result: SubmitResult, local_dir: Path) -> Any:
         """Download workspace .h5 + .json and load."""
         from ..workspace.workspace import AnalysisWorkspace
 
@@ -380,9 +378,7 @@ class RunSession:
         base_path = str(local_dir / _WORKSPACE_BASE_NAME)
         return AnalysisWorkspace.load(base_path)
 
-    def _retrieve_sorting(
-        self, result: SubmitResult, local_dir: Path
-    ) -> Any:
+    def _retrieve_sorting(self, result: SubmitResult, local_dir: Path) -> Any:
         """Download all sorting outputs, build workspace from pickles."""
         from ..data_loaders.data_loaders import load_spikedata_from_pickle
         from ..workspace.workspace import AnalysisWorkspace
@@ -390,9 +386,7 @@ class RunSession:
         # Download everything under the output prefix
         keys = self.storage.list_output_files(result.run_id)
         if not keys:
-            raise FileNotFoundError(
-                f"No output files found for run_id={result.run_id}"
-            )
+            raise FileNotFoundError(f"No output files found for run_id={result.run_id}")
 
         from ..data_loaders.s3_utils import parse_s3_url
 
@@ -471,9 +465,7 @@ class RunSession:
         if isinstance(workspace, str):
             # Assume it's a base path; verify .h5 exists
             if not Path(f"{workspace}.h5").exists():
-                raise FileNotFoundError(
-                    f"Workspace file not found: {workspace}.h5"
-                )
+                raise FileNotFoundError(f"Workspace file not found: {workspace}.h5")
             return workspace
 
         # It's an AnalysisWorkspace object

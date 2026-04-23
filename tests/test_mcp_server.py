@@ -4748,6 +4748,7 @@ class TestGetFracActiveMCP:
                 backbone_threshold=0.5,
             )
 
+
 class TestListNeuronsMCP:
     """Edge case tests for list_neurons MCP tool."""
 
@@ -4766,6 +4767,7 @@ class TestListNeuronsMCP:
         ws.store("zero_ns", "spikedata", SpikeData([], length=10.0))
         result = await analysis.list_neurons(ws_id, "zero_ns")
         assert result["neurons"] == []
+
 
 class TestSubtimeMCP2:
     """Additional edge case tests for subtime MCP tool."""
@@ -5027,6 +5029,7 @@ class TestSpikeSliceToRasterMCP2:
                 key="raster_zero",
                 bin_size=0.0,
             )
+
 
 @pytest.mark.skipif(not MCP_SERVER_AVAILABLE, reason="MCP server not available")
 class TestCurateAndFracSpikesInBurst:

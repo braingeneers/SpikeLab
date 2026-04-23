@@ -74,9 +74,7 @@ def main() -> None:
         # --- Load sorting config ---
         config_files = list(extract_dir.rglob("sorting_config.json"))
         if not config_files:
-            raise FileNotFoundError(
-                "sorting_config.json not found in input bundle"
-            )
+            raise FileNotFoundError("sorting_config.json not found in input bundle")
         with open(config_files[0], "r", encoding="utf-8") as f:
             config_dict = json.load(f)
         config = _reconstruct_config(config_dict)
@@ -98,12 +96,8 @@ def main() -> None:
         # --- Set up output folders ---
         results_dir = work / "results"
         inter_dir = work / "intermediate"
-        results_folders = [
-            str(results_dir / Path(r).stem) for r in recording_files
-        ]
-        inter_folders = [
-            str(inter_dir / Path(r).stem) for r in recording_files
-        ]
+        results_folders = [str(results_dir / Path(r).stem) for r in recording_files]
+        inter_folders = [str(inter_dir / Path(r).stem) for r in recording_files]
         for folder in results_folders + inter_folders:
             Path(folder).mkdir(parents=True, exist_ok=True)
 

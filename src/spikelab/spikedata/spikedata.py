@@ -118,9 +118,7 @@ class SpikeData:
         """
         raster = np.asarray(raster)
         if raster.ndim != 2:
-            raise ValueError(
-                f"raster must be 2D (N x T), got {raster.ndim}D array"
-            )
+            raise ValueError(f"raster must be 2D (N x T), got {raster.ndim}D array")
         raster = raster.astype(int)
         N, T = raster.shape
         # Offset generated spike times by start_time so bin 0 maps to

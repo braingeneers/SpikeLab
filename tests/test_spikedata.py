@@ -5845,6 +5845,7 @@ class TestSpikeDataAlignToEvents:
         with pytest.raises((ValueError, FloatingPointError)):
             sd.align_to_events([float("inf")], pre_ms=5.0, post_ms=5.0)
 
+
 class TestResampledIsiSingleTime:
     """Edge case tests for the single-time query path in _resampled_isi."""
 
@@ -6307,6 +6308,7 @@ class TestSpikeDataGetFracActive:
         )
         assert isinstance(frac_per_unit, np.ndarray)
         assert frac_per_unit.shape == (2,)
+
 
 class TestSpikeDataComputeStPR:
     """Edge case tests for SpikeData.compute_spike_trig_pop_rate."""

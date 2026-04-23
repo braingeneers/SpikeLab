@@ -351,9 +351,7 @@ def _classify_insufficient_activity_ks4(
         )
     else:
         if kmeans_match is None:
-            raise ValueError(
-                f"Could not parse KMeans error from exception: {exc!r}"
-            )
+            raise ValueError(f"Could not parse KMeans error from exception: {exc!r}")
         n_samples = int(kmeans_match.group(1))
         n_clusters = int(kmeans_match.group(2))
         reason = (

@@ -196,7 +196,7 @@ def center_spike_times(
             win_left = max(st_local - hw, 0)
             win_right = min(st_local + hw, max_trace_idx)
             win_size = win_right - win_left + 1
-            window = trace_chan[win_left:win_right + 1]
+            window = trace_chan[win_left : win_right + 1]
 
             if len(window) == 0:
                 continue

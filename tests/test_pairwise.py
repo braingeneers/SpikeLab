@@ -1571,6 +1571,7 @@ class TestPairwiseCompMatrixPostInit:
         assert pcm.matrix.shape == (0, 0)
         assert pcm.labels == []
 
+
 class TestPairwiseCompMatrixStack:
     """Additional edge case tests for PairwiseCompMatrixStack."""
 
@@ -1610,6 +1611,7 @@ class TestPairwiseCompMatrixStackGetItem:
         result = stack[0]
         assert isinstance(result, PairwiseCompMatrix)
         assert result.matrix.shape == (2, 2)
+
 
 # ---------------------------------------------------------------------------
 # PairwiseCompMatrix._is_diverging

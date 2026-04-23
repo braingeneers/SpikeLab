@@ -198,7 +198,6 @@ class FigureConfig:
     templates_x_label: str = "Time Rel. to Peak (ms)"
 
 
-
 @dataclass
 class ExecutionConfig:
     """Parameters for pipeline execution control."""

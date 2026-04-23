@@ -2834,6 +2834,7 @@ class TestSSSSubtimeByIndex2:
         result = sss.subtime_by_index(0, 50)
         assert len(result.spike_stack) == 2
 
+
 class TestSSSOrderUnits2:
     """Additional edge case tests for SpikeSliceStack.order_units_across_slices."""
 

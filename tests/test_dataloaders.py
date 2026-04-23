@@ -2378,8 +2378,6 @@ class TestS3Utils:
         )
 
 
-
-
 # ---------------------------------------------------------------------------
 # Edge case tests — data_loaders/data_loaders.py
 # ---------------------------------------------------------------------------
@@ -2911,8 +2909,6 @@ class TestHDF5RawThresholded:
 
 
 @skip_no_h5py
-
-
 class TestKiloSort:
     """Edge case tests for load_spikedata_from_kilosort."""
 
@@ -3729,12 +3725,6 @@ class TestEnsureLocalFile:
 # ---------------------------------------------------------------------------
 
 
-
-
-
-
-
-
 class TestSpikeInterfaceRecording2:
     """Additional edge case tests for load_spikedata_from_spikeinterface_recording."""
 
@@ -3771,12 +3761,6 @@ class TestBuildSpikeData2:
         assert sd.start_time == -10.0
         # length = max(10.0) - (-10.0) = 20.0
         assert sd.length == pytest.approx(20.0)
-
-
-
-
-
-
 
 
 class TestCoverageGaps:

@@ -1288,11 +1288,7 @@ class TestPickleExporters:
 
 
 @skip_no_h5py
-
-
 @skip_no_h5py
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1301,13 +1297,7 @@ class TestPickleExporters:
 
 
 @skip_no_h5py
-
-
 @skip_no_h5py
-
-
-
-
 class TestCoverageGaps:
     """Tests for exporter coverage gaps."""
 

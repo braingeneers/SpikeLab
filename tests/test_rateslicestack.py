@@ -2029,6 +2029,7 @@ class TestSliceToSliceTimeCorr:
         # Returns (PairwiseCompMatrixStack(S, S, T), array(T,))
         assert corr_stack.stack.shape == (2, 2, 10)
 
+
 class TestGetUnitTimingPerSlice:
     """Edge case tests for RateSliceStack.get_unit_timing_per_slice."""
 
@@ -2112,6 +2113,7 @@ class TestUnitToUnitCorrelation:
         corr_stack, lag_stack, av_corr, av_lag = rss.unit_to_unit_correlation()
         assert corr_stack.stack.shape == (2, 2, 3)
 
+
 class TestRSSSubset2:
     """Additional edge case tests for RateSliceStack.subset."""
 
@@ -2145,6 +2147,7 @@ class TestRSSSubslice:
         rss = RateSliceStack(event_matrix=mat)
         result = rss.subslice([-1, 0])
         assert result.event_stack.shape[2] == 2
+
 
 # ---------------------------------------------------------------------------
 # Coverage gap tests

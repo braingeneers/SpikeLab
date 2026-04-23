@@ -2459,6 +2459,7 @@ class TestPlotPercentileBands:
         assert len(artists["summary"].get_ydata()) == 2
         assert ax.get_xlim() == pytest.approx((0, 1))
 
+
 # ---------------------------------------------------------------------------
 # plot_scatter — group mode tests
 # ---------------------------------------------------------------------------
@@ -3776,6 +3777,7 @@ class TestPlotAlignedSlice:
         fig, ax = plt.subplots()
         sss.plot_aligned_slice_single_unit(unit_idx=0, ax=ax, style="eventplot")
         plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # _style_axes / _style_axes_heatmap helpers

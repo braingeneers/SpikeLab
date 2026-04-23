@@ -412,9 +412,7 @@ async def export_to_pickle(
                 "load_from_nwb, load_from_kilosort, load_from_pickle, "
                 "load_from_hdf5_thresholded, load_from_spikelab_sorted_npz."
             )
-        raise ValueError(
-            f"No item found at ({namespace!r}, {resolved_key!r})."
-        )
+        raise ValueError(f"No item found at ({namespace!r}, {resolved_key!r}).")
 
     result_path = _export_to_pickle(
         obj,

@@ -57,9 +57,7 @@ def _trains_from_flat_index(
     """Split a flat time array into per-unit trains using end indices and convert to ms."""
     if len(end_indices) > 0:
         if not np.all(np.diff(end_indices) >= 0):
-            raise ValueError(
-                "spike_times_index must be monotonically non-decreasing"
-            )
+            raise ValueError("spike_times_index must be monotonically non-decreasing")
         if end_indices[-1] > len(flat_times):
             raise ValueError(
                 f"spike_times_index final value ({end_indices[-1]}) exceeds "

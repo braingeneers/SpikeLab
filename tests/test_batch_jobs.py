@@ -2694,6 +2694,7 @@ class TestPolicySummarizePreflight:
         level, _ = summarize_preflight(findings)
         assert level == "PASS"
 
+
 class TestWaitForCompletion:
     """Edge cases for RunSession.wait_for_completion."""
 
@@ -2716,6 +2717,7 @@ class TestWaitForCompletion:
             job_name="test-job", max_wait_seconds=0, poll_interval_seconds=0
         )
         assert state == "Timeout"
+
 
 class TestKubernetesBatchJobBackendK8sClientPath:
     """Tests for K8s client code paths (HIGH severity — previously untested)."""

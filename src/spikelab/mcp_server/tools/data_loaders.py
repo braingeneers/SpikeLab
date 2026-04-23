@@ -794,9 +794,7 @@ async def load_from_spikelab_sorted_npz(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
-    spikedata = load_spikedata_from_spikelab_sorted_npz(
-        file_path, length_ms=length_ms
-    )
+    spikedata = load_spikedata_from_spikelab_sorted_npz(file_path, length_ms=length_ms)
 
     ns_derived = _namespace_from_path(file_path, namespace)
     ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
