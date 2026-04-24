@@ -729,8 +729,19 @@ def load_spikedata_from_kilosort(
     trains: List[np.ndarray] = []
     metadata_units: List[int] = []
     neuron_attributes: List[dict] = []
+    unique_clusters = np.unique(spike_clusters)
+    if channel_map is not None and len(unique_clusters) > 0:
+        expected_sequential = np.arange(len(unique_clusters))
+        if not np.array_equal(unique_clusters, expected_sequential):
+            warnings.warn(
+                f"Cluster IDs are not sequential (0..{len(unique_clusters)-1}): "
+                f"channel_map lookup uses cluster ID as array index, which "
+                f"may assign incorrect electrode/location metadata after "
+                f"Phy curation. Verify spatial analysis results.",
+                UserWarning,
+            )
     unit_idx = 0
-    for clu in np.unique(spike_clusters):
+    for clu in unique_clusters:
         if keep_clusters is not None and int(clu) not in keep_clusters:
             continue
         times = spike_times[spike_clusters == clu]
@@ -741,8 +752,10 @@ def load_spikedata_from_kilosort(
         attr: dict = {"unit_id": int(clu)}
         channel_idx = None
         int_clu = int(clu)
-        # channel_map is indexed by cluster ID — only correct when cluster
-        # IDs are sequential integers starting from 0.
+        # channel_map is indexed by template/cluster ID — only correct
+        # when cluster IDs are sequential integers starting from 0.
+        # After Phy curation (merge/split), IDs become non-sequential
+        # and this lookup silently maps to the wrong channel.
         if channel_map is not None and int_clu < len(channel_map):
             channel_idx = int(channel_map[int_clu])
             attr["electrode"] = channel_idx
@@ -919,7 +932,9 @@ def load_spikedata_from_pickle(
     Warning:
         Only load pickle files from trusted sources. Pickle
         deserialization can execute arbitrary code and should never be
-        used with untrusted data.
+        used with untrusted data. The file is deserialized before type
+        checking — malicious payloads execute regardless of the
+        subsequent isinstance check.
 
     Parameters:
         filepath (str): Path to the pickle file, or an S3 URL

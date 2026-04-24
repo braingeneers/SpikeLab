@@ -118,6 +118,10 @@ class AnalysisWorkspace:
         self.workspace_id: str = str(uuid.uuid4())
         self.name: Optional[str] = name
         self.created_at: float = time.time()
+        # Note: _items holds the actual data objects in memory.
+        # LazyAnalysisWorkspace overrides _items as a property that raises
+        # NotImplementedError — it stores data in HDF5 instead.  Methods
+        # that access _items directly must be overridden in lazy subclasses.
         self._items: Dict[str, Dict[str, Any]] = {}
         self._index: Dict[str, Dict[str, dict]] = {}
 
