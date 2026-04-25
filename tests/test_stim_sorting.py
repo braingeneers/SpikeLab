@@ -132,6 +132,29 @@ class TestLoadRecordingBaseRecording:
         (Test Case 3) FIRST_N_MINS truncation still applies to BaseRecording.
     """
 
+    @pytest.fixture(autouse=True)
+    def _reset_recording_globals(self, monkeypatch):
+        """``load_recording`` reads several module-level globals that earlier
+        tests in the same pytest process may have populated.  Reset them to
+        their declared defaults via ``monkeypatch`` so each test sees a clean
+        state and the globals are restored at teardown."""
+        from spikelab.spike_sorting import _globals
+
+        for name, default in [
+            ("STREAM_ID", None),
+            ("FIRST_N_MINS", None),
+            ("MEA_Y_MAX", None),
+            ("GAIN_TO_UV", None),
+            ("OFFSET_TO_UV", None),
+            ("REC_CHUNKS", []),
+            ("REC_CHUNKS_S", []),
+            ("START_TIME_S", None),
+            ("END_TIME_S", None),
+            ("FREQ_MIN", 300),
+            ("FREQ_MAX", 6000),
+        ]:
+            monkeypatch.setattr(_globals, name, default)
+
     def test_numpy_recording_passes_through(self):
         from spikeinterface.core import BaseRecording
 
