@@ -2642,14 +2642,15 @@ class TestJobSpecNamePrefix:
 class TestSleepDetectionMore:
     """Additional edge cases for _contains_disallowed_sleep."""
 
-    def test_sleep_in_quoted_string_false_positive(self):
-        """sleep in a quoted argument string is a known false positive."""
-        # This tests the documented behavior — the heuristic does flag this
+    def test_sleep_in_quoted_string_not_flagged(self):
+        """sleep inside a quoted argument is not flagged (token-based matching)."""
         result = _contains_disallowed_sleep(
             ["sh", "-c"], ['echo "do not sleep infinity"']
         )
-        # Documenting that this is a known false positive
-        assert result is True  # heuristic triggers on substring match
+        # Token split produces ["echo", '"do', "not", "sleep", 'infinity"']
+        # "sleep" matches but 'infinity"' (with trailing quote) doesn't
+        # match "infinity" exactly — so this is correctly not flagged.
+        assert result is False
 
 
 class TestPolicySummarizePreflight:

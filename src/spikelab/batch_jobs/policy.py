@@ -34,26 +34,29 @@ def _contains_disallowed_sleep(command: Sequence[str], args: Sequence[str]) -> b
     variants. The goal is to flag accidental misuse, not to prevent
     determined circumvention.
     """
-    all_tokens = [*command, *args]
-    joined = " ".join(all_tokens).lower()
-
-    # Exact patterns
-    if "sleep infinity" in joined or "sleep inf" in joined:
-        return True
+    # Flatten multi-word tokens (e.g., ["sleep infinity"] from sh -c)
+    # into individual words for consistent token-pair matching.
+    all_tokens = []
+    for tok in [*command, *args]:
+        all_tokens.extend(tok.split())
 
     # Bare "sleep" as the sole command (no duration argument)
-    if joined.strip() == "sleep":
+    if len(all_tokens) == 1 and all_tokens[0].lower() == "sleep":
         return True
 
-    # "sleep <large_number>" — check each token pair
+    # Check token pairs: "sleep infinity", "sleep inf", "sleep <large_number>"
     for i, tok in enumerate(all_tokens):
-        if tok.lower() == "sleep" and i + 1 < len(all_tokens):
-            try:
-                duration = float(all_tokens[i + 1])
-                if duration >= _SLEEP_THRESHOLD:
-                    return True
-            except (ValueError, IndexError):
-                pass
+        if tok.lower() != "sleep" or i + 1 >= len(all_tokens):
+            continue
+        next_tok = all_tokens[i + 1].lower()
+        if next_tok in ("infinity", "inf"):
+            return True
+        try:
+            duration = float(next_tok)
+            if duration >= _SLEEP_THRESHOLD:
+                return True
+        except (ValueError, IndexError):
+            pass
 
     return False
 

@@ -2567,18 +2567,17 @@ class TestDockerUtilsGetDockerImage:
             image = get_docker_image("kilosort4")
             assert "kilosort4" in image
 
-    def test_ks4_fallback_to_newest_with_warning(self):
+    def test_ks4_no_match_raises(self):
         """
-        KS4 falls back to newest available image when exact match missing.
+        KS4 with unsupported CUDA tag raises RuntimeError.
 
         Tests:
-            (Test Case 1) cu118 has no KS4 image; falls back to cu130 with warning.
+            (Test Case 1) cu118 has no KS4 image; raises RuntimeError.
         """
         from spikelab.spike_sorting.docker_utils import get_docker_image
 
-        with pytest.warns(UserWarning, match="No Docker image.*cu118"):
-            image = get_docker_image("kilosort4", cuda_tag="cu118")
-        assert "kilosort4" in image
+        with pytest.raises(RuntimeError, match="No compatible Docker image"):
+            get_docker_image("kilosort4", cuda_tag="cu118")
 
     def test_unknown_sorter_raises(self):
         """

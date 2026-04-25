@@ -13,6 +13,8 @@ handled by the ``SorterBackend`` subclass passed to
 import json
 import os
 import pickle
+import sys
+import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 import shutil
 import warnings
@@ -928,6 +930,203 @@ def compile_results(
 # ---------------------------------------------------------------------------
 
 
+from contextlib import contextmanager
+
+
+@contextmanager
+def _bounded_host_memory(frac: float = 0.8):
+    """Cap the calling process's heap allocations at ``frac`` of system RAM.
+
+    Best-effort guard against OOM during local sorting (especially RT-Sort,
+    which can exhaust host RAM on long recordings or high-unit-count
+    populations). Uses ``RLIMIT_DATA`` rather than ``RLIMIT_AS`` so that
+    file-backed mmap regions used for recording I/O are not capped — only
+    anonymous heap allocations (numpy / torch tensors) are bounded, which
+    is where the OOM actually originates.
+
+    Behaviour by platform:
+        - Linux (kernel 4.7+): caps anonymous heap (brk + anonymous mmap).
+          This is the strict OOM guard intended.
+        - macOS / other POSIX: caps the brk segment only; large mmap
+          allocations are not capped (semantics are weaker).
+        - Windows: no-op with a printed notice (``resource`` module
+          unavailable). Host RAM is unprotected — rely on Docker's
+          ``mem_limit`` for containerised sorters, or monitor RAM
+          manually for local runs.
+
+    The original soft limit is restored on context exit so the cap does
+    not leak into longer-lived sessions (e.g. notebooks).
+
+    Parameters:
+        frac (float): Fraction of total physical RAM to cap heap at.
+            Defaults to ``0.8``.
+    """
+    try:
+        import resource
+    except ImportError:
+        print(
+            "[host memory cap] Windows detected — RLIMIT_DATA unavailable. "
+            "Local sorting is not protected from host OOM. "
+            "Use Docker, or monitor RAM manually."
+        )
+        yield
+        return
+
+    from .sorting_utils import get_system_ram_bytes
+
+    ram_bytes = get_system_ram_bytes()
+    if ram_bytes is None:
+        print("[host memory cap] Could not detect system RAM; cap not enforced.")
+        yield
+        return
+
+    new_soft = int(ram_bytes * frac)
+    soft_orig, hard_orig = resource.getrlimit(resource.RLIMIT_DATA)
+    if hard_orig != resource.RLIM_INFINITY and new_soft > hard_orig:
+        new_soft = hard_orig
+
+    try:
+        resource.setrlimit(resource.RLIMIT_DATA, (new_soft, hard_orig))
+    except (ValueError, OSError) as exc:
+        print(f"[host memory cap] Failed to set RLIMIT_DATA: {exc}; cap not enforced.")
+        yield
+        return
+
+    try:
+        yield
+    finally:
+        try:
+            resource.setrlimit(resource.RLIMIT_DATA, (soft_orig, hard_orig))
+        except (ValueError, OSError):
+            pass
+
+
+def _print_pipeline_banner(
+    sorter: str,
+    rec_path: Any,
+    config: "SortingPipelineConfig",
+    log_path: Path,
+) -> None:
+    """Print an environment + system + input banner at the start of a sort.
+
+    Captured by the surrounding ``Tee`` and persisted to the
+    ``sorting_*.log`` file alongside the run's stdout.
+    """
+    import datetime as _dt
+    import platform
+    import socket
+    import subprocess
+
+    from .sorting_utils import get_system_ram_bytes, print_stage
+
+    print_stage(f"SPIKE SORTING — {sorter.upper()}")
+    print()
+    print("-- Environment --")
+    print(f"Started:        {_dt.datetime.now().isoformat(timespec='seconds')}")
+    print(f"Host:           {socket.gethostname()}")
+    print(f"Platform:       {platform.platform()}")
+    print(f"Python:         {sys.version.split()[0]}")
+
+    try:
+        import spikeinterface as _si
+
+        print(f"SpikeInterface: {_si.__version__}")
+    except ImportError:
+        pass
+
+    try:
+        import spikelab as _sl
+
+        version = getattr(_sl, "__version__", "unknown")
+        print(f"SpikeLab:       {version}")
+    except ImportError:
+        pass
+
+    print()
+    print("-- System Resources --")
+    cpu_count = os.cpu_count()
+    if cpu_count is not None:
+        print(f"CPU cores:      {cpu_count}")
+
+    ram_bytes = get_system_ram_bytes()
+    if ram_bytes is not None:
+        print(f"RAM total:      {ram_bytes / 1e9:.1f} GB")
+
+    try:
+        import resource
+
+        soft, _hard = resource.getrlimit(resource.RLIMIT_DATA)
+        if soft == resource.RLIM_INFINITY:
+            print("Heap cap:       (unlimited)")
+        else:
+            print(f"Heap cap:       {soft / 1e9:.1f} GB (RLIMIT_DATA)")
+    except ImportError:
+        print("Heap cap:       (Windows — not enforced)")
+
+    try:
+        gpu_info = subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader",
+            ],
+            text=True,
+            timeout=5,
+        ).strip()
+        print(f"GPU:            {gpu_info}")
+    except (subprocess.SubprocessError, FileNotFoundError):
+        print("GPU:            (nvidia-smi unavailable)")
+
+    print()
+    print("-- Run --")
+    print(f"Sorter:         {sorter}")
+    print(f"Use Docker:     {config.sorter.use_docker}")
+    print(f"Recording:      {rec_path}")
+    print(f"Log file:       {log_path}")
+    print()
+
+
+def _print_pipeline_summary(
+    status: str,
+    elapsed_s: float,
+    error: Optional[BaseException] = None,
+) -> None:
+    """Print a closing summary banner with status, wall time, and resources."""
+    import datetime as _dt
+    import subprocess
+
+    from .sorting_utils import get_system_ram_bytes, print_stage
+
+    print()
+    print_stage("SUMMARY")
+    print()
+    print(f"Status:         {status}")
+    if error is not None:
+        print(f"Error:          {type(error).__name__}: {error}")
+
+    minutes, seconds = divmod(int(elapsed_s), 60)
+    print(f"Wall time:      {minutes}m {seconds}s")
+
+    ram_bytes = get_system_ram_bytes()
+    if ram_bytes is not None:
+        print(f"RAM total:      {ram_bytes / 1e9:.1f} GB")
+    try:
+        gpu_mem = subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.used,memory.total",
+                "--format=csv,noheader",
+            ],
+            text=True,
+            timeout=5,
+        ).strip()
+        print(f"GPU memory:     {gpu_mem}")
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    print(f"Finished:       {_dt.datetime.now().isoformat(timespec='seconds')}")
+
+
 def sort_recording(
     recording_files,
     config=None,
@@ -1001,14 +1200,33 @@ def sort_recording(
     backend = backend_cls(config)
 
     # Auto-generate folder paths
+    def _rec_to_path(rec):
+        try:
+            from spikeinterface.core import BaseRecording as _BR
+        except ImportError:
+            _BR = None
+        if _BR is not None and isinstance(rec, _BR):
+            kw = rec._kwargs
+            backing = kw.get("file_path") or (kw.get("file_paths") or [None])[0]
+            if backing is None:
+                raise ValueError(
+                    f"Cannot auto-generate intermediate_folders / "
+                    f"results_folders for a {type(rec).__name__} without a "
+                    f"backing file path.  Pass `intermediate_folders` and "
+                    f"`results_folders` explicitly."
+                )
+            return Path(backing)
+        return Path(rec)
+
     if intermediate_folders is None:
         cur_dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
         intermediate_folders = [
-            Path(rec).parent / f"inter_{sorter}_{cur_dt}" for rec in recording_files
+            _rec_to_path(rec).parent / f"inter_{sorter}_{cur_dt}"
+            for rec in recording_files
         ]
     if results_folders is None:
         results_folders = [
-            Path(rec).parent / f"sorted_{sorter}" for rec in recording_files
+            _rec_to_path(rec).parent / f"sorted_{sorter}" for rec in recording_files
         ]
     # Validate
     if not (len(recording_files) == len(intermediate_folders) == len(results_folders)):
@@ -1033,74 +1251,96 @@ def sort_recording(
 
     rng = np.random.default_rng(config.execution.random_seed)
 
-    # Main loop
+    # Main loop — wrap in a host heap cap so local sorts (especially RT-Sort)
+    # cannot drag the workstation into swap. No-op on Windows; restored on exit.
     spikedata_results = []
-    for rec_path, inter_path, res_path in zip(
-        recording_files, intermediate_folders, results_folders
-    ):
-        try:
-            from spikeinterface.core import BaseRecording
-        except ImportError:
-            BaseRecording = None
+    with _bounded_host_memory(0.8):
+        for rec_path, inter_path, res_path in zip(
+            recording_files, intermediate_folders, results_folders
+        ):
+            try:
+                from spikeinterface.core import BaseRecording
+            except ImportError:
+                BaseRecording = None
 
-        rec_loaded = None
-        if BaseRecording is not None and isinstance(rec_path, BaseRecording):
-            rec_loaded = rec_path
-            if "file_path" in rec_loaded._kwargs:
-                rec_path = rec_loaded._kwargs["file_path"]
-            else:
-                rec_path = rec_loaded._kwargs["file_paths"][0]
+            rec_loaded = None
+            if BaseRecording is not None and isinstance(rec_path, BaseRecording):
+                rec_loaded = rec_path
+                if "file_path" in rec_loaded._kwargs:
+                    rec_path = rec_loaded._kwargs["file_path"]
+                else:
+                    rec_path = rec_loaded._kwargs["file_paths"][0]
 
-        rec_name = str(rec_path).split("/")[-1].split("\\")[-1].split(".")[0]
+            rec_name = str(rec_path).split("/")[-1].split("\\")[-1].split(".")[0]
 
-        result = process_recording(
-            backend,
-            config,
-            rec_name,
-            rec_path,
-            inter_path,
-            res_path,
-            rec_loaded=rec_loaded,
-            rec_chunks=config.recording.rec_chunks or None,
-            rec_chunk_names=getattr(backend, "rec_chunk_names", None),
-            rng=rng,
-        )
+            # Mirror stdout to a per-recording log file from start to finish.
+            # The log captures the environment banner, every sorting stage, the
+            # closing summary, and any exception traceback — making it the
+            # canonical artefact for the post-sorting report.
+            res_path_obj = Path(res_path)
+            res_path_obj.mkdir(parents=True, exist_ok=True)
+            log_ts = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+            log_path = res_path_obj / f"sorting_{log_ts}.log"
 
-        if isinstance(result, BaseException):
-            continue
+            with Tee(log_path, file_mode="w"):
+                _print_pipeline_banner(sorter, rec_path, config, log_path)
+                t_start = time.time()
+                result = process_recording(
+                    backend,
+                    config,
+                    rec_name,
+                    rec_path,
+                    inter_path,
+                    res_path,
+                    rec_loaded=rec_loaded,
+                    rec_chunks=config.recording.rec_chunks or None,
+                    rec_chunk_names=getattr(backend, "rec_chunk_names", None),
+                    rng=rng,
+                )
 
-        if config.compilation.save_raw_pkl:
-            sd_raw, sd_curated = result
-        else:
-            sd_curated = result
+                if isinstance(result, BaseException):
+                    status = (
+                        "OOM (MemoryError)"
+                        if isinstance(result, MemoryError)
+                        else "FAILED"
+                    )
+                    _print_pipeline_summary(status, time.time() - t_start, error=result)
+                    continue
 
-        # Save pickle
-        import pickle as _pkl
+                if config.compilation.save_raw_pkl:
+                    sd_raw, sd_curated = result
+                else:
+                    sd_curated = result
 
-        res_path = Path(res_path)
+                # Save pickle
+                import pickle as _pkl
 
-        if config.compilation.save_raw_pkl:
-            raw_pkl = res_path / "sorted_spikedata.pkl"
-            with open(raw_pkl, "wb") as f:
-                _pkl.dump(sd_raw, f)
-            print(f"Saved {sd_raw.N} raw units to {raw_pkl}")
+                res_path = Path(res_path)
 
-        curated_pkl = res_path / "sorted_spikedata_curated.pkl"
-        with open(curated_pkl, "wb") as f:
-            _pkl.dump(sd_curated, f)
-        print(f"Saved {sd_curated.N} curated units to {curated_pkl}")
+                if config.compilation.save_raw_pkl:
+                    raw_pkl = res_path / "sorted_spikedata.pkl"
+                    with open(raw_pkl, "wb") as f:
+                        _pkl.dump(sd_raw, f)
+                    print(f"Saved {sd_raw.N} raw units to {raw_pkl}")
 
-        # Epoch splitting
-        if sd_curated.metadata.get("rec_chunks_ms"):
-            epoch_sds = sd_curated.split_epochs()
-            spikedata_results.extend(epoch_sds)
-        else:
-            spikedata_results.append(sd_curated)
+                curated_pkl = res_path / "sorted_spikedata_curated.pkl"
+                with open(curated_pkl, "wb") as f:
+                    _pkl.dump(sd_curated, f)
+                print(f"Saved {sd_curated.N} curated units to {curated_pkl}")
 
-        if config.execution.delete_inter:
-            import shutil as _shutil
+                # Epoch splitting
+                if sd_curated.metadata.get("rec_chunks_ms"):
+                    epoch_sds = sd_curated.split_epochs()
+                    spikedata_results.extend(epoch_sds)
+                else:
+                    spikedata_results.append(sd_curated)
 
-            _shutil.rmtree(inter_path)
+                if config.execution.delete_inter:
+                    import shutil as _shutil
+
+                    _shutil.rmtree(inter_path)
+
+                _print_pipeline_summary("SUCCESS", time.time() - t_start)
 
     return spikedata_results
 

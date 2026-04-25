@@ -853,6 +853,9 @@ class SpikeSliceStack:
                         continue
                     if metric == "sttc":
                         length = max(slice_durations[ref_s], slice_durations[comp_s])
+                        # start_time from the ref slice is correct here:
+                        # all slices share the same start_time (event-centered
+                        # data has -pre_ms, frames() produces 0-based slices).
                         score = get_sttc(
                             ref_train,
                             comp_train,

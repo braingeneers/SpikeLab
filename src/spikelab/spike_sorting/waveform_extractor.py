@@ -11,8 +11,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from tqdm import tqdm
 
-from spikeinterface.core import BaseRecording
-
 from . import _globals
 from .sorting_utils import Stopwatch, create_folder, print_stage
 

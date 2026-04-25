@@ -281,6 +281,10 @@ def export_spikedata_to_nwb(
                 elec_grp.create_dataset("id", data=np.arange(sd.N, dtype=int))
                 elec_locations = locations
 
+            # Only dimensions present in the data are written.  On
+            # reload, locations will have fewer columns than the original
+            # if y or z were omitted here — this is inherent to the NWB
+            # format and cannot be avoided without padding with zeros.
             elec_grp.create_dataset("x", data=elec_locations[:, 0])
             if elec_locations.shape[1] > 1:
                 elec_grp.create_dataset("y", data=elec_locations[:, 1])
