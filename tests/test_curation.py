@@ -214,11 +214,11 @@ class TestCurateByFiringRate:
 class TestCurateByIsiViolations:
     def test_percent_method(self):
         """
-        ISI violation percentage is computed correctly.
+        ISI violation fraction is computed correctly.
 
         Tests:
             (Test Case 1) Unit with tightly spaced spikes has high
-                violation percentage.
+                violation fraction.
             (Test Case 2) Unit with well-separated spikes has zero
                 violations.
         """
@@ -229,11 +229,11 @@ class TestCurateByIsiViolations:
             length=100.0,
         )
         sd_out, res = curate_by_isi_violations(
-            sd, max_violation=50.0, threshold_ms=1.5, method="percent"
+            sd, max_violation=0.5, threshold_ms=1.5, method="percent"
         )
-        # Unit 0: 4 spikes, 3 ISIs all < 1.5ms → 3/4 * 100 = 75%
-        assert res["metric"][0] == pytest.approx(75.0)
-        # Unit 1: 3 ISIs, none < 1.5ms → 0%
+        # Unit 0: 4 spikes, 3 ISIs all < 1.5ms → 3/4 = 0.75
+        assert res["metric"][0] == pytest.approx(0.75)
+        # Unit 1: 3 ISIs, none < 1.5ms → 0
         assert res["metric"][1] == pytest.approx(0.0)
 
     def test_hill_method(self):

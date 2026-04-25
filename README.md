@@ -132,19 +132,21 @@ sd.to_kilosort("ks_output/", fs_Hz=20000.0)
 
 ## AI-assisted analysis
 
-SpikeLab includes a built-in skill that can guide you through data analysis interactively. The skill teaches your CLI agent of choice how to use the SpikeLab library, write analysis scripts, generate visualizations, and manage results — all through natural language conversation.
+SpikeLab includes a set of built-in skills that guide your CLI agent through data analysis, spike sorting, library development, and education — all through natural language conversation.
 
 ### How it works
 
-The **spikelab-analysis-implementer** skill ships inside the installed package at `spikelab/agent/skills/spikelab-analysis-implementer/`. CLI agents that load skills from installed packages can pick it up automatically; alternatively, copy or symlink the skill into the agent's skills directory. The skill allows the agent to:
+The skills ship inside the installed package at `spikelab/agent/skills/`. A lightweight **`spikelab` router skill** (installed separately into your agent's skills directory) handles environment detection (conda vs. system Python, install if missing) and then delegates to the in-repo skill that best matches the user's request:
 
-- Load your data files and set up an analysis workspace
-- Write and run analysis scripts using SpikeLab methods
-- Generate publication-quality figures
-- Keep a running log of analyses and results
-- Maintain up-to-date API documentation (repo maps)
+| In-repo skill | Use when the user wants to… |
+|---|---|
+| **`spikelab-analysis-implementer`** | Load data, write/run analysis scripts, generate publication-quality figures, manage results, and keep repo maps current |
+| **`spikelab-spikesorter`** | Sort raw recordings (Kilosort2, Kilosort4, RT-Sort), curate units, run stim-aligned sorting, and inspect sorting outputs |
+| **`spikelab-developer`** | Promote ad-hoc analysis code into the library — identify reusable methods, integrate novel computations, write tests, expose via MCP, and submit a PR |
+| **`spikelab-educator`** | Explain what an analysis does, how a method works, or what a result means — read-only, no code execution |
+| **`spikelab-map-updater`** | Regenerate the repo map files after library changes |
 
-Alternatively, MCP tools are available for all methods in the repository
+CLI agents that load skills from installed packages pick the in-repo skills up automatically; alternatively, copy or symlink them into the agent's skills directory. As an alternative to the skills, MCP tools are available for all methods in the library.
 
 ## Directory structure
 

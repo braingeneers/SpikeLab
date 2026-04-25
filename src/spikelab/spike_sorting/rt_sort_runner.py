@@ -210,6 +210,7 @@ def spike_sort(
             compiled_dst = rt_sort_pickle.parent / "compiled.ts"
             if compiled_src.exists() and not compiled_dst.exists():
                 import shutil as _shutil
+
                 _shutil.copy2(compiled_src, compiled_dst)
 
         # Cache the sorting for fast reload on subsequent runs
