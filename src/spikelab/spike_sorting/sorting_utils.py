@@ -14,6 +14,55 @@ from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 
+def get_system_ram_bytes() -> Optional[int]:
+    """Return total system physical RAM in bytes, or None if unavailable.
+
+    Tries POSIX ``os.sysconf`` first, then ``psutil`` if installed,
+    then the Windows ``GlobalMemoryStatusEx`` API via ctypes.
+
+    Returns:
+        ram_bytes (int or None): Total physical RAM in bytes, or None
+            if no detection method succeeds.
+    """
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        pass
+
+    try:
+        import psutil
+
+        return int(psutil.virtual_memory().total)
+    except ImportError:
+        pass
+
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            class _MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            stat = _MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(stat)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+            return int(stat.ullTotalPhys)
+        except Exception:
+            pass
+
+    return None
+
+
 def print_stage(text: Any) -> None:
     """Print a centered banner message framed by ``=`` lines.
 

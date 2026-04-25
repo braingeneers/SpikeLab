@@ -546,11 +546,38 @@ When `use_docker=True`, SpikeLab automatically selects a Docker image compatible
 | Sorter | Image | CUDA | Notes |
 |--------|-------|------|-------|
 | Kilosort2 | `kilosort2-compiled-base:py310-si0.104` | Any | MATLAB Runtime; `MW_CUDA_FORWARD_COMPATIBILITY` handles all GPUs |
-| Kilosort4 | `kilosort4-base:py311-si0.104` | 12.6+ | PyTorch 2.11+cu130; requires NVIDIA driver ≥ 550 |
+| Kilosort4 | `kilosort4-base:py311-si0.104` | 12.6+ | PyTorch+cu126 wheels; requires NVIDIA driver ≥ 550. Used for both cu126 and cu130 hosts (cu126 wheels run fine on cu130 drivers). |
 
-**Building custom images:**
+**Drivers below 525** (Kepler/Fermi GPUs, or very old enterprise systems): KS4 Docker is unworkable — modern PyTorch has dropped support for those GPU architectures, so no custom image will help. Recommend KS2 Docker first (its image selection is driver-agnostic and the bundled MATLAB Runtime supports drivers back to ~450); if that also fails, fall back to local KS2 with a real MATLAB install (`sorter="kilosort2"`, `kilosort_path="..."`, no `use_docker`). If neither works the GPU is too old — switch hardware or upgrade the driver.
 
-Dockerfiles are in `SpikeLab/docker/kilosort2/` and `SpikeLab/docker/kilosort4/`. To rebuild:
+**Building custom images for unsupported CUDA versions:**
+
+If sorting raises `RuntimeError: No compatible Docker image for '{sorter}' with CUDA {cuda_tag}`, the host GPU driver is too old for the pre-built images. Build a custom image by changing the PyTorch CUDA wheel in the Dockerfile:
+
+1. Open `SpikeLab/docker/kilosort4/Dockerfile`.
+2. Find the `pip install` line that installs PyTorch:
+   ```
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+   ```
+3. Replace the CUDA suffix in the URL with the detected tag from the error (e.g., `cu118`, `cu121`, `cu124`):
+   ```
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/<cuda_tag>
+   ```
+   Available PyTorch CUDA wheels: `cu118`, `cu121`, `cu124`, `cu126`. Check https://download.pytorch.org/whl/ for the latest list.
+4. Also remove the `nvidia-*-cu11` uninstall lines if building for CUDA 11.8 (the base image already has the correct packages).
+5. Build and tag the image:
+   ```bash
+   docker build -t spikeinterface/kilosort4-base:py311-si0.104-<cuda_tag> \
+       -f SpikeLab/docker/kilosort4/Dockerfile SpikeLab/docker/kilosort4/
+   ```
+6. Pass the custom image to `sort_recording`:
+   ```python
+   sort_recording(..., use_docker="spikeinterface/kilosort4-base:py311-si0.104-<cuda_tag>")
+   ```
+
+Kilosort2 does not need custom CUDA-version images — its MATLAB Runtime ships bundled CUDA libraries, and `MW_CUDA_FORWARD_COMPATIBILITY` lets one image work on any GPU newer than the runtime's build target. It still requires a reasonably modern NVIDIA driver (≥ 525).
+
+**Rebuilding the default images:**
 
 ```bash
 docker build -t spikeinterface/kilosort2-compiled-base:py310-si0.104 \
@@ -584,6 +611,22 @@ print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py3
 
 ---
 
+## Pipeline Resource Management
+
+`sort_recording` automatically applies the following safeguards. They are sorter-agnostic — KS2, KS4, and RT-Sort all benefit identically.
+
+**Per-recording log file.** Every sorted recording gets a `<results_folder>/sorting_<YYMMDD_HHMMSS>.log` capturing the full pipeline stdout: environment banner (Python / SI / SpikeLab versions, host, RAM, GPU), every stage's progress, exception traceback (on failure), and a closing summary with status, wall time, and resources at finish. This file is the canonical input for the post-sorting Markdown report.
+
+**Container memory cap (Docker sorters only).** When `use_docker=True`, the container is launched with `mem_limit` set to 80% of host RAM. Applies to both Kilosort2 and Kilosort4. Implemented via `spikelab.spike_sorting.docker_utils.patched_container_client`.
+
+**Host process heap cap (local sorters and host orchestration).** On Linux/macOS, the pipeline calls `resource.setrlimit(RLIMIT_DATA, ...)` to cap anonymous heap allocations (numpy / torch tensors) at 80% of host RAM. File-backed mmap regions are *not* capped, so loading large recordings is unaffected. The original limit is restored on exit. **On Windows, this is a no-op** (`RLIMIT_DATA` unavailable) — the pipeline prints a notice at startup; users should monitor RAM manually or rely on Docker's `mem_limit`.
+
+The active heap cap is documented in each `sorting_*.log` banner under `Heap cap:`.
+
+**Override.** If the heap cap interferes with a workload (rare, since file mmaps are excluded), call `resource.setrlimit(resource.RLIMIT_DATA, (resource.RLIM_INFINITY, hard))` after `sort_recording` returns — the pipeline already restores the prior limit, but the original soft limit may still be lower than infinite.
+
+---
+
 ## Troubleshooting
 
 | Issue | Cause | Fix |
@@ -599,8 +642,9 @@ print(get_docker_image("kilosort4"))   # e.g. "spikeinterface/kilosort4-base:py3
 | Kilosort2 `Matrix dimensions must agree` in splitting step | Data-dependent KS2 bug on high-density wells that produce very high template counts (>~1000 clusters); fails after `Finished splitting. Found N splits, checked M/M clusters, nccg K` | Raise the second-pass detection threshold: `kilosort_params={"projection_threshold": [10, 8]}` (default is `[10, 4]`). This reduces the number of spikes extracted in the second pass, which lowers the template count and avoids the splitting bug. Retry without other changes. If still failing, try `[12, 8]`. **Retry automatically** — do not escalate to the user on a first hit; only escalate if the bumped threshold also fails. |
 | `ImportError: RT-Sort backend requires...` | Missing RT-Sort dependencies | Install: `pip install torch diptest scikit-learn tqdm h5py`. For torch, match your CUDA version: https://pytorch.org/get-started/locally/ |
 | RT-Sort CUDA out of memory | Recording too large for GPU VRAM | Reduce `rt_sort_recording_window_ms` to a shorter window, or use `rt_sort_device="cpu"` (slow) |
-| Host RAM-bound on RT-Sort with long recordings | Detection holds the full filtered recording + model state | Use `rt_sort_detection_window_s=180` (detect once on 3 min, sort_offline still covers full recording). Keep `streaming_waveforms=True` (default). |
-| OOM during waveform extraction with many units | High-unit-count sorts without streaming | Ensure `streaming_waveforms=True` (default). For extreme cases also set `save_waveform_files=False` so only templates are persisted. |
+| Host RAM-bound on RT-Sort with long recordings | Detection holds the full filtered recording + model state | Use `rt_sort_detection_window_s=180` (detect once on 3 min, sort_offline still covers full recording). Keep `streaming_waveforms=True` (default). On Linux/macOS the pipeline's `RLIMIT_DATA` cap will surface a clean `MemoryError` before the kernel OOM killer; on Windows monitor RAM manually since the cap is not enforced. |
+| OOM during waveform extraction with many units | High-unit-count sorts without streaming | Ensure `streaming_waveforms=True` (default). For extreme cases also set `save_waveform_files=False` so only templates are persisted. The pipeline's heap cap (POSIX only) raises `MemoryError` rather than letting the OS kill the process. |
+| `MemoryError` during local sort | Heap cap reached 80% of host RAM (POSIX `RLIMIT_DATA`) | Reduce concurrency (`n_jobs`), shorten the time window (`first_n_mins`, `rt_sort_detection_window_s`), or run a smaller chunk per call. The cap is a guard against runaway numpy/torch allocations; hitting it indicates the workload genuinely needs more RAM. |
 | Pickling error during RT-Sort parallel clustering | Windows multiprocessing (spawn vs fork) | Set `rt_sort_num_processes=1` to use sequential processing |
 | Stim peri-event alignment looks offset for biphasic pulses | Default `peak_mode="abs_max"` lands on the largest-amplitude phase, not the current-reversal moment | For biphasic anodic-first pulses pass `peak_mode="down_edge"` (or `"up_edge"` for cathodic-first). Aligns to the + → − zero crossing between the two phases — the AP trigger point. |
 | `remove_stim_artifacts` blanks zero samples despite large artifacts | New gain-anchored threshold returns `+inf` when no ADC clipping is detected (< 10 samples pinned at max) | Expected behavior when artifacts stay below the ADC rail — polynomial detrend handles them. If you genuinely need to blank, pass an explicit `saturation_threshold=<µV>` or lower `min_clip_samples` in `_saturation_threshold_from_recording`. |

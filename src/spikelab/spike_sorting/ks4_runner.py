@@ -5,13 +5,14 @@ Mirrors the structure of ``ks2_runner.py`` for symmetry — backends
 should delegate sorting to a dedicated runner module.
 """
 
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
 from . import _globals
 from ._classifier import classify_ks4_failure
 from ._exceptions import SpikeSortingClassifiedError
-from .docker_utils import get_docker_image
+from .docker_utils import get_docker_image, patched_container_client
 from .sorting_extractor import KilosortSortingExtractor
 from .sorting_utils import Stopwatch, Tee, print_stage
 
@@ -92,15 +93,23 @@ def spike_sort(
                 # install.
                 docker_kwargs["installation_mode"] = "pypi"
 
-            ss.run_sorter(
-                "kilosort4",
-                rec_cache,
-                folder=str(output_folder),
-                remove_existing_folder=True,
-                verbose=True,
-                **sorter_params,
-                **docker_kwargs,
+            # Cap Docker container memory to 80% of system RAM when running
+            # in a container. No-op (yields without patching) for local runs.
+            mem_cap_ctx = (
+                patched_container_client(mem_limit_frac=0.8)
+                if _globals.USE_DOCKER
+                else nullcontext()
             )
+            with mem_cap_ctx:
+                ss.run_sorter(
+                    "kilosort4",
+                    rec_cache,
+                    folder=str(output_folder),
+                    remove_existing_folder=True,
+                    verbose=True,
+                    **sorter_params,
+                    **docker_kwargs,
+                )
         except SpikeSortingClassifiedError:
             # Already classified (e.g. nested call re-raised); propagate.
             raise

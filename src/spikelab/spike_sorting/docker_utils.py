@@ -7,6 +7,8 @@ without manual image selection.
 """
 
 import subprocess
+from contextlib import contextmanager
+from typing import Dict, Iterator, Optional
 
 # ---------------------------------------------------------------------------
 # CUDA driver → maximum supported toolkit version mapping
@@ -119,21 +121,71 @@ def get_docker_image(sorter: str, cuda_tag: str | None = None) -> str:
     if cuda_tag in images:
         return images[cuda_tag]
 
-    # Fallback: use the newest available image
-    # (requires the user's driver to be new enough)
-    newest_tag = _DRIVER_TO_CUDA[0][1]
-    if newest_tag in images:
-        import warnings
-
-        warnings.warn(
-            f"No Docker image for {sorter} with {cuda_tag}. "
-            f"Falling back to {newest_tag}. If sorting fails, your CUDA "
-            f"driver may be too old for this image.",
-            stacklevel=2,
-        )
-        return images[newest_tag]
-
     raise RuntimeError(
-        f"No compatible Docker image found for {sorter} with CUDA {cuda_tag}. "
-        f"Available tags: {list(images.keys())}"
+        f"No compatible Docker image for '{sorter}' with CUDA {cuda_tag}. "
+        f"Available CUDA tags: {list(images.keys())}. "
+        f"To build a custom image: edit SpikeLab/docker/{sorter}/Dockerfile "
+        f"and change the PyTorch --index-url from "
+        f"https://download.pytorch.org/whl/cu126 to "
+        f"https://download.pytorch.org/whl/{cuda_tag}, then run: "
+        f"docker build -t spikeinterface/{sorter}-base:py311-si0.104-{cuda_tag} "
+        f"-f SpikeLab/docker/{sorter}/Dockerfile SpikeLab/docker/{sorter}/ "
+        f"— then pass the image via "
+        f'use_docker="spikeinterface/{sorter}-base:py311-si0.104-{cuda_tag}". '
+        f"Alternatively, run {sorter} locally without Docker."
     )
+
+
+@contextmanager
+def patched_container_client(
+    extra_env: Optional[Dict[str, str]] = None,
+    mem_limit_frac: Optional[float] = 0.8,
+) -> Iterator[None]:
+    """Patch SpikeInterface's ``ContainerClient`` for Docker sorter runs.
+
+    Injects extra environment variables and an optional memory cap into
+    every Docker container started by SpikeInterface for the duration
+    of the context. On exit, the original ``ContainerClient.__init__``
+    is restored unconditionally.
+
+    Parameters:
+        extra_env (dict[str, str] or None): Environment variables to
+            inject into the container (e.g.
+            ``{"MW_CUDA_FORWARD_COMPATIBILITY": "1"}`` for Kilosort2).
+        mem_limit_frac (float or None): Fraction of host system RAM to
+            cap the container's memory at via Docker's ``mem_limit``.
+            Defaults to ``0.8`` (80%). Pass ``None`` to disable the
+            memory cap. If system RAM cannot be detected, no cap is
+            applied.
+
+    Notes:
+        - No-op when SpikeInterface is not installed.
+        - Only the ``"docker"`` mode is patched; ``"singularity"`` runs
+          are unaffected.
+    """
+    try:
+        from spikeinterface.sorters.container_tools import ContainerClient
+    except ImportError:
+        yield
+        return
+
+    from .sorting_utils import get_system_ram_bytes
+
+    _orig_init = ContainerClient.__init__
+
+    def _patched_init(self, mode, container_image, volumes, py_user_base, extra_kwargs):
+        if mode == "docker":
+            if extra_env:
+                extra_kwargs.setdefault("environment", {})
+                extra_kwargs["environment"].update(extra_env)
+            if mem_limit_frac is not None:
+                ram_bytes = get_system_ram_bytes()
+                if ram_bytes is not None:
+                    extra_kwargs["mem_limit"] = int(ram_bytes * mem_limit_frac)
+        _orig_init(self, mode, container_image, volumes, py_user_base, extra_kwargs)
+
+    ContainerClient.__init__ = _patched_init
+    try:
+        yield
+    finally:
+        ContainerClient.__init__ = _orig_init

@@ -1,7 +1,10 @@
 FROM spikeinterface/kilosort4-base:latest
 
-# Force upgrade PyTorch to 2.9+ with CUDA 13.0 for RTX 5090 (compute capability 12.0)
-# Must uninstall first since the base image pins cu118 packages
+# Upgrade PyTorch to a cu126 build so the image works on hosts with
+# NVIDIA driver >= 550 (cu126 hosts) and >= 560 (cu130 hosts) — cu126
+# wheels include sm_120 (Blackwell consumer, e.g. RTX 5090) and run
+# natively on cu130 drivers via NVIDIA forward compatibility.
+# Must uninstall first since the base image pins cu118 packages.
 RUN pip uninstall -y torch torchvision torchaudio \
     nvidia-cuda-nvrtc-cu11 nvidia-cuda-runtime-cu11 nvidia-cuda-cupti-cu11 \
     nvidia-cudnn-cu11 nvidia-cublas-cu11 nvidia-cufft-cu11 nvidia-curand-cu11 \

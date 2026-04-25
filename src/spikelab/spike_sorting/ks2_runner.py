@@ -840,27 +840,14 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
 
     # Inject MW_CUDA_FORWARD_COMPATIBILITY=1 into the Docker container so
     # that the compiled MATLAB Runtime supports newer GPU architectures
-    # (e.g. RTX 5090 / compute capability 12.0).
-    from spikeinterface.sorters.container_tools import ContainerClient
+    # (e.g. RTX 5090 / compute capability 12.0), and cap container memory
+    # to 80% of system RAM to prevent OOM crashes.
+    from .docker_utils import patched_container_client
 
-    _orig_init = ContainerClient.__init__
-
-    def _patched_init(self, mode, container_image, volumes, py_user_base, extra_kwargs):
-        if mode == "docker":
-            extra_kwargs.setdefault("environment", {})
-            extra_kwargs["environment"]["MW_CUDA_FORWARD_COMPATIBILITY"] = "1"
-            # Cap container memory to 80% of system RAM to prevent OOM crashes
-            import os
-
-            try:
-                total_mem = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
-                extra_kwargs["mem_limit"] = int(total_mem * 0.8)
-            except (ValueError, OSError):
-                pass
-        _orig_init(self, mode, container_image, volumes, py_user_base, extra_kwargs)
-
-    ContainerClient.__init__ = _patched_init
-    try:
+    with patched_container_client(
+        extra_env={"MW_CUDA_FORWARD_COMPATIBILITY": "1"},
+        mem_limit_frac=0.8,
+    ):
         try:
             si_sorting = run_sorter(
                 sorter_name="kilosort2",
@@ -879,8 +866,6 @@ def _spike_sort_docker(recording: BaseRecording, output_folder: Path) -> Any:
             if classified is not None:
                 raise classified from err
             raise
-    finally:
-        ContainerClient.__init__ = _orig_init
 
     # Keep the pre-converted binary for potential reuse (recompute_recording=False).
     # It will be cleaned up with the rest of the intermediates if delete_inter=True.
