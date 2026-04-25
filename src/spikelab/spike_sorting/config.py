@@ -134,7 +134,7 @@ class CurationConfig:
     curate_second: bool = True
     curation_epoch: Optional[int] = None
     fr_min: Optional[float] = 0.05
-    isi_viol_max: Optional[float] = 1.0
+    isi_viol_max: Optional[float] = 0.01
     isi_violation_method: str = "percent"
     snr_min: Optional[float] = 5.0
     spikes_min_first: Optional[int] = 30

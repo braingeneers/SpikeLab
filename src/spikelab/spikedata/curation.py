@@ -14,6 +14,8 @@ These functions are bound as methods on ``SpikeData`` by
 ``spikedata.py`` so they can be called as ``sd.curate_by_*(…)``.
 """
 
+import warnings
+
 import numpy as np
 
 from .utils import compute_cosine_similarity_with_lag
@@ -59,21 +61,36 @@ def curate_by_firing_rate(sd, min_rate_hz=0.05):
 
 
 def curate_by_isi_violations(
-    sd, max_violation=1.0, threshold_ms=1.5, min_isi_ms=0.0, method="percent"
+    sd, max_violation=0.01, threshold_ms=1.5, min_isi_ms=0.0, method="percent"
 ):
     """Remove units with excessive inter-spike-interval violations.
 
     Two methods are available:
 
     - ``"percent"`` — violation count divided by total spike count,
-      expressed as a percentage.
+      expressed as a **fraction** in ``[0, 1]`` (e.g. ``0.01`` means 1 %
+      of spikes are ISI violations). The ``"percent"`` name is kept for
+      backward compatibility with prior versions; the value is now a
+      fraction, not a percentage.
     - ``"hill"`` — violation rate ratio from Hill et al. (2011)
       J Neurosci 31:8699-8705.  Values above 1 indicate highly
       contaminated units.
 
+    .. deprecated:: 0.105
+        With ``method="percent"``, ``max_violation`` is now a fraction
+        (``0.01`` = 1 % of spikes) instead of a percent value
+        (``1.0`` = 1 %). Passing a value ``>= 1.0`` with
+        ``method="percent"`` emits a :class:`DeprecationWarning` and is
+        auto-converted by dividing by 100. The legacy default ``1.0``
+        is therefore treated as ``0.01``. This compatibility shim will
+        be removed in a future release.
+
     Parameters:
         sd (SpikeData): Source spike data.
-        max_violation (float): Maximum allowed violation metric.
+        max_violation (float): Maximum allowed metric. With
+            ``method="percent"`` this is a fraction in ``[0, 1]``
+            (default ``0.01`` = 1 % of spikes). With ``method="hill"``
+            it is a contamination ratio.
         threshold_ms (float): Refractory period threshold in ms.
         min_isi_ms (float): Minimum possible ISI enforced by hardware or
             post-processing, in ms.
@@ -82,10 +99,29 @@ def curate_by_isi_violations(
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
         result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            Metric is the violation percentage or ratio per unit.
+            For ``method="percent"`` the metric is the violation fraction
+            per unit; for ``method="hill"`` it is the Hill contamination
+            ratio.
     """
     if method not in ("percent", "hill"):
         raise ValueError(f"method must be 'percent' or 'hill', got '{method}'")
+
+    if method == "percent" and max_violation is not None and max_violation >= 1.0:
+        legacy_value = max_violation
+        max_violation = max_violation / 100.0
+        warnings.warn(
+            (
+                f"curate_by_isi_violations: max_violation={legacy_value!r} "
+                f"(>= 1.0) with method='percent' is interpreted as a legacy "
+                f"percent value and auto-converted to {max_violation!r}. As of "
+                f"this release, max_violation is a fraction (0.01 = 1% of "
+                f"spikes). Pass {max_violation!r} explicitly to silence this "
+                f"warning. The compatibility shim will be removed in a future "
+                f"release."
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     duration_s = sd.length / 1000.0
     threshold_s = threshold_ms / 1000.0
@@ -108,7 +144,7 @@ def curate_by_isi_violations(
             )
             metric[i] = violation_rate / total_rate if total_rate > 0 else 0.0
         else:
-            metric[i] = (violation_count / n_spikes) * 100.0
+            metric[i] = violation_count / n_spikes
 
     passed = metric <= max_violation
     return sd.subset(np.where(passed)[0]), {"metric": metric, "passed": passed}
