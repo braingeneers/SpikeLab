@@ -92,7 +92,12 @@ def spike_sort(
     output_folder.mkdir(parents=True, exist_ok=True)
 
     log_path = output_folder / "rt_sort.log"
-    rt_sort_pickle = output_folder / "rt_sort.pickle"
+    # rt_sort.pickle is saved to the recording dir (parent of inter_path),
+    # NOT inside the inter dir. This keeps it persistent across spikelab's
+    # inter cleanup (RTSortConfig.delete_inter=True default would otherwise
+    # remove the pickle along with the cache npy files). Stable path used
+    # for the cache-hit reuse check below and for sort_stim_recording reuse.
+    rt_sort_pickle = output_folder.parent.parent / "rt_sort.pickle"
     cached_sorting_npz = output_folder / "sorting.npz"
 
     with Tee(log_path, file_mode="w"):
@@ -194,11 +199,18 @@ def spike_sort(
 
         # Persist the trained sequences for Phase 2 reuse.
         # RTSort.save() strips the unpicklable compiled model before
-        # serialization and restores it in-memory afterward.  The compiled
-        # model is already cached at output_folder / "compiled.ts" by
-        # detect_sequences, so load_rt_sort() can reattach it on load.
+        # serialization and restores it in-memory afterward.
+        # The pickle is saved to the recording dir (parent of inter_path) so it
+        # survives RTSortConfig.delete_inter=True. We also copy compiled.ts
+        # alongside so load_rt_sort() can auto-detect the model on reload
+        # (it looks for `pickle_path.parent / "compiled.ts"`).
         if _globals.RT_SORT_SAVE_PICKLE:
             rt_sort.save(rt_sort_pickle)
+            compiled_src = output_folder / "compiled.ts"
+            compiled_dst = rt_sort_pickle.parent / "compiled.ts"
+            if compiled_src.exists() and not compiled_dst.exists():
+                import shutil as _shutil
+                _shutil.copy2(compiled_src, compiled_dst)
 
         # Cache the sorting for fast reload on subsequent runs
         _save_sorting_cache(sorting, cached_sorting_npz)
