@@ -4091,6 +4091,9 @@ _TOOL_DISPATCH: dict[str, Any] = {
 _NO_ARGS_TOOLS = {"list_workspaces"}
 
 
+_USER_ERROR_TYPES = (ValueError, TypeError, KeyError, FileNotFoundError)
+
+
 @server.call_tool()
 async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
     """Handle tool calls."""
@@ -4106,9 +4109,24 @@ async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCon
 
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
+    except _USER_ERROR_TYPES as e:
+        # User-facing errors (bad input, missing data, wrong types).
+        # Do not log a traceback — these are expected and noisy in logs.
+        error_result = {
+            "error": str(e),
+            "type": type(e).__name__,
+            "category": "user_error",
+        }
+        return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
+
     except Exception as e:
+        # Unexpected exception — likely a server bug. Log full traceback.
         print(traceback.format_exc(), file=sys.stderr, flush=True)
-        error_result = {"error": str(e), "type": type(e).__name__}
+        error_result = {
+            "error": str(e),
+            "type": type(e).__name__,
+            "category": "server_error",
+        }
         return [types.TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
 

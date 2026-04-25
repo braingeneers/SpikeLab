@@ -139,7 +139,20 @@ def _patch_neo_maxwell_hdf5_plugin_path_handling() -> None:
     )
 
 
-_patch_neo_maxwell_hdf5_plugin_path_handling()
+_neo_maxwell_patched = False
+
+
+def _ensure_neo_maxwell_patch_applied() -> None:
+    """Apply the neo Maxwell HDF5 plugin patch on first use.
+
+    Deferred to avoid running the patch (and importing neo) at module
+    import time — the patch is only needed for Maxwell loaders.
+    """
+    global _neo_maxwell_patched
+    if _neo_maxwell_patched:
+        return
+    _patch_neo_maxwell_hdf5_plugin_path_handling()
+    _neo_maxwell_patched = True
 
 
 def _time_chunks_to_frames(
@@ -327,6 +340,7 @@ def load_single_recording(rec_path: Any) -> BaseRecording:
     if isinstance(rec_path, BaseRecording):
         rec = rec_path
     elif str(rec_path).endswith(".h5"):
+        _ensure_neo_maxwell_patch_applied()
         maxwell_kwargs = {}
         if _globals.STREAM_ID is not None:
             maxwell_kwargs["stream_id"] = _globals.STREAM_ID

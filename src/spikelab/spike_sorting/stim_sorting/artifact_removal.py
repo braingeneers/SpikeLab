@@ -309,8 +309,6 @@ def _process_stim_group_polynomial(
     n_samples,
     blanked,
     ch_idx,
-    pre_artifact_samples=0,  # accepted for API stability, currently unused
-    clip_mask_ch=None,  # accepted for API stability, currently unused
     clamp_threshold=None,
     clamp_counter=None,
 ):

@@ -205,6 +205,9 @@ def save_traces_mea(
         verbose (bool): Print progress messages.
     """
 
+    from .recording_io import _ensure_neo_maxwell_patch_applied
+
+    _ensure_neo_maxwell_patch_applied()
     rec_h5 = h5py.File(rec_path, "r")
     rec_si = MaxwellRecordingExtractor(rec_path)
 

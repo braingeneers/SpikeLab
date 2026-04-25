@@ -7,7 +7,7 @@ Handles both local files and S3 uploads.
 
 import os
 import tempfile
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from ...data_loaders.data_exporters import (
     export_spikedata_to_hdf5,
@@ -24,12 +24,12 @@ def _hdf5_export_helper(
     spikedata,
     file_path: str,
     style: str,
-    export_kwargs: Dict[str, Any],
-    aws_access_key_id: Optional[str],
-    aws_secret_access_key: Optional[str],
-    aws_session_token: Optional[str],
-    region_name: Optional[str],
-) -> Dict[str, Any]:
+    export_kwargs: dict[str, Any],
+    aws_access_key_id: str | None,
+    aws_secret_access_key: str | None,
+    aws_session_token: str | None,
+    region_name: str | None,
+) -> dict[str, Any]:
     """Shared logic for HDF5 export: S3 handling, temp file cleanup, exporter call."""
     is_s3 = is_s3_url(file_path)
     if is_s3:
@@ -79,17 +79,17 @@ async def export_to_hdf5_raster(
     file_path: str,
     raster_dataset: str = "raster",
     raster_bin_size_ms: float = 1.0,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: Literal["ms", "s", "samples"] = "ms",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Export spike data to HDF5 as a 2-D binary raster matrix."""
     spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "raster_dataset": raster_dataset,
         "raster_bin_size_ms": raster_bin_size_ms,
         "raw_dataset": raw_dataset,
@@ -117,18 +117,18 @@ async def export_to_hdf5_ragged(
     spike_times_dataset: str = "spike_times",
     spike_times_index_dataset: str = "spike_times_index",
     spike_times_unit: Literal["ms", "s", "samples"] = "s",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: Literal["ms", "s", "samples"] = "ms",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Export spike data to HDF5 as flat spike-times with an index array (NWB-like)."""
     spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "spike_times_dataset": spike_times_dataset,
         "spike_times_index_dataset": spike_times_index_dataset,
         "spike_times_unit": spike_times_unit,
@@ -157,18 +157,18 @@ async def export_to_hdf5_group(
     file_path: str,
     group_per_unit: str = "units",
     group_time_unit: Literal["ms", "s", "samples"] = "s",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: Literal["ms", "s", "samples"] = "ms",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Export spike data to HDF5 with one group per unit."""
     spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "group_per_unit": group_per_unit,
         "group_time_unit": group_time_unit,
         "fs_Hz": fs_Hz,
@@ -197,18 +197,18 @@ async def export_to_hdf5_paired(
     idces_dataset: str = "idces",
     times_dataset: str = "times",
     times_unit: Literal["ms", "s", "samples"] = "ms",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: Literal["ms", "s", "samples"] = "ms",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Export spike data to HDF5 as paired unit-index and spike-time arrays."""
     spikedata = _get_spikedata(_get_workspace(workspace_id), namespace)
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "idces_dataset": idces_dataset,
         "times_dataset": times_dataset,
         "times_unit": times_unit,
@@ -238,11 +238,11 @@ async def export_to_nwb(
     spike_times_dataset: str = "spike_times",
     spike_times_index_dataset: str = "spike_times_index",
     group: str = "units",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Export spike data to an NWB file.
 
@@ -322,8 +322,8 @@ async def export_to_kilosort(
     spike_times_file: str = "spike_times.npy",
     spike_clusters_file: str = "spike_clusters.npy",
     time_unit: Literal["samples", "ms", "s"] = "samples",
-    cluster_ids: Optional[List[int]] = None,
-) -> Dict[str, Any]:
+    cluster_ids: list[int] | None = None,
+) -> dict[str, Any]:
     """
     Export spike data to a KiloSort/Phy folder.
 
@@ -371,13 +371,13 @@ async def export_to_pickle(
     workspace_id: str,
     namespace: str,
     file_path: str,
-    key: Optional[str] = None,
-    protocol: Optional[int] = None,
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    key: str | None = None,
+    protocol: int | None = None,
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Export a workspace item to a pickle file.
 

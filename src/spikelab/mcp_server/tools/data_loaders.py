@@ -6,7 +6,7 @@ Handles both local files and S3 URLs.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Callable
 
 from ...data_loaders.data_loaders import (
     load_spikedata_from_hdf5,
@@ -20,28 +20,11 @@ from ...data_loaders.data_loaders import (
 )
 
 from ...data_loaders.s3_utils import ensure_local_file, is_s3_url
-from ...workspace.workspace import get_workspace_manager
+from ._helpers import resolve_workspace as _resolve_workspace
 
 # ---------------------------------------------------------------------------
 # Workspace helpers
 # ---------------------------------------------------------------------------
-
-
-def _resolve_workspace(workspace_id: str, name: Optional[str] = None):
-    """
-    Get or create a workspace.
-
-    Returns (workspace, workspace_id). Creates a new workspace when
-    workspace_id is empty; retrieves an existing one otherwise.
-    """
-    wm = get_workspace_manager()
-    if workspace_id:
-        ws = wm.get_workspace(workspace_id)
-        if ws is None:
-            raise ValueError(f"Workspace not found: {workspace_id}")
-        return ws, workspace_id
-    new_id = wm.create_workspace(name=name)
-    return wm.get_workspace(new_id), new_id
 
 
 def _namespace_from_path(path: str, namespace: str) -> str:
@@ -67,6 +50,62 @@ def _unique_namespace(ws, namespace: str) -> str:
     return f"{namespace}_{i}"
 
 
+def _default_info(spikedata) -> dict[str, Any]:
+    """Default info dict construction for SpikeData loaders."""
+    return {
+        "num_neurons": spikedata.N,
+        "length_ms": spikedata.length,
+        "start_time": spikedata.start_time,
+        "metadata": spikedata.metadata,
+    }
+
+
+def _load_spikedata_into_workspace(
+    file_path: str,
+    workspace_id: str,
+    namespace: str,
+    loader_fn: Callable,
+    loader_kwargs: dict[str, Any],
+    info_fn: Callable[[Any], dict[str, Any]] | None = None,
+    aws_kwargs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Shared boilerplate for SpikeData file loaders.
+
+    Downloads the file if it is on S3, calls ``loader_fn(local_path,
+    **loader_kwargs)``, stores the resulting SpikeData under a unique
+    namespace in the resolved workspace, and returns the standard
+    response dict. Cleans up any temporary download on exit.
+    """
+    if aws_kwargs is None:
+        aws_kwargs = {}
+    if info_fn is None:
+        info_fn = _default_info
+
+    local_path, is_temp = ensure_local_file(file_path, **aws_kwargs)
+
+    try:
+        spikedata = loader_fn(local_path, **loader_kwargs)
+
+        ns_derived = _namespace_from_path(file_path, namespace)
+        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
+        ns_final = _unique_namespace(ws, ns_derived)
+        ws.store(ns_final, "spikedata", spikedata)
+
+        return {
+            "workspace_id": resolved_wid,
+            "namespace": ns_final,
+            "workspace_key": "spikedata",
+            "info": info_fn(spikedata),
+        }
+    finally:
+        if is_temp:
+            try:
+                os.unlink(local_path)
+            except Exception:
+                pass
+
+
 # ---------------------------------------------------------------------------
 # Loader tool wrappers
 # ---------------------------------------------------------------------------
@@ -76,17 +115,17 @@ async def load_from_hdf5_raster(
     file_path: str,
     raster_dataset: str,
     raster_bin_size_ms: float,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: str = "s",
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Load spike data from an HDF5 file containing a 2-D raster matrix.
 
     Args:
@@ -107,50 +146,32 @@ async def load_from_hdf5_raster(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+    loader_kwargs: dict[str, Any] = {
+        "raster_dataset": raster_dataset,
+        "raster_bin_size_ms": raster_bin_size_ms,
+        "raw_time_unit": raw_time_unit,
+        "length_ms": length_ms,
+    }
+    if raw_dataset:
+        loader_kwargs["raw_dataset"] = raw_dataset
+    if raw_time_dataset:
+        loader_kwargs["raw_time_dataset"] = raw_time_dataset
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=load_spikedata_from_hdf5,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        kwargs: Dict[str, Any] = {
-            "raster_dataset": raster_dataset,
-            "raster_bin_size_ms": raster_bin_size_ms,
-            "raw_time_unit": raw_time_unit,
-            "length_ms": length_ms,
-        }
-        if raw_dataset:
-            kwargs["raw_dataset"] = raw_dataset
-        if raw_time_dataset:
-            kwargs["raw_time_dataset"] = raw_time_dataset
-
-        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_hdf5_ragged(
@@ -158,18 +179,18 @@ async def load_from_hdf5_ragged(
     spike_times_dataset: str = "spike_times",
     spike_times_index_dataset: str = "spike_times_index",
     spike_times_unit: str = "s",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: str = "s",
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Load spike data from an HDF5 file with flat spike times and an index array.
 
     Args:
@@ -192,70 +213,52 @@ async def load_from_hdf5_ragged(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+    loader_kwargs: dict[str, Any] = {
+        "spike_times_dataset": spike_times_dataset,
+        "spike_times_index_dataset": spike_times_index_dataset,
+        "spike_times_unit": spike_times_unit,
+        "fs_Hz": fs_Hz,
+        "raw_time_unit": raw_time_unit,
+        "length_ms": length_ms,
+    }
+    if raw_dataset:
+        loader_kwargs["raw_dataset"] = raw_dataset
+    if raw_time_dataset:
+        loader_kwargs["raw_time_dataset"] = raw_time_dataset
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=load_spikedata_from_hdf5,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        kwargs: Dict[str, Any] = {
-            "spike_times_dataset": spike_times_dataset,
-            "spike_times_index_dataset": spike_times_index_dataset,
-            "spike_times_unit": spike_times_unit,
-            "fs_Hz": fs_Hz,
-            "raw_time_unit": raw_time_unit,
-            "length_ms": length_ms,
-        }
-        if raw_dataset:
-            kwargs["raw_dataset"] = raw_dataset
-        if raw_time_dataset:
-            kwargs["raw_time_dataset"] = raw_time_dataset
-
-        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_hdf5_group(
     file_path: str,
     group_per_unit: str = "units",
     group_time_unit: str = "s",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: str = "s",
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Load spike data from an HDF5 file with one group per unit.
 
     Args:
@@ -277,51 +280,33 @@ async def load_from_hdf5_group(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+    loader_kwargs: dict[str, Any] = {
+        "group_per_unit": group_per_unit,
+        "group_time_unit": group_time_unit,
+        "fs_Hz": fs_Hz,
+        "raw_time_unit": raw_time_unit,
+        "length_ms": length_ms,
+    }
+    if raw_dataset:
+        loader_kwargs["raw_dataset"] = raw_dataset
+    if raw_time_dataset:
+        loader_kwargs["raw_time_dataset"] = raw_time_dataset
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=load_spikedata_from_hdf5,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        kwargs: Dict[str, Any] = {
-            "group_per_unit": group_per_unit,
-            "group_time_unit": group_time_unit,
-            "fs_Hz": fs_Hz,
-            "raw_time_unit": raw_time_unit,
-            "length_ms": length_ms,
-        }
-        if raw_dataset:
-            kwargs["raw_dataset"] = raw_dataset
-        if raw_time_dataset:
-            kwargs["raw_time_dataset"] = raw_time_dataset
-
-        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_hdf5_paired(
@@ -329,18 +314,18 @@ async def load_from_hdf5_paired(
     idces_dataset: str = "idces",
     times_dataset: str = "times",
     times_unit: str = "ms",
-    fs_Hz: Optional[float] = None,
-    raw_dataset: Optional[str] = None,
-    raw_time_dataset: Optional[str] = None,
+    fs_Hz: float | None = None,
+    raw_dataset: str | None = None,
+    raw_time_dataset: str | None = None,
     raw_time_unit: str = "s",
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """Load spike data from an HDF5 file with paired index and times arrays.
 
     Args:
@@ -363,65 +348,47 @@ async def load_from_hdf5_paired(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'.
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+    loader_kwargs: dict[str, Any] = {
+        "idces_dataset": idces_dataset,
+        "times_dataset": times_dataset,
+        "times_unit": times_unit,
+        "fs_Hz": fs_Hz,
+        "raw_time_unit": raw_time_unit,
+        "length_ms": length_ms,
+    }
+    if raw_dataset:
+        loader_kwargs["raw_dataset"] = raw_dataset
+    if raw_time_dataset:
+        loader_kwargs["raw_time_dataset"] = raw_time_dataset
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=load_spikedata_from_hdf5,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        kwargs: Dict[str, Any] = {
-            "idces_dataset": idces_dataset,
-            "times_dataset": times_dataset,
-            "times_unit": times_unit,
-            "fs_Hz": fs_Hz,
-            "raw_time_unit": raw_time_unit,
-            "length_ms": length_ms,
-        }
-        if raw_dataset:
-            kwargs["raw_dataset"] = raw_dataset
-        if raw_time_dataset:
-            kwargs["raw_time_dataset"] = raw_time_dataset
-
-        spikedata = load_spikedata_from_hdf5(local_path, **kwargs)
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_nwb(
     file_path: str,
     prefer_pynwb: bool = True,
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Load spike data from an NWB file.
 
@@ -439,41 +406,26 @@ async def load_from_nwb(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+    loader_kwargs: dict[str, Any] = {
+        "prefer_pynwb": prefer_pynwb,
+        "length_ms": length_ms,
+    }
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=load_spikedata_from_nwb,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        spikedata = load_spikedata_from_nwb(
-            local_path, prefer_pynwb=prefer_pynwb, length_ms=length_ms
-        )
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_kilosort(
@@ -481,17 +433,17 @@ async def load_from_kilosort(
     fs_Hz: float,
     spike_times_file: str = "spike_times.npy",
     spike_clusters_file: str = "spike_clusters.npy",
-    cluster_info_tsv: Optional[str] = None,
+    cluster_info_tsv: str | None = None,
     time_unit: str = "samples",
     include_noise: bool = False,
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Load spike data from KiloSort/Phy output folder.
 
@@ -548,12 +500,7 @@ async def load_from_kilosort(
         "workspace_id": resolved_wid,
         "namespace": ns_final,
         "workspace_key": "spikedata",
-        "info": {
-            "num_neurons": spikedata.N,
-            "length_ms": spikedata.length,
-            "start_time": spikedata.start_time,
-            "metadata": spikedata.metadata,
-        },
+        "info": _default_info(spikedata),
     }
 
 
@@ -561,11 +508,11 @@ async def load_from_pickle(
     file_path: str,
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Load spike data from a pickle file.
 
@@ -601,12 +548,7 @@ async def load_from_pickle(
         "workspace_id": resolved_wid,
         "namespace": ns_final,
         "workspace_key": "spikedata",
-        "info": {
-            "num_neurons": spikedata.N,
-            "length_ms": spikedata.length,
-            "start_time": spikedata.start_time,
-            "metadata": spikedata.metadata,
-        },
+        "info": _default_info(spikedata),
     }
 
 
@@ -620,11 +562,11 @@ async def load_from_hdf5_thresholded(
     direction: str = "both",
     workspace_id: str = "",
     namespace: str = "",
-    aws_access_key_id: Optional[str] = None,
-    aws_secret_access_key: Optional[str] = None,
-    aws_session_token: Optional[str] = None,
-    region_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    aws_access_key_id: str | None = None,
+    aws_secret_access_key: str | None = None,
+    aws_session_token: str | None = None,
+    region_name: str | None = None,
+) -> dict[str, Any]:
     """
     Load and threshold raw data from an HDF5 file.
 
@@ -646,56 +588,42 @@ async def load_from_hdf5_thresholded(
     Returns:
         Dictionary with 'workspace_id', 'namespace', 'workspace_key', and 'info'
     """
-    local_path, is_temp = ensure_local_file(
-        file_path,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token,
-        region_name=region_name,
+
+    def _thresholded_loader(local_path: str, **kwargs):
+        return load_spikedata_from_hdf5_raw_thresholded(local_path, dataset, **kwargs)
+
+    loader_kwargs: dict[str, Any] = {
+        "fs_Hz": fs_Hz,
+        "threshold_sigma": threshold_sigma,
+        "filter": filter,
+        "hysteresis": hysteresis,
+        "direction": direction,
+    }
+
+    aws_kwargs = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "aws_session_token": aws_session_token,
+        "region_name": region_name,
+    }
+
+    return _load_spikedata_into_workspace(
+        file_path=file_path,
+        workspace_id=workspace_id,
+        namespace=namespace,
+        loader_fn=_thresholded_loader,
+        loader_kwargs=loader_kwargs,
+        aws_kwargs=aws_kwargs,
     )
-
-    try:
-        spikedata = load_spikedata_from_hdf5_raw_thresholded(
-            local_path,
-            dataset,
-            fs_Hz=fs_Hz,
-            threshold_sigma=threshold_sigma,
-            filter=filter,
-            hysteresis=hysteresis,
-            direction=direction,
-        )
-
-        ns_derived = _namespace_from_path(file_path, namespace)
-        ws, resolved_wid = _resolve_workspace(workspace_id, name=ns_derived)
-        ns_final = _unique_namespace(ws, ns_derived)
-        ws.store(ns_final, "spikedata", spikedata)
-
-        return {
-            "workspace_id": resolved_wid,
-            "namespace": ns_final,
-            "workspace_key": "spikedata",
-            "info": {
-                "num_neurons": spikedata.N,
-                "length_ms": spikedata.length,
-                "start_time": spikedata.start_time,
-                "metadata": spikedata.metadata,
-            },
-        }
-    finally:
-        if is_temp:
-            try:
-                os.unlink(local_path)
-            except Exception:
-                pass
 
 
 async def load_from_ibl(
     eid: str,
     pid: str,
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Load spike data for a single IBL probe into the workspace.
 
@@ -739,10 +667,10 @@ async def load_from_ibl(
 
 
 async def query_ibl_probes(
-    target_regions: Optional[list] = None,
+    target_regions: list | None = None,
     min_units: int = 0,
     min_fraction_in_target: float = 0.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search the IBL Brain-Wide Map database for probes matching given criteria.
 
@@ -774,10 +702,10 @@ async def query_ibl_probes(
 
 async def load_from_spikelab_sorted_npz(
     file_path: str,
-    length_ms: Optional[float] = None,
+    length_ms: float | None = None,
     workspace_id: str = "",
     namespace: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load spike data from a SpikeLab compiled sorting .npz file.
 
     These .npz files are produced by the spike sorting pipeline's
@@ -805,10 +733,5 @@ async def load_from_spikelab_sorted_npz(
         "workspace_id": resolved_wid,
         "namespace": ns_final,
         "workspace_key": "spikedata",
-        "info": {
-            "num_neurons": spikedata.N,
-            "length_ms": spikedata.length,
-            "start_time": spikedata.start_time,
-            "metadata": spikedata.metadata,
-        },
+        "info": _default_info(spikedata),
     }

@@ -15,6 +15,23 @@ def get_workspace(workspace_id: str):
     return ws
 
 
+def resolve_workspace(workspace_id: str, name: str | None = None):
+    """
+    Get or create a workspace.
+
+    Returns (workspace, workspace_id). Creates a new workspace when
+    workspace_id is empty; retrieves an existing one otherwise.
+    """
+    wm = get_workspace_manager()
+    if workspace_id:
+        ws = wm.get_workspace(workspace_id)
+        if ws is None:
+            raise ValueError(f"Workspace not found: {workspace_id}")
+        return ws, workspace_id
+    new_id = wm.create_workspace(name=name)
+    return wm.get_workspace(new_id), new_id
+
+
 def get_spikedata(ws, namespace: str) -> SpikeData:
     """Load SpikeData from (namespace, 'spikedata') in the workspace.
 
