@@ -38,16 +38,26 @@ class S3StorageClient:
         self.endpoint_url = endpoint_url
         self.region_name = region_name
         self._templates = path_templates or StoragePathTemplates()
-        if boto3 is None:
-            raise ImportError("boto3 is required for S3 storage: pip install boto3")
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            region_name=region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
-        )
+        # Defer boto3 import + client construction until actually needed,
+        # so dry-run / template-only paths don't require boto3 installed.
+        self._client_kwargs = {
+            "endpoint_url": endpoint_url,
+            "region_name": region_name,
+            "aws_access_key_id": aws_access_key_id,
+            "aws_secret_access_key": aws_secret_access_key,
+            "aws_session_token": aws_session_token,
+        }
+        self._client = None
+
+    def _get_client(self):
+        """Construct the boto3 S3 client on first use."""
+        if self._client is None:
+            if boto3 is None:
+                raise ImportError(
+                    "boto3 is required for S3 storage: pip install boto3"
+                )
+            self._client = boto3.client("s3", **self._client_kwargs)
+        return self._client
 
     def build_uri(self, *, run_id: str, filename: str, category: str = "inputs") -> str:
         """Build an S3 URI for a file using the active path templates."""
@@ -61,7 +71,7 @@ class S3StorageClient:
     def upload_file(self, *, local_path: str, s3_uri: str) -> str:
         """Upload a local file to S3 and return the URI."""
         bucket, key = parse_s3_url(s3_uri)
-        self._client.upload_file(local_path, bucket, key)
+        self._get_client().upload_file(local_path, bucket, key)
         return s3_uri
 
     def upload_bundle(self, *, local_zip: str, run_id: str) -> str:
@@ -98,7 +108,7 @@ class S3StorageClient:
         """
         bucket, key = parse_s3_url(s3_uri)
         Path(local_path).parent.mkdir(parents=True, exist_ok=True)
-        self._client.download_file(bucket, key, local_path)
+        self._get_client().download_file(bucket, key, local_path)
         return local_path
 
     def download_output(self, *, run_id: str, filename: str, local_dir: str) -> str:
@@ -130,7 +140,7 @@ class S3StorageClient:
         if not prefix:
             return []
         bucket, key_prefix = parse_s3_url(prefix)
-        paginator = self._client.get_paginator("list_objects_v2")
+        paginator = self._get_client().get_paginator("list_objects_v2")
         keys = []
         for page in paginator.paginate(Bucket=bucket, Prefix=key_prefix):
             for obj in page.get("Contents", []):

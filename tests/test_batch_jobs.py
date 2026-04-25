@@ -691,13 +691,12 @@ from unittest.mock import MagicMock, patch
 
 class TestS3StorageClient:
     def _make_client(self, prefix="s3://bucket/prefix/", templates=None):
-        """Build an S3StorageClient with mocked boto3."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
-            mock_boto3.client.return_value = MagicMock()
-            client = S3StorageClient(
-                prefix=prefix,
-                path_templates=templates,
-            )
+        """Build an S3StorageClient with a mocked boto3 client."""
+        client = S3StorageClient(
+            prefix=prefix,
+            path_templates=templates,
+        )
+        client._client = MagicMock()  # bypass lazy init
         return client
 
     def test_build_uri_default_templates(self):
@@ -794,10 +793,11 @@ class TestS3StorageClient:
         assert client.logs_prefix_for_run("r1") == "s3://b/p/lg/r1/"
 
     def test_boto3_not_installed(self):
-        """ImportError raised when boto3 is not available."""
+        """ImportError raised when boto3 is not available — deferred to first use."""
         with patch("spikelab.batch_jobs.storage_s3.boto3", None):
+            client = S3StorageClient(prefix="s3://bucket/pfx/")
             with pytest.raises(ImportError, match="boto3 is required"):
-                S3StorageClient(prefix="s3://bucket/pfx/")
+                client.upload_file(local_path="x", s3_uri="s3://bucket/pfx/x")
 
     def test_build_uri_invalid_category_falls_back_to_inputs(self):
         """Invalid category string falls back to inputs template."""
@@ -1716,11 +1716,10 @@ class TestSubmitResult:
 
 class TestS3StorageClientDownload:
     def _make_client(self, prefix="s3://bucket/prefix/"):
-        """Build an S3StorageClient with mocked boto3."""
-        with patch("spikelab.batch_jobs.storage_s3.boto3") as mock_boto3:
-            mock_s3 = MagicMock()
-            mock_boto3.client.return_value = mock_s3
-            client = S3StorageClient(prefix=prefix)
+        """Build an S3StorageClient with a mocked boto3 client."""
+        client = S3StorageClient(prefix=prefix)
+        mock_s3 = MagicMock()
+        client._client = mock_s3  # bypass lazy init
         return client, mock_s3
 
     def test_download_file_calls_boto3(self, tmp_path):

@@ -132,15 +132,34 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
 
 def _cmd_render(args: argparse.Namespace) -> int:
-    overrides = {
-        "render_only": True,
-        "wait": False,
-        "follow_logs": False,
-        "max_wait_seconds": 1,
-        "allow_policy_risk": False,
-    }
-    render_args = argparse.Namespace(**{**vars(args), **overrides})
-    return _cmd_deploy(render_args)
+    """Render a job manifest from a profile + job config without S3 / K8s setup."""
+    from .templating import build_template_context, render_job_manifest
+
+    profile = _load_profile(args.profile, args.profile_file)
+    payload = _load_payload(args.job_config)
+    payload = _apply_image_selection(
+        payload,
+        profile=profile,
+        image_profile=args.image_profile,
+        image_override=args.image,
+    )
+    try:
+        job_spec = validate_job_spec(payload)
+    except Exception as exc:
+        msg = summarize_validation_error(exc) if hasattr(exc, "errors") else str(exc)
+        raise SystemExit(f"Invalid job config: {msg}") from exc
+    ctx = build_template_context(
+        job_name=f"{job_spec.name_prefix}-dry-run",
+        job_spec=job_spec,
+        profile=profile,
+    )
+    manifest = render_job_manifest(ctx)
+    if args.output_manifest:
+        Path(args.output_manifest).write_text(manifest, encoding="utf-8")
+        print(f"MANIFEST_PATH={args.output_manifest}")
+    else:
+        print(manifest)
+    return 0
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
