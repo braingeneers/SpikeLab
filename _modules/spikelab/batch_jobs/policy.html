@@ -467,26 +467,29 @@
 <span class="sd">    variants. The goal is to flag accidental misuse, not to prevent</span>
 <span class="sd">    determined circumvention.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">all_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="o">*</span><span class="n">command</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]</span>
-    <span class="n">joined</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-
-    <span class="c1"># Exact patterns</span>
-    <span class="k">if</span> <span class="s2">&quot;sleep infinity&quot;</span> <span class="ow">in</span> <span class="n">joined</span> <span class="ow">or</span> <span class="s2">&quot;sleep inf&quot;</span> <span class="ow">in</span> <span class="n">joined</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">True</span>
+    <span class="c1"># Flatten multi-word tokens (e.g., [&quot;sleep infinity&quot;] from sh -c)</span>
+    <span class="c1"># into individual words for consistent token-pair matching.</span>
+    <span class="n">all_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">tok</span> <span class="ow">in</span> <span class="p">[</span><span class="o">*</span><span class="n">command</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]:</span>
+        <span class="n">all_tokens</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">tok</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
 
     <span class="c1"># Bare &quot;sleep&quot; as the sole command (no duration argument)</span>
-    <span class="k">if</span> <span class="n">joined</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;sleep&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">all_tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;sleep&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">True</span>
 
-    <span class="c1"># &quot;sleep &lt;large_number&gt;&quot; — check each token pair</span>
+    <span class="c1"># Check token pairs: &quot;sleep infinity&quot;, &quot;sleep inf&quot;, &quot;sleep &lt;large_number&gt;&quot;</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">tok</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">tok</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;sleep&quot;</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
-                <span class="k">if</span> <span class="n">duration</span> <span class="o">&gt;=</span> <span class="n">_SLEEP_THRESHOLD</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">True</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
-                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">tok</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;sleep&quot;</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_tokens</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">next_tok</span> <span class="o">=</span> <span class="n">all_tokens</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">next_tok</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;infinity&quot;</span><span class="p">,</span> <span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">next_tok</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">duration</span> <span class="o">&gt;=</span> <span class="n">_SLEEP_THRESHOLD</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+            <span class="k">pass</span>
 
     <span class="k">return</span> <span class="kc">False</span>
 

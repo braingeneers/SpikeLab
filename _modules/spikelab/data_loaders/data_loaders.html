@@ -1173,8 +1173,19 @@
     <span class="n">trains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">metadata_units</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">neuron_attributes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">unique_clusters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">spike_clusters</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">channel_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_clusters</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">expected_sequential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">unique_clusters</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">unique_clusters</span><span class="p">,</span> <span class="n">expected_sequential</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cluster IDs are not sequential (0..</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">unique_clusters</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="si">}</span><span class="s2">): &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;channel_map lookup uses cluster ID as array index, which &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;may assign incorrect electrode/location metadata after &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Phy curation. Verify spatial analysis results.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
     <span class="n">unit_idx</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">for</span> <span class="n">clu</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">spike_clusters</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">clu</span> <span class="ow">in</span> <span class="n">unique_clusters</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">keep_clusters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">keep_clusters</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">times</span> <span class="o">=</span> <span class="n">spike_times</span><span class="p">[</span><span class="n">spike_clusters</span> <span class="o">==</span> <span class="n">clu</span><span class="p">]</span>
@@ -1185,8 +1196,10 @@
         <span class="n">attr</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unit_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)}</span>
         <span class="n">channel_idx</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">int_clu</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">clu</span><span class="p">)</span>
-        <span class="c1"># channel_map is indexed by cluster ID — only correct when cluster</span>
-        <span class="c1"># IDs are sequential integers starting from 0.</span>
+        <span class="c1"># channel_map is indexed by template/cluster ID — only correct</span>
+        <span class="c1"># when cluster IDs are sequential integers starting from 0.</span>
+        <span class="c1"># After Phy curation (merge/split), IDs become non-sequential</span>
+        <span class="c1"># and this lookup silently maps to the wrong channel.</span>
         <span class="k">if</span> <span class="n">channel_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">int_clu</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_map</span><span class="p">):</span>
             <span class="n">channel_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel_map</span><span class="p">[</span><span class="n">int_clu</span><span class="p">])</span>
             <span class="n">attr</span><span class="p">[</span><span class="s2">&quot;electrode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel_idx</span>
@@ -1372,7 +1385,9 @@
 <span class="sd">    Warning:</span>
 <span class="sd">        Only load pickle files from trusted sources. Pickle</span>
 <span class="sd">        deserialization can execute arbitrary code and should never be</span>
-<span class="sd">        used with untrusted data.</span>
+<span class="sd">        used with untrusted data. The file is deserialized before type</span>
+<span class="sd">        checking — malicious payloads execute regardless of the</span>
+<span class="sd">        subsequent isinstance check.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        filepath (str): Path to the pickle file, or an S3 URL</span>

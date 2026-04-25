@@ -651,7 +651,9 @@ if dict, pass to filter; if False, no filtering.</p></li>
 <p class="admonition-title">Warning</p>
 <p>Only load pickle files from trusted sources. Pickle
 deserialization can execute arbitrary code and should never be
-used with untrusted data.</p>
+used with untrusted data. The file is deserialized before type
+checking — malicious payloads execute regardless of the
+subsequent isinstance check.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

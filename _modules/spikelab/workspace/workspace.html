@@ -552,6 +552,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">workspace_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">created_at</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="c1"># Note: _items holds the actual data objects in memory.</span>
+        <span class="c1"># LazyAnalysisWorkspace overrides _items as a property that raises</span>
+        <span class="c1"># NotImplementedError — it stores data in HDF5 instead.  Methods</span>
+        <span class="c1"># that access _items directly must be overridden in lazy subclasses.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span></div>
 

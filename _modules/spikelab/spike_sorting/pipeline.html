@@ -443,6 +443,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
@@ -1358,6 +1360,203 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+
+
+<span class="nd">@contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bounded_host_memory</span><span class="p">(</span><span class="n">frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cap the calling process&#39;s heap allocations at ``frac`` of system RAM.</span>
+
+<span class="sd">    Best-effort guard against OOM during local sorting (especially RT-Sort,</span>
+<span class="sd">    which can exhaust host RAM on long recordings or high-unit-count</span>
+<span class="sd">    populations). Uses ``RLIMIT_DATA`` rather than ``RLIMIT_AS`` so that</span>
+<span class="sd">    file-backed mmap regions used for recording I/O are not capped — only</span>
+<span class="sd">    anonymous heap allocations (numpy / torch tensors) are bounded, which</span>
+<span class="sd">    is where the OOM actually originates.</span>
+
+<span class="sd">    Behaviour by platform:</span>
+<span class="sd">        - Linux (kernel 4.7+): caps anonymous heap (brk + anonymous mmap).</span>
+<span class="sd">          This is the strict OOM guard intended.</span>
+<span class="sd">        - macOS / other POSIX: caps the brk segment only; large mmap</span>
+<span class="sd">          allocations are not capped (semantics are weaker).</span>
+<span class="sd">        - Windows: no-op with a printed notice (``resource`` module</span>
+<span class="sd">          unavailable). Host RAM is unprotected — rely on Docker&#39;s</span>
+<span class="sd">          ``mem_limit`` for containerised sorters, or monitor RAM</span>
+<span class="sd">          manually for local runs.</span>
+
+<span class="sd">    The original soft limit is restored on context exit so the cap does</span>
+<span class="sd">    not leak into longer-lived sessions (e.g. notebooks).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        frac (float): Fraction of total physical RAM to cap heap at.</span>
+<span class="sd">            Defaults to ``0.8``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">resource</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;[host memory cap] Windows detected — RLIMIT_DATA unavailable. &quot;</span>
+            <span class="s2">&quot;Local sorting is not protected from host OOM. &quot;</span>
+            <span class="s2">&quot;Use Docker, or monitor RAM manually.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">yield</span>
+        <span class="k">return</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_system_ram_bytes</span>
+
+    <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[host memory cap] Could not detect system RAM; cap not enforced.&quot;</span><span class="p">)</span>
+        <span class="k">yield</span>
+        <span class="k">return</span>
+
+    <span class="n">new_soft</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ram_bytes</span> <span class="o">*</span> <span class="n">frac</span><span class="p">)</span>
+    <span class="n">soft_orig</span><span class="p">,</span> <span class="n">hard_orig</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">getrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hard_orig</span> <span class="o">!=</span> <span class="n">resource</span><span class="o">.</span><span class="n">RLIM_INFINITY</span> <span class="ow">and</span> <span class="n">new_soft</span> <span class="o">&gt;</span> <span class="n">hard_orig</span><span class="p">:</span>
+        <span class="n">new_soft</span> <span class="o">=</span> <span class="n">hard_orig</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">resource</span><span class="o">.</span><span class="n">setrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">,</span> <span class="p">(</span><span class="n">new_soft</span><span class="p">,</span> <span class="n">hard_orig</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[host memory cap] Failed to set RLIMIT_DATA: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">; cap not enforced.&quot;</span><span class="p">)</span>
+        <span class="k">yield</span>
+        <span class="k">return</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resource</span><span class="o">.</span><span class="n">setrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">,</span> <span class="p">(</span><span class="n">soft_orig</span><span class="p">,</span> <span class="n">hard_orig</span><span class="p">))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+            <span class="k">pass</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_print_pipeline_banner</span><span class="p">(</span>
+    <span class="n">sorter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">rec_path</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="s2">&quot;SortingPipelineConfig&quot;</span><span class="p">,</span>
+    <span class="n">log_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print an environment + system + input banner at the start of a sort.</span>
+
+<span class="sd">    Captured by the surrounding ``Tee`` and persisted to the</span>
+<span class="sd">    ``sorting_*.log`` file alongside the run&#39;s stdout.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_dt</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_system_ram_bytes</span><span class="p">,</span> <span class="n">print_stage</span>
+
+    <span class="n">print_stage</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SPIKE SORTING — </span><span class="si">{</span><span class="n">sorter</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- Environment --&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Started:        </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Host:           </span><span class="si">{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Platform:       </span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python:         </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">spikeinterface</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_si</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeInterface: </span><span class="si">{</span><span class="n">_si</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">spikelab</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_sl</span>
+
+        <span class="n">version</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_sl</span><span class="p">,</span> <span class="s2">&quot;__version__&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SpikeLab:       </span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- System Resources --&quot;</span><span class="p">)</span>
+    <span class="n">cpu_count</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cpu_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CPU cores:      </span><span class="si">{</span><span class="n">cpu_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">resource</span>
+
+        <span class="n">soft</span><span class="p">,</span> <span class="n">_hard</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">getrlimit</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">RLIMIT_DATA</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">soft</span> <span class="o">==</span> <span class="n">resource</span><span class="o">.</span><span class="n">RLIM_INFINITY</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (unlimited)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heap cap:       </span><span class="si">{</span><span class="n">soft</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB (RLIMIT_DATA)&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Heap cap:       (Windows — not enforced)&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">gpu_info</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;nvidia-smi&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--query-gpu=name,driver_version,memory.total&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--format=csv,noheader&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU:            </span><span class="si">{</span><span class="n">gpu_info</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;GPU:            (nvidia-smi unavailable)&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-- Run --&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sorter:         </span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Use Docker:     </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">sorter</span><span class="o">.</span><span class="n">use_docker</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recording:      </span><span class="si">{</span><span class="n">rec_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Log file:       </span><span class="si">{</span><span class="n">log_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_print_pipeline_summary</span><span class="p">(</span>
+    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">elapsed_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a closing summary banner with status, wall time, and resources.&quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_dt</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.sorting_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_system_ram_bytes</span><span class="p">,</span> <span class="n">print_stage</span>
+
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="n">print_stage</span><span class="p">(</span><span class="s2">&quot;SUMMARY&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Status:         </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error:          </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">minutes</span><span class="p">,</span> <span class="n">seconds</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">elapsed_s</span><span class="p">),</span> <span class="mi">60</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wall time:      </span><span class="si">{</span><span class="n">minutes</span><span class="si">}</span><span class="s2">m </span><span class="si">{</span><span class="n">seconds</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+
+    <span class="n">ram_bytes</span> <span class="o">=</span> <span class="n">get_system_ram_bytes</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">ram_bytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RAM total:      </span><span class="si">{</span><span class="n">ram_bytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> GB&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">gpu_mem</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;nvidia-smi&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--query-gpu=memory.used,memory.total&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;--format=csv,noheader&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU memory:     </span><span class="si">{</span><span class="n">gpu_mem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">subprocess</span><span class="o">.</span><span class="n">SubprocessError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+        <span class="k">pass</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Finished:       </span><span class="si">{</span><span class="n">_dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">timespec</span><span class="o">=</span><span class="s1">&#39;seconds&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="sort_recording">
 <a class="viewcode-back" href="../../../api/spike_sorting.html#spikelab.spike_sorting.sort_recording">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">sort_recording</span><span class="p">(</span>
@@ -1433,14 +1632,33 @@
     <span class="n">backend</span> <span class="o">=</span> <span class="n">backend_cls</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
     <span class="c1"># Auto-generate folder paths</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rec_to_path</span><span class="p">(</span><span class="n">rec</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">spikeinterface.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseRecording</span> <span class="k">as</span> <span class="n">_BR</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="n">_BR</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">_BR</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">_BR</span><span class="p">):</span>
+            <span class="n">kw</span> <span class="o">=</span> <span class="n">rec</span><span class="o">.</span><span class="n">_kwargs</span>
+            <span class="n">backing</span> <span class="o">=</span> <span class="n">kw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file_path&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file_paths&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[</span><span class="kc">None</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">backing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Cannot auto-generate intermediate_folders / &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;results_folders for a </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> without a &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;backing file path.  Pass `intermediate_folders` and &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;`results_folders` explicitly.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">backing</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="n">intermediate_folders</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">cur_dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%y%m</span><span class="si">%d</span><span class="s2">_%H%M%S_</span><span class="si">%f</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">intermediate_folders</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">Path</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;inter_</span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cur_dt</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">recording_files</span>
+            <span class="n">_rec_to_path</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;inter_</span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cur_dt</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">recording_files</span>
         <span class="p">]</span>
     <span class="k">if</span> <span class="n">results_folders</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">results_folders</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">Path</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;sorted_</span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">recording_files</span>
+            <span class="n">_rec_to_path</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;sorted_</span><span class="si">{</span><span class="n">sorter</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">recording_files</span>
         <span class="p">]</span>
     <span class="c1"># Validate</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">recording_files</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">intermediate_folders</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_folders</span><span class="p">)):</span>
@@ -1465,74 +1683,96 @@
 
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">random_seed</span><span class="p">)</span>
 
-    <span class="c1"># Main loop</span>
+    <span class="c1"># Main loop — wrap in a host heap cap so local sorts (especially RT-Sort)</span>
+    <span class="c1"># cannot drag the workstation into swap. No-op on Windows; restored on exit.</span>
     <span class="n">spikedata_results</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">rec_path</span><span class="p">,</span> <span class="n">inter_path</span><span class="p">,</span> <span class="n">res_path</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-        <span class="n">recording_files</span><span class="p">,</span> <span class="n">intermediate_folders</span><span class="p">,</span> <span class="n">results_folders</span>
-    <span class="p">):</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">spikeinterface.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseRecording</span>
-        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="n">BaseRecording</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">with</span> <span class="n">_bounded_host_memory</span><span class="p">(</span><span class="mf">0.8</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">rec_path</span><span class="p">,</span> <span class="n">inter_path</span><span class="p">,</span> <span class="n">res_path</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">recording_files</span><span class="p">,</span> <span class="n">intermediate_folders</span><span class="p">,</span> <span class="n">results_folders</span>
+        <span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">spikeinterface.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseRecording</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">BaseRecording</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">rec_loaded</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">BaseRecording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rec_path</span><span class="p">,</span> <span class="n">BaseRecording</span><span class="p">):</span>
-            <span class="n">rec_loaded</span> <span class="o">=</span> <span class="n">rec_path</span>
-            <span class="k">if</span> <span class="s2">&quot;file_path&quot;</span> <span class="ow">in</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">:</span>
-                <span class="n">rec_path</span> <span class="o">=</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">rec_path</span> <span class="o">=</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">[</span><span class="s2">&quot;file_paths&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">rec_loaded</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">BaseRecording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rec_path</span><span class="p">,</span> <span class="n">BaseRecording</span><span class="p">):</span>
+                <span class="n">rec_loaded</span> <span class="o">=</span> <span class="n">rec_path</span>
+                <span class="k">if</span> <span class="s2">&quot;file_path&quot;</span> <span class="ow">in</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">:</span>
+                    <span class="n">rec_path</span> <span class="o">=</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">rec_path</span> <span class="o">=</span> <span class="n">rec_loaded</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">[</span><span class="s2">&quot;file_paths&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="n">rec_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">rec_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">rec_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">rec_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="n">process_recording</span><span class="p">(</span>
-            <span class="n">backend</span><span class="p">,</span>
-            <span class="n">config</span><span class="p">,</span>
-            <span class="n">rec_name</span><span class="p">,</span>
-            <span class="n">rec_path</span><span class="p">,</span>
-            <span class="n">inter_path</span><span class="p">,</span>
-            <span class="n">res_path</span><span class="p">,</span>
-            <span class="n">rec_loaded</span><span class="o">=</span><span class="n">rec_loaded</span><span class="p">,</span>
-            <span class="n">rec_chunks</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">rec_chunks</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">rec_chunk_names</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="s2">&quot;rec_chunk_names&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-            <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
-        <span class="p">)</span>
+            <span class="c1"># Mirror stdout to a per-recording log file from start to finish.</span>
+            <span class="c1"># The log captures the environment banner, every sorting stage, the</span>
+            <span class="c1"># closing summary, and any exception traceback — making it the</span>
+            <span class="c1"># canonical artefact for the post-sorting report.</span>
+            <span class="n">res_path_obj</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">res_path</span><span class="p">)</span>
+            <span class="n">res_path_obj</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">log_ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span>
+            <span class="n">log_path</span> <span class="o">=</span> <span class="n">res_path_obj</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;sorting_</span><span class="si">{</span><span class="n">log_ts</span><span class="si">}</span><span class="s2">.log&quot;</span>
 
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">):</span>
-            <span class="k">continue</span>
+            <span class="k">with</span> <span class="n">Tee</span><span class="p">(</span><span class="n">log_path</span><span class="p">,</span> <span class="n">file_mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">):</span>
+                <span class="n">_print_pipeline_banner</span><span class="p">(</span><span class="n">sorter</span><span class="p">,</span> <span class="n">rec_path</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">log_path</span><span class="p">)</span>
+                <span class="n">t_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">process_recording</span><span class="p">(</span>
+                    <span class="n">backend</span><span class="p">,</span>
+                    <span class="n">config</span><span class="p">,</span>
+                    <span class="n">rec_name</span><span class="p">,</span>
+                    <span class="n">rec_path</span><span class="p">,</span>
+                    <span class="n">inter_path</span><span class="p">,</span>
+                    <span class="n">res_path</span><span class="p">,</span>
+                    <span class="n">rec_loaded</span><span class="o">=</span><span class="n">rec_loaded</span><span class="p">,</span>
+                    <span class="n">rec_chunks</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">rec_chunks</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">rec_chunk_names</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="s2">&quot;rec_chunk_names&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">,</span>
+                <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
-            <span class="n">sd_raw</span><span class="p">,</span> <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">result</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">result</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">BaseException</span><span class="p">):</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;OOM (MemoryError)&quot;</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">MemoryError</span><span class="p">)</span>
+                        <span class="k">else</span> <span class="s2">&quot;FAILED&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">_print_pipeline_summary</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
+                    <span class="k">continue</span>
 
-        <span class="c1"># Save pickle</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_pkl</span>
+                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
+                    <span class="n">sd_raw</span><span class="p">,</span> <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">result</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sd_curated</span> <span class="o">=</span> <span class="n">result</span>
 
-        <span class="n">res_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">res_path</span><span class="p">)</span>
+                <span class="c1"># Save pickle</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_pkl</span>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
-            <span class="n">raw_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata.pkl&quot;</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">raw_pkl</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd_raw</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_raw</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> raw units to </span><span class="si">{</span><span class="n">raw_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">res_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">res_path</span><span class="p">)</span>
 
-        <span class="n">curated_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata_curated.pkl&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">curated_pkl</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_curated</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units to </span><span class="si">{</span><span class="n">curated_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">compilation</span><span class="o">.</span><span class="n">save_raw_pkl</span><span class="p">:</span>
+                    <span class="n">raw_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata.pkl&quot;</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">raw_pkl</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd_raw</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_raw</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> raw units to </span><span class="si">{</span><span class="n">raw_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Epoch splitting</span>
-        <span class="k">if</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_chunks_ms&quot;</span><span class="p">):</span>
-            <span class="n">epoch_sds</span> <span class="o">=</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">split_epochs</span><span class="p">()</span>
-            <span class="n">spikedata_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">spikedata_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">)</span>
+                <span class="n">curated_pkl</span> <span class="o">=</span> <span class="n">res_path</span> <span class="o">/</span> <span class="s2">&quot;sorted_spikedata_curated.pkl&quot;</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">curated_pkl</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">_pkl</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">sd_curated</span><span class="o">.</span><span class="n">N</span><span class="si">}</span><span class="s2"> curated units to </span><span class="si">{</span><span class="n">curated_pkl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">delete_inter</span><span class="p">:</span>
-            <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_shutil</span>
+                <span class="c1"># Epoch splitting</span>
+                <span class="k">if</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rec_chunks_ms&quot;</span><span class="p">):</span>
+                    <span class="n">epoch_sds</span> <span class="o">=</span> <span class="n">sd_curated</span><span class="o">.</span><span class="n">split_epochs</span><span class="p">()</span>
+                    <span class="n">spikedata_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">epoch_sds</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">spikedata_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd_curated</span><span class="p">)</span>
 
-            <span class="n">_shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">inter_path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">delete_inter</span><span class="p">:</span>
+                    <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_shutil</span>
+
+                    <span class="n">_shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">inter_path</span><span class="p">)</span>
+
+                <span class="n">_print_pipeline_summary</span><span class="p">(</span><span class="s2">&quot;SUCCESS&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">spikedata_results</span></div>
 
