@@ -25,6 +25,8 @@ channels that see the same artifact; uncorrelated noise cancels) and
 yields cleaner derivatives for edge detection.
 """
 
+import warnings
+
 import numpy as np
 
 
@@ -126,6 +128,7 @@ def recenter_stim_times(
     peak_mode="abs_max",
     n_reference_channels=8,
     prewindow_ms=5.0,
+    warn_offset_ms=3.0,
 ):
     """Find actual stimulation artifact times near logged stim times.
 
@@ -162,6 +165,13 @@ def recenter_stim_times(
         prewindow_ms (float): For ``down_edge`` / ``up_edge``, radius
             of the pre-window in which to search for the preceding
             opposite-polarity peak.  Default ``5.0``.
+        warn_offset_ms (float or None): When the median ``|corrected -
+            logged|`` shift exceeds this threshold, emit a
+            ``UserWarning``.  A large systematic shift usually means a
+            fixed hardware-vs-log delay, a wrong time column in the
+            stim log, or a unit mismatch (ms vs s vs samples) rather
+            than genuine jitter.  Set to ``None`` to silence.  Default
+            ``3.0`` ms — well above one-sample jitter at 20–30 kHz.
 
     Returns:
         corrected_ms (np.ndarray): Corrected stim times in
@@ -212,5 +222,21 @@ def recenter_stim_times(
             peak_sample = _find_up_edge(reference, lo, hi, prewindow_ms, fs_Hz)
 
         corrected[i] = peak_sample / fs_Hz * 1000.0
+
+    if warn_offset_ms is not None and len(stim_times_ms) > 0:
+        median_abs_offset_ms = float(np.median(np.abs(corrected - stim_times_ms)))
+        if median_abs_offset_ms > warn_offset_ms:
+            warnings.warn(
+                f"recenter_stim_times: median |offset| = "
+                f"{median_abs_offset_ms:.2f} ms over {len(stim_times_ms)} events "
+                f"exceeds warn_offset_ms ({warn_offset_ms} ms).  This is well "
+                f"above one-sample jitter and usually indicates a fixed "
+                f"hardware-vs-log delay, a wrong time column in the stim log, "
+                f"or a unit mismatch (ms vs s vs samples).  Verify against a "
+                f"test pulse, then either accept the shift or pass "
+                f"warn_offset_ms=None to silence.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     return corrected

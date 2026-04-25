@@ -1200,14 +1200,33 @@ def sort_recording(
     backend = backend_cls(config)
 
     # Auto-generate folder paths
+    def _rec_to_path(rec):
+        try:
+            from spikeinterface.core import BaseRecording as _BR
+        except ImportError:
+            _BR = None
+        if _BR is not None and isinstance(rec, _BR):
+            kw = rec._kwargs
+            backing = kw.get("file_path") or (kw.get("file_paths") or [None])[0]
+            if backing is None:
+                raise ValueError(
+                    f"Cannot auto-generate intermediate_folders / "
+                    f"results_folders for a {type(rec).__name__} without a "
+                    f"backing file path.  Pass `intermediate_folders` and "
+                    f"`results_folders` explicitly."
+                )
+            return Path(backing)
+        return Path(rec)
+
     if intermediate_folders is None:
         cur_dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S_%f")
         intermediate_folders = [
-            Path(rec).parent / f"inter_{sorter}_{cur_dt}" for rec in recording_files
+            _rec_to_path(rec).parent / f"inter_{sorter}_{cur_dt}"
+            for rec in recording_files
         ]
     if results_folders is None:
         results_folders = [
-            Path(rec).parent / f"sorted_{sorter}" for rec in recording_files
+            _rec_to_path(rec).parent / f"sorted_{sorter}" for rec in recording_files
         ]
     # Validate
     if not (len(recording_files) == len(intermediate_folders) == len(results_folders)):

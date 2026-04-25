@@ -1,6 +1,6 @@
 ---
 name: spikelab-spikesorter
-description: Runs spike sorting pipelines using the SpikeLab library (Kilosort2, Kilosort4, RT-Sort). Handles configuring and executing sorting jobs, curating units, inspecting and visualizing results. For stimulation experiments, runs artifact removal and stim-aligned sorting via sort_stim_recording. Use when the user wants to sort recordings, curate units, or analyze sorting outputs.
+description: Runs spike sorting pipelines using the SpikeLab library (Kilosort2, Kilosort4, RT-Sort). Handles configuring and executing sorting jobs, curating units, inspecting and visualizing results. For stimulation experiments, runs artifact removal via preprocess_stim_artifacts / sort_stim_recording and then the appropriate sorter. Use when the user wants to sort recordings, curate units, or analyze sorting outputs.
 ---
 
 # SpikeLab Spike Sorter
@@ -112,7 +112,9 @@ Ask the user:
 - Single recording or multiple?
 - For Maxwell: single well or multi-well? Which stream IDs?
 - For directories: should files be concatenated?
-- **Is this a stimulation experiment?** Stimulation recordings contain large stimulation artifacts caused by electrical stimulation of the tissue. If the user mentions stimulation, or if you observe large artifact patterns in the data, the workflow is different — use the two-step RT-Sort + `sort_stim_recording` pipeline (see "Stimulation-aware sorting" below). Ask for: the intrinsic activity recording (for training sequences), the stim recording, and the logged stim times.
+- **Is this a stimulation experiment?** Stimulation recordings contain large stimulation artifacts caused by electrical stimulation of the tissue. If the user mentions stimulation, or if you observe large artifact patterns in the data, the workflow branches on whether there is a usable intrinsic-activity baseline:
+  - **With a baseline recording:** use the two-step RT-Sort + `sort_stim_recording` pipeline (see "Stimulation-aware sorting" below). Ask for the intrinsic activity recording (for training sequences), the stim recording, and the logged stim times.
+  - **No baseline available** (or short stim-only recording): clean the stim recording with `preprocess_stim_artifacts` and then pass the cleaned recording into the normal `sort_recording(..., sorter="kilosort2"/"kilosort4")` entry point (see "Stim-sorting without an intrinsic-activity baseline" below). Ask for the stim recording and the logged stim times.
 
 ### Step 2: Choose the entry point
 
@@ -120,7 +122,8 @@ Ask the user:
 |---|---|
 | Single or multiple recordings, any sorter | `sort_recording(recording_files, sorter=...)` |
 | Multi-well Maxwell (multiple stream IDs) | `sort_multistream(recording, stream_ids, sorter=...)` |
-| Stimulation recording (artifact removal + stim-aligned sorting) | `sort_stim_recording(stim_recording, rt_sort, stim_times_ms, ...)` |
+| Stimulation recording, with intrinsic-activity baseline | `sort_stim_recording(stim_recording, rt_sort, stim_times_ms, ...)` |
+| Stimulation recording, no baseline (KS2/KS4 on cleaned traces) | `cleaned, meta = preprocess_stim_artifacts(rec, stim_times_ms, output_path=...)` → `sort_recording([cleaned], sorter="kilosort2")` |
 
 Available sorters (see `spikelab.spike_sorting.backends.list_sorters()`):
 - `"kilosort2"` — MATLAB-based. Runs locally with a real MATLAB + Kilosort2 install (pass `kilosort_path`), or in Docker using a pre-built image that bundles the compiled MATLAB Runtime (no MATLAB license needed).
@@ -357,6 +360,45 @@ The pipeline recenters logged stim times to actual artifact peaks, removes artif
 
 **Saturation threshold (`saturation_threshold`)** — when `None` and a recording object is available, a gain-anchored threshold is derived from `recording.get_channel_gains()` combined with the observed amplitude distribution. If no clipping is detected (< 100 samples pinned at the maximum), the threshold returns `+inf` — meaning **no samples get blanked**, and the polynomial detrend handles everything. This matches the "only blank completely saturated electrodes" semantics: high-amplitude artifacts that never hit the ADC rail are recoverable by detrend and should not be destroyed. To force a specific rail, pass the value explicitly (e.g. `saturation_threshold=5500.0`). To fall back to the legacy 99.9-quantile heuristic, call `remove_stim_artifacts` directly without `recording=`.
 
+#### Stim-sorting without an intrinsic-activity baseline
+
+When there is no baseline recording to train RT-Sort sequences on, use the one-shot `preprocess_stim_artifacts` wrapper to produce a cleaned `BaseRecording` and hand that to the normal `sort_recording` entry point with any sorter (KS2/KS4/etc.):
+
+```python
+from spikelab.spike_sorting.stim_sorting import preprocess_stim_artifacts
+from spikelab.spike_sorting import sort_recording
+
+cleaned_rec, stim_meta = preprocess_stim_artifacts(
+    recording=stim_rec,               # SpikeInterface BaseRecording of the stim file
+    stim_times_ms=logged_times_ms,
+    output_path=f"{RESULTS_DIR}/cleaned.dat",  # float32 binary; required for Docker sorters
+    # method="polynomial" is the default — preserves spikes in the
+    # 0-10 ms post-stim window. Switch to method="blank" only if the
+    # `poly_clamp_factor` warning fires on >~5 % of events (see below).
+    artifact_window_ms=10.0,
+    recenter=True, max_offset_ms=50.0,
+)
+# cleaned_rec is a BinaryRecordingExtractor — dumpable through SI's JSON
+# encoder, which is required for any Docker-based sorter (KS2/KS4).
+results = sort_recording(
+    recording_files=[cleaned_rec],
+    results_folders=[f"{RESULTS_DIR}/sorted"],
+    sorter="kilosort2",
+    use_docker=True,
+)
+# stim_meta: stim_times_ms_{logged,corrected}, recenter_offsets_ms,
+#            blanked_fraction, blanked_fraction_per_channel
+```
+
+When to prefer this over `sort_stim_recording`:
+- no intrinsic-activity file is available to train sequences on;
+- the recording is short and stim-dense (no usable pre-stim baseline within the file itself);
+- you want KS2/KS4-style global sorting rather than sequence-based assignment.
+
+**Method choice — `"polynomial"` (default) vs. `"blank"`.** Polynomial detrend is the default for `preprocess_stim_artifacts` and `remove_stim_artifacts`, and is what you want unless the analysis is genuinely indifferent to the 0–10 ms post-stim window (early evoked responses, polysynaptic recurrence, paired-pulse facilitation, drug-vs-baseline rate comparisons all live in that window). The polynomial blanks ADC-clipped samples automatically (same as `"blank"` does) *and* fits a low-order polynomial to the post-saturation tail to recover spikes riding on it — so it's strictly a superset of what blanking does, never worse on a per-segment basis except for compute time. The 600 mV MaxOne incident that motivated the cautious-blank guidance was a polynomial-divergence-on-the-tail problem, not an "polynomial doesn't blank saturated samples" problem; `remove_stim_artifacts` now ships with a `poly_clamp_factor=10.0` sanity clamp that catches divergence per (channel, fit segment) — any post-subtract segment exceeding `10 × saturation_threshold` is blanked and a one-shot warning is emitted at end-of-call. **Switch to `"blank"` when** (a) the clamp warning fires on more than ~5 % of events — at that scale a uniform blank produces a more consistent dataset than mixing fits and clamp-fallback blanks per event; (b) curation rejects an unusually high fraction of raw units, especially via the ISI-violation gate (a real-data validation on the 600 mV MaxOne recording showed polynomial dropping curated units 43 → 18 because polynomial residuals near each artifact onset were detected as spurious 4 Hz-locked spikes, contaminating real units' spike trains and doubling the ISI-violation failure rate from 17 % to 32 %; the clamp didn't fire because the fits weren't divergent, just imperfect enough to trip KS2's threshold detector); or (c) you want a single defensible "always-clean" processing path for a publication figure regardless of whether polynomial would have helped. **Diagnostic heuristic:** if you sort the same recording twice (once polynomial, once blank) and the polynomial run yields substantially fewer curated units while ISI-violation failures dominate, polynomial residuals are contaminating curation — switch to blank for that recording. To disable the clamp pass `poly_clamp_factor=None` (typically only for comparing pre-clamp vs post-clamp behaviour during diagnostics).
+
+`preprocess_stim_artifacts` returns a `NumpyRecording` (in-memory) when `output_path` is omitted — fine for non-Docker sorters and iterative debugging, but NOT dumpable for Docker.
+
 Components are also available individually:
 
 ```python
@@ -372,7 +414,7 @@ cleaned, blanked = remove_stim_artifacts(
 )
 ```
 
-See `REPO_MAP_DETAILED.md` for the full `sort_stim_recording` and `remove_stim_artifacts` parameter signatures.
+See `REPO_MAP_DETAILED.md` for the full `sort_stim_recording`, `preprocess_stim_artifacts`, and `remove_stim_artifacts` parameter signatures.
 
 ---
 
@@ -649,6 +691,9 @@ The active heap cap is documented in each `sorting_*.log` banner under `Heap cap
 | Stim peri-event alignment looks offset for biphasic pulses | Default `peak_mode="abs_max"` lands on the largest-amplitude phase, not the current-reversal moment | For biphasic anodic-first pulses pass `peak_mode="down_edge"` (or `"up_edge"` for cathodic-first). Aligns to the + → − zero crossing between the two phases — the AP trigger point. |
 | `remove_stim_artifacts` blanks zero samples despite large artifacts | New gain-anchored threshold returns `+inf` when no ADC clipping is detected (< 10 samples pinned at max) | Expected behavior when artifacts stay below the ADC rail — polynomial detrend handles them. If you genuinely need to blank, pass an explicit `saturation_threshold=<µV>` or lower `min_clip_samples` in `_saturation_threshold_from_recording`. |
 | Stim artifact removal leaves residual | Polynomial order too low or artifact window too short | Increase `artifact_window_ms` (e.g. 15-20) or try `poly_order=4` (but >5 risks fitting spikes) |
+| `UserWarning: remove_stim_artifacts: polynomial fit diverged on N segment(s)` | Polynomial fit extrapolated wildly across saturated samples; the `poly_clamp_factor` clamp blanked those segments instead of leaving 10+ V residuals in the trace | Expected at high stim amplitudes (e.g. 600 mV on MaxOne). The clamp keeps output safe, but if you see N > a few percent of stim events, switch to `method="blank"` for the whole recording — the polynomial isn't earning its keep there. |
+| `UserWarning: recenter_stim_times: median \|offset\| = X ms exceeds warn_offset_ms` | Logged stim times have a fixed delay vs. the actual artifacts in the recording (commonly: hardware/log clock skew, wrong time column, or unit mismatch ms vs s vs samples) | Verify: read the first stim time from the log, find the corresponding artifact sample in the trace, confirm the offset is consistent across a few events. If the systematic shift is real and acceptable, pass `warn_offset_ms=None` to silence; if it's a bug in the log, fix the log loading code. |
+| MaxOne `.raw.h5` file fails to load with `ValueError: signal_channels do not have unique ids for stream 0` and a `falling back to spikelab.spike_sorting.maxwell_io.load_maxwell_native()` notice | mxw v25.x firmware writes a `settings/mapping` table with duplicate channel IDs that neo's `MaxwellRawIO` rejects | The library auto-falls back to the native loader; no action needed. To use the loader directly: `from spikelab.spike_sorting.maxwell_io import load_maxwell_native; rec = load_maxwell_native(path)`. For multi-well files call `list_maxwell_wells(path)` first. |
 
 ### Inspecting intermediate files
 

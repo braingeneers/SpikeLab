@@ -252,7 +252,16 @@ def _signal_reached_baseline(
 _MIN_DESCENT_SAMPLES = 2  # min samples between fit_start and neg-peak to split
 
 
-def _polyfit_and_subtract(channel_trace, blanked, ch_idx, lo, hi, poly_order):
+def _polyfit_and_subtract(
+    channel_trace,
+    blanked,
+    ch_idx,
+    lo,
+    hi,
+    poly_order,
+    clamp_threshold=None,
+    clamp_counter=None,
+):
     """Fit a polynomial to ``channel_trace[lo:hi]`` (excluding blanked
     samples) and subtract it in-place.
 
@@ -262,6 +271,13 @@ def _polyfit_and_subtract(channel_trace, blanked, ch_idx, lo, hi, poly_order):
     the region is left untouched rather than blanked — those samples
     are not saturated, just covered by a window too small for a
     reliable polynomial of this order.
+
+    When ``clamp_threshold`` is finite, the post-subtraction segment is
+    sanity-checked: if any sample exceeds ``clamp_threshold`` in
+    absolute value, the polynomial fit is treated as having diverged
+    (e.g. extrapolating wildly across saturated tails at high stim
+    amplitudes), the segment is blanked instead of left in place, and
+    ``clamp_counter[0]`` is incremented for caller-side reporting.
     """
     if hi <= lo:
         return
@@ -272,6 +288,14 @@ def _polyfit_and_subtract(channel_trace, blanked, ch_idx, lo, hi, poly_order):
         return
     coeffs = np.polyfit(x[mask], y[mask], poly_order)
     channel_trace[lo:hi] -= np.polyval(coeffs, x)
+
+    if clamp_threshold is not None and np.isfinite(clamp_threshold):
+        seg = channel_trace[lo:hi]
+        if seg.size and float(np.max(np.abs(seg))) > clamp_threshold:
+            seg[:] = 0.0
+            blanked[ch_idx, lo:hi] = True
+            if clamp_counter is not None:
+                clamp_counter[0] += 1
 
 
 def _process_stim_group_polynomial(
@@ -287,6 +311,8 @@ def _process_stim_group_polynomial(
     ch_idx,
     pre_artifact_samples=0,  # accepted for API stability, currently unused
     clip_mask_ch=None,  # accepted for API stability, currently unused
+    clamp_threshold=None,
+    clamp_counter=None,
 ):
     """Polynomial detrend for one stim group on one channel.
 
@@ -392,6 +418,8 @@ def _process_stim_group_polynomial(
             fit_start,
             neg_peak_sample + 1,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
         _polyfit_and_subtract(
             channel_trace,
@@ -400,6 +428,8 @@ def _process_stim_group_polynomial(
             neg_peak_sample + 1,
             pos_peak_sample + 1,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
         _polyfit_and_subtract(
             channel_trace,
@@ -408,6 +438,8 @@ def _process_stim_group_polynomial(
             pos_peak_sample + 1,
             fit_end,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
     elif has_descent:
         # 2-fit split: descent + tail (no positive overshoot found)
@@ -418,6 +450,8 @@ def _process_stim_group_polynomial(
             fit_start,
             neg_peak_sample + 1,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
         _polyfit_and_subtract(
             channel_trace,
@@ -426,6 +460,8 @@ def _process_stim_group_polynomial(
             neg_peak_sample + 1,
             fit_end,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
     else:
         # No descent — stim already at neg peak; single fit.
@@ -436,6 +472,8 @@ def _process_stim_group_polynomial(
             fit_start,
             fit_end,
             poly_order,
+            clamp_threshold=clamp_threshold,
+            clamp_counter=clamp_counter,
         )
 
 
@@ -448,6 +486,8 @@ def _global_polynomial_detrend(
     n_samples,
     blanked,
     ch_idx,
+    clamp_threshold=None,
+    clamp_counter=None,
 ):
     """Sliding-window polynomial detrend applied to an entire channel.
 
@@ -501,6 +541,20 @@ def _global_polynomial_detrend(
         # Zero saturated samples in the detrended output
         detrended[sat_mask] = 0.0
 
+        # Sanity clamp: a polynomial fit that diverged across saturated
+        # samples can produce extra-physiological residuals.  Blank the
+        # whole window in that case rather than ship 10+ V "neural" data.
+        if (
+            clamp_threshold is not None
+            and np.isfinite(clamp_threshold)
+            and detrended.size
+            and float(np.max(np.abs(detrended))) > clamp_threshold
+        ):
+            detrended[:] = 0.0
+            blanked[ch_idx, start:end] = True
+            if clamp_counter is not None:
+                clamp_counter[0] += 1
+
         # Build a blending window (linear ramps in overlap regions)
         w = np.ones(seg_len)
         if start > 0 and overlap_samples > 0:
@@ -521,6 +575,26 @@ def _global_polynomial_detrend(
     channel_trace[~nonzero] = 0.0
 
 
+def _maybe_warn_polynomial_clamp(counter, clamp_threshold, saturation_threshold):
+    """Emit one warning per ``remove_stim_artifacts`` call when the
+    polynomial divergence sanity clamp fired one or more times."""
+    if counter is None or counter[0] == 0 or clamp_threshold is None:
+        return
+    warnings.warn(
+        f"remove_stim_artifacts: polynomial fit diverged on "
+        f"{counter[0]} segment(s) — exceeded clamp threshold "
+        f"{clamp_threshold:.0f} (= poly_clamp_factor * "
+        f"saturation_threshold = {saturation_threshold:.0f}).  Those "
+        f"segments were blanked instead.  This usually indicates a stim "
+        f"amplitude high enough to keep electrodes saturated through the "
+        f"polynomial's fit window (e.g. >500 mV on MaxOne); consider "
+        f"method='blank' for such recordings, or pass "
+        f"poly_clamp_factor=None to disable this fallback.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 def remove_stim_artifacts(
     traces,
     stim_times_ms,
@@ -535,6 +609,7 @@ def remove_stim_artifacts(
     *,
     recording=None,
     raw_traces=None,
+    poly_clamp_factor=10.0,
 ):
     """Remove stimulation artifacts from multi-channel voltage traces.
 
@@ -606,6 +681,19 @@ def remove_stim_artifacts(
             with very frequent stimulation).
         copy (bool): If True (default), return a copy; if False,
             modify ``traces`` in-place.
+        poly_clamp_factor (float or None): Sanity-clamp factor for the
+            ``"polynomial"`` method.  After each polynomial subtraction,
+            if any post-subtract sample exceeds
+            ``poly_clamp_factor * saturation_threshold`` in absolute
+            value, the segment is treated as a divergent fit
+            (extrapolated wildly across saturated samples), blanked
+            instead of left in place, and counted toward a one-shot
+            warning emitted at the end of the call.  Default ``10.0``
+            — well above any plausible neural amplitude (~100 µV) when
+            ``saturation_threshold`` is in the multi-thousand-µV range.
+            Set to ``None`` to disable.  Has no effect when
+            ``saturation_threshold`` is ``+inf`` (no clipping detected)
+            or ``method="blank"``.
 
     Returns:
         cleaned (np.ndarray): Cleaned traces, shape
@@ -675,6 +763,19 @@ def remove_stim_artifacts(
         1, int(np.round(1.0 * fs_Hz / 1000.0))  # 1 ms of consecutive samples
     )
 
+    # Sanity-clamp threshold for the polynomial fit.  Inactive when the
+    # caller disabled it, when no clipping was detected (saturation
+    # threshold = +inf), or when method != "polynomial".
+    if (
+        method == "polynomial"
+        and poly_clamp_factor is not None
+        and np.isfinite(saturation_threshold)
+    ):
+        poly_clamp_threshold = float(poly_clamp_factor) * float(saturation_threshold)
+    else:
+        poly_clamp_threshold = None
+    poly_clamp_counter = [0]
+
     # Convert stim times to sample indices and sort
     stim_samples = np.round(stim_times_ms * fs_Hz / 1000.0).astype(int)
     stim_samples = np.sort(stim_samples)
@@ -700,12 +801,17 @@ def remove_stim_artifacts(
                     n_samples,
                     blanked,
                     ch,
+                    clamp_threshold=poly_clamp_threshold,
+                    clamp_counter=poly_clamp_counter,
                 )
             elif method == "blank":
                 # Global blank: blank only the saturated samples
                 sat = clip_mask[ch]
                 traces[ch, sat] = 0.0
                 blanked[ch, sat] = True
+        _maybe_warn_polynomial_clamp(
+            poly_clamp_counter, poly_clamp_threshold, saturation_threshold
+        )
         return traces, blanked
 
     # Process each channel independently
@@ -769,6 +875,8 @@ def remove_stim_artifacts(
                     n_samples,
                     blanked,
                     ch,
+                    clamp_threshold=poly_clamp_threshold,
+                    clamp_counter=poly_clamp_counter,
                 )
             elif method == "blank":
                 blank_end = min(last_desat + artifact_window_samples, n_samples)
@@ -778,4 +886,7 @@ def remove_stim_artifacts(
             # Advance past all stim events in this group
             i = current_stim_idx + 1
 
+    _maybe_warn_polynomial_clamp(
+        poly_clamp_counter, poly_clamp_threshold, saturation_threshold
+    )
     return traces, blanked

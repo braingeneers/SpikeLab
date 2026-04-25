@@ -17,6 +17,7 @@ unless the functions are actually called.
 
 __all__ = [
     "sort_stim_recording",
+    "preprocess_stim_artifacts",
     "remove_stim_artifacts",
     "recenter_stim_times",
 ]
@@ -27,6 +28,11 @@ def __getattr__(name):
         from .pipeline import sort_stim_recording
 
         return sort_stim_recording
+
+    if name == "preprocess_stim_artifacts":
+        from .preprocess import preprocess_stim_artifacts
+
+        return preprocess_stim_artifacts
 
     if name == "remove_stim_artifacts":
         from .artifact_removal import remove_stim_artifacts
