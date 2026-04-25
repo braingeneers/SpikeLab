@@ -165,7 +165,7 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 **Curation:**
 - `curate_first` / `curate_second` — enable curation stages
 - `fr_min` — minimum firing rate (default: 0.05 Hz)
-- `isi_viol_max` — maximum ISI violation, in the units of `isi_violation_method` (default: `1.0`). With `method="percent"` (default) this means ≤ 1% of spikes are ISI violations — pass the literal value `1.0`, not `0.01`. With `method="hill"` it is the Hill et al. (2011) contamination ratio (>1 = highly contaminated).
+- `isi_viol_max` — maximum ISI violation, in the units of `isi_violation_method` (default: `0.01`). With `method="percent"` (default) the value is a **fraction** in `[0, 1]` — `0.01` means ≤ 1% of spikes are ISI violations, `0.05` ≤ 5%. (Legacy callers passing values `≥ 1.0` with `method="percent"` are auto-divided by 100 with a `DeprecationWarning` — `1.0` still works and is treated as 1%.) With `method="hill"` it is the Hill et al. (2011) contamination ratio (>1 = highly contaminated).
 - `snr_min` — minimum SNR (default: 5.0)
 - `spikes_min_first` / `spikes_min_second` — minimum spike counts (default: 30 / 50)
 - `std_norm_max` — maximum normalized waveform STD (default: 1.0)
