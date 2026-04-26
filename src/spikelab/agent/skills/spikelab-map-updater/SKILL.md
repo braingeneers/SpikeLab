@@ -22,17 +22,31 @@ It may also be triggered by other skills if the repo maps are not found in the e
 
 ## Strict Boundary Rules
 
+### Resolving the spikelab package root
+
+This skill must work for both editable installs (`pip install -e SpikeLab/`) and PyPI installs (`pip install spikelab`). Resolve the package directory dynamically:
+
+```bash
+python -c "import spikelab; print(spikelab.__path__[0])"
+```
+
+Call the result `<spikelab>`. It expands to:
+- Editable install: `<clone>/SpikeLab/src/spikelab/`
+- PyPI install:     `<env>/site-packages/spikelab/`
+
+All path references below use this `<spikelab>` prefix. For PyPI installs the maps are written into `site-packages` and will be wiped by `pip install --upgrade spikelab` — this is expected; regenerate after each upgrade.
+
 ### File boundaries
 
-You may only create or modify two files:
-- `REPO_MAP.md` — located alongside this skill file in `src/spikelab/agent/skills/spikelab-map-updater/`
-- `REPO_MAP_DETAILED.md` — located alongside this skill file in `src/spikelab/agent/skills/spikelab-map-updater/`
+You may only create or modify two files, both alongside this SKILL.md inside `<spikelab>/agent/skills/spikelab-map-updater/`:
+- `REPO_MAP.md`
+- `REPO_MAP_DETAILED.md`
 
 You must not modify any library source code, tests, analysis scripts, or other files.
 
 ### Read-only access to source
 
-You may read any file in `src/spikelab/` to understand the library structure. You must not modify any source file.
+You may read any file under `<spikelab>/` to understand the library structure. You must not modify any source file.
 
 ---
 
@@ -52,7 +66,7 @@ Both files are consumed by the analysis-implementer, educator, developer, and sp
 ### Step 1: Read the source
 
 **First-time generation (files do not exist):** Read the full library source to understand the complete structure. Focus on:
-- Files and directories in `src/spikelab/`
+- Files and directories in `<spikelab>/`
 - Classes, methods, and function signatures
 - Parameters, return types, and default values
 - Optional dependencies

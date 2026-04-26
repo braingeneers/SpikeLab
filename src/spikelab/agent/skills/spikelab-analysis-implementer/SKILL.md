@@ -64,7 +64,13 @@ A wrong assumption that goes unchecked propagates silently through the entire an
 - Read `REPO_MAP.md` for a broad overview of available classes and methods.
 - Read the relevant sections of `REPO_MAP_DETAILED.md` to understand the exact API — signatures, parameters, return types — for any method you plan to use. Do not guess at method signatures; always verify against this file.
 
-Both files are located in `src/spikelab/agent/skills/spikelab-map-updater/`. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding with any analysis.
+Both files are located in `agent/skills/spikelab-map-updater/` inside the installed `spikelab` package. Find the package directory with:
+
+```bash
+python -c "import spikelab; print(spikelab.__path__[0])"
+```
+
+For editable installs this is `<clone>/SpikeLab/src/spikelab/`; for PyPI installs it is `<env>/site-packages/spikelab/`. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding with any analysis.
 
 ### Step 2: Inspect the data
 

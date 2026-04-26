@@ -84,14 +84,13 @@ When handing off to the batch job workflow, pass:
 
 ### Repo maps
 
-Before writing sorting scripts, read the repo maps for the spike sorting API:
+Before writing sorting scripts, read the repo maps for the spike sorting API. Both files live in `agent/skills/spikelab-map-updater/` inside the installed `spikelab` package. Find the package directory with:
 
-```
-src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP.md
-src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
+```bash
+python -c "import spikelab; print(spikelab.__path__[0])"
 ```
 
-If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
+For editable installs this is `<clone>/SpikeLab/src/spikelab/`; for PyPI installs it is `<env>/site-packages/spikelab/`. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
 
 ### Never assume — ask if unsure
 
