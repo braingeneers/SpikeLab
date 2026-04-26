@@ -84,14 +84,13 @@ When handing off to the batch job workflow, pass:
 
 ### Repo maps
 
-Before writing sorting scripts, read the repo maps for the spike sorting API:
+Before writing sorting scripts, read the repo maps for the spike sorting API. Both files live in `agent/skills/spikelab-map-updater/` inside the installed `spikelab` package. Find the package directory with:
 
-```
-src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP.md
-src/spikelab/agent/skills/spikelab-map-updater/REPO_MAP_DETAILED.md
+```bash
+python -c "import spikelab; print(spikelab.__path__[0])"
 ```
 
-If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
+For editable installs this is `<clone>/SpikeLab/src/spikelab/`; for PyPI installs it is `<env>/site-packages/spikelab/`. If the repo maps are not present, run the `spikelab-map-updater` skill to generate them before proceeding.
 
 ### Never assume — ask if unsure
 
@@ -168,7 +167,7 @@ See `RTSortConfig` in `REPO_MAP_DETAILED.md` for the full parameter list (`rt_so
 **Curation:**
 - `curate_first` / `curate_second` — enable curation stages
 - `fr_min` — minimum firing rate (default: 0.05 Hz)
-- `isi_viol_max` — maximum ISI violation (default: 1%)
+- `isi_viol_max` — maximum ISI violation, in the units of `isi_violation_method` (default: `0.01`). With `method="percent"` (default) the value is a **fraction** in `[0, 1]` — `0.01` means ≤ 1% of spikes are ISI violations, `0.05` ≤ 5%. (Legacy callers passing values `≥ 1.0` with `method="percent"` are auto-divided by 100 with a `DeprecationWarning` — `1.0` still works and is treated as 1%.) With `method="hill"` it is the Hill et al. (2011) contamination ratio (>1 = highly contaminated).
 - `snr_min` — minimum SNR (default: 5.0)
 - `spikes_min_first` / `spikes_min_second` — minimum spike counts (default: 30 / 50)
 - `std_norm_max` — maximum normalized waveform STD (default: 1.0)

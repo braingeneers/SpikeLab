@@ -4,6 +4,8 @@
 
 SpikeLab is a Python library for loading, analyzing, visualizing, and exporting neuronal spike train data from multi-electrode array (MEA) electrophysiology experiments.
 
+📖 **Documentation:** [spikelab.braingeneers.gi.ucsc.edu](https://spikelab.braingeneers.gi.ucsc.edu/)
+
 ## What SpikeLab can do
 
 - **Load data** from common neuroscience formats (HDF5, NWB, KiloSort/Phy, SpikeInterface)
@@ -14,7 +16,8 @@ SpikeLab is a Python library for loading, analyzing, visualizing, and exporting 
 - **Export data** to KiloSort, NWB, and other formats
 - **Store and organize results** using the `AnalysisWorkspace` for multi-stage analysis projects
 - **Access programmatically** via a built-in MCP server for tool-based workflows
-- **Run spike sorting** on electrophysiology recordings with built-in KiloSort2 pipeline (`spikelab.spike_sorting`)
+- **Run spike sorting** on electrophysiology recordings with built-in pipelines for Kilosort2, Kilosort4, and rt-sort (`spikelab.spike_sorting`)
+- **Submit batch jobs** to remote Kubernetes clusters for compute-heavy workloads via `spikelab.batch_jobs`
 
 ## Installation
 
@@ -24,15 +27,11 @@ You need **Python 3.10 or later**. If you don't have Python installed, we recomm
 
 ### Option 1: pip install (recommended)
 
-Clone the repository and install in editable mode:
-
 ```bash
-git clone https://github.com/braingeneers/SpikeLab.git
-cd SpikeLab
-pip install -e .
+pip install spikelab
 ```
 
-This installs SpikeLab and its core dependencies (numpy, scipy, h5py, mcp).
+This installs SpikeLab and its core dependencies (numpy, scipy, matplotlib, h5py).
 
 ### Option 2: conda environment
 
@@ -43,6 +42,16 @@ git clone https://github.com/braingeneers/SpikeLab.git
 cd SpikeLab
 conda env create -f environment.yml
 conda activate spikelab
+pip install spikelab
+```
+
+### Option 3: install from source
+
+For development, clone the repository and install in editable mode:
+
+```bash
+git clone https://github.com/braingeneers/SpikeLab.git
+cd SpikeLab
 pip install -e .
 ```
 
@@ -59,16 +68,32 @@ If you see the success message, you're ready to go.
 
 ### Optional dependencies
 
-Some features require additional packages that are not installed by default:
+Some features require additional packages that are not installed by default. Install them by appending the extra in brackets:
 
-| Feature | Install command | What it enables |
+```bash
+pip install "spikelab[s3]"
+pip install "spikelab[s3,ml,mcp]"   # multiple extras
+pip install "spikelab[all]"         # everything except kilosort4
+```
+
+| Extra | Install command | What it enables |
 |---|---|---|
-| S3 cloud storage | `pip install -e ".[s3]"` | Upload/download data from Amazon S3 |
-| GPLVM latent models | `pip install -e ".[gplvm]"` | Gaussian Process Latent Variable Model fitting |
-| NWB file support | `pip install neo quantities` | Reading NWB (Neurodata Without Borders) files |
-| UMAP dimensionality reduction | `pip install umap-learn` | UMAP projections of pairwise matrices |
-| Development tools | `pip install -e ".[dev]"` | pytest, black, and other dev utilities |
-| Spike sorting | `pip install -e ".[spike-sorting]"` + MATLAB + Kilosort2 | `spikelab.spike_sorting` Kilosort2 pipeline |
+| `mcp` | `pip install "spikelab[mcp]"` | Built-in MCP server for tool-based workflows |
+| `sse` | `pip install "spikelab[sse]"` | SSE transport for the MCP server (uvicorn + starlette) |
+| `s3` | `pip install "spikelab[s3]"` | Upload/download data from Amazon S3 (or any S3-compatible store) |
+| `io` | `pip install "spikelab[io]"` | Extra I/O helpers (pandas) |
+| `ml` | `pip install "spikelab[ml]"` | scikit-learn, UMAP, networkx, python-louvain |
+| `neo` | `pip install "spikelab[neo]"` | NWB / neo / quantities for reading NWB files |
+| `gplvm` | `pip install "spikelab[gplvm]"` | Gaussian Process Latent Variable Model fitting |
+| `numba` | `pip install "spikelab[numba]"` | Numba-accelerated routines |
+| `spike-sorting` | `pip install "spikelab[spike-sorting]"` (+ MATLAB for Kilosort2) | Kilosort2 / rt-sort pipelines via `spikelab.spike_sorting` |
+| `kilosort4` | `pip install "spikelab[kilosort4]"` (+ PyTorch with CUDA, [installed separately](https://pytorch.org/get-started/locally/)) | Kilosort4 pipeline |
+| `batch-jobs` | `pip install "spikelab[batch-jobs]"` | Submit jobs to remote Kubernetes clusters (`spikelab-batch-jobs` CLI) |
+| `docs` | `pip install "spikelab[docs]"` | Sphinx + theme + autodoc-typehints for building the docs |
+| `dev` | `pip install "spikelab[dev]"` | pytest, black, and other dev utilities |
+| `all` | `pip install "spikelab[all]"` | All of the above except `kilosort4` |
+
+When installing from a local source checkout, replace `spikelab` with `-e .` (e.g. `pip install -e ".[s3]"`).
 
 ## Quick start
 
@@ -107,19 +132,21 @@ sd.to_kilosort("ks_output/", fs_Hz=20000.0)
 
 ## AI-assisted analysis
 
-SpikeLab includes a built-in skill that can guide you through data analysis interactively. The skill teaches your CLI agent of choice how to use the SpikeLab library, write analysis scripts, generate visualizations, and manage results — all through natural language conversation.
+SpikeLab includes a set of built-in skills that guide your CLI agent through data analysis, spike sorting, library development, and education — all through natural language conversation.
 
 ### How it works
 
-When the CLI agent accesses the SpikeLab repository, it can find the **spikelab-analysis-implementer** skill in .agent/skills/spiklab-analysis-implementer which allows it to:
+The skills ship inside the installed package at `spikelab/agent/skills/`. A lightweight **`spikelab` router skill** (installed separately into your agent's skills directory) handles environment detection (conda vs. system Python, install if missing) and then delegates to the in-repo skill that best matches the user's request:
 
-- Load your data files and set up an analysis workspace
-- Write and run analysis scripts using SpikeLab methods
-- Generate publication-quality figures
-- Keep a running log of analyses and results
-- Maintain up-to-date API documentation (repo maps)
+| In-repo skill | Use when the user wants to… |
+|---|---|
+| **`spikelab-analysis-implementer`** | Load data, write/run analysis scripts, generate publication-quality figures, manage results, and keep repo maps current |
+| **`spikelab-spikesorter`** | Sort raw recordings (Kilosort2, Kilosort4, RT-Sort), curate units, run stim-aligned sorting, and inspect sorting outputs |
+| **`spikelab-developer`** | Promote ad-hoc analysis code into the library — identify reusable methods, integrate novel computations, write tests, expose via MCP, and submit a PR |
+| **`spikelab-educator`** | Explain what an analysis does, how a method works, or what a result means — read-only, no code execution |
+| **`spikelab-map-updater`** | Regenerate the repo map files after library changes |
 
-Alternatively, MCP tools are available for all methods in the repository
+CLI agents that load skills from installed packages pick the in-repo skills up automatically; alternatively, copy or symlink them into the agent's skills directory. As an alternative to the skills, MCP tools are available for all methods in the library.
 
 ## Directory structure
 
@@ -139,16 +166,29 @@ SpikeLab/
 │       │   ├── data_loaders.py     # Load from HDF5, NWB, KiloSort, SpikeInterface
 │       │   ├── data_exporters.py   # Export to KiloSort, NWB, and other formats
 │       │   └── s3_utils.py         # Amazon S3 upload/download utilities
-│       ├── spike_sorting/      # Kilosort2 spike-sorting pipeline
-│       │   └── kilosort2.py        # sort_with_kilosort2 (requires MATLAB + SpikeInterface)
+│       ├── spike_sorting/      # Spike-sorting pipelines
+│       │   ├── pipeline.py         # Top-level sorting pipeline + config
+│       │   ├── ks2_runner.py       # Kilosort2 runner (requires MATLAB)
+│       │   ├── ks4_runner.py       # Kilosort4 runner (PyTorch / CUDA)
+│       │   ├── rt_sort/            # rt-sort runner
+│       │   └── stim_sorting/       # Stimulation-aware sorting helpers
 │       ├── workspace/          # Analysis workspace for storing intermediate results
 │       │   ├── workspace.py        # AnalysisWorkspace class
 │       │   └── hdf5_io.py          # HDF5 serialization for workspace objects
-│       └── mcp_server/         # MCP protocol server for programmatic access
-│           ├── server.py           # MCP server implementation
-│           └── tools/              # MCP tool definitions
+│       ├── mcp_server/         # MCP protocol server for programmatic access
+│       │   ├── server.py           # MCP server implementation
+│       │   └── tools/              # MCP tool definitions
+│       ├── batch_jobs/         # Remote Kubernetes job submission
+│       │   ├── cli.py              # spikelab-batch-jobs CLI
+│       │   ├── session.py          # RunSession entry point
+│       │   ├── policy.py           # Pre-submission policy checks
+│       │   ├── profiles/           # Built-in cluster profiles (YAML)
+│       │   └── templates/          # Jinja2 manifest templates
+│       └── agent/              # Bundled agent skills (analysis-implementer, …)
+│           └── skills/
 ├── tests/              # Test suite (pytest)
-├── .agent/             # Agent skill for AI-assisted analysis
+├── docs/               # Sphinx documentation source
+├── examples/           # Example scripts and notebooks
 ├── environment.yml     # Conda environment specification
 └── pyproject.toml      # Package configuration
 ```
@@ -156,6 +196,7 @@ SpikeLab/
 ## Running tests
 
 ```bash
+git clone https://github.com/braingeneers/SpikeLab.git
 cd SpikeLab
 pip install -e ".[dev]"
 pytest tests/ -v

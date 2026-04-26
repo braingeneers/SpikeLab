@@ -3016,7 +3016,7 @@ class SpikeData:
         return curate_by_firing_rate(self, min_rate_hz=min_rate_hz)
 
     def curate_by_isi_violations(
-        self, max_violation=1.0, threshold_ms=1.5, min_isi_ms=0.0, method="percent"
+        self, max_violation=0.01, threshold_ms=1.5, min_isi_ms=0.0, method="percent"
     ):
         """Remove units with excessive ISI violations.
 

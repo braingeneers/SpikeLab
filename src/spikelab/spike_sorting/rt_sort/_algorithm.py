@@ -152,7 +152,7 @@ def detect_sequences(
     outer_radius=100,
     min_elecs_for_array_noise_n=100,
     min_elecs_for_array_noise_f=0.1,
-    min_elecs_for_seq_noise_n=50,
+    min_elecs_for_seq_noise_n=300,
     min_elecs_for_seq_noise_f=0.05,
     # Root elec needs :min_activity_hz: codetections where a codetection is when there are at least :min_activity_root_cocs: detections in the propagation window
     min_activity_root_cocs=2,
