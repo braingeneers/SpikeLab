@@ -122,8 +122,9 @@ kilosort4 = [
   # https://pytorch.org/get-started/locally/
 ]
 ibl = [
+  # brainwidemap is not on PyPI; install manually:
+  #   pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git
   "ONE-api>=2.0",
-  "brainwidemap",
 ]
 all = [
   "pandas>=1.3",
@@ -151,8 +152,8 @@ all = [
   "PyYAML>=6.0.1",
   "Jinja2>=3.1.0",
   "kubernetes>=30.1.0",
+  # brainwidemap is not on PyPI; install manually for [ibl] extra
   "ONE-api>=2.0",
-  "brainwidemap",
 ]
 
 [project.scripts]

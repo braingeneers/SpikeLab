@@ -28,5 +28,6 @@ dependencies:
     - neo>=0.12.0
     - quantities>=0.14.0
     - ONE-api>=2.0
-    - brainwidemap
+    # brainwidemap is not on PyPI; install manually for IBL queries:
+    #   pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git
 

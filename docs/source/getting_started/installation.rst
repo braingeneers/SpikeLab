@@ -34,8 +34,8 @@ Install only what you need:
      - ``pip install spikelab[neo]``
      - neo, quantities, pynwb
    * - ``ibl``
-     - ``pip install spikelab[ibl]``
-     - ONE-api, brainwidemap (query and load IBL Brain-Wide Map datasets)
+     - ``pip install spikelab[ibl]`` (+ ``pip install git+https://github.com/int-brain-lab/paper-brain-wide-map.git``)
+     - ONE-api (query and load IBL Brain-Wide Map datasets); ``brainwidemap`` is not on PyPI and must be installed separately from its git repo
    * - ``numba``
      - ``pip install spikelab[numba]``
      - numba (JIT-compiled analysis functions)
