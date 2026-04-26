@@ -26,13 +26,16 @@ Install only what you need:
      - Includes
    * - ``io``
      - ``pip install spikelab[io]``
-     - pandas (KiloSort cluster info, IBL queries)
+     - pandas (KiloSort cluster info)
    * - ``ml``
      - ``pip install spikelab[ml]``
      - scikit-learn, umap-learn, networkx, python-louvain
    * - ``neo``
      - ``pip install spikelab[neo]``
      - neo, quantities, pynwb
+   * - ``ibl``
+     - ``pip install spikelab[ibl]``
+     - ONE-api, brainwidemap (query and load IBL Brain-Wide Map datasets)
    * - ``numba``
      - ``pip install spikelab[numba]``
      - numba (JIT-compiled analysis functions)

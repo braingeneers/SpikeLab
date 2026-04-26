@@ -27,4 +27,6 @@ dependencies:
     # Optional — guarded in source with try/except ImportError
     - neo>=0.12.0
     - quantities>=0.14.0
+    - ONE-api>=2.0
+    - brainwidemap
 
