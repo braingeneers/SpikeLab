@@ -84,6 +84,7 @@ pip install "spikelab[all]"         # everything except kilosort4
 | `io` | `pip install "spikelab[io]"` | Extra I/O helpers (pandas) |
 | `ml` | `pip install "spikelab[ml]"` | scikit-learn, UMAP, networkx, python-louvain |
 | `neo` | `pip install "spikelab[neo]"` | NWB / neo / quantities for reading NWB files |
+| `ibl` | `pip install "spikelab[ibl]"` | Query and load IBL Brain-Wide Map datasets (`ONE-api`, `brainwidemap`) |
 | `gplvm` | `pip install "spikelab[gplvm]"` | Gaussian Process Latent Variable Model fitting |
 | `numba` | `pip install "spikelab[numba]"` | Numba-accelerated routines |
 | `spike-sorting` | `pip install "spikelab[spike-sorting]"` (+ MATLAB for Kilosort2) | Kilosort2 / rt-sort pipelines via `spikelab.spike_sorting` |
