@@ -3,7 +3,7 @@ name: SpikeData Tests
 on:
   push:
     branches:
-      - '**'
+      - main
   pull_request:
 
 jobs:
