@@ -27,12 +27,29 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
+keywords = [
+  "neuroscience",
+  "electrophysiology",
+  "spike-train",
+  "multi-electrode-array",
+  "MEA",
+  "spike-sorting",
+  "neural-data",
+  "kilosort",
+  "MCP",
+]
 dependencies = [
   "numpy>=1.20",
   "scipy>=1.5",
   "matplotlib>=3.5",
   "h5py>=3.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/braingeneers/SpikeLab"
+Documentation = "https://spikelab.braingeneers.gi.ucsc.edu/"
+Repository = "https://github.com/braingeneers/SpikeLab"
+Issues = "https://github.com/braingeneers/SpikeLab/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -66,7 +83,8 @@ s3 = [
   "boto3>=1.28.0",
 ]
 gplvm = [
-  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
+  # poor-man-gplvm is not on PyPI; install manually:
+  #   pip install git+https://github.com/samdeoxys1/poor-man-GPLVM.git
   "jax>=0.4.26",
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",
@@ -109,7 +127,7 @@ all = [
   "boto3>=1.28.0",
   "uvicorn>=0.20",
   "starlette>=0.27",
-  "poor-man-gplvm @ git+https://github.com/samdeoxys1/poor-man-GPLVM.git",
+  # poor-man-gplvm is not on PyPI; install manually for [gplvm] extra
   "jax>=0.4.26",
   "jaxlib>=0.4.26",
   "jaxopt>=0.8.2",
