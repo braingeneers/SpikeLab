@@ -503,21 +503,36 @@ result (dict): <code class="docutils literal notranslate"><span class="pre">{&qu
 
 <dl class="py function">
 <dt class="sig sig-object py" id="spikelab.spikedata.curation.curate_by_isi_violations">
-<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.curation.</span></span><span class="sig-name descname"><span class="pre">curate_by_isi_violations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_violation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_isi_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'percent'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/curation.html#curate_by_isi_violations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.curation.curate_by_isi_violations" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spikelab.spikedata.curation.</span></span><span class="sig-name descname"><span class="pre">curate_by_isi_violations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_violation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_isi_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'percent'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/spikelab/spikedata/curation.html#curate_by_isi_violations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spikelab.spikedata.curation.curate_by_isi_violations" title="Link to this definition"></a></dt>
 <dd><p>Remove units with excessive inter-spike-interval violations.</p>
 <p>Two methods are available:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> — violation count divided by total spike count,
-expressed as a percentage.</p></li>
+expressed as a <strong>fraction</strong> in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">0.01</span></code> means 1 %
+of spikes are ISI violations). The <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> name is kept for
+backward compatibility with prior versions; the value is now a
+fraction, not a percentage.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&quot;hill&quot;</span></code> — violation rate ratio from Hill et al. (2011)
 J Neurosci 31:8699-8705.  Values above 1 indicate highly
 contaminated units.</p></li>
 </ul>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version 0.105: </span>With <code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">max_violation</span></code> is now a fraction
+(<code class="docutils literal notranslate"><span class="pre">0.01</span></code> = 1 % of spikes) instead of a percent value
+(<code class="docutils literal notranslate"><span class="pre">1.0</span></code> = 1 %). Passing a value <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">1.0</span></code> with
+<code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code> emits a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#DeprecationWarning" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">DeprecationWarning</span></code></a> and is
+auto-converted by dividing by 100. The legacy default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>
+is therefore treated as <code class="docutils literal notranslate"><span class="pre">0.01</span></code>. This compatibility shim will
+be removed in a future release.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData"><em>SpikeData</em></a>) – Source spike data.</p></li>
-<li><p><strong>max_violation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowed violation metric.</p></li>
+<li><p><strong>max_violation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum allowed metric. With
+<code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code> this is a fraction in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">0.01</span></code> = 1 % of spikes). With <code class="docutils literal notranslate"><span class="pre">method=&quot;hill&quot;</span></code>
+it is a contamination ratio.</p></li>
 <li><p><strong>threshold_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Refractory period threshold in ms.</p></li>
 <li><p><strong>min_isi_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum possible ISI enforced by hardware or
 post-processing, in ms.</p></li>
@@ -528,7 +543,9 @@ post-processing, in ms.</p></li>
 <dd class="field-even"><p><p>SpikeData with only passing units.
 result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
 <blockquote>
-<div><p>Metric is the violation percentage or ratio per unit.</p>
+<div><p>For <code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code> the metric is the violation fraction
+per unit; for <code class="docutils literal notranslate"><span class="pre">method=&quot;hill&quot;</span></code> it is the Hill contamination
+ratio.</p>
 </div></blockquote>
 </p>
 </dd>

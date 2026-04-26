@@ -444,6 +444,8 @@
 <span class="sd">``spikedata.py`` so they can be called as ``sd.curate_by_*(…)``.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_cosine_similarity_with_lag</span>
@@ -497,21 +499,36 @@
 <div class="viewcode-block" id="curate_by_isi_violations">
 <a class="viewcode-back" href="../../../api/curation.html#spikelab.spikedata.curation.curate_by_isi_violations">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">curate_by_isi_violations</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span>
+    <span class="n">sd</span><span class="p">,</span> <span class="n">max_violation</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">threshold_ms</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">min_isi_ms</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;percent&quot;</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove units with excessive inter-spike-interval violations.</span>
 
 <span class="sd">    Two methods are available:</span>
 
 <span class="sd">    - ``&quot;percent&quot;`` — violation count divided by total spike count,</span>
-<span class="sd">      expressed as a percentage.</span>
+<span class="sd">      expressed as a **fraction** in ``[0, 1]`` (e.g. ``0.01`` means 1 %</span>
+<span class="sd">      of spikes are ISI violations). The ``&quot;percent&quot;`` name is kept for</span>
+<span class="sd">      backward compatibility with prior versions; the value is now a</span>
+<span class="sd">      fraction, not a percentage.</span>
 <span class="sd">    - ``&quot;hill&quot;`` — violation rate ratio from Hill et al. (2011)</span>
 <span class="sd">      J Neurosci 31:8699-8705.  Values above 1 indicate highly</span>
 <span class="sd">      contaminated units.</span>
 
+<span class="sd">    .. deprecated:: 0.105</span>
+<span class="sd">        With ``method=&quot;percent&quot;``, ``max_violation`` is now a fraction</span>
+<span class="sd">        (``0.01`` = 1 % of spikes) instead of a percent value</span>
+<span class="sd">        (``1.0`` = 1 %). Passing a value ``&gt;= 1.0`` with</span>
+<span class="sd">        ``method=&quot;percent&quot;`` emits a :class:`DeprecationWarning` and is</span>
+<span class="sd">        auto-converted by dividing by 100. The legacy default ``1.0``</span>
+<span class="sd">        is therefore treated as ``0.01``. This compatibility shim will</span>
+<span class="sd">        be removed in a future release.</span>
+
 <span class="sd">    Parameters:</span>
 <span class="sd">        sd (SpikeData): Source spike data.</span>
-<span class="sd">        max_violation (float): Maximum allowed violation metric.</span>
+<span class="sd">        max_violation (float): Maximum allowed metric. With</span>
+<span class="sd">            ``method=&quot;percent&quot;`` this is a fraction in ``[0, 1]``</span>
+<span class="sd">            (default ``0.01`` = 1 % of spikes). With ``method=&quot;hill&quot;``</span>
+<span class="sd">            it is a contamination ratio.</span>
 <span class="sd">        threshold_ms (float): Refractory period threshold in ms.</span>
 <span class="sd">        min_isi_ms (float): Minimum possible ISI enforced by hardware or</span>
 <span class="sd">            post-processing, in ms.</span>
@@ -520,10 +537,29 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
 <span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            Metric is the violation percentage or ratio per unit.</span>
+<span class="sd">            For ``method=&quot;percent&quot;`` the metric is the violation fraction</span>
+<span class="sd">            per unit; for ``method=&quot;hill&quot;`` it is the Hill contamination</span>
+<span class="sd">            ratio.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span> <span class="s2">&quot;hill&quot;</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;percent&#39; or &#39;hill&#39;, got &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;percent&quot;</span> <span class="ow">and</span> <span class="n">max_violation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_violation</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="n">legacy_value</span> <span class="o">=</span> <span class="n">max_violation</span>
+        <span class="n">max_violation</span> <span class="o">=</span> <span class="n">max_violation</span> <span class="o">/</span> <span class="mf">100.0</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;curate_by_isi_violations: max_violation=</span><span class="si">{</span><span class="n">legacy_value</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(&gt;= 1.0) with method=&#39;percent&#39; is interpreted as a legacy &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;percent value and auto-converted to </span><span class="si">{</span><span class="n">max_violation</span><span class="si">!r}</span><span class="s2">. As of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;this release, max_violation is a fraction (0.01 = 1% of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;spikes). Pass </span><span class="si">{</span><span class="n">max_violation</span><span class="si">!r}</span><span class="s2"> explicitly to silence this &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;warning. The compatibility shim will be removed in a future &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;release.&quot;</span>
+            <span class="p">),</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
     <span class="n">threshold_s</span> <span class="o">=</span> <span class="n">threshold_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
@@ -546,7 +582,7 @@
             <span class="p">)</span>
             <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">violation_rate</span> <span class="o">/</span> <span class="n">total_rate</span> <span class="k">if</span> <span class="n">total_rate</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">violation_count</span> <span class="o">/</span> <span class="n">n_spikes</span><span class="p">)</span> <span class="o">*</span> <span class="mf">100.0</span>
+            <span class="n">metric</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">violation_count</span> <span class="o">/</span> <span class="n">n_spikes</span>
 
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&lt;=</span> <span class="n">max_violation</span>
     <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">passed</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">{</span><span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;passed&quot;</span><span class="p">:</span> <span class="n">passed</span><span class="p">}</span></div>
