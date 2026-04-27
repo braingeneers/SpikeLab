@@ -259,6 +259,120 @@ families.  Pass the matching ``tech_id`` for best results:
    * - ``3`` / ``"tetrodes"``
      - Tetrode recordings
 
+Unsupervised VAE compression (no conditioning)
+----------------------------------------------
+
+If you do not have cell-type or technology labels, or simply want to learn
+a compressed representation of *your own dataset* from scratch, the
+unconditioned VAE pipeline trains the same ResNet18 + fusion encoder
+architecture as the pretrained model but with all conditioning removed.
+The only training signal is reconstruction + KL divergence (beta-VAE ELBO,
+beta=1) — no class embeddings, no technology embeddings.
+
+Results are stored as ``vae_embedding``, ``vae_umap_x``, ``vae_umap_y``,
+and ``vae_cluster`` in ``neuron_attributes``, keeping them separate from the
+pretrained-model attributes (``hippie_embedding`` etc.).
+
+Train and compress in Python
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from spikelab.spikedata.hippie_adapter import (
+        train_vae_on_spikedata,
+        compress_neurons,
+    )
+
+    # Step 1 — train on your data (requires avg_waveform in neuron_attributes)
+    compressor = train_vae_on_spikedata(
+        sd,
+        output_dir="./my_vae",
+        z_dim=30,          # latent dimensionality
+        n_epochs=100,
+        batch_size=256,
+        device="cpu",      # or "cuda"
+    )
+    # Checkpoint saved to ./my_vae/vae_best.ckpt
+
+    # Step 2 — compress (can reuse the returned compressor, or reload later)
+    result = compress_neurons(sd, compressor, run_umap=True, run_hdbscan=True)
+
+    sd.set_neuron_attribute("vae_cluster",   result["cluster_labels"])
+    sd.set_neuron_attribute("vae_umap_x",    result["umap_coords"][:, 0])
+    sd.set_neuron_attribute("vae_umap_y",    result["umap_coords"][:, 1])
+    sd.set_neuron_attribute("vae_embedding", result["embeddings"])
+
+Reload and compress new data later
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from spikelab.spikedata.hippie_adapter import compress_neurons
+
+    # Load a previously trained checkpoint by path
+    result = compress_neurons(sd_new, "./my_vae/vae_best.ckpt")
+
+Use the VAE API directly
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from hippie.vae import train_vae, VAECompressor
+
+    # Train
+    compressor = train_vae(wave, isi, acg, output_dir="./my_vae", z_dim=30, n_epochs=100)
+
+    # Or load an existing checkpoint
+    compressor = VAECompressor.from_checkpoint("./my_vae/vae_best.ckpt")
+
+    # Encode
+    embeddings = compressor.get_embeddings(wave, isi, acg)  # (N, z_dim)
+    coords      = compressor.umap_reduce(embeddings)
+    labels      = compressor.hdbscan_cluster(coords, min_cluster_size=5)
+
+MCP / agent
+~~~~~~~~~~~
+
+.. code-block:: text
+
+    1. "Train an unconditioned VAE on the neurons in namespace 'probe0',
+       saving to ./my_vae, with 50 epochs."
+       → calls train_vae_hippie
+
+    2. "Compress the neurons in 'probe0' using the checkpoint at ./my_vae/vae_best.ckpt."
+       → calls compress_neurons_hippie
+
+    3. "How many clusters did the VAE find?"
+
+How it differs from the pretrained classifier
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 35 35
+
+   * -
+     - Pretrained HIPPIE (``classify_neurons``)
+     - Unconditioned VAE (``compress_neurons``)
+   * - Requires labels
+     - No (inference only)
+     - No (train & infer)
+   * - Requires ``tech_id``
+     - Yes
+     - No
+   * - Trains on your data
+     - No
+     - Yes
+   * - Learns from 11 datasets
+     - Yes (pretrained)
+     - No (your data only)
+   * - Latent space shaped by
+     - Cell types + technology
+     - Reconstruction only
+   * - Best for
+     - Known-technology recordings
+     - Exploratory compression, novel datasets
+
 Advanced options
 ----------------
 

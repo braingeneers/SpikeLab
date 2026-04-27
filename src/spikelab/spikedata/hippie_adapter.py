@@ -9,6 +9,7 @@ Workflow:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -215,6 +216,128 @@ def classify_neurons(
     if run_hdbscan:
         cluster_input = result.get("umap_coords", embeddings)
         result["cluster_labels"] = clf.hdbscan_cluster(
+            cluster_input, **(hdbscan_kwargs or {})
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Unconditioned VAE: training + compression
+# ---------------------------------------------------------------------------
+
+def train_vae_on_spikedata(
+    sd,
+    output_dir: str,
+    z_dim: int = 30,
+    n_epochs: int = 100,
+    batch_size: int = 256,
+    learning_rate: float = 1e-3,
+    weight_decay: float = 1e-2,
+    val_fraction: float = 0.1,
+    device: str = "cpu",
+    random_state: int = 42,
+) -> "VAECompressor":
+    """Train an unconditioned multimodal VAE on a SpikeData object.
+
+    Extracts waveform, ISI, and ACG features from sd, then trains a VAE
+    (no class or technology conditioning) to compress the data.  The best
+    checkpoint is saved to output_dir and a ready VAECompressor is returned.
+
+    Args:
+        sd: SpikeData with spike trains and avg_waveform in neuron_attributes.
+        output_dir: Directory to save the best checkpoint (vae_best.ckpt).
+        z_dim: Latent space dimensionality (default 30).
+        n_epochs: Training epochs.
+        batch_size: Minibatch size.
+        learning_rate: AdamW learning rate.
+        weight_decay: AdamW weight decay.
+        val_fraction: Fraction of neurons held out for validation.
+        device: "cuda" or "cpu".
+        random_state: Reproducibility seed.
+
+    Returns:
+        VAECompressor loaded from the best checkpoint.
+
+    Example:
+        >>> from spikelab.spikedata.hippie_adapter import train_vae_on_spikedata
+        >>> compressor = train_vae_on_spikedata(sd, output_dir="./my_vae", n_epochs=50)
+        >>> result = compress_neurons(sd, compressor)
+    """
+    _require_hippie()
+    from hippie.vae import train_vae
+
+    features = extract_features(sd)
+    return train_vae(
+        wave=features["wave"],
+        isi=features["isi"],
+        acg=features["acg"],
+        output_dir=output_dir,
+        z_dim=z_dim,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        val_fraction=val_fraction,
+        device=device,
+        random_state=random_state,
+    )
+
+
+def compress_neurons(
+    sd,
+    compressor: Union[str, "VAECompressor"],
+    run_umap: bool = True,
+    run_hdbscan: bool = True,
+    umap_kwargs: Optional[dict] = None,
+    hdbscan_kwargs: Optional[dict] = None,
+    batch_size: int = 256,
+    device: str = "cpu",
+) -> dict:
+    """Compress neurons with a trained unconditioned VAE.
+
+    Args:
+        sd: SpikeData with spike trains and avg_waveform in neuron_attributes.
+        compressor: A VAECompressor instance or a path to a checkpoint (.ckpt).
+        run_umap: Compute 2-D UMAP projection of the embeddings.
+        run_hdbscan: Cluster with HDBSCAN on UMAP coords (or raw embeddings).
+        umap_kwargs: Extra kwargs forwarded to VAECompressor.umap_reduce().
+        hdbscan_kwargs: Extra kwargs forwarded to VAECompressor.hdbscan_cluster().
+        batch_size: Neurons per forward pass.
+        device: "cuda" or "cpu" (only used when loading from a checkpoint path).
+
+    Returns:
+        dict with keys:
+            - "embeddings":    (N, z_dim) latent z_mean vectors
+            - "umap_coords":   (N, 2)     UMAP coordinates (if run_umap=True)
+            - "cluster_labels":(N,)       HDBSCAN labels, -1=noise (if run_hdbscan=True)
+
+    Example:
+        >>> result = compress_neurons(sd, "./my_vae/vae_best.ckpt")
+        >>> sd.set_neuron_attribute("vae_cluster",   result["cluster_labels"])
+        >>> sd.set_neuron_attribute("vae_umap_x",    result["umap_coords"][:, 0])
+        >>> sd.set_neuron_attribute("vae_umap_y",    result["umap_coords"][:, 1])
+        >>> sd.set_neuron_attribute("vae_embedding", result["embeddings"])
+    """
+    _require_hippie()
+    from hippie.vae import VAECompressor
+
+    if isinstance(compressor, (str, Path)):
+        compressor = VAECompressor.from_checkpoint(compressor, device=device)
+
+    features = extract_features(sd)
+    embeddings = compressor.get_embeddings(
+        features["wave"], features["isi"], features["acg"], batch_size=batch_size
+    )
+
+    result: dict = {"embeddings": embeddings}
+
+    if run_umap:
+        result["umap_coords"] = compressor.umap_reduce(embeddings, **(umap_kwargs or {}))
+
+    if run_hdbscan:
+        cluster_input = result.get("umap_coords", embeddings)
+        result["cluster_labels"] = compressor.hdbscan_cluster(
             cluster_input, **(hdbscan_kwargs or {})
         )
 

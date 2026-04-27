@@ -2395,3 +2395,140 @@ async def classify_neurons_hippie(
         "n_noise_neurons": n_noise,
         "neuron_attributes_added": added_attrs,
     }
+
+
+# ---------------------------------------------------------------------------
+# Unconditioned VAE: training + compression (requires spikelab[hippie])
+# ---------------------------------------------------------------------------
+
+
+async def train_vae_hippie(
+    workspace_id: str,
+    namespace: str,
+    output_dir: str,
+    z_dim: int = 30,
+    n_epochs: int = 100,
+    batch_size: int = 256,
+    learning_rate: float = 1e-3,
+    val_fraction: float = 0.1,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    """Train an unconditioned multimodal VAE on a SpikeData object (requires spikelab[hippie]).
+
+    Uses the same ResNet18 + fusion encoder architecture as the pretrained HIPPIE
+    model but removes all class and technology conditioning.  The VAE learns to
+    compress waveform + ISI + autocorrelogram into a z_dim-dimensional latent
+    space using only reconstruction + KL loss (beta=1).
+
+    The best checkpoint is saved to output_dir/vae_best.ckpt.  Pass this path
+    to compress_neurons_hippie to encode new data.
+
+    Requires avg_waveform in neuron_attributes — run get_waveform_traces first.
+    """
+    from ....spikedata.hippie_adapter import train_vae_on_spikedata
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    train_vae_on_spikedata(
+        sd,
+        output_dir=output_dir,
+        z_dim=z_dim,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        val_fraction=val_fraction,
+        device=device,
+    )
+
+    import os
+    ckpt_path = os.path.join(output_dir, "vae_best.ckpt")
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "checkpoint_path": ckpt_path,
+        "z_dim": z_dim,
+        "n_epochs": n_epochs,
+        "n_neurons_trained_on": sd.N,
+    }
+
+
+async def compress_neurons_hippie(
+    workspace_id: str,
+    namespace: str,
+    checkpoint_path: str,
+    run_umap: bool = True,
+    run_hdbscan: bool = True,
+    min_cluster_size: int = 5,
+    umap_n_neighbors: int = 30,
+    umap_min_dist: float = 0.1,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    """Compress neurons with a trained unconditioned VAE (requires spikelab[hippie]).
+
+    Encodes all neurons into the VAE latent space, optionally runs UMAP and
+    HDBSCAN, then writes results into neuron_attributes:
+      vae_embedding, vae_umap_x, vae_umap_y, vae_cluster.
+
+    Args:
+        workspace_id: Workspace ID.
+        namespace: Recording namespace.
+        checkpoint_path: Path to the .ckpt file saved by train_vae_hippie.
+        run_umap: Compute 2-D UMAP projection.
+        run_hdbscan: Cluster with HDBSCAN (-1 = noise).
+        min_cluster_size: Minimum neurons per cluster.
+        umap_n_neighbors: UMAP neighbourhood size.
+        umap_min_dist: UMAP minimum distance.
+        device: "cuda" or "cpu".
+    """
+    from ....spikedata.hippie_adapter import compress_neurons
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    result = compress_neurons(
+        sd,
+        compressor=checkpoint_path,
+        run_umap=run_umap,
+        run_hdbscan=run_hdbscan,
+        umap_kwargs={"n_neighbors": umap_n_neighbors, "min_dist": umap_min_dist},
+        hdbscan_kwargs={"min_cluster_size": min_cluster_size},
+        device=device,
+    )
+
+    sd.set_neuron_attribute("vae_embedding", result["embeddings"].tolist())
+    if "umap_coords" in result:
+        sd.set_neuron_attribute("vae_umap_x", result["umap_coords"][:, 0].tolist())
+        sd.set_neuron_attribute("vae_umap_y", result["umap_coords"][:, 1].tolist())
+    if "cluster_labels" in result:
+        sd.set_neuron_attribute("vae_cluster", result["cluster_labels"].tolist())
+
+    ws.store(namespace, "spikedata", sd)
+
+    n_clusters = (
+        int(np.unique(result["cluster_labels"][result["cluster_labels"] >= 0]).size)
+        if "cluster_labels" in result
+        else None
+    )
+
+    added_attrs = ["vae_embedding"]
+    if "umap_coords" in result:
+        added_attrs += ["vae_umap_x", "vae_umap_y"]
+    if "cluster_labels" in result:
+        added_attrs.append("vae_cluster")
+
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "n_neurons": int(result["embeddings"].shape[0]),
+        "embedding_dim": int(result["embeddings"].shape[1]),
+        "umap_computed": "umap_coords" in result,
+        "hdbscan_computed": "cluster_labels" in result,
+        "n_clusters": n_clusters,
+        "n_noise_neurons": (
+            int((result["cluster_labels"] < 0).sum())
+            if "cluster_labels" in result
+            else None
+        ),
+        "neuron_attributes_added": added_attrs,
+    }
