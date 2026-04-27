@@ -443,6 +443,8 @@ def load_spikedata_from_nwb(
                 f"format or report a bug.",
                 stacklevel=2,
             )
+            trains.clear()
+            neuron_attributes.clear()
 
     ensure_h5py()
     with h5py.File(filepath, "r") as f:  # type: ignore
