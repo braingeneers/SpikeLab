@@ -24,6 +24,7 @@ from spikelab.spikedata.hippie_adapter import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_spike_train(n_spikes=200, duration_s=60.0, seed=0):
     rng = np.random.default_rng(seed)
     return np.sort(rng.uniform(0, duration_s, n_spikes))
@@ -49,6 +50,7 @@ def _make_spikedata(n_units=10, seed=0):
 # ---------------------------------------------------------------------------
 # Unit tests for preprocessing helpers
 # ---------------------------------------------------------------------------
+
 
 class TestPreprocessWaveform:
     def test_output_shape(self):
@@ -109,6 +111,7 @@ class TestAutocorrelogram:
 # extract_features
 # ---------------------------------------------------------------------------
 
+
 class TestExtractFeatures:
     def test_shapes(self):
         sd = _make_spikedata(n_units=8)
@@ -125,6 +128,7 @@ class TestExtractFeatures:
 
     def test_no_waveform_raises(self):
         from spikelab.spikedata import SpikeData
+
         trains = [_make_spike_train(100, seed=i) for i in range(3)]
         sd = SpikeData(trains, length=60.0)
         with pytest.raises(ValueError, match="avg_waveform"):
@@ -135,13 +139,18 @@ class TestExtractFeatures:
 # classify_neurons — mocked end-to-end
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyNeurons:
     """Full pipeline test with the HuggingFace download and HIPPIE model mocked out."""
 
     def _make_mock_classifier(self, n_neurons, z_dim=30):
         mock_clf = MagicMock()
-        mock_clf.get_embeddings.return_value = np.random.randn(n_neurons, z_dim).astype(np.float32)
-        mock_clf.umap_reduce.return_value = np.random.randn(n_neurons, 2).astype(np.float32)
+        mock_clf.get_embeddings.return_value = np.random.randn(n_neurons, z_dim).astype(
+            np.float32
+        )
+        mock_clf.umap_reduce.return_value = np.random.randn(n_neurons, 2).astype(
+            np.float32
+        )
         mock_clf.hdbscan_cluster.return_value = np.zeros(n_neurons, dtype=np.int32)
         return mock_clf
 

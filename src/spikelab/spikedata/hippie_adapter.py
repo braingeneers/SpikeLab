@@ -39,6 +39,7 @@ def _require_hippie():
 # Per-neuron preprocessing helpers
 # ------------------------------------------------------------------
 
+
 def _preprocess_waveform(wave: np.ndarray, target: int = 50) -> np.ndarray:
     """Resample waveform to target length and min-max normalize to [-1, 1]."""
     import torch
@@ -57,7 +58,9 @@ def _isi_histogram(spike_times: np.ndarray, n_bins: int = _ISI_N_BINS) -> np.nda
     isis_ms = np.diff(np.sort(spike_times)) * 1000.0
     isis_ms = isis_ms[isis_ms > 0]
     if len(isis_ms) < 2:
-        return np.full(n_bins, -1.0, dtype=np.float32)  # return flat -1 for silent neurons
+        return np.full(
+            n_bins, -1.0, dtype=np.float32
+        )  # return flat -1 for silent neurons
 
     bins = np.logspace(np.log10(_ISI_MIN_MS), np.log10(_ISI_MAX_MS), n_bins + 1)
     hist, _ = np.histogram(isis_ms, bins=bins, density=True)
@@ -106,6 +109,7 @@ def _autocorrelogram(
 # Public API
 # ------------------------------------------------------------------
 
+
 def extract_features(
     sd,
     isi_bins: int = _ISI_N_BINS,
@@ -139,10 +143,12 @@ def extract_features(
 
     wave_arr = np.stack([_preprocess_waveform(np.asarray(w)) for w in waves])
     isi_arr = np.stack([_isi_histogram(t, n_bins=isi_bins) for t in sd.train])
-    acg_arr = np.stack([
-        _autocorrelogram(t, max_lag_ms=acg_max_lag_ms, n_bins=acg_bins)
-        for t in sd.train
-    ])
+    acg_arr = np.stack(
+        [
+            _autocorrelogram(t, max_lag_ms=acg_max_lag_ms, n_bins=acg_bins)
+            for t in sd.train
+        ]
+    )
 
     return {"wave": wave_arr, "isi": isi_arr, "acg": acg_arr}
 
@@ -225,6 +231,7 @@ def classify_neurons(
 # ---------------------------------------------------------------------------
 # Unconditioned VAE: training + compression
 # ---------------------------------------------------------------------------
+
 
 def train_vae_on_spikedata(
     sd,
@@ -333,7 +340,9 @@ def compress_neurons(
     result: dict = {"embeddings": embeddings}
 
     if run_umap:
-        result["umap_coords"] = compressor.umap_reduce(embeddings, **(umap_kwargs or {}))
+        result["umap_coords"] = compressor.umap_reduce(
+            embeddings, **(umap_kwargs or {})
+        )
 
     if run_hdbscan:
         cluster_input = result.get("umap_coords", embeddings)

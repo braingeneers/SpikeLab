@@ -394,14 +394,18 @@ async def compute_spike_trig_pop_rate(
     """Compute spike-triggered population rate and coupling stats and store to workspace."""
     ws = _get_workspace(workspace_id)
     sd = _get_spikedata(ws, namespace)
-    stPR_filtered, coupling_zero_lag, coupling_max, delays, lags = (
-        sd.compute_spike_trig_pop_rate(
-            window_ms=window_ms,
-            cutoff_hz=cutoff_hz,
-            fs=fs,
-            bin_size=bin_size,
-            cut_outer=cut_outer,
-        )
+    (
+        stPR_filtered,
+        coupling_zero_lag,
+        coupling_max,
+        delays,
+        lags,
+    ) = sd.compute_spike_trig_pop_rate(
+        window_ms=window_ms,
+        cutoff_hz=cutoff_hz,
+        fs=fs,
+        bin_size=bin_size,
+        cut_outer=cut_outer,
     )
     # Store stPR (U, T) and lags (T,) separately; combine coupling stats as (3, U)
     coupling_stack = np.stack(
@@ -1186,13 +1190,17 @@ async def compute_rate_slice_unit_order(
     ws = _get_workspace(workspace_id)
     rss = _get_rateslicestack(ws, namespace, stack_key)
     frac_active = _get_optional_frac_active(ws, namespace, frac_active_key)
-    _, unit_ids_in_order, unit_std_indices, unit_peak_times, unit_frac_active = (
-        rss.order_units_across_slices(
-            agg_func,
-            MIN_RATE_THRESHOLD=min_rate_threshold,
-            MIN_FRAC_ACTIVE=min_frac_active,
-            frac_active=frac_active,
-        )
+    (
+        _,
+        unit_ids_in_order,
+        unit_std_indices,
+        unit_peak_times,
+        unit_frac_active,
+    ) = rss.order_units_across_slices(
+        agg_func,
+        MIN_RATE_THRESHOLD=min_rate_threshold,
+        MIN_FRAC_ACTIVE=min_frac_active,
+        frac_active=frac_active,
     )
     # Each element is a tuple of two arrays (highly_active, low_active)
     return {
@@ -2442,6 +2450,7 @@ async def train_vae_hippie(
     )
 
     import os
+
     ckpt_path = os.path.join(output_dir, "vae_best.ckpt")
     return {
         "workspace_id": workspace_id,
