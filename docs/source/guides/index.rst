@@ -16,3 +16,4 @@ In-depth guides covering the main workflows in SpikeLab.
    exporting_data
    workspace
    mcp_server
+   hippie_classification

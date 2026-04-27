@@ -2295,3 +2295,103 @@ async def compute_gplvm_consecutive_durations(
         result["mean_duration"] = float(np.mean(durations))
         result["median_duration"] = float(np.median(durations))
     return result
+
+
+# ---------------------------------------------------------------------------
+# HIPPIE cell-type classification (optional — requires spikelab[hippie])
+# ---------------------------------------------------------------------------
+
+
+async def classify_neurons_hippie(
+    workspace_id: str,
+    namespace: str,
+    tech_id: int = 0,
+    run_umap: bool = True,
+    run_hdbscan: bool = True,
+    min_cluster_size: int = 5,
+    umap_n_neighbors: int = 30,
+    umap_min_dist: float = 0.1,
+    device: str = "cpu",
+    cache_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Classify neurons using the pretrained HIPPIE model (requires spikelab[hippie]).
+
+    Downloads the HIPPIE checkpoint from HuggingFace, encodes all neurons into
+    a 30-dimensional latent space, and optionally runs UMAP projection and
+    HDBSCAN clustering.  Results are stored back into the workspace as
+    neuron_attributes and as a workspace item.
+
+    Requires avg_waveform to be present in neuron_attributes — run
+    get_waveform_traces first if raw data is available.
+
+    Args:
+        workspace_id: Workspace ID.
+        namespace: Recording namespace.
+        tech_id: Recording technology index (0=neuropixels, 1=silicon_probe,
+                 2=juxtacellular, 3=tetrodes).
+        run_umap: Compute 2-D UMAP projection and store coordinates.
+        run_hdbscan: Cluster with HDBSCAN (-1 = noise).
+        min_cluster_size: Minimum neurons per HDBSCAN cluster.
+        umap_n_neighbors: UMAP neighbourhood size.
+        umap_min_dist: UMAP minimum distance between points.
+        device: "cuda" or "cpu" for the HIPPIE encoder.
+        cache_dir: Directory to cache the downloaded checkpoint.
+    """
+    from ....spikedata.hippie_adapter import classify_neurons
+
+    ws = _get_workspace(workspace_id)
+    sd = _get_spikedata(ws, namespace)
+
+    umap_kwargs = {"n_neighbors": umap_n_neighbors, "min_dist": umap_min_dist}
+    hdbscan_kwargs = {"min_cluster_size": min_cluster_size}
+
+    result = classify_neurons(
+        sd,
+        tech_id=tech_id,
+        device=device,
+        run_umap=run_umap,
+        run_hdbscan=run_hdbscan,
+        umap_kwargs=umap_kwargs,
+        hdbscan_kwargs=hdbscan_kwargs,
+        cache_dir=cache_dir,
+    )
+
+    # Store results as neuron_attributes
+    sd.set_neuron_attribute("hippie_embedding", result["embeddings"].tolist())
+    if "umap_coords" in result:
+        sd.set_neuron_attribute("hippie_umap_x", result["umap_coords"][:, 0].tolist())
+        sd.set_neuron_attribute("hippie_umap_y", result["umap_coords"][:, 1].tolist())
+    if "cluster_labels" in result:
+        sd.set_neuron_attribute("hippie_cluster", result["cluster_labels"].tolist())
+
+    # Persist the updated SpikeData
+    ws.store(namespace, "spikedata", sd)
+
+    n_clusters = (
+        int(np.unique(result["cluster_labels"][result["cluster_labels"] >= 0]).size)
+        if "cluster_labels" in result
+        else None
+    )
+    n_noise = (
+        int((result["cluster_labels"] < 0).sum())
+        if "cluster_labels" in result
+        else None
+    )
+
+    added_attrs = ["hippie_embedding"]
+    if "umap_coords" in result:
+        added_attrs += ["hippie_umap_x", "hippie_umap_y"]
+    if "cluster_labels" in result:
+        added_attrs.append("hippie_cluster")
+
+    return {
+        "workspace_id": workspace_id,
+        "namespace": namespace,
+        "n_neurons": int(result["embeddings"].shape[0]),
+        "embedding_dim": int(result["embeddings"].shape[1]),
+        "umap_computed": "umap_coords" in result,
+        "hdbscan_computed": "cluster_labels" in result,
+        "n_clusters": n_clusters,
+        "n_noise_neurons": n_noise,
+        "neuron_attributes_added": added_attrs,
+    }

@@ -2802,6 +2802,78 @@ async def _list_tools() -> list[types.Tool]:
     )
 
     # -----------------------------------------------------------------------
+    # HIPPIE cell-type classification (optional — requires spikelab[hippie])
+    # -----------------------------------------------------------------------
+    tools.extend(
+        [
+            types.Tool(
+                name="classify_neurons_hippie",
+                description=(
+                    "Classify neurons using the pretrained HIPPIE multimodal model "
+                    "(requires spikelab[hippie]). "
+                    "Downloads the checkpoint from HuggingFace (Jesusgf23/hippie), "
+                    "encodes each neuron's waveform + ISI + autocorrelogram into a "
+                    "30-D latent space, optionally runs UMAP (2-D projection) and "
+                    "HDBSCAN clustering, then stores the results as neuron_attributes "
+                    "(hippie_embedding, hippie_umap_x, hippie_umap_y, hippie_cluster). "
+                    "Requires avg_waveform in neuron_attributes — run "
+                    "get_waveform_traces first if raw data is available."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        **_WS_PROPS,
+                        "tech_id": {
+                            "type": "integer",
+                            "description": (
+                                "Recording technology index: "
+                                "0=neuropixels (default), 1=silicon_probe, "
+                                "2=juxtacellular, 3=tetrodes"
+                            ),
+                            "default": 0,
+                        },
+                        "run_umap": {
+                            "type": "boolean",
+                            "description": "Compute 2-D UMAP projection of embeddings (default: true)",
+                            "default": True,
+                        },
+                        "run_hdbscan": {
+                            "type": "boolean",
+                            "description": "Cluster with HDBSCAN on UMAP coords (default: true)",
+                            "default": True,
+                        },
+                        "min_cluster_size": {
+                            "type": "integer",
+                            "description": "Minimum neurons per HDBSCAN cluster (default: 5)",
+                            "default": 5,
+                        },
+                        "umap_n_neighbors": {
+                            "type": "integer",
+                            "description": "UMAP neighbourhood size (default: 30)",
+                            "default": 30,
+                        },
+                        "umap_min_dist": {
+                            "type": "number",
+                            "description": "UMAP minimum distance between points (default: 0.1)",
+                            "default": 0.1,
+                        },
+                        "device": {
+                            "type": "string",
+                            "description": "PyTorch device for the HIPPIE encoder: 'cpu' or 'cuda'",
+                            "default": "cpu",
+                        },
+                        "cache_dir": {
+                            "type": "string",
+                            "description": "Local directory to cache the downloaded checkpoint (optional)",
+                        },
+                    },
+                    "required": ["workspace_id", "namespace"],
+                },
+            ),
+        ]
+    )
+
+    # -----------------------------------------------------------------------
     # Workspace management tools
     # -----------------------------------------------------------------------
     tools.extend(
@@ -3340,6 +3412,8 @@ _TOOL_DISPATCH: dict[str, Any] = {
     "load_workspace_item": analysis.load_workspace_item,
     "merge_workspace": analysis.merge_workspace,
     "fetch_workspace_item": analysis.fetch_workspace_item,
+    # HIPPIE cell-type classification
+    "classify_neurons_hippie": analysis.classify_neurons_hippie,
     # Export tools
     "export_to_hdf5_raster": exporters.export_to_hdf5_raster,
     "export_to_hdf5_ragged": exporters.export_to_hdf5_ragged,
