@@ -1,0 +1,5 @@
+# SpikeLab docs auto-rebuild. Runs hourly; logs to /var/log/spikelab-docs.log
+# (supervisord tails that file to stdout so `docker logs` shows rebuild events).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 * * * * root /usr/local/bin/rebuild-docs >> /var/log/spikelab-docs.log 2>&1

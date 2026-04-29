@@ -14,7 +14,7 @@ PairwiseCompMatrix
 .. autoclass:: spikelab.spikedata.pairwise.PairwiseCompMatrix
    :members:
    :show-inheritance:
-   :special-members: __init__
+   :exclude-members: matrix, labels, metadata
 
 PairwiseCompMatrixStack
 -----------------------
@@ -22,4 +22,4 @@ PairwiseCompMatrixStack
 .. autoclass:: spikelab.spikedata.pairwise.PairwiseCompMatrixStack
    :members:
    :show-inheritance:
-   :special-members: __init__
+   :exclude-members: stack, labels, times, metadata

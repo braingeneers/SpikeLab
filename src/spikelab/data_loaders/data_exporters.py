@@ -1,14 +1,13 @@
-"""
-Data exporters that mirror data_loaders, writing SpikeData to common formats.
+"""Data exporters that mirror data_loaders, writing SpikeData to common formats.
 
 Provided exporters:
-- HDF5 generic, with four styles:
-  1) raster (units x time) with a specified bin size in ms
-  2) ragged arrays (flat spike_times + spike_times_index)
-  3) group-per-unit (one dataset per unit)
-  4) paired arrays (idces + times)
-- NWB Units table (spike_times/spike_times_index) via h5py
-- KiloSort/Phy (spike_times.npy + spike_clusters.npy)
+
+- HDF5 generic with one of four styles: ``raster`` (units x time matrix
+  with a specified bin size in ms), ``ragged`` (flat ``spike_times`` plus
+  ``spike_times_index``), ``group`` (one HDF5 group per unit), or ``paired``
+  (parallel ``idces`` and ``times`` arrays).
+- NWB Units table (``spike_times`` / ``spike_times_index``) via h5py.
+- KiloSort/Phy (``spike_times.npy`` + ``spike_clusters.npy``).
 
 All exporters accept SpikeData times in milliseconds and convert to the
 target time units as needed.
@@ -68,11 +67,7 @@ def export_spikedata_to_hdf5(
         filepath (str): Path where the HDF5 file will be created
             (overwrites existing).
         style (Literal["raster", "ragged", "group", "paired"]): Export
-            format style. "raster": 2D binary/count matrix (units x time
-            bins). "ragged": flat concatenated spike times with cumulative
-            indices. "group": one HDF5 group containing one dataset per
-            unit. "paired": two parallel arrays of unit indices and spike
-            times.
+            format style; see the module docstring for what each style produces.
         raster_dataset (str): HDF5 dataset name for the raster matrix.
         raster_bin_size_ms (float | None): Bin size in milliseconds for
             rasterization. Required for raster style.
@@ -99,8 +94,7 @@ def export_spikedata_to_hdf5(
 
     Raises:
         ImportError: If h5py is not available.
-        ValueError: If style is invalid, required parameters are missing,
-            or fs_Hz is needed but not provided for 'samples' unit.
+        ValueError: For invalid styles, missing required parameters, or missing fs_Hz when needed.
 
     Notes:
         - Spike times are automatically converted from milliseconds to
@@ -113,10 +107,9 @@ def export_spikedata_to_hdf5(
           provenance.
         - Parameters mirror the corresponding loader function to ease
           round-tripping.
-        - ``neuron_attributes`` and ``metadata`` are not persisted in the
-          generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace
-          HDF5) or ``export_to_pickle`` for full-fidelity
-          round-trips.
+        - The generic HDF5 format does not persist ``neuron_attributes`` or
+          ``metadata``; use ``AnalysisWorkspace.save`` (workspace HDF5) or
+          ``export_to_pickle`` for full-fidelity round-trips.
     """
     ensure_h5py()
 

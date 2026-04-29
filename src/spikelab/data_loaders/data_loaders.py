@@ -29,6 +29,11 @@ try:
 except ImportError:  # pragma: no cover
     h5py = None  # type: ignore
 
+try:
+    import pandas as pd  # noqa: F401  # used in type annotations only
+except ImportError:  # pragma: no cover
+    pd = None  # type: ignore[assignment]
+
 from ..spikedata import SpikeData
 
 __all__ = [
