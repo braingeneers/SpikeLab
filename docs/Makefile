@@ -8,13 +8,18 @@ SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
 IMAGE         ?= braingeneers/spikelab-docs:latest
+REPO_URL      ?= https://github.com/braingeneers/SpikeLab.git
+BRANCH        ?= main
 
 # Put it first so that "make" without argument is like "make help".
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 docker-build:
-	docker build -f Dockerfile -t $(IMAGE) ..
+	docker build -f Dockerfile \
+		--build-arg REPO_URL=$(REPO_URL) \
+		--build-arg BRANCH=$(BRANCH) \
+		-t $(IMAGE) ..
 
 docker-push: docker-build
 	docker push $(IMAGE)

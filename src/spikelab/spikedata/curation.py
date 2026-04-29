@@ -31,8 +31,7 @@ def curate_by_min_spikes(sd, min_spikes=30):
 
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
-        result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            Metric is the spike count per unit.
+        result (dict): ``{"metric": (N,) spike counts, "passed": (N,) bool mask}``.
     """
     metric = np.array([len(t) for t in sd.train], dtype=float)
     passed = metric >= min_spikes
@@ -48,8 +47,7 @@ def curate_by_firing_rate(sd, min_rate_hz=0.05):
 
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
-        result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            Metric is the firing rate in Hz per unit.
+        result (dict): ``{"metric": (N,) firing rates in Hz, "passed": (N,) bool mask}``.
     """
     duration_s = sd.length / 1000.0
     if duration_s <= 0:
@@ -98,10 +96,7 @@ def curate_by_isi_violations(
 
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
-        result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            For ``method="percent"`` the metric is the violation fraction
-            per unit; for ``method="hill"`` it is the Hill contamination
-            ratio.
+        result (dict): ``{"metric": (N,) ISI violation metric, "passed": (N,) bool mask}``.
     """
     if method not in ("percent", "hill"):
         raise ValueError(f"method must be 'percent' or 'hill', got '{method}'")
@@ -174,8 +169,7 @@ def curate_by_snr(sd, min_snr=5.0, ms_before=1.0, ms_after=2.0):
 
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
-        result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            Metric is the SNR per unit.
+        result (dict): ``{"metric": (N,) per-unit SNR, "passed": (N,) bool mask}``.
     """
     metric = _get_or_compute_waveform_metric(sd, "snr", ms_before, ms_after)
     passed = metric >= min_snr
@@ -218,8 +212,7 @@ def curate_by_std_norm(
 
     Returns:
         sd_out (SpikeData): SpikeData with only passing units.
-        result (dict): ``{"metric": np.ndarray (N,), "passed": np.ndarray (N,)}``.
-            Metric is the normalized STD per unit.
+        result (dict): ``{"metric": (N,) normalized STD, "passed": (N,) bool mask}``.
     """
     metric = _get_or_compute_waveform_metric(
         sd,
@@ -262,8 +255,8 @@ def compute_waveform_metrics(
     Returns:
         sd (SpikeData): The same SpikeData object (modified in place
             with updated ``neuron_attributes``).
-        metrics (dict): ``{"snr": np.ndarray (N,),
-            "std_norm": np.ndarray (N,)}``.
+        metrics (dict): Dict with keys ``"snr"`` and ``"std_norm"``,
+            each mapping to an ``np.ndarray`` of shape ``(N,)``.
     """
     if sd.raw_data.size == 0:
         raise EmptyWaveformMetricsError(
@@ -384,9 +377,7 @@ def curate(
 
     Returns:
         sd_out (SpikeData): SpikeData with only units passing all criteria.
-        results (dict): ``{criterion_name: {"metric": (N,), "passed": (N,)}}``.
-            Metrics are computed on the **original** units (before any
-            filtering).  Only requested criteria are included.
+        results (dict): Mapping from criterion name to ``{"metric": (N,), "passed": (N,)}``.
     """
     results = {}
     current = sd
@@ -823,11 +814,7 @@ def curate_by_merge_duplicates(
 
     Returns:
         sd_out (SpikeData): SpikeData with merged units.
-        result (dict): {"metric": np.ndarray (N,), "passed": np.ndarray (N,)}.
-            metric[i] is the cosine similarity to the partner unit in the
-            accepted merge, or 0.0 if unit i was not involved in any merge.
-            passed[i] is True if unit i was retained (primary or
-            standalone), False if it was absorbed into another unit.
+        result (dict): ``{"metric": (N,) cosine similarity to merge partner (0 if unmerged), "passed": (N,) bool mask of retained units}``.
     """
     metric = np.zeros(sd.N, dtype=float)
     passed = np.ones(sd.N, dtype=bool)

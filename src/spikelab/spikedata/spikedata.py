@@ -2402,8 +2402,7 @@ class SpikeData:
         Returns:
             tburst (numpy.ndarray): Time bin indices of detected bursts.
             edges (numpy.ndarray): Burst edge indices, shape ``(N, 2)``.
-            peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding
-                array indices.
+            peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding array indices.
 
         Notes:
             - Will use pop_rate and pop_rate_acc if provided, otherwise will
@@ -2412,8 +2411,7 @@ class SpikeData:
               bursts being detected at one peak.
             - Returned time bin indices are relative to bin 0 of the raster.
               For event-centered data (``start_time < 0``), convert to
-              event-relative ms via
-              ``tburst * raster_bin_size_ms + start_time``.
+              event-relative ms via ``tburst * raster_bin_size_ms + start_time``.
         """
         # Get pop rates and rms
         if pop_rate is None:
