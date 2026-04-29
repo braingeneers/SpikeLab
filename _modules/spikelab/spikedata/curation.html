@@ -396,7 +396,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -463,8 +466,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            Metric is the spike count per unit.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) spike counts, &quot;passed&quot;: (N,) bool mask}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">train</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_spikes</span>
@@ -483,8 +485,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            Metric is the firing rate in Hz per unit.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) firing rates in Hz, &quot;passed&quot;: (N,) bool mask}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">duration_s</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mf">1000.0</span>
     <span class="k">if</span> <span class="n">duration_s</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
@@ -536,10 +537,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            For ``method=&quot;percent&quot;`` the metric is the violation fraction</span>
-<span class="sd">            per unit; for ``method=&quot;hill&quot;`` it is the Hill contamination</span>
-<span class="sd">            ratio.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) ISI violation metric, &quot;passed&quot;: (N,) bool mask}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">,</span> <span class="s2">&quot;hill&quot;</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;percent&#39; or &#39;hill&#39;, got &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
@@ -615,8 +613,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            Metric is the SNR per unit.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) per-unit SNR, &quot;passed&quot;: (N,) bool mask}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;snr&quot;</span><span class="p">,</span> <span class="n">ms_before</span><span class="p">,</span> <span class="n">ms_after</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">metric</span> <span class="o">&gt;=</span> <span class="n">min_snr</span>
@@ -662,8 +659,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only passing units.</span>
-<span class="sd">        result (dict): ``{&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}``.</span>
-<span class="sd">            Metric is the normalized STD per unit.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) normalized STD, &quot;passed&quot;: (N,) bool mask}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">_get_or_compute_waveform_metric</span><span class="p">(</span>
         <span class="n">sd</span><span class="p">,</span>
@@ -709,8 +705,8 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        sd (SpikeData): The same SpikeData object (modified in place</span>
 <span class="sd">            with updated ``neuron_attributes``).</span>
-<span class="sd">        metrics (dict): ``{&quot;snr&quot;: np.ndarray (N,),</span>
-<span class="sd">            &quot;std_norm&quot;: np.ndarray (N,)}``.</span>
+<span class="sd">        metrics (dict): Dict with keys ``&quot;snr&quot;`` and ``&quot;std_norm&quot;``,</span>
+<span class="sd">            each mapping to an ``np.ndarray`` of shape ``(N,)``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">raw_data</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">EmptyWaveformMetricsError</span><span class="p">(</span>
@@ -834,9 +830,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with only units passing all criteria.</span>
-<span class="sd">        results (dict): ``{criterion_name: {&quot;metric&quot;: (N,), &quot;passed&quot;: (N,)}}``.</span>
-<span class="sd">            Metrics are computed on the **original** units (before any</span>
-<span class="sd">            filtering).  Only requested criteria are included.</span>
+<span class="sd">        results (dict): Mapping from criterion name to ``{&quot;metric&quot;: (N,), &quot;passed&quot;: (N,)}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">current</span> <span class="o">=</span> <span class="n">sd</span>
@@ -1279,11 +1273,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        sd_out (SpikeData): SpikeData with merged units.</span>
-<span class="sd">        result (dict): {&quot;metric&quot;: np.ndarray (N,), &quot;passed&quot;: np.ndarray (N,)}.</span>
-<span class="sd">            metric[i] is the cosine similarity to the partner unit in the</span>
-<span class="sd">            accepted merge, or 0.0 if unit i was not involved in any merge.</span>
-<span class="sd">            passed[i] is True if unit i was retained (primary or</span>
-<span class="sd">            standalone), False if it was absorbed into another unit.</span>
+<span class="sd">        result (dict): ``{&quot;metric&quot;: (N,) cosine similarity to merge partner (0 if unmerged), &quot;passed&quot;: (N,) bool mask of retained units}``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">passed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>

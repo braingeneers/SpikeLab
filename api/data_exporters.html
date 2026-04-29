@@ -399,7 +399,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -436,19 +439,14 @@
 <p>Functions for exporting spike train data and analysis results to CSV, pickle,
 and other output formats.</p>
 <p id="module-spikelab.data_loaders.data_exporters">Data exporters that mirror data_loaders, writing SpikeData to common formats.</p>
-<p>Provided exporters:
-- HDF5 generic, with four styles:</p>
-<blockquote>
-<div><ol class="arabic simple">
-<li><p>raster (units x time) with a specified bin size in ms</p></li>
-<li><p>ragged arrays (flat spike_times + spike_times_index)</p></li>
-<li><p>group-per-unit (one dataset per unit)</p></li>
-<li><p>paired arrays (idces + times)</p></li>
-</ol>
-</div></blockquote>
+<p>Provided exporters:</p>
 <ul class="simple">
-<li><p>NWB Units table (spike_times/spike_times_index) via h5py</p></li>
-<li><p>KiloSort/Phy (spike_times.npy + spike_clusters.npy)</p></li>
+<li><p>HDF5 generic with one of four styles: <code class="docutils literal notranslate"><span class="pre">raster</span></code> (units x time matrix
+with a specified bin size in ms), <code class="docutils literal notranslate"><span class="pre">ragged</span></code> (flat <code class="docutils literal notranslate"><span class="pre">spike_times</span></code> plus
+<code class="docutils literal notranslate"><span class="pre">spike_times_index</span></code>), <code class="docutils literal notranslate"><span class="pre">group</span></code> (one HDF5 group per unit), or <code class="docutils literal notranslate"><span class="pre">paired</span></code>
+(parallel <code class="docutils literal notranslate"><span class="pre">idces</span></code> and <code class="docutils literal notranslate"><span class="pre">times</span></code> arrays).</p></li>
+<li><p>NWB Units table (<code class="docutils literal notranslate"><span class="pre">spike_times</span></code> / <code class="docutils literal notranslate"><span class="pre">spike_times_index</span></code>) via h5py.</p></li>
+<li><p>KiloSort/Phy (<code class="docutils literal notranslate"><span class="pre">spike_times.npy</span></code> + <code class="docutils literal notranslate"><span class="pre">spike_clusters.npy</span></code>).</p></li>
 </ul>
 <p>All exporters accept SpikeData times in milliseconds and convert to the
 target time units as needed.</p>
@@ -463,11 +461,7 @@ target time units as needed.</p>
 <li><p><strong>filepath</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Path where the HDF5 file will be created
 (overwrites existing).</p></li>
 <li><p><strong>style</strong> (<em>Literal</em><em>[</em><em>&quot;raster&quot;</em><em>, </em><em>&quot;ragged&quot;</em><em>, </em><em>&quot;group&quot;</em><em>, </em><em>&quot;paired&quot;</em><em>]</em>) – Export
-format style. “raster”: 2D binary/count matrix (units x time
-bins). “ragged”: flat concatenated spike times with cumulative
-indices. “group”: one HDF5 group containing one dataset per
-unit. “paired”: two parallel arrays of unit indices and spike
-times.</p></li>
+format style; see the module docstring for what each style produces.</p></li>
 <li><p><strong>raster_dataset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – HDF5 dataset name for the raster matrix.</p></li>
 <li><p><strong>raster_bin_size_ms</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Bin size in milliseconds for
 rasterization. Required for raster style.</p></li>
@@ -496,17 +490,14 @@ vector.</p></li>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
 <li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ImportError" title="(in Python v3.14)"><strong>ImportError</strong></a> – If h5py is not available.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If style is invalid, required parameters are missing,
-    or fs_Hz is needed but not provided for ‘samples’ unit.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – For invalid styles, missing required parameters, or missing fs_Hz when needed.</p></li>
 </ul>
 </dd>
-</dl>
-<p class="rubric">Notes</p>
-<dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a></span></p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
 <ul class="simple">
 <li><p>Spike times are automatically converted from milliseconds to
 the requested unit.</p></li>
@@ -518,10 +509,9 @@ raw_data and raw_time attributes.</p></li>
 provenance.</p></li>
 <li><p>Parameters mirror the corresponding loader function to ease
 round-tripping.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> and <code class="docutils literal notranslate"><span class="pre">metadata</span></code> are not persisted in the
-generic HDF5 format. Use <code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace.save</span></code> (workspace
-HDF5) or <code class="docutils literal notranslate"><span class="pre">export_to_pickle</span></code> for full-fidelity
-round-trips.</p></li>
+<li><p>The generic HDF5 format does not persist <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code> or
+<code class="docutils literal notranslate"><span class="pre">metadata</span></code>; use <code class="docutils literal notranslate"><span class="pre">AnalysisWorkspace.save</span></code> (workspace HDF5) or
+<code class="docutils literal notranslate"><span class="pre">export_to_pickle</span></code> for full-fidelity round-trips.</p></li>
 </ul>
 </dd></dl>
 

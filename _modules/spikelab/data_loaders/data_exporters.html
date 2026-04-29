@@ -396,7 +396,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -428,17 +431,16 @@
            <div itemprop="articleBody">
              
   <h1>Source code for spikelab.data_loaders.data_exporters</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Data exporters that mirror data_loaders, writing SpikeData to common formats.</span>
+<span></span><span class="sd">&quot;&quot;&quot;Data exporters that mirror data_loaders, writing SpikeData to common formats.</span>
 
 <span class="sd">Provided exporters:</span>
-<span class="sd">- HDF5 generic, with four styles:</span>
-<span class="sd">  1) raster (units x time) with a specified bin size in ms</span>
-<span class="sd">  2) ragged arrays (flat spike_times + spike_times_index)</span>
-<span class="sd">  3) group-per-unit (one dataset per unit)</span>
-<span class="sd">  4) paired arrays (idces + times)</span>
-<span class="sd">- NWB Units table (spike_times/spike_times_index) via h5py</span>
-<span class="sd">- KiloSort/Phy (spike_times.npy + spike_clusters.npy)</span>
+
+<span class="sd">- HDF5 generic with one of four styles: ``raster`` (units x time matrix</span>
+<span class="sd">  with a specified bin size in ms), ``ragged`` (flat ``spike_times`` plus</span>
+<span class="sd">  ``spike_times_index``), ``group`` (one HDF5 group per unit), or ``paired``</span>
+<span class="sd">  (parallel ``idces`` and ``times`` arrays).</span>
+<span class="sd">- NWB Units table (``spike_times`` / ``spike_times_index``) via h5py.</span>
+<span class="sd">- KiloSort/Phy (``spike_times.npy`` + ``spike_clusters.npy``).</span>
 
 <span class="sd">All exporters accept SpikeData times in milliseconds and convert to the</span>
 <span class="sd">target time units as needed.</span>
@@ -500,11 +502,7 @@
 <span class="sd">        filepath (str): Path where the HDF5 file will be created</span>
 <span class="sd">            (overwrites existing).</span>
 <span class="sd">        style (Literal[&quot;raster&quot;, &quot;ragged&quot;, &quot;group&quot;, &quot;paired&quot;]): Export</span>
-<span class="sd">            format style. &quot;raster&quot;: 2D binary/count matrix (units x time</span>
-<span class="sd">            bins). &quot;ragged&quot;: flat concatenated spike times with cumulative</span>
-<span class="sd">            indices. &quot;group&quot;: one HDF5 group containing one dataset per</span>
-<span class="sd">            unit. &quot;paired&quot;: two parallel arrays of unit indices and spike</span>
-<span class="sd">            times.</span>
+<span class="sd">            format style; see the module docstring for what each style produces.</span>
 <span class="sd">        raster_dataset (str): HDF5 dataset name for the raster matrix.</span>
 <span class="sd">        raster_bin_size_ms (float | None): Bin size in milliseconds for</span>
 <span class="sd">            rasterization. Required for raster style.</span>
@@ -531,8 +529,7 @@
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ImportError: If h5py is not available.</span>
-<span class="sd">        ValueError: If style is invalid, required parameters are missing,</span>
-<span class="sd">            or fs_Hz is needed but not provided for &#39;samples&#39; unit.</span>
+<span class="sd">        ValueError: For invalid styles, missing required parameters, or missing fs_Hz when needed.</span>
 
 <span class="sd">    Notes:</span>
 <span class="sd">        - Spike times are automatically converted from milliseconds to</span>
@@ -545,10 +542,9 @@
 <span class="sd">          provenance.</span>
 <span class="sd">        - Parameters mirror the corresponding loader function to ease</span>
 <span class="sd">          round-tripping.</span>
-<span class="sd">        - ``neuron_attributes`` and ``metadata`` are not persisted in the</span>
-<span class="sd">          generic HDF5 format. Use ``AnalysisWorkspace.save`` (workspace</span>
-<span class="sd">          HDF5) or ``export_to_pickle`` for full-fidelity</span>
-<span class="sd">          round-trips.</span>
+<span class="sd">        - The generic HDF5 format does not persist ``neuron_attributes`` or</span>
+<span class="sd">          ``metadata``; use ``AnalysisWorkspace.save`` (workspace HDF5) or</span>
+<span class="sd">          ``export_to_pickle`` for full-fidelity round-trips.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ensure_h5py</span><span class="p">()</span>
 

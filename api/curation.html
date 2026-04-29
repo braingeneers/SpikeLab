@@ -399,7 +399,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -463,12 +466,8 @@ passed the curation criterion.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only passing units.
-result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
-<blockquote>
-<div><p>Metric is the spike count per unit.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only passing units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">spike</span> <span class="pre">counts,</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -488,12 +487,8 @@ result (dict): <code class="docutils literal notranslate"><span class="pre">{&qu
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only passing units.
-result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
-<blockquote>
-<div><p>Metric is the firing rate in Hz per unit.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only passing units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">firing</span> <span class="pre">rates</span> <span class="pre">in</span> <span class="pre">Hz,</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -540,14 +535,8 @@ post-processing, in ms.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only passing units.
-result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
-<blockquote>
-<div><p>For <code class="docutils literal notranslate"><span class="pre">method=&quot;percent&quot;</span></code> the metric is the violation fraction
-per unit; for <code class="docutils literal notranslate"><span class="pre">method=&quot;hill&quot;</span></code> it is the Hill contamination
-ratio.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only passing units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">ISI</span> <span class="pre">violation</span> <span class="pre">metric,</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -580,12 +569,8 @@ available a <code class="docutils literal notranslate"><span class="pre">ValueEr
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only passing units.
-result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
-<blockquote>
-<div><p>Metric is the SNR per unit.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only passing units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">per-unit</span> <span class="pre">SNR,</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -622,12 +607,8 @@ the peak.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only passing units.
-result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">np.ndarray</span> <span class="pre">(N,)}</span></code>.</p>
-<blockquote>
-<div><p>Metric is the normalized STD per unit.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only passing units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">normalized</span> <span class="pre">STD,</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -660,7 +641,7 @@ result (dict): <code class="docutils literal notranslate"><span class="pre">{&qu
 <dd class="field-even"><p><dl class="simple">
 <dt>The same SpikeData object (modified in place</dt><dd><p>with updated <code class="docutils literal notranslate"><span class="pre">neuron_attributes</span></code>).</p>
 </dd>
-<dt>metrics (dict): <a href="#id1"><span class="problematic" id="id2">``</span></a>{“snr”: np.ndarray (N,),</dt><dd><p>”std_norm”: np.ndarray (N,)}``.</p>
+<dt>metrics (dict): Dict with keys <code class="docutils literal notranslate"><span class="pre">&quot;snr&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;std_norm&quot;</span></code>,</dt><dd><p>each mapping to an <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> of shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code>.</p>
 </dd>
 </dl>
 </p>
@@ -697,13 +678,8 @@ filtered SpikeData and a dict of per-criterion results.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with only units passing all criteria.
-results (dict): <code class="docutils literal notranslate"><span class="pre">{criterion_name:</span> <span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)}}</span></code>.</p>
-<blockquote>
-<div><p>Metrics are computed on the <strong>original</strong> units (before any
-filtering).  Only requested criteria are included.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with only units passing all criteria.
+results (dict): Mapping from criterion name to <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>
@@ -778,15 +754,8 @@ violation fraction after merging.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>SpikeData with merged units.
-result (dict): {“metric”: np.ndarray (N,), “passed”: np.ndarray (N,)}.</p>
-<blockquote>
-<div><p>metric[i] is the cosine similarity to the partner unit in the
-accepted merge, or 0.0 if unit i was not involved in any merge.
-passed[i] is True if unit i was retained (primary or
-standalone), False if it was absorbed into another unit.</p>
-</div></blockquote>
-</p>
+<dd class="field-even"><p>SpikeData with merged units.
+result (dict): <code class="docutils literal notranslate"><span class="pre">{&quot;metric&quot;:</span> <span class="pre">(N,)</span> <span class="pre">cosine</span> <span class="pre">similarity</span> <span class="pre">to</span> <span class="pre">merge</span> <span class="pre">partner</span> <span class="pre">(0</span> <span class="pre">if</span> <span class="pre">unmerged),</span> <span class="pre">&quot;passed&quot;:</span> <span class="pre">(N,)</span> <span class="pre">bool</span> <span class="pre">mask</span> <span class="pre">of</span> <span class="pre">retained</span> <span class="pre">units}</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sd_out (<a class="reference internal" href="spikedata.html#spikelab.spikedata.SpikeData" title="spikelab.spikedata.SpikeData">SpikeData</a>)</p>

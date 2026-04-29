@@ -396,7 +396,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -2962,8 +2965,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            tburst (numpy.ndarray): Time bin indices of detected bursts.</span>
 <span class="sd">            edges (numpy.ndarray): Burst edge indices, shape ``(N, 2)``.</span>
-<span class="sd">            peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding</span>
-<span class="sd">                array indices.</span>
+<span class="sd">            peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding array indices.</span>
 
 <span class="sd">        Notes:</span>
 <span class="sd">            - Will use pop_rate and pop_rate_acc if provided, otherwise will</span>
@@ -2972,8 +2974,7 @@
 <span class="sd">              bursts being detected at one peak.</span>
 <span class="sd">            - Returned time bin indices are relative to bin 0 of the raster.</span>
 <span class="sd">              For event-centered data (``start_time &lt; 0``), convert to</span>
-<span class="sd">              event-relative ms via</span>
-<span class="sd">              ``tburst * raster_bin_size_ms + start_time``.</span>
+<span class="sd">              event-relative ms via ``tburst * raster_bin_size_ms + start_time``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get pop rates and rms</span>
         <span class="k">if</span> <span class="n">pop_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

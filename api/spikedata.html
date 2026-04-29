@@ -399,7 +399,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#server">Server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mcp_server.html">MCP Server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp_server.html#spikelab.mcp_server.server.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -1988,13 +1991,9 @@ threshold baseline.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><p>Time bin indices of detected bursts.
+<dd class="field-even"><p>Time bin indices of detected bursts.
 edges (numpy.ndarray): Burst edge indices, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code>.
-peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding</p>
-<blockquote>
-<div><p>array indices.</p>
-</div></blockquote>
-</p>
+peak_amp (numpy.ndarray): Amplitudes of bursts at corresponding array indices.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tburst (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>)</p>
@@ -2008,8 +2007,7 @@ calculate using squared widths and sigmas.</p></li>
 bursts being detected at one peak.</p></li>
 <li><p>Returned time bin indices are relative to bin 0 of the raster.
 For event-centered data (<code class="docutils literal notranslate"><span class="pre">start_time</span> <span class="pre">&lt;</span> <span class="pre">0</span></code>), convert to
-event-relative ms via
-<code class="docutils literal notranslate"><span class="pre">tburst</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span> <span class="pre">start_time</span></code>.</p></li>
+event-relative ms via <code class="docutils literal notranslate"><span class="pre">tburst</span> <span class="pre">*</span> <span class="pre">raster_bin_size_ms</span> <span class="pre">+</span> <span class="pre">start_time</span></code>.</p></li>
 </ul>
 </dd></dl>
 
