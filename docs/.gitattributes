@@ -1,0 +1,9 @@
+# Files baked into the docs Docker image must run on Linux. Force LF line
+# endings regardless of the host platform's core.autocrlf setting so the
+# shell script's shebang and the cron / supervisor / nginx config files
+# don't end up with CRLF when COPY'd into the container.
+*.sh text eol=lf
+crontab text eol=lf
+nginx.conf text eol=lf
+supervisord.conf text eol=lf
+Dockerfile text eol=lf
