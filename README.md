@@ -203,6 +203,18 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+## Citation
+```bibtex
+@article{vandermolen_spikelab_2026,
+  title   = {{SpikeLab}: Agentic Tools for Spike Data Analysis},
+  author  = {van der Molen, Tjitse and Cheney, Luka and Hussain, Kamran and Brahme, Ojas and Robbins, Ash and Lim, Max and Spaeth, Alex and Geng, Jinghui and Parks, David F. and Kosik, Kenneth S. and Teodorescu, Mircea and Haussler, David and Sharf, Tal},
+  year    = {2026},
+  journal = {bioRxiv},
+  doi     = {10.64898/2026.04.25.720833},
+  url     = {https://doi.org/10.64898/2026.04.25.720833}
+}
+```
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on the [GitHub repository](https://github.com/braingeneers/SpikeLab).
