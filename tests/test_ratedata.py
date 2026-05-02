@@ -1122,8 +1122,40 @@ class TestRateDataGetPairwiseFrCorr:
         corr, lag = rd.get_pairwise_fr_corr(max_lag=100)
         assert corr.matrix.shape == (3, 3)
         assert lag.matrix.shape == (3, 3)
+
+    def test_get_pairwise_fr_corr_recovers_known_shift(self):
+        """
+        Analytical ground truth: when row 1 is row 0 shifted right by K bins,
+        the lag entry recovers exactly +/-K and the correlation entry equals 1.
+
+        Tests:
+            (Test Case 1) Build a 2-unit RateData where row 0 is a Gaussian
+                bump centred at index 30 and row 1 is the same bump at index
+                40. With max_lag=20, the recovered correlation is 1.0 (exact)
+                and the lag magnitude is exactly 10.
+            (Test Case 2) The lag matrix is antisymmetric: lag[0,1] = -lag[1,0].
+
+        Notes:
+            - Pins the cross-correlation lag-recovery property of
+              ``get_pairwise_fr_corr`` to its closed-form expectation, not
+              just shape/diagonal invariants.
+        """
+        n_time = 100
+        x = np.arange(n_time)
+        row0 = np.exp(-((x - 30) ** 2) / (2 * 4.0**2))
+        row1 = np.exp(-((x - 40) ** 2) / (2 * 4.0**2))
+        data = np.vstack([row0, row1])
+        times = np.arange(n_time, dtype=float)
+        rd = RateData(data, times)
+
+        corr, lag = rd.get_pairwise_fr_corr(max_lag=20)
+
+        assert corr.matrix[0, 1] == pytest.approx(1.0, abs=5e-3)
+        assert abs(int(lag.matrix[0, 1])) == 10
+        # Antisymmetric lag matrix.
+        assert lag.matrix[0, 1] == -lag.matrix[1, 0]
         # Diagonal should still be valid
-        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(3))
+        np.testing.assert_array_almost_equal(np.diag(corr.matrix), np.ones(2))
 
     def test_get_pairwise_fr_corr_all_zero(self):
         """
