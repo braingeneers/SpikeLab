@@ -6,6 +6,8 @@ SpikeLab is a Python library for loading, analyzing, visualizing, and exporting 
 
 📖 **Documentation:** [spikelab.braingeneers.gi.ucsc.edu](https://spikelab.braingeneers.gi.ucsc.edu/)
 
+📄 **Preprint:** [www.biorxiv.org/content/10.64898/2026.04.25.720833v1](https://www.biorxiv.org/content/10.64898/2026.04.25.720833v1)
+
 ## What SpikeLab can do
 
 - **Load data** from common neuroscience formats (HDF5, NWB, KiloSort/Phy, SpikeInterface)
