@@ -370,6 +370,75 @@ class TestComputeCrossCorrelationWithLag:
         assert isinstance(corr2, (int, float, np.integer, np.floating))
         assert isinstance(lag2, (int, float, np.integer, np.floating))
 
+    def test_zero_lag_dot_product_normalisation_ground_truth(self):
+        """
+        Analytical ground truth: at max_lag=0, the function must equal
+        ``np.dot(ref, comp) / (||ref|| * ||comp||)`` — the cosine of the
+        angle between the two vectors.
+
+        Tests:
+            (Test Case 1) For two arbitrary non-orthogonal vectors,
+                the function output matches the closed-form cosine
+                similarity within numerical precision.
+            (Test Case 2) For two perpendicular vectors (unit basis
+                vectors), the output is exactly 0.
+            (Test Case 3) For two negatively scaled copies of the same
+                vector, the output is exactly -1.
+
+        Notes:
+            - These are the canonical normalisation invariants of the
+              fast zero-lag path; if the formula in the source ever
+              drifts (e.g., switches to a different definition of the
+              normaliser), this test will catch it.
+        """
+        rng = np.random.default_rng(0)
+        a = rng.standard_normal(20)
+        b = rng.standard_normal(20)
+        expected = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+        corr, lag = compute_cross_correlation_with_lag(a, b, max_lag=0)
+        assert corr == pytest.approx(expected, abs=1e-12)
+        assert lag == 0
+
+        # Orthogonal one-hot vectors
+        e1 = np.array([1.0, 0.0, 0.0, 0.0])
+        e2 = np.array([0.0, 1.0, 0.0, 0.0])
+        corr2, lag2 = compute_cross_correlation_with_lag(e1, e2, max_lag=0)
+        assert corr2 == pytest.approx(0.0, abs=1e-12)
+        assert lag2 == 0
+
+        # Negative scaling produces -1
+        v = np.array([1.0, 2.0, 3.0, 4.0])
+        corr3, lag3 = compute_cross_correlation_with_lag(v, -2.0 * v, max_lag=0)
+        assert corr3 == pytest.approx(-1.0, abs=1e-12)
+        assert lag3 == 0
+
+    def test_known_shift_recovers_exact_lag_and_unit_correlation(self):
+        """
+        Analytical ground truth: if comp = ref shifted right by K samples
+        (zero-padded) and the original support is contained well within the
+        max_lag window, the recovered lag is exactly +K and the recovered
+        correlation is exactly 1.0 (modulo finite-length normalisation).
+
+        Tests:
+            (Test Case 1) ref has a Gaussian bump centred at index 30, and
+                comp has the same bump centred at index 35. With max_lag=10
+                and signal length 100, the function returns lag near +/-5
+                and correlation 1.0.
+
+        Notes:
+            - This is the textbook lag-recovery test for normalised
+              cross-correlation.
+            - The lag sign is implementation-defined (the SpikeLab convention
+              is documented in the source); the test asserts on |lag|.
+        """
+        n = 100
+        x = np.arange(n)
+        ref = np.exp(-((x - 30) ** 2) / (2 * 4.0**2))
+        comp = np.exp(-((x - 35) ** 2) / (2 * 4.0**2))
+        corr, lag = compute_cross_correlation_with_lag(ref, comp, max_lag=10)
+        assert abs(int(lag)) == 5
+        assert corr == pytest.approx(1.0, abs=5e-3)
+
 
 # ---------------------------------------------------------------------------
 # butter_filter

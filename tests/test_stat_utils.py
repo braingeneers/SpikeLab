@@ -519,6 +519,32 @@ class TestPairwiseTests:
             for j in range(i + 1, 3):
                 assert res_none["pval_matrix"][i, j] <= res_bonf["pval_matrix"][i, j]
 
+    def test_bonferroni_multiplier_matches_formula(self):
+        """
+        Analytical ground truth: Bonferroni-corrected p-values must equal
+        ``min(uncorrected_p * n_comparisons, 1.0)`` element-wise.
+
+        Tests:
+            (Test Case 1) For 3 groups (n_comparisons = 3), the corrected
+                p-values match ``min(p_raw * 3, 1.0)`` for every pair.
+
+        Notes:
+            - This pins down the exact multiplier (n_comparisons = K*(K-1)/2),
+              guarding against off-by-one errors in any future refactor.
+        """
+        groups = self._make_groups()
+        res_bonf = pairwise_tests(groups, correction="bonferroni")
+        res_none = pairwise_tests(groups, correction=None)
+
+        n_comparisons = res_bonf["n_comparisons"]
+        assert n_comparisons == 3  # K=3 -> 3 pairs
+        for i in range(3):
+            for j in range(i + 1, 3):
+                expected = min(res_none["pval_matrix"][i, j] * n_comparisons, 1.0)
+                assert res_bonf["pval_matrix"][i, j] == pytest.approx(
+                    expected, abs=1e-12
+                )
+
     def test_mann_whitney(self):
         """
         Mann-Whitney U test produces valid results.

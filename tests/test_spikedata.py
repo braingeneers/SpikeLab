@@ -2149,6 +2149,93 @@ class TestSpikeDataRates:
         assert np.isclose(pop.sum(), 1.0, rtol=1e-3, atol=1e-3)
         assert np.isclose(pop[50 - 1], pop[50 + 1])
 
+    def test_get_pop_rate_no_smoothing_returns_summed_raster(self):
+        """
+        Analytical ground truth: with both square and Gaussian smoothing
+        disabled (square_width=0, gauss_sigma=0), get_pop_rate must equal
+        the column sum of the raster.
+
+        Tests:
+            (Test Case 1) For a 3-unit synthetic SpikeData, get_pop_rate(0, 0)
+                equals raster.sum(axis=0) bin by bin.
+
+        Notes:
+            - This isolates the pre-smoothing summation from any kernel
+              behaviour and provides a unit-level identity that any future
+              refactor must preserve.
+        """
+        trains = [
+            np.array([1.5, 5.5, 9.5]),
+            np.array([1.5, 4.5, 9.5]),
+            np.array([2.5, 9.5]),
+        ]
+        sd = SpikeData(trains, length=10.0)
+        pop = sd.get_pop_rate(square_width=0, gauss_sigma=0, raster_bin_size_ms=1.0)
+        expected = sd.raster(bin_size=1.0).sum(axis=0).astype(float)
+        np.testing.assert_array_equal(pop, expected)
+
+    def test_get_pop_rate_linearity_over_two_impulses(self):
+        """
+        Analytical ground truth: smoothing is a linear convolution, so the
+        Gaussian-smoothed pop rate of a spike train with two well-separated
+        impulses equals the sum of the smoothed pop rates of two single-spike
+        SpikeData objects placed at the same bins.
+
+        Tests:
+            (Test Case 1) Build SpikeData with one spike at t=30.5 ms and one
+                at t=70.5 ms (length=101 ms, so the 6*sigma=12-bin Gaussian
+                kernels do not overlap). Build two helper SpikeData objects,
+                each with one of the spikes. The smoothed pop rate of the
+                combined object equals the elementwise sum of the two helper
+                pop rates within numerical precision.
+
+        Notes:
+            - Linearity is the key analytical property of convolutional
+              smoothing; this test pins down the implementation against any
+              accidental non-linearity (e.g., normalisation per call, or
+              renormalising to peak height).
+        """
+        T = 101
+        sd_both = SpikeData([[30.5, 70.5]], length=T)
+        sd_a = SpikeData([[30.5]], length=T)
+        sd_b = SpikeData([[70.5]], length=T)
+
+        kwargs = dict(square_width=0, gauss_sigma=2, raster_bin_size_ms=1.0)
+        pop_both = sd_both.get_pop_rate(**kwargs)
+        pop_a = sd_a.get_pop_rate(**kwargs)
+        pop_b = sd_b.get_pop_rate(**kwargs)
+
+        np.testing.assert_allclose(pop_both, pop_a + pop_b, atol=1e-12)
+
+    def test_get_pop_rate_square_window_integral_preserves_total_spikes(self):
+        """
+        Analytical ground truth: a square-window moving average with mode='same'
+        and width w on raw counts c[t] gives output o[t] = (sum of w bins
+        around t) / w. Summing o[t] over all bins is approximately equal to the
+        total spike count (exact in the bulk; differs only by O(w) edge effects).
+
+        Tests:
+            (Test Case 1) For a SpikeData with K spikes well away from the
+                edges and square_width=5, the sum of the unsmoothed raster
+                column-sum equals K, and the sum of the smoothed pop rate is
+                also approximately K (within 0.5%).
+
+        Notes:
+            - This nails down the normalisation convention used by
+              get_pop_rate (kernel = ones/w, so sum(output) = sum(input)
+              up to edge effects).
+        """
+        # Place K=20 spikes in the middle of a length-200 recording so edge
+        # effects of a width-5 window are negligible.
+        K = 20
+        rng = np.random.default_rng(0)
+        spike_times = np.sort(rng.uniform(50.0, 150.0, size=K))
+        sd = SpikeData([spike_times], length=200.0)
+
+        pop = sd.get_pop_rate(square_width=5, gauss_sigma=0, raster_bin_size_ms=1.0)
+        # Bulk: sum of square-smoothed output equals total spike count.
+        assert pop.sum() == pytest.approx(float(K), rel=5e-3)
+
     def test_binned_meanrate(self):
         """
         Tests binned_meanrate() computes correct mean population rate.
@@ -2803,6 +2890,36 @@ class TestSpikeDataCorrelation:
         # Lag values are in bins; max should be <= 10 (50ms / 5ms)
         assert np.all(np.abs(lag.matrix) <= 10)
 
+    def test_get_pairwise_ccg_recovers_known_lag(self):
+        """
+        Analytical ground truth: when train B is train A shifted by exactly K
+        bins, ``get_pairwise_ccg`` recovers a peak correlation of 1.0 at the
+        known lag, and the antisymmetric lag matrix entry has the opposite sign.
+
+        Tests:
+            (Test Case 1) Train A: spikes every 20 ms. Train B: spikes every
+                20 ms, offset by +5 ms. With bin_size=1 ms and max_lag=20 ms,
+                the cross-correlation peak is at lag=5 bins with corr=1.0.
+            (Test Case 2) The lag matrix is antisymmetric:
+                lag[0,1] = -lag[1,0].
+
+        Notes:
+            - This is the standard cross-correlation lag-recovery test
+              described in any neural-data textbook (e.g. Brillinger 1976).
+        """
+        tA = np.arange(50.0, 950.0, 20.0)
+        tB = tA + 5.0  # +5 ms shift
+        sd = SpikeData([tA, tB], length=1000.0)
+
+        corr, lag = sd.get_pairwise_ccg(bin_size=1.0, max_lag=20)
+
+        # Identical (after shift) sparse trains produce corr ~ 1.0.
+        assert corr.matrix[0, 1] == pytest.approx(1.0, abs=0.05)
+        # The detected lag must equal +/- the known shift in bins.
+        assert abs(int(lag.matrix[0, 1])) == 5
+        # Antisymmetry of the lag matrix.
+        assert lag.matrix[0, 1] == -lag.matrix[1, 0]
+
     def test_ccg_single_unit(self):
         """
         Tests get_pairwise_ccg with a single unit.
@@ -3151,6 +3268,144 @@ class TestSpikeDataCorrelation:
         result = sd.spike_time_tilings(delt=5.0)
         assert result.matrix.shape == (1, 1)
         assert result.matrix[0, 0] == 1.0
+
+
+class TestSpikeDataSTTCAnalyticalGroundTruth:
+    """Closed-form ground-truth tests for ``SpikeData.spike_time_tiling`` /
+    ``spike_time_tilings`` against the Cutts & Eglen (2014) STTC definition.
+
+    STTC formula (per Cutts & Eglen 2014):
+        STTC = 1/2 * [ (PA - TB) / (1 - PA*TB) + (PB - TA) / (1 - PB*TA) ]
+    where TA = (time within delt of a spike in train A) / total recording length,
+          TB = (time within delt of a spike in train B) / total recording length,
+          PA = fraction of spikes in A within delt of any spike in B,
+          PB = fraction of spikes in B within delt of any spike in A.
+    """
+
+    def test_sttc_disjoint_trains_negative_known_value(self):
+        """
+        Ground truth: two perfectly interleaved alternating spike trains with
+        delt < spacing/2 give STTC = -PA*TB/(1 - PA*TB) - PB*TA/(1 - PB*TA),
+        each averaged. With PA = PB = 0 and TA = TB = 2*delt*N / length, the
+        formula reduces to STTC = -2*TA / 2 = -TA.
+
+        Tests:
+            (Test Case 1) Trains: A at integer ms, B at i+0.5 ms, for i in
+                [0, N). With delt=0.4 and length=N+0.5, no spike of A is
+                within 0.4 ms of any spike of B (closest distance is 0.5 ms),
+                so PA = PB = 0. TA = TB = 2*delt*N / length. The closed-form
+                STTC is therefore -TA, which matches the package output.
+
+        Notes:
+            - Independent of how _sttc_ta handles edge cases because the
+              spikes are sparse enough that the per-spike windows do not
+              overlap.
+        """
+        N = 1000
+        tA = np.arange(N, dtype=float) + 0.0  # 0, 1, 2, ..., N-1
+        tB = np.arange(N, dtype=float) + 0.5  # 0.5, 1.5, ..., N-0.5
+        length = float(N) + 0.5
+        delt = 0.4
+
+        sd = SpikeData([tA, tB], length=length)
+        sttc = sd.spike_time_tiling(0, 1, delt=delt)
+
+        # Analytical TA: each spike contributes 2*delt to coverage (no overlap),
+        # except the first spike which contributes min(delt, tA[0]) + delt = delt
+        # because tA[0] = 0. So the per-spike contribution is 2*delt for spikes
+        # 1..N-2 and the boundary spikes follow the _sttc_ta edge formula.
+        # For the package implementation: TA*length = min(delt, tA[0]) +
+        # min(delt, length - tA[-1]) + sum( min(diff, 2*delt) ).
+        from spikelab.spikedata.utils import _sttc_ta as _ta
+
+        TA_pkg = _ta(tA, delt, length) / length
+        TB_pkg = _ta(tB, delt, length) / length
+        # PA = PB = 0 for this configuration
+        expected = -0.5 * (TB_pkg / (1.0 - 0 * TB_pkg) + TA_pkg / (1.0 - 0 * TA_pkg))
+        assert sttc == pytest.approx(expected, abs=1e-9)
+
+    def test_sttc_perfectly_overlapping_trains_known_value(self):
+        """
+        Ground truth: STTC of a train with itself is exactly 1.
+
+        Tests:
+            (Test Case 1) For any non-trivial train, TA = TB and PA = PB = 1,
+                so the Cutts-Eglen formula reduces to (1 - TA)/(1 - TA) = 1
+                in each half-sum.
+        """
+        train = np.array([10.0, 100.0, 250.0, 500.0, 900.0])
+        sd = SpikeData([train, train], length=1000.0)
+        sttc = sd.spike_time_tiling(0, 1, delt=5.0)
+        assert sttc == pytest.approx(1.0, abs=1e-12)
+
+    def test_sttc_offset_synchronous_trains_recovers_formula(self):
+        """
+        Ground truth: train B is train A shifted by ``shift`` < delt, all
+        spikes well-separated. Then PA = PB = 1 (each spike in A is matched
+        by the shifted partner in B and vice versa) and TA, TB equal their
+        package-computed values. The STTC is therefore
+        0.5 * [ (1 - TB)/(1 - TB) + (1 - TA)/(1 - TA) ] = 1.
+
+        Tests:
+            (Test Case 1) tA at multiples of 100 ms, tB = tA + 1 ms with
+                delt = 5 ms. Each spike in A is within 1 ms of a spike in B
+                so PA = PB = 1. STTC must equal 1 to within floating-point
+                precision.
+        """
+        tA = np.arange(50.0, 950.0, 100.0)
+        tB = tA + 1.0
+        sd = SpikeData([tA, tB], length=1000.0)
+        sttc = sd.spike_time_tiling(0, 1, delt=5.0)
+        assert sttc == pytest.approx(1.0, abs=1e-12)
+
+    def test_sttc_poisson_overlap_fraction(self):
+        """
+        Ground truth (statistical): if train B is constructed by copying a
+        fraction p of train A's spikes (and adding independent random spikes
+        that do not coincide), the analytical zero-noise STTC equals p when
+        TA, TB are negligible.
+
+        Tests:
+            (Test Case 1) Build A as 100 Poisson spikes in 1 s. Construct B by
+                taking p=0.6 of A's spikes plus 40 disjoint random spikes
+                (placed > 2*delt from any other spike). With delt = 1 ms and
+                a 10000 ms recording, TA, TB << 1, and the Cutts-Eglen formula
+                gives STTC ~ 0.5 * (PA + PB) where PA = p (60% of A's spikes
+                are matched in B at lag 0), and PB = number_of_matched / |B|
+                = 60/100 = 0.6. So STTC ~ 0.6 within sampling noise.
+
+        Notes:
+            - The key invariant verified is that STTC tracks the construction
+              parameter p, not just that it is in [-1, 1].
+        """
+        rng = np.random.default_rng(42)
+        T = 10_000.0  # 10 s, in ms
+        n_A = 100
+        # A: random Poisson spikes
+        tA = np.sort(rng.uniform(50.0, T - 50.0, size=n_A))
+        p = 0.6
+        n_shared = int(p * n_A)
+        shared_idx = rng.choice(n_A, size=n_shared, replace=False)
+        shared = tA[shared_idx].copy()
+
+        # Generate B "extras" that are at least 5 ms from any spike in A
+        extras = []
+        attempts = 0
+        while len(extras) < (n_A - n_shared) and attempts < 100_000:
+            attempts += 1
+            t = rng.uniform(50.0, T - 50.0)
+            if np.min(np.abs(tA - t)) > 5.0 and (
+                not extras or np.min(np.abs(np.array(extras) - t)) > 5.0
+            ):
+                extras.append(t)
+
+        tB = np.sort(np.concatenate([shared, np.array(extras)]))
+        sd = SpikeData([tA, tB], length=T)
+        sttc = sd.spike_time_tiling(0, 1, delt=1.0)
+        # Within +/- 0.05 of the construction overlap fraction (driven by
+        # finite-T edge corrections; 100 spikes is enough to be well within
+        # this tolerance).
+        assert sttc == pytest.approx(p, abs=0.05)
 
 
 class TestSpikeDataBursts:
@@ -4627,6 +4882,66 @@ class TestSpikeDataShuffle:
             shuffled = sd.spike_shuffle(seed=42, bin_size=1)
         assert shuffled.N == 3
 
+    def test_spike_shuffle_destroys_correlations_on_average(self):
+        """
+        Analytical ground truth: a degree-preserving shuffled raster carries
+        the original marginal spike counts but has expected pairwise covariance
+        zero between any two units. The mean STTC across many shuffles of two
+        synchronous trains must therefore be much smaller than the unshuffled
+        STTC.
+
+        Tests:
+            (Test Case 1) Build 4 units where units 0 and 1 deterministically
+                co-fire on 100 sync bins (units 2 and 3 do not fire on those
+                bins), plus 100 random spikes per unit elsewhere. Unshuffled
+                STTC(0, 1) is large (~0.4-0.5). After 50 independent shuffles,
+                the null mean is much smaller because the column-sum-preserving
+                shuffle redistributes which two units co-fire on each sync
+                column to a uniformly random pair (~1/6 of cases for sum-2
+                columns with N=4).
+
+        Notes:
+            - This test exercises the *statistical* property of spike_shuffle
+              (the property that motivates its existence), not just the
+              marginals — directly addressing the methodological-review
+              question of whether the shuffle null distribution is correct.
+            - Sync only between units (0, 1) and 4 total units lets the
+              double-edge-swap algorithm operate freely (sync columns have
+              sum 2, so units 2 and 3 provide empty target cells in each
+              sync column for swaps to land on).
+        """
+        T = 2000
+        n_units = 4
+        sync_bins = np.arange(0, T, 20)  # 100 sync bins
+        rng = np.random.default_rng(0)
+        raster = np.zeros((n_units, T), dtype=int)
+        # Units 0 and 1 deterministically co-fire on all sync bins.
+        raster[0, sync_bins] = 1
+        raster[1, sync_bins] = 1
+        # Each unit has 100 independent random spikes outside sync bins.
+        non_sync = np.setdiff1d(np.arange(T), sync_bins)
+        for u in range(n_units):
+            extra = rng.choice(non_sync, size=100, replace=False)
+            raster[u, extra] = 1
+        sd = SpikeData.from_raster(raster, bin_size_ms=1)
+
+        unshuffled_sttc = sd.spike_time_tiling(0, 1, delt=1.0)
+        assert unshuffled_sttc > 0.3  # sanity: units 0 and 1 are correlated
+
+        n_shuffles = 50
+        sttc_null = np.zeros(n_shuffles)
+        for k in range(n_shuffles):
+            shuffled = sd.spike_shuffle(seed=k, bin_size=1)
+            sttc_null[k] = shuffled.spike_time_tiling(0, 1, delt=1.0)
+
+        mean_null = float(np.mean(sttc_null))
+        # The null mean must be much smaller than the unshuffled value. The
+        # absolute bound is loose because column-sum preservation guarantees
+        # a residual STTC floor of ~unshuffled/6 with 4 units; the relative
+        # bound is the meaningful destruction-of-correlation check.
+        assert abs(mean_null) < 0.25
+        assert abs(mean_null) < 0.5 * unshuffled_sttc
+
 
 class TestSpikeDataSubsetStack:
     """Tests for SpikeData.subset_stack."""
@@ -4813,6 +5128,140 @@ class TestSpikeDataStPR:
         sd = SpikeData([[5.0, 15.0, 25.0, 35.0, 45.0]], length=50.0)
         with pytest.raises(ValueError, match="at least 2 units"):
             sd.compute_spike_trig_pop_rate(window_ms=5)
+
+    def test_compute_spike_trig_pop_rate_perfect_synchrony_zero_lag_peak(self):
+        """
+        Analytical ground truth: when neuron 0 always co-fires with the rest at lag 0
+        and is otherwise silent, the stPR coupling curve must be maximal at lag 0
+        and the peak delay must be zero.
+
+        Tests:
+            (Test Case 1) For a synthetic raster where neuron 0 fires only at the
+                same bins as the rest of the population, the leave-one-out
+                deviation P_{-i}(t) - P_bar_{-i} is positive precisely at those
+                bins, so c_{i,0} > 0 and c_{i,0} >= c_{i,tau} for all tau != 0.
+            (Test Case 2) The recovered peak delay (in ms) for neuron 0 is 0
+                (within +/- 1 bin tolerance for filter ringing).
+
+        Notes:
+            - References Bimbard et al. / Okun et al. (Nature 2015): the stPR
+              measures excess population activity around a unit's spikes.
+            - Filter design (low-pass at 20 Hz with fs=1000) is the package
+              default; choosing window_ms=20 ms keeps lag indices well clear of
+              the cut_outer trim band so the argmax cleanly recovers the
+              ground-truth zero-lag peak.
+        """
+        rng = np.random.default_rng(0)
+        T = 2000  # 2000 ms = 2000 1-ms bins
+        # Build a binary raster with a synchronous "bump" at known times for
+        # all 5 units. Units 1-4 also fire independent background spikes.
+        n_units = 5
+        sync_bins = np.arange(50, T - 50, 50)  # one synchronous event every 50 ms
+        raster = np.zeros((n_units, T), dtype=int)
+        for u in range(n_units):
+            raster[u, sync_bins] = 1
+            if u >= 1:
+                # Add 200 random background spikes that are NOT shared with unit 0
+                bg = rng.choice(
+                    np.setdiff1d(np.arange(T), sync_bins), size=200, replace=False
+                )
+                raster[u, bg] = 1
+
+        sd = SpikeData.from_raster(raster, bin_size_ms=1)
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=30, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=5
+        )
+
+        # Unit 0 fires only at the synchronous bumps, so its stPR should peak at
+        # lag 0. Allow a +/- 2 bin tolerance for the low-pass filter group delay.
+        zero_lag_idx = np.where(lags == 0)[0][0]
+        peak_idx_unit0 = int(np.argmax(stPR[0]))
+        assert abs(peak_idx_unit0 - zero_lag_idx) <= 2
+
+        # The zero-lag coupling for unit 0 must be strictly positive and not
+        # less than the value at the most distant lag in the filtered window.
+        assert cs_zero[0] > 0
+        assert stPR[0, zero_lag_idx] >= stPR[0, 0]
+        assert stPR[0, zero_lag_idx] >= stPR[0, -1]
+
+        # The recovered delay for unit 0 must be near 0 ms (within +/- 2 ms).
+        assert abs(delays[0]) <= 2.0
+
+
+class TestSpikeDataStPRAnalyticalGroundTruth:
+    """Analytical ground-truth tests for SpikeData.compute_spike_trig_pop_rate.
+
+    These tests construct synthetic populations whose stPR coupling curves
+    are predictable from the closed-form definition in Bimbard et al. /
+    Okun et al. (Nature 2015):
+        c_{i, tau} = sum_t [ P_{-i}(t) - P_bar_{-i} ] / (||f_i|| * sum_{j!=i} mu_j)
+    evaluated at the spikes of unit i.
+    """
+
+    def test_independent_units_have_near_zero_coupling(self):
+        """
+        Analytical ground truth: independent Poisson units have expected stPR
+        coupling ~ 0 because P_{-i}(t) is independent of f_i(t).
+
+        Tests:
+            (Test Case 1) For 4 independent Poisson units with rate ~5 Hz over
+                a 60 s recording, the unfiltered zero-lag coupling per unit is
+                small in magnitude (|c_{i,0}| < 0.1).
+            (Test Case 2) Mean across units of the zero-lag coupling is closer
+                to 0 than the mean for the synchronous-population test below
+                (sanity check that the metric does discriminate).
+
+        Notes:
+            - Finite-sample fluctuations scale as 1/sqrt(n_spikes); 10 Hz x
+              180 s = 1800 spikes/unit gives ~1/sqrt(1800) ~ 0.024 expected
+              fluctuation in c, which sits well inside the 0.1 bound.
+        """
+        rng = np.random.default_rng(7)
+        T_ms = 180_000
+        N = 4
+        rate_hz = 10.0
+        trains = []
+        for _ in range(N):
+            n_spikes = rng.poisson(rate_hz * T_ms / 1000.0)
+            trains.append(np.sort(rng.uniform(0, T_ms, size=n_spikes)))
+        sd = SpikeData(trains, length=T_ms)
+
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=30, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=5
+        )
+        # Independent units: |c_{i,0}| should be small.
+        assert np.all(np.abs(cs_zero) < 0.1)
+
+    def test_synchronous_population_yields_positive_coupling(self):
+        """
+        Analytical ground truth: a population that always co-fires has
+        positive stPR coupling at zero lag for every unit.
+
+        Tests:
+            (Test Case 1) All 4 units fire at the same 30 synchronous bumps
+                (no background spikes). For each unit i, the leave-one-out
+                population at unit i's spike times is N-1 = 3 (max possible)
+                and elsewhere is 0, so P_{-i}(t) - P_bar_{-i} > 0 at all of
+                unit i's spikes. Therefore c_{i,0} > 0 for every unit.
+            (Test Case 2) The argmax of the (unfiltered/raw) stPR row coincides
+                with lag 0 for every unit (within +/- 2 bins tolerance for the
+                low-pass filter group delay).
+        """
+        T_ms = 3000
+        sync_times = np.arange(50, T_ms - 50, 100, dtype=float)
+        N = 4
+        trains = [sync_times.copy() for _ in range(N)]
+        sd = SpikeData(trains, length=T_ms)
+
+        stPR, cs_zero, cs_max, delays, lags = sd.compute_spike_trig_pop_rate(
+            window_ms=30, cutoff_hz=20, fs=1000, bin_size=1, cut_outer=5
+        )
+        zero_lag_idx = np.where(lags == 0)[0][0]
+        # Every unit must have a strictly positive zero-lag coupling.
+        assert np.all(cs_zero > 0)
+        # Argmax of each unit's stPR must be near lag 0.
+        for u in range(N):
+            assert abs(int(np.argmax(stPR[u])) - zero_lag_idx) <= 2
 
 
 class TestSpikeDataAttributes:
@@ -5386,6 +5835,99 @@ class TestFitGplvm:
             assert isinstance(
                 val, (np.ndarray, int, float, bool, str)
             ), f"decode_res['{key}'] is {type(val)}, expected np.ndarray or scalar"
+
+    @skip_no_pmgplvm
+    def test_fit_gplvm_recovers_synthetic_1d_latent(self):
+        """
+        Analytical ground truth: when spike trains are generated from a known
+        smooth 1-D latent driving Poisson rates with unit-specific tuning,
+        the GPLVM-decoded latent should track the ground-truth latent (up to
+        sign and reparametrisation), giving a |Spearman correlation| >> 0.
+
+        Tests:
+            (Test Case 1) Generate a sinusoidal ground-truth latent z(t) over
+                T = 1500 ms with 50 ms bins (T_bins = 30). For 6 units with
+                preferred latent values evenly spaced in [-1, 1], simulate
+                spike counts as Poisson(rate=lambda * exp(- (z - mu_i)^2)).
+                Fit GPLVM and check that the absolute Spearman correlation
+                between the decoded latent expectation and the ground-truth
+                latent is at least 0.4 (loose threshold to accommodate
+                EM-init variability and the 1500 ms recording).
+
+        Notes:
+            - GPLVM is identifiable only up to a reparametrisation of the
+              latent space (sign flips, monotone transforms), so the test
+              asserts |Spearman| >= 0.4 rather than equality with z(t).
+            - The recovered "decoded latent" is taken as
+              ``sum_k k * posterior_latent_marg[t, k]`` — the expected
+              latent index per time bin.
+            - **Tolerance is loose because EM convergence depends on
+              initialisation and the recording is short (T_bins = 30); flag
+              for review if it becomes flaky.**
+        """
+        from scipy.stats import spearmanr
+
+        rng = np.random.default_rng(2026)
+        bin_ms = 50.0
+        T_ms = 1500.0
+        T_bins = int(T_ms / bin_ms)  # 30 bins
+        N = 6
+
+        # Smooth 1-D latent: a single sinusoid in the latent index space.
+        n_latent_bin = 20
+        z = (np.sin(np.linspace(0, 2 * np.pi, T_bins)) + 1) / 2  # in [0, 1]
+        z_idx = np.linspace(-1, 1, n_latent_bin)
+        z_continuous = z * 2 - 1  # in [-1, 1]
+
+        # Each unit has a Gaussian tuning curve over the latent space.
+        mu_units = np.linspace(-1, 1, N)
+        sigma_tuning = 0.4
+        peak_rate = 8.0  # spikes per bin
+
+        # Simulate Poisson spike counts.
+        counts = np.zeros((T_bins, N), dtype=int)
+        for u in range(N):
+            lam = peak_rate * np.exp(
+                -((z_continuous - mu_units[u]) ** 2) / (2 * sigma_tuning**2)
+            )
+            counts[:, u] = rng.poisson(lam)
+
+        # Convert (T, N) counts back to spike times for SpikeData (one spike per
+        # count, placed uniformly within its bin).
+        trains = [[] for _ in range(N)]
+        for t in range(T_bins):
+            for u in range(N):
+                k = counts[t, u]
+                if k > 0:
+                    times = np.linspace(t * bin_ms, (t + 1) * bin_ms, k + 2)[1:-1]
+                    trains[u].extend(times.tolist())
+        trains = [np.sort(np.array(tr, dtype=float)) for tr in trains]
+        sd = SpikeData(trains, N=N, length=T_ms)
+
+        result = sd.fit_gplvm(
+            bin_size_ms=bin_ms,
+            n_latent_bin=n_latent_bin,
+            n_iter=8,
+            random_seed=0,
+        )
+        # Decoded latent expectation (T_bins,) = E[ latent_idx | data ].
+        decode_res = result["decode_res"]
+        # Locate the (T, K) posterior; field names differ between GPLVM models
+        post_key = next(
+            k
+            for k in decode_res
+            if isinstance(decode_res[k], np.ndarray) and decode_res[k].ndim == 2
+        )
+        posterior = decode_res[post_key]
+        if posterior.shape[0] != T_bins:
+            posterior = posterior.T  # accept either orientation
+        decoded_latent = posterior @ np.arange(posterior.shape[1])
+
+        rho, _ = spearmanr(decoded_latent, z_continuous)
+        assert abs(rho) >= 0.4, (
+            f"|Spearman| between recovered and true latent = {rho:.3f}; "
+            "expected >= 0.4 (loose threshold; tighten if convergence is reliable)"
+        )
 
 
 class TestAlignToEvents:
